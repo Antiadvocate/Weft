@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Brush, Pencil, Sparkles, X } from "lucide-react";
+import { Brush, Eye, EyeOff, Pencil, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -20,6 +20,10 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
   const [painting, setPainting] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
   const [embodying, setEmbodying] = useState(false);
+
+  const toggleFollow = async (cid: string, on: boolean) => {
+    setSave(await api.setTracked(save.id, cid, on));
+  };
 
   const embody = async () => {
     if (!sel || embodying) return;
@@ -97,10 +101,10 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-6 h-6 rounded-md object-cover shrink-0" style={{ border: "1px solid var(--line)" }} />}
                   <div className="font-display text-[14.5px] truncate">{ch.name}</div>
                 </div>
-
+                {!isPlayer && ch.tracked && <Eye size={11} style={{ color: "var(--accent)" }} className="shrink-0" />}
               </div>
               <div className="font-mono text-[10px] mt-1 truncate" style={{ color: "var(--text-lo)" }}>
-                {isPlayer ? "you" : nice(ch.current_activity || ch.current_goal || "—")}
+                {isPlayer ? "you" : nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
               </div>
               {p && (
                 <div className="font-mono text-[10px] mt-1.5" style={{ color: "var(--text-mid)" }}>
@@ -134,7 +138,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                       <div className="font-display text-[14.5px] truncate">{ch.name}</div>
                     </div>
                     <div className="font-mono text-[10px] mt-1 truncate" style={{ color: "var(--text-lo)" }}>
-                      {nice(ch.current_activity || ch.current_goal || "—")}
+                      {ch.tracked && "● "}{nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
                     </div>
                     {p && (
                       <div className="font-mono text-[10px] mt-1.5" style={{ color: "var(--text-mid)" }}>
@@ -170,6 +174,11 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  {sel !== "char_player" && (
+                    <button onClick={() => toggleFollow(sel!, !c.tracked)} title={c.tracked ? "following — tap to unfollow" : "follow in the long game"}>
+                      {c.tracked ? <Eye size={16} style={{ color: "var(--accent)" }} /> : <EyeOff size={16} style={{ color: "var(--text-lo)" }} />}
+                    </button>
+                  )}
                   {sel !== "char_player" && (
                     <button onClick={() => setEmbodyConfirm(true)} title="embody">
                       <Sparkles size={16} style={{ color: embodyConfirm ? "var(--accent)" : "var(--text-lo)" }} />
@@ -229,6 +238,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {cond.conditions.length > 0 && <Row k="afflicted" v={cond.conditions.map(nice).join(", ")} />}
                   {cond.injuries.length > 0 && <Row k="injuries" v={cond.injuries.map((x) => nice(x.type)).join("; ")} />}
                   {c.drive && <Row k="wants" v={`${c.drive.goal} — ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
+                  {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 
                 {(cond.inventory.length > 0 || cond.wearing.length > 0) && (
