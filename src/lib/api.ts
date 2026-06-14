@@ -9,6 +9,7 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid } fro
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn } from "../engine/turn";
 import { runInterlude, embodyCharacter } from "../engine/continuity";
+import { seedDrive } from "../engine/drives";
 import { FORGE_SYSTEM } from "../engine/prompts";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
@@ -82,6 +83,20 @@ export const api = {
   advance: async (id: string, days: number): Promise<ClientSave> => {
     const s = await need(id);
     await runInterlude(s, Math.max(1, Math.min(30, days)), { onPhase: () => {} });
+    await putSave(s);
+    return clientView(s);
+  },
+
+  setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c) throw new Error("unknown character");
+    c.tracked = tracked;
+    if (tracked && (!c.drive || c.drive.progress >= 100) && !s.world.present.includes(char_id)) {
+      const seeded = seedDrive(s, char_id);            // following someone idle gives them a want now
+      if (seeded) c.drive = seeded;
+    }
+    if (!tracked) c.drive = undefined;                 // unfollowed: recede into the background
     await putSave(s);
     return clientView(s);
   },
