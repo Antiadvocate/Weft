@@ -1,5 +1,5 @@
 name: Deploy Weft to GitHub Pages
-
+ 
 on:
   push:
     branches: [main]
