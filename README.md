@@ -38,6 +38,7 @@ The full engine ported to the browser:
 
 - **Two-call turn loop** — a streamed narrator and a single strict-JSON simulator; everything else is deterministic and free.
 - **The Undertow** — the continuous substrate: logit Quantal Response Equilibrium stances, a frustrated Kuramoto network with a Benettin Lyapunov estimate of the world's regime, cusp-catastrophe psyches that home to each person's set point, and Scheffer early-warning signals.
+- **NPC autonomy & tracking** — named characters you engage join the "long game": offscreen they keep wanting things. When a character finishes a drive (or has none), the engine seeds a new one from *who they are* — their traits, values, and how they feel about everyone else — so a detective starts a new case, a thief plans a score, a rival regroups, all without you authoring it. Follow/unfollow any character with the eye toggle in **Cast**; the narrator can also pull a character into the long game when a thread makes them matter. Unfollowed bit-players recede into the background.
 - **Continuity** — let the world turn (deterministic multi-day skips with an interlude), and vessels (leave your character, become another, full identity swap).
 - **Canon** — world-altering public events every mind remembers forever.
 - **Park-style memory** with reflection, a social fabric of edges + rumor cascades, faction clocks, deterministic pressure control, the full world-bible & character editors, God Mode, dark/light, image generation, and the Chronicle's arcs, records, and regime read-outs.
