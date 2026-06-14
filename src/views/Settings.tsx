@@ -1,0 +1,213 @@
+import React, { useState } from "react";
+import { Check, Download } from "lucide-react";
+import { api, type ClientSave, type ModelSettings } from "../lib/api";
+import { getApiKey, setApiKey } from "../config";
+
+const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
+
+export const PROSE_FONTS: { id: string; label: string; stack: string }[] = [
+  { id: "newsreader", label: "Newsreader", stack: '"Newsreader", serif' },
+  { id: "source", label: "Source Serif", stack: '"Source Serif 4", serif' },
+  { id: "fraunces", label: "Fraunces", stack: '"Fraunces", serif' },
+  { id: "inter", label: "Inter", stack: '"Inter", system-ui, sans-serif' },
+];
+
+export function applyProseFont(id: string) {
+  const f = PROSE_FONTS.find((x) => x.id === id) ?? PROSE_FONTS[0];
+  document.documentElement.style.setProperty("--font-prose", f.stack);
+  localStorage.setItem("weft-prose-font", f.id);
+}
+
+/* Field components live at MODULE level — defining them inside the component
+   recreates the type every render, React remounts the input, and the keyboard
+   dies after one keystroke. Never again. */
+function TextField({ label, value, onChange, mono, rows }: {
+  label: string; value: string; onChange: (v: string) => void; mono?: boolean; rows?: number;
+}) {
+  const style = mono ? { fontFamily: "var(--font-mono)", fontSize: 13 } : undefined;
+  return (
+    <div className="py-1.5">
+      <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>{label}</div>
+      {rows && rows > 1
+        ? <textarea className="field" style={style} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+        : <input className="field" style={style} value={value} onChange={(e) => onChange(e.target.value)} />}
+    </div>
+  );
+}
+
+export default function Settings({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
+  const m = save.model_settings;
+  const wb = save.world_bible;
+  const [draft, setDraft] = useState<ModelSettings>({ ...m });
+  const [theme, setTheme] = useState(wb.era_theme ?? "auto");
+  const [proseFont, setProseFont] = useState(() => localStorage.getItem("weft-prose-font") ?? "newsreader");
+  const [saved, setSaved] = useState(false);
+  const [orKey, setOrKey] = useState(getApiKey());
+  const [keySaved, setKeySaved] = useState(false);
+  const [bibleSaved, setBibleSaved] = useState(false);
+  const [bible, setBible] = useState({
+    name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
+    magic_rules: wb.magic_rules ?? "", forbidden: wb.forbidden ?? "",
+    political_situation: wb.political_situation ?? "", what_people_fear: wb.what_people_fear ?? "",
+    cultures_and_languages: wb.cultures_and_languages ?? "", climate_and_geography: wb.climate_and_geography ?? "",
+    calendar_and_currency: wb.calendar_and_currency ?? "",
+    narrator_direction: wb.narrator_direction ?? "",
+  });
+  const [palette, setPalette] = useState((wb.pressure_palette ?? []).join(", "));
+  const [forbidPrimary, setForbidPrimary] = useState((wb.forbidden_as_primary ?? []).join(", "));
+  const [godMode, setGodMode] = useState(!!wb.god_mode);
+  const [canon, setCanon] = useState(((save.world as any).canon ?? []).join("\n"));
+  const [difficulty, setDifficulty] = useState({ ...wb.difficulty_profile });
+
+  const DIFF_OPTIONS = {
+    lethality: ["low", "medium", "high"],
+    friction_density: ["sparse", "balanced", "dense"],
+    antagonist_aggression: ["slow_burn", "active", "hostile"],
+    protagonist_competence: ["soft", "average", "hardened"],
+  } as const;
+
+  const setM = (k: keyof ModelSettings) => (v: string) =>
+    setDraft((d) => ({ ...d, [k]: typeof m[k] === "number" ? Number(v) || 0 : v }) as ModelSettings);
+  const setB = (k: keyof typeof bible) => (v: string) => setBible((b) => ({ ...b, [k]: v }));
+
+  const previewTheme = (t: string) => {
+    setTheme(t);
+    // live preview — saving makes it stick to the save file
+    document.documentElement.setAttribute("data-theme", t === "auto" ? "ember" : t);
+  };
+
+  const commit = async () => {
+    const s = await api.settings(save.id, { ...draft, era_theme: theme });
+    setSave(s); setSaved(true);
+    setTimeout(() => setSaved(false), 1400);
+  };
+
+  const commitBible = async () => {
+    const s = await api.edit(save.id, { canon: canon.split("\n").map((x: string) => x.trim()).filter(Boolean), world_bible: {
+      ...bible,
+      god_mode: godMode,
+      difficulty_profile: difficulty,
+      pressure_palette: palette.split(",").map((x) => x.trim()).filter(Boolean),
+      forbidden_as_primary: forbidPrimary.split(",").map((x) => x.trim()).filter(Boolean),
+    } });
+    setSave(s); setBibleSaved(true);
+    setTimeout(() => setBibleSaved(false), 1400);
+  };
+
+  return (
+    <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>OpenRouter key (stored on this device only)</div>
+        <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
+          placeholder="sk-or-..." value={orKey} onChange={(e) => setOrKey(e.target.value)} />
+        <button className="btn w-full mt-2" onClick={() => { setApiKey(orKey); setKeySaved(true); setTimeout(() => setKeySaved(false), 1400); }}>
+          {keySaved ? <><Check size={14} /> saved locally</> : "Save key"}
+        </button>
+        <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
+          The key lives in your browser's localStorage and is sent straight to OpenRouter. It never touches any other server. Get one at openrouter.ai/keys.
+        </div>
+      </div>
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids)</div>
+        <TextField label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} mono />
+        <TextField label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} mono />
+        <TextField label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} mono />
+        <TextField label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} mono />
+        <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
+          Two calls per turn. Prefix `anthropic/` models get prompt-cache breakpoints automatically.
+          Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Memory economy</div>
+        <TextField label="Memories per NPC in context (top-k)" value={String(draft.context_memories_k)} onChange={setM("context_memories_k")} mono />
+        <TextField label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />
+        <TextField label="Verbatim history window (turns)" value={String(draft.history_window)} onChange={setM("history_window")} mono />
+      </div>
+
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live — save to keep)</div>
+        <div className="flex flex-wrap gap-2">
+          {THEMES.map((t) => (
+            <button key={t} className="chip" onClick={() => previewTheme(t)}
+              style={theme === t ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Narrator's typeface</div>
+        <div className="flex flex-wrap gap-2">
+          {PROSE_FONTS.map((f) => (
+            <button key={f.id} className="chip" style={{
+              textTransform: "none", fontFamily: f.stack, fontSize: 12, letterSpacing: 0,
+              ...(proseFont === f.id ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : {}),
+            }}
+              onClick={() => { setProseFont(f.id); applyProseFont(f.id); }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 text-[15px]" style={{ fontFamily: "var(--font-prose)", color: "var(--text-mid)" }}>
+          The ice spoke first, a long groan from under the reeds. <span className="dlg">"Don't,"</span> Ettel said, without turning.
+        </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, yours (live next turn)</div>
+
+        <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
+          style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
+          {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to a god
+        </button>
+
+        <TextField label="Name" value={bible.name} onChange={setB("name")} />
+        <TextField label="Era" value={bible.era} onChange={setB("era")} />
+        <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
+        <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
+        <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
+        <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
+        <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
+        <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
+        <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
+        <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
+        <TextField label="Pressure palette (comma-sep — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={2} />
+        <TextField label="Never the primary engine of a scene (comma-sep)" value={forbidPrimary} onChange={setForbidPrimary} rows={2} />
+        <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
+        <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
+
+        <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>
+        {(Object.keys(DIFF_OPTIONS) as (keyof typeof DIFF_OPTIONS)[]).map((k) => (
+          <div key={k} className="flex items-center gap-2 py-1 flex-wrap">
+            <span className="font-mono text-[9.5px] uppercase tracking-wider w-32 shrink-0" style={{ color: "var(--text-lo)" }}>{k.replace(/_/g, " ")}</span>
+            {DIFF_OPTIONS[k].map((opt) => (
+              <button key={opt} className="chip" onClick={() => setDifficulty((d) => ({ ...d, [k]: opt }))}
+                style={difficulty[k] === opt ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
+                {opt.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
+        ))}
+
+        <button className="btn w-full mt-3" onClick={commitBible}>
+          {bibleSaved ? <><Check size={14} /> rewoven</> : "Rewrite the bible"}
+        </button>
+      </div>
+
+      <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
+        const { name, json } = await api.exportSave(save.id);
+        const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url; a.download = `${name}.weft.json`; a.click();
+        URL.revokeObjectURL(url);
+      }}>
+        <Download size={14} /> Export save (.weft.json)
+      </button>
+
+      <button className="btn btn-accent w-full" style={{ height: 48 }} onClick={commit}>
+        {saved ? <><Check size={15} /> woven in</> : "Save tuning"}
+      </button>
+    </div>
+  );
+}
