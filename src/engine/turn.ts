@@ -15,6 +15,7 @@ import { NARRATOR_SYSTEM, SIMULATOR_SYSTEM, REFLECTION_SYSTEM, simulatorSchemaHi
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
+import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection } from "./memory";
 import { tickUndertow } from "./undertow";
 import { pushSnapshot, registerCharacter, uid } from "./state";
@@ -40,6 +41,13 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
 };
+
+/** A proper name (multi-word, or Capitalized non-generic) — used only as a hint for auto-tracking. */
+function looksNamed(name: string): boolean {
+  const generic = /^(the |a |an )?(guard|thug|man|woman|figure|stranger|officer|cop|patron|crowd|bystander|clerk|driver|waiter|nurse|soldier|guy|girl|boy|kid|person|someone)s?$/i;
+  if (generic.test(name.trim())) return false;
+  return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
+}
 
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do"): Promise<void> {
   const t0 = Date.now();
@@ -111,7 +119,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const offscreenLog = [...(diff.offscreen ?? [])];
   offscreenLog.push(...undertow.snaps);
   offscreenLog.push(...undertow.stances.slice(0, 3).map((st) => `${st.name} ${st.stance === "press" ? "presses" : st.stance === "maneuver" ? "maneuvers" : st.stance === "hold" ? "holds position" : "yields ground"} against ${st.vs} (quantal p=${st.p.toFixed(2)})`));
+  // present, named characters the player is actually engaging join the long game
+  for (const id of state.world.present) {
+    const c = state.characters[id];
+    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) c.tracked = true;
+  }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+  offscreenLog.push(...regenerateDrives(state)); // tracked + idle → a fresh want from who they are
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence
@@ -362,7 +376,17 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       goal: du.goal, progress: clamp(du.progress ?? 0, 0, 100),
       blocker: du.blocker, updated_turn: turn,
     };
+    state.characters[id].tracked = true;
     if (!du.progress) shifts.push(`${nameOf(id)} wants something new: ${du.goal}.`);
+  }
+
+  // the narrator can promote characters into the long game
+  for (const tk of diff.track ?? []) {
+    const id = resolveId(state, tk); if (!id || id === "char_player") continue;
+    if (!state.characters[id].tracked) {
+      state.characters[id].tracked = true;
+      shifts.push(`${nameOf(id)} steps into the larger story.`);
+    }
   }
 
   for (const t of diff.traits ?? []) {

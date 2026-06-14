@@ -107,6 +107,7 @@ export interface Identity {
   current_goal?: string;
   current_activity?: string;
   drive?: NPCDrive;
+  tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
   portrait_url?: string;
 }
 
@@ -302,6 +303,7 @@ export interface SimulatorDiff {
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string }[];
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
+  track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change — replaces appearance_facts
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];

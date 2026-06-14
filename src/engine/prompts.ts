@@ -54,7 +54,8 @@ Rules:
 - PLAIN LANGUAGE EVERYWHERE: every human-readable string (moods, states, conditions, trait labels, memory content) is natural prose — "terrified of the heat", never snake_case, camelCase, or identifier-style tokens.
 - appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
-- drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal.
+- drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal, grown from WHO THEY ARE (traits, values, history) and how they feel about others (their edges) and the live threads. NPCs are autonomous: their new wants need not involve the player. A detective who finished one case starts another; a thief plans the next score; a rival who lost ground regroups.
+- track: when a character becomes important to a thread you're weaving, or to a contextually charged moment, list their id in track so they persist in the long game. Untracked bit-players (nameless guards, crowd) should stay untracked and may fade.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
 
 export function simulatorSchemaHint(): string {
@@ -68,6 +69,7 @@ export function simulatorSchemaHint(): string {
 "appearance":[{"char_id":"","value":"full revised appearance_facts"}],
 "drives_update":[{"char_id":"","goal":"","progress":0,"blocker":""}],
 "canon_add":["world-altering public fact everyone now knows"],
+"track":["char_id to keep in the long game"],
 "threads_update":[{"id":"","title":"","status":"active","description":"","tension":3}],
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
 "consequences_new":[{"description":"","fire_in_turns":3,"severity":"notable","source_char":"","location_trigger":""}],

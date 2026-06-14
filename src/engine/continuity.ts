@@ -17,6 +17,7 @@
 import type { SaveState, TurnTelemetry } from "./types";
 import { advance } from "./time";
 import { decayTraits, diffuseRumors, tickDrives } from "./social";
+import { regenerateDrives } from "./drives";
 import { tickUndertow } from "./undertow";
 import { addCondition } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
@@ -53,6 +54,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
     report.drive_log.push(...ut.stances.slice(0, 2).map((st) => `${st.name} ${st.stance}s against ${st.vs}`));
     report.drive_log.push(...ut.snaps);
     report.drive_log.push(...tickDrives(state, rng));
+    report.drive_log.push(...regenerateDrives(state, rng)); // tracked idle NPCs get fresh wants across the days
     report.rumor_log.push(...diffuseRumors(state, rng));
   }
   // psyche valence resettles
