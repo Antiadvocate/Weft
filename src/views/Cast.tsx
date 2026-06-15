@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Brush, Eye, EyeOff, Pencil, Sparkles, X } from "lucide-react";
+import { Braces, Brush, Eye, EyeOff, Pencil, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -19,6 +19,8 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
   const [editing, setEditing] = useState(false);
   const [painting, setPainting] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
+  const [rawJson, setRawJson] = useState<string | null>(null);
+  const [rawErr, setRawErr] = useState("");
   const [embodying, setEmbodying] = useState(false);
 
   const toggleFollow = async (cid: string, on: boolean) => {
@@ -184,6 +186,9 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                       <Sparkles size={16} style={{ color: embodyConfirm ? "var(--accent)" : "var(--text-lo)" }} />
                     </button>
                   )}
+                  <button onClick={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} title="raw edit (full JSON)">
+                    <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
+                  </button>
                   <button onClick={paint} title="conjure portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={editing ? () => setEditing(false) : startEdit}><Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={() => { setSel(null); setEditing(false); }}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
@@ -284,12 +289,26 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
 
                 {mem && (
                   <Section title="Memory">
+                    {(save.traits[sel!] ?? []).length > 0 && (
+                      <div className="pb-1.5">
+                        <div className="font-mono text-[9.5px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>becoming</div>
+                        {(save.traits[sel!] ?? []).map((t, i) => (
+                          <div key={`at${i}`} className="text-[12.5px] py-0.5 leading-relaxed">
+                            <span style={{ color: "var(--accent)" }}>{t.label}</span>
+                            <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>i{t.intensity.toFixed(0)} · w{t.self_weight.toFixed(0)}</span>
+                            <span style={{ color: "var(--text-mid)" }}> — {t.behavioral_impact}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {mem.beliefs.map((b, i) => (
-                      <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>※ {b.content}</div>
+                      <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</div>
                     ))}
-                    {mem.episodic.slice(-7).reverse().map((m, i) => (
+                    {[...mem.episodic].sort((a, b) => b.turn - a.turn).slice(0, 7).map((m, i) => (
                       <div key={i} className="text-[12.5px] py-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
-                        <span className="font-mono text-[9.5px] mr-1.5" style={{ color: "var(--text-lo)" }}>t{m.turn}</span>
+                        <span className="font-mono text-[9.5px] mr-1.5" style={{ color: "var(--text-lo)" }}>
+                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.where ? ` · ${m.where}` : ""}
+                        </span>
                         {m.content}
                       </div>
                     ))}
@@ -307,6 +326,34 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
           </>
         )}
       </AnimatePresence>
+
+      {rawJson !== null && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 90, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
+            <div className="font-display text-[16px]">Raw edit</div>
+            <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+              Full character record — identity, condition, acquired traits, memory. Edit the JSON and save. Add traits to the "traits" array, beliefs under "memory".
+            </div>
+            {rawErr && <div className="text-[12px] mt-1.5 px-2 py-1 rounded" style={{ color: "var(--danger)", background: "var(--danger-soft, rgba(200,60,60,.12))" }}>{rawErr}</div>}
+            <div className="flex gap-2 mt-2.5">
+              <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
+                try {
+                  const parsed = JSON.parse(rawJson);
+                  setSave(await api.rawEditCharacter(save.id, sel!, parsed));
+                  setRawJson(null); setRawErr("");
+                } catch (e: any) { setRawErr(e?.message?.includes("JSON") ? "Invalid JSON — check your brackets and commas." : (e?.message ?? "save failed")); }
+              }}>Save changes</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setRawJson(null); setRawErr(""); }}>Cancel</button>
+            </div>
+          </div>
+          <textarea
+            value={rawJson}
+            onChange={(e) => setRawJson(e.target.value)}
+            spellCheck={false} autoCapitalize="off" autoCorrect="off"
+            style={{ flex: 1, width: "100%", background: "var(--ink-1)", color: "var(--text-mid)", border: "none", padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.5, WebkitUserSelect: "text", userSelect: "text" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
