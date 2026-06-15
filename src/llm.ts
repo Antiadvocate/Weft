@@ -142,10 +142,14 @@ export function safeJson<T>(text: string, fallback: T): T {
   try { return JSON.parse(repairJson(ex)) as T; } catch { return fallback; }
 }
 
-export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image"): Promise<string> {
+export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image", refImages: string[] = []): Promise<string> {
+  // reference images (e.g. character portraits) are passed as image_url content blocks;
+  // models that support multimodal input use them for consistency, others ignore them.
+  const content: any[] = [{ type: "text", text: prompt }];
+  for (const url of refImages.slice(0, 4)) if (url?.startsWith("data:") || url?.startsWith("http")) content.push({ type: "image_url", image_url: { url } });
   const res = await fetch(OR_URL, {
     method: "POST", headers: headers(),
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+    body: JSON.stringify({ model, messages: [{ role: "user", content }], modalities: ["image", "text"] }),
   });
   if (!res.ok) throw new Error(`image gen HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j: any = await res.json();
