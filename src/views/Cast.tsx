@@ -21,6 +21,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [rawErr, setRawErr] = useState("");
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [embodying, setEmbodying] = useState(false);
 
   const toggleFollow = async (cid: string, on: boolean) => {
@@ -167,7 +168,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
               <div className="grab" />
               <div className="flex items-center justify-between px-5 py-2">
                 <div className="flex items-center gap-3">
-                  {c.portrait_url && <img src={c.portrait_url} alt="" className="w-11 h-11 rounded-xl object-cover" style={{ border: "1px solid var(--line-strong)" }} />}
+                  {c.portrait_url && <img src={c.portrait_url} alt="" onClick={() => setLightbox(c.portrait_url!)} className="w-16 h-16 rounded-xl object-cover cursor-pointer" style={{ border: "1px solid var(--line-strong)" }} />}
                   <div>
                     <div className="font-display text-[18px]">{c.name}</div>
                     <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
@@ -352,6 +353,20 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
             spellCheck={false} autoCapitalize="off" autoCorrect="off"
             style={{ flex: 1, width: "100%", background: "var(--ink-1)", color: "var(--text-mid)", border: "none", padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.5, WebkitUserSelect: "text", userSelect: "text" }}
           />
+        </div>
+      )}
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
+        </div>
+      )}
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
         </div>
       )}
     </div>

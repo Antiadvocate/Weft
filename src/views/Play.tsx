@@ -35,6 +35,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [error, setError] = useState<string | null>(null);
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [skipOpen, setSkipOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [tip, setTip] = useState<Tip | null>(null);
@@ -209,7 +210,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 {h.action_mode === "say" ? `“${h.player_action}”` : h.player_action}
               </div>
               )}
-              {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" />}
+              {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
               {h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
               {(h.shifts?.length || h.offscreen.length) ? (
                 <details className="shifts my-3 pl-3 border-l" style={{ borderColor: "var(--line)" }}>
@@ -394,6 +395,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           </>
         )}
       </AnimatePresence>
+
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
+        </div>
+      )}
     </div>
   );
 }

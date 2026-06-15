@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ModelPicker } from "./ModelPicker";
 import { Check, Copy, Download } from "lucide-react";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { getApiKey, setApiKey } from "../config";
@@ -110,10 +111,14 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids)</div>
-        <TextField label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} mono />
-        <TextField label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} mono />
-        <TextField label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} mono />
-        <TextField label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} mono />
+        <ModelPicker label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />
+        <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
+        <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
+        <ModelPicker label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} />
+        <ModelPicker label="Images — portraits & scenes" value={draft.image_model} onChange={setM("image_model")} kind="image" />
+        <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
+          Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
+        </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
           Two calls per turn. Prefix `anthropic/` models get prompt-cache breakpoints automatically.
           Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
