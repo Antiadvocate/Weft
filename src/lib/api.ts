@@ -7,7 +7,7 @@ import type {
 } from "../engine/types";
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid } from "../engine/state";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
-import { runTurn } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
 import { FORGE_SYSTEM } from "../engine/prompts";
@@ -173,10 +173,20 @@ export const api = {
     s.world.weather = op.weather ?? "";
     s.world.money = op.money ?? "";
     s.world.player_location = nameToId[(op.player_location_name ?? "").toLowerCase()] ?? Object.keys(s.world.places)[0] ?? "";
-    s.world.present = (op.present_npc_names ?? [])
+    s.characters["char_player"].location = s.world.player_location;
+    const openingPresent = (op.present_npc_names ?? [])
       .map((nm: string) => Object.entries(s.characters).find(([cid, c]) => cid !== "char_player" && c.name.toLowerCase() === nm.toLowerCase())?.[0])
       .filter(Boolean) as string[];
-    if (!s.world.present.length) s.world.present = Object.keys(s.characters).filter((cid) => cid !== "char_player").slice(0, 2);
+    const seatHere = openingPresent.length ? openingPresent : Object.keys(s.characters).filter((cid) => cid !== "char_player").slice(0, 2);
+    // everyone starts at the player's location if present, otherwise scattered to their own first place
+    const otherPlaces = Object.keys(s.world.places).filter((p) => p !== s.world.player_location);
+    let scatter = 0;
+    for (const cid of Object.keys(s.characters)) {
+      if (cid === "char_player") continue;
+      if (seatHere.includes(cid)) s.characters[cid].location = s.world.player_location;
+      else s.characters[cid].location = otherPlaces.length ? otherPlaces[scatter++ % otherPlaces.length] : s.world.player_location;
+    }
+    syncPresence(s);
 
     await putSave(s);
     return clientView(s);
