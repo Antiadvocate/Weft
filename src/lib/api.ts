@@ -151,7 +151,7 @@ export const api = {
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
     const prompt = `Painterly character portrait, head and shoulders, moody chiaroscuro, muted palette, no text, no watermark. Setting: ${s.world_bible.era}, ${s.world_bible.name}. Subject: ${c.name}, age ${c.age}. ${c.appearance_facts}. Demeanor: ${c.core_traits.slice(0, 3).join(", ")}.`;
-    c.portrait_url = await generateImage(prompt);
+    c.portrait_url = await generateImage(prompt, s.model_settings.image_model);
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
   },
@@ -161,7 +161,7 @@ export const api = {
     const entry = [...s.history].reverse().find((h) => h.turn === turn) ?? s.history[s.history.length - 1];
     if (!entry) throw new Error("no turn to illustrate");
     const prompt = `Painterly cinematic scene illustration, wide shot, moody atmospheric light, muted palette, no text, no watermark. World: ${s.world_bible.name}, ${s.world_bible.era}. Scene: ${entry.summary}. Weather: ${s.world.weather}.`;
-    entry.illustration_url = await generateImage(prompt);
+    entry.illustration_url = await generateImage(prompt, s.model_settings.image_model);
     await putSave(s);
     return { url: entry.illustration_url, save: clientView(s) };
   },
