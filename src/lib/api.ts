@@ -10,7 +10,7 @@ import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
-import { FORGE_SYSTEM } from "../engine/prompts";
+import { FORGE_SYSTEM, buildPortraitPrompt, buildScenePrompt } from "../engine/prompts";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
 
@@ -150,8 +150,7 @@ export const api = {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
-    const prompt = `Painterly character portrait, head and shoulders, moody chiaroscuro, muted palette, no text, no watermark. Setting: ${s.world_bible.era}, ${s.world_bible.name}. Subject: ${c.name}, age ${c.age}. ${c.appearance_facts}. Demeanor: ${c.core_traits.slice(0, 3).join(", ")}.`;
-    c.portrait_url = await generateImage(prompt, s.model_settings.image_model);
+    c.portrait_url = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model);
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
   },
@@ -160,8 +159,11 @@ export const api = {
     const s = await need(id);
     const entry = [...s.history].reverse().find((h) => h.turn === turn) ?? s.history[s.history.length - 1];
     if (!entry) throw new Error("no turn to illustrate");
-    const prompt = `Painterly cinematic scene illustration, wide shot, moody atmospheric light, muted palette, no text, no watermark. World: ${s.world_bible.name}, ${s.world_bible.era}. Scene: ${entry.summary}. Weather: ${s.world.weather}.`;
-    entry.illustration_url = await generateImage(prompt, s.model_settings.image_model);
+    // feed the portraits of characters in this scene so they stay visually consistent
+    const refs = ["char_player", ...s.world.present]
+      .map((cid) => s.characters[cid]?.portrait_url)
+      .filter((u): u is string => !!u && u.startsWith("data:"));
+    entry.illustration_url = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs);
     await putSave(s);
     return { url: entry.illustration_url, save: clientView(s) };
   },
