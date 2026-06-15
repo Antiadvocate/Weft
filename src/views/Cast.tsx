@@ -238,6 +238,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {cond.conditions.length > 0 && <Row k="afflicted" v={cond.conditions.map(nice).join(", ")} />}
                   {cond.injuries.length > 0 && <Row k="injuries" v={cond.injuries.map((x) => nice(x.type)).join("; ")} />}
                   {c.drive && <Row k="wants" v={`${c.drive.goal} — ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
+                  <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 
