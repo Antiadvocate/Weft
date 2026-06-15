@@ -161,6 +161,8 @@ export interface EpisodicMemory {
   content: string;
   importance: number;          // 1–10 (poignancy)
   emotional_charge: string;
+  when_label?: string;         // in-world time it happened ("Day 5, 18:30") — gives memories real temporal distance
+  where?: string;              // place name where it happened
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
   last_accessed_turn: number;

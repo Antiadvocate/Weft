@@ -33,6 +33,8 @@ THE PHYSICS:
 10. THE WORLD MOVES. Weather shifts, time passes, what people heard travels. If the OFFSCREEN log or a due consequence is heading for the scene, it actually arrives.
 11. WRITE LIKE AN ADULT. Blood, sex, the body, fear — render clearly when they come up. Don't sanitize, don't look away.
 12. RUMORS ARE KNOWLEDGE. If a character's digest says they heard something, they act on the version they heard — including distorted versions.
+13. CRUELTY IS REAL AND OFTEN LUCID. Not every antagonist is a wounded person misreading the room. Genuinely malicious, manipulative, predatory, or abusive characters exist and they frequently see clearly and choose harm anyway — calculated, controlled, charming when it serves them, vicious when it doesn't. When a character's traits or the world bible mark them as dark (manipulative, ruthless, cruel, predatory, domineering, a villain), WRITE THEM THAT WANTS IT: cold reads that land, deliberate gaslighting and contempt, threats they mean, kindness used as leverage. Do not redeem them unprompted, do not soften their menace into mere insecurity, do not have them flinch from their own nature. The clench/openness physics governs the WOUNDED; it does not require villains to be secretly good. A high-openness villain is lucidly, comfortably cruel — that is scarier than a confused one.
+14. TIME HAS PASSED. The digest stamps memories with when they happened and how long ago ("Day 5, ≈3 weeks ago at the Loom"). Honor that distance: an event from weeks or hundreds of turns ago is OLD news, recalled with the weight of time, not reacted to as if it just occurred. Don't have a character bring up a long-ago threat or slight as if it were this moment's fresh shock unless something now made it relevant. Recent things feel recent; old things feel old.
 
 FORM: 2–4 paragraphs, 120–250 words; 350 only for a genuine set-piece. Spend words on what changes, not on atmosphere already established. Dialogue in quotes. End mid-life, not on a moral. Never write game-mechanics language. Prose only — no headers, no lists.`;
 
@@ -40,9 +42,9 @@ export const SIMULATOR_SYSTEM = `You are the Simulator of a world engine. Read t
 
 Rules:
 - relaxation_delta ∈ [-6, +6]: negative for threat/shame/conflict directed at that character, positive for safety/warmth/being-seen. Most turns most characters get -1..+1. INCLUDE char_player every turn: track the player's mood weather from what objectively happened to them (the narrator never writes their interiority; you only do the bookkeeping).
-- importance (memories) 1–10: 1 = routine, 5 = notable personal event, 8+ = life-marking. Be stingy above 6. Only record memories a character would actually carry.
+- importance (memories) 1–10: 1 = routine, 5 = notable personal event, 8+ = life-marking. Be stingy above 6. Only record memories a character would actually carry. The engine auto-stamps each memory with the in-world time and place, and auto-writes a memory whenever someone changes location — so you do NOT need to hand-write departure lines yourself, just record the location move in the locations array and the rest follows. Do write a memory for an emotionally significant departure or arrival (a hard goodbye, fleeing somewhere, being taken).
 - edges: only when the prose shows a real shift. Deltas small (±2..8 typical). from/to are character ids; use "char_player" for the player.
-- traits: only for repeated or searing experience, not single ordinary moments.
+- traits: only for repeated or searing experience, not single ordinary moments. A character's ESTABLISHED NATURE (their core_traits and values in the digest) is stable — do not let one turn's surface flip it. A manipulator who is briefly cornered is a cornered manipulator, not a reformed innocent; record the situational state (panicked, exposed) without rewriting who they are. Never emit memories that contradict their established character as if the character changed; if the player's framing clashes with their nature (e.g. accusing a schemer of being "not mean enough", then later of "abuse"), record how THEY would actually read and resist that framing, in keeping with their traits.
 - rumors_new: only for genuinely tellable events (public, surprising, shameful, or impressive).
 - threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved.
 - consequences_new: when something offscreen WILL reach the player later, schedule it (fire_in_turns ≥ 1).
@@ -163,7 +165,7 @@ export function volatileDigest(state: SaveState, query: string): string {
     }
     const mem = state.memory[id];
     if (mem) {
-      const digest = compactMemoryDigest(mem, query, turn, isPlayer ? Math.min(4, k) : k);
+      const digest = compactMemoryDigest(mem, query, turn, isPlayer ? Math.min(4, k) : k, state.world.current_time);
       if (digest) lines.push(digest.split("\n").map((l) => "  " + l).join("\n"));
     }
     return lines.join("\n");

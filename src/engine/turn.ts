@@ -320,7 +320,22 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const mv of diff.locations ?? []) {
     const cid = resolveId(state, mv.char_id);
     if (!cid || !mv.place) continue;
+    const fromPid = state.characters[cid].location;
     const pid = resolvePlace(state, mv.place);
+    if (pid !== fromPid) {
+      // a move is an event the character remembers: where from, where to, when
+      const fromName = (fromPid && state.world.places[fromPid]?.name) || "elsewhere";
+      const toName = state.world.places[pid]?.name ?? mv.place;
+      const mem = state.memory[cid];
+      if (mem && fromPid) {
+        mem.episodic.push({
+          turn, content: `Left ${fromName} and went to ${toName}.`,
+          importance: 4, emotional_charge: "", when_label: state.world.current_time, where: toName,
+          last_accessed_turn: turn,
+        });
+        if (mem.episodic.length > 60) mem.episodic = mem.episodic.slice(-60);
+      }
+    }
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
   }
@@ -346,8 +361,22 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       }
       case "inventory_add": if (f.value) c.inventory.push({ id: uid("itm"), name: f.value }); break;
       case "inventory_remove": c.inventory = c.inventory.filter((i) => i.name.toLowerCase() !== f.value.toLowerCase()); break;
-      case "wearing_add": if (f.value && !c.wearing.includes(f.value)) c.wearing.push(f.value); break;
-      case "wearing_remove": c.wearing = c.wearing.filter((w) => w !== f.value); break;
+      case "wearing_add": {
+        if (!f.value) break;
+        const v = f.value.toLowerCase();
+        // drop any existing garment that shares a head noun (coat, jacket, dress…) so layers replace, not pile up
+        const noun = (s: string) => (s.toLowerCase().match(/\b(coat|jacket|dress|shirt|gown|cloak|robe|suit|armor|armour|trousers|pants|boots|shoes|gloves|mask|hat)\b/)?.[1]) ?? "";
+        const vn = noun(v);
+        if (vn) c.wearing = c.wearing.filter((w) => noun(w) !== vn);
+        if (!c.wearing.some((w) => w.toLowerCase() === v)) c.wearing.push(f.value);
+        if (c.wearing.length > 10) c.wearing = c.wearing.slice(-10);
+        break;
+      }
+      case "wearing_remove": {
+        const v = (f.value || "").toLowerCase();
+        c.wearing = c.wearing.filter((w) => { const lw = w.toLowerCase(); return lw !== v && !lw.includes(v) && !v.includes(lw); });
+        break;
+      }
       case "injury": if (f.value) c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: false, functional_impact: f.value }); break;
       case "injury_remove": {
         const q = f.value.toLowerCase();
@@ -385,9 +414,12 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const m of diff.memories ?? []) {
     const id = resolveId(state, m.char_id); if (!id || !m.content) continue;
     const mem = state.memory[id]; if (!mem) continue;
+    const wherePid = state.characters[id]?.location;
     mem.episodic.push({
       turn, content: m.content, importance: clamp(m.importance ?? 3, 1, 10),
       emotional_charge: m.emotional_charge ?? "", last_accessed_turn: turn,
+      when_label: state.world.current_time,
+      where: (wherePid && state.world.places[wherePid]?.name) || undefined,
       ...(m.scheduled_time ? { scheduled_time: m.scheduled_time, commitment_status: "pending" as const } : {}),
     });
     if (mem.episodic.length > 60) mem.episodic = mem.episodic.slice(-60);

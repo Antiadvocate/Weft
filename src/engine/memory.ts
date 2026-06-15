@@ -1,3 +1,4 @@
+import { parseTime } from "./time";
 /**
  * Generative-agents memory (Park et al. 2023, arXiv:2304.03442), embedding-free.
  *
@@ -89,11 +90,29 @@ export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn:
   mem.episodic = [...recent, ...old, ...pending].filter((m) => (seen.has(m) ? false : (seen.add(m), true)));
 }
 
-export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number): string {
+function agoLabel(whenLabel: string | undefined, nowLabel: string): string {
+  if (!whenLabel) return "";
+  const a = parseTime(whenLabel), b = parseTime(nowLabel);
+  const mins = (b.day - a.day) * 1440 + (b.hour - a.hour) * 60 + (b.minute - a.minute);
+  if (mins < 0) return whenLabel;
+  if (mins < 90) return "earlier today";
+  if (b.day === a.day) return "earlier today";
+  const days = b.day - a.day;
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days} days ago`;
+  return `${Math.round(days / 7)} weeks ago`;
+}
+
+export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = ""): string {
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => b.content).join(" | ")}`);
   const top = retrieve(mem, query, currentTurn, k);
-  if (top.length) parts.push(`RECALLS: ${top.map((m) => `[T${m.turn}${m.commitment_status === "pending" ? `, due ${m.scheduled_time}` : ""}] ${m.content}`).join(" | ")}`);
+  if (top.length) parts.push(`RECALLS: ${top.map((m) => {
+    const ago = agoLabel(m.when_label, nowLabel);
+    const stamp = [m.when_label, ago && ago !== m.when_label ? `≈${ago}` : "", m.where ? `at ${m.where}` : ""].filter(Boolean).join(", ");
+    const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
+    return `[${stamp || `T${m.turn}`}${due}] ${m.content}`;
+  }).join(" | ")}`);
   return parts.join("\n");
 }

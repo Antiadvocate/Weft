@@ -50,11 +50,16 @@ export function newSave(name: string, bible: WorldBible): SaveState {
   };
 }
 
-/** Snapshot ring for rollback (plain JSON; IndexedDB handles the size). Origin (turn 1) is pinned forever. */
+/** Snapshot ring for rollback (plain JSON; IndexedDB handles the size). Origin (turn 1) is pinned forever.
+ *  Image data URLs are stripped from snapshots — a rollback point doesn't need the portrait/scene bytes,
+ *  and keeping them would multiply megabytes across the ring (the old 17 MB-save culprit). */
 export function pushSnapshot(state: SaveState): void {
   if (state.snapshots.some((s) => s.turn === state.world.current_turn)) return;
   const { snapshots, ...rest } = state;
-  const blob = JSON.stringify(rest);
+  const lean = JSON.parse(JSON.stringify(rest)) as Omit<SaveState, "snapshots">;
+  for (const c of Object.values(lean.characters)) if (c.portrait_url?.startsWith("data:")) delete c.portrait_url;
+  for (const h of lean.history) if ((h as any).illustration_url?.startsWith?.("data:")) delete (h as any).illustration_url;
+  const blob = JSON.stringify(lean);
   state.snapshots.push({ turn: state.world.current_turn, blob });
   while (state.snapshots.length > 7) state.snapshots.splice(1, 1);
 }
