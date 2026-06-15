@@ -52,6 +52,7 @@ Rules:
 - canon_add: when something WORLD-ALTERING and PUBLIC happens — a new faith founded, a regime falls, a televised miracle, a war begins — record it as one plain sentence in canon_add. Canon is broadcast to every mind, kept forever, and shown in all future context. Use it for anything "everyone now knows"; never for private scene events.
 - conditions are CURRENT STATES, not a scrapbook: emit condition_remove the moment the prose shows something subsiding (bleeding stops, ears clear, sedation lifts). NEVER add a rephrased variant of an existing condition — one canonical phrase per affliction, updated by remove+add only if it genuinely changed.
 - PLAIN LANGUAGE EVERYWHERE: every human-readable string (moods, states, conditions, trait labels, memory content) is natural prose — "terrified of the heat", never snake_case, camelCase, or identifier-style tokens.
+- LOCATION: track where everyone is. Set player_location whenever the player moves (a place name is fine, like outside the Mars dome, or in transit to Metropolis; new places are created automatically; reuse exact existing names when staying put). In the locations array, record every character who moves, arrives, leaves, or is teleported or summoned this turn, each as char_id plus place. If the player teleports or brings someone to them, set that character place to the player location, which is what puts them in the scene. A character NOT moved stays where they were and is NOT in the scene just because they are mentioned. Do not hand-maintain present; co-location decides it.
 - appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
 - drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal, grown from WHO THEY ARE (traits, values, history) and how they feel about others (their edges) and the live threads. NPCs are autonomous: their new wants need not involve the player. A detective who finished one case starts another; a thief plans the next score; a rival who lost ground regroups.
@@ -60,7 +61,7 @@ Output ONLY the JSON object. No markdown fences, no commentary.`;
 
 export function simulatorSchemaHint(): string {
   return `JSON shape (all keys required; use [] / "" when empty):
-{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"","money":"","present":["char_..."],
+{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"money":"","present":["optional hint; co-location decides the real scene"],
 "facts":[{"char_id":"","field":"fatigue|hunger|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":""}],
@@ -169,9 +170,10 @@ export function volatileDigest(state: SaveState, query: string): string {
   });
 
   const loc = state.world.places[state.world.player_location];
+  const placeName = (id?: string) => (id && state.world.places[id]?.name) || "elsewhere";
   const offscreenCast = Object.entries(state.characters)
     .filter(([id]) => id !== "char_player" && !state.world.present.includes(id))
-    .map(([, c]) => `${c.name}: ${c.current_activity || c.drive?.goal || "about their life"}`)
+    .map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`)
     .join("; ");
   const recent = state.history.slice(-state.model_settings.history_window);
   const threads = state.world.threads.filter((t) => t.status === "active");
@@ -179,8 +181,9 @@ export function volatileDigest(state: SaveState, query: string): string {
 
   return `${canonBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather}
-Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here: ${loc.contains.join(", ")}` : ""}
+Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}
 Player carries: ${state.world.money || "—"}
+(Characters listed under OFFSCREEN are NOT in this scene — they are elsewhere. Reference them, don't have them appear, unless the player goes to them or brings them here.)
 
 === PRESENT — LIVE STATE (law) ===
 ${presentBlocks.join("\n")}

@@ -252,6 +252,42 @@ function resolveId(state: SaveState, ref: string): string | null {
   return findCharByName(state, ref);
 }
 
+/** Find a place by id or (case-insensitive) name; create it on first mention. Returns the place id. */
+export function resolvePlace(state: SaveState, ref: string): string {
+  if (!ref) return state.world.player_location;
+  if (state.world.places[ref]) return ref;
+  const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === ref.trim().toLowerCase());
+  if (byName) return byName.id;
+  const id = uid("loc");
+  state.world.places[id] = { id, name: ref.trim(), description_facts: "", contains: [] };
+  return id;
+}
+
+/** present is DERIVED: whoever shares the player's place is in the scene. Rebuilds every place's
+ *  occupancy from each character's location. A `hint` (the diff's `present`) only nudges defaults
+ *  for characters who don't yet have a location set. */
+export function syncPresence(state: SaveState, hint?: string[]): void {
+  const ploc = state.world.player_location;
+  // seed locations for anyone the narrator named as present but who has no place yet
+  if (hint) {
+    for (const ref of hint) {
+      const id = resolveId(state, ref);
+      if (id && id !== "char_player" && !state.characters[id].location) state.characters[id].location = ploc;
+    }
+  }
+  state.characters["char_player"].location = ploc;
+  // rebuild contains[] from the source of truth (each character's location)
+  for (const p of Object.values(state.world.places)) p.contains = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
+  }
+  // the scene = non-player characters co-located with the player
+  state.world.present = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c.location === ploc)
+    .map(([id]) => id);
+}
+
+
 export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string): string[] {
   const turn = state.world.current_turn;
   const shifts: string[] = [];
@@ -273,15 +309,24 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   if (diff.weather) state.world.weather = diff.weather;
   if (diff.money) state.world.money = diff.money;
+
+  // ── LOCATION: the bookkeeper records where everyone is. Places auto-resolve by
+  //    id or name and are created on first mention (incl. "in-between" places like
+  //    "walking outside the dome"). present is DERIVED from co-location, never authored. ──
   if (diff.player_location) {
-    const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === diff.player_location!.toLowerCase());
-    state.world.player_location = byName?.id ?? state.world.places[diff.player_location] ? diff.player_location! : (byName?.id ?? state.world.player_location);
-    if (byName) state.world.player_location = byName.id;
+    state.world.player_location = resolvePlace(state, diff.player_location);
+    state.characters["char_player"].location = state.world.player_location;
   }
-  if (diff.present) {
-    const ids = diff.present.map((r) => resolveId(state, r)).filter((x): x is string => !!x && x !== "char_player");
-    if (ids.length || diff.present.length === 0) state.world.present = [...new Set(ids)];
+  for (const mv of diff.locations ?? []) {
+    const cid = resolveId(state, mv.char_id);
+    if (!cid || !mv.place) continue;
+    const pid = resolvePlace(state, mv.place);
+    state.characters[cid].location = pid;
+    if (cid === "char_player") state.world.player_location = pid;
   }
+
+  syncPresence(state, diff.present);
+
 
   for (const f of diff.facts ?? []) {
     const id = resolveId(state, f.char_id); if (!id) continue;

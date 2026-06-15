@@ -256,8 +256,16 @@ export function embodyCharacter(state: SaveState, targetId: string): { ok: boole
     r.knowers = [...new Set(r.knowers.map(swap))];
   }
   for (const cq of state.world.consequences) if (cq.source_char) cq.source_char = swap(cq.source_char);
-  for (const p of Object.values(state.world.places)) p.contains = p.contains.map(swap);
-  state.world.present = [...new Set(state.world.present.map(swap).filter((id) => id !== "char_player"))];
+  // the player now inhabits the target's body → the world's player_location is wherever that body is
+  state.world.player_location = state.characters["char_player"].location ?? state.world.player_location;
+  // rebuild room occupancy + scene from locations
+  for (const p of Object.values(state.world.places)) p.contains = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
+  }
+  state.world.present = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c.location === state.world.player_location)
+    .map(([id]) => id);
 
   // both souls keep the moment — written neutrally; the fiction is yours to define
   state.memory["char_player"]?.episodic.push({

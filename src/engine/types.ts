@@ -108,6 +108,7 @@ export interface Identity {
   current_activity?: string;
   drive?: NPCDrive;
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
+  location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
 }
 
@@ -294,9 +295,10 @@ export interface SimulatorDiff {
   scene_summary: string;
   elapsed_minutes: number;
   weather?: string;
-  player_location?: string;
+  player_location?: string;       // a place id, OR a free-text place name (auto-created if new) — where the PLAYER now is
+  locations?: { char_id: string; place: string }[]; // move characters between places; place is an id or a name (auto-created). Use when anyone moves, is teleported, arrives, or leaves.
   money?: string;
-  present?: string[];
+  present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string }[];

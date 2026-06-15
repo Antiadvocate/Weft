@@ -79,5 +79,33 @@ export function sanitize(state: SaveState): SaveState {
     state.memory[id] ??= blankMemory(id);
     state.condition[id].psyche ??= blankCondition().psyche;
   }
+  // backfill the location model for saves made before it existed
+  const placeIds = Object.keys(state.world.places);
+  if (!state.world.player_location && placeIds.length) state.world.player_location = placeIds[0];
+  if (state.characters["char_player"] && !state.characters["char_player"].location) {
+    state.characters["char_player"].location = state.world.player_location;
+  }
+  const anyMissing = Object.entries(state.characters).some(([id, c]) => id !== "char_player" && !c.location);
+  if (anyMissing) {
+    const wasPresent = new Set(state.world.present ?? []);
+    const others = placeIds.filter((p) => p !== state.world.player_location);
+    let scatter = 0;
+    for (const [id, c] of Object.entries(state.characters)) {
+      if (id === "char_player" || c.location) continue;
+      c.location = wasPresent.has(id)
+        ? state.world.player_location
+        : (others.length ? others[scatter++ % others.length] : state.world.player_location);
+    }
+  }
+  // recompute room occupancy + scene from the source of truth
+  if (placeIds.length && state.characters["char_player"]) {
+    for (const p of Object.values(state.world.places)) p.contains = [];
+    for (const [id, c] of Object.entries(state.characters)) {
+      if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
+    }
+    state.world.present = Object.entries(state.characters)
+      .filter(([id, c]) => id !== "char_player" && c.location === state.world.player_location)
+      .map(([id]) => id);
+  }
   return state;
 }
