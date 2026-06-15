@@ -54,6 +54,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     cultures_and_languages: wb.cultures_and_languages ?? "", climate_and_geography: wb.climate_and_geography ?? "",
     calendar_and_currency: wb.calendar_and_currency ?? "",
     narrator_direction: wb.narrator_direction ?? "",
+    art_direction: wb.art_direction ?? "",
   });
   const [palette, setPalette] = useState((wb.pressure_palette ?? []).join(", "));
   const [forbidPrimary, setForbidPrimary] = useState((wb.forbidden_as_primary ?? []).join(", "));
@@ -170,6 +171,10 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
         <TextField label="Name" value={bible.name} onChange={setB("name")} />
         <TextField label="Era" value={bible.era} onChange={setB("era")} />
+        <TextField label="Art direction (portraits & scenes — style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
+        <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
+          e.g. "muted painterly chiaroscuro, oil texture" · "90s cel anime, hard ink lines" · "gritty photoreal, 35mm film grain". Portraits are full-body on white studio; scenes use this same style.
+        </div>
         <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
         <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
         <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
