@@ -129,10 +129,10 @@ export function decidePressure(input: PressureInput): PressureVerdict {
 /** Compact directive injected into the narrator's volatile digest. */
 export function pressureDirective(v: PressureVerdict, palette?: string[]): string {
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
-  if (v.pressure <= 2) lines.push("No complication. No hostile interest. Let the scene simply be a scene.");
-  if (v.pressure >= 3 && v.pressure <= 5) lines.push("Minor friction only: a small cost, a social wrinkle, weather, a tool failing. No injury.");
-  if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical. No physical danger yet.");
-  if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Nothing arrives from thin air.");
+  if (v.pressure <= 2) lines.push("No threat or hostile interest — but the scene must still MOVE: a discovery, an arrival, a choice, a shift in what someone wants. Calm is not stillness; something develops.");
+  if (v.pressure >= 3 && v.pressure <= 5) lines.push("Minor friction: a small cost, a social wrinkle, weather, a tool failing, an interruption. No injury. Keep a beat moving.");
+  if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
+  if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
   if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
   if (palette?.length) lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
   return lines.join(" ");

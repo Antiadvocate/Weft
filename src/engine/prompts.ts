@@ -35,8 +35,11 @@ THE PHYSICS:
 12. RUMORS ARE KNOWLEDGE. If a character's digest says they heard something, they act on the version they heard — including distorted versions.
 13. CRUELTY IS REAL AND OFTEN LUCID. Not every antagonist is a wounded person misreading the room. Genuinely malicious, manipulative, predatory, or abusive characters exist and they frequently see clearly and choose harm anyway — calculated, controlled, charming when it serves them, vicious when it doesn't. When a character's traits or the world bible mark them as dark (manipulative, ruthless, cruel, predatory, domineering, a villain), WRITE THEM THAT WANTS IT: cold reads that land, deliberate gaslighting and contempt, threats they mean, kindness used as leverage. Do not redeem them unprompted, do not soften their menace into mere insecurity, do not have them flinch from their own nature. The clench/openness physics governs the WOUNDED; it does not require villains to be secretly good. A high-openness villain is lucidly, comfortably cruel — that is scarier than a confused one.
 14. TIME HAS PASSED. The digest stamps memories with when they happened and how long ago ("Day 5, ≈3 weeks ago at the Loom"). Honor that distance: an event from weeks or hundreds of turns ago is OLD news, recalled with the weight of time, not reacted to as if it just occurred. Don't have a character bring up a long-ago threat or slight as if it were this moment's fresh shock unless something now made it relevant. Recent things feel recent; old things feel old.
+15. SOMETHING HAPPENS EVERY TURN. This is a story, not a conversation. Each turn must move the situation — an action taken, a thing discovered, an arrival, a refusal, a position lost or won, a physical fact changed. Talk is allowed, but talk alone is not a turn. If a scene has been two people exchanging words for a while, BREAK IT: someone acts, leaves, is interrupted, the world intrudes, a clock ticks forward. Prefer event to elaboration. End most turns on a new development the player must respond to, not on a settled feeling.
+16. ACTION IS FAST AND PHYSICAL. In a fight, chase, or any violence, bodies move faster than mouths. Render blows, movement, injury, position — not paragraphs of dialogue mid-exchange. People do not hold lengthy conversations while fighting; they grunt, threaten in fragments, or save breath. A fight resolves over turns in concrete physical beats with real consequences, not by talking it out. If someone is swinging a weapon, the next thing is where it lands, not a speech.
+17. CONFLICT DOES NOT HAVE TO RESOLVE, AND PEOPLE DO NOT HAVE TO BE GOOD. There is no gravitational pull toward warmth, understanding, apology, or mutual recognition. Most real conflict stays unresolved; people walk away still angry, still wrong, still enemies. Do NOT converge scenes on everyone turning out decent, reaching an understanding, or softening — unless the state and the player's actions genuinely earned it over time. Hostility, contempt, selfishness, and irreconcilable difference are valid, common, lasting endpoints. A character opening (rule 1) is a rare, costly event, not the default arc of a scene. When in doubt, let people stay who they are.
 
-FORM: 2–4 paragraphs, 120–250 words; 350 only for a genuine set-piece. Spend words on what changes, not on atmosphere already established. Dialogue in quotes. End mid-life, not on a moral. Never write game-mechanics language. Prose only — no headers, no lists.`;
+FORM: 2–4 paragraphs, 120–250 words; 350 only for a genuine set-piece. Spend words on what CHANGES — events, actions, the world shifting — not on atmosphere or feelings already established. Dialogue in quotes, used sparingly in action. End on a new development, not a moral or a settled mood. Never write game-mechanics language. Prose only — no headers, no lists.`;
 
 export const SIMULATOR_SYSTEM = `You are the Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object recording everything that changed, plus 0–3 lines of plausible offscreen world motion. The prose is your single source of truth for onscreen facts; offscreen lines you originate, consistent with drives, clocks and rumors in the digest.
 
@@ -119,6 +122,47 @@ function ageBand(age: number): string {
   if (age >= 55) return "an older adult's settled, unhurried cadence";
   return "";
 }
+/** Compose a portrait prompt that reflects WHO the character is — not just their face.
+ *  Full body, head to toe, on a white studio background, in the world's art direction.
+ *  Reads appearance, core + acquired traits, values, current bearing, and recent belief. */
+export function buildPortraitPrompt(state: SaveState, id: string): string {
+  const c = state.characters[id];
+  const cond = state.condition[id];
+  const art = state.world_bible.art_direction?.trim() || "painterly, moody chiaroscuro, muted palette";
+  const traits = [...(c.core_traits ?? [])];
+  for (const t of (state.traits[id] ?? [])) if (t.intensity >= 5 && !traits.includes(t.label)) traits.push(t.label);
+  const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense, guarded bearing" : cond.psyche.relaxation >= 6 ? "at ease, open bearing" : "composed bearing") : "";
+  const wear = cond?.wearing?.length ? `Wearing: ${cond.wearing.join(", ")}.` : "";
+  const belief = state.memory[id]?.beliefs?.slice(-1)[0]?.content;
+  return [
+    `Full-body character portrait, head to toe, single figure standing, plain white studio background, even studio lighting, no text, no watermark, no props.`,
+    `Art style: ${art}.`,
+    `Setting context: ${state.world_bible.era}.`,
+    `Subject: ${c.name}, age ${c.age}.`,
+    c.appearance_facts ? `Appearance: ${c.appearance_facts}.` : "",
+    traits.length ? `Their nature reads in posture and expression: ${traits.slice(0, 5).join(", ")}.` : "",
+    bearing ? `Current ${bearing}.` : "",
+    wear,
+    belief ? `Inner note (let it subtly shape expression, not literal): ${belief}.` : "",
+    `The image should feel like THIS person — their character visible in how they hold themselves.`,
+  ].filter(Boolean).join(" ");
+}
+
+/** Compose a scene prompt in the world's art direction. */
+export function buildScenePrompt(state: SaveState, summary: string): string {
+  const art = state.world_bible.art_direction?.trim() || "painterly cinematic, moody atmospheric light, muted palette";
+  const loc = state.world.places[state.world.player_location];
+  return [
+    `Cinematic scene illustration, wide shot, no text, no watermark.`,
+    `Art style: ${art}.`,
+    `World: ${state.world_bible.name}, ${state.world_bible.era}.`,
+    loc ? `Place: ${loc.name}${loc.description_facts ? ` — ${loc.description_facts}` : ""}.` : "",
+    `Scene: ${summary}.`,
+    state.world.weather ? `Weather/mood: ${state.world.weather}.` : "",
+    `Render the people present consistent with their reference portraits if provided.`,
+  ].filter(Boolean).join(" ");
+}
+
 export function deriveVoice(
   ident: Identity, cond: Condition,
   traits: { label: string; intensity: number; behavioral_impact: string }[],

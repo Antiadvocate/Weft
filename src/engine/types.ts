@@ -24,6 +24,7 @@ export interface ModelSettings {
 export interface WorldBible {
   name: string;
   era: string;
+  art_direction?: string;       // visual style for portraits & scenes ("muted painterly chiaroscuro", "90s anime cel", "gritty photoreal")
   technology_level: string;
   magic_rules: string;
   forbidden: string;
