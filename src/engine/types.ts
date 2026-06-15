@@ -15,6 +15,7 @@ export interface ModelSettings {
   simulator_model: string;
   forge_model: string;
   fallback_model: string;
+  image_model: string;            // model used for portraits & scene illustrations
   context_memories_k: number;     // top-k memories per present NPC
   reflection_cadence: number;     // turns between reflection compactions
   history_window: number;         // raw recent turns kept verbatim in context
@@ -324,6 +325,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   simulator_model: "deepseek/deepseek-chat-v3-0324",
   forge_model: "deepseek/deepseek-chat-v3-0324",
   fallback_model: "google/gemini-2.0-flash-001",
+  image_model: "google/gemini-2.5-flash-image",
   context_memories_k: 6,
   reflection_cadence: 10,
   history_window: 3,
