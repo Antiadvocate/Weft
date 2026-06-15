@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Download } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { getApiKey, setApiKey } from "../config";
 
@@ -44,6 +44,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [saved, setSaved] = useState(false);
   const [orKey, setOrKey] = useState(getApiKey());
   const [keySaved, setKeySaved] = useState(false);
+  const [rescueText, setRescueText] = useState<string | null>(null);
   const [bibleSaved, setBibleSaved] = useState(false);
   const [bible, setBible] = useState({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
@@ -197,13 +198,72 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);
-        const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-        const a = document.createElement("a");
-        a.href = url; a.download = `${name}.weft.json`; a.click();
-        URL.revokeObjectURL(url);
+        const filename = `${name}.weft.json`;
+        // 1) iOS/modern: native share sheet with a real file (Save to Files, AirDrop, Messages…)
+        try {
+          const file = new File([json], filename, { type: "application/json" });
+          const nav = navigator as any;
+          if (nav.canShare && nav.canShare({ files: [file] })) {
+            await nav.share({ files: [file], title: filename });
+            return;
+          }
+        } catch (e: any) { if (e?.name === "AbortError") return; /* user cancelled */ }
+        // 2) desktop: classic download
+        try {
+          const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+          const a = document.createElement("a");
+          a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+          a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+          return;
+        } catch { /* fall through */ }
+        // 3) last resort: clipboard (paste into Notes/email; Import accepts pasted text)
+        try { await navigator.clipboard.writeText(json); alert("Couldn't open a download here, so your save was copied to the clipboard. Paste it into Notes or email to keep it — you can re-import it later."); }
+        catch { alert("Export failed on this browser. Try Copy save instead."); }
       }}>
-        <Download size={14} /> Export save (.weft.json)
+        <Download size={14} /> Export save (share / download)
       </button>
+
+      <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
+        const { json } = await api.exportSave(save.id);
+        try { await navigator.clipboard.writeText(json); alert("Save copied to clipboard. Paste it somewhere safe (Notes, email). Re-import it later via Library → paste."); }
+        catch {
+          // clipboard blocked: drop the text into a prompt so it can be selected/copied manually
+          window.prompt("Select all and copy your save:", json.slice(0, 100000));
+        }
+      }}>
+        <Copy size={14} /> Copy save as text
+      </button>
+
+      <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
+        const { json } = await api.exportSave(save.id);
+        setRescueText(json);
+      }}>
+        <Copy size={14} /> Show save text (manual backup)
+      </button>
+
+      {rescueText !== null && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
+            <div className="font-display text-[16px]">Your save — back it up</div>
+            <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+              Tap and hold the text below → Select All → Copy. Paste into Notes or email. To restore later: Library → Paste a chronicle.
+            </div>
+            <div className="flex gap-2 mt-2.5">
+              <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
+                try { await navigator.clipboard.writeText(rescueText); alert("Copied to clipboard."); }
+                catch { alert("Couldn't auto-copy — long-press the text and choose Select All → Copy."); }
+              }}>Try auto-copy</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setRescueText(null)}>Done</button>
+            </div>
+          </div>
+          <textarea
+            readOnly
+            value={rescueText}
+            onFocus={(e) => e.currentTarget.select()}
+            style={{ flex: 1, width: "100%", background: "var(--ink-1)", color: "var(--text-mid)", border: "none", padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.5, WebkitUserSelect: "text", userSelect: "text" }}
+          />
+        </div>
+      )}
 
       <button className="btn btn-accent w-full" style={{ height: 48 }} onClick={commit}>
         {saved ? <><Check size={15} /> woven in</> : "Save tuning"}

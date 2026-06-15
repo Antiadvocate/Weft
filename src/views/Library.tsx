@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Hammer, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
+import { ClipboardPaste, Hammer, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
 import { api, type ClientSave, type PresetInfo, type SaveListing } from "../lib/api";
 
 export default function Library({ onOpen, onForge, onCreated }: {
@@ -90,6 +90,24 @@ export default function Library({ onOpen, onForge, onCreated }: {
           </div>
           <input ref={fileRef} type="file" accept=".json,application/json" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ""; }} />
+        </motion.div>
+
+        <motion.div className="card card-press p-4 flex items-center gap-3"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.23, duration: 0.3 }}
+          onClick={async () => {
+            let text = "";
+            try { text = await navigator.clipboard.readText(); } catch { /* will prompt */ }
+            if (!text) text = window.prompt("Paste your saved chronicle text here:") ?? "";
+            if (!text.trim()) return;
+            try { onCreated(await api.importSave(JSON.parse(text))); }
+            catch (e: any) { alert(`Import failed: ${e.message}`); }
+          }}>
+          <ClipboardPaste size={17} style={{ color: "var(--text-mid)" }} />
+          <div>
+            <div className="font-display text-[15px]">Paste a chronicle</div>
+            <div className="text-[12.5px]" style={{ color: "var(--text-mid)" }}>Restore from save text you copied (handy on phones).</div>
+          </div>
         </motion.div>
 
         <motion.div className="card card-press p-4 flex items-center gap-3"
