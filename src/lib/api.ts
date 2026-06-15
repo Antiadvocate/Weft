@@ -87,6 +87,43 @@ export const api = {
     return clientView(s);
   },
 
+  /** Full raw edit of one character: identity, condition, acquired traits, memory.
+   *  Accepts the same shape getCharacterRaw returns. Validates types; missing keys are left as-is. */
+  rawEditCharacter: async (id: string, char_id: string, raw: any): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!s.characters[char_id]) throw new Error("unknown character");
+    if (raw && typeof raw === "object") {
+      if (raw.identity && typeof raw.identity === "object") {
+        s.characters[char_id] = { ...s.characters[char_id], ...raw.identity, character_id: char_id };
+      }
+      if (raw.condition && typeof raw.condition === "object") {
+        s.condition[char_id] = { ...s.condition[char_id], ...raw.condition };
+        s.condition[char_id].psyche = { ...s.condition[char_id].psyche, ...(raw.condition.psyche ?? {}) };
+      }
+      if (Array.isArray(raw.traits)) s.traits[char_id] = raw.traits;
+      if (raw.memory && typeof raw.memory === "object") {
+        const m = s.memory[char_id];
+        if (Array.isArray(raw.memory.core)) m.core = raw.memory.core.filter(Boolean);
+        if (Array.isArray(raw.memory.beliefs)) m.beliefs = raw.memory.beliefs;
+        if (Array.isArray(raw.memory.episodic)) m.episodic = raw.memory.episodic;
+        if (Array.isArray(raw.memory.knows)) m.knows = raw.memory.knows;
+      }
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** The editable slice of one character, for the raw editor. */
+  getCharacterRaw: async (id: string, char_id: string): Promise<any> => {
+    const s = await need(id);
+    return {
+      identity: s.characters[char_id],
+      condition: s.condition[char_id],
+      traits: s.traits[char_id] ?? [],
+      memory: s.memory[char_id],
+    };
+  },
+
   setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
