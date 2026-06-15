@@ -108,6 +108,43 @@ function describeOpenness(c: Condition): string {
   return seeing;
 }
 
+/** Live-derived voice: the stored speech_pattern is the baseline, but how a character
+ *  ACTUALLY speaks this turn bends with who they've become (strong acquired traits),
+ *  their age, their present openness/mood, and — crucially — their relationship to whoever
+ *  they're addressing. Nothing here rewrites the stored field; it's composed fresh each turn. */
+function ageBand(age: number): string {
+  if (age <= 12) return "a child's plain, direct cadence";
+  if (age <= 19) return "a teenager's slangy, testing cadence";
+  if (age >= 75) return "an elder's measured, sometimes circling cadence";
+  if (age >= 55) return "an older adult's settled, unhurried cadence";
+  return "";
+}
+export function deriveVoice(
+  ident: Identity, cond: Condition,
+  traits: { label: string; intensity: number; behavioral_impact: string }[],
+  addresseeEdge?: { warmth: number; trust: number },
+): string {
+  const parts: string[] = [ident.speech_pattern];
+  const band = ageBand(ident.age);
+  if (band) parts.push(band);
+  // strong acquired traits color the voice (intensity ≥ 5), strongest first
+  const strong = [...traits].filter((t) => t.intensity >= 5).sort((a, b) => b.intensity - a.intensity).slice(0, 2);
+  for (const t of strong) parts.push(`speech now carries: ${t.label}`);
+  // present openness/mood
+  const rel = cond.psyche.relaxation;
+  if (rel <= -7) parts.push("right now: clipped, guarded, or barbed — they are clenched");
+  else if (rel >= 6) parts.push("right now: easier, more open and warm than usual");
+  // relationship to the person being addressed
+  if (addresseeEdge) {
+    const { warmth, trust } = addresseeEdge;
+    if (warmth >= 40) parts.push("to THIS person: warm, familiar, softer register");
+    else if (warmth <= -30) parts.push("to THIS person: cold, hostile, or cutting");
+    else if (warmth <= -10) parts.push("to THIS person: wary, distant");
+    if (trust <= -40) parts.push("guarded — they do not trust this listener");
+  }
+  return parts.filter(Boolean).join("; ");
+}
+
 export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[]): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${x.intensity.toFixed(0)}) — ${x.behavioral_impact}`).join("; ")}.` : "";
   const inj = cond.injuries.length ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
@@ -154,6 +191,8 @@ export function volatileDigest(state: SaveState, query: string): string {
       if (ident.current_goal) lines.push(`  wants now: ${ident.current_goal}`);
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
+      const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");
+      lines.push(`  voice now: ${deriveVoice(ident, cond, traits, pedgeForVoice)}`);
       const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
       if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");

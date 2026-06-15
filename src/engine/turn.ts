@@ -14,7 +14,7 @@ import { decidePressure, pressureDirective } from "./pressure";
 import { NARRATOR_SYSTEM, SIMULATOR_SYSTEM, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
-import { applyEdgeDelta, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
+import { applyEdgeDelta, consolidateTraits, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection } from "./memory";
 import { tickUndertow } from "./undertow";
@@ -141,6 +141,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const { kept, log } = decayTraits(state.traits[id] ?? [], turn);
     state.traits[id] = kept;
     offscreenLog.push(...log.map((l) => `${state.characters[id].name}: ${l}`));
+    // earned identity change: only on the reflection cadence, never per-turn
+    if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn)) {
+      const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+      state.traits[id] = ck;
+      for (const l of clog) { offscreenLog.push(l); shifts.push(l); }
+    }
   }
   for (const id of Object.keys(state.condition)) {
     const ps = state.condition[id].psyche;

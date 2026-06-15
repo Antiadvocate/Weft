@@ -16,7 +16,7 @@
  */
 import type { SaveState, TurnTelemetry } from "./types";
 import { advance } from "./time";
-import { decayTraits, diffuseRumors, tickDrives } from "./social";
+import { consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
 import { regenerateDrives } from "./drives";
 import { tickUndertow } from "./undertow";
 import { addCondition } from "./turn";
@@ -79,11 +79,16 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
     }
   }
 
-  // traits fade with disuse
+  // traits fade with disuse, and long stretches can consolidate deeply-held ones into identity
   for (const id of Object.keys(state.traits)) {
     const { kept, log } = decayTraits(state.traits[id] ?? [], turn + Math.ceil(days / 2));
     state.traits[id] = kept;
     report.traits_faded.push(...log.map((l) => `${state.characters[id]?.name}: ${l}`));
+    if (state.characters[id]) {
+      const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+      state.traits[id] = ck;
+      report.traits_faded.push(...clog);
+    }
   }
 
   // faction clocks fill on their own schedule: one segment per ~2 days
