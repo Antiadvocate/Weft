@@ -76,7 +76,6 @@ export function CuspGlyph({ a, b, x, size = 86 }: { a: number; b: number; x: num
     right.push(`${px(bb).toFixed(1)},${py(av).toFixed(1)}`);
   }
   const wedge = `M${left.join(" L")} L${right.reverse().join(" L")} Z`;
-  const inWedge = -4 * a ** 3 - 27 * b ** 2 > 0;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
       <rect x={0} y={0} width={w} height={h} rx={8} fill="var(--ink-1)" stroke="var(--line)" />
@@ -84,9 +83,6 @@ export function CuspGlyph({ a, b, x, size = 86 }: { a: number; b: number; x: num
       <line x1={px(0)} x2={px(0)} y1={2} y2={h - 2} stroke="var(--line)" strokeDasharray="2 3" />
       <circle cx={px(b)} cy={py(a)} r={3.4}
         fill={x >= 0 ? "var(--calm)" : "var(--danger)"} stroke="var(--ink-0)" strokeWidth={1} />
-      <text x={4} y={h - 4} fontSize={6.5} fontFamily="var(--font-mono)" fill="var(--text-lo)">
-        {inWedge ? "under real strain — two selves possible" : "settled — one self, homing to their set point"}
-      </text>
     </svg>
   );
 }

@@ -195,7 +195,10 @@ export const api = {
   /** export returns the full SaveState as a pretty JSON string for download */
   exportSave: async (id: string): Promise<{ name: string; json: string }> => {
     const s = await need(id);
-    return { name: s.name.replace(/[^a-z0-9 _-]/gi, ""), json: JSON.stringify(s, null, 1) };
+    // snapshots are device-local rollback state (and the biggest payload — full copies × image data).
+    // They don't belong in a portable backup; strip them so exports stay small and share/copy reliably.
+    const { snapshots, ...portable } = s;
+    return { name: s.name.replace(/[^a-z0-9 _-]/gi, ""), json: JSON.stringify(portable, null, 1) };
   },
 
   importSave: async (data: any): Promise<ClientSave> => {
