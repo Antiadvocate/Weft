@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ModelPicker } from "./ModelPicker";
-import { Check, Copy, Download } from "lucide-react";
+import { Braces, Check, Copy, Download } from "lucide-react";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { getApiKey, setApiKey } from "../config";
 
@@ -46,6 +46,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [orKey, setOrKey] = useState(getApiKey());
   const [keySaved, setKeySaved] = useState(false);
   const [rescueText, setRescueText] = useState<string | null>(null);
+  const [worldJson, setWorldJson] = useState<string | null>(null);
+  const [worldErr, setWorldErr] = useState("");
   const [bibleSaved, setBibleSaved] = useState(false);
   const [bible, setBible] = useState({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
@@ -204,7 +206,36 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <button className="btn w-full mt-3" onClick={commitBible}>
           {bibleSaved ? <><Check size={14} /> rewoven</> : "Rewrite the bible"}
         </button>
+        <button className="btn btn-ghost w-full mt-2" onClick={async () => {
+          setWorldErr(""); const raw = await api.getWorldRaw(save.id); setWorldJson(JSON.stringify(raw, null, 2));
+        }}>
+          <Braces size={14} /> Raw world edit (full JSON)
+        </button>
+        <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
+          Edit the world directly — bible, threads, faction clocks, places, edges, canon. Handy at turn 1 to fix anything the forge over-baked.
+        </div>
       </div>
+
+      {worldJson !== null && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 95, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
+            <div className="font-display text-[16px]">Raw world edit</div>
+            <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+              World bible, threads, clocks, places, edges, canon. Delete a clock you don't want, retune the bible, fix the opening. Save writes it straight to the world.
+            </div>
+            {worldErr && <div className="text-[12px] mt-1.5 px-2 py-1 rounded" style={{ color: "var(--danger)", background: "rgba(200,60,60,.12)" }}>{worldErr}</div>}
+            <div className="flex gap-2 mt-2.5">
+              <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
+                try { const parsed = JSON.parse(worldJson); setSave(await api.rawEditWorld(save.id, parsed)); setWorldJson(null); setWorldErr(""); }
+                catch (e) { const m = e instanceof Error ? e.message : String(e); setWorldErr(m.includes("JSON") ? "Invalid JSON — check brackets and commas." : m); }
+              }}>Save world</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setWorldJson(null); setWorldErr(""); }}>Cancel</button>
+            </div>
+          </div>
+          <textarea value={worldJson} onChange={(e) => setWorldJson(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off"
+            style={{ flex: 1, width: "100%", background: "var(--ink-1)", color: "var(--text-mid)", border: "none", padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.5 }} />
+        </div>
+      )}
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);

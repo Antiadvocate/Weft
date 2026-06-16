@@ -163,6 +163,34 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         </Fade>
       )}
       <Fade delay={0}>
+        <div className="card p-4">
+          <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>Token usage — this chronicle</div>
+          {(() => {
+            const inTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.simulator_tokens_in, 0);
+            const outTok = tel.reduce((a, t) => a + t.narrator_tokens_out + t.simulator_tokens_out, 0);
+            const narrTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.narrator_tokens_out, 0);
+            const perTurn = Math.round(stats.tokens / Math.max(stats.turns, 1));
+            const nm = save.model_settings.narrator_model;
+            const pricey = /opus|gpt-5(\.5)?\b|gpt-image|sonnet-4\.[5-9]|\bpro\b/i.test(nm);
+            return (
+              <>
+                <div className="flex justify-between text-[13px] py-0.5"><span style={{ color: "var(--text-mid)" }}>Input tokens</span><span className="font-mono">{inTok.toLocaleString()}</span></div>
+                <div className="flex justify-between text-[13px] py-0.5"><span style={{ color: "var(--text-mid)" }}>Output tokens</span><span className="font-mono">{outTok.toLocaleString()}</span></div>
+                <div className="flex justify-between text-[13px] py-0.5" style={{ borderTop: "1px solid var(--line)", marginTop: 4, paddingTop: 6 }}><span>Total</span><span className="font-mono">{stats.tokens.toLocaleString()}</span></div>
+                <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--text-lo)" }}>per turn (avg)</span><span className="font-mono" style={{ color: "var(--text-lo)" }}>{perTurn.toLocaleString()}</span></div>
+                <div className="text-[11px] mt-2.5 leading-relaxed" style={{ color: pricey ? "var(--danger)" : "var(--text-lo)" }}>
+                  Narrator: <span className="font-mono">{nm}</span> — runs every turn ({narrTok.toLocaleString()} tokens, {Math.round(narrTok / Math.max(stats.tokens, 1) * 100)}% of all usage).
+                  {pricey ? " This is a premium model; cost adds up fast at this volume. A cheaper narrator in Tuning cuts most of the spend." : ""}
+                </div>
+                <div className="text-[10.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+                  See live billing at openrouter.ai/activity — Weft tracks token counts, not prices.
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </Fade>
+      <Fade delay={0.05}>
         <div className="grid grid-cols-2 gap-2.5">
           <Stat label="Turns" value={String(stats.turns)} sub={save.world.current_time} />
           <Stat label="Words lived" value={stats.words.toLocaleString()} sub={`${Math.round(stats.words / Math.max(stats.turns, 1))}/turn`} />
