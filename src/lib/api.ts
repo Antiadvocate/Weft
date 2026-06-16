@@ -124,6 +124,53 @@ export const api = {
     };
   },
 
+  /** The editable world slice for the raw world editor (no per-character data — use the character editor for that). */
+  getWorldRaw: async (id: string): Promise<any> => {
+    const s = await need(id);
+    return {
+      world_bible: s.world_bible,
+      threads: s.world.threads,
+      clocks: s.world.clocks,
+      norms: s.world.norms,
+      canon: s.world.canon,
+      edges: s.world.edges,
+      places: s.world.places,
+      weather: s.world.weather,
+      player_location: s.world.player_location,
+      money: s.world.money,
+    };
+  },
+
+  /** Full raw edit of the world. Validates types; missing keys are left untouched. Re-derives presence. */
+  rawEditWorld: async (id: string, raw: any): Promise<ClientSave> => {
+    const s = await need(id);
+    if (raw && typeof raw === "object") {
+      if (raw.world_bible && typeof raw.world_bible === "object") s.world_bible = { ...s.world_bible, ...raw.world_bible };
+      if (Array.isArray(raw.threads)) s.world.threads = raw.threads;
+      if (Array.isArray(raw.clocks)) s.world.clocks = raw.clocks;
+      if (Array.isArray(raw.norms)) s.world.norms = raw.norms;
+      if (Array.isArray(raw.canon)) s.world.canon = raw.canon.map(String).filter(Boolean).slice(0, 20);
+      if (Array.isArray(raw.edges)) s.world.edges = raw.edges;
+      if (raw.places && typeof raw.places === "object") s.world.places = raw.places;
+      if (typeof raw.weather === "string") s.world.weather = raw.weather;
+      if (typeof raw.money === "string") s.world.money = raw.money;
+      if (typeof raw.player_location === "string") {
+        s.world.player_location = raw.player_location;
+        if (s.characters["char_player"]) s.characters["char_player"].location = raw.player_location;
+      }
+      // re-derive room occupancy + scene from locations after any places/location change
+      for (const p of Object.values(s.world.places)) p.contains = [];
+      for (const [cid, c] of Object.entries(s.characters)) {
+        if (c.location && s.world.places[c.location]) s.world.places[c.location].contains.push(cid);
+      }
+      s.world.present = Object.entries(s.characters)
+        .filter(([cid, c]) => cid !== "char_player" && c.location === s.world.player_location)
+        .map(([cid]) => cid);
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
   setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
