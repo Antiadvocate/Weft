@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
+import { RelationshipWeb } from "./RelationshipWeb";
 import { nice } from "../lib/format";
 
 export default function World({ save }: { save: ClientSave }) {
@@ -49,6 +50,10 @@ export default function World({ save }: { save: ClientSave }) {
           )}
         </Block>
       )}
+      <Block title="The web" delay={0.03}>
+        <RelationshipWeb save={save} />
+      </Block>
+
       <Block title="Threads" delay={0.04}>
         {activeThreads.length === 0 && <Empty>Nothing pulling at the weave yet.</Empty>}
         {activeThreads.map((t) => (

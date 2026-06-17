@@ -261,6 +261,25 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
       </div>
 
+      {/* who's in the scene with you */}
+      {save.world.present.length > 0 && (
+        <div className="px-4 pt-1 pb-0.5 flex items-center gap-1.5 flex-wrap">
+          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>here:</span>
+          {save.world.present.map((pid) => {
+            const ch = save.characters[pid];
+            if (!ch) return null;
+            return (
+              <span key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                style={{ background: "var(--ink-2)", fontSize: 11.5 }}>
+                {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                {ch.name}
+              </span>
+            );
+          })}
+          <span className="font-mono text-[9px]" style={{ color: "var(--text-lo)" }}>· {save.world.places[save.world.player_location]?.name ?? ""}</span>
+        </div>
+      )}
+
       {/* composer */}
       <div className="px-4 pb-2.5 pt-1">
         <div className="flex items-end gap-2">
