@@ -453,14 +453,19 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     shifts.push(`${nameOf(id)} is changed — the world will describe them as they are now.`);
   }
 
+  // group drives_update by character; highest priority becomes active, rest become the queue (max 2)
+  const drivesByChar = new Map<string, typeof diff.drives_update>();
   for (const du of diff.drives_update ?? []) {
     const id = resolveId(state, du.char_id); if (!id || id === "char_player" || !du.goal) continue;
-    state.characters[id].drive = {
-      goal: du.goal, progress: clamp(du.progress ?? 0, 0, 100),
-      blocker: du.blocker, updated_turn: turn,
-    };
+    (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
+  }
+  for (const [id, dus] of drivesByChar) {
+    const sorted = [...dus].sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1));
+    const mk = (d: typeof sorted[number]) => ({ goal: d.goal, progress: clamp(d.progress ?? 0, 0, 100), blocker: d.blocker, priority: d.priority ?? 1, updated_turn: turn });
+    state.characters[id].drive = mk(sorted[0]);
+    if (sorted.length > 1) state.characters[id].drive_queue = sorted.slice(1, 3).map(mk);
     state.characters[id].tracked = true;
-    if (!du.progress) shifts.push(`${nameOf(id)} wants something new: ${du.goal}.`);
+    if (!sorted[0].progress) shifts.push(`${nameOf(id)} wants something new: ${sorted[0].goal}.`);
   }
 
   // the narrator can promote characters into the long game

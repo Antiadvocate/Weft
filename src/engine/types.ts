@@ -91,6 +91,7 @@ export interface NPCDrive {
   goal: string;
   progress: number;          // 0–100
   blocker?: string;
+  priority?: number;         // higher = more important; ties broken by progress. default 1
   updated_turn: number;
 }
 
@@ -108,7 +109,8 @@ export interface Identity {
   gregariousness: number;    // 0–1, drives rumor spread + social initiative
   current_goal?: string;
   current_activity?: string;
-  drive?: NPCDrive;
+  drive?: NPCDrive;           // the ACTIVE pursuit
+  drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
@@ -311,7 +313,7 @@ export interface SimulatorDiff {
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change — replaces appearance_facts
-  drives_update: { char_id: string; goal: string; progress?: number; blocker?: string }[]; // new or revised offscreen want
+  drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
   consequences_new: { description: string; fire_in_turns: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];

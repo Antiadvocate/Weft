@@ -15,7 +15,7 @@ import type { Identity, SaveState } from "./types";
 const pick = <T,>(xs: T[], rng: () => number): T => xs[Math.floor(rng() * xs.length)];
 
 /** Build a fresh drive for a character from their relational + narrative context. */
-export function seedDrive(state: SaveState, id: string, rng: () => number = Math.random): { goal: string; progress: number; updated_turn: number } | null {
+export function seedDrive(state: SaveState, id: string, rng: () => number = Math.random): { goal: string; progress: number; priority: number; updated_turn: number } | null {
   const c = state.characters[id];
   if (!c) return null;
   const turn = state.world.current_turn;
@@ -72,7 +72,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   if (!candidates.length) return null;
   // weight toward the front (relational/thread goals) but keep it stochastic
   const idx = Math.min(candidates.length - 1, Math.floor((rng() ** 1.7) * candidates.length));
-  return { goal: candidates[idx], progress: 0, updated_turn: turn };
+  return { goal: candidates[idx], progress: 0, priority: 1, updated_turn: turn };
 }
 
 /** Ensure every TRACKED, offscreen, idle character has a want. Returns world-motion lines. */
@@ -80,12 +80,42 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
   const log: string[] = [];
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || !c.tracked) continue;
-    if (c.drive && c.drive.progress < 100) continue;       // already wanting something
     if (state.world.present.includes(id)) continue;        // in-scene; the narrator drives them
+
+    const active = c.drive;
+    const queue = (c.drive_queue ??= []);
+
+    // PROMOTION — a person doesn't stay glued to one stalled aim. If the active drive
+    // is complete, hard-blocked, or has sat without progress, and a higher- or equal-priority
+    // backup exists, switch to it and shelve the current one. This is what lets them disengage
+    // from a quiet thread and go pursue something else instead of hovering near the player.
+    if (active && queue.length) {
+      const stalled = active.progress >= 100 || !!active.blocker || (state.world.current_turn - active.updated_turn) >= 4;
+      if (stalled) {
+        // pick the best backup by priority then freshness
+        queue.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1) || (b.updated_turn - a.updated_turn));
+        const next = queue.shift()!;
+        if (active.progress < 100) { // keep the unfinished one as a backup, lowered
+          active.priority = Math.max(0, (active.priority ?? 1) - 1);
+          queue.push(active);
+        }
+        c.drive = { ...next, updated_turn: state.world.current_turn };
+        log.push(`${c.name} sets aside "${active.goal}" and turns to: ${next.goal}.`);
+        continue;
+      }
+    }
+
+    if (active && active.progress < 100) continue;          // still actively wanting something
+    // nothing active (or it just completed and queue empty) — seed a fresh want
     const seeded = seedDrive(state, id, rng);
     if (!seeded) continue;
     c.drive = seeded;
     log.push(`${c.name} turns to something new: ${seeded.goal}.`);
+    // occasionally give them a second, lower-priority aim so they have somewhere to go next
+    if (queue.length < 2 && rng() < 0.5) {
+      const backup = seedDrive(state, id, rng);
+      if (backup && backup.goal !== seeded.goal) queue.push({ ...backup, priority: 0 });
+    }
   }
   return log;
 }
