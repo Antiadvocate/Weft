@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CornerDownLeft, Image as ImageIcon, Moon, RotateCcw, X } from "lucide-react";
+import { CornerDownLeft, Crosshair, Image as ImageIcon, Moon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, type ActionMode, type ClientSave } from "../lib/api";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -281,6 +281,29 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           <span className="font-mono text-[9px]" style={{ color: "var(--text-lo)" }}>· {save.world.places[save.world.player_location]?.name ?? ""}</span>
         </div>
       )}
+
+      {/* focus / converge toggle */}
+      <div className="px-4 pb-1">
+        {save.world.focus_event ? (
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: "var(--accent-soft, rgba(180,140,90,.12))", border: "1px solid var(--accent-glow, rgba(180,140,90,.3))" }}>
+            <Crosshair size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
+            <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-mid)" }}>converging on: {save.world.focus_event}</span>
+            <button onClick={async () => setSave(await api.setFocus(save.id, null))} className="shrink-0" title="release focus">
+              <X size={14} style={{ color: "var(--text-lo)" }} />
+            </button>
+          </div>
+        ) : (
+          <button className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-lo)" }}
+            onClick={async () => {
+              const hottest = [...save.world.threads].sort((a, b) => b.tension - a.tension)[0];
+              const suggest = save.world.consequences.find((c) => c.status === "pending")?.description || hottest?.title || "";
+              const ev = window.prompt("Drive toward which event? (the engine will stop throwing new chaos and let the motion carry toward it)", suggest);
+              if (ev && ev.trim()) setSave(await api.setFocus(save.id, ev.trim()));
+            }}>
+            <Crosshair size={12} /> focus on an event
+          </button>
+        )}
+      </div>
 
       {/* composer */}
       <div className="px-4 pb-2.5 pt-1">
