@@ -263,6 +263,18 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
       </div>
 
+      {/* the clock — tap to correct it when the bookkeeper drifts from the prose */}
+      <div className="px-4 pt-1.5 pb-0.5">
+        <button className="font-mono text-[10px] inline-flex items-center gap-1" style={{ color: "var(--text-lo)" }}
+          onClick={async () => {
+            const cur = save.world.current_time;
+            const next = window.prompt("Set the in-world time (e.g. \"Day 2, 08:00\" or \"Day 3, 14:30\"):", cur.replace(/\s*\(.*\)$/, ""));
+            if (next && next.trim() && next.trim() !== cur) setSave(await api.setTime(save.id, next.trim()));
+          }}>
+          🕐 {save.world.current_time}
+        </button>
+      </div>
+
       {/* who's in the scene with you */}
       {save.world.present.length > 0 && (
         <div className="px-4 pt-1 pb-0.5 flex items-center gap-1.5 flex-wrap">
@@ -284,10 +296,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* focus / converge toggle */}
       <div className="px-4 pb-1">
-        {save.world.focus_event ? (
+        {save.world.focus ? (
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: "var(--accent-soft, rgba(180,140,90,.12))", border: "1px solid var(--accent-glow, rgba(180,140,90,.3))" }}>
             <Crosshair size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
-            <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-mid)" }}>converging on: {save.world.focus_event}</span>
+            <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-mid)" }}>
+              {save.world.focus.mode === "active" ? "in:" : "converging on:"} {save.world.focus.label}
+            </span>
             <button onClick={async () => setSave(await api.setFocus(save.id, null))} className="shrink-0" title="release focus">
               <X size={14} style={{ color: "var(--text-lo)" }} />
             </button>
@@ -297,7 +311,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             onClick={async () => {
               const hottest = [...save.world.threads].sort((a, b) => b.tension - a.tension)[0];
               const suggest = save.world.consequences.find((c) => c.status === "pending")?.description || hottest?.title || "";
-              const ev = window.prompt("Drive toward which event? (the engine will stop throwing new chaos and let the motion carry toward it)", suggest);
+              const ev = window.prompt("Drive toward which event? The story will build toward it (no new chaos), then automatically shift into it when it arrives.", suggest);
               if (ev && ev.trim()) setSave(await api.setFocus(save.id, ev.trim()));
             }}>
             <Crosshair size={12} /> focus on an event
