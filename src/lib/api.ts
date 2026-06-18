@@ -10,7 +10,7 @@ import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
-import { FORGE_SYSTEM, buildPortraitPrompt, buildScenePrompt } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
 
@@ -23,6 +23,8 @@ export type ActionMode = "do" | "say" | "story";
 
 export interface PresetInfo { id: string; name: string; blurb: string; era_theme: string }
 export interface SaveListing { id: string; name: string; updated_at: string; turn: number; world_name: string }
+
+const clampNum = (v: any, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number(v) || 0));
 
 function clientView(s: SaveState): ClientSave {
   const { snapshots, ...rest } = s;
@@ -47,6 +49,125 @@ export const api = {
   },
 
   remove: async (id: string) => { await dbDelete(id); return { ok: true }; },
+
+  /** Generate (or regenerate) the opening scene prose — the moment before turn 1. Stored as a kind:"opening" history entry. */
+  generateOpening: async (id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const hint = (s.world.places[s.world.player_location]?.name ?? "") + ". " +
+      Object.values(s.characters).filter((c) => c.character_id !== "char_player" && s.world.present.includes(c.character_id)).map((c) => c.name).join(", ");
+    const msgs = buildMessages(OPENING_SYSTEM, stablePrefix(s), volatileDigest(s, "opening scene where the player arrives") + `\n\nWrite the opening scene now. Present: ${hint || "as the state dictates"}.`, s.model_settings.narrator_model);
+    const out = await complete(msgs, s.model_settings.narrator_model, s.model_settings.fallback_model, false, 1200);
+    const entry: TurnHistoryEntry = {
+      turn: 0, kind: "opening", player_action: "", narrator_prose: out.text.trim(),
+      summary: "The opening.", offscreen: [], time_label: s.world.current_time, weather: s.world.weather,
+    };
+    s.history = [entry, ...s.history.filter((h) => h.kind !== "opening")];
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Save a hand-edited opening scene. */
+  setOpening: async (id: string, prose: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const rest = s.history.filter((h) => h.kind !== "opening");
+    if (prose.trim()) {
+      const entry: TurnHistoryEntry = {
+        turn: 0, kind: "opening", player_action: "", narrator_prose: prose.trim(),
+        summary: "The opening.", offscreen: [], time_label: s.world.current_time, weather: s.world.weather,
+      };
+      s.history = [entry, ...rest];
+    } else {
+      s.history = rest;
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Fork a long save into a NEW chapter: distill current world-state to a fresh start,
+   *  carry forward evolved cast + relationships as background, open with a RECAP after a time skip. */
+  forkNewSeason: async (id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    // build a compact digest of the story so far for the model
+    const cast = Object.entries(s.characters).filter(([cid, c]) => cid !== "char_player" && c.status !== "dead" && c.status !== "departed").map(([cid, c]) => {
+      const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
+      const traits = [...(c.core_traits ?? []), ...((s.traits[cid] ?? []).map((t) => t.label))];
+      return `${c.name} (${traits.slice(0, 6).join(", ")})${edge ? ` — toward you: warmth ${edge.warmth}, trust ${edge.trust}` : ""}; ${c.drive?.goal ? `wants: ${c.drive.goal}` : ""}`;
+    }).join("\n");
+    const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-12).map((h) => h.summary).filter(Boolean).join(" → ");
+    const player = s.characters["char_player"];
+    const digest = [
+      `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
+      s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION (honor it): ${s.world_bible.narrator_direction}` : "",
+      `PLAYER: ${player?.name}. ${player?.background ?? ""}`,
+      `CAST:\n${cast}`,
+      `CANON: ${(s.world.canon ?? []).join(" | ")}`,
+      `OPEN THREADS: ${s.world.threads.map((t) => t.title).join("; ")}`,
+      `RECENT EVENTS: ${recentBeats}`,
+      `Turns played: ${s.world.current_turn}.`,
+    ].filter(Boolean).join("\n\n");
+
+    const msgs = buildMessages(NEWSEASON_SYSTEM, "A finished playthrough to carry into a new chapter:", digest, s.model_settings.forge_model);
+    const out = await complete(msgs, s.model_settings.forge_model, s.model_settings.fallback_model, true, 4000);
+    const g = safeJson<any>(out.text, null);
+    if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't distill a new chapter — try again, or use a stronger forge model.");
+
+    // build the fresh save from the distilled bible (keep most of the original bible, overlay the updates)
+    const bible: WorldBible = {
+      ...s.world_bible,
+      ...(g.world_bible ?? {}),
+      name: g.world_bible?.name || `${s.world_bible.name} — Next Chapter`,
+    };
+    const ns = newSave(bible.name, bible);
+    // player carries forward, with their journey folded in
+    registerCharacter(ns, {
+      ...player, character_id: "char_player",
+      background: `${player?.background ?? ""} ${g.player?.background_addition ?? ""}`.trim(),
+      drive: undefined, drive_queue: [],
+    });
+    ns.memory["char_player"].core = s.memory["char_player"].core.slice(-3);
+
+    // place
+    const lid = uid("loc");
+    ns.world.places[lid] = { id: lid, name: g.starting_location_name || "a new place", description_facts: "", contains: [] };
+    ns.world.player_location = lid;
+    ns.characters["char_player"].location = lid;
+
+    // surviving cast, with evolved background + relationships baked in
+    for (const c of (g.cast ?? [])) {
+      if (c.still_present === false || !c.name) continue;
+      const prev = Object.values(s.characters).find((x) => x.name.toLowerCase() === c.name.toLowerCase());
+      const cid = registerCharacter(ns, {
+        name: c.name,
+        age: prev?.age ?? 30,
+        appearance_facts: prev?.appearance_facts ?? "",
+        background: `${prev?.background ?? ""} ${c.background_addition ?? ""}`.trim(),
+        core_traits: prev?.core_traits ?? [],
+        values: prev?.values ?? [],
+        speech_pattern: prev?.speech_pattern ?? "plain",
+        portrait_url: prev?.portrait_url,
+        tracked: true,
+        location: lid,
+        drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
+      });
+      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, notes: "carried from the last chapter", updated_turn: 1 });
+      ns.memory[cid].core = [`${c.background_addition ?? ""}`].filter(Boolean);
+    }
+    // carry canon forward (the world-altering facts still happened)
+    ns.world.canon = [...(s.world.canon ?? [])].slice(-12);
+    // new threads
+    for (const t of (g.threads ?? [])) {
+      if (!t.title) continue;
+      ns.world.threads.push({ id: uid("thr"), title: t.title, status: "active", description: t.description ?? "", turn_started: 1, tension: clampNum(t.tension ?? 3, 1, 10) });
+    }
+    // time + opening
+    ns.world.weather = "";
+    syncPresence(ns);
+    const recapText = `RECAP: ${g.recap}${g.time_skip ? `\n\n${g.time_skip}.` : ""}\n\n${g.opening_scene}`;
+    ns.history = [{ turn: 0, kind: "opening", player_action: "", narrator_prose: recapText, summary: "A new chapter begins.", offscreen: [], time_label: ns.world.current_time, weather: "" }];
+
+    await putSave(ns);
+    return clientView(ns);
+  },
 
   rollback: async (id: string, to_turn: number): Promise<ClientSave> => {
     const s = await need(id);
