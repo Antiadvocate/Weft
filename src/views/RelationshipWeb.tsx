@@ -5,7 +5,7 @@ import type { ClientSave } from "../lib/api";
  *  (green warm ↔ red hostile), thickness by strength. Tap a node to focus its ties. */
 export function RelationshipWeb({ save }: { save: ClientSave }) {
   const [focus, setFocus] = useState<string | null>(null);
-  const ids = Object.keys(save.characters);
+  const ids = Object.keys(save.characters).filter((id) => { const st = save.characters[id]?.status; return st !== "dead" && st !== "departed"; });
   if (ids.length < 2) return null;
 
   const others = ids.filter((id) => id !== "char_player");

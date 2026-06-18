@@ -48,6 +48,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [rescueText, setRescueText] = useState<string | null>(null);
   const [worldJson, setWorldJson] = useState<string | null>(null);
   const [worldErr, setWorldErr] = useState("");
+  const [openingText, setOpeningText] = useState<string | null>(null);
+  const [openingBusy, setOpeningBusy] = useState(false);
   const [bibleSaved, setBibleSaved] = useState(false);
   const [bible, setBible] = useState({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
@@ -236,6 +238,33 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             style={{ flex: 1, width: "100%", background: "var(--ink-1)", color: "var(--text-mid)", border: "none", padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.5 }} />
         </div>
       )}
+
+      <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Opening scene</div>
+        <div className="text-[12px] mb-2" style={{ color: "var(--text-mid)" }}>The scene you start in, before turn 1. Generate one, edit it, or clear it.</div>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost flex-1" disabled={openingBusy} onClick={async () => {
+            setOpeningBusy(true);
+            try { const v = await api.generateOpening(save.id); setSave(v); const op = v.history.find((h: any) => h.kind === "opening"); setOpeningText(op?.narrator_prose ?? ""); }
+            catch (e: any) { alert(`Opening failed: ${e.message}`); }
+            finally { setOpeningBusy(false); }
+          }}>{openingBusy ? "writing…" : "Generate"}</button>
+          <button className="btn btn-ghost flex-1" onClick={() => {
+            const op = save.history.find((h: any) => h.kind === "opening");
+            setOpeningText(op?.narrator_prose ?? "");
+          }}>Edit</button>
+        </div>
+        {openingText !== null && (
+          <div className="mt-2">
+            <textarea className="field w-full" rows={6} value={openingText} onChange={(e) => setOpeningText(e.target.value)} style={{ fontSize: 13, lineHeight: 1.5 }} />
+            <div className="flex gap-2 mt-2">
+              <button className="btn btn-accent flex-1" onClick={async () => { setSave(await api.setOpening(save.id, openingText)); setOpeningText(null); }}>Save opening</button>
+              <button className="btn btn-ghost" onClick={async () => { setSave(await api.setOpening(save.id, "")); setOpeningText(null); }}>Clear</button>
+              <button className="btn btn-ghost" onClick={() => setOpeningText(null)}>Close</button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);

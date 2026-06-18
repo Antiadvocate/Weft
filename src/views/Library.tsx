@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardPaste, Hammer, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
+import { ClipboardPaste, Hammer, Sprout, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
 import { api, type ClientSave, type PresetInfo, type SaveListing } from "../lib/api";
 
 export default function Library({ onOpen, onForge, onCreated }: {
@@ -27,6 +27,13 @@ export default function Library({ onOpen, onForge, onCreated }: {
     setBusy(presetId);
     try { onCreated(await api.newFromPreset(presetId)); } finally { setBusy(null); }
   };
+  const [forking, setForking] = React.useState<string | null>(null);
+  const forkSeason = async (id: string) => {
+    setForking(id);
+    try { onCreated(await api.forkNewSeason(id)); }
+    catch (e: any) { alert(`New chapter failed: ${e.message}`); }
+    finally { setForking(null); }
+  };
   const remove = async (id: string) => {
     if (!confirm("Delete this chronicle? No rollback past this.")) return;
     await api.remove(id); refresh();
@@ -51,6 +58,10 @@ export default function Library({ onOpen, onForge, onCreated }: {
                     {s.world_name} · turn {s.turn} · {new Date(s.updated_at).toLocaleDateString()}
                   </div>
                 </div>
+                <button className="p-2" style={{ color: "var(--text-lo)" }} title="start a new chapter from this save"
+                  onClick={(e) => { e.stopPropagation(); forkSeason(s.id); }}>
+                  <Sprout size={15} style={{ color: forking === s.id ? "var(--accent)" : "var(--text-lo)" }} />
+                </button>
                 <button className="p-2" style={{ color: "var(--text-lo)" }}
                   onClick={(e) => { e.stopPropagation(); remove(s.id); }}>
                   <Trash2 size={15} />

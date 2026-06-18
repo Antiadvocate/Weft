@@ -16,6 +16,7 @@ function opennessLabel(r: number): string {
 export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
   const [sel, setSel] = useState<string | null>(null);
   const [showElsewhere, setShowElsewhere] = useState(true);
+  const [showGone, setShowGone] = useState(false);
   const [editing, setEditing] = useState(false);
   const [painting, setPainting] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
@@ -70,9 +71,11 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setPainting(false); }
   };
   const allIds = Object.keys(save.characters);
+  const gone = (id: string) => { const st = save.characters[id]?.status; return st === "dead" || st === "departed"; };
   const present = new Set(save.world.present);
-  const sceneIds = ["char_player", ...allIds.filter((id) => id !== "char_player" && present.has(id))];
-  const elsewhereIds = allIds.filter((id) => id !== "char_player" && !present.has(id));
+  const sceneIds = ["char_player", ...allIds.filter((id) => id !== "char_player" && present.has(id) && !gone(id))];
+  const elsewhereIds = allIds.filter((id) => id !== "char_player" && !present.has(id) && !gone(id));
+  const goneIds = allIds.filter((id) => id !== "char_player" && gone(id));
 
   const c = sel ? save.characters[sel] : null;
   const cond = sel ? save.condition[sel] : null;
@@ -149,6 +152,34 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                       </div>
                     )}
                   </motion.button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {goneIds.length > 0 && (
+        <>
+          <button className="font-mono text-[10px] uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5"
+            style={{ color: "var(--text-lo)" }} onClick={() => setShowGone((v) => !v)}>
+            <span style={{ display: "inline-block", transition: "transform .2s", transform: showGone ? "rotate(90deg)" : "none" }}>▸</span>
+            Gone ({goneIds.length})
+          </button>
+          {showGone && (
+            <div className="grid grid-cols-2 gap-2.5">
+              {goneIds.map((id) => {
+                const ch = save.characters[id];
+                return (
+                  <button key={id} className="card card-press p-3.5 text-left" style={{ opacity: 0.55 }} onClick={() => setSel(id)}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-6 h-6 rounded-md object-cover shrink-0 grayscale" style={{ border: "1px solid var(--line)" }} />}
+                      <div className="font-display text-[14.5px] truncate">{ch.name}</div>
+                    </div>
+                    <div className="font-mono text-[10px] mt-1" style={{ color: "var(--text-lo)" }}>
+                      {ch.status === "dead" ? "dead" : "gone"}{ch.exit_note ? ` · ${ch.exit_note}` : ""}
+                    </div>
+                  </button>
                 );
               })}
             </div>
