@@ -11,6 +11,7 @@ import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
+import { formatTime, parseTime } from "../engine/time";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
 
@@ -144,6 +145,7 @@ export const api = {
         core_traits: prev?.core_traits ?? [],
         values: prev?.values ?? [],
         speech_pattern: prev?.speech_pattern ?? "plain",
+        texture: prev?.texture ?? [],
         portrait_url: prev?.portrait_url,
         tracked: true,
         location: lid,
@@ -170,9 +172,32 @@ export const api = {
   },
 
   /** Set or clear the focus event — the "converge toward this, stop the chaos" toggle. */
-  setFocus: async (id: string, event: string | null): Promise<ClientSave> => {
+  setFocus: async (id: string, label: string | null, opts?: { mode?: "build" | "active"; next_label?: string; auto_link?: boolean }): Promise<ClientSave> => {
     const s = await need(id);
-    s.world.focus_event = event && event.trim() ? event.trim() : null;
+    if (!label || !label.trim()) {
+      s.world.focus = null;
+    } else {
+      const mode = opts?.mode ?? "build";
+      let linked_consequence_id: string | undefined;
+      if (opts?.auto_link !== false && mode === "build") {
+        const pending = s.world.consequences.filter((c) => c.status === "pending");
+        pending.sort((a, b) => (a.fire_time && b.fire_time ? (a.fire_time < b.fire_time ? -1 : 1) : a.fire_turn - b.fire_turn));
+        linked_consequence_id = pending[0]?.id;
+      }
+      s.world.focus = {
+        label: label.trim(), mode, linked_consequence_id,
+        next_label: opts?.next_label?.trim() || (linked_consequence_id ? label.trim() : undefined),
+        next_mode: "active",
+      };
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Set the in-world clock by hand (the bookkeeper sometimes drifts from the prose). Accepts "Day N, HH:MM" or any parseable time. */
+  setTime: async (id: string, time: string): Promise<ClientSave> => {
+    const s = await need(id);
+    if (time?.trim()) s.world.current_time = formatTime(parseTime(time));
     await putSave(s);
     return clientView(s);
   },
@@ -265,6 +290,7 @@ export const api = {
       edges: s.world.edges,
       places: s.world.places,
       weather: s.world.weather,
+      current_time: s.world.current_time,
       player_location: s.world.player_location,
       money: s.world.money,
     };
@@ -282,6 +308,7 @@ export const api = {
       if (Array.isArray(raw.edges)) s.world.edges = raw.edges;
       if (raw.places && typeof raw.places === "object") s.world.places = raw.places;
       if (typeof raw.weather === "string") s.world.weather = raw.weather;
+      if (typeof raw.current_time === "string" && raw.current_time.trim()) s.world.current_time = formatTime(parseTime(raw.current_time));
       if (typeof raw.money === "string") s.world.money = raw.money;
       if (typeof raw.player_location === "string") {
         s.world.player_location = raw.player_location;
