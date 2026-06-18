@@ -76,6 +76,7 @@ export function sanitize(state: SaveState): SaveState {
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
   state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= [];
+  state.world.focus_event ??= null;
   for (const c of Object.values(state.condition ?? {})) (c as any).condition_age ??= {};
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   for (const id of Object.keys(state.characters)) {

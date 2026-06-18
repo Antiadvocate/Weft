@@ -56,8 +56,9 @@ Rules:
 - traits — DO use these; characters should visibly grow. Add or reinforce an acquired trait whenever a character goes through something that would plausibly leave a mark: a betrayal, a kindness that lands, a humiliation, a victory, repeated exposure to danger or to a particular person, a fear faced or fled. You do not need to wait for many repetitions — one genuinely significant beat is enough to plant a trait at low intensity (it grows if the experience recurs, fades if it doesn't). Aim to plant or reinforce a trait every few turns when the scene has any emotional weight. label is a short adjective or phrase ("quick to anger now", "softening toward Rabi", "flinches at raised voices", "newly ruthless"); behavioral_impact is how it shows. Set intensity 2–4 for a first mark, higher if the beat was searing. This is an OVERLAY that colors behavior — it does NOT erase core_traits. A manipulator who is briefly cornered is a cornered manipulator, not a reformed innocent: record the situational mark ("rattled, defensive") without rewriting who they are. Never emit memories or traits that flip a character's established nature from a single turn's surface.
 - rumors_new: only for genuinely tellable events (public, surprising, shameful, or impressive).
 - character_exits: when a character DIES or permanently leaves the story (killed, executed, leaves the city for good, vanishes for good), record them here with kind "dead" or "departed" and a short note. This removes them from the cast as an active being — do it the turn it happens, do not keep narrating them as present afterward. Do NOT use this for someone merely walking to another room or temporarily offscreen (that is just a location change).
+- FOCUS MODE: if the digest marks a focus event, the player is driving toward it. Do NOT create new unrelated threads, clocks, or consequences that would sideline it. Advance the focus event and let existing small frictions resolve; keep the throughline clean until the event lands or the player turns focus off.
 - threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved.
-- consequences_new: when something offscreen WILL reach the player later, schedule it (fire_in_turns ≥ 1).
+- consequences_new: when something WILL happen at a later time — "the council meets in three days", "the strike happens at dawn", "they come back for him tonight" — schedule it. Use fire_in_days and/or fire_in_hours for anything the fiction pins to the calendar/clock (this is the RIGHT choice for "in N days/hours"); the engine will hold it until that much in-world time has actually elapsed, even across fast scenes, and it will fire on its own when the clock arrives or a time-skip passes it. Use fire_in_turns only for vague "soon, in a beat or two" timing with no stated duration. Always prefer days/hours when the player or fiction names a real duration.
 - new_characters: only people the prose actually introduced by name or clear role.
 - elapsed_minutes: honest estimate of in-fiction time this turn took.
 - offscreen: 0–3 short lines of world motion (faction movement, an NPC's errand, weather building). Plain statements, no drama.
@@ -86,7 +87,7 @@ export function simulatorSchemaHint(): string {
 "threads_update":[{"id":"","title":"","status":"active","description":"","tension":3}],
 "character_exits":[{"char_id":"","kind":"dead","note":""}],
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
-"consequences_new":[{"description":"","fire_in_turns":3,"severity":"notable","source_char":"","location_trigger":""}],
+"consequences_new":[{"description":"","fire_in_days":0,"fire_in_hours":0,"fire_in_turns":0,"severity":"notable","source_char":"","location_trigger":""}],
 "clocks_advance":[{"id":"","segments":1}],
 "new_characters":[{"name":"","age":30,"appearance_facts":"","background":"","core_traits":[],"speech_pattern":"","gregariousness":0.5,"capacity":2}],
 "new_places":[{"name":"","description_facts":""}],
@@ -309,6 +310,6 @@ Player carries: ${state.world.money || "—"}
 === PRESENT — LIVE STATE (law) ===
 ${presentBlocks.join("\n")}
 
-${offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : ""}${threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : ""}${clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : ""}=== RECENT TURNS ===
+${state.world.focus_event ? `=== FOCUS (player is driving toward this — do not sideline it) ===\n${state.world.focus_event}\n` : ""}${offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : ""}${threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : ""}${clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : ""}=== RECENT TURNS ===
 ${recent.map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`).join("\n") || "This is the opening."}`;
 }

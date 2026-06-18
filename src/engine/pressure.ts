@@ -1,3 +1,4 @@
+import { absMinutes } from "./time";
 /**
  * Pressure controller — replaces the Threat Director LLM call. Zero tokens.
  *
@@ -20,6 +21,7 @@ import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock } from "
 
 export interface PressureInput {
   turn: number;
+  now?: string;                    // current in-world time ("Day N, HH:MM") — gates time-scheduled consequences
   trace: number[];                 // prior pressures
   difficulty: DifficultyProfile;
   threads: Thread[];
@@ -27,7 +29,19 @@ export interface PressureInput {
   clocks: FactionClock[];
   action: string;                  // player's typed intent
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
+  focus?: boolean;                 // converge mode: a main event is building; suppress new complications
+  focusEvent?: string | null;      // the event being converged toward (for the directive text)
   rng?: () => number;              // injectable for verification
+}
+
+/** A consequence is due only when BOTH its turn floor has passed AND, if it has an in-world
+ *  fire_time, the clock has actually reached it. This is what stops "in 2 days" from firing
+ *  in minutes: turns may fly by in a fast conversation, but the calendar hasn't moved. */
+export function isDue(c: ConsequenceEvent, turn: number, now?: string): boolean {
+  if (c.status !== "pending") return false;
+  if (c.fire_turn > turn) return false;
+  if (c.fire_time && now && absMinutes(now) < absMinutes(c.fire_time)) return false;
+  return true;
 }
 
 export interface PressureVerdict {
@@ -35,6 +49,7 @@ export interface PressureVerdict {
   band: "calm" | "friction" | "obstacle" | "danger" | "lethal";
   source: string;                  // one-line rationale traceable to state
   due_consequence?: ConsequenceEvent;
+  focus_event?: string | null;     // echoed so the directive can surface it
 }
 
 /** Target band probabilities by friction density: [calm, friction, obstacle, danger, lethal] */
@@ -52,7 +67,7 @@ export function bandMean(target: number[]): number {
   return target.reduce((s, p, i) => s + p * ((BAND_RANGES[i][0] + BAND_RANGES[i][1]) / 2), 0);
 }
 
-export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number): { heat: number; source: string } {
+export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string): { heat: number; source: string } {
   let heat = 0;
   let source = "ambient world texture";
   const hot = threads.filter((t) => t.status === "active").sort((a, b) => b.tension - a.tension)[0];
@@ -62,7 +77,7 @@ export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequen
     const h = (c.filled / c.segments) * 8;
     if (h > heat) { heat = h; source = `clock: ${c.faction} — ${c.objective}`; }
   }
-  const due = consequences.find((c) => c.status === "pending" && c.fire_turn <= turn);
+  const due = consequences.find((c) => isDue(c, turn, now));
   if (due) {
     const h = due.severity === "major" ? 8 : due.severity === "notable" ? 6 : 4;
     if (h >= heat) { heat = h; source = `consequence due: ${due.description}`; }
@@ -92,18 +107,23 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) { band = i; break; } if (i === p.length - 1) band = i; }
 
   // fiction heat: pressure ≥ 8 must be earned (C4); heat also pulls band up
-  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn);
+  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
     if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
   }
-  const due = input.consequences.find((c) => c.status === "pending" && c.fire_turn <= input.turn);
+  const due = input.consequences.find((c) => isDue(c, input.turn, input.now));
   if (due && due.severity !== "minor") band = Math.max(band, due.severity === "major" ? 3 : 2);
   if (band >= 3 && heat < 6) band = 2;                 // C4: unearned danger demoted to obstacle
   if (band === 4 && (input.difficulty.lethality === "low" || heat < 8)) band = 3; // C3 + earned-lethal
 
   // restful intent bias (C5): drop up to 2 bands when nothing is due
   if (RESTFUL.test(input.action) && !due && heat < 5) band = Math.max(0, band - 2);
+
+  // FOCUS MODE: a main event is building and the player wants the motion to carry toward it.
+  // Suppress new manufactured complications — keep things moving but DON'T pile fresh chaos on.
+  // The building event (a due consequence / hot thread) still lands; random escalation is damped.
+  if (input.focus && !due) band = Math.min(band, 1);
 
   // breath rule (C2)
   const last2 = input.trace.slice(-2);
@@ -123,6 +143,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
     band: BAND_NAMES[band],
     source: band === 0 ? "quiet — the world breathes" : source,
     due_consequence: due,
+    focus_event: input.focus ? (input.focusEvent ?? null) : null,
   };
 }
 
@@ -134,6 +155,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[]): strin
   if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
   if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
   if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
+  if (v.focus_event) lines.push(`FOCUS — a main event is building: "${v.focus_event}". Bend this scene toward it. Keep the motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player has asked to drive toward this — honor it.`);
   if (palette?.length) lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
   return lines.join(" ");
 }

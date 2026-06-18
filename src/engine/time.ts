@@ -21,6 +21,16 @@ export function advance(s: string, minutes: number): string {
   return formatTime({ day, hour: Math.floor(total / 60), minute: total % 60 });
 }
 
+/** Absolute minutes from a "Day N, HH:MM" string (Day 1 00:00 = 0). For comparing scheduled times. */
+export function absMinutes(s: string): number {
+  const t = parseTime(s);
+  return (t.day - 1) * 1440 + t.hour * 60 + t.minute;
+}
+/** Minutes from a → b (negative if b is before a). */
+export function minutesBetween(a: string, b: string): number {
+  return absMinutes(b) - absMinutes(a);
+}
+
 /** Fallback elapse heuristic when the Simulator omits elapsed_minutes. */
 export function heuristicMinutes(action: string, prose: string): number {
   const a = action.toLowerCase();

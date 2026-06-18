@@ -15,7 +15,7 @@
  *       world as a person the world remembers.
  */
 import type { SaveState, TurnTelemetry } from "./types";
-import { advance } from "./time";
+import { absMinutes, advance } from "./time";
 import { consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
 import { regenerateDrives } from "./drives";
 import { tickUndertow } from "./undertow";
@@ -105,15 +105,24 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
     }
   }
 
-  // consequences whose moment arrives inside the skip come due NOW
+  // the calendar moves
+  const newTime = advance(state.world.current_time, days * 24 * 60);
+
+  // consequences whose moment arrives inside the skip come due NOW.
+  // time-scheduled ones fire when the post-skip clock has reached their fire_time;
+  // legacy turn-only ones fall back to the turn floor.
   for (const cq of state.world.consequences) {
-    if (cq.status === "pending" && cq.fire_turn <= turn + 1) {
+    if (cq.status !== "pending") continue;
+    const arrived = cq.fire_time
+      ? absMinutes(newTime) >= absMinutes(cq.fire_time)
+      : cq.fire_turn <= turn + 1;
+    if (arrived) {
       report.consequences_due.push(cq.description);
+      cq.status = "fired";
     }
   }
 
-  // the calendar moves
-  state.world.current_time = advance(state.world.current_time, days * 24 * 60);
+  state.world.current_time = newTime;
   return report;
 }
 

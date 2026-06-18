@@ -205,7 +205,8 @@ export interface Thread {
 export interface ConsequenceEvent {
   id: string;
   description: string;
-  fire_turn: number;
+  fire_turn: number;          // earliest turn it may fire (kept as a floor)
+  fire_time?: string;         // in-world time it should fire ("Day 5, 14:00") — the real schedule
   location_trigger?: string;
   severity: "minor" | "notable" | "major";
   source_char?: string;
@@ -234,6 +235,7 @@ export interface WorldState {
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];
+  focus_event?: string | null;  // when set, the engine bends toward this event and suppresses new complications (the "converge" toggle)
 }
 
 // ───────────────────────────── telemetry & history ─────────────────────────────
@@ -320,7 +322,7 @@ export interface SimulatorDiff {
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
-  consequences_new: { description: string; fire_in_turns: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
+  consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];
   new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];
   new_places: { name: string; description_facts: string }[];

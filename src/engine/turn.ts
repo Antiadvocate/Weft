@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief } from "./types";
-import { decidePressure, pressureDirective } from "./pressure";
+import { decidePressure, isDue, pressureDirective } from "./pressure";
 import { NARRATOR_SYSTEM, SIMULATOR_SYSTEM, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
@@ -62,9 +62,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 1b ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
   const verdict = decidePressure({
-    turn, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
+    turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
     instability: undertow.instability,
+    focus: !!state.world.focus_event, focusEvent: state.world.focus_event ?? null,
   });
   state.pressure_trace.push(verdict.pressure);
   ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source });
@@ -153,7 +154,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     ps.mood_valence = Math.round(ps.relaxation);
   }
   // fired consequences retire
-  for (const c of state.world.consequences) if (c.status === "pending" && c.fire_turn <= turn && verdict.due_consequence?.id === c.id) c.status = "fired";
+  for (const c of state.world.consequences) if (isDue(c, turn, state.world.current_time) && verdict.due_consequence?.id === c.id) c.status = "fired";
   // fired clocks
   for (const c of state.world.clocks) if (c.status === "running" && c.filled >= c.segments) c.status = "fired";
 
@@ -535,12 +536,17 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   for (const c of diff.consequences_new ?? []) {
     if (!c?.description) continue;
+    // prefer an in-world-time schedule: "in 2 days" must mean two days of story time, not two turns.
+    const deltaMin = (c.fire_in_days ? c.fire_in_days * 1440 : 0) + (c.fire_in_hours ? c.fire_in_hours * 60 : 0);
+    const fire_time = deltaMin > 0 ? advance(state.world.current_time, deltaMin) : undefined;
     state.world.consequences.push({
-      id: uid("cq"), description: c.description, fire_turn: turn + Math.max(1, c.fire_in_turns ?? 2),
+      id: uid("cq"), description: c.description,
+      fire_turn: turn + Math.max(1, c.fire_in_turns ?? 1),   // a floor only
+      fire_time,
       severity: c.severity ?? "notable", source_char: c.source_char ? resolveId(state, c.source_char) ?? undefined : undefined,
       location_trigger: c.location_trigger, status: "pending",
     });
-    shifts.push(`Something was set in motion. It will come back around.`);
+    shifts.push(fire_time ? `Something is set for ${fire_time.replace(/\s*\(.*\)$/, "")}.` : `Something was set in motion. It will come back around.`);
   }
 
   for (const ca of diff.clocks_advance ?? []) {
