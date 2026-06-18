@@ -65,7 +65,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
     instability: undertow.instability,
-    focus: !!state.world.focus_event, focusEvent: state.world.focus_event ?? null,
+    focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
   });
   state.pressure_trace.push(verdict.pressure);
   ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source });
@@ -155,6 +155,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
   // fired consequences retire
   for (const c of state.world.consequences) if (isDue(c, turn, state.world.current_time) && verdict.due_consequence?.id === c.id) c.status = "fired";
+
+  // PHASE auto-advance: when the event a build-phase was converging on actually fires,
+  // the phase becomes the next one (e.g. "prepare for war" → "fighting the war"), flipping the
+  // tension default from suppressed to hot — generically, driven by the consequence, not by words.
+  const focus = state.world.focus;
+  if (focus?.linked_consequence_id) {
+    const linked = state.world.consequences.find((c) => c.id === focus.linked_consequence_id);
+    if (linked && linked.status === "fired") {
+      if (focus.next_label) {
+        state.world.focus = { label: focus.next_label, mode: focus.next_mode ?? "active" };
+        shifts.push(`The phase turns: now ${focus.next_label}.`);
+      } else {
+        state.world.focus = null;   // the event passed and there's no next phase — release focus
+      }
+    }
+  }
   // fired clocks
   for (const c of state.world.clocks) if (c.status === "running" && c.filled >= c.segments) c.status = "fired";
 
@@ -370,6 +386,19 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   syncPresence(state, diff.present);
+
+  // a new standing quirk/interest the story earned (kept small; capped so it never becomes a list)
+  for (const tx of diff.texture_add ?? []) {
+    const cid = resolveId(state, tx.char_id);
+    if (!cid || !tx.item?.trim()) continue;
+    const c = state.characters[cid];
+    c.texture ??= [];
+    const item = tx.item.trim();
+    if (!c.texture.some((t) => t.toLowerCase() === item.toLowerCase())) {
+      c.texture.push(item);
+      if (c.texture.length > 5) c.texture = c.texture.slice(-5);
+    }
+  }
 
 
   for (const f of diff.facts ?? []) {

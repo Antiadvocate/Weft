@@ -104,6 +104,7 @@ export interface Identity {
   core_traits: string[];
   values: string[];
   speech_pattern: string;
+  texture?: string[];         // a few standing interests/quirks/sensitivities — small enduring things that make them a person between plot beats ("loves trees on a quiet walk", "always cold", "knows too much about rocks"). Surfaced sparingly, never made central.
   skills: Record<string, string>;
   intelligence: "low" | "below-average" | "average" | "sharp" | "brilliant";
   gregariousness: number;    // 0–1, drives rumor spread + social initiative
@@ -220,6 +221,17 @@ export interface Place {
   contains: string[];
 }
 
+/** The convergence/phase system. A phase shapes the tension curve toward (or around) an event,
+ *  and can auto-advance into a next phase when its linked consequence fires (e.g. build-up → the war).
+ *  Fully generic: "label"/"next_label" are whatever the story is about; the engine only reads the mode. */
+export interface FocusPhase {
+  label: string;                       // what we're converging on / in ("prepare for war", "the siege")
+  mode: "build" | "active";            // build = suppress new chaos, carry toward the event; active = high-tension default, let it rip within the event
+  linked_consequence_id?: string;      // when this scheduled event fires, the phase advances
+  next_label?: string;                 // the phase to become when it fires ("fighting the war")
+  next_mode?: "build" | "active";      // its mode (usually "active")
+}
+
 export interface WorldState {
   canon: string[];             // world-altering facts EVERYONE knows, forever — never pruned, always in context
   current_turn: number;
@@ -235,7 +247,7 @@ export interface WorldState {
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];
-  focus_event?: string | null;  // when set, the engine bends toward this event and suppresses new complications (the "converge" toggle)
+  focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }
 
 // ───────────────────────────── telemetry & history ─────────────────────────────
@@ -321,6 +333,7 @@ export interface SimulatorDiff {
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
+  texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];

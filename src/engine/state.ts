@@ -24,9 +24,12 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     appearance_facts: ident.appearance_facts ?? "", background: ident.background ?? "",
     core_traits: ident.core_traits ?? [], values: ident.values ?? [],
     speech_pattern: ident.speech_pattern ?? "plain", skills: ident.skills ?? {},
+    texture: ident.texture ?? [],
     intelligence: ident.intelligence ?? "average",
     gregariousness: ident.gregariousness ?? 0.5,
-    current_goal: ident.current_goal, current_activity: ident.current_activity, drive: ident.drive,
+    current_goal: ident.current_goal, current_activity: ident.current_activity,
+    drive: ident.drive, drive_queue: ident.drive_queue,
+    tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
   };
   state.condition[id] = blankCondition((ident as any).capacity ?? 2);
   state.traits[id] = [];
@@ -76,7 +79,7 @@ export function sanitize(state: SaveState): SaveState {
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
   state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= [];
-  state.world.focus_event ??= null;
+  state.world.focus ??= null;
   for (const c of Object.values(state.condition ?? {})) (c as any).condition_age ??= {};
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   for (const id of Object.keys(state.characters)) {

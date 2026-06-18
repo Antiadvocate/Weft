@@ -29,8 +29,8 @@ export interface PressureInput {
   clocks: FactionClock[];
   action: string;                  // player's typed intent
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
-  focus?: boolean;                 // converge mode: a main event is building; suppress new complications
-  focusEvent?: string | null;      // the event being converged toward (for the directive text)
+  focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
+  focusLabel?: string | null;      // what we're converging on / in (for the directive text)
   rng?: () => number;              // injectable for verification
 }
 
@@ -50,6 +50,7 @@ export interface PressureVerdict {
   source: string;                  // one-line rationale traceable to state
   due_consequence?: ConsequenceEvent;
   focus_event?: string | null;     // echoed so the directive can surface it
+  focus_mode?: "build" | "active" | null;
 }
 
 /** Target band probabilities by friction density: [calm, friction, obstacle, danger, lethal] */
@@ -92,7 +93,11 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   // proportional correction: shift band probabilities toward target mean
   const window = input.trace.slice(-12);
   const mean = window.length ? window.reduce((a, b) => a + b, 0) / window.length : bandMean(target);
-  const err = bandMean(target) - mean;                 // >0 ⇒ we've been too quiet
+  let err = bandMean(target) - mean;                   // >0 ⇒ we've been too quiet
+  // PHASE: in a "build" phase the player is converging on an event — do not manufacture friction
+  // to hit a quota (a quiet stretch is fine). In an "active" phase the event has arrived and the
+  // world runs hot — allow the upward correction (don't damp it).
+  if (input.focusMode === "build" && err > 0) err = 0;
   const kP = 0.10;                                     // gentle gain (stability proven in verify)
   const tilt = Math.max(-0.3, Math.min(0.3, kP * err));
 
@@ -120,10 +125,9 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   // restful intent bias (C5): drop up to 2 bands when nothing is due
   if (RESTFUL.test(input.action) && !due && heat < 5) band = Math.max(0, band - 2);
 
-  // FOCUS MODE: a main event is building and the player wants the motion to carry toward it.
-  // Suppress new manufactured complications — keep things moving but DON'T pile fresh chaos on.
-  // The building event (a due consequence / hot thread) still lands; random escalation is damped.
-  if (input.focus && !due) band = Math.min(band, 1);
+  // PHASE shaping of the band:
+  if (input.focusMode === "build" && !due) band = Math.min(band, 1);   // converge: keep it from spiking sideways
+  if (input.focusMode === "active") band = Math.max(band, 2);          // the event is here: the world runs hot (still gated by heat/lethality below)
 
   // breath rule (C2)
   const last2 = input.trace.slice(-2);
@@ -143,7 +147,8 @@ export function decidePressure(input: PressureInput): PressureVerdict {
     band: BAND_NAMES[band],
     source: band === 0 ? "quiet — the world breathes" : source,
     due_consequence: due,
-    focus_event: input.focus ? (input.focusEvent ?? null) : null,
+    focus_event: input.focusLabel ?? null,
+    focus_mode: input.focusMode ?? null,
   };
 }
 
@@ -155,7 +160,8 @@ export function pressureDirective(v: PressureVerdict, palette?: string[]): strin
   if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
   if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
   if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
-  if (v.focus_event) lines.push(`FOCUS — a main event is building: "${v.focus_event}". Bend this scene toward it. Keep the motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player has asked to drive toward this — honor it.`);
+  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
+  if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
   if (palette?.length) lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
   return lines.join(" ");
 }
