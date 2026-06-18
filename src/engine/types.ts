@@ -112,6 +112,9 @@ export interface Identity {
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
+  status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
+  exit_turn?: number;         // when they died/left
+  exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
 }
@@ -260,7 +263,7 @@ export type ActionMode = "do" | "say" | "story";
 
 export interface TurnHistoryEntry {
   turn: number;
-  kind?: "turn" | "interlude";   // interlude = the world turned without you
+  kind?: "turn" | "interlude" | "opening";   // opening = the scene you start in (editable, pre turn-1)
   span_label?: string;           // "three days pass"
   player_action: string;
   action_mode?: ActionMode;
@@ -315,6 +318,7 @@ export interface SimulatorDiff {
   appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change — replaces appearance_facts
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
+  character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
   consequences_new: { description: string; fire_in_turns: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];

@@ -80,6 +80,7 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
   const log: string[] = [];
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || !c.tracked) continue;
+    if (c.status === "dead" || c.status === "departed") continue;   // the gone don't get new wants
     if (state.world.present.includes(id)) continue;        // in-scene; the narrator drives them
 
     const active = c.drive;

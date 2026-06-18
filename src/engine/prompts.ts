@@ -55,6 +55,7 @@ Rules:
 - edges: only when the prose shows a real shift. Deltas small (±2..8 typical). from/to are character ids; use "char_player" for the player.
 - traits — DO use these; characters should visibly grow. Add or reinforce an acquired trait whenever a character goes through something that would plausibly leave a mark: a betrayal, a kindness that lands, a humiliation, a victory, repeated exposure to danger or to a particular person, a fear faced or fled. You do not need to wait for many repetitions — one genuinely significant beat is enough to plant a trait at low intensity (it grows if the experience recurs, fades if it doesn't). Aim to plant or reinforce a trait every few turns when the scene has any emotional weight. label is a short adjective or phrase ("quick to anger now", "softening toward Rabi", "flinches at raised voices", "newly ruthless"); behavioral_impact is how it shows. Set intensity 2–4 for a first mark, higher if the beat was searing. This is an OVERLAY that colors behavior — it does NOT erase core_traits. A manipulator who is briefly cornered is a cornered manipulator, not a reformed innocent: record the situational mark ("rattled, defensive") without rewriting who they are. Never emit memories or traits that flip a character's established nature from a single turn's surface.
 - rumors_new: only for genuinely tellable events (public, surprising, shameful, or impressive).
+- character_exits: when a character DIES or permanently leaves the story (killed, executed, leaves the city for good, vanishes for good), record them here with kind "dead" or "departed" and a short note. This removes them from the cast as an active being — do it the turn it happens, do not keep narrating them as present afterward. Do NOT use this for someone merely walking to another room or temporarily offscreen (that is just a location change).
 - threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved.
 - consequences_new: when something offscreen WILL reach the player later, schedule it (fire_in_turns ≥ 1).
 - new_characters: only people the prose actually introduced by name or clear role.
@@ -83,6 +84,7 @@ export function simulatorSchemaHint(): string {
 "canon_add":["world-altering public fact everyone now knows"],
 "track":["char_id to keep in the long game"],
 "threads_update":[{"id":"","title":"","status":"active","description":"","tension":3}],
+"character_exits":[{"char_id":"","kind":"dead","note":""}],
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
 "consequences_new":[{"description":"","fire_in_turns":3,"severity":"notable","source_char":"","location_trigger":""}],
 "clocks_advance":[{"id":"","segments":1}],
@@ -92,6 +94,27 @@ export function simulatorSchemaHint(): string {
 }
 
 export const REFLECTION_SYSTEM = `You compress a character's recent episodic memories into 1–3 durable beliefs — convictions, attachments, or learned wariness they would actually hold. First person is not required; write as compact third-person convictions ("She trusts Kael with her life now", "The docks are not safe after the horn"). Output ONLY JSON: {"beliefs":[{"content":"","confidence":0.8}]}`;
+
+export const OPENING_SYSTEM = `You write the OPENING SCENE of an interactive story — the moment the player arrives in this world, before they have acted. Set the stage: establish where they are, who is present, the mood, and the immediate situation, ending on a beat that invites the player to act. Honor the PLAYER'S STANDING DIRECTION above all (if a topic is marked incidental, keep it incidental). Write in the world's voice. 2–4 paragraphs, 120–260 words. Second person ("you"). Dialogue in quotes. No headers, no lists, no meta, no "Turn 1" — just the scene. Do not resolve anything; open it.`;
+
+export const NEWSEASON_SYSTEM = `You turn a long, finished playthrough into the clean starting point for a NEW chapter — like a "season 2" that carries the consequences but starts fresh. You are given the world bible, the cast with their evolved traits and relationships, recent events, threads, and current situation.
+
+Produce ONE JSON object that condenses everything to the density of a fresh start: keep what matters, fold resolved history into background, and set up a new opening that flows FROM where things ended after a sensible time skip.
+
+{
+ "recap": "2-4 sentence 'RECAP:' of the story so far — the arc, how it left the key relationships and the world. Written for the player, past tense.",
+ "time_skip": "how much in-world time has passed before the new chapter (e.g. 'Three months later')",
+ "world_bible": { "name":"", "political_situation":"", "what_people_fear":"", "narrator_direction":"" },
+ "player": { "background_addition":"one sentence folding their journey into who they now are" },
+ "cast": [ { "name":"", "still_present": true, "background_addition":"one sentence on where they ended up / how they changed", "warmth_to_player": 0, "trust_to_player": 0, "new_drive":"" } ],
+ "opening_scene": "the new chapter's opening prose, 120-220 words, second person, beginning after the time skip, carrying the weight of what came before without re-explaining it. End on a beat inviting action.",
+ "starting_location_name": "",
+ "threads": [ { "title":"", "description":"", "tension": 3 } ]
+}
+
+Only include cast members who plausibly remain in the player's life. Fold the rest into background. Honor the player's standing direction. Output ONLY the JSON.`;
+
+
 
 export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
@@ -287,5 +310,5 @@ Player carries: ${state.world.money || "—"}
 ${presentBlocks.join("\n")}
 
 ${offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : ""}${threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : ""}${clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : ""}=== RECENT TURNS ===
-${recent.map((h) => `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`).join("\n") || "This is the opening."}`;
+${recent.map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`).join("\n") || "This is the opening."}`;
 }

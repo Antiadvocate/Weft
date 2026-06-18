@@ -282,14 +282,15 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     }
   }
   state.characters["char_player"].location = ploc;
-  // rebuild contains[] from the source of truth (each character's location)
+  // rebuild contains[] from the source of truth (each character's location); the gone don't occupy rooms
   for (const p of Object.values(state.world.places)) p.contains = [];
   for (const [id, c] of Object.entries(state.characters)) {
+    if (c.status === "dead" || c.status === "departed") continue;
     if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
   }
-  // the scene = non-player characters co-located with the player
+  // the scene = living, present non-player characters co-located with the player
   state.world.present = Object.entries(state.characters)
-    .filter(([id, c]) => id !== "char_player" && c.location === ploc)
+    .filter(([id, c]) => id !== "char_player" && c.location === ploc && c.status !== "dead" && c.status !== "departed")
     .map(([id]) => id);
 }
 
@@ -344,6 +345,27 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     }
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
+  }
+
+  // ── EXITS: someone died or left the story for good. Mark them, pull them from the
+  //    scene and any room, and stop the engine from seeding them new wants. ──
+  for (const ex of diff.character_exits ?? []) {
+    const cid = resolveId(state, ex.char_id);
+    if (!cid || cid === "char_player") continue;
+    const c = state.characters[cid];
+    if (!c) continue;
+    c.status = ex.kind;
+    c.exit_turn = turn;
+    if (ex.note) c.exit_note = ex.note;
+    c.tracked = false;
+    c.drive = undefined;
+    c.drive_queue = [];
+    // remove from whatever room held them
+    const pid = c.location;
+    if (pid && state.world.places[pid]) {
+      state.world.places[pid].contains = state.world.places[pid].contains.filter((x) => x !== cid);
+    }
+    shifts.push(ex.kind === "dead" ? `${c.name} is dead.` : `${c.name} is gone.`);
   }
 
   syncPresence(state, diff.present);
