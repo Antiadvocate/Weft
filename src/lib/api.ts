@@ -169,6 +169,14 @@ export const api = {
     return clientView(ns);
   },
 
+  /** Set or clear the focus event — the "converge toward this, stop the chaos" toggle. */
+  setFocus: async (id: string, event: string | null): Promise<ClientSave> => {
+    const s = await need(id);
+    s.world.focus_event = event && event.trim() ? event.trim() : null;
+    await putSave(s);
+    return clientView(s);
+  },
+
   rollback: async (id: string, to_turn: number): Promise<ClientSave> => {
     const s = await need(id);
     const restored = doRollback(s, to_turn);
