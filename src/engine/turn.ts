@@ -11,7 +11,7 @@
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief } from "./types";
 import { decidePressure, isDue, pressureDirective } from "./pressure";
-import { NARRATOR_SYSTEM, SIMULATOR_SYSTEM, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
+import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, consolidateTraits, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
@@ -82,7 +82,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
   const fullDirective = directive + forbid + "\n" + undertow.directive;
   const narratorMsgs = buildMessages(
-    NARRATOR_SYSTEM, prefix,
+    narratorSystem(state.model_settings.lean_mode), prefix,
     `${digest}\n\n=== DIRECTION ===\n${fullDirective}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
     state.model_settings.narrator_model,
   );
@@ -98,7 +98,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 3 ── simulator (one JSON call: bookkeeper + world tick + memory writes)
   ev.onPhase("simulator");
   const simMsgs = buildMessages(
-    SIMULATOR_SYSTEM + "\n\n" + simulatorSchemaHint(), prefix,
+    simulatorSystem(state.model_settings.lean_mode) + "\n\n" + simulatorSchemaHint(), prefix,
     `${digest}\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth) ===\n${prose}`,
     state.model_settings.simulator_model,
   );

@@ -19,6 +19,8 @@ export interface ModelSettings {
   context_memories_k: number;     // top-k memories per present NPC
   reflection_cadence: number;     // turns between reflection compactions
   history_window: number;         // raw recent turns kept verbatim in context
+  lean_mode?: boolean;            // compressed system prompts + present/tracked-only cast (lower tokens, slightly less rich)
+  token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
 }
 
 export interface WorldBible {
@@ -99,6 +101,7 @@ export interface Identity {
   character_id: string;
   name: string;
   age: number;
+  pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
   appearance_facts: string;
   background: string;
   core_traits: string[];
@@ -351,4 +354,6 @@ export const DEFAULT_MODELS: ModelSettings = {
   context_memories_k: 6,
   reflection_cadence: 10,
   history_window: 3,
+  lean_mode: false,
+  token_budget: 0,
 };

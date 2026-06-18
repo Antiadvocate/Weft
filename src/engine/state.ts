@@ -25,6 +25,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     core_traits: ident.core_traits ?? [], values: ident.values ?? [],
     speech_pattern: ident.speech_pattern ?? "plain", skills: ident.skills ?? {},
     texture: ident.texture ?? [],
+    pronouns: ident.pronouns,
     intelligence: ident.intelligence ?? "average",
     gregariousness: ident.gregariousness ?? 0.5,
     current_goal: ident.current_goal, current_activity: ident.current_activity,

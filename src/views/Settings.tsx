@@ -131,6 +131,25 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
 
       <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Token economy</div>
+        <button className="w-full flex items-center justify-between py-2" onClick={() => setDraft((d) => ({ ...d, lean_mode: !d.lean_mode }))}>
+          <span className="text-left">
+            <span className="block text-[14px]">Lean mode</span>
+            <span className="block text-[11px]" style={{ color: "var(--text-lo)" }}>Compressed instructions + only present/tracked cast in context. ~Half the input tokens, slightly less prose richness.</span>
+          </span>
+          <span style={{ width: 42, height: 24, borderRadius: 999, background: draft.lean_mode ? "var(--accent)" : "var(--ink-3)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
+            <span style={{ position: "absolute", top: 2, left: draft.lean_mode ? 20 : 2, width: 20, height: 20, borderRadius: 999, background: "var(--ink-0)", transition: "left .2s" }} />
+          </span>
+        </button>
+        <div className="mt-2">
+          <TextField label="Token budget per turn (0 = off; e.g. 4000 to cap context)" value={String(draft.token_budget ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, token_budget: Number(v) || 0 }))} mono />
+          <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
+            When set, the per-turn context is trimmed toward this many input tokens — shedding offscreen detail, old memories, and rumors first, collapsing only the least-involved present characters as a last resort. People in your scene are never dropped.
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Memory economy</div>
         <TextField label="Memories per NPC in context (top-k)" value={String(draft.context_memories_k)} onChange={setM("context_memories_k")} mono />
         <TextField label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />

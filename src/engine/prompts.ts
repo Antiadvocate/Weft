@@ -76,6 +76,69 @@ Rules:
 - track: when a character becomes important to a thread you're weaving, or to a contextually charged moment, list their id in track so they persist in the long game. Untracked bit-players (nameless guards, crowd) should stay untracked and may fade.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
 
+export const NARRATOR_SYSTEM_LEAN = `Narrator of a living, persistent world. Render the computed state honestly, one turn at a time.
+
+SUPREME: if a "PLAYER DIRECTION" block is present, it overrides everything here and in the world bible — including what the story is/isn't about. Never drift back to a topic the player marked incidental; never subvert their premise for drama.
+
+STATE IS LAW. Render each present character per their state (their pronouns, traits, mood, and "seeing" line are given right in the PRESENT block — use them; never guess a character's gender or nature).
+
+PHYSICS:
+1. Perception ~ openness. Calm/intact (the default, most people most of the time): reads accurately, reacts like a normal adult, no threat-hunting. Clenched (only if low relaxation OR paranoid/hostile traits): misreads, wrong-but-certain, never lands clean insight. Opening (rare/earned): clear sight, may own past projection, apology lives here. Broken: only mirrors, no verdicts.
+2. NPCs are people not sages: insecure, selfish, scared, inconsistent. No sermons. Under threat they panic/comply/lash out — nobody lectures a gun.
+3. The cast has lives with each other — they argue/support/misread laterally, act on their own goals, never wait to be useful. Present characters always react.
+4. Consequence over catastrophe: harm needs cause already in state. No retroactive metaphysics or invented omens.
+5. Never author the player's thoughts/feelings. Their typed action happens as written.
+6. Never veto/deflect/fail a declared player action (incl. self-destruction). Consequences come AFTER compliance.
+7. Costs: only world-bible costs, proportionate, ONCE when earned, then they recede. Bodies recover by default. Don't escalate an old affliction not re-earned this turn.
+8. Out-of-character input = direction, not fiction. Adjust silently; don't put the narrator in the story.
+9. Established knowledge powers (mind-reading, records, etc per bible) get REAL answers from context, not withheld or invented.
+10. The world moves: time/weather/rumor advance; a due consequence or offscreen event actually arrives.
+11. Write like an adult: blood, sex, body, fear rendered clearly, not sanitized.
+12. Rumors are knowledge: characters act on the version they heard, distortions included.
+13. Cruelty is real and often lucid. Dark characters (per traits/bible) are clearly, comfortably cruel — cold reads that land, deliberate harm, no unprompted redemption. Clench physics governs the wounded, not villains.
+14. Time has passed: honor each memory's stamp; old events are old news, not fresh shocks.
+15. Something happens every turn — an action, discovery, arrival, refusal, a position won/lost. Talk alone isn't a turn; if a scene stalls in dialogue, break it with an event. End on a new development.
+16. Action is fast and physical: in violence, render blows/movement/injury, not mid-fight speeches.
+17. Conflict needn't resolve and people needn't be good. No pull toward warmth/apology/understanding. Hostility and irreconcilable difference are valid lasting endpoints. Opening is rare, not a scene's default.
+18. React in proportion — neutral is default. Don't manufacture suspicion/menace from ordinary input. A nervous newcomer gets a conversation, not a lockdown. Escalation is earned by events, not vibes. Don't invent threatening backstory the state lacks.
+19. People are more than the plot. Surface a character's texture (small interests/quirks) lightly in quiet moments only — seasoning, never the meal, never in tense scenes. And the familiar is familiar: long-running situations are normal life, not perpetual revelation; reserve "we're really doing this" for the genuinely new.
+20. Complications are grounded, never fabricated canon. Higher pressure = a fitting setback/obstacle/cost from established state (threads, clocks, known players, the scene) at proportionate scale — NEVER an invented world-altering reveal, secret identity, or retcon of who someone is. If no grounded complication exists, a quiet beat is correct.
+
+FORM: 2–4 paragraphs, 120–250 words (350 for a real set-piece). Spend words on what CHANGES. Dialogue in quotes, sparse in action. End on a development. Prose only — no headers/lists/meta.`;
+
+export const SIMULATOR_SYSTEM_LEAN = `Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object of what changed, plus 0–3 plain offscreen world-motion lines. Prose is truth for onscreen facts; offscreen lines you originate from drives/clocks/rumors.
+
+PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, drive, or development centering a topic the player marked incidental; let such clocks go dormant.
+
+- relaxation_delta [-6,+6]: − for threat/shame/conflict, + for safety/warmth; most are −1..+1. Always include char_player.
+- importance 1–10: 1 routine, 5 notable, 8+ life-marking; stingy above 6. Engine auto-stamps time/place and auto-writes location-change memories — just record the move; still write a memory for an emotionally significant departure/arrival.
+- edges: only on a real shift; deltas ±2..8; from/to are ids ("char_player" for player).
+- traits — USE these; people grow. Plant/reinforce on any marking beat (betrayal, kindness, humiliation, victory, faced fear) — one significant beat is enough at intensity 2–4, growing with repetition. label = short phrase, behavioral_impact = how it shows. Overlay only; never flip established nature from one turn.
+- rumors_new: only genuinely tellable events (public/surprising/shameful/impressive).
+- character_exits: when someone DIES or permanently leaves (kind "dead"/"departed" + short note), the turn it happens. Not for walking to another room.
+- texture_add: rarely, a newly-earned small quirk/interest ("has taken to fishing"); a few words, never their whole self.
+- GROUNDED CANON ONLY: never record world-altering facts, secret identities, or fundamental identity changes unless the player's action or the bible/canon introduced it. Don't ratify a narrator flourish that rewrites established identity.
+- FOCUS MODE: if the digest marks a focus event, don't create unrelated threads/clocks/consequences; advance the focus, resolve small frictions, keep the throughline clean.
+- threads_update: open when a situation persists beyond the scene; tension 0–10; resolve what the prose resolved.
+- consequences_new: for something happening LATER. Use fire_in_days/fire_in_hours when the fiction names a duration ("in 3 days", "at dawn") — the engine holds it until that in-world time elapses and fires it on its own. fire_in_turns only for vague "soon".
+- new_characters: only people the prose named/clearly introduced (give pronouns).
+- elapsed_minutes: honest in-fiction time this turn.
+- offscreen: 0–3 plain world-motion lines, no drama.
+- canon_add: only world-altering PUBLIC events (faith founded, regime falls, war begins) as one plain sentence; broadcast to all, kept forever. Never private events.
+- conditions are CURRENT states: condition_remove the moment prose shows it subsiding; one canonical phrase per affliction, never a rephrased duplicate.
+- PLAIN LANGUAGE for every human-readable string (moods, states, conditions, traits, memories) — natural prose, never snake_case/identifier tokens.
+- LOCATION: set player_location whenever the player moves (place name fine; new places auto-created; reuse exact names when staying). In locations[], record every character who moves/arrives/leaves/teleports as char_id+place; bringing someone to player_location puts them in scene. Unmoved characters stay put and aren't in-scene just for being mentioned. Don't hand-maintain present; co-location decides it.
+- appearance: on a permanent body/look change, emit the FULL revised appearance_facts as present-day fact (no "newly"/origin framing).
+- injury_remove: when prose heals an injury, remove it by name.
+- drives_update: on completing/abandoning/acquiring a want, give the next concrete goal from who they are + edges + threads (NPC goals needn't involve the player). Up to THREE goals each with priority (higher = more pressing); engine pursues the top, switches to a backup when it stalls. Add a 2nd/3rd when competing pulls are plausible.
+- track: list ids of characters who became important so they persist; leave nameless bit-players untracked.
+Output ONLY the JSON object. No markdown fences, no commentary.`;
+
+/** Select the system prompt set based on lean_mode. */
+export function narratorSystem(lean?: boolean): string { return lean ? NARRATOR_SYSTEM_LEAN : NARRATOR_SYSTEM; }
+export function simulatorSystem(lean?: boolean): string { return lean ? SIMULATOR_SYSTEM_LEAN : SIMULATOR_SYSTEM; }
+
+
 export function simulatorSchemaHint(): string {
   return `JSON shape (all keys required; use [] / "" when empty):
 {"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"money":"","present":["optional hint; co-location decides the real scene"],
@@ -94,7 +157,7 @@ export function simulatorSchemaHint(): string {
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
 "consequences_new":[{"description":"","fire_in_days":0,"fire_in_hours":0,"fire_in_turns":0,"severity":"notable","source_char":"","location_trigger":""}],
 "clocks_advance":[{"id":"","segments":1}],
-"new_characters":[{"name":"","age":30,"appearance_facts":"","background":"","core_traits":[],"speech_pattern":"","texture":[],"gregariousness":0.5,"capacity":2}],
+"new_characters":[{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"speech_pattern":"","texture":[],"gregariousness":0.5,"capacity":2}],
 "new_places":[{"name":"","description_facts":""}],
 "offscreen":[]}`;
 }
@@ -124,12 +187,14 @@ Only include cast members who plausibly remain in the player's life. Fold the re
 
 export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
-"player":{"name":"","age":30,"appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
-"npcs":[{"name":"","age":30,"appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","relation_to_player":"","warmth":10,"trust":0}],
+"player":{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
+"npcs":[{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","relation_to_player":"","warmth":10,"trust":0}],
 "places":[{"name":"","description_facts":""}],
 "clocks":[{"faction":"","objective":"","segments":6,"consequence":"","visible_signs":["",""]}],
 "norms":[{"rule":"","enforcement":"gossip","holders":""}],
 "opening":{"time":"Day 1, 09:00","weather":"","player_location_name":"","present_npc_names":[],"money":"","opening_scene_hint":""}}
+
+pronouns: set pronouns ("she/her", "he/him", "they/them") for the player and every NPC so gender is never ambiguous.
 
 texture: for the player and each NPC, give 2–3 small standing things drawn from their background — an enduring interest, a quirk, a sensitivity, a habit ("loves a good tree on a quiet walk", "always cold", "knows far too much about rocks", "hums when nervous", "collects other people's pens"). These are NOT their personality or their plot — they are the small human texture that surfaces in idle moments. Keep each to a few words. Make them specific and a little surprising, not generic.`;
 
@@ -229,21 +294,30 @@ export function deriveVoice(
 export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[]): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${x.intensity.toFixed(0)}) — ${x.behavioral_impact}`).join("; ")}.` : "";
   const inj = cond.injuries.length ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
-  return `${ident.name} [${id}] — ${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}`;
+  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
 export function stablePrefix(state: SaveState): string {
   const b = state.world_bible;
+  const lean = !!state.model_settings.lean_mode;
+  const present = new Set(state.world.present);
   const cast = Object.entries(state.characters)
+    .filter(([id, c]) => !lean || id === "char_player" || present.has(id) || c.tracked)
+    .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
     .map(([id, c]) => charCard(id, c, state.condition[id], []))
     .join("\n");
   const supreme = b.narrator_direction?.trim()
-    ? `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
-The following is the player's explicit instruction for how this story must run. It outranks the world bible, the cast, the faction clocks, your own sense of drama, and every other rule. If anything below — a clock's objective, a thread, a "compelling" hook, your instinct toward tension — conflicts with this, THIS WINS and the other thing is dropped. If the player says a topic or a character trait is NOT the story, then it is background texture only and must never become the engine of a scene. Do not steer toward what you find interesting against this direction. Honor it every single turn:
+    ? (lean
+      ? `=== PLAYER DIRECTION (SUPREME — overrides everything below, every turn; a topic marked incidental stays background) ===
 "${b.narrator_direction.trim()}"
 
 `
+      : `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
+The following is the player's explicit instruction for how this story must run. It outranks the world bible, the cast, the faction clocks, your own sense of drama, and every other rule. If anything below — a clock's objective, a thread, a "compelling" hook, your instinct toward tension — conflicts with this, THIS WINS and the other thing is dropped. If the player says a topic or a character trait is NOT the story, then it is background texture only and must never become the engine of a scene. Do not steer toward what you find interesting against this direction. Honor it every single turn:
+"${b.narrator_direction.trim()}"
+
+`)
     : "";
   return `${supreme}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
@@ -264,60 +338,124 @@ ${cast}`;
 export function volatileDigest(state: SaveState, query: string): string {
   const k = state.model_settings.context_memories_k;
   const turn = state.world.current_turn;
+  const budget = state.model_settings.token_budget && state.model_settings.token_budget > 0 ? state.model_settings.token_budget : 0;
+  const estTok = (str: string) => Math.round(str.length / 4);
+
   const canonBlock = state.world.canon?.length
     ? `=== ESTABLISHED CANON (world-altering facts; EVERY character knows these and lives accordingly) ===\n${state.world.canon.map((c) => `• ${c}`).join("\n")}\n\n`
     : "";
-  const presentBlocks = ["char_player", ...state.world.present].map((id) => {
-    const ident = state.characters[id];
-    const cond = state.condition[id];
+
+  // Build each present character's block at a chosen detail level:
+  //  2 = full, 1 = identity + mood + voice only, 0 = one-liner (group-collapse fallback)
+  const involvement = (id: string): number => {
+    // crude relevance: mentioned in last prose, or has a strong edge to player, or is tracked
+    const lp = [...state.history].reverse().find((h) => h.narrator_prose);
+    const named = lp ? lp.narrator_prose.toLowerCase().includes((state.characters[id]?.name ?? "").toLowerCase().split(/\s+/)[0]) : false;
+    const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
+    const strong = e ? Math.abs(e.warmth) + Math.abs(e.trust) : 0;
+    return (named ? 100 : 0) + strong + (state.characters[id]?.tracked ? 20 : 0);
+  };
+
+  const presentBlock = (id: string, detail: number): string => {
+    const ident = state.characters[id]; const cond = state.condition[id];
     if (!ident || !cond) return "";
     const isPlayer = id === "char_player";
-    const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}`];
+    if (detail === 0 && !isPlayer) return `— ${ident.name} [${id}]${ident.pronouns ? ` · ${ident.pronouns}` : ""} — present, ${cond.psyche.mood || "even"}`;
+    const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}${ident.pronouns ? ` · ${ident.pronouns}` : ""}`];
+    if (!isPlayer) lines.push(`  is: ${ident.core_traits.join(", ")}${ident.values.length ? ` | holds ${ident.values.slice(0, 3).join(", ")}` : ""}`);
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}`);
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond)}`);
       if (ident.current_goal) lines.push(`  wants now: ${ident.current_goal}`);
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
-      if (ident.texture?.length) lines.push(`  texture (surface only in quiet/idle moments, never the focus): ${ident.texture.join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");
       lines.push(`  voice now: ${deriveVoice(ident, cond, traits, pedgeForVoice)}`);
-      const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
-      if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
+      if (detail >= 2) {
+        if (ident.texture?.length) lines.push(`  texture (surface only in quiet/idle moments, never the focus): ${ident.texture.join("; ")}`);
+        const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
+        if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
+        const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15));
+        if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => `${state.characters[e.to]?.name}: w${e.warmth}/t${e.trust}${e.notes ? ` (${e.notes})` : ""}`).join("; ")}`);
+      }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
-      if (pedge) lines.push(`  toward player: warmth ${pedge.warmth}, trust ${pedge.trust}${pedge.notes ? ` — ${pedge.notes}` : ""}`);
-      const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15));
-      if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => `${state.characters[e.to]?.name}: w${e.warmth}/t${e.trust}${e.notes ? ` (${e.notes})` : ""}`).join("; ")}`);
+      if (pedge) lines.push(`  toward player: warmth ${pedge.warmth}, trust ${pedge.trust}${pedge.notes && detail >= 2 ? ` — ${pedge.notes}` : ""}`);
     } else {
       lines.push(`  mood (self-reported only through actions): ${cond.psyche.active_states.join(", ") || "—"}`);
     }
-    const mem = state.memory[id];
-    if (mem) {
-      const digest = compactMemoryDigest(mem, query, turn, isPlayer ? Math.min(4, k) : k, state.world.current_time);
-      if (digest) lines.push(digest.split("\n").map((l) => "  " + l).join("\n"));
+    if (detail >= 1) {
+      const mem = state.memory[id];
+      if (mem) {
+        const memK = detail >= 2 ? (isPlayer ? Math.min(4, k) : k) : Math.min(2, k);
+        const digest = compactMemoryDigest(mem, query, turn, memK, state.world.current_time);
+        if (digest) lines.push(digest.split("\n").map((l) => "  " + l).join("\n"));
+      }
     }
     return lines.join("\n");
-  });
+  };
 
   const loc = state.world.places[state.world.player_location];
   const placeName = (id?: string) => (id && state.world.places[id]?.name) || "elsewhere";
-  const offscreenCast = Object.entries(state.characters)
-    .filter(([id]) => id !== "char_player" && !state.world.present.includes(id))
-    .map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`)
-    .join("; ");
   const recent = state.history.slice(-state.model_settings.history_window);
+  const lastProse = [...state.history].reverse().find((h) => h.narrator_prose && h.kind !== "opening");
   const threads = state.world.threads.filter((t) => t.status === "active");
   const clocks = state.world.clocks.filter((c) => c.status === "running");
 
-  return `${canonBlock}=== NOW ===
+  // assemble at a given level of generosity. level 3 = everything; lower sheds peripheral first.
+  const assemble = (lvl: number): string => {
+    // present blocks: full at high levels; at the lowest level, collapse least-involved present chars to one-liners
+    const presentIds = ["char_player", ...state.world.present];
+    let presentStr: string;
+    if (lvl >= 2) {
+      presentStr = presentIds.map((id) => presentBlock(id, lvl >= 3 ? 2 : 1)).filter(Boolean).join("\n");
+    } else {
+      // lvl 0/1: keep the most-involved present at detail 1, collapse the rest to one-liners
+      const ranked = state.world.present.slice().sort((a, b) => involvement(b) - involvement(a));
+      const keepFull = new Set(ranked.slice(0, Math.max(2, lvl === 1 ? 5 : 3)));
+      presentStr = presentIds.map((id) => presentBlock(id, id === "char_player" || keepFull.has(id) ? 1 : 0)).filter(Boolean).join("\n");
+    }
+
+    // offscreen: full list at lvl>=3, trimmed at lvl 2, dropped below
+    const offAll = Object.entries(state.characters)
+      .filter(([id, c]) => id !== "char_player" && !state.world.present.includes(id) && c.status !== "dead" && c.status !== "departed");
+    const offscreenCast = lvl >= 3
+      ? offAll.map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`).join("; ")
+      : lvl >= 2
+        ? offAll.filter(([id]) => state.characters[id]?.tracked).map(([, c]) => `${c.name} — ${c.drive?.goal || "elsewhere"}`).join("; ")
+        : "";
+
+    // recent turns: full window at lvl>=2, just the last summary below; last prose always kept
+    const recentStr = (lvl >= 2 ? recent : recent.slice(-1))
+      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length && lvl >= 3 ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`)
+      .join("\n") || "This is the opening.";
+    const proseTail = lastProse ? `\n\n=== THE MOMENT JUST BEFORE THIS (most recent prose — continue from here, keep voices and facts consistent with it) ===\n${lastProse.narrator_prose.slice(lvl >= 3 ? -900 : -500)}` : "";
+
+    const focusBlock = state.world.focus ? `=== FOCUS — ${state.world.focus.mode === "active" ? "now inside this event" : "building toward this; do not sideline it"} ===\n${state.world.focus.label}\n` : "";
+    const threadsBlock = threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : "";
+    const clocksBlock = clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : "";
+    const offBlock = offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : "";
+
+    return `${canonBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather}
 Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}
 Player carries: ${state.world.money || "—"}
-(Characters listed under OFFSCREEN are NOT in this scene — they are elsewhere. Reference them, don't have them appear, unless the player goes to them or brings them here.)
+(Characters under OFFSCREEN are NOT in this scene unless the player goes to them or brings them here.)
 
 === PRESENT — LIVE STATE (law) ===
-${presentBlocks.join("\n")}
+${presentStr}
 
-${state.world.focus ? `=== FOCUS — ${state.world.focus.mode === "active" ? "now inside this event" : "building toward this; do not sideline it"} ===\n${state.world.focus.label}\n` : ""}${offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : ""}${threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : ""}${clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : ""}=== RECENT TURNS ===
-${recent.map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`).join("\n") || "This is the opening."}`;
+${focusBlock}${offBlock}${threadsBlock}${clocksBlock}=== RECENT TURNS ===
+${recentStr}${proseTail}`;
+  };
+
+  // No budget → full fidelity (level 3), same as before.
+  if (!budget) return assemble(3);
+  // Budget set → step down levels until under budget (or we hit the floor).
+  for (let lvl = 3; lvl >= 0; lvl--) {
+    const out = assemble(lvl);
+    if (lvl === 0 || estTok(out) <= budget) {
+      return lvl < 3 ? out + `\n(context trimmed to fit token budget — peripheral detail reduced)` : out;
+    }
+  }
+  return assemble(0);
 }
