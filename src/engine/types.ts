@@ -21,6 +21,7 @@ export interface ModelSettings {
   history_window: number;         // raw recent turns kept verbatim in context
   lean_mode?: boolean;            // compressed system prompts + present/tracked-only cast (lower tokens, slightly less rich)
   token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
+  tension?: number;               // 0–10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
 }
 
 export interface WorldBible {
@@ -359,4 +360,5 @@ export const DEFAULT_MODELS: ModelSettings = {
   history_window: 3,
   lean_mode: false,
   token_budget: 0,
+  tension: 5,
 };

@@ -39,12 +39,12 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", appearance_facts: "", current_goal: "", core_traits: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", current_goal: "", core_traits: "" });
 
   const startEdit = () => {
     if (!c) return;
     setDraft({
-      name: c.name, age: String(c.age), background: c.background, appearance_facts: c.appearance_facts,
+      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts,
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join(", "),
     });
     setEditing(true);
@@ -56,6 +56,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
         name: draft.name.trim() || c!.name,
         age: Number(draft.age) || c!.age,
         background: draft.background,
+        life_history: draft.life_history,
         appearance_facts: draft.appearance_facts,
         current_goal: draft.current_goal,
         core_traits: draft.core_traits.split(",").map((x) => x.trim()).filter(Boolean),
@@ -251,7 +252,8 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                     <EditField label="Name" v={draft.name} set={(v) => setDraft((d) => ({ ...d, name: v }))} />
                     <EditField label="Age" v={draft.age} set={(v) => setDraft((d) => ({ ...d, age: v }))} />
                     <EditField label="Appearance" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={2} />
-                    <EditField label="Background" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
+                    <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
+                    <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (comma-sep)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} />
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Weave changes in</button>
@@ -282,11 +284,12 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                 </Section>
 
                 {(c.background || c.life_history) && (
-                  <Section title="Who they are">
+                  <Section title="Identity">
+                    <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Background (who they fundamentally are)</div>
                     {c.background && <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{c.background}</div>}
                     {c.life_history?.trim() && (
                       <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--ink-2)" }}>
-                        <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--accent)" }}>Story so far</div>
+                        <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--accent)" }}>Story so far (what's happened in play)</div>
                         <div className="text-[12.5px] leading-relaxed italic" style={{ color: "var(--text-mid)" }}>{c.life_history}</div>
                       </div>
                     )}

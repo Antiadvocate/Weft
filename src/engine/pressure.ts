@@ -31,6 +31,7 @@ export interface PressureInput {
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
   focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
   focusLabel?: string | null;      // what we're converging on / in (for the directive text)
+  tension?: number;                // 0-10 master dial; 0 = engine originates nothing new
   rng?: () => number;              // injectable for verification
 }
 
@@ -136,6 +137,22 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   // opening grace (C1)
   if (input.turn <= 2) band = 0;
 
+  // MASTER TENSION DIAL (0–10, default 5). Scales the whole band down as it drops; at 0 the world
+  // never escalates on its own — only a consequence the player themselves set in motion can raise it,
+  // and even then it stays an obstacle, not danger. This is the global "let me breathe" control.
+  const tension = input.tension ?? 5;
+  if (tension <= 0) {
+    band = due ? Math.min(band, 2) : 0;          // nothing the engine originated; calm unless the player's own due event lands
+  } else if (tension < 5) {
+    // below midpoint: pull the band toward calm. Gentle mapping so low settings genuinely feel quiet:
+    // tension 1–2 → cap at friction (band 1), 3 → friction, 4 → obstacle (band 2).
+    const cap = tension <= 3 ? 1 : 2;
+    if (!due) band = Math.min(band, cap);
+  } else if (tension > 5) {
+    // above midpoint: allow a modest upward nudge in how hot it can run
+    if (heat >= 5 && band < 4) band = Math.min(4, band + (tension >= 8 ? 1 : 0));
+  }
+
   // pressure within band, leaning low
   const [lo, hi] = BAND_RANGES[band];
   const pressure = Math.min(hi, lo + Math.floor(rng() * (hi - lo + 1) * 0.9));
@@ -153,12 +170,16 @@ export function decidePressure(input: PressureInput): PressureVerdict {
 }
 
 /** Compact directive injected into the narrator's volatile digest. */
-export function pressureDirective(v: PressureVerdict, palette?: string[]): string {
+export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number): string {
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
-  if (v.pressure <= 2) lines.push("No threat or hostile interest — but the scene must still MOVE: a discovery, an arrival, a choice, a shift in what someone wants. Calm is not stillness; something develops.");
-  if (v.pressure >= 3 && v.pressure <= 5) lines.push("Minor friction: a small cost, a social wrinkle, weather, a tool failing, an interruption. No injury. Keep a beat moving.");
-  if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
-  if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
+  if ((tension ?? 5) <= 0) {
+    lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion.");
+  } else {
+    if (v.pressure <= 2) lines.push("No threat or hostile interest — but the scene must still MOVE: a discovery, an arrival, a choice, a shift in what someone wants. Calm is not stillness; something develops.");
+    if (v.pressure >= 3 && v.pressure <= 5) lines.push("Minor friction: a small cost, a social wrinkle, weather, a tool failing, an interruption. No injury. Keep a beat moving.");
+    if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
+    if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
+  }
   if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
   if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
   if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);

@@ -66,6 +66,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
+    tension: state.model_settings.tension ?? 5,
   });
   state.pressure_trace.push(verdict.pressure);
   ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source });
@@ -74,7 +75,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ev.onPhase("narrator");
   const prefix = stablePrefix(state);
   const digest = volatileDigest(state, action);
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5);
   const forbid = state.world_bible.forbidden_as_primary?.length
     ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}.` : "";
   if (state.world_bible.god_mode) {
@@ -126,7 +127,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) c.tracked = true;
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
-  offscreenLog.push(...regenerateDrives(state)); // tracked + idle → a fresh want from who they are
+  if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state)); // tracked + idle → a fresh want; suppressed entirely at tension 0
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence
@@ -341,6 +342,23 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   const turn = state.world.current_turn;
   const shifts: string[] = [];
   const nameOf = (id: string) => state.characters[id]?.name ?? id;
+
+  // MASTER TENSION DIAL — origination clamp. At tension 0 the engine introduces NOTHING new on its
+  // own: no new consequences, no brand-new threads, no new faction clocks. The world still RESPONDS
+  // (existing threads can resolve/shift, conditions heal, edges move, people react) — it just stops
+  // manufacturing fresh trouble in the background. Low tension (1–2) also blocks new consequences.
+  const tension = state.model_settings.tension ?? 5;
+  if (tension <= 0) {
+    diff = { ...diff,
+      consequences_new: [],
+      threads_update: (diff.threads_update ?? []).filter((t) => {
+        const exists = state.world.threads.some((x) => x.id === t.id || x.title.toLowerCase() === t.title.toLowerCase());
+        return exists; // allow updates/resolutions to existing threads, block brand-new ones
+      }),
+    } as SimulatorDiff;
+  } else if (tension <= 2) {
+    diff = { ...diff, consequences_new: [] } as SimulatorDiff;
+  }
 
   // new characters & places first so later refs resolve
   for (const nc of diff.new_characters ?? []) {
@@ -604,6 +622,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   for (const ca of diff.clocks_advance ?? []) {
+    if ((state.model_settings.tension ?? 5) <= 0) break;   // tension 0: faction clocks freeze, no background escalation
     const clock = state.world.clocks.find((c) => c.id === ca.id || c.faction.toLowerCase() === String(ca.id).toLowerCase());
     if (clock && clock.status === "running") {
       clock.filled = clamp(clock.filled + (ca.segments ?? 1), 0, clock.segments);

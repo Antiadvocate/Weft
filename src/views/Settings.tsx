@@ -131,6 +131,30 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
 
       <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World tension</div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[14px]">How much the world throws at you</span>
+          <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{draft.tension ?? 5}</span>
+        </div>
+        <input type="range" min={0} max={10} step={1} value={draft.tension ?? 5}
+          onChange={(e) => setDraft((d) => ({ ...d, tension: Number(e.target.value) }))}
+          className="w-full" style={{ accentColor: "var(--accent)" }} />
+        <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
+          {(draft.tension ?? 5) === 0
+            ? "0 — at rest. The world introduces nothing new: no fresh threats, threads, events, faction moves, or background drives. It only responds to what you do. Pure breathing room."
+            : (draft.tension ?? 5) <= 2
+              ? "Low — quiet. Existing situations can resolve and people react, but little new friction is manufactured, and no scheduled consequences are created."
+              : (draft.tension ?? 5) <= 4
+                ? "Below midpoint — gentle. Friction stays mild; the world rarely escalates on its own."
+                : (draft.tension ?? 5) === 5
+                  ? "Balanced — the default rhythm of complication and calm."
+                  : (draft.tension ?? 5) <= 7
+                    ? "Above midpoint — eventful. The world presses harder and more often."
+                    : "High — relentless. Expect frequent, fast escalation."}
+        </div>
+      </div>
+
+      <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Token economy</div>
         <button className="w-full flex items-center justify-between py-2" onClick={() => setDraft((d) => ({ ...d, lean_mode: !d.lean_mode }))}>
           <span className="text-left">
