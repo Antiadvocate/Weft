@@ -16,7 +16,7 @@
  */
 import type { SaveState, TurnTelemetry } from "./types";
 import { absMinutes, advance } from "./time";
-import { consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
+import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
 import { regenerateDrives } from "./drives";
 import { tickUndertow } from "./undertow";
 import { addCondition } from "./turn";
@@ -88,6 +88,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
       const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;
       report.traits_faded.push(...clog);
+      if (state.memory[id]) report.traits_faded.push(...consolidateBackground(state.characters[id], state.memory[id]));
     }
   }
 

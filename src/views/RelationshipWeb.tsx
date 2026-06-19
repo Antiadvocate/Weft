@@ -75,7 +75,7 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
           <div className="mt-2 text-[12px]" style={{ color: "var(--text-mid)" }}>
             <span style={{ color: "var(--text-hi)" }}>{ch.name}</span> feels:
             {ties.length ? ties.map((e, i) => (
-              <span key={i}> {save.characters[e.to]?.name?.split(/\s+/)[0]} <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>({e.warmth > 0 ? "+" : ""}{e.warmth})</span>{i < ties.length - 1 ? "," : ""}</span>
+              <span key={i}> {save.characters[e.to]?.name?.split(/\s+/)[0]}{e.roles?.length ? ` (${e.roles.join(", ")})` : ""} <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>({e.warmth > 0 ? "+" : ""}{e.warmth})</span>{i < ties.length - 1 ? "," : ""}</span>
             )) : <span style={{ color: "var(--text-lo)" }}> no recorded ties yet</span>}
           </div>
         );

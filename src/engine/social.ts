@@ -13,7 +13,7 @@
  * Psyche: relaxation r drifts toward capacity at rate ρ, perturbed by
  * Simulator deltas; psyche state derived from thresholds and dwell time.
  */
-import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity } from "./types";
+import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -28,13 +28,14 @@ export function getEdge(edges: SocialEdge[], from: string, to: string): SocialEd
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string }, turn: number) {
+export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }, turn: number) {
   const e = getEdge(edges, d.from, d.to);
   e.warmth = clamp(e.warmth + clamp(d.warmth_delta, -15, 15), -100, 100);
   e.trust = clamp(e.trust + clamp(d.trust_delta, -20, 20), -100, 100); // trust breaks faster than it builds: asymmetry below
   if (d.trust_delta > 0) e.trust = clamp(e.trust - d.trust_delta + d.trust_delta * 0.6, -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
   if (d.note) e.notes = d.note.slice(0, 140);
+  if (d.roles_set) e.roles = d.roles_set.map((r) => r.trim()).filter(Boolean).slice(0, 4);
   e.updated_turn = turn;
 }
 
@@ -88,6 +89,34 @@ export function tickPsyche(p: Psyche): void {
  *  and becomes WHO THEY ARE: folded into core_traits, and — if it bears on how they come
  *  across — into the stored speech_pattern, then retired from the acquired list. Never runs
  *  per-turn (only on reflection / time skips), so a single scene can't move the core. */
+export function capMemory(episodic: EpisodicMemory[], cap = 60): EpisodicMemory[] {
+  if (episodic.length <= cap) return episodic;
+  const sacred = episodic.filter((m) => m.importance >= 8);
+  const rest = episodic.filter((m) => m.importance < 8).slice().sort((a, b) => a.turn - b.turn);
+  const room = Math.max(0, cap - sacred.length);
+  const keptRest = rest.slice(-room);
+  const keep = new Set<EpisodicMemory>([...sacred, ...keptRest]);
+  return episodic.filter((m) => keep.has(m));
+}
+
+export function consolidateBackground(ident: Identity, mem: CharMemory): string[] {
+  const log: string[] = [];
+  const defining = mem.episodic.filter((m) => m.importance >= 8 && !m.folded);
+  if (!defining.length) return log;
+  const facts = defining
+    .slice()
+    .sort((a, b) => a.turn - b.turn)
+    .map((m) => m.content.trim())
+    .filter((c) => c && !ident.background.includes(c));
+  if (facts.length) {
+    ident.background = `${ident.background} ${facts.join(" ")}`.trim();
+    if (ident.background.length > 1400) ident.background = ident.background.slice(-1400);
+    log.push(`${ident.name}'s history now carries ${facts.length} defining moment${facts.length > 1 ? "s" : ""}.`);
+  }
+  for (const m of defining) m.folded = true;
+  return log;
+}
+
 export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {
   const log: string[] = [];
   const SPEECHY = /(mean|cruel|harsh|cold|gentle|warm|tender|curt|terse|sharp|bitter|guarded|open|cheerful|grim|sardonic|formal|crude|profane|soft-spoken|aggressive|meek|commanding|timid|sarcastic|kind)/i;

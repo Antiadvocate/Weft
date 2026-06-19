@@ -309,7 +309,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                       return (
                         <div key={e.to} className="py-1.5">
                           <div className="flex justify-between text-[13.5px]">
-                            <span>→ {other}</span>
+                            <span>→ {other}{e.roles?.length ? <span style={{ color: "var(--accent)" }}> · {e.roles.join(" & ")}</span> : null}</span>
                             <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
                               {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} · trust {e.trust}
                             </span>

@@ -14,7 +14,7 @@ import { decidePressure, isDue, pressureDirective } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
-import { applyEdgeDelta, consolidateTraits, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection } from "./memory";
 import { tickUndertow } from "./undertow";
@@ -147,6 +147,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;
       for (const l of clog) { offscreenLog.push(l); shifts.push(l); }
+      // identity-defining memories fold permanently into background (survive eviction, shape who they are)
+      const blog = consolidateBackground(state.characters[id], state.memory[id]);
+      for (const l of blog) { offscreenLog.push(l); shifts.push(l); }
     }
   }
   for (const id of Object.keys(state.condition)) {
@@ -357,7 +360,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
           importance: 4, emotional_charge: "", when_label: state.world.current_time, where: toName,
           last_accessed_turn: turn,
         });
-        if (mem.episodic.length > 60) mem.episodic = mem.episodic.slice(-60);
+        mem.episodic = capMemory(mem.episodic);
       }
     }
     state.characters[cid].location = pid;
@@ -459,7 +462,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const e of diff.edges ?? []) {
     const from = resolveId(state, e.from), to = resolveId(state, e.to);
     if (!from || !to || from === to) continue;
-    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note }, turn);
+    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn);
     if (to === "char_player") {
       const w = e.warmth_delta ?? 0, tr = e.trust_delta ?? 0;
       if (w <= -5) shifts.push(`${nameOf(from)} cooled toward you.`);
@@ -480,7 +483,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       where: (wherePid && state.world.places[wherePid]?.name) || undefined,
       ...(m.scheduled_time ? { scheduled_time: m.scheduled_time, commitment_status: "pending" as const } : {}),
     });
-    if (mem.episodic.length > 60) mem.episodic = mem.episodic.slice(-60);
+    mem.episodic = capMemory(mem.episodic);
     if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
   }
 

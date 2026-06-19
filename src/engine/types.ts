@@ -52,6 +52,7 @@ export interface SocialEdge {
   warmth: number;   // affection ↔ hostility
   trust: number;    // reliance ↔ suspicion
   power: number;    // a's perceived standing over b (deference if negative)
+  roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
   updated_turn: number;
 }
@@ -176,6 +177,7 @@ export interface EpisodicMemory {
   where?: string;              // place name where it happened
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
+  folded?: boolean;            // a high-salience memory already folded into the character's background (identity consolidation)
   last_accessed_turn: number;
 }
 
@@ -327,7 +329,7 @@ export interface SimulatorDiff {
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
-  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string }[];
+  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string }[];
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
