@@ -104,7 +104,8 @@ export interface Identity {
   age: number;
   pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
   appearance_facts: string;
-  background: string;
+  background: string;         // BEDROCK: the original forge identity — who they fundamentally are. Never trimmed or rewritten by the engine.
+  life_history?: string;      // ACCRETED: defining moments that have happened in play, folded in over time. Compressed when it grows long; bedrock is never touched.
   core_traits: string[];
   values: string[];
   speech_pattern: string;

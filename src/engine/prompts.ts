@@ -294,7 +294,8 @@ export function deriveVoice(
 export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[]): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${x.intensity.toFixed(0)}) — ${x.behavioral_impact}`).join("; ")}.` : "";
   const inj = cond.injuries.length ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
-  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}`;
+  const hist = ident.life_history?.trim() ? ` Since the story began: ${ident.life_history.trim()}` : "";
+  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}${hist}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
@@ -362,7 +363,7 @@ export function volatileDigest(state: SaveState, query: string): string {
     const isPlayer = id === "char_player";
     if (detail === 0 && !isPlayer) return `— ${ident.name} [${id}]${ident.pronouns ? ` · ${ident.pronouns}` : ""} — present, ${cond.psyche.mood || "even"}`;
     const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}${ident.pronouns ? ` · ${ident.pronouns}` : ""}`];
-    if (isPlayer && ident.background) lines.push(`  who they are: ${ident.background.split(/[.!?]/)[0].trim()}.`);
+    if (isPlayer && ident.background) lines.push(`  who they are: ${ident.background.split(/[.!?]/)[0].trim()}.${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
     if (!isPlayer) lines.push(`  WRITE THEM AS: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holding to ${ident.values.slice(0, 3).join(", ")}` : ""}. Let this show in what they say and do, not as a stated label.`);
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}`);
     if (!isPlayer) {

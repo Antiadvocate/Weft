@@ -107,14 +107,28 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
     .slice()
     .sort((a, b) => a.turn - b.turn)
     .map((m) => m.content.trim())
-    .filter((c) => c && !ident.background.includes(c));
+    .filter((c) => c && !(ident.life_history ?? "").includes(c) && !ident.background.includes(c));
   if (facts.length) {
-    ident.background = `${ident.background} ${facts.join(" ")}`.trim();
-    if (ident.background.length > 1400) ident.background = ident.background.slice(-1400);
+    // fold into the ACCRETED layer, never the bedrock forge background
+    ident.life_history = `${ident.life_history ?? ""} ${facts.join(" ")}`.trim();
+    // deterministic light trim: keep the most recent ~1100 chars on a sentence boundary
+    const SOFT = 1100;
+    if (ident.life_history.length > SOFT) {
+      const tail = ident.life_history.slice(-SOFT);
+      const firstStop = tail.search(/[.!?]\s/);
+      ident.life_history = (firstStop >= 0 ? tail.slice(firstStop + 2) : tail).trim();
+    }
     log.push(`${ident.name}'s history now carries ${facts.length} defining moment${facts.length > 1 ? "s" : ""}.`);
   }
   for (const m of defining) m.folded = true;
   return log;
+}
+
+/** When life_history has grown past where deterministic trimming reads cleanly, an LLM should
+ *  re-summarize it into tighter prose (preserve the shape, lose verbatim detail). The actual
+ *  rewrite is async, done by the turn loop — rare and cheap. Bedrock background is never touched. */
+export function needsHistoryCompaction(ident: Identity): boolean {
+  return (ident.life_history?.length ?? 0) > 1400;
 }
 
 export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {

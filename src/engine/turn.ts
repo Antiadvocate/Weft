@@ -14,7 +14,7 @@ import { decidePressure, isDue, pressureDirective } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection } from "./memory";
 import { tickUndertow } from "./undertow";
@@ -204,6 +204,28 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const parsed = safeJson<{ beliefs: { content: string; confidence: number }[] }>(res.text, { beliefs: [] });
       const beliefs: Belief[] = parsed.beliefs.slice(0, 3).map((b) => ({ content: b.content, confidence: clamp(b.confidence ?? 0.7, 0, 1), formed_turn: turn, evidence_turns: [] }));
       if (beliefs.length) applyReflection(mem, beliefs, turn);
+
+      // history compaction: when the accreted life_history has grown long, re-summarize it into
+      // tighter prose (preserve the throughline, lose verbatim detail). Bedrock background untouched.
+      const ident = state.characters[id];
+      if (ident && needsHistoryCompaction(ident)) {
+        try {
+          const cmsg = [
+            { role: "system", content: `You compress a character's accumulated life-history into tighter prose. Preserve every identity-defining throughline (relationships formed, who they became, irreversible changes, key losses and bonds) but collapse repetitive or minor beats and lose verbatim detail. Keep it under 120 words, past tense, plain prose, no list. Output ONLY the rewritten history paragraph.` },
+            { role: "user", content: `Character: ${ident.name}\nTheir core identity (do NOT repeat this, it's already known): ${ident.background}\nAccumulated history to compress:\n${ident.life_history}` },
+          ];
+          const cres = await complete(cmsg, state.model_settings.simulator_model, state.model_settings.fallback_model, false, 300);
+          reflectionTokens += cres.usage.prompt_tokens + cres.usage.completion_tokens;
+          const tightened = cres.text.trim();
+          if (tightened && tightened.length < (ident.life_history?.length ?? 0)) {
+            ident.life_history = tightened;
+            shifts.push(`${ident.name}'s long history settled into its essentials.`);
+          }
+        } catch (e: any) {
+          // if the rewrite fails, fall back to a hard tail-trim so it can't grow unbounded
+          if (ident.life_history && ident.life_history.length > 1400) ident.life_history = ident.life_history.slice(-1400);
+        }
+      }
     } catch (e: any) {
       console.warn(`[turn] reflection failed for ${id}: ${e.message}`);
     }
