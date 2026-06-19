@@ -281,6 +281,18 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 
+                {(c.background || c.life_history) && (
+                  <Section title="Who they are">
+                    {c.background && <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{c.background}</div>}
+                    {c.life_history?.trim() && (
+                      <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--ink-2)" }}>
+                        <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--accent)" }}>Story so far</div>
+                        <div className="text-[12.5px] leading-relaxed italic" style={{ color: "var(--text-mid)" }}>{c.life_history}</div>
+                      </div>
+                    )}
+                  </Section>
+                )}
+
                 {(cond.inventory.length > 0 || cond.wearing.length > 0) && (
                   <Section title="Carrying & wearing">
                     {cond.wearing.length > 0 && <Row k="wearing" v={cond.wearing.map(nice).join(", ")} />}
