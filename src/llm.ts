@@ -63,11 +63,12 @@ export async function complete(messages: any[], model: string, fallback: string,
   catch { return await once(messages, fallback, json, maxTokens); }
 }
 
-export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000): AsyncGenerator<string, LLMResult, unknown> {
+export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false): AsyncGenerator<string, LLMResult, unknown> {
+  const slug = (m: string) => (online && !m.endsWith(":online") ? `${m}:online` : m);
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
     const res = await fetch(OR_URL, {
       method: "POST", headers: headers(),
-      body: JSON.stringify({ model: m, messages, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } }),
+      body: JSON.stringify({ model: slug(m), messages, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } }),
     });
     if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const reader = res.body.getReader();

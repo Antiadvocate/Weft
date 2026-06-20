@@ -280,7 +280,7 @@ export interface TurnTelemetry {
   early_warning?: boolean;
 }
 
-export type ActionMode = "do" | "say" | "story";
+export type ActionMode = "do" | "say" | "think" | "story";
 
 export interface TurnHistoryEntry {
   turn: number;

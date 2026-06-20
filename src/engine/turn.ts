@@ -36,9 +36,12 @@ function emptyDiff(): SimulatorDiff {
   };
 }
 
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD and others can hear it; text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks*, and never have someone "overhear" something the player only thought. If the player mixes them in one message, treat each part on its own channel.]`;
+
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
-  do: (a) => a,
+  do: (a) => `${a}${/\*/.test(a) ? INLINE_CHANNEL_NOTE : ""}`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
+  think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
 };
 
@@ -49,7 +52,7 @@ function looksNamed(name: string): boolean {
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
 }
 
-export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do"): Promise<void> {
+export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean }): Promise<void> {
   const t0 = Date.now();
   const framedAction = MODE_FRAME[mode](action);
   const turn = state.world.current_turn;
@@ -82,12 +85,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     directive += `\nGOD MODE — the player is sovereign here. Their powers succeed completely and cost NOTHING unless they narrate a cost themselves. Override any cost or limitation language in the world bible's magic rules for the player only. The world still reacts honestly: people fear, adapt, worship, scheme, flee, disbelieve. Pressure comes from the world's response to a god walking it, never from handicapping the god.`;
   }
   const fullDirective = directive + forbid + "\n" + undertow.directive;
+  const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,
-    `${digest}\n\n=== DIRECTION ===\n${fullDirective}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
+    `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
     state.model_settings.narrator_model,
   );
-  const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model);
+  const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
   let prose = "";
   let narratorUsage = { prompt_tokens: 0, completion_tokens: 0 };
   while (true) {

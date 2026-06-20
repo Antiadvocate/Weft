@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CornerDownLeft, Crosshair, Image as ImageIcon, Moon, RotateCcw, X } from "lucide-react";
+import { CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, type ActionMode, type ClientSave } from "../lib/api";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -17,7 +17,7 @@ const PHASE_LABEL: Record<string, string> = {
 };
 
 const MODES: { id: ActionMode; label: string; hint: string }[] = [
-  { id: "do", label: "Do", hint: "What do you do?" },
+  { id: "do", label: "Do", hint: "What do you do?  \"speak aloud\" · *private thought* · plain text acts" },
   { id: "say", label: "Say", hint: "What do you say? (your exact words)" },
   { id: "story", label: "Story", hint: "Narrate what happens next…" },
 ];
@@ -29,6 +29,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [action, setAction] = useState(() => sessionStorage.getItem(draftKey) ?? "");
   const [focused, setFocused] = useState(false);
   const [mode, setMode] = useState<ActionMode>("do");
+  const [ground, setGround] = useState(false);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<string | null>(null);
   const [liveProse, setLiveProse] = useState("");
@@ -80,7 +81,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); },
         onError: (msg) => { setError(msg); failed = true; },
-      });
+      }, { ground });
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
@@ -331,6 +332,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   : { color: "var(--text-lo)" }}
                 onClick={() => setMode(m.id)}>{m.label}</button>
             ))}
+            <button
+              className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 mt-0.5"
+              style={ground ? { color: "var(--accent)", background: "var(--accent-soft)" } : { color: "var(--text-lo)" }}
+              title="Ground this reply with a live web search (real places/facts). Costs more for this turn."
+              onClick={() => setGround((g) => !g)}>
+              <Globe size={10} /> web
+            </button>
           </div>
           <textarea
             className="field flex-1"

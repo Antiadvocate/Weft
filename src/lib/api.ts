@@ -463,14 +463,14 @@ export interface TurnEvents {
 }
 
 /** The turn loop, run locally. Same signature the views already use. */
-export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents): Promise<void> {
+export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean }): Promise<void> {
   try {
     const s = await need(saveId);
     await runTurn(s, action, {
       onPhase: (p) => ev.onPhase?.(p),
       onDelta: (t) => ev.onDelta?.(t),
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
-    }, mode);
+    }, mode, opts);
     await putSave(s);
     ev.onDone?.(clientView(s));
   } catch (e: any) {
