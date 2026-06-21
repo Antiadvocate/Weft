@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, Pause, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import { CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, type ActionMode, type ClientSave } from "../lib/api";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -108,30 +108,22 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setSkipping(false); setPhase(null); }
   };
 
-  /** Observer mode: run autonomous turns back-to-back. You watch; the world (and
-   *  your own character) act on their own. Press again to stop; it halts after the
-   *  current turn finishes. */
+  /** Observer: run ONE autonomous turn. You watch; the world and your own character
+   *  act on their own. One press = one beat. */
   const runObserve = async () => {
-    if (observingRef.current) { observingRef.current = false; setObserving(false); return; }
-    if (running) return;
+    if (running || observingRef.current) return;
     observingRef.current = true; setObserving(true); setError(null);
-    while (observingRef.current) {
-      setRunning(true); setLiveProse(""); setPhase("pressure");
-      let failed = false;
-      await new Promise<void>((resolve) => {
-        streamTurn(save.id, "", "story", {
-          onPhase: setPhase,
-          onDelta: (t) => setLiveProse((p) => p + t),
-          onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-          onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); resolve(); },
-          onError: (msg) => { setError(msg); failed = true; resolve(); },
-        }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); failed = true; resolve(); });
-      });
-      setRunning(false); setPhase(null);
-      if (failed) { observingRef.current = false; setObserving(false); break; }
-      // a breath between beats so you can read, and so Stop feels responsive
-      await new Promise((r) => setTimeout(r, 900));
-    }
+    setRunning(true); setLiveProse(""); setPhase("pressure");
+    await new Promise<void>((resolve) => {
+      streamTurn(save.id, "", "story", {
+        onPhase: setPhase,
+        onDelta: (t) => setLiveProse((p) => p + t),
+        onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); resolve(); },
+        onError: (msg) => { setError(msg); resolve(); },
+      }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
+    });
+    setRunning(false); setPhase(null);
     observingRef.current = false; setObserving(false);
   };
 
@@ -207,9 +199,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <div className="seismo flex-1 px-1">
           <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => t.lyapunov ?? -0.2)} />
         </div>
-        <button className="chip" onClick={runObserve} disabled={running && !observing} title={observing ? "stop watching" : "watch the story play itself"}
-          style={observing ? { color: "var(--accent)", borderColor: "var(--accent-glow)" } : undefined}>
-          {observing ? <Pause size={11} /> : <PlayIcon size={11} />}
+        <button className="chip" onClick={runObserve} disabled={running} title="watch one turn play itself">
+          <PlayIcon size={11} />
         </button>
         <button className="chip" onClick={() => setSkipOpen(true)} disabled={running || skipping}>
           <Moon size={11} />
