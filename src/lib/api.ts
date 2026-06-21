@@ -462,15 +462,23 @@ export interface TurnEvents {
   onError?: (message: string) => void;
 }
 
-/** The turn loop, run locally. Same signature the views already use. */
-export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean }): Promise<void> {
+/** The turn loop, run locally. Same signature the views already use.
+ *  When opts.observe is set, the turn runs with no player action: the world and
+ *  the player's own character act on their own, and you watch. */
+export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean }): Promise<void> {
   try {
     const s = await need(saveId);
-    await runTurn(s, action, {
+    const observe = !!opts?.observe;
+    // In observe mode there is no player action; the engine is told to advance
+    // the scene on its own, moving every actor (including the player's vessel).
+    const act = observe
+      ? "[OBSERVER] The player takes no action and only watches. Advance the scene on its own: let every present character — INCLUDING the player's own character — act, speak, and pursue their drives as they naturally would in this moment. Do not wait for the player. Move the story forward one concrete beat."
+      : action;
+    await runTurn(s, act, {
       onPhase: (p) => ev.onPhase?.(p),
       onDelta: (t) => ev.onDelta?.(t),
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
-    }, mode, opts);
+    }, observe ? "story" : mode, opts);
     await putSave(s);
     ev.onDone?.(clientView(s));
   } catch (e: any) {

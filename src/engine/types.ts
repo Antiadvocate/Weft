@@ -198,6 +198,28 @@ export interface CharMemory {
   knows: string[];             // char_ids known
 }
 
+// ───────────────────────────── theory of mind (active-inference belief layer) ─────────────────────────────
+
+/** What character A privately believes about character B — a model that can be WRONG.
+ *  Behavior is driven off this model, not ground truth; the GAP between prediction and
+ *  what actually happens (prediction error) is the dramatic resource: it feeds the cusp
+ *  load term, surfaces to the narrator, and biases idle drives toward finding out. */
+export interface BeliefAbout {
+  target: string;              // char_id this is a model OF (often "char_player")
+  predicted_warmth: number;    // what A expects B feels toward A, [-100,100] — may diverge from the true edge
+  predicted_stance: "ally" | "rival" | "unknown"; // A's read of where B stands
+  held_false?: string;         // ONE concrete thing A wrongly believes about B ("thinks I betrayed them") — the misunderstanding that can drive a scene
+  surprise: number;            // 0..1 running prediction-error magnitude; decays in calm, spikes on violated expectation
+  confidence: number;          // 0..1 how sure A is of this model; low confidence + high stakes → epistemic drive
+  updated_turn: number;
+}
+
+/** A's whole theory of mind: sparse — only the people A actually models (player + sharpest tie). */
+export interface MindModel {
+  character_id: string;        // the BELIEVER
+  about: BeliefAbout[];
+}
+
 // ───────────────────────────── world ─────────────────────────────
 
 export interface Thread {
@@ -282,6 +304,10 @@ export interface TurnTelemetry {
 
 export type ActionMode = "do" | "say" | "think" | "story";
 
+/** The four QRE stances an agent can play in the strategy layer. Canonical home here so
+ *  both the undertow (which computes them) and the mind layer (which reads them) can import. */
+export type Stance = "press" | "maneuver" | "hold" | "yield";
+
 export interface TurnHistoryEntry {
   turn: number;
   kind?: "turn" | "interlude" | "opening";   // opening = the scene you start in (editable, pre turn-1)
@@ -310,6 +336,7 @@ export interface SaveState {
   traits: Record<string, AcquiredTrait[]>;
   condition: Record<string, Condition>;
   memory: Record<string, CharMemory>;
+  minds?: Record<string, MindModel>;   // theory-of-mind: per-character private models of others (active-inference belief layer)
   history: TurnHistoryEntry[];
   vessel_history?: { turn: number; from_name: string; to_name: string; time_label: string }[]; // bodies the player has worn
   undertow?: unknown;          // continuous substrate state (phases, tangent, cusps) — engine-internal

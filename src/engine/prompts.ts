@@ -12,6 +12,7 @@
  */
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { compactMemoryDigest } from "./memory";
+import { mindDigest } from "./mind";
 
 export const NARRATOR_SYSTEM = `You are the Narrator of a persistent, world-reacting story. Not a quest dispenser — a living place rendered honestly, one turn at a time.
 
@@ -74,6 +75,7 @@ Rules:
 - LOCATION: track where everyone is. Set player_location whenever the player moves (a place name is fine, like outside the Mars dome, or in transit to Metropolis; new places are created automatically; reuse exact existing names when staying put). In the locations array, record every character who moves, arrives, leaves, or is teleported or summoned this turn, each as char_id plus place. If the player teleports or brings someone to them, set that character place to the player location, which is what puts them in the scene. A character NOT moved stays where they were and is NOT in the scene just because they are mentioned. Do not hand-maintain present; co-location decides it.
 - appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
+- ITEMS ARE PHYSICAL AND EXCLUSIVE: an item exists in exactly one holder at a time. The moment the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of an object, emit inventory_remove for that holder by the item's name — do NOT leave a relinquished item in their inventory. If another character (or the player) takes or receives it, also emit inventory_add for the new holder. Applies equally to the player's own inventory. If the prose shows the thing leaving their hands, it leaves their inventory.
 - drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal, grown from WHO THEY ARE (traits, values, history) and how they feel about others (their edges) and the live threads. NPCs are autonomous: their new wants need not involve the player. A character may hold up to THREE goals at once with a priority each (set "priority": higher = more pressing); the engine keeps them pursuing the top one and lets them switch to a backup when the active goal stalls or the scene goes quiet — so people leave a calm thread to chase a more pressing one elsewhere rather than hovering. Give a character a second or third goal when their situation reasonably implies competing pulls. A detective who finished one case starts another; a thief plans the next score; a rival who lost ground regroups.
 - track: when a character becomes important to a thread you're weaving, or to a contextually charged moment, list their id in track so they persist in the long game. Untracked bit-players (nameless guards, crowd) should stay untracked and may fade.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
@@ -134,6 +136,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - LOCATION: set player_location whenever the player moves (place name fine; new places auto-created; reuse exact names when staying). In locations[], record every character who moves/arrives/leaves/teleports as char_id+place; bringing someone to player_location puts them in scene. Unmoved characters stay put and aren't in-scene just for being mentioned. Don't hand-maintain present; co-location decides it.
 - appearance: on a permanent body/look change, emit the FULL revised appearance_facts as present-day fact (no "newly"/origin framing).
 - injury_remove: when prose heals an injury, remove it by name.
+- ITEMS ARE PHYSICAL AND EXCLUSIVE: an item lives in exactly one place. The instant the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of something, emit inventory_remove for that holder (by the item's name). If someone else takes/receives it, also emit inventory_add for them. A character who put something down does NOT still have it — never leave a relinquished item in their inventory. Same for the player. When in doubt and the prose shows the thing leaving their hands, remove it.
 - drives_update: on completing/abandoning/acquiring a want, give the next concrete goal from who they are + edges + threads (NPC goals needn't involve the player). Up to THREE goals each with priority (higher = more pressing); engine pursues the top, switches to a backup when it stalls. Add a 2nd/3rd when competing pulls are plausible.
 - track: list ids of characters who became important so they persist; leave nameless bit-players untracked.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
@@ -388,6 +391,9 @@ export function volatileDigest(state: SaveState, query: string): string {
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
       if (pedge) lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pedge.notes && detail >= 2 ? ` — ${pedge.notes}` : ""}`);
+      // theory of mind: what they BELIEVE about the player (may be wrong — the scene runs on this, not the truth)
+      const mind = mindDigest(state, id);
+      if (mind) lines.push(`  ${mind}`);
     } else {
       lines.push(`  mood (self-reported only through actions): ${cond.psyche.active_states.join(", ") || "—"}`);
     }

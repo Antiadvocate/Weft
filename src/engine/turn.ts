@@ -131,7 +131,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) c.tracked = true;
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
-  if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state)); // tracked + idle → a fresh want; suppressed entirely at tension 0
+  if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [])); // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; suppressed entirely at tension 0
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence

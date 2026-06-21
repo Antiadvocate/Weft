@@ -11,6 +11,7 @@
  *  Simulator promotes one (diff.track) when a thread makes them matter. Untracked
  *  bit-players recede — no drive, no upkeep — until something elevates them. */
 import type { Identity, SaveState } from "./types";
+import { epistemicGoal } from "./mind";
 
 const pick = <T,>(xs: T[], rng: () => number): T => xs[Math.floor(rng() * xs.length)];
 
@@ -75,9 +76,13 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   return { goal: candidates[idx], progress: 0, priority: 1, updated_turn: turn };
 }
 
-/** Ensure every TRACKED, offscreen, idle character has a want. Returns world-motion lines. */
-export function regenerateDrives(state: SaveState, rng: () => number = Math.random): string[] {
+/** Ensure every TRACKED, offscreen, idle character has a want. Returns world-motion lines.
+ *  `epistemicPulls` (from the theory-of-mind layer) lets a character whose model of someone
+ *  is uncertain-but-high-stakes seed a "find out" want instead of a generic one — active
+ *  inference's epistemic drive, executed by the same machinery. */
+export function regenerateDrives(state: SaveState, rng: () => number = Math.random, epistemicPulls: { id: string; target: string }[] = []): string[] {
   const log: string[] = [];
+  const pullFor = new Map(epistemicPulls.map((p) => [p.id, p.target]));
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || !c.tracked) continue;
     if (c.status === "dead" || c.status === "departed") continue;   // the gone don't get new wants
@@ -107,11 +112,15 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
     }
 
     if (active && active.progress < 100) continue;          // still actively wanting something
-    // nothing active (or it just completed and queue empty) — seed a fresh want
-    const seeded = seedDrive(state, id, rng);
+    // nothing active (or it just completed and queue empty) — seed a fresh want.
+    // a live epistemic pull (uncertain about someone who matters) takes the wheel.
+    const pull = pullFor.get(id);
+    const seeded = pull
+      ? { goal: epistemicGoal(state, pull), progress: 0, priority: 2, updated_turn: state.world.current_turn }
+      : seedDrive(state, id, rng);
     if (!seeded) continue;
     c.drive = seeded;
-    log.push(`${c.name} turns to something new: ${seeded.goal}.`);
+    log.push(pull ? `${c.name} can't get a read on ${pull === "char_player" ? "the player" : state.characters[pull]?.name ?? "someone"} — and goes looking.` : `${c.name} turns to something new: ${seeded.goal}.`);
     // occasionally give them a second, lower-priority aim so they have somewhere to go next
     if (queue.length < 2 && rng() < 0.5) {
       const backup = seedDrive(state, id, rng);

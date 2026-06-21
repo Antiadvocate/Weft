@@ -31,7 +31,8 @@
  *    return path requires b to cross the OPPOSITE fold, so recovery is harder
  *    than collapse by geometry, not by tuning.
  */
-import type { Psyche, SaveState } from "./types";
+import type { Psyche, SaveState, Stance } from "./types";
+import { updateMind, mindDigest } from "./mind";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const TAU = Math.PI * 2;
@@ -39,7 +40,7 @@ const TAU = Math.PI * 2;
 // ───────────────────────── 1. QUANTAL RESPONSE EQUILIBRIUM ─────────────────────────
 
 export const STANCES = ["press", "maneuver", "hold", "yield"] as const;
-export type Stance = (typeof STANCES)[number];
+export type { Stance } from "./types";
 
 function softmax(xs: number[], lambda: number): number[] {
   const m = Math.max(...xs);
@@ -154,6 +155,8 @@ export interface UndertowState {
   lyapunov: number;                     // windowed λ̂
   early_warning: boolean;               // critical slowing down detected
   stances?: { name: string; stance: Stance; p: number; vs: string }[];
+  tom_lines?: string[];                  // theory-of-mind surprise beats this turn
+  epistemic_pulls?: { id: string; target: string }[]; // characters who want to FIND OUT about someone
 }
 
 export function initUndertow(): UndertowState {
@@ -302,6 +305,7 @@ export interface UndertowReport {
   stances: { name: string; stance: Stance; p: number; vs: string }[];
   snaps: string[];                       // fold-crossing events, humanized
   directive: string;                     // one line for the narrator
+  epistemic_pulls?: { id: string; target: string }[]; // characters who want to find out about someone (feeds drive regen)
 }
 
 export function tickUndertow(state: SaveState, rng: () => number = Math.random): UndertowReport {
@@ -357,6 +361,7 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
 
   // ── strategy layer: QRE stances for every driven offscreen character ──
   const stances: UndertowReport["stances"] = [];
+  const sampledStance: Record<string, Stance> = {}; // char_id -> stance, for the theory-of-mind layer
   const lethality = { low: 0.25, medium: 0.55, high: 0.9 }[state.world_bible.difficulty_profile.lethality];
   for (const id of ids) {
     const c = state.characters[id];
@@ -383,6 +388,7 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
     let r = rng(), k = 0;
     while (k < p.length - 1 && r > p[k]) { r -= p[k]; k++; }
     const stance = STANCES[k];
+    sampledStance[id] = stance;
     stances.push({ name: c.name, stance, p: p[k], vs: state.characters[rival]?.name ?? "the world" });
     // the stance MOVES the drive — strategy replaces dice
     if (stance === "press") { c.drive.progress = clamp(c.drive.progress + 11 + Math.floor(rng() * 6), 0, 100); }
@@ -395,17 +401,52 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
   }
   ut.stances = stances;
 
+  // ── THEORY OF MIND: each character updates its private model of the people who matter.
+  //    Prediction error (model vs. truth) becomes SURPRISE, which deepens the cusp load
+  //    term `a` — surprise IS the body bracing against an unpredictable world, so the
+  //    cognition layer and the catastrophe layer are unified here. High uncertainty about
+  //    someone who matters seeds an epistemic drive. Misreads surface as narrator beats. ──
+  const mindCusps: Record<string, CuspPoint> = ((state as any).undertow.cusps ??= {});
+  const tomLines: string[] = [];
+  const epistemicPulls: { id: string; target: string }[] = [];
+  for (const id of ids) {
+    if (id === "char_player") continue;
+    const c = state.characters[id];
+    if (!c || c.status === "dead" || c.status === "departed") continue;
+    // only model for characters with stakes: tracked, present, or holding a drive
+    if (!c.tracked && !state.world.present.includes(id) && !c.drive) continue;
+    const { lines, peakSurprise, epistemicTarget } = updateMind(state, id, sampledStance, state.world.current_turn);
+    tomLines.push(...lines);
+    // surprise → cusp load: unresolved prediction error deepens the bistable wedge,
+    // exactly as sustained battering does. A mind that can't predict its world clenches.
+    if (peakSurprise > 0.3) {
+      const cusp = mindCusps[id];
+      if (cusp) cusp.a = clamp(cusp.a - peakSurprise * 0.18, -1.3, 0.45);
+    }
+    if (epistemicTarget) epistemicPulls.push({ id, target: epistemicTarget });
+  }
+  ut.tom_lines = tomLines.slice(0, 4);
+  ut.epistemic_pulls = epistemicPulls;
+
   const instability = ut.regime === "cascading" ? 0.8 : ut.regime === "critical" ? 0.15 : 0;
   const stanceLine = stances.slice(0, 3).map((s) => `${s.name} is ${s.stance}ing (vs ${s.vs})`).join("; ");
+  // belief-divergence note: if a present character is acting on a wrong model of the player, tell the narrator
+  const divergent = state.world.present
+    .map((pid) => ({ pid, d: mindDigest(state, pid) }))
+    .filter((x) => x.d);
+  const tomNote = divergent.length
+    ? ` MINDS (act on each one's BELIEF, not the truth): ${divergent.map((x) => `${state.characters[x.pid]?.name} ${x.d}`).join(" | ")}.`
+    : "";
   const directive =
     `UNDERTOW: the world is ${ut.regime} (λ̂=${ut.lyapunov.toFixed(2)}, coherence R=${ut.coherence.toFixed(2)})` +
     (ut.regime === "cascading" ? " — primed: small acts cascade, bystanders take sides, sparks catch." :
       ut.regime === "critical" ? " — taut: outcomes can swing either way." :
         " — damped: the world absorbs shocks today; people default to ease, humor, and ordinary kindness. Let scenes breathe.") +
     (ut.early_warning ? " NOTE: the player's inner weather is winding tight — favor continuity and steadiness over fresh pressure." : "") +
-    (stanceLine ? ` Offscreen postures: ${stanceLine}.` : "");
+    (stanceLine ? ` Offscreen postures: ${stanceLine}.` : "") +
+    tomNote;
 
-  return { regime: ut.regime, lyapunov: ut.lyapunov, coherence: ut.coherence, early_warning: ut.early_warning, instability, stances, snaps, directive };
+  return { regime: ut.regime, lyapunov: ut.lyapunov, coherence: ut.coherence, early_warning: ut.early_warning, instability, stances, snaps: [...snaps, ...tomLines.slice(0, 2)], directive, epistemic_pulls: epistemicPulls };
 }
 
 function hash(s: string): number {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, RotateCcw, X } from "lucide-react";
+import { CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, Pause, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, type ActionMode, type ClientSave } from "../lib/api";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -16,10 +16,9 @@ const PHASE_LABEL: Record<string, string> = {
   interlude: "days pass",
 };
 
-const MODES: { id: ActionMode; label: string; hint: string }[] = [
-  { id: "do", label: "Do", hint: "What do you do?  \"speak aloud\" · *private thought* · plain text acts" },
-  { id: "say", label: "Say", hint: "What do you say? (your exact words)" },
-  { id: "story", label: "Story", hint: "Narrate what happens next…" },
+const MODES: { id: ActionMode; label: string }[] = [
+  { id: "do", label: "Do" },
+  { id: "story", label: "Story" },
 ];
 
 interface Tip { name: string; x: number; y: number }
@@ -41,6 +40,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [tip, setTip] = useState<Tip | null>(null);
   const [illustrating, setIllustrating] = useState(false);
+  const [observing, setObserving] = useState(false);
+  const observingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastId = useRef(0);
 
@@ -107,8 +108,34 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setSkipping(false); setPhase(null); }
   };
 
-  const illustrateLatest = async () => {
-    if (illustrating || !history.length) return;
+  /** Observer mode: run autonomous turns back-to-back. You watch; the world (and
+   *  your own character) act on their own. Press again to stop; it halts after the
+   *  current turn finishes. */
+  const runObserve = async () => {
+    if (observingRef.current) { observingRef.current = false; setObserving(false); return; }
+    if (running) return;
+    observingRef.current = true; setObserving(true); setError(null);
+    while (observingRef.current) {
+      setRunning(true); setLiveProse(""); setPhase("pressure");
+      let failed = false;
+      await new Promise<void>((resolve) => {
+        streamTurn(save.id, "", "story", {
+          onPhase: setPhase,
+          onDelta: (t) => setLiveProse((p) => p + t),
+          onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
+          onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); resolve(); },
+          onError: (msg) => { setError(msg); failed = true; resolve(); },
+        }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); failed = true; resolve(); });
+      });
+      setRunning(false); setPhase(null);
+      if (failed) { observingRef.current = false; setObserving(false); break; }
+      // a breath between beats so you can read, and so Stop feels responsive
+      await new Promise((r) => setTimeout(r, 900));
+    }
+    observingRef.current = false; setObserving(false);
+  };
+
+  const illustrateLatest = async () => {    if (illustrating || !history.length) return;
     setIllustrating(true); setError(null);
     try {
       const { save: s } = await api.illustrate(save.id, history[history.length - 1].turn);
@@ -156,6 +183,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const tipPsy = tipId ? save.condition[tipId]?.psyche : null;
   const tipEdge = tipId ? save.world.edges.find((e) => e.from === tipId && e.to === "char_player") : null;
   const tipMem = tipId ? save.memory[tipId]?.episodic.slice(-1)[0] : null;
+  // theory of mind: what THEY believe about you, and how far it's drifted from the truth
+  const tipBelief = tipId ? (save as any).minds?.[tipId]?.about?.find((b: any) => b.target === "char_player") : null;
+  const tipDivergence = tipBelief && tipEdge ? Math.abs((tipEdge.warmth ?? 0) - tipBelief.predicted_warmth) : 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -177,6 +207,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <div className="seismo flex-1 px-1">
           <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => t.lyapunov ?? -0.2)} />
         </div>
+        <button className="chip" onClick={runObserve} disabled={running && !observing} title={observing ? "stop watching" : "watch the story play itself"}
+          style={observing ? { color: "var(--accent)", borderColor: "var(--accent-glow)" } : undefined}>
+          {observing ? <Pause size={11} /> : <PlayIcon size={11} />}
+        </button>
         <button className="chip" onClick={() => setSkipOpen(true)} disabled={running || skipping}>
           <Moon size={11} />
         </button>
@@ -224,9 +258,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                       <WeatherIcon weather={h.weather} />
                     </span>
                     {h.turn === history[history.length - 1].turn && !h.illustration_url && (
-                      <button className="ml-auto flex items-center gap-1" style={{ color: "var(--text-lo)" }}
+                      <button className="ml-auto flex items-center" style={{ color: illustrating ? "var(--accent)" : "var(--text-lo)" }}
+                        title={illustrating ? "painting…" : "illustrate this moment"}
                         onClick={(e) => { e.preventDefault(); illustrateLatest(); }}>
-                        <ImageIcon size={11} /> {illustrating ? "painting…" : "illustrate"}
+                        <ImageIcon size={13} className={illustrating ? "shimmer" : undefined} />
                       </button>
                     )}
                   </summary>
@@ -308,14 +343,15 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             </button>
           </div>
         ) : (
-          <button className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-lo)" }}
+          <button className="flex items-center text-[11px]" style={{ color: "var(--text-lo)" }}
+            title="Focus on an event — the story builds toward it, then shifts into it when it arrives"
             onClick={async () => {
               const hottest = [...save.world.threads].sort((a, b) => b.tension - a.tension)[0];
               const suggest = save.world.consequences.find((c) => c.status === "pending")?.description || hottest?.title || "";
               const ev = window.prompt("Drive toward which event? The story will build toward it (no new chaos), then automatically shift into it when it arrives.", suggest);
               if (ev && ev.trim()) setSave(await api.setFocus(save.id, ev.trim()));
             }}>
-            <Crosshair size={12} /> focus on an event
+            <Crosshair size={14} />
           </button>
         )}
       </div>
@@ -344,7 +380,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             className="field flex-1"
             rows={focused || action.includes("\n") || action.length > 60 ? 3 : 1}
             style={{ transition: "height .18s ease", padding: focused ? undefined : "10px 14px" }}
-            placeholder={MODES.find((m) => m.id === mode)!.hint}
+            placeholder=""
             value={action}
             enterKeyHint="send"
             onFocus={() => setFocused(true)}
@@ -381,6 +417,19 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <div className="font-mono text-[10.5px] mt-2" style={{ color: tipEdge.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
                   {tipEdge.warmth >= 20 ? "warm toward you" : tipEdge.warmth <= -20 ? "cold toward you" : "unresolved about you"} · trust {tipEdge.trust}
                   {tipEdge.notes ? <span style={{ color: "var(--text-lo)" }}> — {tipEdge.notes}</span> : null}
+                </div>
+              )}
+              {tipBelief && (tipBelief.held_false || tipDivergence > 20 || tipBelief.surprise > 0.4) && (
+                <div className="mt-2 pl-2.5 py-1.5 rounded" style={{ borderLeft: "2px solid var(--accent-glow, rgba(180,140,90,.4))", background: "var(--accent-soft, rgba(180,140,90,.08))" }}>
+                  <div className="font-mono text-[8.5px] uppercase tracking-wider" style={{ color: "var(--accent)" }}>their read of you {tipDivergence > 20 ? "· off the mark" : ""}</div>
+                  <div className="text-[11.5px] mt-0.5 leading-snug" style={{ color: "var(--text-mid)" }}>
+                    {tipBelief.held_false
+                      ? `Wrongly ${tipBelief.held_false.replace(/^is /, "").replace(/^can't/, "can't")}.`
+                      : tipBelief.predicted_stance === "ally" ? "Reads you as an ally."
+                      : tipBelief.predicted_stance === "rival" ? "Reads you as a threat."
+                      : "Can't place you yet."}
+                    {tipBelief.surprise > 0.4 ? " Freshly thrown by something you did." : ""}
+                  </div>
                 </div>
               )}
               {tipMem && (

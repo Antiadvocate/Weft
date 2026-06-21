@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
+import type { AcquiredTrait, Belief } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
 import { nice, niceCap } from "../lib/format";
 
@@ -51,27 +52,9 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     return { turns, words, tokens, ms, avgPressure, peak, screenTime, bonds, moods, pressures, rumorsBorn, rumorsFalse, beliefs, memTotal, traitsGrown, consequencesFired, quietest };
   }, [tel, save]);
 
-  if (!tel.length) {
-    return (
-      <div className="h-full flex items-center justify-center px-8 text-center">
-        <div>
-          <div className="font-display text-lg mb-1.5">Nothing chronicled yet.</div>
-          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The loom keeps its own ledger — every chart here costs zero tokens.</div>
-        </div>
-      </div>
-    );
-  }
-
-  const facts: string[] = [
-    `${stats.rumorsBorn} rumors entered the world — ${stats.rumorsFalse} of them weren't true.`,
-    `The cast holds ${stats.memTotal} memories and has distilled ${stats.beliefs} beliefs about you and each other.`,
-    stats.traitsGrown > 0 ? `${stats.traitsGrown} acquired traits have grown on people because of what happened.` : `No one has been permanently changed yet. Give it time.`,
-    stats.consequencesFired > 0 ? `${stats.consequencesFired} delayed consequences came back around.` : `Consequences are still in flight. They land whether you watch or not.`,
-    stats.peak?.turn ? `Pressure peaked at ${stats.peak.pressure}/10 on turn ${stats.peak.turn}.` : ``,
-  ].filter(Boolean);
-
-  // ── character arcs: who changed, and how ──
+  // ── character arcs: who changed, and how ── (must run before any early return — rules of hooks)
   const arcs = useMemo(() => {
+    if (!tel.length) return [] as any[];
     const screen: Record<string, number> = {};
     for (const t of tel) for (const id of t.present) if (id !== "char_player") screen[id] = (screen[id] ?? 0) + 1;
     const top = Object.entries(screen).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id]) => id);
@@ -80,7 +63,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       const warmth: number[] = [];
       const trust: number[] = [];
       for (const t of tel) {
-        const e = t.edge_snapshot.find((x) => x.pair === c.name);
+        const e = t.edge_snapshot.find((x) => x.pair === c?.name);
         if (e) { warmth.push(e.warmth); trust.push(e.trust); }
       }
       const traits = (save.traits[id] ?? []).slice().sort((a, b) => b.self_weight - a.self_weight);
@@ -89,10 +72,10 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       const memories = save.memory[id]?.episodic ?? [];
       const heaviest = memories.slice().sort((a, b) => b.importance - a.importance)[0];
       return { id, c, warmth, trust, traits, beliefs, psy, heaviest, scenes: screen[id] };
-    });
+    }).filter((a) => a.c);
   }, [tel, save]);
 
-  // ── superlatives: the records of this chronicle ──
+  // ── superlatives: the records of this chronicle ── (also a hook — keep above early return)
   const records = useMemo(() => {
     const out: { label: string; value: string }[] = [];
     if (!tel.length) return out;
@@ -137,8 +120,44 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     if (tipped) out.push({ label: "The day the world tipped", value: `turn ${tipped.turn} — λ̂ went positive (${tipped.lyapunov?.toFixed(2)}); everything after rippled` });
     const warned = tel.filter((t) => t.early_warning).length;
     if (warned) out.push({ label: "Storm warnings", value: `${warned} turn${warned > 1 ? "s" : ""} of critical slowing before shifts — the math saw it coming` });
+    // theory of mind: who is currently carrying a misread of you, and the widest belief gap in the world
+    const minds = (save as any).minds as Record<string, { about?: any[] }> | undefined;
+    if (minds) {
+      const misreaders: string[] = [];
+      let widest: { name: string; gap: number } | null = null;
+      for (const [id, m] of Object.entries(minds)) {
+        for (const b of m.about ?? []) {
+          if (b.target !== "char_player") continue;
+          const e = save.world.edges.find((x) => x.from === id && x.to === "char_player");
+          const gap = e ? Math.abs((e.warmth ?? 0) - b.predicted_warmth) : 0;
+          if (b.held_false) misreaders.push(save.characters[id]?.name ?? id);
+          if (gap > (widest?.gap ?? 24)) widest = { name: save.characters[id]?.name ?? id, gap };
+        }
+      }
+      if (misreaders.length) out.push({ label: "Carrying a misread of you", value: misreaders.join(", ") });
+      if (widest) out.push({ label: "Widest gap between read and truth", value: `${widest.name} — ${Math.round(widest.gap)} points off how they picture you` });
+    }
     return out;
   }, [tel, save]);
+
+  if (!tel.length) {
+    return (
+      <div className="h-full flex items-center justify-center px-8 text-center">
+        <div>
+          <div className="font-display text-lg mb-1.5">Nothing chronicled yet.</div>
+          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The loom keeps its own ledger — every chart here costs zero tokens.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const facts: string[] = [
+    `${stats.rumorsBorn} rumors entered the world — ${stats.rumorsFalse} of them weren't true.`,
+    `The cast holds ${stats.memTotal} memories and has distilled ${stats.beliefs} beliefs about you and each other.`,
+    stats.traitsGrown > 0 ? `${stats.traitsGrown} acquired traits have grown on people because of what happened.` : `No one has been permanently changed yet. Give it time.`,
+    stats.consequencesFired > 0 ? `${stats.consequencesFired} delayed consequences came back around.` : `Consequences are still in flight. They land whether you watch or not.`,
+    stats.peak?.turn ? `Pressure peaked at ${stats.peak.pressure}/10 on turn ${stats.peak.turn}.` : ``,
+  ].filter(Boolean);
 
   const marginalia = save.history
     .flatMap((h) => (h.shifts ?? []).map((sh) => ({ turn: h.turn, time: h.time_label, text: sh })))
@@ -269,14 +288,14 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                   </div>
                   {a.traits.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {a.traits.slice(0, 3).map((t) => (
+                      {a.traits.slice(0, 3).map((t: AcquiredTrait) => (
                         <span key={t.id} className="chip" style={{ textTransform: "none", letterSpacing: 0 }}>
                           {niceCap(t.label)} ×{t.reinforcement_count}
                         </span>
                       ))}
                     </div>
                   )}
-                  {a.beliefs.map((b, i) => (
+                  {a.beliefs.map((b: Belief, i: number) => (
                     <div key={i} className="text-[12px] mt-1.5" style={{ color: "var(--accent)" }}>※ {b.content}</div>
                   ))}
                   {a.heaviest && (
