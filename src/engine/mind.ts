@@ -77,6 +77,7 @@ export function updateMind(
   id: string,
   observedStances: Record<string, Stance>, // char_id -> the stance the QRE layer sampled for them this turn
   turn: number,
+  dispersion = 0, // 0..1 from the undertow: how hard the cast is pulling apart — erodes settled confidence
 ): { lines: string[]; peakSurprise: number; epistemicTarget: string | null } {
   const minds: Record<string, MindModel> = ((state as any).minds ??= {});
   const model = (minds[id] ??= { character_id: id, about: [] });
@@ -133,7 +134,15 @@ export function updateMind(
     const lr = clamp(0.25 + b.surprise * 0.5, 0, 0.85);
     b.predicted_warmth = clamp(Math.round(b.predicted_warmth + (trueWarmth - b.predicted_warmth) * lr), -100, 100);
     b.predicted_stance = b.predicted_warmth > 20 ? "ally" : b.predicted_warmth < -20 ? "rival" : "unknown";
-    b.confidence = clamp(b.confidence + (0.12 - weightedErr * 0.45), 0.05, 0.98);
+    // confidence rises when predictions land, falls on shock — but the GAIN is capped low when the
+    // cast is fracturing: under social pressure you don't get to feel certain about people just
+    // because they were briefly legible. Dispersion both caps the gain and erodes the stock.
+    const confGain = (0.12 - weightedErr * 0.45) * (1 - dispersion * 0.7);
+    b.confidence = clamp(b.confidence + confGain, 0.05, 0.98);
+    // DISPERSION erodes settled certainty: a cast that's pulling apart stops reading each other
+    // perfectly. This is what breaks the omniscient-chorus fixed point — confidence can no longer
+    // ratchet to 0.98 and stay there. Strongest on the most certain models; scales with diversification.
+    b.confidence = clamp(b.confidence - dispersion * 0.22 * b.confidence, 0.05, 0.98);
     b.updated_turn = turn;
 
     // a large, sustained warmth gap that the agent keeps NOT resolving crystallizes into a

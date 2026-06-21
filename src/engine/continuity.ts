@@ -14,7 +14,7 @@
  *       memories, bonds, wounds, traits, wants. Your old self remains in the
  *       world as a person the world remembers.
  */
-import type { SaveState, TurnTelemetry } from "./types";
+import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } from "./types";
 import { absMinutes, advance } from "./time";
 import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
 import { regenerateDrives } from "./drives";
@@ -222,10 +222,74 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
 }
 
 /**
- * VESSELS — leave your character, become another.
- * Full id-swap: the chosen character's id becomes "char_player" and your old
- * vessel gets a fresh id, across EVERY ledger. You inherit their everything.
+ * NEW-CHAPTER CONDENSATION — carry who a character BECAME into the next chapter.
+ *
+ * The new-chapter flow used to drop acquired traits entirely and replace each character's
+ * whole memory with a single line of background. This distills the real thing: a character's
+ * traits, the heaviest episodic memories, their formed beliefs, and any accreted life_history
+ * are folded into (a) a compact durable BACKGROUND paragraph and (b) a small set of preserved
+ * high-self-weight traits — the parts of identity that are load-bearing enough to persist a
+ * time-skip. Deterministic, zero tokens; the prose recap stays the player-facing layer, this is
+ * the mechanical inheritance underneath it.
  */
+export function condenseForNewChapter(ident: Identity, mem: CharMemory | undefined, traits: AcquiredTrait[] | undefined): {
+  background_carry: string;        // a paragraph to append to the new background
+  carried_traits: AcquiredTrait[]; // the traits durable enough to survive the skip
+  core_carry: string[];            // condensed core memory lines for the new chapter
+} {
+  const parts: string[] = [];
+
+  // 1) the accreted life_history (already-folded defining moments) carries verbatim — it IS the condensed past
+  if (ident.life_history?.trim()) parts.push(ident.life_history.trim());
+
+  // 2) traits: the ones integrated into identity (high self_weight) survive AS traits; we also
+  //    name the strongest in prose so the background reflects who they became.
+  const sorted = (traits ?? []).slice().sort((a, b) => b.self_weight - a.self_weight);
+  const carried_traits = sorted
+    .filter((t) => t.self_weight >= 3 || t.reinforcement_count >= 2)   // load-bearing only
+    .slice(0, 5)
+    .map((t) => ({ ...t, last_reinforced_turn: 1 }));                  // reset clock into the new chapter
+  if (carried_traits.length) {
+    const names = carried_traits.map((t) => t.label.toLowerCase()).join(", ");
+    parts.push(`By the end of the last chapter they had become ${names}.`);
+  }
+
+  // 3) memory: the heaviest episodics + strongest convictions, condensed
+  const heavy = (mem?.episodic ?? [])
+    .filter((m) => !m.folded && m.importance >= 6)
+    .sort((a, b) => b.importance - a.importance)
+    .slice(0, 6)
+    .sort((a, b) => a.turn - b.turn)                                   // chronological for readability
+    .map((m) => m.content.trim())
+    .filter(Boolean);
+  if (heavy.length) parts.push(heavy.join(" "));
+
+  const convictions = (mem?.beliefs ?? [])
+    .filter((b) => b.confidence >= 0.5)
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 3)
+    .map((b) => b.content.trim())
+    .filter(Boolean);
+  if (convictions.length) parts.push(`They came to believe: ${convictions.join("; ")}.`);
+
+  // assemble + soft-trim to keep the new background lean (~1400 chars, sentence boundary)
+  let background_carry = parts.join(" ").replace(/\s+/g, " ").trim();
+  const SOFT = 1400;
+  if (background_carry.length > SOFT) {
+    const tail = background_carry.slice(-SOFT);
+    const stop = tail.search(/[.!?]\s/);
+    background_carry = (stop >= 0 ? tail.slice(stop + 2) : tail).trim();
+  }
+
+  // condensed core memory: keep the existing bedrock core + the two heaviest moments as core anchors
+  const core_carry = [
+    ...(mem?.core ?? []).slice(-3),
+    ...heavy.slice(-2),
+  ].filter(Boolean);
+
+  return { background_carry, carried_traits, core_carry };
+}
+
 export function embodyCharacter(state: SaveState, targetId: string): { ok: boolean; error?: string } {
   if (targetId === "char_player") return { ok: false, error: "you are already wearing this one" };
   if (!state.characters[targetId]) return { ok: false, error: "no such character" };

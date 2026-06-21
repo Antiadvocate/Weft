@@ -157,6 +157,7 @@ export interface UndertowState {
   stances?: { name: string; stance: Stance; p: number; vs: string }[];
   tom_lines?: string[];                  // theory-of-mind surprise beats this turn
   epistemic_pulls?: { id: string; target: string }[]; // characters who want to FIND OUT about someone
+  dispersion?: number;                   // 0..1 derived pull-apart pressure (breaks the synchronized chorus)
 }
 
 export function initUndertow(): UndertowState {
@@ -222,7 +223,40 @@ export function variance(xs: number[]): number {
   return xs.reduce((a, b) => a + (b - mu) ** 2, 0) / (n - 1);
 }
 
-// ───────────────────────── 3. CUSP CATASTROPHE PSYCHE ─────────────────────────
+// ───────────────────────── DISPERSION PRESSURE (derived, not dialed) ─────────────────────────
+/**
+ * How hard the cast should be pulling APART this turn, 0..1. Not a player dial — derived
+ * from the same signals pressure already uses, because dispersion is the INTERNAL face of
+ * what pressure is the external face of.
+ *
+ * The real-world law it encodes: stress UNIFIES a group around a shared external threat
+ * (soldiers under fire converge — correct, not a chorus) and FRACTURES a group when the
+ * pressure is interpersonal or there's no shared task (a tense dinner party splinters into
+ * side-agendas). And crucially, CALM is not synchrony — left alone, a low-pressure group
+ * drifts apart on its own (boredom, restlessness, self-interest). The engine's old failure
+ * was treating calm + high phase-lock as gentle harmony; really it's the exact setup that
+ * should be quietly diversifying.
+ *
+ *   sharedTarget ∈ [0,1]  — fraction of the acting cast aimed at the same QRE opponent.
+ *   coherence R  ∈ [0,1]  — Kuramoto phase-lock; high = everyone emotionally in step.
+ *   band         0..4     — external pressure (calm..lethal).
+ *
+ * High dispersion ⇐ synchronized (high R) but NOT justified by a shared external threat.
+ * Low dispersion  ⇐ genuine shared danger (high band + high sharedTarget): converge, correctly.
+ */
+export function dispersionPressure(band: number, coherence: number, sharedTarget: number): number {
+  // baseline drift: even at rest, a phase-locked cast should be pulling apart — this is the
+  // dinner-party fracture, and the specific thing that was missing. Rises with coherence.
+  const idleDrift = 0.25 + coherence * 0.45;
+  // shared EXTERNAL threat earns convergence: high band AND a common target suppress dispersion.
+  // (a high band with NO shared target is diffuse stress — it should splinter, not unify.)
+  const externalThreat = (band / 4) * sharedTarget;          // 0..1
+  const convergencePull = externalThreat * 0.85;
+  // diffuse stress (pressure with no common cause) ADDS dispersion
+  const diffuseStress = (band / 4) * (1 - sharedTarget) * 0.5;
+  return clamp(idleDrift + diffuseStress - convergencePull, 0, 1);
+}
+
 
 export interface CuspPoint { x: number; a: number; b: number }
 
@@ -306,6 +340,8 @@ export interface UndertowReport {
   snaps: string[];                       // fold-crossing events, humanized
   directive: string;                     // one line for the narrator
   epistemic_pulls?: { id: string; target: string }[]; // characters who want to find out about someone (feeds drive regen)
+  dispersion?: number;                   // 0..1 derived pull-apart pressure
+  shared_target?: string | null;         // char_id most of the cast is aimed at (the chorus magnet), if any
 }
 
 export function tickUndertow(state: SaveState, rng: () => number = Math.random): UndertowReport {
@@ -362,6 +398,7 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
   // ── strategy layer: QRE stances for every driven offscreen character ──
   const stances: UndertowReport["stances"] = [];
   const sampledStance: Record<string, Stance> = {}; // char_id -> stance, for the theory-of-mind layer
+  const rivalOf: Record<string, string> = {};        // char_id -> their QRE opponent, for shared-target detection
   const lethality = { low: 0.25, medium: 0.55, high: 0.9 }[state.world_bible.difficulty_profile.lethality];
   for (const id of ids) {
     const c = state.characters[id];
@@ -373,6 +410,7 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
       if (e.from === id && e.warmth < worst && e.to !== id) { worst = e.warmth; rival = e.to; }
     }
     const edge = state.world.edges.find((e) => e.from === id && e.to === rival);
+    rivalOf[id] = rival;
     const clockUrg = Math.max(0, ...state.world.clocks.filter((k) => k.status === "running").map((k) => k.filled / k.segments));
     const aggression = { slow_burn: 0.7, active: 1.0, hostile: 1.3 }[state.world_bible.difficulty_profile.antagonist_aggression];
     const { A, B, lamA, lamB } = stanceGame({
@@ -406,6 +444,27 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
   //    term `a` — surprise IS the body bracing against an unpredictable world, so the
   //    cognition layer and the catastrophe layer are unified here. High uncertainty about
   //    someone who matters seeds an epistemic drive. Misreads surface as narrator beats. ──
+  // ── DISPERSION: how hard the cast pulls apart this turn, derived from pressure + coherence +
+  //    whether they share a target. Drives confidence decay (so nobody stays omniscient), drive
+  //    diversification, and how the narrator reads synchrony. Uses LAST turn's pressure — the cast
+  //    reacts to the pressure that already landed, not the one being rolled this instant. ──
+  const lastBand = (() => {
+    const p = state.pressure_trace.slice(-1)[0] ?? 0;
+    return p <= 2 ? 0 : p <= 5 ? 1 : p <= 7 ? 2 : p <= 9 ? 3 : 4;
+  })();
+  const driven = Object.keys(rivalOf);
+  let sharedTargetId: string | null = null;
+  const sharedTarget = (() => {
+    if (driven.length < 2) return 0;
+    const counts: Record<string, number> = {};
+    for (const id of driven) counts[rivalOf[id]] = (counts[rivalOf[id]] ?? 0) + 1;
+    const [topId, top] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    if (top >= 2 && top / driven.length >= 0.5) sharedTargetId = topId;
+    return top / driven.length;   // 1.0 = whole cast aimed at one person (the chorus signature)
+  })();
+  const dispersion = dispersionPressure(lastBand, ut.coherence, sharedTarget);
+  ut.dispersion = dispersion;
+
   const mindCusps: Record<string, CuspPoint> = ((state as any).undertow.cusps ??= {});
   const tomLines: string[] = [];
   const epistemicPulls: { id: string; target: string }[] = [];
@@ -415,7 +474,7 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
     if (!c || c.status === "dead" || c.status === "departed") continue;
     // only model for characters with stakes: tracked, present, or holding a drive
     if (!c.tracked && !state.world.present.includes(id) && !c.drive) continue;
-    const { lines, peakSurprise, epistemicTarget } = updateMind(state, id, sampledStance, state.world.current_turn);
+    const { lines, peakSurprise, epistemicTarget } = updateMind(state, id, sampledStance, state.world.current_turn, dispersion);
     tomLines.push(...lines);
     // surprise → cusp load: unresolved prediction error deepens the bistable wedge,
     // exactly as sustained battering does. A mind that can't predict its world clenches.
@@ -437,6 +496,19 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
   const tomNote = divergent.length
     ? ` MINDS (act on each one's BELIEF, not the truth): ${divergent.map((x) => `${state.characters[x.pid]?.name} ${x.d}`).join(" | ")}.`
     : "";
+  // DISPERSION directive: this is what stops the synchronized chorus. When the cast is
+  // pulling apart (high dispersion) — especially when they're all aimed at one person without a
+  // real shared threat — tell the narrator to BREAK the unison: someone defects, gets bored,
+  // pursues their own angle, or reads the room wrong. High synchrony is claustrophobic, not cozy.
+  const sharedName = sharedTargetId ? state.characters[sharedTargetId]?.name : null;
+  let dispersionNote = "";
+  if (dispersion >= 0.6) {
+    dispersionNote = sharedName
+      ? ` CAST DYNAMICS: the group has collapsed into managing ${sharedName} in unison — and it's gone airless. BREAK FORMATION: at least one present character must pull their own way this beat — get impatient or bored, pursue a private agenda, undercut the consensus, look out for themselves, or simply check out. They are NOT a chorus of equally-caring helpers; they are separate people with separate wants who happen to be in the same room. Differentiate their voices and motives sharply.`
+      : ` CAST DYNAMICS: don't let the present characters move as one. They want different things and read the situation differently — surface that friction. At least one should pull against the others' read this beat.`;
+  } else if (dispersion >= 0.4 && sharedName) {
+    dispersionNote = ` CAST DYNAMICS: they're mostly focused on ${sharedName}, but they are NOT identical — give each present character a distinct angle, mood, or self-interest rather than a shared tone of concern.`;
+  }
   const directive =
     `UNDERTOW: the world is ${ut.regime} (λ̂=${ut.lyapunov.toFixed(2)}, coherence R=${ut.coherence.toFixed(2)})` +
     (ut.regime === "cascading" ? " — primed: small acts cascade, bystanders take sides, sparks catch." :
@@ -444,9 +516,10 @@ export function tickUndertow(state: SaveState, rng: () => number = Math.random):
         " — damped: the world absorbs shocks today; people default to ease, humor, and ordinary kindness. Let scenes breathe.") +
     (ut.early_warning ? " NOTE: the player's inner weather is winding tight — favor continuity and steadiness over fresh pressure." : "") +
     (stanceLine ? ` Offscreen postures: ${stanceLine}.` : "") +
+    dispersionNote +
     tomNote;
 
-  return { regime: ut.regime, lyapunov: ut.lyapunov, coherence: ut.coherence, early_warning: ut.early_warning, instability, stances, snaps: [...snaps, ...tomLines.slice(0, 2)], directive, epistemic_pulls: epistemicPulls };
+  return { regime: ut.regime, lyapunov: ut.lyapunov, coherence: ut.coherence, early_warning: ut.early_warning, instability, stances, snaps: [...snaps, ...tomLines.slice(0, 2)], directive, epistemic_pulls: epistemicPulls, dispersion, shared_target: sharedTargetId };
 }
 
 function hash(s: string): number {
