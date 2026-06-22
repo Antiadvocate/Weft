@@ -79,17 +79,30 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const prefix = stablePrefix(state);
   const digest = volatileDigest(state, action);
   let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5);
-  const forbid = state.world_bible.forbidden_as_primary?.length
-    ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}.` : "";
-  if (state.world_bible.god_mode) {
-    directive += `\nGOD MODE — the player is sovereign here. Their powers succeed completely and cost NOTHING unless they narrate a cost themselves. Override any cost or limitation language in the world bible's magic rules for the player only. The world still reacts honestly: people fear, adapt, worship, scheme, flee, disbelieve. Pressure comes from the world's response to a god walking it, never from handicapping the god.`;
+  const god = !!state.world_bible.god_mode;
+  const lowerAct = action.toLowerCase();
+
+  // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
+  // plot-solver. In god mode it is suppressed ENTIRELY — god mode means the player is sovereign
+  // and nothing in the world bible may shrink, soften, or redirect what they do, so there is no
+  // restriction string at all. Outside god mode it restrains the narrator's own plotting only.
+  const forbid = (!god && state.world_bible.forbidden_as_primary?.length)
+    ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This restrains your own unprompted plotting; it does not override an action the player explicitly declares.)`
+    : "";
+
+  if (god) {
+    // ONE unconditional sovereignty block. No keyword gating, no detection — in god mode every
+    // governor that could limit the player (magic rules, costs, difficulty/lethality, forbidden
+    // list, "consequence not catastrophe", "fair scale") is OFF for anything the player declares.
+    // The player is here to play: make sweeping changes, watch the world's reaction ripple.
+    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides EVERYTHING else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies — not unconsciousness, not systems failing, not people "winking out," not one death standing for many. If they remake a city, the city is remade. The ONLY thing left for you to write is the world's honest REACTION to what the god did: people fear, grieve, worship, panic, flee, adapt, scheme, disbelieve, exult. Spend the scene on that reaction and its emotional fallout rippling outward, never on resisting or shrinking the act. Render consequences and the human reality honestly and at full scale, including mass death — clearly, without flinching and without gratuitous lingering.`;
   }
+
   // ── PER-TURN VOICE REMINDER — written flat on purpose; do not give the model a clever
   //    cadence to copy. The system VOICE section is distant in a long context, so restate plainly. ──
   const voiceReminder = `\nVoice check for this turn. No character can read another person's feelings or explain them back. No quotable closing lines. No numbered or structured arguments. People who are feeling something talk in fragments and clichés, not clean insight. Make the characters sound different from each other. When unsure, write someone plainer and less clever. Do not make everyone wise.`;
   // god-event detection: player has reality-bending capacity AND this beat involves the impossible
-  const lower = action.toLowerCase();
-  const breaks = /\b(fold|teleport|levitat|resurrect|raise the dead|stop(ped)? (the )?(light|time|wind)|bend (space|reality|time)|conjure|manifest|vanish|phase|unmake|miracle|sundered?|will it (into|out))\b/.test(lower)
+  const breaks = /\b(fold|teleport|levitat|resurrect|raise the dead|stop(ped)? (the )?(light|time|wind)|bend (space|reality|time)|conjure|manifest|vanish|phase|unmake|miracle|sundered?|will it (into|out))\b/.test(lowerAct)
     || /\b(folded|stopped the light|stopped time|bent space|raised the dead|levitat|materializ)\b/.test((state.history.slice(-1)[0]?.narrator_prose ?? "").toLowerCase());
   const aweReminder = breaks
     ? `\nThis turn the player does something that breaks the world's rules. The people watching do not joke about it. They go quiet, lose their words, back away, or fall into instinct. No casual lines treating the impossible act as a small trick. Make the reaction as large as the thing that happened.`
