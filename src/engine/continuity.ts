@@ -16,9 +16,8 @@
  */
 import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } from "./types";
 import { absMinutes, advance } from "./time";
-import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives } from "./social";
+import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche } from "./social";
 import { regenerateDrives } from "./drives";
-import { tickUndertow } from "./undertow";
 import { addCondition } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { stablePrefix } from "./prompts";
@@ -50,9 +49,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
 
   const rounds = Math.max(1, Math.round(days * 2)); // two world-rounds per day
   for (let r = 0; r < rounds; r++) {
-    const ut = tickUndertow(state, rng);             // strategy + chaos + catastrophe, every round
-    report.drive_log.push(...ut.stances.slice(0, 2).map((st) => `${st.name} ${st.stance}s against ${st.vs}`));
-    report.drive_log.push(...ut.snaps);
+    for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche); // kernel drift, per character
     report.drive_log.push(...tickDrives(state, rng));
     report.drive_log.push(...regenerateDrives(state, rng)); // tracked idle NPCs get fresh wants across the days
     report.rumor_log.push(...diffuseRumors(state, rng));

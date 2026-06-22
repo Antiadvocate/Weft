@@ -116,10 +116,18 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     }
     const interludes = save.history.filter((h) => h.kind === "interlude").length;
     if (interludes) out.push({ label: "The world turned alone", value: `${interludes} interlude${interludes > 1 ? "s" : ""} — days the chronicle ran without you` });
-    const tipped = tel.find((t) => t.regime === "cascading");
-    if (tipped) out.push({ label: "The day the world tipped", value: `turn ${tipped.turn} — λ̂ went positive (${tipped.lyapunov?.toFixed(2)}); everything after rippled` });
-    const warned = tel.filter((t) => t.early_warning).length;
-    if (warned) out.push({ label: "Storm warnings", value: `${warned} turn${warned > 1 ? "s" : ""} of critical slowing before shifts — the math saw it coming` });
+    // emotional-weather records from the real signal (player mood valence over the run)
+    const moods = tel.map((t) => t.player_mood_valence ?? 0);
+    if (moods.length) {
+      const lowIdx = moods.indexOf(Math.min(...moods));
+      const highIdx = moods.indexOf(Math.max(...moods));
+      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn} — you were most clenched here (${tel[lowIdx].time_label})` });
+      if (moods[highIdx] >= 5) out.push({ label: "The most open you got", value: `turn ${tel[highIdx].turn} — ${tel[highIdx].time_label}` });
+      // longest stretch in the clench (negative mood)
+      let run = 0, best = 0;
+      for (const m of moods) { run = m <= -3 ? run + 1 : 0; best = Math.max(best, run); }
+      if (best >= 3) out.push({ label: "The long clench", value: `${best} turns running where you couldn't open` });
+    }
     // theory of mind: who is currently carrying a misread of you, and the widest belief gap in the world
     const minds = (save as any).minds as Record<string, { about?: any[] }> | undefined;
     if (minds) {
@@ -221,13 +229,15 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       <Fade delay={0.05}>
         <div className="card p-4">
           <Title>Pressure across the chronicle</Title>
-          <Seismograph trace={stats.pressures} overlay={tel.map((t) => t.lyapunov ?? -0.2)} max={Math.max(stats.pressures.length, 24)} h={44} />
+          <Seismograph trace={stats.pressures} overlay={tel.map((t) => (t.player_mood_valence ?? 0) / 16)} max={Math.max(stats.pressures.length, 24)} h={44} />
           <div className="flex gap-px mt-2 rounded overflow-hidden" style={{ height: 5 }}>
-            {tel.map((t, i) => (
-              <div key={i} className="flex-1" style={{ background: t.regime === "cascading" ? "var(--danger)" : t.regime === "critical" ? "var(--accent)" : "var(--ink-3)" }} />
-            ))}
+            {tel.map((t, i) => {
+              const m = t.player_mood_valence ?? 0;
+              const col = m <= -6 ? "var(--danger)" : m <= -2 ? "var(--accent)" : m >= 4 ? "var(--calm)" : "var(--ink-3)";
+              return <div key={i} className="flex-1" style={{ background: col }} />;
+            })}
           </div>
-          <Note>Bars: pressure. Hairline: λ̂, the world's sensitivity to perturbation. Strip: regime per turn — green-grey absorbs, amber is taut, red cascades.</Note>
+          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather — red is clenched, amber guarded, green open.</Note>
         </div>
       </Fade>
 

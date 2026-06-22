@@ -10,14 +10,14 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief } from "./types";
-import { decidePressure, isDue, pressureDirective } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot } from "./social";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection } from "./memory";
-import { tickUndertow } from "./undertow";
+import { neutralUndertow } from "./undertow";
 import { pushSnapshot, registerCharacter, uid } from "./state";
 
 export interface TurnEvents {
@@ -60,7 +60,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 1 ── the undertow turns first: strategy, chaos, catastrophe (deterministic, 0 tokens)
   ev.onPhase("undertow");
-  const undertow = tickUndertow(state);
+  // ── KERNEL: psyche is driven by the relaxation scalar itself, recovered toward capacity.
+  //    (The cusp-catastrophe/Kuramoto layer that used to OVERWRITE relaxation here has been
+  //    removed — it severed the generative kernel. Relaxation is the driver again: the
+  //    simulator's per-character relaxation_delta moves it, tickPsyche drifts it toward
+  //    capacity and derives state. Emergence from one scalar, as originally designed.) ──
+  for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche);
+  const undertow = neutralUndertow();
 
   // 1b ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
@@ -78,36 +84,28 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ev.onPhase("narrator");
   const prefix = stablePrefix(state);
   const digest = volatileDigest(state, action);
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5);
   const god = !!state.world_bible.god_mode;
-  const lowerAct = action.toLowerCase();
+  // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
+  // behavior — that emerges from each character's relaxation state via the perception gate.
+  const recentText = [
+    ...state.history.slice(-3).map((h) => h.narrator_prose ?? ""),
+    state.history.slice(-1)[0]?.player_action ?? "",
+  ].join(" ");
+  const tier = detectPowerTier(god, recentText);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier);
 
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
-  // plot-solver. In god mode it is suppressed ENTIRELY — god mode means the player is sovereign
-  // and nothing in the world bible may shrink, soften, or redirect what they do, so there is no
-  // restriction string at all. Outside god mode it restrains the narrator's own plotting only.
+  // plot-solver. In god mode it is suppressed entirely (the player is sovereign). Outside god
+  // mode it restrains the narrator's own plotting only — never an action the player declares.
   const forbid = (!god && state.world_bible.forbidden_as_primary?.length)
     ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This restrains your own unprompted plotting; it does not override an action the player explicitly declares.)`
     : "";
 
   if (god) {
-    // ONE unconditional sovereignty block. No keyword gating, no detection — in god mode every
-    // governor that could limit the player (magic rules, costs, difficulty/lethality, forbidden
-    // list, "consequence not catastrophe", "fair scale") is OFF for anything the player declares.
-    // The player is here to play: make sweeping changes, watch the world's reaction ripple.
-    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides EVERYTHING else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies — not unconsciousness, not systems failing, not people "winking out," not one death standing for many. If they remake a city, the city is remade. The ONLY thing left for you to write is the world's honest REACTION to what the god did: people fear, grieve, worship, panic, flee, adapt, scheme, disbelieve, exult. Spend the scene on that reaction and its emotional fallout rippling outward, never on resisting or shrinking the act. Render consequences and the human reality honestly and at full scale, including mass death — clearly, without flinching and without gratuitous lingering.`;
+    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides everything else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies, not unconsciousness or systems failing or people "winking out" or one death standing for many. If they remake a city, the city is remade. The only thing left for you to write is the world's honest reaction to what the god did, and that reaction comes from each present character's own state and relationship to the player, not from a script. Spend the scene on that reaction and its emotional fallout, never on resisting or shrinking the act.`;
   }
 
-  // ── PER-TURN VOICE REMINDER — written flat on purpose; do not give the model a clever
-  //    cadence to copy. The system VOICE section is distant in a long context, so restate plainly. ──
-  const voiceReminder = `\nVoice check for this turn. No character can read another person's feelings or explain them back. No quotable closing lines. No numbered or structured arguments. People who are feeling something talk in fragments and clichés, not clean insight. Make the characters sound different from each other. When unsure, write someone plainer and less clever. Do not make everyone wise.`;
-  // god-event detection: player has reality-bending capacity AND this beat involves the impossible
-  const breaks = /\b(fold|teleport|levitat|resurrect|raise the dead|stop(ped)? (the )?(light|time|wind)|bend (space|reality|time)|conjure|manifest|vanish|phase|unmake|miracle|sundered?|will it (into|out))\b/.test(lowerAct)
-    || /\b(folded|stopped the light|stopped time|bent space|raised the dead|levitat|materializ)\b/.test((state.history.slice(-1)[0]?.narrator_prose ?? "").toLowerCase());
-  const aweReminder = breaks
-    ? `\nThis turn the player does something that breaks the world's rules. The people watching do not joke about it. They go quiet, lose their words, back away, or fall into instinct. No casual lines treating the impossible act as a small trick. Make the reaction as large as the thing that happened.`
-    : "";
-  const fullDirective = directive + forbid + voiceReminder + aweReminder + "\n" + undertow.directive;
+  const fullDirective = directive + forbid + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,

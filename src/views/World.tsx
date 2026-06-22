@@ -10,44 +10,49 @@ export default function World({ save }: { save: ClientSave }) {
   const activeThreads = w.threads.filter((t) => t.status === "active");
   const name = (id: string) => save.characters[id]?.name ?? id;
 
-  const ut = (save as any).undertow as
-    | { regime?: string; lyapunov?: number; coherence?: number; early_warning?: boolean; stances?: { name: string; stance: string; p: number; vs: string }[] }
-    | undefined;
-  const regimeColor = ut?.regime === "cascading" ? "var(--danger)" : ut?.regime === "critical" ? "var(--accent)" : "var(--calm)";
+  // Emotional weather: the REAL signal now — each present/tracked character's openness
+  // (relaxation) and state, the thing that actually drives the engine. No Kuramoto, no λ̂.
+  const cond = (save as any).condition as Record<string, { psyche?: { relaxation: number; state: string; mood?: string; active_states?: string[] } }> | undefined;
+  const weather = Object.entries(cond ?? {})
+    .filter(([id]) => id !== "char_player" && save.characters[id] && (save.characters[id] as any).status !== "dead")
+    .map(([id, c]) => ({ id, name: name(id), r: c.psyche?.relaxation ?? 0, state: c.psyche?.state ?? "intact", mood: c.psyche?.mood ?? "", states: c.psyche?.active_states ?? [] }))
+    .filter((c) => save.world.present.includes(c.id) || (save.characters[c.id] as any).tracked)
+    .sort((a, b) => a.r - b.r);
+  const openColor = (r: number) => r <= -7 ? "var(--danger)" : r <= -3 ? "var(--accent)" : r >= 4 ? "var(--calm)" : "var(--text-mid)";
+  const openWord = (r: number, st: string) => st === "broken" || st === "shattered" ? "broken" : st === "fracturing" ? "fracturing" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : r >= 4 ? "open" : "level";
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
-      {ut?.regime && (
-        <Block title="The Undertow" delay={0}>
-          <div className="flex items-center gap-3 py-1">
-            <span className="w-2 h-2 rounded-full" style={{ background: regimeColor, boxShadow: `0 0 8px ${regimeColor}` }} />
-            <span className="font-display text-[15px]" style={{ color: regimeColor }}>
-              {ut.regime === "cascading" ? "Cascading — small acts ripple far" : ut.regime === "critical" ? "Critical — the world is taut" : "Damped — the world absorbs shocks"}
-            </span>
-          </div>
-          <div className="font-mono text-[10px] mt-1" style={{ color: "var(--text-lo)" }}>
-            λ̂ = {ut.lyapunov?.toFixed(3)} (sensitivity) · R = {ut.coherence?.toFixed(2)} (social coherence)
-          </div>
-          {ut.early_warning && (
-            <div className="font-mono text-[10.5px] mt-2 px-2.5 py-1.5 rounded-lg" style={{ color: "var(--accent)", background: "var(--accent-soft)", border: "1px solid var(--accent-glow)" }}>
-              ⚠ critical slowing detected — your inner weather is gathering toward a shift
-            </div>
-          )}
-          {(ut.stances?.length ?? 0) > 0 && (
-            <div className="mt-2.5 space-y-1">
-              {ut.stances!.map((st, i) => (
-                <div key={i} className="flex justify-between text-[12.5px]">
-                  <span>{st.name} <span style={{ color: "var(--text-lo)" }}>vs {st.vs}</span></span>
-                  <span className="font-mono text-[10px]" style={{ color: st.stance === "press" ? "var(--danger)" : st.stance === "yield" ? "var(--calm)" : "var(--text-mid)" }}>
-                    {st.stance} · {(st.p * 100).toFixed(0)}%
+      {weather.length > 0 && (
+        <Block title="Emotional weather" delay={0}>
+          <div className="space-y-2 py-1">
+            {weather.map((c) => (
+              <div key={c.id}>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-[13px]">{c.name}</span>
+                  <span className="font-mono text-[10px]" style={{ color: openColor(c.r) }}>
+                    {openWord(c.r, c.state)}{c.mood ? ` · ${c.mood}` : ""}
                   </span>
                 </div>
-              ))}
-              <div className="text-[10.5px] italic pt-1" style={{ color: "var(--text-lo)" }}>
-                Postures are quantal equilibria of each rivalry's stance game — clenched minds play noisier, fear-distorted strategies.
+                {/* openness meter: -10 clenched (left) to +10 open (right), midpoint marked */}
+                <div className="relative meter mt-1.5" style={{ overflow: "visible" }}>
+                  <div style={{ position: "absolute", left: "50%", top: -1, bottom: -1, width: 1, background: "var(--ink-3)" }} />
+                  <div style={{
+                    position: "absolute", height: "100%", borderRadius: 3,
+                    background: openColor(c.r),
+                    left: c.r >= 0 ? "50%" : `${50 + c.r * 5}%`,
+                    width: `${Math.abs(c.r) * 5}%`,
+                  }} />
+                </div>
+                {c.states.length > 0 && (
+                  <div className="text-[10.5px] mt-1" style={{ color: "var(--text-lo)" }}>{c.states.join(" · ")}</div>
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+          <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
+            Openness bends perception: the clenched misread warmth as threat; the open see clearly. Each line is filtered through this.
+          </div>
         </Block>
       )}
       <Block title="The web" delay={0.03}>

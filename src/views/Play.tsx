@@ -197,7 +197,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       {/* seismograph strip */}
       <div className="px-4 pt-2 pb-1.5 flex items-center gap-2">
         <div className="seismo flex-1 px-1">
-          <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => t.lyapunov ?? -0.2)} />
+          <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => (t.player_mood_valence ?? 0) / 16)} />
         </div>
         <button className="chip" onClick={runObserve} disabled={running} title="watch one turn play itself">
           <PlayIcon size={11} />
