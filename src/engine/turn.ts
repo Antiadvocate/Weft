@@ -16,7 +16,7 @@ import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
-import { reflectionDue, applyReflection } from "./memory";
+import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate } from "./memory";
 import { neutralUndertow } from "./undertow";
 import { pushSnapshot, registerCharacter, uid } from "./state";
 
@@ -66,6 +66,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   //    simulator's per-character relaxation_delta moves it, tickPsyche drifts it toward
   //    capacity and derives state. Emergence from one scalar, as originally designed.) ──
   for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche);
+  for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
 
   // 1b ── pressure (deterministic), heat amplified when the world is primed
@@ -542,7 +543,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const mem = state.memory[id]; if (!mem) continue;
     const wherePid = state.characters[id]?.location;
     mem.episodic.push({
-      turn, content: m.content, importance: clamp(m.importance ?? 3, 1, 10),
+      turn, content: m.content, full_content: m.content, decay_stage: 0,
+      importance: clamp(m.importance ?? 3, 1, 10),
       emotional_charge: m.emotional_charge ?? "", last_accessed_turn: turn,
       when_label: state.world.current_time,
       where: (wherePid && state.world.places[wherePid]?.name) || undefined,
@@ -552,17 +554,60 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
   }
 
+  // reconsolidation: discussed past events get rebuilt with supplied detail (recall rewrites the
+  // trace) — BUT only if the receiver credits the source. Whether the detail integrates is gated by
+  // the receiver's warmth+trust toward whoever supplied it, against their own clench-resistance.
+  for (const rc of (diff as any).memory_recohere ?? []) {
+    const id = resolveId(state, rc.char_id); if (!id || !rc.about || !rc.added_detail) continue;
+    const mem = state.memory[id]; if (!mem) continue;
+    // integration gate: do they believe this source?
+    const srcId = rc.source_char ? resolveId(state, rc.source_char) : null;
+    const relax = state.condition[id]?.psyche?.relaxation ?? 0;
+    let integrates = true;
+    if (srcId && srcId !== id) {
+      const edge = state.world.edges.find((e) => e.from === id && e.to === srcId);
+      integrates = integrationGate(relax, edge?.warmth ?? 0, edge?.trust ?? 0);
+    }
+    if (!integrates) {
+      // they hold their own version; the correction bounces off
+      if (id !== "char_player") shifts.push(`${nameOf(id)} isn't buying that version.`);
+      continue;
+    }
+    const merged = reconsolidate(mem, rc.about, rc.added_detail, turn);
+    if (!merged) {
+      // nothing close enough to recohere — it was effectively a new recollection; store it
+      mem.episodic.push({
+        turn, content: rc.added_detail, full_content: rc.added_detail, decay_stage: 1,
+        importance: 4, emotional_charge: "", last_accessed_turn: turn, when_label: state.world.current_time,
+      });
+      mem.episodic = capMemory(mem.episodic);
+    }
+  }
+
   for (const cn of diff.canon_add ?? []) {
     if (!cn || state.world.canon.some((x) => x.toLowerCase() === cn.toLowerCase())) continue;
     state.world.canon.push(cn);
     if (state.world.canon.length > 20) state.world.canon.shift();
-    for (const id of Object.keys(state.memory)) {
+    // Canon is world-altering and PUBLIC, but knowledge of it PROPAGATES — it does not teleport
+    // into every mind at once. Those PRESENT witnessed it and remember it now. Everyone else learns
+    // it the way news travels: seeded as a fast-spreading rumor that reaches other minds over turns.
+    // (Destroy a city, then flee to another country, and the people there don't know yet.)
+    for (const id of state.world.present) {
+      if (!state.memory[id]) continue;
       state.memory[id].episodic.push({
-        turn, content: `The world changed, and everyone knows it: ${cn}`,
-        importance: 8, emotional_charge: "awe", last_accessed_turn: turn,
+        turn, content: `I was there when it happened: ${cn}`, full_content: `I was there when it happened: ${cn}`,
+        decay_stage: 0, importance: 9, emotional_charge: "awe", last_accessed_turn: turn,
+        when_label: state.world.current_time,
+        where: (state.characters[id]?.location && state.world.places[state.characters[id].location!]?.name) || undefined,
       });
     }
-    shifts.push(`CANON: ${cn}`);
+    // seed the spread: a true, high-reach rumor so the wider world finds out as news, not by fiat
+    const origin = state.world.present.find((id) => id !== "char_player") ?? "char_player";
+    state.world.rumors.push({
+      id: uid("rum"), content: cn, truth: "true", salience: 10, origin_char: origin,
+      knowers: [...state.world.present], born_turn: turn, dead: false,
+    });
+    shifts.push(`CANON: ${cn} (the world will come to know)`);
   }
 
   for (const a of diff.appearance ?? []) {

@@ -172,11 +172,13 @@ export interface Condition {
 
 export interface EpisodicMemory {
   turn: number;
-  content: string;
-  importance: number;          // 1–10 (poignancy)
+  content: string;             // the current (possibly degraded) recollection — rewritten as it fades
+  full_content?: string;       // the original vivid recollection, kept once so degradation has a source
+  importance: number;          // 1–10 (poignancy) — high importance decays slower
   emotional_charge: string;
   when_label?: string;         // in-world time it happened ("Day 5, 18:30") — gives memories real temporal distance
-  where?: string;              // place name where it happened
+  where?: string;              // place name where it happened — drops out as the memory fades (reconstructable from neighbors)
+  decay_stage?: 0 | 1 | 2 | 3; // 0 vivid (somatic detail) → 1 gist+person+place → 2 gist+person (place lost) → 3 person+bare gist
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
   folded?: boolean;            // a high-salience memory already folded into the character's background (identity consolidation)
