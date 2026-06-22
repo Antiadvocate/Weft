@@ -84,7 +84,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   if (state.world_bible.god_mode) {
     directive += `\nGOD MODE — the player is sovereign here. Their powers succeed completely and cost NOTHING unless they narrate a cost themselves. Override any cost or limitation language in the world bible's magic rules for the player only. The world still reacts honestly: people fear, adapt, worship, scheme, flee, disbelieve. Pressure comes from the world's response to a god walking it, never from handicapping the god.`;
   }
-  const fullDirective = directive + forbid + "\n" + undertow.directive;
+  // ── PER-TURN VOICE REMINDER — written flat on purpose; do not give the model a clever
+  //    cadence to copy. The system VOICE section is distant in a long context, so restate plainly. ──
+  const voiceReminder = `\nVoice check for this turn. No character can read another person's feelings or explain them back. No quotable closing lines. No numbered or structured arguments. People who are feeling something talk in fragments and clichés, not clean insight. Make the characters sound different from each other. When unsure, write someone plainer and less clever. Do not make everyone wise.`;
+  // god-event detection: player has reality-bending capacity AND this beat involves the impossible
+  const lower = action.toLowerCase();
+  const breaks = /\b(fold|teleport|levitat|resurrect|raise the dead|stop(ped)? (the )?(light|time|wind)|bend (space|reality|time)|conjure|manifest|vanish|phase|unmake|miracle|sundered?|will it (into|out))\b/.test(lower)
+    || /\b(folded|stopped the light|stopped time|bent space|raised the dead|levitat|materializ)\b/.test((state.history.slice(-1)[0]?.narrator_prose ?? "").toLowerCase());
+  const aweReminder = breaks
+    ? `\nThis turn the player does something that breaks the world's rules. The people watching do not joke about it. They go quiet, lose their words, back away, or fall into instinct. No casual lines treating the impossible act as a small trick. Make the reaction as large as the thing that happened.`
+    : "";
+  const fullDirective = directive + forbid + voiceReminder + aweReminder + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,
