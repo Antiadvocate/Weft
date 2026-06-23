@@ -120,15 +120,17 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || !c.tracked) continue;
     if (c.status === "dead" || c.status === "departed") continue;   // the gone don't get new wants
-    if (state.world.present.includes(id)) continue;        // in-scene; the narrator drives them
+    const present = state.world.present.includes(id);
 
     const active = c.drive;
     const queue = (c.drive_queue ??= []);
 
     // PROMOTION — a person doesn't stay glued to one stalled aim. If the active drive
     // is complete, hard-blocked, or has sat without progress, and a higher- or equal-priority
-    // backup exists, switch to it and shelve the current one. This is what lets them disengage
-    // from a quiet thread and go pursue something else instead of hovering near the player.
+    // backup exists, switch to it and shelve the current one. This runs for PRESENT characters too:
+    // a character whose in-scene goal has stalled surfaces a backup want, which the narrator then
+    // sees and can act on (raise it, redirect to it, leave to pursue it) — so people in the room
+    // don't stay stuck on a dead aim, they move on to the next thing they want.
     if (active && queue.length) {
       const stalled = active.progress >= 100 || !!active.blocker || (state.world.current_turn - active.updated_turn) >= 4;
       if (stalled) {
@@ -144,6 +146,10 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
         continue;
       }
     }
+
+    // SEEDING a brand-new want is offscreen-only — for a present character with no goal, the
+    // narrator and simulator give them one from what's happening in the scene, not this background tick.
+    if (present) continue;
 
     if (active && active.progress < 100) continue;          // still actively wanting something
     // nothing active (or it just completed and queue empty) — seed a fresh want.

@@ -22,6 +22,7 @@ export interface ModelSettings {
   lean_mode?: boolean;            // compressed system prompts + present/tracked-only cast (lower tokens, slightly less rich)
   token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
   tension?: number;               // 0–10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
+  max_central_characters?: number; // cap on CENTRAL (full-fidelity, tracked) characters. Default 6. Beyond this, new characters become "non-central" — minimal-footprint background figures (environment-like) with simple handling, unless promoted. Tunable.
 }
 
 export interface WorldBible {
@@ -119,6 +120,7 @@ export interface Identity {
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
+  central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
   exit_turn?: number;         // when they died/left
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")

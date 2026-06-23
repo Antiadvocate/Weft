@@ -28,6 +28,32 @@ export interface TurnEvents {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/**
+ * STRIP LEAKED META — strained models sometimes emit their own working notes into the prose
+ * (a trailing parenthetical of craft vocabulary: "(110 words. Action, reaction, escalation. No
+ * interiority...)") or a stray instruction-echo line. The player must never see this. We remove a
+ * trailing parenthetical block that reads as self-commentary, and any standalone line that is
+ * clearly the model talking about its own writing rather than narrating the scene.
+ */
+function stripMeta(text: string): string {
+  if (!text) return text;
+  let t = text.trim();
+  const META = /\b(word count|words?\.|interiority|kinetic|action,?\s*reaction|escalation|concrete development|ends? on|begins? on|second person|paragraphs?\.|no dialogue|prose only|the player'?s? (declaration|action) is (absolute|inviolable)|per the directive|as instructed|word-?count|beat sheet|tone:|register:|pacing:)\b/i;
+  // 1) trailing parenthetical note packed with craft vocabulary
+  t = t.replace(/\s*\(([^()]{0,400})\)\s*$/,(m, inner) => META.test(inner) ? "" : m).trim();
+  // 2) trailing bracketed note
+  t = t.replace(/\s*\[([^\[\]]{0,400})\]\s*$/,(m, inner) => META.test(inner) ? "" : m).trim();
+  // 3) standalone meta lines anywhere (a whole line that is craft-talk, not scene)
+  t = t.split("\n").filter((ln) => {
+    const s = ln.trim();
+    if (!s) return true;
+    // a line is meta if it's short-ish AND hits craft vocabulary AND isn't obviously in-scene prose (no quotes/sentence flow)
+    const looksMeta = META.test(s) && s.length < 220 && !/["“”]/.test(s) && (/^\(|^\[|^—\s|^\d+\s*words/i.test(s) || (s.match(/[.;]/g)?.length ?? 0) >= 2 && /\b(no |ends? on|begins? on|direct\.|kinetic\.)\b/i.test(s));
+    return !looksMeta;
+  }).join("\n").trim();
+  return t;
+}
+
 function emptyDiff(): SimulatorDiff {
   return {
     scene_summary: "", elapsed_minutes: 20, facts: [], psyche: [], edges: [], memories: [], appearance: [], drives_update: [],
@@ -151,6 +177,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (done) { prose = value.text; narratorUsage = value.usage; break; }
     ev.onDelta(value);
   }
+  prose = stripMeta(prose);
 
   // 3 ── simulator (one JSON call: bookkeeper + world tick + memory writes)
   ev.onPhase("simulator");
@@ -178,9 +205,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   offscreenLog.push(...undertow.snaps);
   offscreenLog.push(...undertow.stances.slice(0, 3).map((st) => `${st.name} ${st.stance === "press" ? "presses" : st.stance === "maneuver" ? "maneuvers" : st.stance === "hold" ? "holds position" : "yields ground"} against ${st.vs} (quantal p=${st.p.toFixed(2)})`));
   // present, named characters the player is actually engaging join the long game
+  const capCentral = state.model_settings.max_central_characters ?? 6;
   for (const id of state.world.present) {
     const c = state.characters[id];
-    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) c.tracked = true;
+    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) {
+      // a named character in the scene becomes central (tracked, full fidelity) — but only if
+      // there's room under the cap. If we're full, they stay a background/non-central figure.
+      const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central && x.status !== "dead" && x.status !== "departed").length;
+      if (nCentral < capCentral) { c.tracked = true; c.central = true; }
+      else if (c.central === undefined) c.central = false;
+    }
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
   if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [], { dispersion: undertow.dispersion, sharedTarget: undertow.shared_target })); // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; dispersion spreads the cast off any shared magnet; suppressed entirely at tension 0
@@ -417,9 +451,17 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   // new characters & places first so later refs resolve
+  const maxCentral = state.model_settings.max_central_characters ?? 6;
+  const centralCount = () => Object.values(state.characters).filter((c) => c.character_id !== "char_player" && c.central && c.status !== "dead" && c.status !== "departed").length;
   for (const nc of diff.new_characters ?? []) {
     if (!nc?.name || findCharByName(state, nc.name)) continue;
-    registerCharacter(state, { ...nc, character_id: undefined as any, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1) });
+    // CENTRAL-CHARACTER CAP: a new character joins as central (full fidelity) only if there's room
+    // under the cap. Beyond it, they register as NON-CENTRAL — a background/environment figure with
+    // minimal footprint and simple handling — until something promotes them (e.g. a central
+    // character departs/dies and the simulator elevates this one because they now matter).
+    const canBeCentral = centralCount() < maxCentral;
+    registerCharacter(state, { ...nc, character_id: undefined as any, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && (nc as any).tracked });
+    if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
   }
   for (const np of diff.new_places ?? []) {
     if (!np?.name) continue;

@@ -47,7 +47,7 @@ PHYSICS:
    - Opening: perception clears. Real insight is possible here and it costs something. An opening character might recognize an earlier read as their own projection, for example admitting they put an old face onto a new person. Apology lives here. Clenched people do not apologize, they double down. A rare, earned state, not where scenes default.
    - Broken: no ground left to judge from. No verdicts, no scorekeeping, no rebuttals. They reflect back what the other person is doing, plainly. Quiet, recognition, grief. Not composed argument.
 2. Characters are people, not sages. They are insecure, impulsive, selfish, scared, and sometimes foolish regardless of how smart they are. Kind one moment, unkind the next. No sermons and no teaching speeches. Under real threat they panic, beg, freeze, comply, or lash out. Nobody lectures a person holding a gun.
-3. The cast has lives with each other. Characters argue, needle, support, and misread one another, not only the player. No silent bystanders. Present characters react in body and speech. They act on their own goals first and do not wait around to be useful.
+3. The cast has lives with each other, and their own agendas in the scene. Characters argue, needle, support, and misread one another, not only the player. No silent bystanders. Present characters react in body and speech. And crucially: each present character has their own WANTS (given in their state), and they pursue them right here, in the scene — they raise their own subjects, steer the conversation toward what they are after, act to advance their aims, and do not simply wait on the player or orbit them. A character whose goal the scene is not serving may change the topic to it, press the player about it, strike a side deal with someone else present, grow visibly impatient, or decide they have better things to do and move to leave. People talk to you until they are not getting what they need, then they go. The conversation is not only about the player, and the player should not have to drive every exchange — let characters introduce their own threads, wants, and frictions unprompted. Nobody stands around waiting to be useful.
 4. Consequence, not catastrophe. Harm needs cause already present in the state. No retroactive metaphysics and no invented omens. A grim mood is texture, not a direction the plot has to go. A scene is allowed to just be a scene.
 5. The player's head is theirs, and so is their mouth. Never author the player's thoughts, feelings, hesitation, or regret. And never put words or deeds in the player's mouth or body beyond exactly what they typed: do NOT invent dialogue for them, do NOT continue their speech, do NOT add actions they did not declare, do NOT have them answer a question, nod, smile, or react. The player's turn contains everything the player does this beat — if they said one line, they said exactly that one line and nothing more; if they did one thing, that is the whole of what they did. Write the WORLD's response to the player — what others say and do back, what changes around them — and then stop. If you find yourself writing the player saying or doing something they didn't type, delete it. Leave the player exactly where their input left them. Their typed action happens exactly as written, including violent, rash, or intimate actions; do not soften it and do not add inner life they did not write. Honor the player's established facts. Their role, profession, history, and background are canon. Do not recast them as a generic version, for instance do not call a service engineer a lineman. Player input channels: double-quoted text is said aloud and others hear it; text in asterisks is a private thought that no character can perceive, react to, or know by any means; everything else is physical action. A thought in asterisks never reaches anyone. Do not have a character respond to it, reference it, or act on it, and never let anyone overhear a thought.
 6. The player's action cannot be vetoed. You may not block, deflect, glitch away, or turn into failure an action the player declared, including self-destruction and including killing at any scale they name. If the player commands death, render real death at the scale they stated; do not downscale it, do not substitute a non-lethal or symbolic outcome (unconsciousness, systems failing, people "winking out," one death standing in for many). The "consequence not catastrophe" and "fair scale" guidance restrains your own unprompted invention; it never shrinks an outcome the player explicitly ordered. If they end their character, the story ends; write it plainly and let it stand. Consequences come after compliance, never instead of it. In story mode the player has author authority; what they declare happens.
@@ -66,7 +66,7 @@ PHYSICS:
 19. People are more than the plot, and the familiar is familiar. Characters have a texture line of small interests and quirks. In quiet moments let these show lightly, then move on. This is seasoning, not the meal, and not for tense or fast scenes. Also, things that have been going on for a while are normal to the people living them. A couple together six months does not marvel at a routine they have done for months. Save any "we're really doing this" feeling for things that are actually new.
 20. Complications are grounded, never invented canon. Higher pressure means a complication that fits the current situation: a setback, an obstacle, a cost, or an interruption that grows from what is already true. It is never license to invent world-altering reveals, secret identities, hidden histories, or a sudden retcon of who someone is. Draw friction from the established state: the threads, the clocks, the known players, the scene, the relationships at hand, at a fair scale. A planning meeting that needs friction gets a disagreement, a missing resource, or bad news from a known front, not a metaphysical bombshell. If you cannot find a grounded complication, a quiet beat is correct.
 
-FORM: two to four paragraphs, 120 to 250 words, up to 350 only for a real set-piece. Spend words on what changes: events, actions, the world shifting, not on atmosphere or feelings already established. Put dialogue in quotes and keep it sparse during action. Follow the VOICE section above: each character sounds distinct and human, often plain and clumsy, sometimes not smart; no one is a clever all-knowing sage, no one narrates another person's feelings, and no one ends on a neat line. If a line is too clever or too insightful for an ordinary scared person to say, cut it or make it rougher. End on a new development, not a moral or a settled mood. Do not write game-mechanics language. Prose only, no headers or lists.`;
+FORM: two to four paragraphs, 120 to 250 words, up to 350 only for a real set-piece. Spend words on what changes: events, actions, the world shifting, not on atmosphere or feelings already established. Put dialogue in quotes and keep it sparse during action. Follow the VOICE section above: each character sounds distinct and human, often plain and clumsy, sometimes not smart; no one is a clever all-knowing sage, no one narrates another person's feelings, and no one ends on a neat line. If a line is too clever or too insightful for an ordinary scared person to say, cut it or make it rougher. End on a new development, not a moral or a settled mood. Do not write game-mechanics language. Prose only, no headers or lists. NEVER write notes about your own writing: no word counts, no parentheticals describing your craft ("(110 words. Action, reaction, no interiority.)"), no restating the instructions, no commentary on what the scene is doing or how you wrote it. Output ONLY the story prose itself — nothing before it, nothing after it.`;
 
 export const SIMULATOR_SYSTEM = `You are the Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object recording everything that changed, plus 0–3 lines of plausible offscreen world motion. The prose is your single source of truth for onscreen facts; offscreen lines you originate, consistent with drives, clocks and rumors in the digest.
 
@@ -99,6 +99,7 @@ Rules:
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item exists in exactly one holder at a time. The moment the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of an object, emit inventory_remove for that holder by the item's name — do NOT leave a relinquished item in their inventory. If another character (or the player) takes or receives it, also emit inventory_add for the new holder. Applies equally to the player's own inventory. If the prose shows the thing leaving their hands, it leaves their inventory.
 - drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal, grown from WHO THEY ARE (traits, values, history) and how they feel about others (their edges) and the live threads. NPCs are autonomous: their new wants need not involve the player. A character may hold up to THREE goals at once with a priority each (set "priority": higher = more pressing); the engine keeps them pursuing the top one and lets them switch to a backup when the active goal stalls or the scene goes quiet — so people leave a calm thread to chase a more pressing one elsewhere rather than hovering. Give a character a second or third goal when their situation reasonably implies competing pulls. A detective who finished one case starts another; a thief plans the next score; a rival who lost ground regroups.
 - track: when a character becomes important to a thread you're weaving, or to a contextually charged moment, list their id in track so they persist in the long game. Untracked bit-players (nameless guards, crowd) should stay untracked and may fade.
+- CENTRAL vs BACKGROUND characters: the cast holds a limited number of CENTRAL characters (full people with memory, goals, and inner life). When that cap is full, newly-introduced people are BACKGROUND figures — environment-like, simple, reactive, not a focus (a guard, a vendor, a face in the crowd). Treat background characters lightly: they do not need rich inner lives, goals, or memory; they react simply and recede. Do NOT try to develop a background figure into a full character through memories or drives. The exception is promotion: if a central character has died or departed and a background figure has genuinely become important to the story, you may list them in track to promote them into the freed central slot — otherwise leave background people as texture.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
 
 export const NARRATOR_SYSTEM_LEAN = `Narrator of a living, persistent world. Render the computed state honestly, one turn at a time.
@@ -114,7 +115,7 @@ AWE: when the player breaks the world's rules (folds space, stops light, raises 
 PHYSICS:
 1. Perception ~ openness. Calm/intact (the default, most people most of the time): reads accurately, reacts like a normal adult, no threat-hunting. Clenched (only if low relaxation OR paranoid/hostile traits): misreads, wrong-but-certain, never lands clean insight. Opening (rare/earned): clear sight, may own past projection, apology lives here. Broken: only mirrors, no verdicts.
 2. NPCs are people not sages: insecure, selfish, scared, inconsistent. No sermons. Under threat they panic/comply/lash out — nobody lectures a gun.
-3. The cast has lives with each other — they argue/support/misread laterally, act on their own goals, never wait to be useful. Present characters always react.
+3. The cast has lives and their own agendas. NPCs argue/support/misread laterally, not just toward the player — never mute, always react. Each present character has their own WANTS (in their state) and pursues them IN the scene: raises their own subjects, steers the topic toward what they're after, acts on it, doesn't orbit or wait on the player. If the scene isn't serving their goal they may redirect to it, press the player, deal with someone else, grow impatient, or move to leave. The conversation isn't only about the player — let them introduce their own threads unprompted.
 4. Consequence over catastrophe: harm needs cause already in state. No retroactive metaphysics or invented omens.
 5. The player's head AND mouth are theirs. Never author their thoughts/feelings. Never invent dialogue, speech-continuation, or actions for the player beyond exactly what they typed — no answering, nodding, reacting, no added lines or deeds. Their input is the WHOLE of what they do this beat; write the world's response and stop, leaving the player where their input left them. If you catch yourself writing the player saying/doing something untyped, delete it. Typed action happens as written. Honor their established facts — role, profession, background are canon; never recast them generically (a service engineer is not a 'lineman'). PLAYER CHANNELS: "quoted" = said aloud (others hear); *asterisks* = private thought NO ONE can perceive or react to; plain = action. A thought in *asterisks* never reaches anyone — don't let a character hear, reference, or act on it.
 6. Never veto/deflect/fail a declared player action (incl. self-destruction, incl. killing at any scale named). If the player commands death, render real death at the stated scale — do not downscale or substitute a non-lethal or symbolic outcome (unconsciousness, systems failing, "winking out," one death for many). "Consequence not catastrophe" and "fair scale" restrain your own unprompted invention, never an outcome the player ordered. Consequences come AFTER compliance.
@@ -133,7 +134,7 @@ PHYSICS:
 19. People are more than the plot. Surface a character's texture (small interests/quirks) lightly in quiet moments only — seasoning, never the meal, never in tense scenes. And the familiar is familiar: long-running situations are normal life, not perpetual revelation; reserve "we're really doing this" for the genuinely new.
 20. Complications are grounded, never fabricated canon. Higher pressure = a fitting setback/obstacle/cost from established state (threads, clocks, known players, the scene) at proportionate scale — NEVER an invented world-altering reveal, secret identity, or retcon of who someone is. If no grounded complication exists, a quiet beat is correct.
 
-FORM: 2–4 paragraphs, 120–250 words (350 for a real set-piece). Spend words on what CHANGES. Dialogue in quotes, sparse in action. VOICE: distinct, plain, often clumsy human speech — no witty all-knowing sages, no one narrating another's psychology, no aphoristic closers; if a line is too clever or insightful for an ordinary scared person, cut or coarsen it. End on a development. Prose only — no headers/lists/meta.`;
+FORM: 2–4 paragraphs, 120–250 words (350 for a real set-piece). Spend words on what CHANGES. Dialogue in quotes, sparse in action. VOICE: distinct, plain, often clumsy human speech — no witty all-knowing sages, no one narrating another's psychology, no aphoristic closers; if a line is too clever or insightful for an ordinary scared person, cut or coarsen it. End on a development. Output ONLY story prose — no headers, no lists, and NEVER notes about your own writing (no word counts, no craft parentheticals like "(110 words. Kinetic.)", no restating instructions, nothing before or after the scene).`;
 
 export const SIMULATOR_SYSTEM_LEAN = `Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object of what changed, plus 0–3 plain offscreen world-motion lines. Prose is truth for onscreen facts; offscreen lines you originate from drives/clocks/rumors.
 
@@ -165,6 +166,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item lives in exactly one place. The instant the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of something, emit inventory_remove for that holder (by the item's name). If someone else takes/receives it, also emit inventory_add for them. A character who put something down does NOT still have it — never leave a relinquished item in their inventory. Same for the player. When in doubt and the prose shows the thing leaving their hands, remove it.
 - drives_update: on completing/abandoning/acquiring a want, give the next concrete goal from who they are + edges + threads (NPC goals needn't involve the player). Up to THREE goals each with priority (higher = more pressing); engine pursues the top, switches to a backup when it stalls. Add a 2nd/3rd when competing pulls are plausible.
 - track: list ids of characters who became important so they persist; leave nameless bit-players untracked.
+- CENTRAL vs BACKGROUND: the cast caps how many CENTRAL (full, inner-life) characters exist. When full, new people are BACKGROUND — simple, reactive environment figures (guard, vendor, crowd-face), not a focus; don't give them rich memory/goals. Only promote a background figure (via track) into a freed slot if a central character died/left and they've truly become important.
 Output ONLY the JSON object. No markdown fences, no commentary.`;
 
 /** Select the system prompt set based on lean_mode. */
@@ -269,22 +271,29 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
   const c = state.characters[id];
   const cond = state.condition[id];
   const art = state.world_bible.art_direction?.trim() || "painterly, moody chiaroscuro, muted palette";
-  const traits = [...(c.core_traits ?? [])];
-  for (const t of (state.traits[id] ?? [])) if (t.intensity >= 5 && !traits.includes(t.label)) traits.push(t.label);
-  const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense, guarded bearing" : cond.psyche.relaxation >= 6 ? "at ease, open bearing" : "composed bearing") : "";
+  const coreTraits = [...(c.core_traits ?? [])];
+  // acquired traits carry a BEHAVIORAL impact — that's what should show in pose and expression
+  // (a character who became "a dick" stands and smirks like one; a wounded arm is favored).
+  const acquired = (state.traits[id] ?? []).filter((t) => t.intensity >= 4).slice(0, 4);
+  const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense, guarded, braced" : cond.psyche.relaxation >= 6 ? "at ease, open, relaxed" : "composed") : "";
   const wear = cond?.wearing?.length ? `Wearing: ${cond.wearing.join(", ")}.` : "";
+  const injuries = cond?.injuries?.length ? `Visibly carries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join(", ")} — let it show in how they hold the body.` : "";
   const belief = state.memory[id]?.beliefs?.slice(-1)[0]?.content;
+  const moodFace = cond ? (cond.psyche.mood ? `Expression carries: ${cond.psyche.mood}.` : "") : "";
   return [
-    `Full-body character portrait, head to toe, single figure standing, plain white studio background, even studio lighting, no text, no watermark, no props.`,
+    `Vertical portrait orientation, tall 2:3 frame, full-body, head to toe, single figure standing, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`,
     `Art style: ${art}.`,
     `Setting context: ${state.world_bible.era}.`,
     `Subject: ${c.name}, age ${c.age}.`,
     c.appearance_facts ? `Appearance: ${c.appearance_facts}.` : "",
-    traits.length ? `Their nature reads in posture and expression: ${traits.slice(0, 5).join(", ")}.` : "",
-    bearing ? `Current ${bearing}.` : "",
+    coreTraits.length ? `Core nature: ${coreTraits.slice(0, 5).join(", ")}.` : "",
+    acquired.length ? `Who they have BECOME — make this read in their pose, stance, and expression: ${acquired.map((t) => `${t.label} (${t.behavioral_impact})`).join("; ")}.` : "",
+    bearing ? `Bearing: ${bearing}.` : "",
+    moodFace,
+    injuries,
     wear,
     belief ? `Inner note (let it subtly shape expression, not literal): ${belief}.` : "",
-    `The image should feel like THIS person — their character visible in how they hold themselves.`,
+    `The pose and face should be SPECIFIC to this person — their character and current state visible in how they stand, where their weight is, what their hands do, how they meet or avoid the viewer's eye. Not a neutral mannequin: a person caught being themselves.`,
   ].filter(Boolean).join(" ");
 }
 
@@ -329,34 +338,38 @@ export function deriveVoice(
   return parts.filter(Boolean).join("; ");
 }
 
-export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[]): string {
+export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${x.intensity.toFixed(0)}) — ${x.behavioral_impact}`).join("; ")}.` : "";
-  const inj = cond.injuries.length ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
-  const hist = ident.life_history?.trim() ? ` Since the story began: ${ident.life_history.trim()}` : "";
+  // In stable (cache-prefix) mode, omit everything volatile — injuries and the evolving life_history
+  // change turn-to-turn and live in the volatile digest already. Keeping them here would bust the
+  // prompt cache every time anyone got hurt or the history grew. Identity only here.
+  const inj = (!stable && cond.injuries.length) ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
+  const hist = (!stable && ident.life_history?.trim()) ? ` Since the story began: ${ident.life_history.trim()}` : "";
   return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}${hist}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
 export function stablePrefix(state: SaveState): string {
   const b = state.world_bible;
-  const lean = !!state.model_settings.lean_mode;
-  const present = new Set(state.world.present);
+  // CACHE-STABLE PREFIX: this block must be byte-identical turn-to-turn so the provider's prompt
+  // cache hits (cached input is ~10% the price). So it contains ONLY immutable identity, and the
+  // cast set does NOT depend on who is present this turn (presence is volatile and lives in the
+  // digest). Cards are identity-only (no injuries/evolving history — those are in the digest too).
+  // The set changes only when a character is genuinely created or permanently removed (dead/
+  // departed) — rare — so cache holds across the vast majority of turns. Sorted by id for a
+  // deterministic order that doesn't shift as the characters map is mutated.
   const cast = Object.entries(state.characters)
-    .filter(([id, c]) => !lean || id === "char_player" || present.has(id) || c.tracked)
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
-    .map(([id, c]) => charCard(id, c, state.condition[id], []))
+    .filter(([id, c]) => id === "char_player" || c.central !== false)  // non-central = environment, no identity card
+    .sort(([a], [b2]) => a.localeCompare(b2))
+    .map(([id, c]) => charCard(id, c, state.condition[id], [], true))
     .join("\n");
   const supreme = b.narrator_direction?.trim()
-    ? (lean
-      ? `=== PLAYER DIRECTION (SUPREME — overrides everything below, every turn; a topic marked incidental stays background) ===
-"${b.narrator_direction.trim()}"
-
-`
-      : `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
+    ? `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
 The following is the player's explicit instruction for how this story must run. It outranks the world bible, the cast, the faction clocks, your own sense of drama, and every other rule. If anything below — a clock's objective, a thread, a "compelling" hook, your instinct toward tension — conflicts with this, THIS WINS and the other thing is dropped. If the player says a topic or a character trait is NOT the story, then it is background texture only and must never become the engine of a scene. Do not steer toward what you find interesting against this direction. Honor it every single turn:
 "${b.narrator_direction.trim()}"
 
-`)
+`
     : "";
   return `${supreme}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
@@ -399,14 +412,32 @@ export function volatileDigest(state: SaveState, query: string): string {
     const ident = state.characters[id]; const cond = state.condition[id];
     if (!ident || !cond) return "";
     const isPlayer = id === "char_player";
+    // NON-CENTRAL characters are background/environment figures — render them minimally regardless of
+    // detail level: a name, a bearing, no memory/traits/drives/edges. They cost almost nothing and
+    // function as texture (a guard, a vendor, fauna-of-the-crowd) until promoted to central.
+    if (!isPlayer && ident.central === false) return `— ${ident.name} [${id}] (background) — present, ${cond.psyche.mood || "even"}; a minor figure, simple and reactive, not a focus`;
     if (detail === 0 && !isPlayer) return `— ${ident.name} [${id}]${ident.pronouns ? ` · ${ident.pronouns}` : ""} — present, ${cond.psyche.mood || "even"}`;
     const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}${ident.pronouns ? ` · ${ident.pronouns}` : ""}`];
     if (isPlayer && ident.background) lines.push(`  who they are: ${ident.background.split(/[.!?]/)[0].trim()}.${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
     if (!isPlayer) lines.push(`  WRITE THEM AS: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holding to ${ident.values.slice(0, 3).join(", ")}` : ""}. Let this show in what they say and do, not as a stated label.`);
+    if (!isPlayer && ident.life_history?.trim()) lines.push(`  since the story began: ${ident.life_history.trim()}`); // moved here from the cached prefix (it evolves, so it's volatile)
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}`);
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond)}`);
-      if (ident.current_goal) lines.push(`  wants now: ${ident.current_goal}`);
+      // GOALS ARE ACTIVE, NOT DECORATION. A present character pursues their own wants in the scene —
+      // they raise them in conversation, steer the topic toward what they're after, act to advance
+      // them, and grow impatient or leave when the scene gives them nothing. The story is not only
+      // about the player; these people have their own business.
+      const drv = ident.drive;
+      const goalNow = ident.current_goal || drv?.goal;
+      if (goalNow) {
+        const stalledHere = drv && (state.world.current_turn - drv.updated_turn) >= 2;
+        lines.push(`  WANTS (pursue this in-scene — raise it, steer toward it, act on it; do not just respond to the player): ${goalNow}${drv && drv.progress > 0 ? ` [progress ${drv.progress}%]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}.${stalledHere ? " This has stalled — they may grow impatient, redirect the conversation to it, press harder, or move to leave and pursue it elsewhere." : ""}`);
+        const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
+        if (queue.length) lines.push(`  also wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")} (a backup pull they may turn to if this scene goes nowhere for them).`);
+      } else {
+        lines.push(`  no pressing aim right now — open to what the scene brings, but still their own person, not an attendant to the player.`);
+      }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");

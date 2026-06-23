@@ -360,7 +360,7 @@ export const api = {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
-    c.portrait_url = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model);
+    c.portrait_url = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
   },
@@ -373,7 +373,7 @@ export const api = {
     const refs = ["char_player", ...s.world.present]
       .map((cid) => s.characters[cid]?.portrait_url)
       .filter((u): u is string => !!u && u.startsWith("data:"));
-    entry.illustration_url = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs);
+    entry.illustration_url = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs, "landscape");
     await putSave(s);
     return { url: entry.illustration_url, save: clientView(s) };
   },

@@ -143,14 +143,24 @@ export function safeJson<T>(text: string, fallback: T): T {
   try { return JSON.parse(repairJson(ex)) as T; } catch { return fallback; }
 }
 
-export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image", refImages: string[] = []): Promise<string> {
+export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image", refImages: string[] = [], aspect: "portrait" | "landscape" | "square" = "landscape"): Promise<string> {
   // reference images (e.g. character portraits) are passed as image_url content blocks;
   // models that support multimodal input use them for consistency, others ignore them.
-  const content: any[] = [{ type: "text", text: prompt }];
+  // Aspect: the image models default to landscape/square, so we both (a) state the orientation
+  // forcefully in the text and (b) pass a generation hint where the routing supports it.
+  const ratio = aspect === "portrait" ? "2:3" : aspect === "square" ? "1:1" : "16:9";
+  const orient = aspect === "portrait"
+    ? "IMPORTANT: vertical portrait orientation, tall 2:3 aspect ratio, taller than wide. "
+    : aspect === "square" ? "Square 1:1 aspect ratio. " : "";
+  const content: any[] = [{ type: "text", text: orient + prompt }];
   for (const url of refImages.slice(0, 4)) if (url?.startsWith("data:") || url?.startsWith("http")) content.push({ type: "image_url", image_url: { url } });
   const res = await fetch(OR_URL, {
     method: "POST", headers: headers(),
-    body: JSON.stringify({ model, messages: [{ role: "user", content }], modalities: ["image", "text"] }),
+    body: JSON.stringify({
+      model, messages: [{ role: "user", content }], modalities: ["image", "text"],
+      // generation hints — honored by routings that support image config, ignored otherwise
+      image_config: { aspect_ratio: ratio },
+    }),
   });
   if (!res.ok) throw new Error(`image gen HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j: any = await res.json();
