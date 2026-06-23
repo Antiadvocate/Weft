@@ -119,16 +119,16 @@ export const api = {
       name: g.world_bible?.name || `${s.world_bible.name} — Next Chapter`,
     };
     const ns = newSave(bible.name, bible);
-    // player carries forward — their full journey (traits, heavy memories, beliefs, accreted
-    // history) condensed into who they've become, not flattened to a sentence.
-    const playerCondensed = condenseForNewChapter(player, s.memory["char_player"], s.traits["char_player"]);
+    // player carries forward COMPLETE: full memory, full traits, nothing dropped or sanitized.
+    // A new chapter is a time-skip, not a personality wipe — who they became persists entirely.
+    const playerCarry = condenseForNewChapter(player, s.memory["char_player"], s.traits["char_player"]);
     registerCharacter(ns, {
       ...player, character_id: "char_player",
-      background: `${player?.background ?? ""} ${g.player?.background_addition ?? ""} ${playerCondensed.background_carry}`.replace(/\s+/g, " ").trim(),
+      background: `${player?.background ?? ""} ${g.player?.background_addition ?? ""}`.replace(/\s+/g, " ").trim(),
       drive: undefined, drive_queue: [],
     });
-    ns.memory["char_player"].core = playerCondensed.core_carry.length ? playerCondensed.core_carry.slice(-5) : s.memory["char_player"].core.slice(-3);
-    if (playerCondensed.carried_traits.length) ns.traits["char_player"] = playerCondensed.carried_traits;
+    ns.memory["char_player"] = { ...playerCarry.carried_memory, character_id: "char_player" }; // full memory intact
+    ns.traits["char_player"] = playerCarry.carried_traits;                                       // full traits intact
 
     // place
     const lid = uid("loc");
@@ -136,17 +136,18 @@ export const api = {
     ns.world.player_location = lid;
     ns.characters["char_player"].location = lid;
 
-    // surviving cast, with evolved background + relationships baked in
+    // surviving cast carry forward COMPLETE — full memory, full traits, full identity. The
+    // background_addition is APPENDED as a "where they ended up" note, never replacing who they are.
     for (const c of (g.cast ?? [])) {
       if (c.still_present === false || !c.name) continue;
       const prev = Object.values(s.characters).find((x) => x.name.toLowerCase() === c.name.toLowerCase());
-      // distill who this character BECAME: traits, heavy memories, beliefs, accreted history
-      const condensed = prev ? condenseForNewChapter(prev, s.memory[prev.character_id], s.traits[prev.character_id]) : { background_carry: "", carried_traits: [], core_carry: [] };
+      const carry = prev ? condenseForNewChapter(prev, s.memory[prev.character_id], s.traits[prev.character_id]) : { carried_memory: { character_id: "", core: [], episodic: [], beliefs: [], knows: [] } as any, carried_traits: [] as any[] };
       const cid = registerCharacter(ns, {
         name: c.name,
         age: prev?.age ?? 30,
         appearance_facts: prev?.appearance_facts ?? "",
-        background: `${prev?.background ?? ""} ${c.background_addition ?? ""} ${condensed.background_carry}`.replace(/\s+/g, " ").trim(),
+        background: `${prev?.background ?? ""} ${c.background_addition ?? ""}`.replace(/\s+/g, " ").trim(),
+        life_history: prev?.life_history ?? "",          // the accreted defining-moments carry verbatim
         core_traits: prev?.core_traits ?? [],
         values: prev?.values ?? [],
         speech_pattern: prev?.speech_pattern ?? "plain",
@@ -157,9 +158,8 @@ export const api = {
         drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
       });
       ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, notes: "carried from the last chapter", updated_turn: 1 });
-      // carry the condensed memory + the traits durable enough to survive the skip
-      ns.memory[cid].core = condensed.core_carry.length ? condensed.core_carry.slice(-5) : [`${c.background_addition ?? ""}`].filter(Boolean);
-      if (condensed.carried_traits.length) ns.traits[cid] = condensed.carried_traits;
+      ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
+      ns.traits[cid] = carry.carried_traits;                            // full traits intact
     }
     // carry canon forward (the world-altering facts still happened)
     ns.world.canon = [...(s.world.canon ?? [])].slice(-12);

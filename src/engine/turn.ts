@@ -95,6 +95,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const tier = detectPowerTier(god, recentText);
   let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier);
 
+  // ── PLOT-STALL DETECTION ── A scene has no engine of its own when nothing is pushing the PLOT
+  // outward. The subtlety: a thread can carry high tension while being purely INTERNAL — a
+  // character's awe, collapse, or realization. That kind of tension generates lush reaction-prose
+  // that goes nowhere. So we don't ask "is there tension," we ask "is there tension pointed at an
+  // external situation." When the only live threads are emotional, no consequence is pending, no
+  // clock is live, AND the player is passive, the scene is stalled even if it looks intense.
+  const INTERNAL_THREAD = /\b(collaps|awe|realiz|understand|awaken|existential|feeling|inner|spiritual|grief|accept|reckon|contempl|peace|doubt|faith|recogni|devotion|worship|reverence)\b/i;
+  const plotThreads = (state.world.threads ?? []).filter((t) => (t.tension ?? 0) >= 3 && !INTERNAL_THREAD.test(`${t.title} ${t.description}`));
+  const liveThread = plotThreads.length > 0;
+  const pendingCons = (state.world.consequences ?? []).some((c) => c.status === "pending");
+  const liveClock = (state.world.clocks ?? []).some((c: any) => c?.threshold && (c.progress ?? 0) < c.threshold);
+  const passiveAct = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
+  // stalled: no OUTWARD plot pressure of any kind, and the player isn't supplying momentum either
+  const stalled = !liveThread && !pendingCons && !liveClock && passiveAct;
+  const stallDirective = stalled
+    ? `\nSCENE HAS STALLED — nothing in the world is pushing the PLOT outward (the only live tensions, if any, are internal/emotional), and the player is passive. Do NOT fill the turn with the present characters reacting to the player or marinating in feeling — that is precisely the failure to avoid. The WORLD must move on its own: introduce a NEW external development this turn that does not depend on the player. Pick one and make it concrete and physical: someone new arrives with a purpose of their own; news reaches the room of something happening elsewhere; a faction, rival, or authority acts; the larger situation (the tournament, the war, the place's routine, an outside power) reasserts itself with a fresh demand or claimant; a consequence of what the player has already done manifests somewhere new and lands here. ${tier === "cosmic" || tier === "mythic" ? "The player is beyond threat, so this is NOT an attack on them — it is the world having its own momentum: people elsewhere want things, act, and bring those wants into the room. A god is not the end of the world's story; the world keeps turning around them." : ""} End on this new development requiring a response. Move the plot, not the mood.`
+    : "";
+
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
   // plot-solver. In god mode it is suppressed entirely (the player is sovereign). Outside god
   // mode it restrains the narrator's own plotting only — never an action the player declares.
@@ -103,10 +121,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     : "";
 
   if (god) {
-    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides everything else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies, not unconsciousness or systems failing or people "winking out" or one death standing for many. If they remake a city, the city is remade. The only thing left for you to write is the world's honest reaction to what the god did, and that reaction comes from each present character's own state and relationship to the player, not from a script. Spend the scene on that reaction and its emotional fallout, never on resisting or shrinking the act.`;
+    // detect an ONGOING / escalating declaration vs a discrete one-and-done act. "I will kill this
+    // realm", "I begin unmaking the city", "I start tearing it all down" initiate a PROCESS that must
+    // visibly unfold and accelerate this turn — not be rendered as a single tremor and a promise of
+    // more later. This is the milquetoast trap: the player supplies huge momentum and the narrator
+    // spends it on atmosphere and reaction instead of delivering the escalating event.
+    const lowerAct = action.toLowerCase();
+    const ongoing = /\b(i('?m| am| will| shall|'ll)?\s*(going to|begin|start|am beginning|will begin)\b|\bkill (this|the) (realm|world|planet|city|place)\b|\bunmak\w*|\btear\w* (it|this|the) .*(down|apart|realm|world|place)|\bbring\w* (it|this|them|the|this) (whole )?(place|realm|world|city)?\s*(all )?down|\bend (this|the) (realm|world|place|everything)|\bdestroy\w* (everything|it all|the realm|the world|this place|the place))/i.test(lowerAct);
+    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides everything else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies. If they remake a city, the city is remade.`;
+    if (ongoing) {
+      directive += `\nTHE PLAYER HAS INITIATED A LARGE, ONGOING ACTION — it must VISIBLY UNFOLD AND ACCELERATE this turn, not be rendered as a hint of things to come. The single worst failure here is decompressing a declared cataclysm into atmosphere: one tremor, a flickering torch, a character who "doesn't finish the sentence," a promise that it will happen soon. NO. If they said they are killing the realm, the realm is DYING NOW and fast — show it concretely and at scale this turn: structures failing, the ground opening, the sky changing, people dying en masse, the physical process tearing through everything, escalating paragraph by paragraph. Deliver the event in progress, not the warning before it. Reaction is at most a sentence amid the cataclysm; the cataclysm itself is the turn. End mid-acceleration with the thing well underway, not poised to begin.`;
+    } else {
+      directive += `\nThe player's act is done as declared. Now show the world's honest reaction to it — drawn from each present character's own state and relationship to the player, never from a script, and never by undoing or shrinking what happened. But reaction is not a substitute for events: if the moment calls for the story to keep moving, move it.`;
+    }
   }
 
-  const fullDirective = directive + forbid + "\n" + undertow.directive;
+  const fullDirective = directive + forbid + stallDirective + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,
