@@ -178,7 +178,7 @@ export function simulatorSchemaHint(): string {
 "facts":[{"char_id":"","field":"fatigue|hunger|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
-"memories":[{"char_id":"","content":"","importance":4,"emotional_charge":"","scheduled_time":""}],
+"memories":[{"char_id":"","content":"ONE tight sentence — the core of what happened, gist not essay","importance":4,"emotional_charge":"","scheduled_time":""}],
 "memory_recohere":[{"char_id":"","source_char":"who is supplying the detail (the account being credited or doubted)","about":"the past event being discussed","added_detail":"the detail supplied or revised in this conversation"}],
 "traits":[{"char_id":"","label":"","origin":"","behavioral_impact":"","intensity":3}],
 "appearance":[{"char_id":"","value":"full revised appearance_facts"}],

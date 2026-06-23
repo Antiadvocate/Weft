@@ -16,7 +16,7 @@ import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
-import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate } from "./memory";
+import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { neutralUndertow } from "./undertow";
 import { pushSnapshot, registerCharacter, uid } from "./state";
 
@@ -543,7 +543,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const mem = state.memory[id]; if (!mem) continue;
     const wherePid = state.characters[id]?.location;
     mem.episodic.push({
-      turn, content: m.content, full_content: m.content, decay_stage: 0,
+      turn, content: compactGist(m.content), full_content: m.content, decay_stage: 0,
       importance: clamp(m.importance ?? 3, 1, 10),
       emotional_charge: m.emotional_charge ?? "", last_accessed_turn: turn,
       when_label: state.world.current_time,

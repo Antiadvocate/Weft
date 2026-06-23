@@ -106,12 +106,26 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number): number {
 }
 
 export function score(m: EpisodicMemory, query: string, currentTurn: number): number {
+  // relevance matches the FULL trace, not just the decayed gist — a faded memory can still be the
+  // right one when the scene cues its original detail (the cue is what brings it back vivid).
+  const rel = Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query));
   return (
     ALPHA * recency(currentTurn - m.last_accessed_turn) +
     BETA * (m.importance / 10) +
-    GAMMA * relevance(m.content, query) +
+    GAMMA * rel +
     commitmentBoost(m, currentTurn)
   );
+}
+
+/** Retrieve top-k, exposing each memory's relevance-to-query so the digest can decide which few
+ *  to render at FULL fidelity (the scene is reaching into them) vs decayed gist (the default). */
+export function retrieveScored(mem: CharMemory, query: string, currentTurn: number, k: number): { m: EpisodicMemory; rel: number }[] {
+  const ranked = [...mem.episodic]
+    .map((m) => ({ m, s: score(m, query, currentTurn), rel: Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query)) }))
+    .sort((x, y) => y.s - x.s)
+    .slice(0, k);
+  for (const x of ranked) x.m.last_accessed_turn = currentTurn; // access refreshes recency
+  return ranked.map(({ m, rel }) => ({ m, rel }));
 }
 
 export function retrieve(mem: CharMemory, query: string, currentTurn: number, k: number): EpisodicMemory[] {
@@ -172,6 +186,23 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
   best.last_accessed_turn = currentTurn;      // refreshes recency
   return true;
 }
+
+/**
+ * GIST COMPACTION — a memory trace is a gist, not an essay. Stored memories are kept tight (a
+ * paragraph of vivid prose costs ~80 tokens and repeats in context every turn it's recalled). Keeps
+ * whole leading sentences up to a budget, preserving the core event; drops trailing elaboration.
+ * The original is preserved in full_content so decay/recoherence can still reach it. Lossy by design.
+ */
+export function compactGist(text: string, maxLen = 170): string {
+  if (!text || text.length <= maxLen) return text;
+  const sents = text.match(/[^.!?]+[.!?]+/g) ?? [text];
+  let out = "";
+  for (const s of sents) { if ((out + s).length > maxLen && out) break; out += s; }
+  out = out.trim();
+  if (!out) out = text.slice(0, maxLen).replace(/\s+\S*$/, "") + "…";
+  return out;
+}
+
 export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number): boolean {
   if (currentTurn % cadence !== 0) return false;
   const unreflected = mem.episodic.filter((m) => m.turn > (mem.beliefs.at(-1)?.formed_turn ?? 0));
@@ -181,7 +212,7 @@ export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: num
 
 /** After the LLM produces beliefs, fold them in and compact the episodic store. */
 export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn: number, keepRecent = 8): void {
-  mem.beliefs.push(...beliefs);
+  mem.beliefs.push(...beliefs.map((b) => ({ ...b, content: compactGist(b.content, 130) })));
   if (mem.beliefs.length > 14) mem.beliefs = mem.beliefs.slice(-14);
   // keep the most recent + the few highest-importance episodics; drop the rest (now represented as beliefs)
   const recent = mem.episodic.filter((m) => currentTurn - m.turn <= keepRecent);
@@ -211,24 +242,38 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => b.content).join(" | ")}`);
-  const top = retrieve(mem, query, currentTurn, k);
+  const top = retrieveScored(mem, query, currentTurn, k);
   if (top.length) {
+    // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
+    // bring it back whole. Restore full fidelity for at most 2 memories per character — the ones
+    // the current moment is strongly cued to (high relevance), or that are genuinely defining
+    // (high importance). A cue brings the whole thing back; everything else stays a gist.
+    const RECALL_CAP = 2;
+    const fullSet = new Set(
+      top
+        .filter((x) => x.rel >= 0.4 || x.m.importance >= 8)   // strongly cued, or a defining memory
+        .sort((a, b) => (b.rel + b.m.importance / 10) - (a.rel + a.m.importance / 10))
+        .slice(0, RECALL_CAP)
+        .map((x) => x.m)
+    );
     const tint = recallTint(recallerRelaxation);
-    parts.push(`RECALLS${tint ? ` (${tint})` : ""}: ${top.map((m) => {
+    parts.push(`RECALLS${tint ? ` (${tint})` : ""}: ${top.map(({ m, rel }) => {
+    const full = fullSet.has(m);
     const stage = m.decay_stage ?? 0;
     const ago = agoLabel(m.when_label, nowLabel);
-    // place: present at stages 0–1; at stage 2+ it's lost but reconstructable from a neighbor memory
-    let place = m.where ? `at ${m.where}` : "";
-    if (!m.where && stage >= 2) {
+    // place: present at stages 0–1, or whenever recalled full; at stage 2+ gist it's lost but reconstructable
+    let place = (m.where || full) ? (m.where ? `at ${m.where}` : "") : "";
+    if (!place && !full && stage >= 2) {
       const neighbor = mem.episodic.find((o) => o !== m && o.where && Math.abs(o.turn - m.turn) <= 3);
       if (neighbor?.where) place = `somewhere around ${neighbor.where}`; // contextual reconstruction
     }
-    // temporal stamp fades too: vivid memories carry the exact time; old ones only the rough "ago"
-    const when = stage <= 1 ? [m.when_label, ago && ago !== m.when_label ? `≈${ago}` : ""].filter(Boolean).join(", ") : ago;
+    // full recall ignores the fade: exact time + the original vivid text come back
+    const when = (full || stage <= 1) ? [m.when_label, ago && ago !== m.when_label ? `≈${ago}` : ""].filter(Boolean).join(", ") : ago;
     const stamp = [when, place].filter(Boolean).join(", ");
     const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
-    const faded = stage >= 3 ? " (a dim, distant impression)" : stage === 2 ? " (hazy now)" : "";
-    return `[${stamp || `T${m.turn}`}${due}] ${m.content}${faded}`;
+    const text = full ? (m.full_content ?? m.content) : m.content;
+    const faded = full ? (rel >= 0.4 ? " (this moment brings it back sharp and whole)" : "") : stage >= 3 ? " (a dim, distant impression)" : stage === 2 ? " (hazy now)" : "";
+    return `[${stamp || `T${m.turn}`}${due}] ${text}${faded}`;
   }).join(" | ")}`);
   }
   return parts.join("\n");
