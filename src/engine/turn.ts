@@ -338,6 +338,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     regime: undertow.regime, early_warning: undertow.early_warning,
   };
   state.telemetry.push(tel);
+  // sliding window: long campaigns (thousands of turns) would otherwise bloat every save with raw
+  // per-turn telemetry. Keep a generous recent window — the charts don't need more, and lifetime
+  // counts that matter are derived elsewhere. Same for the pressure trace.
+  const TEL_WINDOW = 300;
+  if (state.telemetry.length > TEL_WINDOW) state.telemetry = state.telemetry.slice(-TEL_WINDOW);
+  if (state.pressure_trace.length > TEL_WINDOW) state.pressure_trace = state.pressure_trace.slice(-TEL_WINDOW);
   state.world.current_turn++;
   ev.onMeta({ telemetry: tel, offscreen: offscreenLog.slice(0, 6), shifts: shifts.slice(0, 8), weather: state.world.weather, time: state.world.current_time });
 }
@@ -397,10 +403,17 @@ function resolveId(state: SaveState, ref: string): string | null {
 export function resolvePlace(state: SaveState, ref: string): string {
   if (!ref) return state.world.player_location;
   if (state.world.places[ref]) return ref;
-  const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === ref.trim().toLowerCase());
+  // normalize transient phrasings so "walking outside the dome" and "outside the dome" don't
+  // spawn two records: drop leading motion gerunds and "in transit to", trim articles/punctuation.
+  const norm = ref.trim()
+    .replace(/^(walking|heading|moving|going|running|traveling|travelling|in transit|en route)\s+(to|toward|towards|into|through|out|outside|past|along|near|by)?\s*/i, "")
+    .replace(/^(the|a|an)\s+/i, "")
+    .replace(/[.,;:]+$/, "")
+    .trim() || ref.trim();
+  const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === norm.toLowerCase() || p.name.toLowerCase() === ref.trim().toLowerCase());
   if (byName) return byName.id;
   const id = uid("loc");
-  state.world.places[id] = { id, name: ref.trim(), description_facts: "", contains: [] };
+  state.world.places[id] = { id, name: norm, description_facts: "", contains: [] };
   return id;
 }
 

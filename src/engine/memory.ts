@@ -195,12 +195,16 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
  */
 export function compactGist(text: string, maxLen = 170): string {
   if (!text || text.length <= maxLen) return text;
-  const sents = text.match(/[^.!?]+[.!?]+/g) ?? [text];
+  // Protect common abbreviations from being read as sentence ends, then split, then restore.
+  // Two classes: simple trailing-dot (Mr. Dr.) and internal-dot (a.m. e.g. i.e.) — guard both.
+  const guarded = text
+    .replace(/\b(a\.m|p\.m|e\.g|i\.e)\./gi, (m) => m.replace(/\./g, "\u0001"))
+    .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sgt|Capt|Lt|Col|Gen|Gov|Sr|Jr|St|vs|etc|No)\.(\s|$)/gi, (_m, a, sp) => `${a}\u0001${sp}`);
+  const sents = guarded.match(/[^.!?]+[.!?]+/g) ?? [guarded];
   let out = "";
   for (const s of sents) { if ((out + s).length > maxLen && out) break; out += s; }
-  out = out.trim();
-  if (!out) out = text.slice(0, maxLen).replace(/\s+\S*$/, "") + "…";
-  return out;
+  out = (out.trim() || text.slice(0, maxLen).replace(/\s+\S*$/, "") + "…");
+  return out.replace(/\u0001/g, "."); // restore protected periods
 }
 
 export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number): boolean {

@@ -79,7 +79,7 @@ export function updateMind(
   turn: number,
   dispersion = 0, // 0..1 from the undertow: how hard the cast is pulling apart — erodes settled confidence
 ): { lines: string[]; peakSurprise: number; epistemicTarget: string | null } {
-  const minds: Record<string, MindModel> = ((state as any).minds ??= {});
+  const minds: Record<string, MindModel> = (state.minds ??= {});
   const model = (minds[id] ??= { character_id: id, about: [] });
   const targets = modeledTargets(state, id);
 
@@ -168,7 +168,7 @@ export function updateMind(
  *  scene play on the character's model instead of the truth. Returns "" when the model
  *  matches reality closely (no divergence worth spending words on). */
 export function mindDigest(state: SaveState, id: string): string {
-  const model = (state as any).minds?.[id] as MindModel | undefined;
+  const model = state.minds?.[id];
   if (!model) return "";
   const out: string[] = [];
   for (const b of model.about) {
