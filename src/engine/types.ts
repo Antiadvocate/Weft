@@ -290,6 +290,8 @@ export interface TurnTelemetry {
   pressure: number;
   pressure_source: string;
   narrator_tokens_in: number;
+  cached_tokens?: number;      // input tokens served from prompt cache (billed ~0.25x) — measures cache effectiveness
+  turn_cost?: number;          // actual $ cost of this turn from the provider, when reported
   narrator_tokens_out: number;
   simulator_tokens_in: number;
   simulator_tokens_out: number;

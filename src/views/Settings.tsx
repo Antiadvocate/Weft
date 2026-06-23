@@ -174,6 +174,20 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
 
       <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Cast</div>
+        <div className="flex items-center justify-between">
+          <span className="text-[14px]">Central characters</span>
+          <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{draft.max_central_characters ?? 6}</span>
+        </div>
+        <input type="range" min={2} max={12} step={1} value={draft.max_central_characters ?? 6}
+          onChange={(e) => setDraft((d) => ({ ...d, max_central_characters: Number(e.target.value) }))}
+          className="w-full mt-1" style={{ accentColor: "var(--accent)" }} />
+        <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
+          How many full, autonomous characters the world holds at once — each with memory, goals, and inner life. Beyond this, new people enter as lightweight background figures (a guard, a vendor) that cost almost nothing and stay simple, until a central slot frees up. Fewer central characters means each gets more presence and autonomy; more means a busier, costlier cast. Default 6.
+        </div>
+      </div>
+
+      <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Memory economy</div>
         <TextField label="Memories per NPC in context (top-k)" value={String(draft.context_memories_k)} onChange={setM("context_memories_k")} mono />
         <TextField label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />

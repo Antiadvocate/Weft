@@ -171,7 +171,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   );
   const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
   let prose = "";
-  let narratorUsage = { prompt_tokens: 0, completion_tokens: 0 };
+  let narratorUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
   while (true) {
     const { done, value } = await stream.next();
     if (done) { prose = value.text; narratorUsage = value.usage; break; }
@@ -186,7 +186,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     `${digest}\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
-  let simUsage = { prompt_tokens: 0, completion_tokens: 0 };
+  let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
   let diff = emptyDiff();
   try {
     const res = await complete(simMsgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000);
@@ -327,6 +327,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     turn, pressure: verdict.pressure, pressure_source: verdict.source,
     narrator_tokens_in: narratorUsage.prompt_tokens, narrator_tokens_out: narratorUsage.completion_tokens,
     simulator_tokens_in: simUsage.prompt_tokens, simulator_tokens_out: simUsage.completion_tokens,
+    cached_tokens: (narratorUsage.cached_tokens ?? 0) + (simUsage.cached_tokens ?? 0),
+    turn_cost: (narratorUsage.cost ?? 0) + (simUsage.cost ?? 0) || undefined,
     reflection_tokens: reflectionTokens, duration_ms: Date.now() - t0,
     word_count: prose.split(/\s+/).filter(Boolean).length,
     player_mood_valence: state.condition["char_player"]?.psyche.mood_valence ?? 0,

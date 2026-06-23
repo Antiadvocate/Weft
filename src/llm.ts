@@ -4,7 +4,7 @@ import { getApiKey } from "./config";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-export interface Usage { prompt_tokens: number; completion_tokens: number }
+export interface Usage { prompt_tokens: number; completion_tokens: number; cached_tokens?: number; cost?: number }
 export interface LLMResult { text: string; usage: Usage; model: string }
 
 function key(): string {
@@ -53,7 +53,7 @@ async function once(messages: any[], model: string, json: boolean, maxTokens: nu
   if (!text) throw new Error("empty completion");
   return {
     text,
-    usage: { prompt_tokens: data.usage?.prompt_tokens ?? 0, completion_tokens: data.usage?.completion_tokens ?? 0 },
+    usage: { prompt_tokens: data.usage?.prompt_tokens ?? 0, completion_tokens: data.usage?.completion_tokens ?? 0, cached_tokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? undefined },
     model: data.model ?? model,
   };
 }
@@ -89,7 +89,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
           if (delta) { full += delta; yield delta; }
-          if (j.usage) usage = { prompt_tokens: j.usage.prompt_tokens ?? 0, completion_tokens: j.usage.completion_tokens ?? 0 };
+          if (j.usage) usage = { prompt_tokens: j.usage.prompt_tokens ?? 0, completion_tokens: j.usage.completion_tokens ?? 0, cached_tokens: j.usage.prompt_tokens_details?.cached_tokens ?? 0, cost: j.usage.cost ?? undefined };
         } catch { /* keep-alive */ }
       }
     }

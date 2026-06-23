@@ -196,6 +196,9 @@ export default function Chronicle({ save }: { save: ClientSave }) {
             const inTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.simulator_tokens_in, 0);
             const outTok = tel.reduce((a, t) => a + t.narrator_tokens_out + t.simulator_tokens_out, 0);
             const narrTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.narrator_tokens_out, 0);
+            const cachedTok = tel.reduce((a, t) => a + (t.cached_tokens ?? 0), 0);
+            const cacheRatio = inTok > 0 ? Math.round((cachedTok / inTok) * 100) : 0;
+            const realCost = tel.reduce((a, t) => a + (t.turn_cost ?? 0), 0);
             const perTurn = Math.round(stats.tokens / Math.max(stats.turns, 1));
             const nm = save.model_settings.narrator_model;
             const pricey = /opus|gpt-5(\.5)?\b|gpt-image|sonnet-4\.[5-9]|\bpro\b/i.test(nm);
@@ -205,6 +208,14 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 <div className="flex justify-between text-[13px] py-0.5"><span style={{ color: "var(--text-mid)" }}>Output tokens</span><span className="font-mono">{outTok.toLocaleString()}</span></div>
                 <div className="flex justify-between text-[13px] py-0.5" style={{ borderTop: "1px solid var(--line)", marginTop: 4, paddingTop: 6 }}><span>Total</span><span className="font-mono">{stats.tokens.toLocaleString()}</span></div>
                 <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--text-lo)" }}>per turn (avg)</span><span className="font-mono" style={{ color: "var(--text-lo)" }}>{perTurn.toLocaleString()}</span></div>
+                {cachedTok > 0 ? (
+                  <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--calm)" }}>cache hits (billed ~¼)</span><span className="font-mono" style={{ color: "var(--calm)" }}>{cacheRatio}% of input</span></div>
+                ) : (
+                  <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--accent)" }}>cache hits</span><span className="font-mono" style={{ color: "var(--accent)" }}>none detected</span></div>
+                )}
+                {realCost > 0 && (
+                  <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--text-mid)" }}>actual cost (provider)</span><span className="font-mono">${realCost.toFixed(3)}</span></div>
+                )}
                 <div className="text-[11px] mt-2.5 leading-relaxed" style={{ color: pricey ? "var(--danger)" : "var(--text-lo)" }}>
                   Narrator: <span className="font-mono">{nm}</span> — runs every turn ({narrTok.toLocaleString()} tokens, {Math.round(narrTok / Math.max(stats.tokens, 1) * 100)}% of all usage).
                   {pricey ? " This is a premium model; cost adds up fast at this volume. A cheaper narrator in Tuning cuts most of the spend." : ""}
