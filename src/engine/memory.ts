@@ -105,23 +105,46 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number): number {
   return 0.8; // pending commitments are always near the surface
 }
 
-export function score(m: EpisodicMemory, query: string, currentTurn: number): number {
+/** Rough valence of a memory's emotional charge: −1 threat/pain … +1 warmth/safety, 0 neutral.
+ *  Used for state-gated retrieval — a clenched mind reaches for threat-toned memories, an open
+ *  mind for warm ones (mood-congruent RETRIEVAL, not just mood-congruent coloring). */
+function chargeValence(charge: string): number {
+  if (!charge) return 0;
+  const c = charge.toLowerCase();
+  const threat = /(fear|terror|dread|anger|rage|fury|betray|shame|humiliat|grief|loss|pain|hurt|panic|threat|danger|disgust|hatred|hostil|wound|violat|abandon|despair|anguish|cold|menace)/;
+  const warm = /(warmth|love|tender|joy|relief|safe|comfort|trust|pride|hope|affection|peace|delight|gratitude|belong|content|ease|playful|fond)/;
+  if (threat.test(c)) return -1;
+  if (warm.test(c)) return 1;
+  return 0;
+}
+
+export function score(m: EpisodicMemory, query: string, currentTurn: number, recallerRelaxation = 0): number {
   // relevance matches the FULL trace, not just the decayed gist — a faded memory can still be the
   // right one when the scene cues its original detail (the cue is what brings it back vivid).
   const rel = Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query));
+  // STATE-GATED RETRIEVAL: the recaller's current openness shifts WHICH memories surface, not just
+  // how they're worded. A clenched mind (negative relaxation) reaches for threat/pain-toned
+  // memories — old defensive precedents — and away from warmth; an open mind reaches for warm ones.
+  // congruence is +1 when the memory's valence matches the recaller's lean, −1 when it opposes.
+  const lean = clampN(recallerRelaxation / 10, -1, 1);      // −1 clenched … +1 open
+  const congruence = chargeValence(m.emotional_charge) * lean; // same sign → boost, opposite → suppress
+  const stateBias = congruence * 0.4 * Math.abs(lean);        // scales with how far from neutral the recaller is
   return (
     ALPHA * recency(currentTurn - m.last_accessed_turn) +
     BETA * (m.importance / 10) +
     GAMMA * rel +
+    stateBias +
     commitmentBoost(m, currentTurn)
   );
 }
 
+function clampN(v: number, lo: number, hi: number): number { return Math.max(lo, Math.min(hi, v)); }
+
 /** Retrieve top-k, exposing each memory's relevance-to-query so the digest can decide which few
  *  to render at FULL fidelity (the scene is reaching into them) vs decayed gist (the default). */
-export function retrieveScored(mem: CharMemory, query: string, currentTurn: number, k: number): { m: EpisodicMemory; rel: number }[] {
+export function retrieveScored(mem: CharMemory, query: string, currentTurn: number, k: number, recallerRelaxation = 0): { m: EpisodicMemory; rel: number }[] {
   const ranked = [...mem.episodic]
-    .map((m) => ({ m, s: score(m, query, currentTurn), rel: Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query)) }))
+    .map((m) => ({ m, s: score(m, query, currentTurn, recallerRelaxation), rel: Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query)) }))
     .sort((x, y) => y.s - x.s)
     .slice(0, k);
   for (const x of ranked) x.m.last_accessed_turn = currentTurn; // access refreshes recency
@@ -246,7 +269,7 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => b.content).join(" | ")}`);
-  const top = retrieveScored(mem, query, currentTurn, k);
+  const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation);
   if (top.length) {
     // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
     // bring it back whole. Restore full fidelity for at most 2 memories per character — the ones
