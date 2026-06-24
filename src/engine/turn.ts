@@ -9,9 +9,10 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
-import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief } from "./types";
+import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest } from "./prompts";
+import { updateMind } from "./mind";
 import { buildMessages, complete, completeStream, safeJson } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
@@ -217,6 +218,36 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+
+  // ── THEORY-OF-MIND UPDATE ── reconnect the mind layer that was orphaned when the undertow (which
+  // used to call it, off the deleted QRE stance game) was removed. Without this, characters' models
+  // of each other never update and mindDigest is empty. We now derive the inputs from the live
+  // relaxation kernel instead of the deleted math: a character's OBSERVABLE stance is read from how
+  // clenched they are (clenched → press/guard, open → yield/warm), and DISPERSION is the spread of
+  // relaxation across the present cast (high spread = pulling apart, which erodes settled confidence).
+  if ((state.model_settings.tension ?? 5) > 0) {
+    const presentReal = state.world.present.filter((pid) => state.characters[pid] && pid !== "char_player");
+    const relVals = presentReal.map((pid) => state.condition[pid]?.psyche?.relaxation ?? 0);
+    // dispersion: normalized spread (std-dev-ish) of openness across the room, 0..1
+    let dispersion = 0;
+    if (relVals.length >= 2) {
+      const mean = relVals.reduce((a, b) => a + b, 0) / relVals.length;
+      const variance = relVals.reduce((a, b) => a + (b - mean) ** 2, 0) / relVals.length;
+      dispersion = clamp(Math.sqrt(variance) / 10, 0, 1); // relaxation is ~-10..10, so /10 normalizes
+    }
+    const stanceOf = (pid: string): Stance => {
+      const r = state.condition[pid]?.psyche?.relaxation ?? 0;
+      return r <= -6 ? "press" : r <= -2 ? "hold" : r >= 4 ? "yield" : "maneuver";
+    };
+    const observedStances: Record<string, Stance> = {};
+    for (const pid of presentReal) observedStances[pid] = stanceOf(pid);
+    for (const id of presentReal) {
+      if (!state.characters[id]?.central) continue; // only central characters carry full theory-of-mind
+      const r = updateMind(state, id, observedStances, turn, dispersion);
+      if (r.lines.length) shifts.push(...r.lines.slice(0, 1)); // surface at most one belief-shift line
+    }
+  }
+
   if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [], { dispersion: undertow.dispersion, sharedTarget: undertow.shared_target })); // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; dispersion spreads the cast off any shared magnet; suppressed entirely at tension 0
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
