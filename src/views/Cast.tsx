@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Braces, Brush, Eye, EyeOff, Pencil, Sparkles, X } from "lucide-react";
+import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -27,6 +27,9 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const toggleFollow = async (cid: string, on: boolean) => {
     setSave(await api.setTracked(save.id, cid, on));
+  };
+  const changeStatus = async (cid: string, action: "background" | "away" | "restore" | "central") => {
+    setSave(await api.setCharacterStatus(save.id, cid, action));
   };
 
   const embody = async () => {
@@ -212,6 +215,21 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {sel !== "char_player" && (
                     <button onClick={() => toggleFollow(sel!, !c.tracked)} title={c.tracked ? "following — tap to unfollow" : "follow in the long game"}>
                       {c.tracked ? <Eye size={16} style={{ color: "var(--accent)" }} /> : <EyeOff size={16} style={{ color: "var(--text-lo)" }} />}
+                    </button>
+                  )}
+                  {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && c.central !== false && (
+                    <button onClick={() => changeStatus(sel!, "background")} title="background — demote to a minor figure (frees a central slot, the engine stops giving them full focus)">
+                      <ArrowDownToLine size={16} style={{ color: "var(--text-lo)" }} />
+                    </button>
+                  )}
+                  {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && (
+                    <button onClick={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} title="send away — they leave the story permanently (reversible)">
+                      <DoorOpen size={16} style={{ color: "var(--text-lo)" }} />
+                    </button>
+                  )}
+                  {sel !== "char_player" && c.status === "departed" && (
+                    <button onClick={() => changeStatus(sel!, "restore")} title="bring back into the story">
+                      <RotateCcw size={16} style={{ color: "var(--accent)" }} />
                     </button>
                   )}
                   {sel !== "char_player" && (

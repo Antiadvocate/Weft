@@ -466,6 +466,22 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   // new characters & places first so later refs resolve
+  // RENAME — a placeholder-named character ("the stranger") given a real name in the prose. Update
+  // the actual character record (and rumor/canon references) so they're known by their real name now.
+  for (const rn of (diff as any).rename ?? []) {
+    if (!rn?.who || !rn?.new_name) continue;
+    const id = resolveId(state, rn.who) || findCharByName(state, rn.who);
+    if (!id || !state.characters[id]) continue;
+    const oldName = state.characters[id].name;
+    const newName = String(rn.new_name).trim();
+    if (!newName || newName.toLowerCase() === oldName.toLowerCase()) continue;
+    // don't collide with an existing different character
+    const clashId = findCharByName(state, newName);
+    if (clashId && clashId !== id) continue;
+    state.characters[id].name = newName;
+    shifts.push(`${oldName} is named: ${newName}.`);
+  }
+
   const maxCentral = state.model_settings.max_central_characters ?? 6;
   const centralCount = () => Object.values(state.characters).filter((c) => c.character_id !== "char_player" && c.central && c.status !== "dead" && c.status !== "departed").length;
   for (const nc of diff.new_characters ?? []) {

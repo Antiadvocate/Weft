@@ -334,6 +334,28 @@ export const api = {
     return clientView(s);
   },
 
+  /** Player control over a character's role: 'background' demotes from central to a low-footprint
+   *  background figure; 'away' removes them from the story (departed) and the current scene; 'restore'
+   *  brings a departed character back as active. Lets the player fix the engine over-promoting someone. */
+  setCharacterStatus: async (id: string, char_id: string, action: "background" | "away" | "restore" | "central"): Promise<ClientSave> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c || char_id === "char_player") throw new Error("cannot change this character");
+    if (action === "background") {
+      c.central = false; c.tracked = false; c.drive = undefined; c.drive_queue = [];
+    } else if (action === "away") {
+      c.status = "departed"; c.central = false; c.tracked = false; c.drive = undefined; c.drive_queue = [];
+      s.world.present = s.world.present.filter((p) => p !== char_id); // leave the scene now
+    } else if (action === "restore") {
+      c.status = "active";
+    } else if (action === "central") {
+      c.central = true; c.tracked = true; c.status = "active";
+      if (!c.drive) { const d = seedDrive(s, char_id); if (d) c.drive = d; }
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
   setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
