@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, type ActionMode, type ClientSave } from "../lib/api";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -42,27 +42,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [illustrating, setIllustrating] = useState(false);
   const [observing, setObserving] = useState(false);
   const [chaptering, setChaptering] = useState(false);
+  const [presentOpen, setPresentOpen] = useState(false);
   const observingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastId = useRef(0);
 
   const history = save.history;
-  // CONTEXT HEALTH — cheaper models (DeepSeek etc.) lose coherence as cumulative context grows,
-  // reverting from GM-driving-a-game to lush narration and dropping consistency. Warn BEFORE the
-  // cliff (~40 turns / ~1M cumulative tokens) so a new chapter (a hard context reset) can be started
-  // while things are still coherent, rather than after they've fallen apart.
-  const contextHealth = useMemo(() => {
-    const tel = save.telemetry ?? [];
-    const totalTokens = tel.reduce((s, t) => s + (t.narrator_tokens_in ?? 0) + (t.narrator_tokens_out ?? 0) + (t.simulator_tokens_in ?? 0) + (t.simulator_tokens_out ?? 0) + (t.reflection_tokens ?? 0), 0);
-    const turns = save.world.current_turn;
-    const model = (save.model_settings.narrator_model ?? "").toLowerCase();
-    // Opus/Sonnet/GPT-4-class hold long context far better; cheaper models degrade sooner.
-    const strongModel = /opus|sonnet|gpt-4|gpt-5|gemini-.*-pro|claude/.test(model);
-    const turnCliff = strongModel ? 90 : 38;        // where coherence tends to go
-    const warnAt = Math.round(turnCliff * 0.8);
-    const level = turns >= turnCliff ? "over" : turns >= warnAt ? "near" : "ok";
-    return { totalTokens, turns, level, turnCliff };
-  }, [save.telemetry, save.world.current_turn, save.model_settings.narrator_model]);
 
   const nameIndex = useMemo(() => {
     const ix: Record<string, string> = {};
@@ -212,29 +197,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         </AnimatePresence>
       </div>
 
-      {contextHealth.level !== "ok" && (
-        <div className="mx-4 mb-1.5 px-3 py-2 rounded-lg text-[11.5px] flex items-center gap-2"
-          style={{ background: contextHealth.level === "over" ? "var(--danger-soft, rgba(180,60,60,.12))" : "var(--accent-soft, rgba(180,140,90,.1))",
-                   border: `1px solid ${contextHealth.level === "over" ? "var(--danger)" : "var(--accent-glow)"}`,
-                   color: "var(--text-mid)" }}>
-          <span style={{ color: contextHealth.level === "over" ? "var(--danger)" : "var(--accent)" }}>
-            {contextHealth.level === "over"
-              ? `Turn ${contextHealth.turns} — this model is likely losing coherence (it starts narrating instead of driving, and drops consistency).`
-              : `Turn ${contextHealth.turns} — approaching the range where this model starts to lose the thread.`}
-          </span>
-          <button className="chip shrink-0" style={{ marginLeft: "auto" }} disabled={running || chaptering}
-            onClick={async () => {
-              if (!confirm("Start a new chapter? This resets the context window (the fix for coherence drift) while carrying every character's full memory, traits, and relationships forward after a time skip. Your current chronicle stays saved.")) return;
-              setChaptering(true);
-              try { setSave(await api.forkNewSeason(save.id)); }
-              catch (e: any) { alert(`New chapter failed: ${e.message}`); }
-              finally { setChaptering(false); }
-            }}
-            title="A new chapter resets context while carrying memories, traits, and relationships forward — the fix for coherence drift">
-            {chaptering ? "starting…" : "new chapter →"}
-          </button>
-        </div>
-      )}
+
 
       {/* seismograph strip */}
       <div className="px-4 pt-2 pb-1.5 flex items-center gap-2">
@@ -255,6 +218,16 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         </button>
         <button className="chip" onClick={() => setSkipOpen(true)} disabled={running || skipping}>
           <Moon size={11} />
+        </button>
+        <button className="chip" disabled={running || chaptering} title="new chapter — resets context, carries memories/traits/relationships forward (helps when a model starts losing the thread)"
+          onClick={async () => {
+            if (!confirm("Start a new chapter? Resets the context window while carrying every character's full memory, traits, and relationships forward after a time skip. Your current chronicle stays saved.")) return;
+            setChaptering(true);
+            try { setSave(await api.forkNewSeason(save.id)); }
+            catch (e: any) { alert(`New chapter failed: ${e.message}`); }
+            finally { setChaptering(false); }
+          }}>
+          <BookOpen size={11} />
         </button>
         <button className="chip" onClick={() => setRollbackOpen(true)} disabled={!save.snapshot_turns.length}>
           <RotateCcw size={11} /> {save.world.current_turn}
@@ -353,22 +326,37 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         </button>
       </div>
 
-      {/* who's in the scene with you */}
+      {/* who's in the scene with you — collapsed to a single tappable chip to save room for narrative */}
       {save.world.present.length > 0 && (
-        <div className="px-4 pt-1 pb-0.5 flex items-center gap-1.5 flex-wrap">
-          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>here:</span>
-          {save.world.present.map((pid) => {
-            const ch = save.characters[pid];
-            if (!ch) return null;
-            return (
-              <span key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-                style={{ background: "var(--ink-2)", fontSize: 11.5 }}>
-                {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
-                {ch.name}
-              </span>
-            );
-          })}
-          <span className="font-mono text-[9px]" style={{ color: "var(--text-lo)" }}>· {save.world.places[save.world.player_location]?.name ?? ""}</span>
+        <div className="px-4 pt-1 pb-0.5">
+          <button onClick={() => setPresentOpen((v) => !v)} className="inline-flex items-center gap-1.5 text-[11px]"
+            style={{ color: "var(--text-lo)" }} title="tap to see who's here">
+            <span className="font-mono text-[9px] uppercase tracking-wider">here:</span>
+            <span style={{ color: "var(--text-mid)" }}>
+              {presentOpen
+                ? ""
+                : save.world.present.length <= 2
+                  ? save.world.present.map((p) => save.characters[p]?.name).filter(Boolean).join(", ")
+                  : `${save.world.present.length} present`}
+            </span>
+            <span className="font-mono text-[9px]">· {save.world.places[save.world.player_location]?.name ?? ""}</span>
+            <span style={{ fontSize: 8, opacity: 0.6 }}>{presentOpen ? "▲" : "▼"}</span>
+          </button>
+          {presentOpen && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              {save.world.present.map((pid) => {
+                const ch = save.characters[pid];
+                if (!ch) return null;
+                return (
+                  <span key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                    style={{ background: "var(--ink-2)", fontSize: 11.5 }}>
+                    {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                    {ch.name}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
