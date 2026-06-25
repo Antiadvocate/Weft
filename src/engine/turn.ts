@@ -29,6 +29,21 @@ export interface TurnEvents {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Does a trait label describe ACQUIRED EXPERTISE (skill built over years) rather than temperament?
+ *  Temperament (guarded, cruel, brave, loyal) forms at any age; expertise needs time to develop. */
+function impliesExpertise(label: string): boolean {
+  const l = label.toLowerCase();
+  return /(master|expert|seasoned|skilled|veteran|accomplished|practiced|trained|scholar|strateg|tactician|analyst|surgeon|marksman|sniper|negotiat|diplomat|engineer|architect|virtuoso|professional|adept|connoisseur|specialist|polymath|erudite|learned|sage|encyclopedic|fluent in|mastery|expertise)/.test(l);
+}
+/** Minimum plausible age for a given expertise level — the harder the mastery word, the older. */
+function expertiseFloor(label: string): number {
+  const l = label.toLowerCase();
+  if (/(master|veteran|seasoned|virtuoso|accomplished|polymath|erudite|encyclopedic|mastery|sage)/.test(l)) return 22; // deep mastery
+  if (/(expert|specialist|surgeon|strateg|tactician|negotiat|diplomat|architect|connoisseur)/.test(l)) return 20;
+  return 16; // basic competence/training
+}
+
+
 /**
  * STRIP LEAKED META — strained models sometimes emit their own working notes into the prose
  * (a trailing parenthetical of craft vocabulary: "(110 words. Action, reaction, escalation. No
@@ -497,6 +512,25 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   // new characters & places first so later refs resolve
+  // BIBLE UPDATE — when canon/actions fundamentally change what the WORLD IS, revise the world
+  // bible itself (not just append a canon fact). The bible is the foundational description the
+  // narrator reads as law; if it stays static while canon says reality was rewritten, the narrator
+  // trusts the static bible and the world renders unchanged. This is what makes a transformed world
+  // actually get depicted as transformed.
+  {
+    const bu = (diff as any).bible_update;
+    if (bu && typeof bu === "object") {
+      const fields = ["political_situation", "what_people_fear", "technology_level", "cultures_and_languages", "magic_rules"] as const;
+      for (const f of fields) {
+        const v = bu[f];
+        if (typeof v === "string" && v.trim() && v.trim() !== (state.world_bible as any)[f]) {
+          (state.world_bible as any)[f] = v.trim();
+          shifts.push(`The world itself has changed: ${f.replace(/_/g, " ")}.`);
+        }
+      }
+    }
+  }
+
   // RENAME — a placeholder-named character ("the stranger") given a real name in the prose. Update
   // the actual character record (and rumor/canon references) so they're known by their real name now.
   for (const rn of (diff as any).rename ?? []) {
@@ -778,6 +812,10 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   for (const t of diff.traits ?? []) {
     const id = resolveId(state, t.char_id); if (!id || id === "char_player" || !t.label) continue;
+    // age plausibility: temperament/disposition can form at any age (guarded, cruel, brave), but
+    // ACQUIRED EXPERTISE needs years a child hasn't lived. Block mastery-type traits on the young.
+    const age = state.characters[id]?.age ?? 30;
+    if (age < 16 && impliesExpertise(t.label) && age < expertiseFloor(t.label)) continue; // too young for this expertise
     reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
     shifts.push(`Something is growing on ${nameOf(id)}: "${t.label}".`);
   }
