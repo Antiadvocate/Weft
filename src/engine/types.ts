@@ -383,10 +383,10 @@ export interface SimulatorDiff {
 }
 
 export const DEFAULT_MODELS: ModelSettings = {
-  narrator_model: "deepseek/deepseek-chat-v3-0324",
-  simulator_model: "deepseek/deepseek-chat-v3-0324",
-  forge_model: "deepseek/deepseek-chat-v3-0324",
-  fallback_model: "google/gemini-2.0-flash-001",
+  narrator_model: "deepseek/deepseek-v4-pro",
+  simulator_model: "google/gemini-3.1-flash-lite",
+  forge_model: "anthropic/claude-opus-4.8",
+  fallback_model: "deepseek/deepseek-v4-pro",
   image_model: "google/gemini-2.5-flash-image",
   context_memories_k: 6,
   reflection_cadence: 10,
