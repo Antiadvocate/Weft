@@ -95,6 +95,8 @@ Rules:
 - conditions are CURRENT STATES, not a scrapbook: emit condition_remove the moment the prose shows something subsiding (bleeding stops, ears clear, sedation lifts). NEVER add a rephrased variant of an existing condition — one canonical phrase per affliction, updated by remove+add only if it genuinely changed.
 - PLAIN LANGUAGE EVERYWHERE: every human-readable string (moods, states, conditions, trait labels, memory content) is natural prose — "terrified of the heat", never snake_case, camelCase, or identifier-style tokens.
 - LOCATION: track where everyone is. Set player_location whenever the player moves (a place name is fine, like outside the Mars dome, or in transit to Metropolis; new places are created automatically; reuse exact existing names when staying put). In the locations array, record every character who moves, arrives, leaves, or is teleported or summoned this turn, each as char_id plus place. If the player teleports or brings someone to them, set that character place to the player location, which is what puts them in the scene. A character NOT moved stays where they were and is NOT in the scene just because they are mentioned. Do not hand-maintain present; co-location decides it.
+- locale_update: SETTING IS PER-PLACE, NOT GLOBAL. The world bible's climate, cultures, politics, and what's-feared are DEFAULTS; the scene digest shows the facts for where the player currently stands. When the player arrives somewhere whose setting genuinely differs from the previous scene — a different city, region, planet, biome, or polity (a hive world vs a Tau sept; Seattle vs Tucson) — emit locale_update with ONLY the fields that differ, describing THIS place. It attaches to the current location, so returning later restores it and the global world is never overwritten. This is MOVEMENT. Do NOT use bible_update for moving — bible_update is only for a permanent change to the whole world everywhere. If you're on a Tau world, the people, climate, and politics are Tau; never render the previous location's setting here.
+- currency_update: the bible holds only a THIN currency/calendar seed. The first time a scene actually names concrete denominations or a real date, emit currency_update once with the full revised line so it's fixed thereafter. Currency is world-global, so this writes to the bible. Most turns leave it empty.
 - appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item exists in exactly one holder at a time. The moment the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of an object, emit inventory_remove for that holder by the item's name — do NOT leave a relinquished item in their inventory. If another character (or the player) takes or receives it, also emit inventory_add for the new holder. Applies equally to the player's own inventory. If the prose shows the thing leaving their hands, it leaves their inventory.
@@ -163,6 +165,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - conditions are CURRENT states: condition_remove the moment prose shows it subsiding; one canonical phrase per affliction, never a rephrased duplicate.
 - PLAIN LANGUAGE for every human-readable string (moods, states, conditions, traits, memories) — natural prose, never snake_case/identifier tokens.
 - LOCATION: set player_location whenever the player moves (place name fine; new places auto-created; reuse exact names when staying). In locations[], record every character who moves/arrives/leaves/teleports as char_id+place; bringing someone to player_location puts them in scene. Unmoved characters stay put and aren't in-scene just for being mentioned. Don't hand-maintain present; co-location decides it.
+- locale_update: setting is PER-PLACE. Bible climate/cultures/politics/feared are defaults; the digest shows the CURRENT place's. On arriving somewhere genuinely different (new city/region/planet/polity — hive world vs Tau sept, Seattle vs Tucson) emit locale_update with only the differing fields for THIS place. It attaches to the location; never use bible_update for moving (that's only permanent whole-world change). On a Tau world the people/climate/politics are Tau — never render the prior location's setting.
 - appearance: on a permanent body/look change, emit the FULL revised appearance_facts as present-day fact (no "newly"/origin framing).
 - injury_remove: when prose heals an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item lives in exactly one place. The instant the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of something, emit inventory_remove for that holder (by the item's name). If someone else takes/receives it, also emit inventory_add for them. A character who put something down does NOT still have it — never leave a relinquished item in their inventory. Same for the player. When in doubt and the prose shows the thing leaving their hands, remove it.
@@ -178,7 +181,7 @@ export function simulatorSystem(lean?: boolean): string { return lean ? SIMULATO
 
 export function simulatorSchemaHint(): string {
   return `JSON shape (all keys required; use [] / "" when empty):
-{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"money":"","present":["optional hint; co-location decides the real scene"],
+{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"locale_update":{"climate_and_geography":"","cultures_and_languages":"","political_situation":"","what_people_fear":""},"currency_update":"","money":"","present":["optional hint; co-location decides the real scene"],
 "facts":[{"char_id":"","field":"fatigue|hunger|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
@@ -199,6 +202,8 @@ export function simulatorSchemaHint(): string {
 "rename":[{"who":"the existing character's current name or id (e.g. 'the bartender')","new_name":"the proper name they were just given in the prose"}],
 "bible_update":{"political_situation":"","what_people_fear":"","technology_level":"","cultures_and_languages":"","magic_rules":""},
 "new_places":[{"name":"","description_facts":""}],
+"locale_update":{"climate_and_geography":"","cultures_and_languages":"","political_situation":"","what_people_fear":""},
+"currency_update":"",
 "offscreen":[]}`;
 }
 
@@ -227,7 +232,15 @@ Only include cast members who plausibly remain in the player's life. Honor the p
 
 
 
-export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush. Output ONLY JSON, shape:
+export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush.
+
+FIELD DEPTH — the world bible is a STARTING SEED, not an encyclopedia. The narrator fleshes out detail in play. So:
+- era, technology_level, magic_rules, forbidden — these are CONSTRAINTS the world can never contradict; write them clearly and specifically.
+- political_situation, what_people_fear, cultures_and_languages — write ONE orienting sentence each, no more. These are starting conditions that evolve and deepen through play; do not write paragraphs or exhaustive detail. A single vivid line that tells the narrator which way the wind blows is the target. They describe the OPENING location specifically, not the whole setting — other places get their own as the player travels.
+- calendar_and_currency — write only a brief one-line seed (e.g. the rough money unit and how time is reckoned); the narrator invents specifics on first use. Do not detail denominations or a full calendar.
+- climate_and_geography — one or two sentences describing the OPENING location, not the whole world.
+
+Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
 "player":{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
 "npcs":[{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","relation_to_player":"","warmth":10,"trust":0}],
@@ -380,11 +393,8 @@ World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}
 Forbidden: ${b.forbidden}
-Feared: ${b.what_people_fear}
-Cultures: ${b.cultures_and_languages}
-Land & climate: ${b.climate_and_geography}
 Calendar & money: ${b.calendar_and_currency}
-Politics: ${b.political_situation}
+The world's metaphysics, era, tech and forces above hold EVERYWHERE. But climate, cultures, politics, and what's feared VARY BY PLACE — those for the CURRENT location are given in the scene digest below and OVERRIDE these world defaults. Default elsewhere — Cultures: ${b.cultures_and_languages} | Land & climate: ${b.climate_and_geography} | Politics: ${b.political_situation} | Feared: ${b.what_people_fear}
 
 === CAST (stable identities) ===
 ${cast}`;
@@ -513,9 +523,20 @@ export function volatileDigest(state: SaveState, query: string): string {
     const clocksBlock = clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : "";
     const offBlock = offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : "";
 
+    const lc = loc?.locale;
+    const hasLocale = !!(lc && (lc.climate_and_geography || lc.cultures_and_languages || lc.political_situation || lc.what_people_fear));
+    const localeBlock = hasLocale
+      ? `\nHERE (overrides the world defaults for this place):${lc!.climate_and_geography ? ` Land & climate: ${lc!.climate_and_geography}.` : ""}${lc!.cultures_and_languages ? ` Cultures: ${lc!.cultures_and_languages}.` : ""}${lc!.political_situation ? ` Politics: ${lc!.political_situation}.` : ""}${lc!.what_people_fear ? ` Feared: ${lc!.what_people_fear}.` : ""}`
+      // GUARD: player is somewhere that isn't the world's home place and nobody has characterized
+      // its setting yet. Prompt the narrator to pin it THIS turn so the world defaults stop bleeding
+      // in. Only fires when the place genuinely differs (a real move, not the starting locale).
+      : (loc && state.world.home_place && state.world.player_location !== state.world.home_place)
+        ? `\nHERE: this place has no locale yet and the world defaults may not fit it. If its climate, cultures, politics, or what's feared differ from the world bible's defaults, emit locale_update THIS turn to pin them to this place. If it truly matches the defaults, ignore this.`
+        : "";
+
     return `${canonBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather}
-Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}
+Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}${localeBlock}
 Player carries: ${state.world.money || "—"}
 (Characters under OFFSCREEN are NOT in this scene unless the player goes to them or brings them here.)
 

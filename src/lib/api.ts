@@ -34,6 +34,9 @@ function clientView(s: SaveState): ClientSave {
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
+  // migrate: pre-locale saves have no home_place — treat wherever they currently are as the
+  // characterized home so the locale guard doesn't nag about the place they're standing in.
+  if (s.world && !s.world.home_place) s.world.home_place = s.world.player_location;
   return s;
 }
 
@@ -133,7 +136,20 @@ export const api = {
     // place
     const lid = uid("loc");
     ns.world.places[lid] = { id: lid, name: g.starting_location_name || "a new place", description_facts: "", contains: [] };
+    // seed the opening place's locale from the distilled new-chapter setting, so a chapter that
+    // moves the action somewhere new doesn't silently inherit the previous chapter's climate/
+    // cultures/politics. Only fields that the new bible actually changed get pinned to the place.
+    {
+      const nb: any = g.world_bible ?? {};
+      const ob: any = s.world_bible;
+      const loc: any = {};
+      for (const f of ["climate_and_geography", "cultures_and_languages", "political_situation", "what_people_fear"]) {
+        if (typeof nb[f] === "string" && nb[f].trim() && nb[f].trim() !== ob[f]) loc[f] = nb[f].trim();
+      }
+      if (Object.keys(loc).length) ns.world.places[lid].locale = loc;
+    }
     ns.world.player_location = lid;
+    ns.world.home_place = lid;  // new chapter's opening place is characterized by the distilled bible/locale
     ns.characters["char_player"].location = lid;
 
     // surviving cast carry forward COMPLETE — full memory, full traits, full identity. The
@@ -444,6 +460,7 @@ export const api = {
     s.world.weather = op.weather ?? "";
     s.world.money = op.money ?? "";
     s.world.player_location = nameToId[(op.player_location_name ?? "").toLowerCase()] ?? Object.keys(s.world.places)[0] ?? "";
+    s.world.home_place = s.world.player_location;  // the global bible's setting describes HERE; other places need their own locale
     s.characters["char_player"].location = s.world.player_location;
     const openingPresent = (op.present_npc_names ?? [])
       .map((nm: string) => Object.entries(s.characters).find(([cid, c]) => cid !== "char_player" && c.name.toLowerCase() === nm.toLowerCase())?.[0])

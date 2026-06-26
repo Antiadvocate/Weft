@@ -247,11 +247,23 @@ export interface ConsequenceEvent {
   status: "pending" | "fired" | "cancelled";
 }
 
+/** Place-scoped overrides for world-bible fields that vary by location. A hive city and a Tau
+ *  sept share an era and metaphysics (the global bible) but NOT their climate, cultures, politics,
+ *  or local terror. Any field left empty falls back to the global bible. This is what stops the
+ *  narrator describing a hive when the player has walked onto a Tau world. */
+export interface Locale {
+  climate_and_geography?: string;
+  cultures_and_languages?: string;
+  political_situation?: string;
+  what_people_fear?: string;
+}
+
 export interface Place {
   id: string;
   name: string;
   description_facts: string;
   contains: string[];
+  locale?: Locale;   // location-scoped facts; absent fields inherit the global bible
 }
 
 /** The convergence/phase system. A phase shapes the tension curve toward (or around) an event,
@@ -271,6 +283,7 @@ export interface WorldState {
   current_time: string;        // "Day 2, 14:30"
   weather: string;
   player_location: string;
+  home_place?: string;         // the place id the global bible's setting was authored for; locale guard treats it as already-characterized, every OTHER place needs its own locale or gets flagged
   money: string;               // freeform ("14 chits", "3 silver 20 copper")
   present: string[];           // NPC ids in scene
   places: Record<string, Place>;
@@ -379,19 +392,32 @@ export interface SimulatorDiff {
   clocks_advance: { id: string; segments: number }[];
   new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];
   new_places: { name: string; description_facts: string }[];
+  /** Place-scoped setting facts for WHERE THE PLAYER IS NOW. Emit when the player enters somewhere
+   *  materially different from the last scene's setting (a new city, a different planet, a region
+   *  with its own climate/culture/politics). Writes onto the current place, NOT the global world.
+   *  Only include fields that actually differ from the global bible; leave the rest empty. This is
+   *  movement, not world-transformation — use this for "I moved", use bible_update for "the world
+   *  itself permanently changed everywhere". */
+  locale_update?: { climate_and_geography?: string; cultures_and_languages?: string; political_situation?: string; what_people_fear?: string };
+  /** Deepen the world's currency/calendar the FIRST time a scene actually uses real denominations or
+   *  a real date. The bible holds only a thin seed; when you invent the concrete units in play, emit
+   *  the full revised line here once so it's fixed thereafter. Currency/calendar are world-global, so
+   *  this writes to the bible (unlike locale). Emit only when you've genuinely specified detail the
+   *  seed lacked; otherwise leave empty. */
+  currency_update?: string;
   offscreen: string[];          // world-motion lines (the merged world tick)
 }
 
 export const DEFAULT_MODELS: ModelSettings = {
-  narrator_model: "deepseek/deepseek-v4-pro",
-  simulator_model: "google/gemini-3.1-flash-lite",
-  forge_model: "anthropic/claude-opus-4.8",
-  fallback_model: "deepseek/deepseek-v4-pro",
+  narrator_model: "deepseek/deepseek-chat-v3-0324",
+  simulator_model: "deepseek/deepseek-chat-v3-0324",
+  forge_model: "deepseek/deepseek-chat-v3-0324",
+  fallback_model: "google/gemini-2.0-flash-001",
   image_model: "google/gemini-2.5-flash-image",
   context_memories_k: 6,
   reflection_cadence: 10,
   history_window: 3,
   lean_mode: false,
   token_budget: 0,
-  tension: 3,
+  tension: 5,
 };

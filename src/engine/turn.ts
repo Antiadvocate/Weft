@@ -601,6 +601,38 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (cid === "char_player") state.world.player_location = pid;
   }
 
+  // ── LOCALE: place-scoped setting facts for where the player now stands. Movement, not
+  //    world-transformation: this writes onto the current Place so returning later restores it,
+  //    and the global bible is never clobbered by walking into a different city/planet. ──
+  {
+    const lu = (diff as any).locale_update;
+    if (lu && typeof lu === "object") {
+      const here = state.world.places[state.world.player_location];
+      if (here) {
+        const fields = ["climate_and_geography", "cultures_and_languages", "political_situation", "what_people_fear"] as const;
+        let changed = false;
+        const next = { ...(here.locale ?? {}) };
+        for (const f of fields) {
+          const v = lu[f];
+          if (typeof v === "string" && v.trim()) { (next as any)[f] = v.trim(); changed = true; }
+        }
+        if (changed) {
+          here.locale = next;
+          shifts.push(`The setting here differs from the wider world.`);
+        }
+      }
+    }
+  }
+
+  // ── CURRENCY/CALENDAR: deepen the thin seed once, when the narrator first specifies real
+  //    denominations or a real date in play. World-global, so it writes to the bible. ──
+  {
+    const cu = (diff as any).currency_update;
+    if (typeof cu === "string" && cu.trim() && cu.trim() !== state.world_bible.calendar_and_currency) {
+      state.world_bible.calendar_and_currency = cu.trim();
+    }
+  }
+
   // ── EXITS: someone died or left the story for good. Mark them, pull them from the
   //    scene and any room, and stop the engine from seeding them new wants. ──
   for (const ex of diff.character_exits ?? []) {
