@@ -116,6 +116,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
+    here: state.world.player_location,
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
@@ -861,7 +862,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       if (typeof tu.tension === "number") existing.tension = clamp(tu.tension, 0, 10);
       if (tu.status === "resolved") existing.turn_resolved = turn;
     } else if (tu.status === "active") {
-      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(tu.tension ?? 3, 0, 10) });
+      const loc = tu.locale === "*" || tu.locale === "" ? undefined : (tu.locale ?? state.world.player_location);
+      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(tu.tension ?? 3, 0, 10), locale: loc });
       shifts.push(`A new thread: ${tu.title}.`);
     }
     if (existing && tu.status === "resolved") shifts.push(`Thread resolved: ${tu.title}.`);

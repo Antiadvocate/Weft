@@ -27,6 +27,7 @@ export interface PressureInput {
   threads: Thread[];
   consequences: ConsequenceEvent[];
   clocks: FactionClock[];
+  here?: string;                   // player's current place id — pressure bound to a different locale dims (keeps ticking offscreen, just stops driving the local scene)
   action: string;                  // player's typed intent
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
   focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
@@ -69,14 +70,19 @@ export function bandMean(target: number[]): number {
   return target.reduce((s, p, i) => s + p * ((BAND_RANGES[i][0] + BAND_RANGES[i][1]) / 2), 0);
 }
 
-export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string): { heat: number; source: string } {
+export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string, here?: string): { heat: number; source: string } {
   let heat = 0;
   let source = "ambient world texture";
+  // A source bound to a locale the player isn't in still ticks in the background, but it shouldn't
+  // drive the scene in front of them. Dampen its contribution to local pressure rather than dropping
+  // it — drive to SF and the Seattle outage stops pressing on you without ceasing to exist.
+  const DAMP = 0.25;
+  const elsewhere = (locale?: string) => !!(here && locale && locale !== here);
   const hot = threads.filter((t) => t.status === "active").sort((a, b) => b.tension - a.tension)[0];
-  if (hot && hot.tension > heat) { heat = hot.tension; source = `thread: ${hot.title}`; }
+  if (hot) { const h = hot.tension * (elsewhere(hot.locale) ? DAMP : 1); if (h > heat) { heat = h; source = `thread: ${hot.title}`; } }
   for (const c of clocks) {
     if (c.status !== "running" || c.segments === 0) continue;
-    const h = (c.filled / c.segments) * 8;
+    const h = (c.filled / c.segments) * 8 * (elsewhere(c.locale) ? DAMP : 1);
     if (h > heat) { heat = h; source = `clock: ${c.faction} — ${c.objective}`; }
   }
   const due = consequences.find((c) => isDue(c, turn, now));
@@ -113,7 +119,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) { band = i; break; } if (i === p.length - 1) band = i; }
 
   // fiction heat: pressure ≥ 8 must be earned (C4); heat also pulls band up
-  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now);
+  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.here);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
     if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
