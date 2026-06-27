@@ -116,7 +116,6 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
-    here: state.world.player_location,
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
@@ -179,7 +178,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
 
-  const fullDirective = directive + forbid + stallDirective + "\n" + undertow.directive;
+  const voiceAutonomyReminder = `\nDIALOGUE THIS TURN: when a character feels something strongly, they speak in fragments, contradict themselves, trail off, repeat, or use filler — not clean insight. End speeches on a plain or unfinished beat, never a quotable summary line. No character accurately names another's inner state. Make present characters sound different from each other (curt / over-explaining / crude / barely speaking). When unsure how someone talks, write them plainer than feels right.\nAGENDA THIS TURN: at least one present character acts on their own want instead of only answering the player — they change the subject to what they care about, slip their goal into small talk, press someone for a thing they want, make a quiet side move, get impatient, or start to leave. Keep it subtle and in-character, not announced.`;
+  const fullDirective = directive + forbid + stallDirective + voiceAutonomyReminder + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,
@@ -447,6 +447,19 @@ function resolveId(state: SaveState, ref: string): string | null {
 }
 
 /** Find a place by id or (case-insensitive) name; create it on first mention. Returns the place id. */
+/** The LOCALE of a place name — the building/area, stripping a " - subroom" suffix. So "House - kitchen",
+ *  "House - porch", and "House" all share locale "house". Used for presence: people in different rooms
+ *  of the same building are in the same scene, instead of flickering apart on sub-room drift. */
+export function localeOf(name: string): string {
+  return (name || "").split(/\s+[-–—]\s+/)[0].trim().toLowerCase().replace(/[.,;:]+$/, "");
+}
+/** Is this a transient motion/state label rather than a real place? "walking home", "driving away",
+ *  "in transit" — these shouldn't become persistent place records or break co-location. */
+function isTransientLabel(name: string): boolean {
+  return /\b(walking|driving|heading|moving|running|traveling|travelling|in transit|en route|on (the|their) way|leaving|departing|fleeing)\b/i.test(name) &&
+    /\b(home|away|off|out|back|toward|towards|to|from)\b/i.test(name);
+}
+
 export function resolvePlace(state: SaveState, ref: string): string {
   if (!ref) return state.world.player_location;
   if (state.world.places[ref]) return ref;
@@ -457,8 +470,14 @@ export function resolvePlace(state: SaveState, ref: string): string {
     .replace(/^(the|a|an)\s+/i, "")
     .replace(/[.,;:]+$/, "")
     .trim() || ref.trim();
+  // a transient motion label ("walking home", "driving away") is NOT a new place — it means the
+  // character is leaving the current locale. Resolve it to their current place rather than spawning junk.
+  if (isTransientLabel(norm)) return state.world.player_location;
+  // exact-name match first
   const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === norm.toLowerCase() || p.name.toLowerCase() === ref.trim().toLowerCase());
   if (byName) return byName.id;
+  // locale match: if a "House - kitchen" already exists and we're resolving "House - living room",
+  // we still make the new room, but if we're resolving the bare "House" and rooms exist, reuse one.
   const id = uid("loc");
   state.world.places[id] = { id, name: norm, description_facts: "", contains: [] };
   return id;
@@ -483,9 +502,17 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     if (c.status === "dead" || c.status === "departed") continue;
     if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
   }
-  // the scene = living, present non-player characters co-located with the player
+  // the scene = living non-player characters in the player's LOCALE — same building/area, even if a
+  // different room. "House - kitchen" and "House - porch" are one scene, so people don't flicker out
+  // of presence when they move between rooms. Exact-place match OR same locale both count as present.
+  const playerLocaleName = localeOf(state.world.places[ploc]?.name ?? "");
   state.world.present = Object.entries(state.characters)
-    .filter(([id, c]) => id !== "char_player" && c.location === ploc && c.status !== "dead" && c.status !== "departed")
+    .filter(([id, c]) => {
+      if (id === "char_player" || c.status === "dead" || c.status === "departed" || !c.location) return false;
+      if (c.location === ploc) return true; // same exact place
+      const theirLocale = localeOf(state.world.places[c.location]?.name ?? "");
+      return !!playerLocaleName && theirLocale === playerLocaleName; // same building, different room
+    })
     .map(([id]) => id);
 }
 
@@ -600,38 +627,6 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     }
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
-  }
-
-  // ── LOCALE: place-scoped setting facts for where the player now stands. Movement, not
-  //    world-transformation: this writes onto the current Place so returning later restores it,
-  //    and the global bible is never clobbered by walking into a different city/planet. ──
-  {
-    const lu = (diff as any).locale_update;
-    if (lu && typeof lu === "object") {
-      const here = state.world.places[state.world.player_location];
-      if (here) {
-        const fields = ["climate_and_geography", "cultures_and_languages", "political_situation", "what_people_fear"] as const;
-        let changed = false;
-        const next = { ...(here.locale ?? {}) };
-        for (const f of fields) {
-          const v = lu[f];
-          if (typeof v === "string" && v.trim()) { (next as any)[f] = v.trim(); changed = true; }
-        }
-        if (changed) {
-          here.locale = next;
-          shifts.push(`The setting here differs from the wider world.`);
-        }
-      }
-    }
-  }
-
-  // ── CURRENCY/CALENDAR: deepen the thin seed once, when the narrator first specifies real
-  //    denominations or a real date in play. World-global, so it writes to the bible. ──
-  {
-    const cu = (diff as any).currency_update;
-    if (typeof cu === "string" && cu.trim() && cu.trim() !== state.world_bible.calendar_and_currency) {
-      state.world_bible.calendar_and_currency = cu.trim();
-    }
   }
 
   // ── EXITS: someone died or left the story for good. Mark them, pull them from the
@@ -862,8 +857,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       if (typeof tu.tension === "number") existing.tension = clamp(tu.tension, 0, 10);
       if (tu.status === "resolved") existing.turn_resolved = turn;
     } else if (tu.status === "active") {
-      const loc = tu.locale === "*" || tu.locale === "" ? undefined : (tu.locale ?? state.world.player_location);
-      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(tu.tension ?? 3, 0, 10), locale: loc });
+      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(tu.tension ?? 3, 0, 10) });
       shifts.push(`A new thread: ${tu.title}.`);
     }
     if (existing && tu.status === "resolved") shifts.push(`Thread resolved: ${tu.title}.`);

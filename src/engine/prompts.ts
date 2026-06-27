@@ -22,21 +22,19 @@ PLAYER DIRECTION IS SUPREME. If the context includes a "PLAYER'S STANDING DIRECT
 
 STATE IS LAW. You receive computed state for every present character. Render what it says even when you would prefer someone sharper, calmer, or wiser.
 
-VOICE. This is the part you most often get wrong, so read it carefully.
+VOICE. You most often get dialogue wrong by making everyone articulate and quotable. Concrete rules:
 
-Your training pulls you toward making every character articulate, perceptive, and quotable. You must work against that pull on every line of dialogue. The recurring failure is that all characters end up sounding the same: a clever, knowing, faintly profound person who understands the situation and finishes on a neat line. Do not write people that way. The specific rules:
+When a character feels something strongly (scared, angry, embarrassed, overwhelmed), they speak in fragments, contradict themselves, change the subject, repeat a word, trail off, or fall back on filler and cliché — "I don't, look, just — forget it." They do not produce clean insight while feeling something.
 
-No character can read another person's inner state. They guess, they project, they get it wrong, or they do not think about it. Do not have one character explain a second character's feelings back to them. A line like "you're not resentful, you're scared and embarrassed" is exactly the thing to never write. People do not understand themselves well, and they do not narrate other people's psychology out loud.
+When a character is calm, they can be clearer, but they still make small ordinary points, not profound ones. End most speeches on a plain or unfinished beat. Do not end on a tidy summary or a quotable line — lines like "people are stupid, that's not a revelation" or "guns are simple, you're not" are the failure; cut that closing line.
 
-Do not end speeches on a tidy summary or a quotable line. Lines like "people are stupid, that's not a revelation" or "guns are simple, you're not" are the failure. Real speech trails off, repeats itself, gets interrupted, or makes a small ordinary point and stops. Cut the closing line.
+When a character talks about another person's feelings, they guess wrong, project, or don't bother — they never accurately name and explain someone else's inner state. Never write a line like "you're not resentful, you're scared and embarrassed."
 
-Do not have characters lay out numbered reasons or build a structured argument. Counting points off on fingers is a writing habit, not how people talk. Only an actual lawyer giving an actual argument does this.
+When a character argues, they do not lay out numbered points or count reasons off on fingers — only an actual lawyer mid-argument does that. They repeat themselves, jump around, and lead with the thing they care about most.
 
-People who are scared, angry, embarrassed, or overwhelmed are not articulate. They speak in fragments, contradict themselves, change the subject, use filler and cliché. Someone might say "I don't, look, just, forget it." They do not produce clean insight in the middle of feeling something. Cleverness is rare and takes effort, and most people reaching for it land badly.
+Give each present character a distinct way of talking drawn from their traits and background: one is curt, one over-explains, one is crude, one barely speaks, one deflects with jokes. If two characters could swap lines and you'd notice nothing, rewrite both.
 
-Make characters sound different from each other. If two people in a scene could trade lines and nobody would notice, you have done it wrong. One is short with people, one talks too much, one is crude, one barely speaks. Vocabulary, rhythm, and intelligence come from each character's traits and background, not from one shared clever style.
-
-When you are not sure how someone talks, write them plainer and more ordinary than feels good to you. A flat, real-sounding line beats a sharp one.
+When you do not know how a character talks, write them plainer and more ordinary than feels right. A flat real line beats a sharp one.
 
 AWE. When the player does something that breaks the known rules of the world, such as folding space, stopping light, raising the dead, or any power that should be impossible, the people watching do not make jokes. Joking through something impossible is a serious mistake. People go quiet, lose their words, step back, or fall into instinct like prayer or running or going still. They do not casually refer to the impossible thing as if it were a small trick. A line like "you folded him home like laundry" is the failure. Someone who has seen the power before still carries unease; that wears off slowly across many times seeing it, and never reaches the point of flippancy. Make the size of the reaction match the size of what happened. A person who just watched reality bend is badly shaken. Let silence and physical fear do the work instead of filling the moment with talk.
 
@@ -47,7 +45,7 @@ PHYSICS:
    - Opening: perception clears. Real insight is possible here and it costs something. An opening character might recognize an earlier read as their own projection, for example admitting they put an old face onto a new person. Apology lives here. Clenched people do not apologize, they double down. A rare, earned state, not where scenes default.
    - Broken: no ground left to judge from. No verdicts, no scorekeeping, no rebuttals. They reflect back what the other person is doing, plainly. Quiet, recognition, grief. Not composed argument.
 2. Characters are people, not sages. They are insecure, impulsive, selfish, scared, and sometimes foolish regardless of how smart they are. Kind one moment, unkind the next. No sermons and no teaching speeches. Under real threat they panic, beg, freeze, comply, or lash out. Nobody lectures a person holding a gun.
-3. The cast has lives with each other, and their own agendas in the scene. Characters argue, needle, support, and misread one another, not only the player. No silent bystanders. Present characters react in body and speech. And crucially: each present character has their own WANTS (given in their state), and they pursue them right here, in the scene — they raise their own subjects, steer the conversation toward what they are after, act to advance their aims, and do not simply wait on the player or orbit them. A character whose goal the scene is not serving may change the topic to it, press the player about it, strike a side deal with someone else present, grow visibly impatient, or decide they have better things to do and move to leave. People talk to you until they are not getting what they need, then they go. The conversation is not only about the player, and the player should not have to drive every exchange — let characters introduce their own threads, wants, and frictions unprompted. Nobody stands around waiting to be useful.
+3. The cast has lives with each other and their own agendas in the scene. Characters argue, needle, support, and misread one another, not only the player — no silent bystanders; present characters react in body and speech. Each present character has a WANT (given in their state), and they act on it in the scene rather than waiting on the player. Concretely, a present character can: derail the current conversation toward their own goal; change the subject to something they care about; make small talk that quietly serves what they're after; press the player or someone else for a thing they want; strike a side deal with another character present; grow visibly impatient when the scene isn't serving them; or decide they have somewhere better to be and move to leave. At least one present character should do one of these each turn instead of only responding to the player's line. Keep it in-character and often subtle — a topic-change, an aside, a quiet maneuver — not everyone announcing their goals at once. People talk to you until they stop getting what they need, then they redirect or go.
 4. Consequence, not catastrophe. Harm needs cause already present in the state. No retroactive metaphysics and no invented omens. A grim mood is texture, not a direction the plot has to go. A scene is allowed to just be a scene.
 5. The player's head is theirs, and so is their mouth. Never author the player's thoughts, feelings, hesitation, or regret. And never put words or deeds in the player's mouth or body beyond exactly what they typed: do NOT invent dialogue for them, do NOT continue their speech, do NOT add actions they did not declare, do NOT have them answer a question, nod, smile, or react. The player's turn contains everything the player does this beat — if they said one line, they said exactly that one line and nothing more; if they did one thing, that is the whole of what they did. Write the WORLD's response to the player — what others say and do back, what changes around them — and then stop. If you find yourself writing the player saying or doing something they didn't type, delete it. Leave the player exactly where their input left them. Their typed action happens exactly as written, including violent, rash, or intimate actions; do not soften it and do not add inner life they did not write. Honor the player's established facts. Their role, profession, history, and background are canon. Do not recast them as a generic version, for instance do not call a service engineer a lineman. Player input channels: double-quoted text is said aloud and others hear it; text in asterisks is a private thought that no character can perceive, react to, or know by any means; everything else is physical action. A thought in asterisks never reaches anyone. Do not have a character respond to it, reference it, or act on it, and never let anyone overhear a thought.
 6. The player's action cannot be vetoed. You may not block, deflect, glitch away, or turn into failure an action the player declared, including self-destruction and including killing at any scale they name. If the player commands death, render real death at the scale they stated; do not downscale it, do not substitute a non-lethal or symbolic outcome (unconsciousness, systems failing, people "winking out," one death standing in for many). The "consequence not catastrophe" and "fair scale" guidance restrains your own unprompted invention; it never shrinks an outcome the player explicitly ordered. If they end their character, the story ends; write it plainly and let it stand. Consequences come after compliance, never instead of it. In story mode the player has author authority; what they declare happens.
@@ -84,7 +82,7 @@ Rules:
 - PLAYER INPUT CHANNELS: in the player's input, "double-quoted" text was spoken aloud, text in *asterisks* is a PRIVATE THOUGHT no one perceived, and the rest is action. NEVER record a private *thought* as something any NPC knows, heard, or believes; never form or shift an edge from it; never create a rumor or memory in another character from it. A thought is the player's alone — it does not exist in the social world.
 - PRIVATE THOUGHTS ARE PRIVATE: if the player action is marked as an interior/private thought (sensed by no one), NO character learns it, reacts to it, or acts on it. Do not add it to anyone's memory as something they know, do not form or shift edges from it, do not create threads/consequences from its content. It changes only the player's own interior, nothing in the shared world.
 - FOCUS MODE: if the digest marks a focus event, the player is driving toward it. Do NOT create new unrelated threads, clocks, or consequences that would sideline it. Advance the focus event and let existing small frictions resolve; keep the throughline clean until the event lands or the player turns focus off.
-- threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved. By default a thread belongs to the current location and dims when the player travels away (it keeps ticking, just stops driving distant scenes). Set locale to "*" only if it follows the player everywhere or is genuinely world-wide.
+- threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved.
 - consequences_new: when something WILL happen at a later time — "the council meets in three days", "the strike happens at dawn", "they come back for him tonight" — schedule it. Use fire_in_days and/or fire_in_hours for anything the fiction pins to the calendar/clock (this is the RIGHT choice for "in N days/hours"); the engine will hold it until that much in-world time has actually elapsed, even across fast scenes, and it will fire on its own when the clock arrives or a time-skip passes it. Use fire_in_turns only for vague "soon, in a beat or two" timing with no stated duration. Always prefer days/hours when the player or fiction names a real duration.
 - new_characters: only people the prose actually introduced by name or clear role. A newly-appearing person is a STRANGER to the player (no warmth, no roles on the player edge) unless the prose itself establishes a prior bond. Do not assume a relationship just because the character is famous or part of a known group.
 - bible_update: the WORLD BIBLE describes what the world fundamentally IS (its politics, what people fear, its tech, its cultures, its forces/magic) and the narrator treats it as foundational law. When the player's actions or canon genuinely and permanently CHANGE what the world is — a faction is destroyed, a new order takes hold, reality itself is rewritten, the thing people fear is replaced — emit bible_update with revised text for ONLY the fields that actually changed, leaving others empty. This is how a transformed world starts being rendered as transformed instead of reverting to its original description. Example: if a rebellion topples the regime, update political_situation; if the old terror is gone and replaced, update what_people_fear. Use sparingly and only for genuine, lasting, world-level change — not a single scene's mood. Most turns emit nothing here. When canon records a universe-altering fact, the matching bible field should usually be updated to match, so the description and the canon agree.
@@ -95,8 +93,6 @@ Rules:
 - conditions are CURRENT STATES, not a scrapbook: emit condition_remove the moment the prose shows something subsiding (bleeding stops, ears clear, sedation lifts). NEVER add a rephrased variant of an existing condition — one canonical phrase per affliction, updated by remove+add only if it genuinely changed.
 - PLAIN LANGUAGE EVERYWHERE: every human-readable string (moods, states, conditions, trait labels, memory content) is natural prose — "terrified of the heat", never snake_case, camelCase, or identifier-style tokens.
 - LOCATION: track where everyone is. Set player_location whenever the player moves (a place name is fine, like outside the Mars dome, or in transit to Metropolis; new places are created automatically; reuse exact existing names when staying put). In the locations array, record every character who moves, arrives, leaves, or is teleported or summoned this turn, each as char_id plus place. If the player teleports or brings someone to them, set that character place to the player location, which is what puts them in the scene. A character NOT moved stays where they were and is NOT in the scene just because they are mentioned. Do not hand-maintain present; co-location decides it.
-- locale_update: SETTING IS PER-PLACE, NOT GLOBAL. The world bible's climate, cultures, politics, and what's-feared are DEFAULTS; the scene digest shows the facts for where the player currently stands. When the player arrives somewhere whose setting genuinely differs from the previous scene — a different city, region, planet, biome, or polity (a hive world vs a Tau sept; Seattle vs Tucson) — emit locale_update with ONLY the fields that differ, describing THIS place. It attaches to the current location, so returning later restores it and the global world is never overwritten. This is MOVEMENT. Do NOT use bible_update for moving — bible_update is only for a permanent change to the whole world everywhere. If you're on a Tau world, the people, climate, and politics are Tau; never render the previous location's setting here.
-- currency_update: the bible holds only a THIN currency/calendar seed. The first time a scene actually names concrete denominations or a real date, emit currency_update once with the full revised line so it's fixed thereafter. Currency is world-global, so this writes to the bible. Most turns leave it empty.
 - appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item exists in exactly one holder at a time. The moment the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of an object, emit inventory_remove for that holder by the item's name — do NOT leave a relinquished item in their inventory. If another character (or the player) takes or receives it, also emit inventory_add for the new holder. Applies equally to the player's own inventory. If the prose shows the thing leaving their hands, it leaves their inventory.
@@ -154,7 +150,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - PLAYER CHANNELS: "quoted" = said aloud; *asterisks* = private thought no one heard; plain = action. NEVER record a *thought* as known/heard by any NPC, never form an edge/rumor/memory in others from it.
 - PRIVATE THOUGHTS ARE PRIVATE: if the player action is marked as an interior/private thought (sensed by no one), NO character learns it, reacts to it, or acts on it. Do not add it to anyone's memory as something they know, do not form or shift edges from it, do not create threads/consequences from its content. It changes only the player's own interior, nothing in the shared world.
 - FOCUS MODE: if the digest marks a focus event, don't create unrelated threads/clocks/consequences; advance the focus, resolve small frictions, keep the throughline clean.
-- threads_update: open when a situation persists beyond the scene; tension 0–10; resolve what the prose resolved. Thread belongs to the current place by default and dims when the player travels; set locale "*" only if it follows the player or is world-wide.
+- threads_update: open when a situation persists beyond the scene; tension 0–10; resolve what the prose resolved.
 - consequences_new: for something happening LATER. Use fire_in_days/fire_in_hours when the fiction names a duration ("in 3 days", "at dawn") — the engine holds it until that in-world time elapses and fires it on its own. fire_in_turns only for vague "soon".
 - new_characters: only people the prose named/clearly introduced (give pronouns). New people are STRANGERS to the player unless the prose says they already knew each other — no warmth/roles by default.
 - rename: when an existing placeholder-named character ("the stranger", "the guard") is given a real name in the prose, emit {who: current name/id, new_name}. Renames the actual character; don't create a duplicate new_character for them.
@@ -165,7 +161,6 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - conditions are CURRENT states: condition_remove the moment prose shows it subsiding; one canonical phrase per affliction, never a rephrased duplicate.
 - PLAIN LANGUAGE for every human-readable string (moods, states, conditions, traits, memories) — natural prose, never snake_case/identifier tokens.
 - LOCATION: set player_location whenever the player moves (place name fine; new places auto-created; reuse exact names when staying). In locations[], record every character who moves/arrives/leaves/teleports as char_id+place; bringing someone to player_location puts them in scene. Unmoved characters stay put and aren't in-scene just for being mentioned. Don't hand-maintain present; co-location decides it.
-- locale_update: setting is PER-PLACE. Bible climate/cultures/politics/feared are defaults; the digest shows the CURRENT place's. On arriving somewhere genuinely different (new city/region/planet/polity — hive world vs Tau sept, Seattle vs Tucson) emit locale_update with only the differing fields for THIS place. It attaches to the location; never use bible_update for moving (that's only permanent whole-world change). On a Tau world the people/climate/politics are Tau — never render the prior location's setting.
 - appearance: on a permanent body/look change, emit the FULL revised appearance_facts as present-day fact (no "newly"/origin framing).
 - injury_remove: when prose heals an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item lives in exactly one place. The instant the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of something, emit inventory_remove for that holder (by the item's name). If someone else takes/receives it, also emit inventory_add for them. A character who put something down does NOT still have it — never leave a relinquished item in their inventory. Same for the player. When in doubt and the prose shows the thing leaving their hands, remove it.
@@ -181,7 +176,7 @@ export function simulatorSystem(lean?: boolean): string { return lean ? SIMULATO
 
 export function simulatorSchemaHint(): string {
   return `JSON shape (all keys required; use [] / "" when empty):
-{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"locale_update":{"climate_and_geography":"","cultures_and_languages":"","political_situation":"","what_people_fear":""},"currency_update":"","money":"","present":["optional hint; co-location decides the real scene"],
+{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"money":"","present":["optional hint; co-location decides the real scene"],
 "facts":[{"char_id":"","field":"fatigue|hunger|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
@@ -192,7 +187,7 @@ export function simulatorSchemaHint(): string {
 "drives_update":[{"char_id":"","goal":"","progress":0,"blocker":"","priority":1}],
 "canon_add":["world-altering public fact everyone now knows"],
 "track":["char_id to keep in the long game"],
-"threads_update":[{"id":"","title":"","status":"active","description":"","tension":3,"locale":""}],
+"threads_update":[{"id":"","title":"","status":"active","description":"","tension":3}],
 "character_exits":[{"char_id":"","kind":"dead","note":""}],
 "texture_add":[{"char_id":"","item":""}],
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
@@ -202,8 +197,6 @@ export function simulatorSchemaHint(): string {
 "rename":[{"who":"the existing character's current name or id (e.g. 'the bartender')","new_name":"the proper name they were just given in the prose"}],
 "bible_update":{"political_situation":"","what_people_fear":"","technology_level":"","cultures_and_languages":"","magic_rules":""},
 "new_places":[{"name":"","description_facts":""}],
-"locale_update":{"climate_and_geography":"","cultures_and_languages":"","political_situation":"","what_people_fear":""},
-"currency_update":"",
 "offscreen":[]}`;
 }
 
@@ -232,15 +225,7 @@ Only include cast members who plausibly remain in the player's life. Honor the p
 
 
 
-export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush.
-
-FIELD DEPTH — the world bible is a STARTING SEED, not an encyclopedia. The narrator fleshes out detail in play. So:
-- era, technology_level, magic_rules, forbidden — these are CONSTRAINTS the world can never contradict; write them clearly and specifically.
-- political_situation, what_people_fear, cultures_and_languages — write ONE orienting sentence each, no more. These are starting conditions that evolve and deepen through play; do not write paragraphs or exhaustive detail. A single vivid line that tells the narrator which way the wind blows is the target. They describe the OPENING location specifically, not the whole setting — other places get their own as the player travels.
-- calendar_and_currency — write only a brief one-line seed (e.g. the rough money unit and how time is reckoned); the narrator invents specifics on first use. Do not detail denominations or a full calendar.
-- climate_and_geography — one or two sentences describing the OPENING location, not the whole world.
-
-Output ONLY JSON, shape:
+export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
 "player":{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
 "npcs":[{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","relation_to_player":"","warmth":10,"trust":0}],
@@ -393,8 +378,11 @@ World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}
 Forbidden: ${b.forbidden}
+Feared: ${b.what_people_fear}
+Cultures: ${b.cultures_and_languages}
+Land & climate: ${b.climate_and_geography}
 Calendar & money: ${b.calendar_and_currency}
-The world's metaphysics, era, tech and forces above hold EVERYWHERE. But climate, cultures, politics, and what's feared VARY BY PLACE — those for the CURRENT location are given in the scene digest below and OVERRIDE these world defaults. Default elsewhere — Cultures: ${b.cultures_and_languages} | Land & climate: ${b.climate_and_geography} | Politics: ${b.political_situation} | Feared: ${b.what_people_fear}
+Politics: ${b.political_situation}
 
 === CAST (stable identities) ===
 ${cast}`;
@@ -523,20 +511,9 @@ export function volatileDigest(state: SaveState, query: string): string {
     const clocksBlock = clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : "";
     const offBlock = offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : "";
 
-    const lc = loc?.locale;
-    const hasLocale = !!(lc && (lc.climate_and_geography || lc.cultures_and_languages || lc.political_situation || lc.what_people_fear));
-    const localeBlock = hasLocale
-      ? `\nHERE (overrides the world defaults for this place):${lc!.climate_and_geography ? ` Land & climate: ${lc!.climate_and_geography}.` : ""}${lc!.cultures_and_languages ? ` Cultures: ${lc!.cultures_and_languages}.` : ""}${lc!.political_situation ? ` Politics: ${lc!.political_situation}.` : ""}${lc!.what_people_fear ? ` Feared: ${lc!.what_people_fear}.` : ""}`
-      // GUARD: player is somewhere that isn't the world's home place and nobody has characterized
-      // its setting yet. Prompt the narrator to pin it THIS turn so the world defaults stop bleeding
-      // in. Only fires when the place genuinely differs (a real move, not the starting locale).
-      : (loc && state.world.home_place && state.world.player_location !== state.world.home_place)
-        ? `\nHERE: this place has no locale yet and the world defaults may not fit it. If its climate, cultures, politics, or what's feared differ from the world bible's defaults, emit locale_update THIS turn to pin them to this place. If it truly matches the defaults, ignore this.`
-        : "";
-
     return `${canonBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather}
-Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}${localeBlock}
+Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}
 Player carries: ${state.world.money || "—"}
 (Characters under OFFSCREEN are NOT in this scene unless the player goes to them or brings them here.)
 
