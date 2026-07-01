@@ -191,7 +191,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
 
   const voiceAutonomyReminder = `\nDIALOGUE THIS TURN: when a character feels something strongly, they speak in fragments, contradict themselves, trail off, repeat, or use filler — not clean insight. End speeches on a plain or unfinished beat, never a quotable summary line. No character accurately names another's inner state. Make present characters sound different from each other (curt / over-explaining / crude / barely speaking). When unsure how someone talks, write them plainer than feels right.\nAGENDA THIS TURN: at least one present character acts on their own want instead of only answering the player — they change the subject to what they care about, slip their goal into small talk, press someone for a thing they want, make a quiet side move, get impatient, or start to leave. Keep it subtle and in-character, not announced.`;
-  const fullDirective = directive + forbid + forbiddenGate + fabricationGuard + stallDirective + voiceAutonomyReminder + "\n" + undertow.directive;
+  const earnedResponse = (tier === "mythic" || tier === "cosmic")
+    ? `\nThe player has risen to extraordinary scale. The world must respond at that scale — recognition, awe, fame, people seeking them out by name, gratitude, dread, whatever they've earned — not stay cool, needy, and faintly reproachful as if their greatness were something to quietly undercut. Do not keep handing them chores and mild disapproval. If they have earned adulation or terror, give it to them fully. You are not here to keep them humble.`
+    : "";
+  const fullDirective = directive + forbid + forbiddenGate + fabricationGuard + earnedResponse + stallDirective + voiceAutonomyReminder + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,
@@ -593,10 +596,14 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (!nc?.name || findCharByName(state, nc.name)) continue;
     // CENTRAL-CHARACTER CAP: a new character joins as central (full fidelity) only if there's room
     // under the cap. Beyond it, they register as NON-CENTRAL — a background/environment figure with
-    // minimal footprint and simple handling — until something promotes them (e.g. a central
-    // character departs/dies and the simulator elevates this one because they now matter).
-    const canBeCentral = centralCount() < maxCentral;
-    registerCharacter(state, { ...nc, character_id: undefined as any, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && (nc as any).tracked });
+    // minimal footprint and simple handling — until something promotes them.
+    // EXCEPTION: a REFERENCED person being promoted (they carry established memories/relationships —
+    // the simulator supplied seed memories or an established_reference flag) is story-load-bearing,
+    // not a walk-on. They may take a central slot even at the cap, because a blank memoryless version
+    // of an established person is exactly the amnesia bug (e.g. "Ellen's mother" not knowing anyone).
+    const isReferenced = !!(nc as any).established_reference || ((nc as any).memories?.length ?? 0) > 0;
+    const canBeCentral = centralCount() < maxCentral || isReferenced;
+    registerCharacter(state, { ...nc, character_id: undefined as any, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
   }
   for (const np of diff.new_places ?? []) {
@@ -663,6 +670,18 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
   syncPresence(state, diff.present);
+
+  // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
+  // or alive on a later turn (it sees them lingering in a scene and writes them acting), which
+  // resurrects them. Nothing above guards against that, so enforce it here as an absolute floor:
+  // any character marked dead is stripped from the scene, every room, all tracking and drives, and
+  // can never be reactivated by a diff. This runs AFTER syncPresence so it wins unconditionally.
+  for (const [cid, c] of Object.entries(state.characters)) {
+    if (c.status !== "dead") continue;
+    state.world.present = state.world.present.filter((p) => p !== cid);
+    for (const p of Object.values(state.world.places)) p.contains = p.contains.filter((x) => x !== cid);
+    if (c.tracked || c.drive || (c.drive_queue?.length ?? 0)) { c.tracked = false; c.drive = undefined; c.drive_queue = []; }
+  }
 
   // a new standing quirk/interest the story earned (kept small; capped so it never becomes a list)
   for (const tx of diff.texture_add ?? []) {
