@@ -10,7 +10,7 @@ import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
-import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
@@ -34,9 +34,6 @@ function clientView(s: SaveState): ClientSave {
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
-  // migrate: pre-locale saves have no home_place — treat wherever they currently are as the
-  // characterized home so the locale guard doesn't nag about the place they're standing in.
-  if (s.world && !s.world.home_place) s.world.home_place = s.world.player_location;
   return s;
 }
 
@@ -95,9 +92,31 @@ export const api = {
     const cast = Object.entries(s.characters).filter(([cid, c]) => cid !== "char_player" && c.status !== "dead" && c.status !== "departed").map(([cid, c]) => {
       const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
       const traits = [...(c.core_traits ?? []), ...((s.traits[cid] ?? []).map((t) => t.label))];
-      return `${c.name} (${traits.slice(0, 6).join(", ")})${edge ? ` — toward you: warmth ${edge.warmth}, trust ${edge.trust}` : ""}; ${c.drive?.goal ? `wants: ${c.drive.goal}` : ""}`;
+      // relationship SHAPE, not just temperature: roles + qualitative notes carry estrangement,
+      // warnings, debts, "you withdrew from her", etc. — the stuff the forge needs to not reset it.
+      const rel = edge
+        ? `toward you: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` — ${edge.notes}` : ""}`
+        : "no established relationship with you";
+      // the character's own strongest memories ABOUT the player — this is where "he told me they were
+      // using me", "he left without saying why", "he pulled away" actually live. The recap must see them.
+      const aboutPlayer = (s.memory[cid]?.episodic ?? [])
+        .filter((m) => /\b(you|him|rabi|the player)\b/i.test(m.content) || (m.full_content && /\byou\b/i.test(m.full_content)))
+        .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0))
+        .slice(0, 3)
+        .map((m) => m.content.trim());
+      // presence/distance: is this person actually still in the player's life, or pushed away/distant?
+      const inScene = s.world.present.includes(cid);
+      const distance = (edge && edge.warmth < 10 && edge.trust < 10) ? " [DISTANT/estranged — not currently close to the player]" : inScene ? " [was present at chapter's end]" : " [offscreen — not necessarily nearby]";
+      return `${c.name} (${traits.slice(0, 6).join(", ")}) — ${rel}${c.drive?.goal ? `; wants: ${c.drive.goal}` : ""}${distance}${aboutPlayer.length ? `\n    remembers about you: ${aboutPlayer.join(" | ")}` : ""}`;
     }).join("\n");
-    const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-12).map((h) => h.summary).filter(Boolean).join(" → ");
+    const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-16).map((h) => h.summary).filter(Boolean).join(" → ");
+    // the player's OWN defining recent memories — their choices (leaving, isolating, warning people)
+    // that shaped where things stand and that a recap must not overwrite with a generic reunion.
+    const playerChoices = (s.memory["char_player"]?.episodic ?? [])
+      .filter((m) => (m.importance ?? 0) >= 6)
+      .sort((a, b) => (b.turn ?? 0) - (a.turn ?? 0))
+      .slice(0, 6)
+      .map((m) => m.content.trim());
     const player = s.characters["char_player"];
     const digest = [
       `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
@@ -136,20 +155,7 @@ export const api = {
     // place
     const lid = uid("loc");
     ns.world.places[lid] = { id: lid, name: g.starting_location_name || "a new place", description_facts: "", contains: [] };
-    // seed the opening place's locale from the distilled new-chapter setting, so a chapter that
-    // moves the action somewhere new doesn't silently inherit the previous chapter's climate/
-    // cultures/politics. Only fields that the new bible actually changed get pinned to the place.
-    {
-      const nb: any = g.world_bible ?? {};
-      const ob: any = s.world_bible;
-      const loc: any = {};
-      for (const f of ["climate_and_geography", "cultures_and_languages", "political_situation", "what_people_fear"]) {
-        if (typeof nb[f] === "string" && nb[f].trim() && nb[f].trim() !== ob[f]) loc[f] = nb[f].trim();
-      }
-      if (Object.keys(loc).length) ns.world.places[lid].locale = loc;
-    }
     ns.world.player_location = lid;
-    ns.world.home_place = lid;  // new chapter's opening place is characterized by the distilled bible/locale
     ns.characters["char_player"].location = lid;
 
     // surviving cast carry forward COMPLETE — full memory, full traits, full identity. The
@@ -194,7 +200,60 @@ export const api = {
     return clientView(ns);
   },
 
-  /** Set or clear the focus event — the "converge toward this, stop the chaos" toggle. */
+  /** CONTEXT REFRESH — NOT a time-skip. Same moment, same board: keep every character, their
+   *  identity, traits, relationships (edges), the world bible, location, and turn count. What it
+   *  does: (1) uses the BOOKKEEPER model to condense each character's long fragmented memory into a
+   *  small POV summary while preserving the full factual record underneath (content = their reading;
+   *  full_content = what actually happened, so stress-recall can still reach the whole scenario);
+   *  (2) clears stale threads, consequences, and the recent-history log so a loaded queue can't
+   *  regenerate a runaway plot. This is the "reload a clean save of exactly where I am" refresh. */
+  refreshContext: async (id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const model = s.model_settings.simulator_model || s.model_settings.fallback_model; // the bookkeeper, per your choice
+    const living = Object.entries(s.characters).filter(([, c]) => c.status !== "dead" && c.status !== "departed");
+    for (const [cid, c] of living) {
+      const mem = s.memory[cid];
+      if (!mem || (mem.episodic?.length ?? 0) < 8) continue; // nothing to condense
+      const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
+      const rel = cid === "char_player" ? "(this is the player)" :
+        (edge ? `toward the player: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` — ${edge.notes}` : ""}` : "no established bond with the player");
+      const raw = mem.episodic.slice().sort((a, b) => (a.turn ?? 0) - (b.turn ?? 0))
+        .map((m) => `[T${m.turn}] ${m.full_content ?? m.content}`).join("\n");
+      const info = `CHARACTER: ${c.name}. ${c.background ?? ""} ${c.life_history ?? ""}\nRELATIONSHIP: ${rel}\n\nRAW MEMORIES (oldest first):\n${raw}`;
+      try {
+        const out = await complete(buildMessages(MEMORY_CONDENSE_SYSTEM, "Condense this character's memory, preserving what truly happened:", info, model), model, s.model_settings.fallback_model, true, 2000);
+        const g = safeJson<{ memories?: { content: string; importance?: number; emotional_charge?: string }[] }>(out.text, { memories: [] });
+        if (!g?.memories?.length) continue;
+        // the condensed POV summaries become the new episodic memory. full_content keeps the JOINED
+        // factual record so state-gated stress-recall can still surface the whole scenario underneath.
+        const factualUnderlayer = mem.episodic.map((m) => m.full_content ?? m.content).join(" ");
+        s.memory[cid].episodic = g.memories.slice(0, 12).map((m, i) => ({
+          turn: 0, content: (m.content ?? "").trim(),
+          full_content: (m.content ?? "").trim(),   // per-memory truth = its own condensed line…
+          importance: clampNum(m.importance ?? 5, 1, 10),
+          emotional_charge: m.emotional_charge ?? "",
+          last_accessed_turn: 0, decay_stage: 0,
+        }));
+        // …and stash the complete factual record as one deep-background memory kept vivid under stress
+        s.memory[cid].episodic.push({
+          turn: 0, content: "(the full history, as it actually happened)",
+          full_content: factualUnderlayer.slice(0, 4000),
+          importance: 7, emotional_charge: "", last_accessed_turn: 0, decay_stage: 0,
+        } as any);
+      } catch { /* leave this character's memory as-is on failure */ }
+    }
+    // clear the accumulated engine state that regenerates runaway plots — keep relationships & world
+    s.world.threads = [];
+    s.world.consequences = [];
+    s.world.rumors = (s.world.rumors ?? []).slice(-3); // keep a few, drop the pile
+    s.telemetry = (s.telemetry ?? []).slice(-20);
+    s.pressure_trace = (s.pressure_trace ?? []).slice(-20);
+    // keep the current scene beat as the sole recent-history anchor; drop the long log
+    const lastBeat = s.history.filter((h) => h.kind !== "opening").slice(-1);
+    s.history = lastBeat.length ? lastBeat : s.history.slice(-1);
+    await putSave(s);
+    return clientView(s);
+  },
   setFocus: async (id: string, label: string | null, opts?: { mode?: "build" | "active"; next_label?: string; auto_link?: boolean }): Promise<ClientSave> => {
     const s = await need(id);
     if (!label || !label.trim()) {
@@ -450,7 +509,7 @@ export const api = {
       s.world.edges.push({ from: cid, to: "char_player", warmth: Math.max(-100, Math.min(100, n.warmth ?? 0)), trust: Math.max(-100, Math.min(100, n.trust ?? 0)), power: 0, notes: n.relation_to_player ?? "", updated_turn: 1 });
     }
     for (const c of g.clocks ?? []) {
-      s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], locale: c.world_wide ? undefined : s.world.player_location, status: "running" });
+      s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], status: "running" });
     }
     for (const n of g.norms ?? []) {
       s.world.norms.push({ id: uid("nrm"), rule: n.rule ?? "", enforcement: n.enforcement ?? "gossip", holders: n.holders ?? "" });
@@ -460,7 +519,6 @@ export const api = {
     s.world.weather = op.weather ?? "";
     s.world.money = op.money ?? "";
     s.world.player_location = nameToId[(op.player_location_name ?? "").toLowerCase()] ?? Object.keys(s.world.places)[0] ?? "";
-    s.world.home_place = s.world.player_location;  // the global bible's setting describes HERE; other places need their own locale
     s.characters["char_player"].location = s.world.player_location;
     const openingPresent = (op.present_npc_names ?? [])
       .map((nm: string) => Object.entries(s.characters).find(([cid, c]) => cid !== "char_player" && c.name.toLowerCase() === nm.toLowerCase())?.[0])

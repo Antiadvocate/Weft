@@ -161,6 +161,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const forbid = (!god && state.world_bible.forbidden_as_primary?.length)
     ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This restrains your own unprompted plotting; it does not override an action the player explicitly declares.)`
     : "";
+  // HARD FORBIDDEN GATE: the bible's `forbidden` list is banned content for this world, and unlike
+  // forbidden_as_primary it isn't merely "not the focus" — it must not be INTRODUCED by you at all.
+  // This was previously only a passive line at the top of the prompt with no enforcement, so the
+  // thread/tension system could spin up forbidden plot (e.g. a stalker/violence thread in a world
+  // whose bible says "no violence as plot driver"). Enforce it per-turn at the high-compliance spot.
+  const forbiddenGate = (!god && state.world_bible.forbidden?.trim())
+    ? `\nFORBIDDEN IN THIS WORLD — do NOT introduce, escalate toward, or build a thread around any of these, even if a tension or thread seems to point that way: ${state.world_bible.forbidden.trim()}. If an existing thread or the current momentum is heading into forbidden territory, steer the scene away from it rather than into it. This restrains YOUR plotting; it does not punish something the player themselves explicitly chose to make happen.`
+    : "";
+  // NAMED-ENTITY FABRICATION GUARD — a recurring catastrophic failure: a stray name or passing mention
+  // ("David Attenborough" in a joke, an offhand "my ex") gets reconstructed under pressure into a
+  // fully-formed person with a backstory and a threat. Block that explicitly at the high-compliance spot.
+  const fabricationGuard = god ? "" : `\nDO NOT invent a named person, a hidden history, a secret identity, or an offscreen threat that the established facts do not already support. If a name appeared only in passing (a joke, a reference, a celebrity, a brand), it is NOT a new character with a past — do not turn it into one. A person the player mentioned offhand stays exactly as small as they mentioned them. When you reach for a complication, draw it from what is already true in the threads, clocks, and present characters — never from a half-remembered token that you fill in with drama.`;
 
   if (god) {
     // detect an ONGOING / escalating declaration vs a discrete one-and-done act. "I will kill this
@@ -179,7 +191,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
 
   const voiceAutonomyReminder = `\nDIALOGUE THIS TURN: when a character feels something strongly, they speak in fragments, contradict themselves, trail off, repeat, or use filler — not clean insight. End speeches on a plain or unfinished beat, never a quotable summary line. No character accurately names another's inner state. Make present characters sound different from each other (curt / over-explaining / crude / barely speaking). When unsure how someone talks, write them plainer than feels right.\nAGENDA THIS TURN: at least one present character acts on their own want instead of only answering the player — they change the subject to what they care about, slip their goal into small talk, press someone for a thing they want, make a quiet side move, get impatient, or start to leave. Keep it subtle and in-character, not announced.`;
-  const fullDirective = directive + forbid + stallDirective + voiceAutonomyReminder + "\n" + undertow.directive;
+  const fullDirective = directive + forbid + forbiddenGate + fabricationGuard + stallDirective + voiceAutonomyReminder + "\n" + undertow.directive;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   const narratorMsgs = buildMessages(
     narratorSystem(state.model_settings.lean_mode), prefix,

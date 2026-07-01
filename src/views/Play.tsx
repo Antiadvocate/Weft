@@ -219,12 +219,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <button className="chip" onClick={() => setSkipOpen(true)} disabled={running || skipping}>
           <Moon size={11} />
         </button>
-        <button className="chip" disabled={running || chaptering} title="new chapter — resets context, carries memories/traits/relationships forward (helps when a model starts losing the thread)"
+        <button className="chip" disabled={running || chaptering} title="refresh — condense memory to clean up drift, same moment and relationships, clears runaway threads (fixes recap confusion)"
           onClick={async () => {
-            if (!confirm("Start a new chapter? Resets the context window while carrying every character's full memory, traits, and relationships forward after a time skip. Your current chronicle stays saved.")) return;
+            if (!confirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character.")) return;
             setChaptering(true);
-            try { setSave(await api.forkNewSeason(save.id)); }
-            catch (e: any) { alert(`New chapter failed: ${e.message}`); }
+            try { setSave(await api.refreshContext(save.id)); }
+            catch (e: any) { alert(`Refresh failed: ${e.message}`); }
             finally { setChaptering(false); }
           }}>
           <BookOpen size={11} />

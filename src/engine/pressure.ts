@@ -144,10 +144,14 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   if (tension <= 0) {
     band = due ? Math.min(band, 2) : 0;          // nothing the engine originated; calm unless the player's own due event lands
   } else if (tension < 5) {
-    // below midpoint: pull the band toward calm. Gentle mapping so low settings genuinely feel quiet:
-    // tension 1–2 → cap at friction (band 1), 3 → friction, 4 → obstacle (band 2).
-    const cap = tension <= 3 ? 1 : 2;
-    if (!due) band = Math.min(band, cap);
+    // below midpoint: pull the band toward calm. A due consequence may still LAND, but the dial
+    // throttles how hard — it no longer gets a free pass to danger. This is what lets a player turn
+    // tension down to escape a runaway plot whose consequence queue would otherwise keep firing
+    // high pressure regardless of the dial. tension 1–2 → cap friction, 3 → friction (due: obstacle),
+    // 4 → obstacle. The due event still happens; it just arrives proportionate to the calm setting.
+    const baseCap = tension <= 3 ? 1 : 2;
+    const dueCap = tension <= 2 ? 1 : 2;          // even a due event stays an obstacle at most when calm
+    band = Math.min(band, due ? dueCap : baseCap);
   } else if (tension > 5) {
     // above midpoint: allow a modest upward nudge in how hot it can run
     if (heat >= 5 && band < 4) band = Math.min(4, band + (tension >= 8 ? 1 : 0));
