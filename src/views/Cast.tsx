@@ -45,6 +45,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
+  const [blBusy, setBlBusy] = useState(false);
   const [ivQ, setIvQ] = useState("");
   const [ivBusy, setIvBusy] = useState(false);
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
@@ -294,6 +295,14 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <EditField label="Name" v={draft.name} set={(v) => setDraft((d) => ({ ...d, name: v }))} />
                     <EditField label="Age" v={draft.age} set={(v) => setDraft((d) => ({ ...d, age: v }))} />
                     <EditField label="Appearance — baseline (face, eyes, hair, build; the engine can only append here, never rewrite)" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={3} />
+                    <button className="btn w-full -mt-1" disabled={blBusy}
+                      onClick={async () => {
+                        setBlBusy(true);
+                        try { const { baseline } = await api.completeBaseline(save.id, sel!); setDraft((d) => ({ ...d, appearance_facts: baseline })); }
+                        finally { setBlBusy(false); }
+                      }}>
+                      {blBusy ? "completing…" : "complete baseline gaps (hair, eyes, face — one cheap call; review before weaving in)"}
+                    </button>
                     <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />

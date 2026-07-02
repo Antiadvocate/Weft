@@ -479,6 +479,24 @@ export const api = {
     return { answer: out.text.trim() };
   },
 
+
+  /** BASELINE COMPLETION — one cheap call that fills the gaps in a thin appearance card
+   *  (hair, eyes, skin, face, build, age, one unique mark). Every already-stated detail is
+   *  kept verbatim; only the silences are invented, consistent with the world. Returns a
+   *  suggestion — nothing is saved until the player weaves it in. */
+  completeBaseline: async (id: string, char_id: string): Promise<{ baseline: string }> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c) throw new Error("no such character");
+    const b = s.world_bible;
+    const premise = [b.era, b.cultures_and_languages].filter(Boolean).join(" · ");
+    const out = await complete([
+      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline is SACRED — keep it verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
+      { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
+    ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
+    return { baseline: out.text.trim().replace(/^"|"$/g, "").slice(0, 600) };
+  },
+
   setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
