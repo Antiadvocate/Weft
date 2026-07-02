@@ -1,4 +1,5 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
+import { factGate, factOverlap } from "./facts";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible } from "./types";
 import { DEFAULT_MODELS } from "./types";
 
@@ -111,6 +112,19 @@ export function sanitize(state: SaveState): SaveState {
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
   state.contract_drift ??= null;
+  // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves
+  // on load, so junk written before the gate existed drains out instead of accumulating.
+  for (const mem of Object.values(state.memory)) {
+    if (!mem.facts?.length) continue;
+    const kept: typeof mem.facts = [];
+    for (const f of mem.facts) {
+      if (!factGate(f.content).ok) continue;
+      const near = kept.find((x) => factOverlap(x.content, f.content) >= 0.6);
+      if (near) { if (f.content.length > near.content.length + 12) near.content = f.content; continue; }
+      kept.push(f);
+    }
+    mem.facts = kept.slice(-30);
+  }
   state.minds ??= {};
   for (const id of Object.keys(state.characters)) {
     state.condition[id] ??= blankCondition();

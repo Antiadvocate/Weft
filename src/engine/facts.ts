@@ -110,14 +110,49 @@ export function groundMemoryContent(
 }
 
 /** Fold a verified durable fact into a character's ledger (dedupe by overlap; capped; never decays). */
+/** LEDGER QUALITY GATE — a fact must stand alone, cold, to a stranger reading the ledger.
+ *  "She's good at that" is not a fact; it is a pronoun pointing at a vanished moment. Rejects:
+ *  bare-pronoun subjects, quoted dialogue lines, sub-6-word fragments, and transient states.
+ *  Deterministic on purpose — the gate itself must never hallucinate. */
+export function factGate(content: string): { ok: boolean; why?: string } {
+  const f = content.trim();
+  const first = (f.split(/\s+/)[0] ?? "").toLowerCase().replace(/[^a-z']/g, "");
+  if (["she", "he", "they", "it", "her", "his", "their", "she's", "he's", "they're", "it's"].includes(first))
+    return { ok: false, why: "bare-pronoun subject — no one can tell who this is about" };
+  if (f.split(/\s+/).length < 6) return { ok: false, why: "fragment — too short to mean anything cold" };
+  if (/"/.test(f) || /^['"“]/.test(f)) return { ok: false, why: "quoted dialogue — paraphrase the claim; quotes belong in the anchor" };
+  if (/\b(currently|right now|at this moment|for now|is making (her|his|their) way)\b/i.test(f))
+    return { ok: false, why: "transient state — true today, gone tomorrow; that's a memory" };
+  return { ok: true };
+}
+
+/** Fuzzy near-duplicate merge: high content-word overlap keeps ONE entry — the more detailed. */
+function contentWords(x: string): Set<string> {
+  const stop = new Set(["the","a","an","and","or","of","in","on","to","is","are","was","were","has","have","had","that","this","with","for","at","by","from","her","his","their","she","he","they","it","i","my","me","who","about","as","be"]);
+  return new Set(x.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w)));
+}
+export function factOverlap(a: string, b: string): number {
+  const A = contentWords(a), B = contentWords(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0; for (const w of A) if (B.has(w)) inter++;
+  return inter / Math.min(A.size, B.size);
+}
+
 export function addFact(mem: CharMemory, fact: string, turn: number, quote?: string): boolean {
   mem.facts ??= [];
   const f = fact.trim();
   if (!f) return false;
-  const dup = mem.facts.find((x) => relevance(x.content, f) >= 0.6);
-  if (dup) { dup.turn = turn; if (quote && !dup.quote) dup.quote = quote; return false; }
+  const gate = factGate(f);
+  if (!gate.ok) { console.warn(`[facts] rejected: "${f.slice(0, 60)}" — ${gate.why}`); return false; }
+  // fuzzy near-duplicate: keep ONE entry, the more detailed version (Nadi's network once, not four times)
+  const near = mem.facts.find((x) => relevance(x.content, f) >= 0.6 || factOverlap(x.content, f) >= 0.6);
+  if (near) {
+    if (f.length > near.content.length + 12) near.content = compactGist(f, 140); // upgrade in place
+    near.turn = turn; if (quote && !near.quote) near.quote = quote;
+    return false;
+  }
   mem.facts.push({ content: compactGist(f, 140), turn, quote: quote?.slice(0, 160) });
-  if (mem.facts.length > 40) {
+  if (mem.facts.length > 30) {
     // evict the oldest low-signal fact (never the newest); facts are cheap, so this is rare
     mem.facts.sort((a, b) => a.turn - b.turn);
     mem.facts.shift();
