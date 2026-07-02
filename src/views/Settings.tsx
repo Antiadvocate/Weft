@@ -78,7 +78,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [bible, setBible] = useState({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
     magic_rules: wb.magic_rules ?? "", forbidden: wb.forbidden ?? "",
-    political_situation: wb.political_situation ?? "", what_people_fear: wb.what_people_fear ?? "",
+    political_situation: wb.political_situation ?? "", what_people_fear: wb.what_people_fear ?? "", start_date: wb.start_date ?? "",
     cultures_and_languages: wb.cultures_and_languages ?? "", climate_and_geography: wb.climate_and_geography ?? "",
     calendar_and_currency: wb.calendar_and_currency ?? "",
     narrator_direction: wb.narrator_direction ?? "",
@@ -168,6 +168,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
         <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
         <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
+        <TextField label="Start date of Day 1 (YYYY-MM-DD — unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
         <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
         <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />

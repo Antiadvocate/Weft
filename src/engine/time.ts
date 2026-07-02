@@ -40,3 +40,18 @@ export function heuristicMinutes(action: string, prose: string): number {
   if (/\beat|meal|drink\b/.test(a)) return 30;
   return Math.min(45, 8 + Math.round(prose.length / 220) * 4);
 }
+
+/** CALENDAR — layered over the canonical "Day N, HH:MM" clock without changing the stored
+ *  format (every parser in the engine depends on it). Given the bible's start_date (Day 1),
+ *  returns "Fri 12 Jun 2035" for any time string; empty when no start_date is set. */
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+export function dateLabel(timeStr: string, startDate?: string): string {
+  if (!startDate) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate.trim());
+  if (!m) return "";
+  const t = parseTime(timeStr);
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (t.day - 1)));
+  if (isNaN(d.getTime())) return "";
+  return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}

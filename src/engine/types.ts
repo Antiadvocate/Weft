@@ -56,6 +56,7 @@ export interface WorldBible {
   calendar_and_currency: string;
   political_situation: string;
   narrator_direction?: string;
+  start_date?: string;         // "YYYY-MM-DD" — Day 1 of the story; unlocks weekdays/months/years in the clock
   god_mode?: boolean;          // the player is sovereign: powers succeed completely, cost nothing; world still reacts
   era_theme?: string; // ui palette: auto | ember | verdigris | rust | frost
   difficulty_profile: DifficultyProfile;
@@ -125,7 +126,9 @@ export interface Identity {
   age: number;
   pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
   appearance_facts: string;    // BEDROCK look — face, eyes, hair, build, skin. Set at creation, appended-to only by permanent bodily events, replaced only by the player. The engine must never overwrite this.
-  appearance_now?: string;     // CURRENT presentation — clothes, grime, visible state. Freely rewritten by the simulator each time it changes.
+  appearance_now?: string;
+  height_cm?: number;          // physical constant — moves through the world with them, shapes portraits
+  weight_kg?: number;          // physical constant — scales hunger/thirst accrual, shapes portraits     // CURRENT presentation — clothes, grime, visible state. Freely rewritten by the simulator each time it changes.
   background: string;         // BEDROCK: the original forge identity — who they fundamentally are. Never trimmed or rewritten by the engine.
   life_history?: string;      // ACCRETED: defining moments that have happened in play, folded in over time. Compressed when it grows long; bedrock is never touched.
   core_traits: string[];
@@ -185,6 +188,9 @@ export interface Condition {
   condition_age?: Record<string, number>; // turn each condition was added — fuels deterministic decay
   fatigue: "fresh" | "tired" | "exhausted";
   hunger: "fed" | "peckish" | "hungry" | "starving";
+  hunger_meter?: number;       // 0 sated .. 10 starving — time-driven (physiology.ts); strings above derive from this
+  thirst_meter?: number;       // 0 hydrated .. 10 parched — time-driven, weight- and weather-scaled
+  awake_minutes?: number;      // in-world minutes since last real sleep; drives fatigue + the relaxation ceiling
   inventory: { id: string; name: string; notes?: string }[];
   wearing: string[];
   psyche: Psyche;
@@ -396,7 +402,7 @@ export interface SimulatorDiff {
   locations?: { char_id: string; place: string }[]; // move characters between places; place is an id or a name (auto-created). Use when anyone moves, is teleported, arrives, or leaves.
   money?: string;
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
-  facts: { char_id: string; field: "fatigue" | "hunger" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
+  facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact

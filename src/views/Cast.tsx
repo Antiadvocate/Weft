@@ -42,7 +42,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_cm: "", weight_kg: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
   const [blBusy, setBlBusy] = useState(false);
@@ -71,7 +71,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const startEdit = () => {
     if (!c) return;
     setDraft({
-      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "",
+      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", height_cm: c.height_cm ? String(c.height_cm) : "", weight_kg: c.weight_kg ? String(c.weight_kg) : "",
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join(", "),
     });
     setEditing(true);
@@ -86,6 +86,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         life_history: draft.life_history,
         appearance_facts: draft.appearance_facts,
         appearance_now: draft.appearance_now,
+        height_cm: Number(draft.height_cm) || undefined,
+        weight_kg: Number(draft.weight_kg) || undefined,
         current_goal: draft.current_goal,
         core_traits: draft.core_traits.split(",").map((x) => x.trim()).filter(Boolean),
       } },
@@ -304,6 +306,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       {blBusy ? "completing…" : "complete baseline gaps (hair, eyes, face — one cheap call; review before weaving in)"}
                     </button>
                     <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
+                    <div className="flex gap-2">
+                      <EditField label="Height (cm)" v={draft.height_cm} set={(v) => setDraft((d) => ({ ...d, height_cm: v }))} rows={1} />
+                      <EditField label="Weight (kg — scales hunger/thirst)" v={draft.weight_kg} set={(v) => setDraft((d) => ({ ...d, weight_kg: v }))} rows={1} />
+                    </div>
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
@@ -332,6 +338,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   {c.drive && <Row k="wants" v={`${c.drive.goal} — ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
                   {(c.drive_queue ?? []).length > 0 && <Row k="then" v={(c.drive_queue ?? []).map((d) => d.goal).join(" · ")} />}
                   {c.appearance_now?.trim() && <Row k="presenting" v={c.appearance_now} />}
+                  {(cond.thirst_meter ?? 0) >= 6.5 && <Row k="thirst" v={(cond.thirst_meter ?? 0) >= 8 ? "parched" : "thirsty"} />}
+                  {(cond.awake_minutes ?? 0) >= 17 * 60 && <Row k="sleep" v={`${Math.round((cond.awake_minutes ?? 0) / 60)}h awake`} />}
                   <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>

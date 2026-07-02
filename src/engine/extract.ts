@@ -97,6 +97,23 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
     }
   }
 
+  // ── CLOTHING: this is the fix for "I put on my shirt and the sheet still says shirtless."
+  // Models rarely emit wearing updates from casual phrasing, so the deterministic layer owns it.
+  // First-person (the ACTION) and second-person (the prose) both count.
+  const both = `${action}\n${prose}`;
+  const wearOn = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:put on|pull on|slip into|slips? on|shrug into|button up|dress in|throw on|tug on)\s+(?:the|my|your|a|an)\s+([\w'’ -]{3,32}?)(?=[,.;:!?\n])/g)];
+  for (const w of wearOn) out.facts!.push({ char_id: "char_player", field: "wearing_add", value: w[1].trim() });
+  const wearOff = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:take off|pull off|strip off|shrug off|remove|peel off|unbutton and discard|step out of)\s+(?:the|my|your|a|an)\s+([\w'’ -]{3,32}?)(?=[,.;:!?\n])/g)];
+  for (const w of wearOff) out.facts!.push({ char_id: "char_player", field: "wearing_remove", value: w[1].trim() });
+
+  // ── PHYSIOLOGY refills: eating, drinking, sleeping (player side; conservative phrasing)
+  if (/\b(?:I|[Yy]ou)\s+(?:eat|wolf(?: down)?|finish(?:es)? (?:the|a) (?:meal|plate|bowl)|devour)\b/.test(both) || /\b[Yy]ou (?:share|finish) (?:a|the) meal\b/.test(prose))
+    out.facts!.push({ char_id: "char_player", field: "hunger", value: "fed" });
+  if (/\b(?:I|[Yy]ou)\s+(?:drink|gulp|sip|drain (?:the|a) (?:cup|flask|glass|waterskin)|swallow (?:the )?water)\b/.test(both))
+    out.facts!.push({ char_id: "char_player", field: "thirst", value: "quenched" });
+  const slept = /\b(?:I|[Yy]ou)\s+(?:sleep|fall asleep|doze off|bed down)\b|\bwake (?:the next morning|at dawn|hours later)\b|\byou wake\b/i.test(both);
+  if (slept) out.facts!.push({ char_id: "char_player", field: "slept", value: "7" });
+
   return out;
 }
 

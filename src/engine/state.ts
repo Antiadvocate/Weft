@@ -27,6 +27,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     speech_pattern: ident.speech_pattern ?? "plain", skills: ident.skills ?? {},
     texture: ident.texture ?? [],
     pronouns: ident.pronouns,
+    height_cm: ident.height_cm, weight_kg: ident.weight_kg,
     intelligence: ident.intelligence ?? "average",
     gregariousness: ident.gregariousness ?? 0.5,
     current_goal: ident.current_goal, current_activity: ident.current_activity,
@@ -111,6 +112,7 @@ export function sanitize(state: SaveState): SaveState {
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
+  for (const cond of Object.values(state.condition)) { cond.hunger_meter ??= 2; cond.thirst_meter ??= 2; cond.awake_minutes ??= 0; }
   state.contract_drift ??= null;
   // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves
   // on load, so junk written before the gate existed drains out instead of accumulating.

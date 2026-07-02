@@ -20,6 +20,7 @@ import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs } from "./facts";
 import { extractHeuristics, backfillDiff } from "./extract";
+import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { pushSnapshot, registerCharacter, uid } from "./state";
@@ -468,6 +469,20 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // history + time
   const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
   state.world.current_time = advance(state.world.current_time, minutes);
+
+  // ── PHYSIOLOGY: the clock feeds the body. Player + present cast accrue hunger/thirst/sleep
+  // pressure from elapsed time (offscreen people are assumed to feed themselves); then the
+  // relaxation CEILING clamps every present psyche — a body running on no sleep or no water
+  // cannot be at ease, no matter how sweet the scene.
+  const sleptIds = new Set((diff.facts ?? []).filter((f) => f.field === "slept").map((f) => resolveId(state, f.char_id)).filter(Boolean) as string[]);
+  for (const pid of ["char_player", ...state.world.present]) {
+    const cond = state.condition[pid]; if (!cond) continue;
+    accruePhysiology(cond, state.characters[pid], minutes, state.world.weather, sleptIds.has(pid));
+    if (applyRelaxationCeiling(cond) && pid === "char_player") {
+      const why = physioLabel(cond);
+      if (why) shifts.push(`Your body sets the terms now — ${why}.`);
+    }
+  }
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     summary: diff.scene_summary || prose.slice(0, 120),
@@ -876,12 +891,31 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
 
+  const sleptThisTurn = new Set<string>();
   for (const f of diff.facts ?? []) {
     const id = resolveId(state, f.char_id); if (!id) continue;
     const c = state.condition[id]; if (!c) continue;
     switch (f.field) {
       case "fatigue": if (["fresh","tired","exhausted"].includes(f.value)) c.fatigue = f.value as any; break;
-      case "hunger": if (["fed","peckish","hungry","starving"].includes(f.value)) c.hunger = f.value as any; break;
+      case "hunger": {
+        if (["fed","peckish","hungry","starving"].includes(f.value)) {
+          c.hunger = f.value as any;
+          c.hunger_meter = { fed: 1, peckish: 5, hungry: 7, starving: 9.5 }[f.value as "fed"|"peckish"|"hungry"|"starving"];
+        } else applyMeal(c, /feast|banquet/i.test(f.value) ? "feast" : /snack|bite|morsel/i.test(f.value) ? "snack" : "meal");
+        break;
+      }
+      case "thirst": {
+        if (/quench|drank|drink|hydrat|water|sated/i.test(f.value)) applyDrink(c);
+        else if (/parch|dehydrat|dry/i.test(f.value)) c.thirst_meter = 8.5;
+        else { const n = parseFloat(f.value); if (!isNaN(n)) c.thirst_meter = clamp(n, 0, 10); }
+        break;
+      }
+      case "slept": {
+        const hrs = parseFloat(f.value);
+        applySleep(c, isNaN(hrs) ? 7 : clamp(hrs, 1, 14));
+        sleptThisTurn.add(id);
+        break;
+      }
       case "condition_add": addCondition(c, f.value, turn); break;
       case "condition_remove": {
         const q = f.value.toLowerCase();
