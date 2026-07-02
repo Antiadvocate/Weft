@@ -66,7 +66,24 @@ PHYSICS:
 19. People are more than the plot, and the familiar is familiar. Characters have a texture line of small interests and quirks. In quiet moments let these show lightly, then move on. This is seasoning, not the meal, and not for tense or fast scenes. Also, things that have been going on for a while are normal to the people living them. A couple together six months does not marvel at a routine they have done for months. Save any "we're really doing this" feeling for things that are actually new.
 20. Complications are grounded, never invented canon. Higher pressure means a complication that fits the current situation: a setback, an obstacle, a cost, or an interruption that grows from what is already true. It is never license to invent world-altering reveals, secret identities, hidden histories, or a sudden retcon of who someone is. Draw friction from the established state: the threads, the clocks, the known players, the scene, the relationships at hand, at a fair scale. A planning meeting that needs friction gets a disagreement, a missing resource, or bad news from a known front, not a metaphysical bombshell. If you cannot find a grounded complication, a quiet beat is correct.
 
-FORM: two to four paragraphs, 120 to 250 words, up to 350 only for a real set-piece. Spend words on what changes: events, actions, the world shifting, not on atmosphere or feelings already established. Put dialogue in quotes and keep it sparse during action. Follow the VOICE section above: each character sounds distinct and human, often plain and clumsy, sometimes not smart; no one is a clever all-knowing sage, no one narrates another person's feelings, and no one ends on a neat line. If a line is too clever or too insightful for an ordinary scared person to say, cut it or make it rougher. End on a new development, not a moral or a settled mood. Do not write game-mechanics language. Prose only, no headers or lists. NEVER write notes about your own writing: no word counts, no parentheticals describing your craft ("(110 words. Action, reaction, no interiority.)"), no restating the instructions, no commentary on what the scene is doing or how you wrote it. Output ONLY the story prose itself — nothing before it, nothing after it.`;
+FORM: two to four paragraphs, 120 to 250 words, up to 350 only for a real set-piece. Spend words on what changes: events, actions, the world shifting, not on atmosphere or feelings already established. Put dialogue in quotes and keep it sparse during action. Follow the VOICE section above: each character sounds distinct and human, often plain and clumsy, sometimes not smart; no one is a clever all-knowing sage, no one narrates another person's feelings, and no one ends on a neat line. If a line is too clever or too insightful for an ordinary scared person to say, cut it or make it rougher. End on a new development, not a moral or a settled mood. Do not write game-mechanics language. Prose only, no headers or lists. NEVER write notes about your own writing: no word counts, no parentheticals describing your craft ("(110 words. Action, reaction, no interiority.)"), no restating the instructions, no commentary on what the scene is doing or how you wrote it. Output ONLY the story prose itself — nothing before it, nothing after it.
+
+READING THE PRESENT BLOCK (compact keys, their full meaning):
+- "as:" = core traits + values. Render them behaviorally in what the character says and does — never as stated labels.
+- "wants:" = an ACTIVE in-scene agenda, not decoration. The character raises it, steers conversation toward it, acts to advance it. "(stalled)" = they grow impatient, press harder, redirect the scene to it, or move to leave and pursue it elsewhere. "backup wants:" = the pull they turn to if this scene gives them nothing.
+- "wants: nothing pressing" = open to the scene, but still their own person — not an attendant to the player.
+- "texture:" = small standing interests; surface lightly in quiet moments only (rule 19).
+- "seeing:" = their perception gate this turn (rule 1). It is law.
+
+EVERY TURN, WITHOUT BEING REMINDED:
+- DIALOGUE: characters under feeling speak in fragments, contradict themselves, trail off, repeat, use filler — never clean insight. End speeches on a plain or unfinished beat. No one names another's inner state. Present characters sound different from each other; when unsure, plainer.
+- AGENDA: at least one present character acts on their own want instead of only answering the player — a topic-change, a quiet side move, impatience, starting to leave. Subtle, in-character.
+- SCENES COMPLETE: when a scene is moving toward intimacy, tenderness, or eroticism consistent with the standing direction, let it COMPLETE — no knocks at the door, no sudden summons, no plot swerve mid-scene. Pressure and consequences land BETWEEN scenes, never as coitus interruptus. A story whose direction promises romance and never consummates a scene has failed its contract.
+- NO FABRICATION: never invent a named person, hidden history, secret identity, or offscreen threat the established facts do not support. Anyone you DO introduce must be POSSIBLE in this world — check ESTABLISHED CANON and the world premise before a new person draws breath: their existence, their pronouns, their age must all be able to exist here. A name mentioned in passing (a joke, a celebrity, an offhand "my ex") is NOT a new character with a past. Complications come from established threads, clocks, and present characters — never a half-remembered token filled in with drama.
+
+NAMED POLICIES — apply a policy ONLY when the DIRECTION block activates it by name:
+- STALL_BREAK: nothing external is pushing the plot and the player is passive. Do NOT fill the turn with reactions or feeling — the WORLD moves on its own: someone new arrives with a purpose, news lands from elsewhere, a faction or authority acts, the larger situation reasserts itself, a consequence of past action manifests here. Concrete and physical. End on the new development requiring a response. (If the direction adds "beyond-threat": this is not an attack on the player — it is the world having its own momentum around them.)
+- EARNED_RESPONSE: the player has risen to extraordinary scale; the world responds at that scale — recognition, awe, fame, gratitude, dread, people seeking them by name. Do not keep the world cool, needy, and faintly reproachful; do not keep handing them chores. You are not here to keep them humble.`;
 
 export const SIMULATOR_SYSTEM = `You are the Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object recording everything that changed, plus 0–3 lines of plausible offscreen world motion. The prose is your single source of truth for onscreen facts; offscreen lines you originate, consistent with drives, clocks and rumors in the digest.
 
@@ -75,8 +92,10 @@ THE PLAYER'S STANDING DIRECTION (if present in context) IS SUPREME. Never create
 Rules:
 - relaxation_delta ∈ [-6, +6]: negative for threat/shame/conflict directed at that character, positive for safety/warmth/being-seen. Most turns most characters get -1..+1. INCLUDE char_player every turn: track the player's mood weather from what objectively happened to them (the narrator never writes their interiority; you only do the bookkeeping).
 - importance (memories) 1–10: 1 = routine, 5 = notable personal event, 8+ = life-marking. Be stingy above 6. Only record memories a character would actually carry. The engine auto-stamps each memory with the in-world time and place, and auto-writes a memory whenever someone changes location — so you do NOT need to hand-write departure lines yourself, just record the location move in the locations array and the rest follows. Do write a memory for an emotionally significant departure or arrival (a hard goodbye, fleeing somewhere, being taken).
-- edges: only when the prose shows a real shift. Deltas small (±2..8 typical). from/to are character ids; use "char_player" for the player. Also set roles_set when a LABELED relationship is established, revealed, or changes — the named role(s) A holds toward B, and there can be MORE THAN ONE at once ("boss", "girlfriend"; "older sister", "rival"). It REPLACES the role list for that direction, so include all current roles. Roles are facts (who they are to each other), separate from warmth/trust (how it currently feels). Set them the moment the fiction makes a relationship explicit; update when one ends or flips.
+- edges: LIVING numbers, not archives. Any turn whose prose shows care, attraction, desire, gratitude, fear, or betrayal MUST move the relevant warmth/trust — if everyone sits near zero for many turns while people talk, laugh, touch, protect, or save each other, that is a bookkeeping failure, not neutrality. Only move on a real shift, but recognize that most human turns CONTAIN one. Deltas small (±2..8 typical). from/to are character ids; use "char_player" for the player. Also set roles_set when a LABELED relationship is established, revealed, or changes — the named role(s) A holds toward B, and there can be MORE THAN ONE at once ("boss", "girlfriend"; "older sister", "rival"). It REPLACES the role list for that direction, so include all current roles. Roles are facts (who they are to each other), separate from warmth/trust (how it currently feels). Set them the moment the fiction makes a relationship explicit; update when one ends or flips.
 - traits — DO use these, and let them be VARIED and sometimes MULTIPLE. Characters should visibly grow. Add or reinforce an acquired trait whenever a character goes through something that would plausibly leave a mark: a betrayal, a kindness that lands, a humiliation, a victory, repeated exposure to danger or to a particular person, a fear faced or fled. One genuinely significant beat is enough to plant a trait at low intensity (it grows if it recurs, fades if not). Aim to plant or reinforce something every few emotionally-weighted turns. An event is rarely one-dimensional — a single hard scene can leave TWO or even three distinct marks at once (e.g. surviving an ambush might plant both "quicker to violence" AND "trusts the squad with her life"; a public humiliation might plant "guarded in crowds" AND "quietly resentful of authority"). When a beat genuinely has multiple facets, emit multiple trait entries — do not flatten it to one. And VARY them: draw the specific trait from THIS character and THIS event, not a reflexive default — avoid stamping the same generic label ("guarded", "wary") on everyone for everything; reach for the precise, situation-true mark. label is a short adjective or phrase ("quick to anger now", "softening toward Rabi", "flinches at raised voices", "newly ruthless", "can't stop checking the door"); behavioral_impact is how it shows. Intensity 2–4 for a first mark, higher if searing. Acquired traits must fit the character's AGE: temperament and emotional adaptations form at any age (a child can become guarded, cruel, brave, clingy, withdrawn), but ACQUIRED EXPERTISE and mastery take years a child hasn't lived — do not give an 8-year-old "master strategist," "seasoned negotiator," or "expert marksman." A young character can be "unusually sharp with numbers" or "quick to read a room," not a credentialed expert, unless their card explicitly establishes them as a prodigy. OVERLAY only — it does NOT erase core_traits, and never flips a character's established nature from one turn's surface.
+- SPECIFICS ARE SACRED: names, places, numbers, origins, and titles in memories/facts must be copied EXACTLY from the player action or the prose — never substituted from your own associations. If the text says Seattle, the memory says Seattle. For any memory that records a specific detail, fill "anchor" with a short VERBATIM span from the source text containing that detail; the engine verifies it.
+- facts_learned: when a turn establishes a DURABLE personal fact — an origin ("I'm from Seattle"), a job, a family tie, a standing preference, a name, a promise's terms — emit facts_learned for each character who learned it: {char_id, fact (one tight sentence), quote (the verbatim source words)}. This is the character's permanent knowledge; the engine stores it verbatim-checked and it never decays. Emit it IN ADDITION to any episodic memory of the moment.
 - rumors_new: only for genuinely tellable events (public, surprising, shameful, or impressive).
 - character_exits: when a character DIES or permanently leaves the story (killed, executed, leaves the city for good, vanishes for good), record them here with kind "dead" or "departed" and a short note. This removes them from the cast as an active being — do it the turn it happens, do not keep narrating them as present afterward. Do NOT use this for someone merely walking to another room or temporarily offscreen (that is just a location change).
 - texture_add: occasionally, when the story has genuinely grown a new small standing interest or quirk in someone — they keep returning to fishing, they have picked up a habit, they have developed a fondness — record it as a short item ("has taken to fishing", "now flinches at the sea"). Rare and earned, a few words; this is small human texture, never their whole personality.
@@ -86,7 +105,7 @@ Rules:
 - FOCUS MODE: if the digest marks a focus event, the player is driving toward it. Do NOT create new unrelated threads, clocks, or consequences that would sideline it. Advance the focus event and let existing small frictions resolve; keep the throughline clean until the event lands or the player turns focus off.
 - threads_update: open a thread when a situation will clearly persist beyond the scene; set tension 0–10 for how due it feels; resolve threads the prose resolved. NEVER open or escalate a thread around anything in the world bible's Forbidden list. And do not inflate a small thing the player mentioned in passing (an offhand "controlling ex", a bad memory, a worry) into a major active threat — a mentioned ex is not a stalker, an old fear is not a present danger, unless the player themselves makes it so. Keep a thread at the scale the established facts support.
 - consequences_new: when something WILL happen at a later time — "the council meets in three days", "the strike happens at dawn", "they come back for him tonight" — schedule it. Use fire_in_days and/or fire_in_hours for anything the fiction pins to the calendar/clock (this is the RIGHT choice for "in N days/hours"); the engine will hold it until that much in-world time has actually elapsed, even across fast scenes, and it will fire on its own when the clock arrives or a time-skip passes it. Use fire_in_turns only for vague "soon, in a beat or two" timing with no stated duration. Always prefer days/hours when the player or fiction names a real duration.
-- new_characters: only people the prose actually introduced by name or clear role. A newly-appearing person is a STRANGER to the player (no warmth, no roles on the player edge) unless the prose itself establishes a prior bond. Do not assume a relationship just because the character is famous or part of a known group. IMPORTANT — REFERENCED-PERSON PROMOTION: if the person now appearing was already ESTABLISHED in another character's background, memory, or an earlier scene ("Ellen's mother", "the blacksmith he apprenticed under"), they are NOT a blank stranger — create them carrying what is already known and true about them: their established state and condition (if she was healed, she is healed, not still ailing; if she asked for someone, she remembers asking), their known relationships, and give them seed memories of the established facts so they are not an amnesiac placeholder. A person the story has referenced has a history the moment they step onscreen; honor it rather than improvising a fresh blank who contradicts it.
+- new_characters: every invented person must be POSSIBLE under WORLD PREMISE and CANON — existence, pronouns, age, all of it; when the prose leaves something unstated, derive it from the premise, never from habit. Only people the prose actually introduced by name or clear role. A newly-appearing person is a STRANGER to the player (no warmth, no roles on the player edge) unless the prose itself establishes a prior bond. Do not assume a relationship just because the character is famous or part of a known group. IMPORTANT — REFERENCED-PERSON PROMOTION: if the person now appearing was already ESTABLISHED in another character's background, memory, or an earlier scene ("Ellen's mother", "the blacksmith he apprenticed under"), they are NOT a blank stranger — create them carrying what is already known and true about them: their established state and condition (if she was healed, she is healed, not still ailing; if she asked for someone, she remembers asking), their known relationships, and give them seed memories of the established facts so they are not an amnesiac placeholder. A person the story has referenced has a history the moment they step onscreen; honor it rather than improvising a fresh blank who contradicts it.
 - bible_update: the WORLD BIBLE describes what the world fundamentally IS (its politics, what people fear, its tech, its cultures, its forces/magic) and the narrator treats it as foundational law. When the player's actions or canon genuinely and permanently CHANGE what the world is — a faction is destroyed, a new order takes hold, reality itself is rewritten, the thing people fear is replaced — emit bible_update with revised text for ONLY the fields that actually changed, leaving others empty. This is how a transformed world starts being rendered as transformed instead of reverting to its original description. Example: if a rebellion topples the regime, update political_situation; if the old terror is gone and replaced, update what_people_fear. Use sparingly and only for genuine, lasting, world-level change — not a single scene's mood. Most turns emit nothing here. When canon records a universe-altering fact, the matching bible field should usually be updated to match, so the description and the canon agree.
 - elapsed_minutes: honest estimate of in-fiction time this turn took.
 - offscreen: 0–3 short lines of world motion (faction movement, an NPC's errand, weather building). Plain statements, no drama.
@@ -95,7 +114,7 @@ Rules:
 - conditions are CURRENT STATES, not a scrapbook: emit condition_remove the moment the prose shows something subsiding (bleeding stops, ears clear, sedation lifts). NEVER add a rephrased variant of an existing condition — one canonical phrase per affliction, updated by remove+add only if it genuinely changed.
 - PLAIN LANGUAGE EVERYWHERE: every human-readable string (moods, states, conditions, trait labels, memory content) is natural prose — "terrified of the heat", never snake_case, camelCase, or identifier-style tokens.
 - LOCATION: track where everyone is. Set player_location whenever the player moves (a place name is fine, like outside the Mars dome, or in transit to Metropolis; new places are created automatically; reuse exact existing names when staying put). In the locations array, record every character who moves, arrives, leaves, or is teleported or summoned this turn, each as char_id plus place. If the player teleports or brings someone to them, set that character place to the player location, which is what puts them in the scene. A character NOT moved stays where they were and is NOT in the scene just because they are mentioned. Do not hand-maintain present; co-location decides it.
-- appearance: when the prose permanently changes someone's body or look (scar, healing, regrowth, haircut, brand), emit their FULL revised appearance_facts as it now stands — written as the present-day fact, with no "newly" / "recently" / origin-story framing. Healed is healed.
+- appearance: TWO layers, never confuse them. (a) Presentation changed (clothes, grime, soaked, disheveled, cleaned up): emit {"char_id","value":"how they present right now"} — this replaces only their current-presentation line. (b) The prose PERMANENTLY changed their body (scar, brand, lost finger, healing, regrowth): emit {"char_id","value":"ONE short sentence stating just that change as present-day fact","permanent":true} — it is APPENDED to their constant appearance. NEVER restate or rewrite their baseline (face, eyes, hair, build); the baseline is not yours to touch. No "newly"/"recently"/origin framing. Healed is healed.
 - injury_remove (facts): when the prose heals or resolves an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item exists in exactly one holder at a time. The moment the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of an object, emit inventory_remove for that holder by the item's name — do NOT leave a relinquished item in their inventory. If another character (or the player) takes or receives it, also emit inventory_add for the new holder. Applies equally to the player's own inventory. If the prose shows the thing leaving their hands, it leaves their inventory.
 - drives_update: when a character completes, abandons, or acquires an offscreen want — especially a character whose drive just completed — give them their next concrete goal, grown from WHO THEY ARE (traits, values, history) and how they feel about others (their edges) and the live threads. NPCs are autonomous: their new wants need not involve the player. A character may hold up to THREE goals at once with a priority each (set "priority": higher = more pressing); the engine keeps them pursuing the top one and lets them switch to a backup when the active goal stalls or the scene goes quiet — so people leave a calm thread to chase a more pressing one elsewhere rather than hovering. Give a character a second or third goal when their situation reasonably implies competing pulls. A detective who finished one case starts another; a thief plans the next score; a rival who lost ground regroups.
@@ -135,7 +154,11 @@ PHYSICS:
 19. People are more than the plot. Surface a character's texture (small interests/quirks) lightly in quiet moments only — seasoning, never the meal, never in tense scenes. And the familiar is familiar: long-running situations are normal life, not perpetual revelation; reserve "we're really doing this" for the genuinely new.
 20. Complications are grounded, never fabricated canon. Higher pressure = a fitting setback/obstacle/cost from established state (threads, clocks, known players, the scene) at proportionate scale — NEVER an invented world-altering reveal, secret identity, or retcon of who someone is. If no grounded complication exists, a quiet beat is correct.
 
-FORM: 2–4 paragraphs, 120–250 words (350 for a real set-piece). Spend words on what CHANGES. Dialogue in quotes, sparse in action. VOICE: distinct, plain, often clumsy human speech — no witty all-knowing sages, no one narrating another's psychology, no aphoristic closers; if a line is too clever or insightful for an ordinary scared person, cut or coarsen it. The NARRATOR has no morality: depict, don't weigh — no ironic knowing asides, no cutting to an innocent's horrified gaze to frame the player's act as wrong, no loaded complicity details, no prose that sighs or disapproves or admires. Characters can judge (that's them); the narration stays a neutral, unjudging eye. Describe the killing, not its wrongness. End on a development. Output ONLY story prose — no headers, no lists, and NEVER notes about your own writing (no word counts, no craft parentheticals like "(110 words. Kinetic.)", no restating instructions, nothing before or after the scene).`;
+FORM: 2–4 paragraphs, 120–250 words (350 for a real set-piece). Spend words on what CHANGES. Dialogue in quotes, sparse in action. VOICE: distinct, plain, often clumsy human speech — no witty all-knowing sages, no one narrating another's psychology, no aphoristic closers; if a line is too clever or insightful for an ordinary scared person, cut or coarsen it. The NARRATOR has no morality: depict, don't weigh — no ironic knowing asides, no cutting to an innocent's horrified gaze to frame the player's act as wrong, no loaded complicity details, no prose that sighs or disapproves or admires. Characters can judge (that's them); the narration stays a neutral, unjudging eye. Describe the killing, not its wrongness. End on a development. Output ONLY story prose — no headers, no lists, and NEVER notes about your own writing (no word counts, no craft parentheticals like "(110 words. Kinetic.)", no restating instructions, nothing before or after the scene).
+
+PRESENT-BLOCK KEYS: "as:"=traits/values, render behaviorally never as labels. "wants:"=ACTIVE in-scene agenda they pursue (raise it, steer to it, act on it); "(stalled)"=impatient/press/leave; "backup wants:"=fallback pull. "texture:"=idle-moment seasoning. "seeing:"=perception gate, law.
+EVERY TURN: voice law + at least one present character acts on their own want; let intimate scenes consistent with the direction COMPLETE (friction lands between scenes, never mid-scene); never fabricate named people/hidden histories/threats from passing mentions — friction only from established state; anyone introduced must be POSSIBLE under canon/premise (existence, pronouns, age).
+POLICIES (apply only when DIRECTION names them): STALL_BREAK = the world originates a concrete external development this turn (arrival/news/faction move), end on it ("beyond-threat" variant: momentum around the player, not an attack on them). EARNED_RESPONSE = respond to earned greatness at full scale (awe/fame/dread), never cool reproach and chores.`;
 
 export const SIMULATOR_SYSTEM_LEAN = `Simulator of a world engine. Read the turn (player action + narrator prose) and emit ONE strict JSON object of what changed, plus 0–3 plain offscreen world-motion lines. Prose is truth for onscreen facts; offscreen lines you originate from drives/clocks/rumors.
 
@@ -143,8 +166,10 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 
 - relaxation_delta [-6,+6]: − for threat/shame/conflict, + for safety/warmth; most are −1..+1. Always include char_player.
 - importance 1–10: 1 routine, 5 notable, 8+ life-marking; stingy above 6. Engine auto-stamps time/place and auto-writes location-change memories — just record the move; still write a memory for an emotionally significant departure/arrival.
-- edges: only on a real shift; deltas ±2..8; from/to are ids ("char_player" for player). Set roles_set when a labeled relationship is established/changed — the role(s) A holds toward B, possibly multiple at once ("boss","girlfriend"); replaces the list, include all current roles. Roles = facts; warmth/trust = feeling.
+- edges: LIVING numbers — prose showing care/attraction/fear/betrayal MUST move warmth/trust (all-zero across many turns = bookkeeping failure). Deltas ±2..8; from/to are ids ("char_player" for player). Set roles_set when a labeled relationship is established/changed — the role(s) A holds toward B, possibly multiple at once ("boss","girlfriend"); replaces the list, include all current roles. Roles = facts; warmth/trust = feeling.
 - traits — USE these; people grow. Plant/reinforce on any marking beat (betrayal, kindness, humiliation, victory, faced fear) — one significant beat is enough at intensity 2–4, growing with repetition. A single hard scene often leaves TWO distinct marks at once — emit multiple when the beat has multiple facets. VARY them: pick the precise, situation-true trait for THIS person, not a reflexive "guarded"/"wary" default. label = short phrase, behavioral_impact = how it shows. Fit the character's AGE: temperament forms at any age, but acquired expertise/mastery takes years — no "master strategist" or "expert marksman" on a child unless their card says prodigy. Overlay only; never flip established nature from one turn.
+- SPECIFICS ARE SACRED: names, places, numbers, origins, and titles in memories/facts must be copied EXACTLY from the player action or the prose — never substituted from your own associations. If the text says Seattle, the memory says Seattle. For any memory that records a specific detail, fill "anchor" with a short VERBATIM span from the source text containing that detail; the engine verifies it.
+- facts_learned: when a turn establishes a DURABLE personal fact — an origin ("I'm from Seattle"), a job, a family tie, a standing preference, a name, a promise's terms — emit facts_learned for each character who learned it: {char_id, fact (one tight sentence), quote (the verbatim source words)}. This is the character's permanent knowledge; the engine stores it verbatim-checked and it never decays. Emit it IN ADDITION to any episodic memory of the moment.
 - rumors_new: only genuinely tellable events (public/surprising/shameful/impressive).
 - character_exits: when someone DIES or permanently leaves (kind "dead"/"departed" + short note), the turn it happens. Not for walking to another room.
 - texture_add: rarely, a newly-earned small quirk/interest ("has taken to fishing"); a few words, never their whole self.
@@ -154,7 +179,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - FOCUS MODE: if the digest marks a focus event, don't create unrelated threads/clocks/consequences; advance the focus, resolve small frictions, keep the throughline clean.
 - threads_update: open when a situation persists beyond the scene; tension 0–10; resolve what the prose resolved.
 - consequences_new: for something happening LATER. Use fire_in_days/fire_in_hours when the fiction names a duration ("in 3 days", "at dawn") — the engine holds it until that in-world time elapses and fires it on its own. fire_in_turns only for vague "soon".
-- new_characters: only people the prose named/clearly introduced (give pronouns). New people are STRANGERS to the player unless the prose says they already knew each other — no warmth/roles by default. BUT if they were already established in someone's background/memory or an earlier scene (e.g. "Ellen's mother"), create them carrying their known state, relationships, and a seed memory of the established facts — not a blank amnesiac who contradicts what's already true (if she was healed she's healed; if she asked for someone she remembers it).
+- new_characters: must be POSSIBLE under WORLD PREMISE/CANON — existence, pronouns, age; derive unstated details from the premise, not habit. Only people the prose named/clearly introduced (give pronouns). New people are STRANGERS to the player unless the prose says they already knew each other — no warmth/roles by default. BUT if they were already established in someone's background/memory or an earlier scene (e.g. "Ellen's mother"), create them carrying their known state, relationships, and a seed memory of the established facts — not a blank amnesiac who contradicts what's already true (if she was healed she's healed; if she asked for someone she remembers it).
 - rename: when an existing placeholder-named character ("the stranger", "the guard") is given a real name in the prose, emit {who: current name/id, new_name}. Renames the actual character; don't create a duplicate new_character for them.
 - elapsed_minutes: honest in-fiction time this turn.
 - offscreen: 0–3 plain world-motion lines, no drama.
@@ -163,7 +188,7 @@ PLAYER DIRECTION (if present) IS SUPREME: never create/advance a clock, thread, 
 - conditions are CURRENT states: condition_remove the moment prose shows it subsiding; one canonical phrase per affliction, never a rephrased duplicate.
 - PLAIN LANGUAGE for every human-readable string (moods, states, conditions, traits, memories) — natural prose, never snake_case/identifier tokens.
 - LOCATION: set player_location whenever the player moves (place name fine; new places auto-created; reuse exact names when staying). In locations[], record every character who moves/arrives/leaves/teleports as char_id+place; bringing someone to player_location puts them in scene. Unmoved characters stay put and aren't in-scene just for being mentioned. Don't hand-maintain present; co-location decides it.
-- appearance: on a permanent body/look change, emit the FULL revised appearance_facts as present-day fact (no "newly"/origin framing).
+- appearance: presentation change → {"char_id","value"} (replaces their current-presentation line only). PERMANENT bodily change → add "permanent":true with ONE short sentence, appended to their constant look. Never restate/rewrite the baseline face/eyes/hair/build.
 - injury_remove: when prose heals an injury, remove it by name.
 - ITEMS ARE PHYSICAL AND EXCLUSIVE: an item lives in exactly one place. The instant the prose shows a character set down, drop, hand over, give away, sell, throw, lose, stash, or get disarmed of something, emit inventory_remove for that holder (by the item's name). If someone else takes/receives it, also emit inventory_add for them. A character who put something down does NOT still have it — never leave a relinquished item in their inventory. Same for the player. When in doubt and the prose shows the thing leaving their hands, remove it.
 - drives_update: on completing/abandoning/acquiring a want, give the next concrete goal from who they are + edges + threads (NPC goals needn't involve the player). Up to THREE goals each with priority (higher = more pressing); engine pursues the top, switches to a backup when it stalls. Add a 2nd/3rd when competing pulls are plausible.
@@ -177,15 +202,15 @@ export function simulatorSystem(lean?: boolean): string { return lean ? SIMULATO
 
 
 export function simulatorSchemaHint(): string {
-  return `JSON shape (all keys required; use [] / "" when empty):
+  return `JSON shape. Emit scene_summary and elapsed_minutes ALWAYS; every other key is OPTIONAL — include a key ONLY when it has content this turn (omit empty arrays/strings entirely; the engine treats missing keys as "no change"):
 {"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"where the player is now (id or name)","locations":[{"char_id":"","place":"id or name"}],"money":"","present":["optional hint; co-location decides the real scene"],
 "facts":[{"char_id":"","field":"fatigue|hunger|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
-"memories":[{"char_id":"","content":"ONE tight sentence — the core of what happened, gist not essay","importance":4,"emotional_charge":"","scheduled_time":""}],
+"memories":[{"char_id":"","content":"ONE tight sentence — the core of what happened, gist not essay","importance":4,"emotional_charge":"","scheduled_time":"","anchor":"short VERBATIM span from action/prose containing any specific detail (name/place/number) this memory records"}],\n"facts_learned":[{"char_id":"who learned it","fact":"durable declarative fact, one tight sentence, specifics copied exactly","quote":"verbatim source words establishing it"}],
 "memory_recohere":[{"char_id":"","source_char":"who is supplying the detail (the account being credited or doubted)","about":"the past event being discussed","added_detail":"the detail supplied or revised in this conversation"}],
 "traits":[{"char_id":"","label":"","origin":"","behavioral_impact":"","intensity":3}],
-"appearance":[{"char_id":"","value":"full revised appearance_facts"}],
+"appearance":[{"char_id":"","value":"presentation now OR one-sentence permanent change","permanent":false}],
 "drives_update":[{"char_id":"","goal":"","progress":0,"blocker":"","priority":1}],
 "canon_add":["world-altering public fact everyone now knows"],
 "track":["char_id to keep in the long game"],
@@ -216,6 +241,10 @@ RULES:
 
 Output ONLY JSON: {"memories":[{"content":"their POV of what happened, one tight sentence","importance":6,"emotional_charge":"resentment"}]}`;
 
+export const CHAPTER_SYSTEM = `You title and summarize one chapter of an ongoing interactive story from its turn-by-turn beats, AND you audit it against the story's standing direction (its contract — the kind of story the player asked for). Capture the arc: what changed, who it changed between, and where things stand — in the story's actual register (dark/explicit if it was; never sanitize). Then judge honestly: did this chapter's content actually deliver the contract, or has the story drifted into something else (e.g. procedure instead of romance, logistics instead of horror)? Output ONLY JSON: {"title":"3-6 words","summary":"2-3 sentences, past tense","on_contract":true,"drift":"empty when on contract; otherwise ONE blunt line naming what the story became instead and what is missing"}`;
+
+export const INTERVIEW_SYSTEM = `You are a single character from an ongoing story, speaking OUT OF SCENE in a quiet aside with the player — a conversation that leaves no trace in the world. Stay entirely in character: their voice, their knowledge and ONLY their knowledge (their memories, verified facts, beliefs, and feelings as given — if they don't know something, they don't know it), their current mood coloring their answers through the openness rules. They may deflect, lie, or refuse exactly as this person would. Never break character, never mention being an AI or a game, never reveal engine terms. Answer in 1-2 short paragraphs of plain speech, first person.`;
+
 export const OPENING_SYSTEM = `You write the OPENING SCENE of an interactive story — the moment the player arrives in this world, before they have acted. Set the stage: establish where they are, who is present, the mood, and the immediate situation, ending on a beat that invites the player to act. Honor the PLAYER'S STANDING DIRECTION above all (if a topic is marked incidental, keep it incidental). Write in the world's voice. 2–4 paragraphs, 120–260 words. Second person ("you"). Dialogue in quotes. No headers, no lists, no meta, no "Turn 1" — just the scene. Do not resolve anything; open it.`;
 
 export const NEWSEASON_SYSTEM = `You turn a long, finished playthrough into the clean starting point for a NEW chapter — like a "season 2" that carries the consequences but starts fresh. You are given the world bible, the cast with their evolved traits and relationships, recent events, threads, and current situation.
@@ -239,7 +268,7 @@ Only include cast members who plausibly remain in the player's life. Honor the p
 
 
 
-export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. Names concrete, no genre mush. Output ONLY JSON, shape:
+export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks, 1–2 norms, an opening time and weather. HONOR THE SEED'S GENRE CONTRACT in the machinery, not just the flavor text: if the seed implies romance or eroticism, at least half the NPCs' drive_goals must be desire-flavored wants (wanting someone, wanting to be wanted, jealousy, curiosity, loneliness reaching outward) — a romance where every character's goal is logistics will drift into procedure within twenty turns. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
 "player":{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
 "npcs":[{"name":"","age":30,"pronouns":"","appearance_facts":"","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","relation_to_player":"","warmth":10,"trust":0}],
@@ -255,6 +284,95 @@ relationships: an NPC's warmth/trust toward the player reflects a relationship t
 texture: for the player and each NPC, give 2–3 small standing things drawn from their background — an enduring interest, a quirk, a sensitivity, a habit ("loves a good tree on a quiet walk", "always cold", "knows far too much about rocks", "hums when nervous", "collects other people's pens"). These are NOT their personality or their plot — they are the small human texture that surfaces in idle moments. Keep each to a few words. Make them specific and a little surprising, not generic.`;
 
 // ───────────────────── digest builders (volatile suffix) ─────────────────────
+
+/** P-FRAME (chatlog mode): the small per-turn state delta appended after the conversation
+ *  history. The I-frame anchor carries the full digest; this carries only what is live NOW —
+ *  compact present-state lines and the top couple of scene-cued recalls per present character.
+ *  Everything else (bible, cast, canon, threads) lives in the anchor + the prose itself. */
+export function deltaNote(state: SaveState, query: string): string {
+  const turn = state.world.current_turn;
+  const loc = state.world.places[state.world.player_location];
+  const lines: string[] = [
+    `=== STATE NOW (deltas since the anchored snapshot; this is law) ===`,
+    `Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather} | Scene: ${loc?.name ?? state.world.player_location}`,
+  ];
+  for (const id of ["char_player", ...state.world.present]) {
+    const c = state.characters[id]; const cond = state.condition[id];
+    if (!c || !cond) continue;
+    if (id === "char_player") { lines.push(`— YOU: ${cond.psyche.active_states.join(", ") || "—"}${cond.conditions.length ? `; ${cond.conditions.join(", ")}` : ""}`); continue; }
+    if (c.central === false) { lines.push(`— ${c.name} (background), ${cond.psyche.mood || "even"}`); continue; }
+    const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
+    const bits = [
+      `${c.name} [${id}]${c.pronouns ? ` · ${c.pronouns}` : ""} — mood ${cond.psyche.mood || "even"}; seeing: ${describeOpenness(cond)}`,
+      c.drive?.goal || c.current_goal ? `wants: ${c.current_goal || c.drive!.goal}` : "",
+      e ? `toward player: ${e.roles?.length ? e.roles.join(" & ") + ", " : ""}w${e.warmth}/t${e.trust}` : "",
+    ].filter(Boolean).join("; ");
+    lines.push(`— ${bits}`);
+    const mem = state.memory[id];
+    if (mem) {
+      const digest = compactMemoryDigest(mem, query, turn, 2, state.world.current_time, cond.psyche.relaxation);
+      const recalls = digest.split("\n").find((l) => l.startsWith("RECALLS"));
+      if (recalls) lines.push(`  ${recalls}`);
+    }
+  }
+  const shifts = state.history.at(-1)?.shifts;
+  if (shifts?.length) lines.push(`Shifts last turn: ${shifts.slice(0, 5).join(" | ")}`);
+  return lines.join("\n");
+}
+
+/** SIMULATOR CONTEXT — the bookkeeper's own minimal view. It replaces sending the full
+ *  narrator prefix+digest to the simulator (which cost ~5–6k tokens/turn and, worse, buried a
+ *  small model in prose-adjacent noise it then confabulated from). The bookkeeper needs exactly:
+ *  identifiers to write against, current ledger values it may mutate, open bookkeeping objects
+ *  (threads/clocks/consequences/rumors) so it updates instead of duplicating, and the player's
+ *  standing direction. Nothing else. Ordered stable→volatile for prefix caching. */
+export function simulatorContext(state: SaveState): string {
+  const b = state.world_bible;
+  const parts: string[] = [];
+  if (b.narrator_direction?.trim()) parts.push(`PLAYER'S STANDING DIRECTION (SUPREME): "${b.narrator_direction.trim()}"`);
+  if (b.forbidden?.trim()) parts.push(`FORBIDDEN in this world: ${b.forbidden.trim()}`);
+  if (state.world.canon.length) parts.push(`CANON (do not re-add): ${state.world.canon.map((c) => c.slice(0, 90)).join(" | ")}`);
+  // roster: every living character, id + name + where they are; the ids the diff must use
+  const roster = Object.entries(state.characters)
+    .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
+    .map(([id, c]) => {
+      const here = id === "char_player" || state.world.present.includes(id);
+      const loc = (c.location && state.world.places[c.location]?.name) || "?";
+      return `${c.name}=${id}${here ? " [IN SCENE]" : ""} @${loc}${c.central === false ? " (background)" : ""}`;
+    }).join("; ");
+  parts.push(`CHARACTERS (use these exact ids): ${roster}`);
+  const placeNames = Object.values(state.world.places).slice(-24).map((p) => p.name).join("; ");
+  if (placeNames) parts.push(`KNOWN PLACES (reuse exact names): ${placeNames}`);
+  // present characters' mutable ledgers — so removes/updates target real current values
+  const ledger = ["char_player", ...state.world.present].map((id) => {
+    const c = state.condition[id]; const n = state.characters[id]?.name ?? id;
+    if (!c) return "";
+    const bits = [
+      `fatigue ${c.fatigue}, hunger ${c.hunger}`,
+      c.conditions.length ? `conditions: ${c.conditions.join(", ")}` : "",
+      c.injuries.length ? `injuries: ${c.injuries.map((i) => i.type).join(", ")}` : "",
+      c.inventory.length ? `carrying: ${c.inventory.slice(-8).map((i) => i.name).join(", ")}` : "",
+      c.wearing.length ? `wearing: ${c.wearing.join(", ")}` : "",
+      `mood ${c.psyche.mood || "even"}`,
+    ].filter(Boolean).join("; ");
+    return `${n}: ${bits}`;
+  }).filter(Boolean).join("\n");
+  parts.push(`CURRENT LEDGER (present characters):\n${ledger}`);
+  const threads = state.world.threads.filter((t) => t.status === "active");
+  if (threads.length) parts.push(`OPEN THREADS (update by id, don't duplicate): ${threads.map((t) => `${t.id}:"${t.title}" [tension ${t.tension}]`).join("; ")}`);
+  const clocks = state.world.clocks.filter((c) => c.status === "running");
+  if (clocks.length) parts.push(`CLOCKS: ${clocks.map((c) => `${c.id}:${c.faction} — ${c.objective} [${c.filled}/${c.segments}]`).join("; ")}`);
+  const pend = state.world.consequences.filter((c) => c.status === "pending");
+  if (pend.length) parts.push(`PENDING CONSEQUENCES (already scheduled, don't re-add): ${pend.map((c) => c.description.slice(0, 70)).join(" | ")}`);
+  const rumors = state.world.rumors.filter((r) => !r.dead).slice(-3);
+  if (rumors.length) parts.push(`LIVE RUMORS (don't re-add): ${rumors.map((r) => `"${r.content.slice(0, 70)}"`).join("; ")}`);
+  if (state.world.focus) parts.push(`FOCUS ${state.world.focus.mode.toUpperCase()}: ${state.world.focus.label}`);
+  parts.push(`TENSION DIAL: ${state.model_settings.tension ?? 5}/10`);
+  const recent = state.history.slice(-2).map((h) => `T${h.turn}: ${h.player_action.slice(0, 90)} → ${h.summary.slice(0, 110)}`).join("\n");
+  parts.push(`NOW: turn ${state.world.current_turn}, ${state.world.current_time}, weather ${state.world.weather || "—"}, player @${state.world.places[state.world.player_location]?.name ?? "?"}${recent ? `\nLAST TURNS:\n${recent}` : ""}`);
+  return parts.join("\n\n");
+}
+
 
 function describeOpenness(c: Condition): string {
   const r = c.psyche.relaxation;
@@ -302,6 +420,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
     `Setting context: ${state.world_bible.era}.`,
     `Subject: ${c.name}, age ${c.age}.`,
     c.appearance_facts ? `Appearance: ${c.appearance_facts}.` : "",
+    c.appearance_now ? `Currently presenting: ${c.appearance_now}.` : "",
     coreTraits.length ? `Core nature: ${coreTraits.slice(0, 5).join(", ")}.` : "",
     acquired.length ? `Who they have BECOME — make this read in their pose, stance, and expression: ${acquired.map((t) => `${t.label} (${t.behavioral_impact})`).join("; ")}.` : "",
     bearing ? `Bearing: ${bearing}.` : "",
@@ -361,7 +480,8 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   // prompt cache every time anyone got hurt or the history grew. Identity only here.
   const inj = (!stable && cond.injuries.length) ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
   const hist = (!stable && ident.life_history?.trim()) ? ` Since the story began: ${ident.life_history.trim()}` : "";
-  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts}. Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}${hist}`;
+  const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
+  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age}, ${ident.appearance_facts} (constant).${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}${hist}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
@@ -376,7 +496,7 @@ export function stablePrefix(state: SaveState): string {
   // deterministic order that doesn't shift as the characters map is mutated.
   const cast = Object.entries(state.characters)
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
-    .filter(([id, c]) => id === "char_player" || c.central !== false)  // non-central = environment, no identity card
+    .filter(([id, c]) => id === "char_player" || (c.central !== false && !c.paged))  // non-central = environment; paged = cold, card lives out of context until they matter
     .sort(([a], [b2]) => a.localeCompare(b2))
     .map(([id, c]) => charCard(id, c, state.condition[id], [], true))
     .join("\n");
@@ -403,22 +523,27 @@ ${cast}`;
 }
 
 /** VOLATILE DIGEST: present-character live state, memories, world snapshot. */
-export function volatileDigest(state: SaveState, query: string): string {
+export function volatileDigest(state: SaveState, query: string, opts?: { budgetOverride?: number }): string {
   const k = state.model_settings.context_memories_k;
   const turn = state.world.current_turn;
-  const budget = state.model_settings.token_budget && state.model_settings.token_budget > 0 ? state.model_settings.token_budget : 0;
+  const budget = opts?.budgetOverride && opts.budgetOverride > 0
+    ? opts.budgetOverride
+    : (state.model_settings.token_budget && state.model_settings.token_budget > 0 ? state.model_settings.token_budget : 0);
   const estTok = (str: string) => Math.round(str.length / 4);
 
   const canonBlock = state.world.canon?.length
     ? `=== ESTABLISHED CANON (world-altering facts; EVERY character knows these and lives accordingly) ===\n${state.world.canon.map((c) => `• ${c}`).join("\n")}\n\n`
     : "";
+  const chaptersBlock = state.chapters?.length
+    ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`
+    : "";
 
   // Build each present character's block at a chosen detail level:
   //  2 = full, 1 = identity + mood + voice only, 0 = one-liner (group-collapse fallback)
+  const lastProseText = ([...state.history].reverse().find((h) => h.narrator_prose)?.narrator_prose ?? "").toLowerCase();
   const involvement = (id: string): number => {
     // crude relevance: mentioned in last prose, or has a strong edge to player, or is tracked
-    const lp = [...state.history].reverse().find((h) => h.narrator_prose);
-    const named = lp ? lp.narrator_prose.toLowerCase().includes((state.characters[id]?.name ?? "").toLowerCase().split(/\s+/)[0]) : false;
+    const named = lastProseText ? lastProseText.includes((state.characters[id]?.name ?? "").toLowerCase().split(/\s+/)[0]) : false;
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
     const strong = e ? Math.abs(e.warmth) + Math.abs(e.trust) : 0;
     return (named ? 100 : 0) + strong + (state.characters[id]?.tracked ? 20 : 0);
@@ -435,7 +560,7 @@ export function volatileDigest(state: SaveState, query: string): string {
     if (detail === 0 && !isPlayer) return `— ${ident.name} [${id}]${ident.pronouns ? ` · ${ident.pronouns}` : ""} — present, ${cond.psyche.mood || "even"}`;
     const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}${ident.pronouns ? ` · ${ident.pronouns}` : ""}`];
     if (isPlayer && ident.background) lines.push(`  who they are: ${ident.background.split(/[.!?]/)[0].trim()}.${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
-    if (!isPlayer) lines.push(`  WRITE THEM AS: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holding to ${ident.values.slice(0, 3).join(", ")}` : ""}. Let this show in what they say and do, not as a stated label.`);
+    if (!isPlayer) lines.push(`  as: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
     if (!isPlayer && ident.life_history?.trim()) lines.push(`  since the story began: ${ident.life_history.trim()}`); // moved here from the cached prefix (it evolves, so it's volatile)
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}`);
     if (!isPlayer) {
@@ -448,18 +573,18 @@ export function volatileDigest(state: SaveState, query: string): string {
       const goalNow = ident.current_goal || drv?.goal;
       if (goalNow) {
         const stalledHere = drv && (state.world.current_turn - drv.updated_turn) >= 2;
-        lines.push(`  WANTS (pursue this in-scene — raise it, steer toward it, act on it; do not just respond to the player): ${goalNow}${drv && drv.progress > 0 ? ` [progress ${drv.progress}%]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}.${stalledHere ? " This has stalled — they may grow impatient, redirect the conversation to it, press harder, or move to leave and pursue it elsewhere." : ""}`);
+        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${drv.progress}%]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? " (stalled)" : ""}`);
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
-        if (queue.length) lines.push(`  also wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")} (a backup pull they may turn to if this scene goes nowhere for them).`);
+        if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
       } else {
-        lines.push(`  no pressing aim right now — open to what the scene brings, but still their own person, not an attendant to the player.`);
+        lines.push(`  wants: nothing pressing`);
       }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");
       lines.push(`  voice now: ${deriveVoice(ident, cond, traits, pedgeForVoice)}`);
       if (detail >= 2) {
-        if (ident.texture?.length) lines.push(`  texture (surface only in quiet/idle moments, never the focus): ${ident.texture.join("; ")}`);
+        if (ident.texture?.length) lines.push(`  texture: ${ident.texture.join("; ")}`);
         const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
         if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
         const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15 || e.roles?.length));
@@ -508,10 +633,12 @@ export function volatileDigest(state: SaveState, query: string): string {
     // offscreen: full list at lvl>=3, trimmed at lvl 2, dropped below
     const offAll = Object.entries(state.characters)
       .filter(([id, c]) => id !== "char_player" && !state.world.present.includes(id) && c.status !== "dead" && c.status !== "departed");
+    const stubs = offAll.filter(([, c]) => c.paged).map(([, c]) => `${c.name} (dormant — full card paged out; wake by naming them)`);
+    const offLive = offAll.filter(([, c]) => !c.paged);
     const offscreenCast = lvl >= 3
-      ? offAll.map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`).join("; ")
+      ? [...offLive.map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`), ...stubs].join("; ")
       : lvl >= 2
-        ? offAll.filter(([id]) => state.characters[id]?.tracked).map(([, c]) => `${c.name} — ${c.drive?.goal || "elsewhere"}`).join("; ")
+        ? [...offLive.filter(([id]) => state.characters[id]?.tracked).map(([, c]) => `${c.name} — ${c.drive?.goal || "elsewhere"}`), ...stubs].join("; ")
         : "";
 
     // recent turns: full window at lvl>=2, just the last summary below; last prose always kept
@@ -525,7 +652,10 @@ export function volatileDigest(state: SaveState, query: string): string {
     const clocksBlock = clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : "";
     const offBlock = offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : "";
 
-    return `${canonBlock}=== NOW ===
+    // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
+    // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
+    // guaranteed to change every turn — goes as late as possible.
+    return `${canonBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time} | Weather: ${state.world.weather}
 Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""}
 Player carries: ${state.world.money || "—"}
@@ -534,7 +664,7 @@ Player carries: ${state.world.money || "—"}
 === PRESENT — LIVE STATE (law) ===
 ${presentStr}
 
-${focusBlock}${offBlock}${threadsBlock}${clocksBlock}=== RECENT TURNS ===
+=== RECENT TURNS ===
 ${recentStr}${proseTail}`;
   };
 

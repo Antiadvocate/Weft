@@ -23,6 +23,24 @@ export interface ModelSettings {
   token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
   tension?: number;               // 0–10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
   max_central_characters?: number; // cap on CENTRAL (full-fidelity, tracked) characters. Default 6. Beyond this, new characters become "non-central" — minimal-footprint background figures (environment-like) with simple handling, unless promoted. Tunable.
+  context_mode?: "digest" | "chatlog"; // chatlog = append-only conversation context (I-frame anchor + per-turn deltas) so providers cache nearly the whole input; digest = classic rebuilt-each-turn context
+  iframe_cadence?: number;        // chatlog mode: turns between full state re-anchors (default 6)
+  route_by_price?: boolean;       // OpenRouter provider sort: price — route each call to the cheapest healthy provider
+  daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
+  chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
+  paging?: boolean;               // MemGPT-style paging: cold central characters' identity cards page out of the prefix to one-line stubs until they matter again
+}
+
+/** An auto-generated chapter of the story — one cheap summarization call every chapter_cadence
+ *  turns. Lets the verbatim history window stay small without losing arc awareness. */
+export interface Chapter {
+  idx: number;
+  from_turn: number;
+  to_turn: number;
+  title: string;
+  summary: string;
+  on_contract?: boolean;      // did this chapter honor the standing direction (story contract)?
+  drift?: string;             // one-line description of the drift, when off contract
 }
 
 export interface WorldBible {
@@ -102,10 +120,12 @@ export interface NPCDrive {
 
 export interface Identity {
   character_id: string;
+  paged?: boolean;            // MemGPT-style: identity card paged out of the cached prefix (cold character); rehydrates on presence/mention
   name: string;
   age: number;
   pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
-  appearance_facts: string;
+  appearance_facts: string;    // BEDROCK look — face, eyes, hair, build, skin. Set at creation, appended-to only by permanent bodily events, replaced only by the player. The engine must never overwrite this.
+  appearance_now?: string;     // CURRENT presentation — clothes, grime, visible state. Freely rewritten by the simulator each time it changes.
   background: string;         // BEDROCK: the original forge identity — who they fundamentally are. Never trimmed or rewritten by the engine.
   life_history?: string;      // ACCRETED: defining moments that have happened in play, folded in over time. Compressed when it grows long; bedrock is never touched.
   core_traits: string[];
@@ -194,11 +214,21 @@ export interface Belief {
   confidence: number;          // 0–1
 }
 
+/** A durable declarative fact this character knows (semantic memory, split from episodic).
+ *  Verbatim-anchored at write time, never decayed, never paraphrased by a model again.
+ *  This is where "the player is from Seattle" lives — immune to bookkeeper drift. */
+export interface DurableFact {
+  content: string;             // the fact, as verified against the turn's source text
+  turn: number;
+  quote?: string;              // the verbatim source span that grounded it
+}
+
 export interface CharMemory {
   character_id: string;
   core: string[];              // immutable autobiography
   episodic: EpisodicMemory[];
   beliefs: Belief[];           // semantic layer from reflection
+  facts?: DurableFact[];       // verified declarative knowledge — the fact ledger
   knows: string[];             // char_ids known
 }
 
@@ -297,6 +327,7 @@ export interface TurnTelemetry {
   simulator_tokens_out: number;
   reflection_tokens: number;
   duration_ms: number;
+  ts?: number;                 // wall-clock ms — fuels the daily cost governor
   word_count: number;
   player_mood_valence: number;
   present: string[];
@@ -349,7 +380,10 @@ export interface SaveState {
   telemetry: TurnTelemetry[];
   pressure_trace: number[];    // controller history
   records: { id: string; type: string; title: string; contents: string; location: string }[];
-  snapshots: { turn: number; blob: string }[]; // rollback ring (compressed JSON), max 6
+  chapters?: Chapter[];        // auto-generated story chapters (see Chapter)
+  context_anchor?: { turn: number; digest: string; cast_sig: string }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to
+  contract_drift?: string | null; // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
+  snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
 }
 
 // ───────────────────────────── simulator contract ─────────────────────────────
@@ -365,11 +399,12 @@ export interface SimulatorDiff {
   facts: { char_id: string; field: "fatigue" | "hunger" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }[];
-  memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string }[];
+  memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string }[];
+  facts_learned?: { char_id: string; fact: string; quote?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
-  appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change — replaces appearance_facts
+  appearance: { char_id: string; value: string; permanent?: boolean }[]; // default: replaces appearance_now (presentation). permanent:true = ONE sentence APPENDED to the bedrock appearance_facts; bedrock is never replaced by the engine
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
@@ -390,7 +425,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   image_model: "google/gemini-2.5-flash-image",
   context_memories_k: 6,
   reflection_cadence: 10,
-  history_window: 3,
+  history_window: 5,
   lean_mode: false,
   token_budget: 0,
   tension: 5,

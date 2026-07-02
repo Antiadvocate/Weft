@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
@@ -13,8 +13,8 @@ function opennessLabel(r: number): string {
   return "wide open";
 }
 
-export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
-  const [sel, setSel] = useState<string | null>(null);
+export default function Cast({ save, setSave, initialSel }: { save: ClientSave; setSave: (s: ClientSave) => void; initialSel?: string | null }) {
+  const [sel, setSel] = useState<string | null>(initialSel ?? null);
   const [showElsewhere, setShowElsewhere] = useState(true);
   const [showGone, setShowGone] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -42,12 +42,35 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", current_goal: "", core_traits: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "" });
+  const [newFact, setNewFact] = useState("");
+  const [factsBusy, setFactsBusy] = useState(false);
+  const [ivQ, setIvQ] = useState("");
+  const [ivBusy, setIvBusy] = useState(false);
+  const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
+  const [ivErr, setIvErr] = useState("");
+
+  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); }, [sel]);
+
+  const commitFacts = async (facts: { content: string; quote?: string }[]) => {
+    if (!sel) return;
+    setFactsBusy(true);
+    try { setSave(await api.setFacts(save.id, sel, facts)); } finally { setFactsBusy(false); }
+  };
+  const ask = async () => {
+    if (!sel || !ivQ.trim() || ivBusy) return;
+    const q = ivQ.trim(); setIvQ(""); setIvBusy(true); setIvErr("");
+    try {
+      const { answer } = await api.interview(save.id, sel, q, ivLog);
+      setIvLog((l) => [...l, { q, a: answer }]);
+    } catch (e: any) { setIvErr(e.message ?? "the conversation slipped away"); }
+    finally { setIvBusy(false); }
+  };
 
   const startEdit = () => {
     if (!c) return;
     setDraft({
-      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts,
+      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "",
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join(", "),
     });
     setEditing(true);
@@ -61,6 +84,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
         background: draft.background,
         life_history: draft.life_history,
         appearance_facts: draft.appearance_facts,
+        appearance_now: draft.appearance_now,
         current_goal: draft.current_goal,
         core_traits: draft.core_traits.split(",").map((x) => x.trim()).filter(Boolean),
       } },
@@ -269,7 +293,8 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   <Section title="Edit (the loom obeys)">
                     <EditField label="Name" v={draft.name} set={(v) => setDraft((d) => ({ ...d, name: v }))} />
                     <EditField label="Age" v={draft.age} set={(v) => setDraft((d) => ({ ...d, age: v }))} />
-                    <EditField label="Appearance" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={2} />
+                    <EditField label="Appearance — baseline (face, eyes, hair, build; the engine can only append here, never rewrite)" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={3} />
+                    <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
@@ -297,6 +322,7 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                   {(c.texture ?? []).length > 0 && <Row k="texture" v={(c.texture ?? []).join(" · ")} />}
                   {c.drive && <Row k="wants" v={`${c.drive.goal} — ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
                   {(c.drive_queue ?? []).length > 0 && <Row k="then" v={(c.drive_queue ?? []).map((d) => d.goal).join(" · ")} />}
+                  {c.appearance_now?.trim() && <Row k="presenting" v={c.appearance_now} />}
                   <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
@@ -311,6 +337,52 @@ export default function Cast({ save, setSave }: { save: ClientSave; setSave: (s:
                         <div className="text-[12.5px] leading-relaxed italic" style={{ color: "var(--text-mid)" }}>{c.life_history}</div>
                       </div>
                     )}
+                  </Section>
+                )}
+
+                <Section title="Knows — verified facts (the Truth panel)">
+                  <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
+                    Durable facts this character holds — verbatim-checked at write time, never decayed, never paraphrased again. Corrections here are law: the engine treats this list as ground truth in every future turn.
+                  </div>
+                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>Nothing ledgered yet — facts land here as the story establishes them, or add one by hand.</div>}
+                  {(mem?.facts ?? []).map((f, i) => (
+                    <div key={i} className="flex items-start justify-between gap-2 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
+                      <div className="flex-1">
+                        <div className="text-[12.5px] leading-snug">{f.content}</div>
+                        {f.quote && <div className="text-[10.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>“{f.quote}”</div>}
+                      </div>
+                      <button disabled={factsBusy} onClick={() => commitFacts((mem?.facts ?? []).filter((_, j) => j !== i).map((x) => ({ content: x.content, quote: x.quote })))}>
+                        <X size={13} style={{ color: "var(--text-lo)" }} />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <input className="field flex-1" placeholder="e.g. Grew up in Seattle" value={newFact} onChange={(e) => setNewFact(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && newFact.trim()) { commitFacts([...(mem?.facts ?? []).map((x) => ({ content: x.content, quote: x.quote })), { content: newFact.trim() }]); setNewFact(""); } }} />
+                    <button className="btn" disabled={factsBusy || !newFact.trim()}
+                      onClick={() => { commitFacts([...(mem?.facts ?? []).map((x) => ({ content: x.content, quote: x.quote })), { content: newFact.trim() }]); setNewFact(""); }}>
+                      add
+                    </button>
+                  </div>
+                </Section>
+
+                {sel !== "char_player" && c.status !== "dead" && (
+                  <Section title="Interview — a quiet aside (leaves no trace)">
+                    <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
+                      Talk to {c.name} out of scene. They answer only from what they actually know and feel; nothing here enters the story, their memory, or the world. One cheap call per question.
+                    </div>
+                    {ivLog.map((t, i) => (
+                      <div key={i} className="py-1.5">
+                        <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>you: {t.q}</div>
+                        <div className="text-[12.5px] leading-relaxed mt-0.5">{t.a}</div>
+                      </div>
+                    ))}
+                    {ivErr && <div className="font-mono text-[10px]" style={{ color: "var(--danger)" }}>{ivErr}</div>}
+                    <div className="flex gap-2 mt-1">
+                      <input className="field flex-1" placeholder={`ask ${c.name.split(" ")[0]} something…`} value={ivQ} onChange={(e) => setIvQ(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") ask(); }} />
+                      <button className="btn" disabled={ivBusy || !ivQ.trim()} onClick={ask}>{ivBusy ? "…" : "ask"}</button>
+                    </div>
                   </Section>
                 )}
 

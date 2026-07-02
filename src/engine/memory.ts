@@ -99,10 +99,17 @@ export function tickMemoryDecay(mem: CharMemory, currentTurn: number): void {
   }
 }
 
-/** Commitment boost: a pending appointment whose time is near outranks decay. */
-function commitmentBoost(m: EpisodicMemory, currentTurn: number): number {
+/** Commitment boost: a pending appointment outranks decay — hard when its time is NEAR,
+ *  soft when it is still days out (a dinner next week shouldn't crowd out today). */
+function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""): number {
   if (m.commitment_status !== "pending" || !m.scheduled_time) return 0;
-  return 0.8; // pending commitments are always near the surface
+  if (!nowLabel) return 0.8;
+  const a = parseTime(nowLabel), b = parseTime(m.scheduled_time);
+  const mins = (b.day - a.day) * 1440 + (b.hour - a.hour) * 60 + (b.minute - a.minute);
+  if (mins <= 0) return 0.9;              // due or overdue: front of mind
+  if (mins <= 1440) return 0.8;           // within a day
+  if (mins <= 3 * 1440) return 0.5;       // within three days
+  return 0.25;                            // distant: present, not dominant
 }
 
 /** Rough valence of a memory's emotional charge: −1 threat/pain … +1 warmth/safety, 0 neutral.
@@ -118,7 +125,7 @@ function chargeValence(charge: string): number {
   return 0;
 }
 
-export function score(m: EpisodicMemory, query: string, currentTurn: number, recallerRelaxation = 0): number {
+export function score(m: EpisodicMemory, query: string, currentTurn: number, recallerRelaxation = 0, nowLabel = ""): number {
   // relevance matches the FULL trace, not just the decayed gist — a faded memory can still be the
   // right one when the scene cues its original detail (the cue is what brings it back vivid).
   const rel = Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query));
@@ -134,7 +141,7 @@ export function score(m: EpisodicMemory, query: string, currentTurn: number, rec
     BETA * (m.importance / 10) +
     GAMMA * rel +
     stateBias +
-    commitmentBoost(m, currentTurn)
+    commitmentBoost(m, currentTurn, nowLabel)
   );
 }
 
@@ -142,12 +149,17 @@ function clampN(v: number, lo: number, hi: number): number { return Math.max(lo,
 
 /** Retrieve top-k, exposing each memory's relevance-to-query so the digest can decide which few
  *  to render at FULL fidelity (the scene is reaching into them) vs decayed gist (the default). */
-export function retrieveScored(mem: CharMemory, query: string, currentTurn: number, k: number, recallerRelaxation = 0): { m: EpisodicMemory; rel: number }[] {
+export function retrieveScored(mem: CharMemory, query: string, currentTurn: number, k: number, recallerRelaxation = 0, nowLabel = ""): { m: EpisodicMemory; rel: number }[] {
   const ranked = [...mem.episodic]
-    .map((m) => ({ m, s: score(m, query, currentTurn, recallerRelaxation), rel: Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query)) }))
+    .map((m) => ({ m, s: score(m, query, currentTurn, recallerRelaxation, nowLabel), rel: Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query)) }))
     .sort((x, y) => y.s - x.s)
     .slice(0, k);
-  for (const x of ranked) x.m.last_accessed_turn = currentTurn; // access refreshes recency
+  for (const x of ranked) {
+    // RICH-GET-RICHER GUARD: a memory the scene actually reached into (real relevance) is
+    // rehearsed — full refresh. One that surfaced only on recency/importance gets a half-step,
+    // so the same top-k can't lock itself in forever by being retrieved.
+    x.m.last_accessed_turn = x.rel >= 0.2 ? currentTurn : Math.round((x.m.last_accessed_turn + currentTurn) / 2);
+  }
   return ranked.map(({ m, rel }) => ({ m, rel }));
 }
 
@@ -157,7 +169,7 @@ export function retrieve(mem: CharMemory, query: string, currentTurn: number, k:
     .sort((x, y) => y.s - x.s)
     .slice(0, k)
     .map((x) => x.m);
-  for (const m of ranked) m.last_accessed_turn = currentTurn; // access refreshes recency
+  for (const m of ranked) m.last_accessed_turn = Math.round((m.last_accessed_turn + currentTurn) / 2); // half-step (see retrieveScored)
   return ranked;
 }
 
@@ -199,7 +211,12 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
     const s = relevance(m.content + " " + (m.full_content ?? ""), about);
     if (s > bestScore) { bestScore = s; best = m; }
   }
-  if (!best || bestScore < 0.15) return false; // nothing close enough — not a recoherence, it's new
+  if (!best || bestScore < 0.3) return false; // nothing close enough — not a recoherence, it's new
+  // PROPER-NOUN CONFLICT GUARD: reconsolidation rewrites the trace, so a mismatched merge is how
+  // "Seattle" becomes "Portland" permanently. If the supplied detail introduces a capitalized name
+  // the target memory doesn't contain, require a much stronger match before we let it overwrite.
+  const newNames = (addedDetail.match(/\b[A-Z][a-zA-Z'’-]{2,}\b/g) ?? []).filter((n) => !(best!.content + " " + (best!.full_content ?? "")).includes(n));
+  if (newNames.length && bestScore < 0.5) return false;
   // rebuild: fold the supplied detail in, restore vividness (recall sharpens), mark it freshly handled
   const merged = best.content.includes(addedDetail) ? best.content : `${best.content} ${addedDetail}`.replace(/\s+/g, " ").trim();
   best.content = merged;
@@ -230,8 +247,10 @@ export function compactGist(text: string, maxLen = 170): string {
   return out.replace(/\u0001/g, "."); // restore protected periods
 }
 
-export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number): boolean {
-  if (currentTurn % cadence !== 0) return false;
+export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number, salt = 0): boolean {
+  // salt (a stable per-character hash) staggers reflections across turns — previously every
+  // character reflected on the SAME turn, producing a burst of LLM calls and a visible stall.
+  if ((currentTurn + salt) % cadence !== 0) return false;
   const unreflected = mem.episodic.filter((m) => m.turn > (mem.beliefs.at(-1)?.formed_turn ?? 0));
   const sum = unreflected.reduce((s, m) => s + m.importance, 0);
   return sum >= 25 || unreflected.length >= 12;
@@ -268,8 +287,15 @@ function agoLabel(whenLabel: string | undefined, nowLabel: string): string {
 export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0): string {
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
+  // the fact ledger: verified declarative knowledge, never decayed — most query-relevant few + newest
+  if (mem.facts?.length) {
+    const ranked = [...mem.facts].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
+    const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
+    chosen.add(mem.facts[mem.facts.length - 1]);
+    parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => x.content).join(" | ")}`);
+  }
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => b.content).join(" | ")}`);
-  const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation);
+  const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
   if (top.length) {
     // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
     // bring it back whole. Restore full fidelity for at most 2 memories per character — the ones
