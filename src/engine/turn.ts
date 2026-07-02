@@ -988,7 +988,18 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       ...(m.scheduled_time ? { scheduled_time: m.scheduled_time, commitment_status: "pending" as const } : {}),
     });
     mem.episodic = capMemory(mem.episodic);
-    if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
+    // CORE PROMOTION: life-defining events (model-flagged core, or importance 9+) become part of
+    // the immutable autobiography AND a durable ledger fact — immune to decay, condensation, and
+    // retrieval burial. A character's first-in-a-lifetime event must never fade like a Tuesday.
+    if (m.core || (m.importance ?? 3) >= 9) {
+      const line = m.content.replace(/\s+/g, " ").trim().slice(0, 200);
+      if (line && !mem.core.some((c) => c.toLowerCase() === line.toLowerCase())) {
+        mem.core.push(line);
+        if (mem.core.length > 14) mem.core.splice(4, 1); // keep the founding four, trim the middle
+      }
+      addFact(mem, line, turn, m.anchor);
+      shifts.push(`${nameOf(id)} will carry this for the rest of their life.`);
+    } else if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
   }
 
   // reconsolidation: discussed past events get rebuilt with supplied detail (recall rewrites the
