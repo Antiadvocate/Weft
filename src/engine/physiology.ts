@@ -98,3 +98,13 @@ export function physioLabel(cond: Condition): string {
   else if (awakeH >= 17) bits.push("running on too little sleep");
   return bits.join(", ");
 }
+
+/** American rendering — storage stays metric, every visible surface speaks ft-in and lbs. */
+export function ftIn(height_cm?: number): string {
+  if (!height_cm) return "";
+  const totalIn = Math.round(height_cm / 2.54);
+  return `${Math.floor(totalIn / 12)}'${totalIn % 12}"`;
+}
+export function lbs(weight_kg?: number): number | undefined {
+  return weight_kg ? Math.round(weight_kg * 2.20462) : undefined;
+}

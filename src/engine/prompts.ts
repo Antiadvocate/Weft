@@ -12,7 +12,7 @@
  */
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { dateLabel } from "./time";
-import { physioLabel } from "./physiology";
+import { physioLabel, ftIn, lbs } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
 
@@ -423,7 +423,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
     `Art style: ${art}.`,
     `Setting context: ${state.world_bible.era}.`,
     `Subject: ${c.name}, age ${c.age}.`,
-    c.height_cm || c.weight_kg ? `Frame: ${[c.height_cm ? `${c.height_cm}cm tall` : "", c.weight_kg ? `${c.weight_kg}kg` : ""].filter(Boolean).join(", ")}.` : "",
+    c.height_cm || c.weight_kg ? `Frame: ${[ftIn(c.height_cm) ? `${ftIn(c.height_cm)} tall` : "", lbs(c.weight_kg) ? `${lbs(c.weight_kg)} lbs` : ""].filter(Boolean).join(", ")}.` : "",
     c.appearance_facts ? `Appearance: ${c.appearance_facts}.` : "",
     c.appearance_now ? `Currently presenting: ${c.appearance_now}.` : "",
     coreTraits.length ? `Core nature: ${coreTraits.slice(0, 5).join(", ")}.` : "",
@@ -485,7 +485,7 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   // prompt cache every time anyone got hurt or the history grew. Identity only here.
   const inj = (!stable && cond.injuries.length) ? ` Injuries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join("; ")}.` : "";
   const hist = (!stable && ident.life_history?.trim()) ? ` Since the story began: ${ident.life_history.trim()}` : "";
-  const body = ident.height_cm || ident.weight_kg ? ` ${[ident.height_cm ? `${ident.height_cm}cm` : "", ident.weight_kg ? `${ident.weight_kg}kg` : ""].filter(Boolean).join(", ")}.` : "";
+  const body = ident.height_cm || ident.weight_kg ? ` ${[ftIn(ident.height_cm), lbs(ident.weight_kg) ? `${lbs(ident.weight_kg)} lbs` : ""].filter(Boolean).join(", ")}.` : "";
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age},${body} ${ident.appearance_facts} (constant).${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}. Intelligence: ${ident.intelligence}.${t}${inj}${hist}`;
 }

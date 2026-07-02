@@ -42,7 +42,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_cm: "", weight_kg: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
   const [blBusy, setBlBusy] = useState(false);
@@ -71,7 +71,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const startEdit = () => {
     if (!c) return;
     setDraft({
-      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", height_cm: c.height_cm ? String(c.height_cm) : "", weight_kg: c.weight_kg ? String(c.weight_kg) : "",
+      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", height_ft: c.height_cm ? String(Math.floor(Math.round(c.height_cm / 2.54) / 12)) : "", height_in: c.height_cm ? String(Math.round(c.height_cm / 2.54) % 12) : "", weight_lb: c.weight_kg ? String(Math.round(c.weight_kg * 2.20462)) : "",
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join(", "),
     });
     setEditing(true);
@@ -86,8 +86,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         life_history: draft.life_history,
         appearance_facts: draft.appearance_facts,
         appearance_now: draft.appearance_now,
-        height_cm: Number(draft.height_cm) || undefined,
-        weight_kg: Number(draft.weight_kg) || undefined,
+        height_cm: (Number(draft.height_ft) || Number(draft.height_in)) ? Math.round(((Number(draft.height_ft) || 0) * 12 + (Number(draft.height_in) || 0)) * 2.54) : undefined,
+        weight_kg: Number(draft.weight_lb) ? Math.round(Number(draft.weight_lb) / 2.20462) : undefined,
         current_goal: draft.current_goal,
         core_traits: draft.core_traits.split(",").map((x) => x.trim()).filter(Boolean),
       } },
@@ -307,8 +307,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     </button>
                     <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
                     <div className="flex gap-2">
-                      <EditField label="Height (cm)" v={draft.height_cm} set={(v) => setDraft((d) => ({ ...d, height_cm: v }))} rows={1} />
-                      <EditField label="Weight (kg — scales hunger/thirst)" v={draft.weight_kg} set={(v) => setDraft((d) => ({ ...d, weight_kg: v }))} rows={1} />
+                      <EditField label="Height (ft)" v={draft.height_ft} set={(v) => setDraft((d) => ({ ...d, height_ft: v }))} rows={1} />
+                      <EditField label="(in)" v={draft.height_in} set={(v) => setDraft((d) => ({ ...d, height_in: v }))} rows={1} />
+                      <EditField label="Weight (lbs — scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
                     </div>
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
