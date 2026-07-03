@@ -52,6 +52,7 @@ export function buildMessages(system: string, stable: string, volatile: string, 
 }
 
 export type JsonMode = boolean | { schema: object; name?: string };
+export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; omitReasoning?: boolean }
 
 
 /** CHATLOG-MODE message builder. The full state snapshot (I-frame) rides inside the system
@@ -76,7 +77,7 @@ export function buildChatlogMessages(system: string, anchorDigest: string, pairs
   return msgs;
 }
 
-async function once(messages: any[], model: string, json: JsonMode, maxTokens: number): Promise<LLMResult> {
+async function once(messages: any[], model: string, json: JsonMode, maxTokens: number, opts?: CallOpts): Promise<LLMResult> {
   // CONSTRAINED DECODING: when a schema is supplied, ask the provider to enforce it at the
   // decoder (structured outputs). This kills malformed JSON at the source instead of repairing
   // it after. Providers that don't support json_schema reject the request; `complete` catches
@@ -93,8 +94,13 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
       model, messages, max_tokens: maxTokens,
       temperature: json ? 0.2 : 0.85,
       ...rf,
-      // PRICE ROUTING: let OpenRouter pick the cheapest healthy provider for this model.
-      ...(prefs.routeByPrice ? { provider: { sort: "price" } } : {}),
+      // ROUTING: an explicit per-call sort (the bookkeeper routes for throughput) beats the
+      // global price preference. Bookkeeping wants tokens/sec, not pennies.
+      ...(opts?.providerSort ? { provider: { sort: opts.providerSort } } : prefs.routeByPrice ? { provider: { sort: "price" } } : {}),
+      // NO THINKING FOR BOOKKEEPING: structured-output calls carry reasoning disabled — a diff
+      // needs transcription, not deliberation; hidden thinking tokens are pure latency on
+      // reasoning-capable models. Dropped automatically if a provider rejects the parameter.
+      ...(json && !opts?.omitReasoning ? { reasoning: { enabled: false } } : {}),
       usage: { include: true },
     }),
   });
@@ -109,15 +115,20 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
   };
 }
 
-export async function complete(messages: any[], model: string, fallback: string, json: JsonMode = false, maxTokens = 4000): Promise<LLMResult> {
-  try { return await once(messages, model, json, maxTokens); }
+export async function complete(messages: any[], model: string, fallback: string, json: JsonMode = false, maxTokens = 4000, opts?: CallOpts): Promise<LLMResult> {
+  try { return await once(messages, model, json, maxTokens, opts); }
   catch (e1: any) {
     logErr(model, e1);
-    // a schema rejection is a capability gap, not a model failure — retry SAME model, plain JSON
-    if (typeof json === "object" && /response_format|json_schema|400/.test(String(e1?.message ?? ""))) {
-      try { return await once(messages, model, true, maxTokens); } catch (e2: any) { logErr(model, e2); }
+    const msg = String(e1?.message ?? "");
+    // the reasoning parameter itself rejected → same call without it
+    if (json && /reasoning/i.test(msg)) {
+      try { return await once(messages, model, json, maxTokens, { ...opts, omitReasoning: true }); } catch (e0: any) { logErr(model, e0); }
     }
-    try { return await once(messages, fallback, typeof json === "object" ? true : json, maxTokens); }
+    // a schema rejection is a capability gap, not a model failure — retry SAME model, plain JSON
+    if (typeof json === "object" && /response_format|json_schema|400/.test(msg)) {
+      try { return await once(messages, model, true, maxTokens, opts); } catch (e2: any) { logErr(model, e2); }
+    }
+    try { return await once(messages, fallback, typeof json === "object" ? true : json, maxTokens, { ...opts, omitReasoning: true }); }
     catch (e3: any) { logErr(fallback, e3); throw e3; }
   }
 }

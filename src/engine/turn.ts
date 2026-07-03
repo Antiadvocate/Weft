@@ -438,7 +438,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
     // decoder; `complete` transparently falls back to json_object where unsupported.
-    const res = await complete(simMsgs, state.model_settings.simulator_model, state.model_settings.fallback_model, { schema: SIMULATOR_JSON_SCHEMA, name: "weft_diff" }, 3000);
+    const simOpts = state.model_settings.sim_route_speed !== false ? { providerSort: "throughput" as const } : undefined;
+    const res = await complete(simMsgs, state.model_settings.simulator_model, state.model_settings.fallback_model, { schema: SIMULATOR_JSON_SCHEMA, name: "weft_diff" }, 3000, simOpts);
     simUsage = res.usage;
     const parsed = safeJson<Partial<SimulatorDiff> | null>(res.text, null);
     if (parsed && Object.keys(parsed).length) { diff = { ...emptyDiff(), ...parsed }; simOk = true; }

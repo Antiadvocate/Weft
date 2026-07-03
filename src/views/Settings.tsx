@@ -295,6 +295,9 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <Toggle on={draft.paging !== false} onFlip={() => setDraft((d) => ({ ...d, paging: d.paging === false ? true : false }))}
           title="Page out cold characters"
           desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is untouched — only their card leaves the room." />
+        <Toggle on={draft.sim_route_speed !== false} onFlip={() => setDraft((d) => ({ ...d, sim_route_speed: d.sim_route_speed === false ? true : false }))}
+          title="Bookkeeper: route for speed"
+          desc="Send bookkeeping calls to the highest-throughput provider for the model instead of the cheapest. Bookkeeping is the wait you actually feel between turns; the narrator can still route by price below." />
         <Toggle on={!!draft.route_by_price} onFlip={() => setDraft((d) => ({ ...d, route_by_price: !d.route_by_price }))}
           title="Route by price"
           desc="Let OpenRouter send each call to the cheapest healthy provider for the chosen model. DeepSeek also discounts off-peak hours (≈16:30–00:30 UTC) automatically on its own end." />

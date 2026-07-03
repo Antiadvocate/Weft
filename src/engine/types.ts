@@ -26,6 +26,7 @@ export interface ModelSettings {
   context_mode?: "digest" | "chatlog"; // chatlog = append-only conversation context (I-frame anchor + per-turn deltas) so providers cache nearly the whole input; digest = classic rebuilt-each-turn context
   iframe_cadence?: number;        // chatlog mode: turns between full state re-anchors (default 6)
   route_by_price?: boolean;       // OpenRouter provider sort: price — route each call to the cheapest healthy provider
+  sim_route_speed?: boolean;      // route BOOKKEEPER calls for throughput instead of price — default true; bookkeeping latency is the felt latency
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   paging?: boolean;               // MemGPT-style paging: cold central characters' identity cards page out of the prefix to one-line stubs until they matter again

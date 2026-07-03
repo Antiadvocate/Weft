@@ -47,6 +47,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [observing, setObserving] = useState(false);
   const [chaptering, setChaptering] = useState(false);
   const [presentOpen, setPresentOpen] = useState(false);
+  const [proseDone, setProseDone] = useState(false);
+  const pendingRef = useRef<string | null>(null);
   const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
   const observingRef = useRef(false);
@@ -79,14 +81,18 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     });
   };
 
-  const submit = async () => {
-    const a = action.trim();
-    if (!a || running) return;
-    setAction(""); setError(null); setRunning(true); setLiveProse(""); setPhase("pressure");
+  /** PIPELINE OVERLAP — the prose is the part you read; the bookkeeping is the part you wait
+   *  for. Once the narrator finishes streaming, the composer re-arms while the bookkeeper works
+   *  in the background: type freely, and a submitted action queues and fires the instant the
+   *  turn commits. On a slow bookkeeper this hides most or all of its latency behind the time
+   *  you'd spend reading and typing anyway. One action queues; a failed turn returns it. */
+  const runAction = async (a: string) => {
+    if (!a) return;
+    setAction(""); setError(null); setRunning(true); setProseDone(false); setLiveProse(""); setPhase("pressure");
     let failed = false;
     try {
       await streamTurn(save.id, a, mode, {
-        onPhase: setPhase,
+        onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); },
@@ -95,9 +101,21 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
-      setRunning(false); setPhase(null);
-      if (failed) setAction(a); // a failed turn gives your words back
+      setRunning(false); setProseDone(false); setPhase(null);
+      const pend = pendingRef.current; pendingRef.current = null;
+      if (failed) setAction(pend ? `${a}\n${pend}` : a); // a failed turn gives your words back
+      else if (pend) void runAction(pend);               // fire the queued action immediately
     }
+  };
+
+  const submit = async () => {
+    const a = action.trim();
+    if (!a) return;
+    if (running) {
+      if (proseDone && !pendingRef.current) { pendingRef.current = a; setAction(""); pushToasts(["queued — the loom is still settling"]); }
+      return;
+    }
+    await runAction(a);
   };
 
   const doRollback = async (turn: number) => {
@@ -461,7 +479,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             }}
           />
           <motion.button className="btn btn-accent" style={{ height: 44, width: 46, padding: 0 }}
-            whileTap={{ scale: 0.92 }} onClick={submit} disabled={running || !action.trim()}>
+            whileTap={{ scale: 0.92 }} onClick={submit} disabled={(running && !proseDone) || !action.trim() || !!pendingRef.current}>
             <CornerDownLeft size={16} />
           </motion.button>
         </div>
