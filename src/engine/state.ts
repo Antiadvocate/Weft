@@ -114,6 +114,7 @@ export function sanitize(state: SaveState): SaveState {
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
   for (const cond of Object.values(state.condition)) { cond.hunger_meter ??= 2; cond.thirst_meter ??= 2; cond.awake_minutes ??= 0; }
   state.contract_drift ??= null;
+  state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves
   // on load, so junk written before the gate existed drains out instead of accumulating.
   for (const mem of Object.values(state.memory)) {

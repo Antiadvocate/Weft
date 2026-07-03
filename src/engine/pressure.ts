@@ -173,18 +173,119 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   };
 }
 
+
+/** ── SOURCE-DRIVEN BEATS ──────────────────────────────────────────────────────────────────
+ * The Uncut Gems principle: tension is the WEIGHT of what's standing, not the FREQUENCY of
+ * what arrives. Howard sleeps; nobody bothers him at night — because pressure lives in the
+ * debts that exist, the bet that's riding. So a pressure beat must NAME its source from
+ * standing state (a due consequence, a maturing clock, a hot thread, an offscreen agent's
+ * drive) or not fire at all. Silence is a legitimate output. The genuinely out-of-nowhere is
+ * budgeted to rarity — and arrives witnessed, not targeted. Between discharges, REMINDER
+ * beats keep the weight felt at zero mechanical cost: a message, a look, a rumor.
+ */
+export interface AgentCandidate { name: string; goal: string; priority: number }
+export interface BeatInput {
+  turn: number;
+  now?: string;
+  tension: number;
+  threads: Thread[];
+  clocks: FactionClock[];
+  consequences: ConsequenceEvent[];
+  agents: AgentCandidate[];        // offscreen central chars whose drive intersects the player's orbit
+  last_beat_turn: number;
+  last_exo_turn: number;
+  restoration?: boolean;           // rest turns never receive incident beats (protection handled upstream too)
+  rng?: () => number;
+}
+export type Beat =
+  | { kind: "none" }
+  | { kind: "reminder"; ref: string }
+  | { kind: "consequence"; ref: string; consequence: ConsequenceEvent }
+  | { kind: "clock"; ref: string }
+  | { kind: "thread"; ref: string }
+  | { kind: "agent"; ref: string; goal: string }
+  | { kind: "exogenous" };
+
+/** Refractory period between incident beats — the world does not stack. Tightens as clocks
+ *  mature, which is where act structure comes from: quiet middles, converging ends. */
+export function beatCooldown(tension: number, clocks: FactionClock[]): number {
+  const base = tension <= 2 ? 10 : tension <= 4 ? 7 : tension <= 6 ? 5 : tension <= 8 ? 3 : 2;
+  const maturing = clocks.some((c) => c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.85);
+  return maturing ? Math.max(1, Math.ceil(base * 0.6)) : base;
+}
+const EXO_INTERVAL = (tension: number): number => (tension <= 3 ? 40 : tension <= 6 ? 25 : 15);
+
+export function selectBeat(inp: BeatInput): Beat {
+  const rng = inp.rng ?? Math.random;
+  if (inp.tension <= 0) {
+    const due0 = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
+    return due0 ? { kind: "consequence", ref: due0.description.slice(0, 80), consequence: due0 } : { kind: "none" };
+  }
+  // a DUE consequence always lands — the player (or the world) loaded it; the calendar fired it
+  const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
+  if (due) return { kind: "consequence", ref: due.description.slice(0, 80), consequence: due };
+
+  const sinceBeat = inp.turn - inp.last_beat_turn;
+  const cooling = sinceBeat < beatCooldown(inp.tension, inp.clocks);
+  const standing: { ref: string; mk: () => Beat }[] = [];
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.75)
+    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), mk: () => ({ kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90) }) });
+  for (const t of inp.threads) if (t.status === "active" && (t.tension ?? 0) >= 6)
+    standing.push({ ref: t.title.slice(0, 90), mk: () => ({ kind: "thread", ref: t.title.slice(0, 90) }) });
+  for (const a of inp.agents) if ((a.priority ?? 1) >= 6)
+    standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
+
+  if (cooling || inp.restoration) {
+    // between discharges: reminder beats keep the weight felt — never during rest at low tension
+    if (standing.length && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
+      return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
+    }
+    return { kind: "none" };
+  }
+
+  // discharge from standing state — probability scales with tension; silence is legitimate
+  const fireP = inp.tension <= 2 ? 0.25 : inp.tension <= 4 ? 0.45 : inp.tension <= 6 ? 0.6 : 0.8;
+  if (standing.length && rng() < fireP) return standing[Math.floor(rng() * standing.length)].mk();
+
+  // exogenous: rationed rarity — witnessed, not targeted
+  if (inp.turn - inp.last_exo_turn >= EXO_INTERVAL(inp.tension) && rng() < 0.5) return { kind: "exogenous" };
+
+  if (standing.length && rng() < 0.3) return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
+  return { kind: "none" };
+}
+
 /** Compact directive injected into the narrator's volatile digest. */
-export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal"): string {
+export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat): string {
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
     lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion.");
-  } else {
-    if (v.pressure <= 2) lines.push("No threat or hostile interest — but the scene must still MOVE: a discovery, an arrival, a choice, a shift in what someone wants. Calm is not stillness; something develops.");
-    if (v.pressure >= 3 && v.pressure <= 5) lines.push("Minor friction: a small cost, a social wrinkle, weather, a tool failing, an interruption. No injury. Keep a beat moving.");
-    if (v.pressure >= 6 && v.pressure <= 7) lines.push("A real obstacle to work through — social, emotional, or practical — that forces action this turn. No physical danger yet.");
-    if (v.pressure >= 8) lines.push("Real danger with built-up cause already in the state. Things happen fast and physically. Nothing arrives from thin air.");
+  } else if (beat) {
+    // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
+    switch (beat.kind) {
+      case "none":
+        lines.push("NO EXTERNAL PUSH THIS TURN. Nothing new arrives, presses, or develops from outside. The scene runs on the present characters' own wants and reactions — which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure.");
+        break;
+      case "reminder":
+        lines.push(`REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
+        break;
+      case "consequence":
+        lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
+        break;
+      case "clock":
+        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned.`);
+        break;
+      case "thread":
+        lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);
+        break;
+      case "agent":
+        lines.push(`PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, not plot convenience.`);
+        break;
+      case "exogenous":
+        lines.push(`EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player — witnessed, not targeted at them. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you, not to you.`);
+        break;
+    }
   }
-  if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
+  if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
   if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
   if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
   // Tier nudge (NOT a behavior script): at high power, a martial/institutional threat against the

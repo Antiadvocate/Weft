@@ -231,7 +231,7 @@ export function simulatorSchemaHint(): string {
 "offscreen":[]}`;
 }
 
-export const REFLECTION_SYSTEM = `You compress a character's recent episodic memories into 1–3 durable beliefs — convictions, attachments, or learned wariness they would actually hold. First person is not required; write as compact third-person convictions ("She trusts Kael with her life now", "The docks are not safe after the horn"). Output ONLY JSON: {"beliefs":[{"content":"","confidence":0.8}]}`;
+export const REFLECTION_SYSTEM = `You compress a character's recent episodic memories into 1–3 durable beliefs — convictions, attachments, or learned wariness they would actually hold. First person is not required; write as compact third-person convictions ("She trusts Kael with her life now", "The docks are not safe after the horn"). ALSO review their ACTIVE GOAL (given below) against what the memories show: has it been achieved, become impossible, or is it blocked because its target is elsewhere? Output ONLY JSON: {"beliefs":[{"content":"","confidence":0.8}],"drive_review":{"status":"active|complete|impossible","new_goal":"only if status is complete/impossible AND no queued goal exists — one concrete want in their voice, arising from these memories","blocker":"only if blocked — the operative obstacle, e.g. \'must find Rabi first — he is elsewhere\'"}}`;
 
 export const MEMORY_CONDENSE_SYSTEM = `You are the Bookkeeper performing a CONTEXT REFRESH — condensing one character's long, fragmented episodic memory into a small set of clean, accurate memories, WITHOUT losing what actually happened. No time passes; this is the same moment, just tidied.
 

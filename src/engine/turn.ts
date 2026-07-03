@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
@@ -133,6 +133,64 @@ export function gcPlaces(state: SaveState, cap = 60): void {
   }
 }
 
+const RESTORE_INTENT = /\b(sleep|nap|doze|rest|bed down|turn in|lie down|go to bed|call it a night|eat|meal|breakfast|lunch|dinner|supper|cook and eat|bathe|bath|shower|wash up|soak|unwind|relax|a few hours to (?:myself|ourselves)|quiet (?:hour|morning|evening|day))\b/i;
+
+
+/** DRIVE RE-PLANNING (deterministic layer) — background characters must not chase ghosts.
+ *  Three stale states, three responses:
+ *   • target DEAD/DEPARTED  → the goal is impossible: rotate to the next queued goal.
+ *     Exception: HIGH-PRIORITY goals (≥8) are never dropped — they get re-approached with a
+ *     blocker note instead ("X is gone; the goal outlives them").
+ *   • target ELSEWHERE (incl. the player) and not seen for 12+ turns → the goal stands but the
+ *     OPERATIVE step becomes pursuit: blocker := "must find X first" — which the digest renders,
+ *     so the narrator (and the pressure system's agent beats) drive them to seek, not to mime
+ *     handing something to an empty room.
+ *   • progress ≥ 100 → complete: rotate the queue.
+ *  The LLM layer (reflection) handles what determinism can't: judging completion from events
+ *  and inventing genuinely NEW goals when the queue runs dry. */
+export function replanDrives(state: SaveState): void {
+  const turn = state.world.current_turn;
+  const lastSeen = new Map<string, number>();
+  for (const t of state.telemetry) for (const pid of t.present) lastSeen.set(pid, t.turn);
+  const nameToId = new Map<string, string>();
+  for (const [id, c] of Object.entries(state.characters)) {
+    const first = c.name.split(/\s+/)[0]?.toLowerCase();
+    if (first && first.length >= 3) nameToId.set(first, id);
+  }
+  const playerFirst = state.characters["char_player"]?.name.split(/\s+/)[0]?.toLowerCase() ?? "";
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || c.central === false || c.status === "dead" || c.status === "departed" || !c.drive?.goal) continue;
+    const d = c.drive;
+    const g = d.goal.toLowerCase();
+    const rotate = (why: string): void => {
+      const next = c.drive_queue?.shift();
+      c.drive = next ?? undefined;
+      console.warn(`[drives] ${c.name}: "${d.goal.slice(0, 50)}" ${why} — ${next ? `next goal: "${next.goal.slice(0, 50)}"` : "queue empty (reflection will invent)"}`);
+    };
+    if (d.progress >= 100) { rotate("complete"); continue; }
+    // find a referenced person in the goal text
+    let targetId: string | undefined;
+    for (const [first, tid] of nameToId) if (tid !== id && g.includes(first)) { targetId = tid; break; }
+    if (playerFirst && g.includes(playerFirst)) targetId = "char_player";
+    if (/\bthe player\b/.test(g)) targetId = "char_player";
+    if (!targetId) continue;
+    const target = state.characters[targetId];
+    if (target.status === "dead" || target.status === "departed") {
+      if ((d.priority ?? 1) >= 8) {
+        if (!d.blocker?.includes("gone")) d.blocker = `${target.name} is gone — the goal outlives them; another way must be found`;
+      } else rotate(`impossible (${target.name} is ${target.status})`);
+      continue;
+    }
+    // target elsewhere: co-located? seen recently?
+    const together = target.location && target.location === c.location;
+    const seenGap = turn - (lastSeen.get(id) ?? 0);
+    if (!together && seenGap >= 12 && targetId === "char_player") {
+      const pursuit = `must find ${target.name} first — they are elsewhere`;
+      if (d.blocker !== pursuit) { d.blocker = pursuit; d.updated_turn = turn; }
+    }
+  }
+}
+
 function emptyDiff(): SimulatorDiff {
   return {
     scene_summary: "", elapsed_minutes: 20, facts: [], psyche: [], edges: [], memories: [], appearance: [], drives_update: [],
@@ -189,10 +247,35 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     tension: state.model_settings.tension ?? 5,
   });
   state.pressure_trace.push(verdict.pressure);
-  ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source });
+
+  // ── SOURCE-DRIVEN BEAT: pressure must name where it comes from, or stay silent.
+  // Agent candidates: offscreen central characters whose active drive plausibly intersects the
+  // player's orbit — the goal names the player, someone present, or the current locale.
+  const orbitNames = ["char_player", ...state.world.present]
+    .map((pid) => state.characters[pid]?.name?.split(/\s+/)[0]?.toLowerCase())
+    .filter((n): n is string => !!n && n.length >= 3);
+  const hereName = (state.world.places[state.world.player_location]?.name ?? "").toLowerCase();
+  const agents = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c.central !== false && c.status !== "dead" && c.status !== "departed" && !state.world.present.includes(id) && c.drive?.goal)
+    .map(([, c]) => ({ name: c.name, goal: c.drive!.goal, priority: c.drive!.priority ?? 1 }))
+    .filter((a) => {
+      const g = a.goal.toLowerCase();
+      return orbitNames.some((n) => g.includes(n)) || (hereName.length >= 4 && g.includes(hereName));
+    });
+  state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
+  const beat: Beat = selectBeat({
+    turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
+    threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
+    agents, last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
+    restoration: RESTORE_INTENT.test(action),
+  });
+  if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) state.pressure_state.last_beat_turn = turn;
+  if (beat.kind === "exogenous") state.pressure_state.last_exo_turn = turn;
+  ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source, beat: beat.kind });
 
   // 2 ── narrator (streamed)
   ev.onPhase("narrator");
+  replanDrives(state);
   updatePaging(state, action);
   const prefix = stablePrefix(state);
   const digest = volatileDigest(state, action, eco ? { budgetOverride: Math.min(state.model_settings.token_budget || 4000, 3500) } : undefined);
@@ -204,7 +287,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     state.history.slice(-1)[0]?.player_action ?? "",
   ].join(" ");
   const tier = detectPowerTier(god, recentText);
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier, beat);
+
+  // ── RESTORATION DETECTION ── sleeping, eating, bathing, quiet hours. To the stall detector,
+  // a character asleep is indistinguishable from a stalled scene — low event density, passive
+  // player — so at any nonzero tension the engine was injecting complications into every night
+  // and meal. Restoration is a recognized state, not a stall: the drama gets gated below, and
+  // the physiology credit is guaranteed mechanically regardless of what the prose does.
+  const restoration = RESTORE_INTENT.test(action);
 
   // ── PLOT-STALL DETECTION ── A scene has no engine of its own when nothing is pushing the PLOT
   // outward. The subtlety: a thread can carry high tension while being purely INTERNAL — a
@@ -220,8 +310,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const passiveAct = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
   // stalled: no OUTWARD plot pressure of any kind, and the player isn't supplying momentum either
   const stalled = !liveThread && !pendingCons && !liveClock && passiveAct;
-  const stallDirective = stalled
-    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot and the player is passive: the world must originate a concrete new external development this turn and end on it.`
+  const stallDirective = (stalled && !restoration)
+    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot and the player is passive: advance a STANDING source (an open thread, a maturing clock, an offscreen character's goal) concretely into the scene and end on it. Only if truly nothing stands may a small ambient development occur — witnessed nearby, never targeted at the player.`
     : "";
 
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
@@ -270,7 +360,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const contractFix = state.contract_drift
     ? `\nCOURSE-CORRECTION (the story has drifted from its contract): ${state.contract_drift} Steer back through present characters' wants and the standing direction — not with a lurch, but starting THIS turn.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + contractFix + "\n" + undertow.directive;
+  // ── REST PROTECTION, scaled by tension. Low tension: rest is sacred, the world holds its
+  // breath. Mid tension: one soft knock at most, and whatever interrupts must let them finish —
+  // the meal gets eaten, the night gets slept, THIS turn. High tension (7+): the world is
+  // genuinely on fire and may not care — but the mechanical credit below still lands.
+  const tensionNow = state.model_settings.tension ?? 5;
+  const restProtection = restoration
+    ? tensionNow <= 3
+      ? `\nREST IS SACRED at this tension: the player is restoring (sleep, food, bath, quiet). Do NOT interrupt, complicate, or truncate it — no knocks, no summons, no discoveries. Let it complete in full, let time pass gently, and hold all friction at the threshold for when they rise.`
+      : tensionNow <= 6
+        ? `\nREST PROTECTION: the player is restoring (sleep, food, bath, quiet). An interruption is permitted ONLY if it is brief, resolvable, and the restoration RESUMES AND COMPLETES within this same turn — a knock, never a siege; once, never twice. The meal gets finished; the night gets slept. Do not convert rest into an incident.`
+        : ""
+    : "";
+  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + restProtection + contractFix + "\n" + (restoration && tensionNow <= 3 ? "" : undertow.directive);
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
@@ -475,6 +577,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // relaxation CEILING clamps every present psyche — a body running on no sleep or no water
   // cannot be at ease, no matter how sweet the scene.
   const sleptIds = new Set((diff.facts ?? []).filter((f) => f.field === "slept").map((f) => resolveId(state, f.char_id)).filter(Boolean) as string[]);
+  // GUARANTEED RESTORATION CREDIT — decoupled from drama. If the player set out to sleep and
+  // hours passed, the sleep happened, interruption or not: credit = elapsed. Same for meals,
+  // unless the prose explicitly destroyed the food. A knock at hour six does not un-sleep six
+  // hours, and the bookkeeper forgetting to emit "slept" must never wreck a body for days.
+  const SLEEP_INTENT = /\b(sleep|nap|doze|bed down|turn in|go to bed|rest (?:for|until|through)|call it a night|lie down)\b/i;
+  const EAT_INTENT = /\b(eat|meal|breakfast|lunch|dinner|supper|cook and eat)\b/i;
+  const MEAL_RUINED = /\b(plate (?:shatters|clatters to)|food (?:is )?(?:ruined|abandoned|untouched|forgotten|knocked)|never (?:get|gets) to (?:eat|finish)|meal (?:is )?(?:interrupted and )?(?:left|abandoned))\b/i;
+  const pcond = state.condition["char_player"];
+  if (pcond) {
+    if (SLEEP_INTENT.test(action) && minutes >= 150 && !sleptIds.has("char_player")) {
+      applySleep(pcond, Math.min(9, minutes / 60));
+      sleptIds.add("char_player");
+    }
+    if (EAT_INTENT.test(action) && !MEAL_RUINED.test(prose) && !(diff.facts ?? []).some((f) => f.field === "hunger" && resolveId(state, f.char_id) === "char_player")) {
+      applyMeal(pcond, "meal");
+    }
+  }
   for (const pid of ["char_player", ...state.world.present]) {
     const cond = state.condition[pid]; if (!cond) continue;
     accruePhysiology(cond, state.characters[pid], minutes, state.world.weather, sleptIds.has(pid));
@@ -500,11 +619,26 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const recent = mem.episodic.slice(-20).map((m) => `[T${m.turn}, imp ${m.importance}] ${m.content}`).join("\n");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-      const parsed = safeJson<{ beliefs: { content: string; confidence: number }[] }>(res.text, { beliefs: [] });
+      const parsed = safeJson<{ beliefs: { content: string; confidence: number }[]; drive_review?: { status?: string; new_goal?: string; blocker?: string } }>(res.text, { beliefs: [] });
+      // DRIVE REVIEW (LLM layer of re-planning): the reflection judged the character's active
+      // pursuit against what actually happened. Completion/impossibility rotates the queue;
+      // a dry queue adopts the invented goal. High-priority goals are never dropped here either.
+      const dr = parsed.drive_review;
+      const ch = state.characters[id];
+      if (dr && ch?.drive) {
+        const highPri = (ch.drive.priority ?? 1) >= 8;
+        if ((dr.status === "complete" || dr.status === "impossible") && !highPri) {
+          const next = ch.drive_queue?.shift();
+          ch.drive = next ?? (dr.new_goal ? { goal: dr.new_goal.slice(0, 120), progress: 0, priority: 3, updated_turn: turn } : undefined);
+        } else if (dr.blocker && dr.blocker.trim()) {
+          ch.drive.blocker = dr.blocker.slice(0, 120);
+          ch.drive.updated_turn = turn;
+        }
+      }
       let beliefs: Belief[] = parsed.beliefs.slice(0, 3).map((b) => ({ content: b.content, confidence: clamp(b.confidence ?? 0.7, 0, 1), formed_turn: turn, evidence_turns: [] }));
       // FIDELITY GATE: a belief is a paraphrase by a cheap model — if it contains a proper noun
       // that appears nowhere in the episodic memories it was distilled from (nor in the world's
