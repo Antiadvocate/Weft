@@ -113,6 +113,20 @@ export function sanitize(state: SaveState): SaveState {
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
   for (const cond of Object.values(state.condition)) { cond.hunger_meter ??= 2; cond.thirst_meter ??= 2; cond.awake_minutes ??= 0; }
+  // NAME-KNOWLEDGE backfill for saves that predate epistemics: a character who has the player's
+  // name in their memories/facts, or a real relationship, clearly knows it; everyone else doesn't.
+  {
+    const pfirst = state.characters["char_player"]?.name.split(/\s+/)[0]?.toLowerCase() ?? "";
+    for (const [id, c] of Object.entries(state.characters)) {
+      if (id === "char_player") { c.knows_player_name = true; continue; }
+      if (c.knows_player_name !== undefined) continue;
+      const mem = state.memory[id];
+      const inMem = !!pfirst && !!mem && [...mem.episodic, ...mem.core.map((x) => ({ content: x })), ...(mem.facts ?? []), ...mem.beliefs]
+        .some((m: any) => (m.content ?? "").toLowerCase().includes(pfirst));
+      const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
+      c.knows_player_name = inMem || (!!e && Math.abs(e.warmth) + Math.abs(e.trust) >= 15);
+    }
+  }
   state.contract_drift ??= null;
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves

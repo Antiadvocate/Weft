@@ -122,7 +122,8 @@ export interface NPCDrive {
 
 export interface Identity {
   character_id: string;
-  paged?: boolean;            // MemGPT-style: identity card paged out of the cached prefix (cold character); rehydrates on presence/mention
+  paged?: boolean;
+  knows_player_name?: boolean; // EPISTEMICS: may this character speak the player's name? Spreads only through introduction or hearing it spoken in-scene            // MemGPT-style: identity card paged out of the cached prefix (cold character); rehydrates on presence/mention
   name: string;
   age: number;
   pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender

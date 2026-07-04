@@ -15,7 +15,7 @@ import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
-import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList } from "../store";
+import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 
 export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
 export type {
@@ -291,10 +291,40 @@ export const api = {
 
   rollback: async (id: string, to_turn: number): Promise<ClientSave> => {
     const s = await need(id);
+    // SAFETY RAIL: stash the full pre-rollback state (snapshots included) BEFORE anything is
+    // discarded. Rolling 174 turns to origin used to be one mistap with zero road back.
+    await putSideRow(id, "recovery", s);
     const restored = await doRollback(s, to_turn);
     if (!restored) throw new Error("no snapshot covers that turn");
     await putSave(restored);
     return clientView(restored);
+  },
+
+  /** One level of rollback undo — restores the exact pre-rollback state. */
+  undoRollback: async (id: string): Promise<ClientSave> => {
+    const rec = await getSideRow(id, "recovery");
+    if (!rec) throw new Error("no rollback to undo");
+    await putSave(rec);
+    await deleteSideRow(id, "recovery");
+    return clientView(rec);
+  },
+  hasRollbackRecovery: async (id: string): Promise<{ available: boolean; turn?: number }> => {
+    const rec = await getSideRow(id, "recovery");
+    return rec ? { available: true, turn: rec.world.current_turn } : { available: false };
+  },
+
+  /** Rolling 25-turn checkpoint restore — bounds catastrophic loss without exports. */
+  restoreBackup: async (id: string): Promise<ClientSave> => {
+    const cur = await need(id);
+    const bak = await getSideRow(id, "backup");
+    if (!bak) throw new Error("no auto-backup exists yet");
+    await putSideRow(id, "recovery", cur); // restoring a backup is itself undoable
+    await putSave(bak);
+    return clientView(bak);
+  },
+  backupInfo: async (id: string): Promise<{ turn?: number }> => {
+    const bak = await getSideRow(id, "backup");
+    return { turn: bak?.world.current_turn };
   },
 
   settings: async (id: string, patch: Partial<ModelSettings> & { era_theme?: string }): Promise<ClientSave> => {
@@ -673,6 +703,9 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco });
     await putSave(s);
+    // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
+    // bounded to <25 turns even with no export anywhere
+    if (s.world.current_turn > 0 && s.world.current_turn % 25 === 0) { try { await putSideRow(s.id, "backup", s); } catch { /* best-effort */ } }
     ev.onDone?.(clientView(s));
   } catch (e: any) {
     ev.onError?.(e?.message ?? "turn failed");

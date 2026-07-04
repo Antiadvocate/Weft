@@ -225,6 +225,13 @@ export function selectBeat(inp: BeatInput): Beat {
   const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
   if (due) return { kind: "consequence", ref: due.description.slice(0, 80), consequence: due };
 
+  // GRACE WINDOW: the first 8 turns establish a world; they do not besiege the player who just
+  // arrived in it. Standing weight may be FELT (reminders) but nothing discharges yet.
+  if (inp.turn <= 8) {
+    const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
+    return early && inp.turn >= 4 && (inp.rng ?? Math.random)() < 0.35 ? { kind: "reminder", ref: early.title.slice(0, 90) } : { kind: "none" };
+  }
+
   const sinceBeat = inp.turn - inp.last_beat_turn;
   const cooling = sinceBeat < beatCooldown(inp.tension, inp.clocks);
   const standing: { ref: string; mk: () => Beat }[] = [];
@@ -272,7 +279,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
         lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
         break;
       case "clock":
-        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned.`);
+        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
         break;
       case "thread":
         lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);

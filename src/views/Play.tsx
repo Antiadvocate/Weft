@@ -48,6 +48,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [chaptering, setChaptering] = useState(false);
   const [presentOpen, setPresentOpen] = useState(false);
   const [proseDone, setProseDone] = useState(false);
+  const [armedRollback, setArmedRollback] = useState<number | null>(null);
+  const [undoTurn, setUndoTurn] = useState<number | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
@@ -108,6 +110,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     }
   };
 
+  useEffect(() => {
+    api.hasRollbackRecovery(save.id).then((r) => setUndoTurn(r.available ? (r.turn ?? 0) : null)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save.id]);
+
   const submit = async () => {
     const a = action.trim();
     if (!a) return;
@@ -119,8 +126,20 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   };
 
   const doRollback = async (turn: number) => {
-    setRollbackOpen(false);
+    const loss = save.world.current_turn - turn;
+    // ARMED CONFIRM: any rollback erasing more than 10 turns takes two deliberate taps, with
+    // the cost stated. One mistap must never eat a campaign.
+    if (loss > 10 && armedRollback !== turn) { setArmedRollback(turn); return; }
+    setArmedRollback(null); setRollbackOpen(false);
+    const before = save.world.current_turn;
     setSave(await api.rollback(save.id, turn));
+    setUndoTurn(before);
+    pushToasts([`unraveled to turn ${turn} — undo available`]);
+  };
+
+  const doUndoRollback = async () => {
+    try { setSave(await api.undoRollback(save.id)); setUndoTurn(null); pushToasts(["the timeline is restored"]); }
+    catch (e: any) { setError(e.message ?? "nothing to undo"); }
   };
 
   const doSkip = async (days: number) => {
@@ -256,6 +275,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <button className="chip" onClick={() => setRollbackOpen(true)} disabled={!save.snapshot_turns.length}>
           <RotateCcw size={11} /> {save.world.current_turn}
         </button>
+        {undoTurn !== null && (
+          <button className="chip" onClick={doUndoRollback} title={`undo rollback — return to turn ${undoTurn}`}
+            style={{ color: "var(--accent)", borderColor: "var(--accent-glow)" }}>
+            ⟳ undo → {undoTurn}
+          </button>
+        )}
         <button className="chip" onClick={() => { setDrawerSel(null); setDrawer("cast"); }} title="cast"><Users size={11} /></button>
         <button className="chip" onClick={() => setDrawer("world")} title="world"><Globe2 size={11} /></button>
         <button className="chip" onClick={() => setDrawer("chronicle")} title="chronicle"><BarChart3 size={11} /></button>
@@ -566,7 +591,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           <>
             <motion.div className="drawer-veil fixed inset-0 z-40"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setRollbackOpen(false)} />
+              onClick={() => { setRollbackOpen(false); setArmedRollback(null); }} />
             <motion.div className="drawer fixed bottom-0 left-0 right-0 z-50 px-5"
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 38 }}>
@@ -576,23 +601,27 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <button onClick={() => setRollbackOpen(false)}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
               </div>
               <div className="pb-4 space-y-2">
-                {save.snapshot_turns.includes(1) && (
-                  <button className="card card-press w-full p-3.5 text-left flex justify-between items-center"
-                    style={{ borderColor: "var(--accent-glow)" }}
-                    onClick={() => doRollback(1)}>
-                    <span className="font-display text-[14px]" style={{ color: "var(--accent)" }}>⟲ The very beginning</span>
-                    <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>same world, blank page</span>
-                  </button>
-                )}
                 {[...save.snapshot_turns].reverse().filter((t) => t !== 1).map((t) => (
                   <button key={t} className="card card-press w-full p-3.5 text-left flex justify-between items-center"
+                    style={armedRollback === t ? { borderColor: "var(--danger)" } : undefined}
                     onClick={() => doRollback(t)}>
-                    <span className="font-display text-[14px]">Turn {t}</span>
+                    <span className="font-display text-[14px]" style={armedRollback === t ? { color: "var(--danger)" } : undefined}>
+                      {armedRollback === t ? `Erases ${save.world.current_turn - t} turns — tap again` : `Turn ${t}`}
+                    </span>
                     <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>
                       {save.history.find((h) => h.turn === t)?.time_label ?? ""}
                     </span>
                   </button>
                 ))}
+                {save.snapshot_turns.includes(1) && (
+                  <button className="w-full p-2.5 text-left flex justify-between items-center rounded-xl"
+                    style={{ border: `1px dashed ${armedRollback === 1 ? "var(--danger)" : "var(--ink-3)"}`, opacity: 0.85 }}
+                    onClick={() => doRollback(1)}>
+                    <span className="font-mono text-[11px]" style={{ color: armedRollback === 1 ? "var(--danger)" : "var(--text-lo)" }}>
+                      {armedRollback === 1 ? `⟲ ERASES ALL ${save.world.current_turn - 1} TURNS — tap again to confirm` : "⟲ the very beginning (erases the whole story)"}
+                    </span>
+                  </button>
+                )}
               </div>
             </motion.div>
           </>

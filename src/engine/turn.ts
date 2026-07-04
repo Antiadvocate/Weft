@@ -679,6 +679,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
 
+  // ── NAME-KNOWLEDGE SPREAD: the player's name becomes speakable for present characters only
+  // when the player introduces themselves, or when the name is spoken aloud (inside quotes) in
+  // the scene by someone who knows it. Narration using the name never teaches it.
+  {
+    const pfirst = state.characters["char_player"]?.name.split(/\s+/)[0] ?? "";
+    if (pfirst.length >= 2) {
+      const introduced = new RegExp(`\\b(i'?m|i am|my name is|call me|the name'?s)\\s+${pfirst}\\b`, "i").test(action);
+      const spokenAloud = new RegExp(`["“][^"”]*\\b${pfirst}\\b[^"”]*["”]`).test(prose);
+      if (introduced || spokenAloud) {
+        for (const pid of state.world.present) {
+          const c = state.characters[pid];
+          if (c && !c.knows_player_name) { c.knows_player_name = true; shifts.push(`${c.name} has your name now.`); }
+        }
+      }
+    }
+  }
+
   gcPlaces(state);
 
   // ── CHAPTERING: every chapter_cadence turns, one cheap call turns the last stretch of
@@ -698,7 +715,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 6000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[] }>(res.text, {});
+        // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
+        // bookkeeper missed — news that spread across a whole chapter is public by now.
+        for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
+          const line = String(cn).trim();
+          if (line && !state.world.canon.some((x) => x.toLowerCase() === line.toLowerCase())) {
+            state.world.canon.push(line.slice(0, 200));
+            if (state.world.canon.length > 20) state.world.canon.shift();
+          }
+        }
         if (ch.summary) {
           state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200) });
           // arm or clear the governor
@@ -1288,10 +1314,15 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (existing) {
       existing.status = tu.status;
       if (tu.description) existing.description = tu.description;
-      if (typeof tu.tension === "number") existing.tension = clamp(tu.tension, 0, 10);
+      if (typeof tu.tension === "number") existing.tension = clamp(Math.min(tu.tension, (existing.tension ?? 3) + 2), 0, 10); // escalation is earned: +2/turn max
       if (tu.status === "resolved") existing.turn_resolved = turn;
     } else if (tu.status === "active") {
-      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(tu.tension ?? 3, 0, 10) });
+      // BIRTH CALIBRATION: a thread is born as POTENTIAL, not a mature crisis. New threads cap
+      // at tension 6 (5 in the game's first 10 turns — arrivals establish, they don't besiege);
+      // a real crisis earns its 9 turn by turn. This is the fix for "the world was born armed":
+      // a turn-1 manhunt at tension 9 with no history contradicts any bible it lives in.
+      const birthCap = turn <= 10 ? 5 : 6;
+      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(Math.min(tu.tension ?? 3, birthCap), 0, 10) });
       shifts.push(`A new thread: ${tu.title}.`);
     }
     if (existing && tu.status === "resolved") shifts.push(`Thread resolved: ${tu.title}.`);
@@ -1329,7 +1360,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if ((state.model_settings.tension ?? 5) <= 0) break;   // tension 0: faction clocks freeze, no background escalation
     const clock = state.world.clocks.find((c) => c.id === ca.id || c.faction.toLowerCase() === String(ca.id).toLowerCase());
     if (clock && clock.status === "running") {
-      clock.filled = clamp(clock.filled + (ca.segments ?? 1), 0, clock.segments);
+      clock.filled = clamp(clock.filled + Math.min(1, ca.segments ?? 1), 0, clock.segments); // a clock ADVANCES — one segment per turn; a clock that leaps is a jump scare, not a clock
       shifts.push(clock.filled >= clock.segments ? `${clock.faction}'s clock has run out.` : `${clock.faction} moved closer to their objective.`);
     }
   }
