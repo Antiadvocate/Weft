@@ -1,12 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import type { ClientSave } from "../lib/api";
-import type { AcquiredTrait, Belief } from "../engine/types";
+import { api, type ClientSave } from "../lib/api";
+import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
 import { nice, niceCap } from "../lib/format";
 
 /** Everything here is computed locally from telemetry — zero token cost. */
 export default function Chronicle({ save }: { save: ClientSave }) {
+  const [reading, setReading] = useState((save as any).persona_reading as { turn: number; mbti: string; read: string; traits: string[]; arc: string } | undefined);
+  const [readingBusy, setReadingBusy] = useState(false);
   const tel = save.telemetry;
   const name = (id: string) => save.characters[id]?.name ?? id;
 
@@ -172,7 +174,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     .slice(-30)
     .reverse();
 
-  const chapters = (save as any).chapters as { idx: number; from_turn: number; to_turn: number; title: string; summary: string }[] | undefined;
+  const chapters = (save as any).chapters as Chapter[] | undefined;
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
@@ -180,6 +182,26 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         <Fade delay={0}>
           <div className="card p-4">
             <Title>The story so far — chapters</Title>
+            <div className="mb-3 p-3 rounded-xl" style={{ background: "var(--ink-1)" }}>
+              <div className="flex items-center justify-between">
+                <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>the player, as played</div>
+                <button className="chip" disabled={readingBusy}
+                  onClick={async () => { setReadingBusy(true); try { setReading(await api.analyzePersona(save.id)); } finally { setReadingBusy(false); } }}>
+                  {readingBusy ? "reading…" : reading ? "re-read" : "read me"}
+                </button>
+              </div>
+              {reading && (
+                <div className="mt-2">
+                  <span className="font-display text-[18px]" style={{ color: "var(--accent)" }}>{reading.mbti}</span>
+                  <span className="font-mono text-[9px] ml-2" style={{ color: "var(--text-lo)" }}>as of turn {reading.turn}</span>
+                  <div className="text-[12.5px] leading-relaxed mt-1">{reading.read}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {reading.traits.map((t, i) => <span key={i} className="px-2 py-0.5 rounded-full text-[10.5px]" style={{ background: "var(--ink-2)" }}>{t}</span>)}
+                  </div>
+                  {reading.arc && <div className="text-[11.5px] italic mt-2" style={{ color: "var(--text-mid)" }}>{reading.arc}</div>}
+                </div>
+              )}
+            </div>
             <div className="space-y-2.5 mt-1">
               {chapters.map((c) => (
                 <div key={c.idx} className="flex gap-3">
@@ -192,6 +214,16 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                     <div className="text-[13.5px] font-display">{c.title}</div>
                     <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>turns {c.from_turn}–{c.to_turn}</div>
                     <div className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-mid)" }}>{c.summary}</div>
+                    {c.persona && (
+                      <div className="mt-1.5 pl-2" style={{ borderLeft: "2px solid var(--ink-2)" }}>
+                        <span className="font-mono text-[10px]" style={{ color: "var(--accent)" }}>{c.persona.mbti}</span>
+                        <span className="text-[11.5px] ml-2" style={{ color: "var(--text-mid)" }}>{c.persona.read}</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {c.persona.traits.map((t, i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: "var(--ink-2)", color: "var(--text-lo)" }}>{t}</span>)}
+                        </div>
+                        {c.persona.shift && <div className="text-[10.5px] italic mt-1" style={{ color: "var(--text-lo)" }}>↳ {c.persona.shift}</div>}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

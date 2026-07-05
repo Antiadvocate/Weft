@@ -10,7 +10,7 @@ import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
-import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
@@ -525,6 +525,33 @@ export const api = {
       { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
     return { baseline: out.text.trim().replace(/^"|"$/g, "").slice(0, 600) };
+  },
+
+
+  /** FULL-HISTORY PERSONA READ — types the player as actually played, from every chapter plus a
+   *  sample of their literal typed actions. One cheap call; stored on the save so Chronicle can
+   *  show it, refreshable any time. */
+  analyzePersona: async (id: string): Promise<{ turn: number; mbti: string; read: string; traits: string[]; arc: string }> => {
+    const s = await need(id);
+    const chapters = (s.chapters ?? []).map((c) => `Ch${c.idx} "${c.title}": ${c.summary}${c.persona ? ` [read then: ${c.persona.mbti}]` : ""}`).join("\n");
+    const acts = s.history.filter((h) => h.kind !== "opening" && h.player_action);
+    const step = Math.max(1, Math.floor(acts.length / 60));
+    const sample = acts.filter((_, i) => i % step === 0).map((h) => `T${h.turn}: ${h.player_action.slice(0, 80)}`).join("\n");
+    const out = await complete([
+      { role: "system", content: PERSONA_SYSTEM },
+      { role: "user", content: `CHAPTERS:\n${chapters || "(none yet — story is young)"}\n\nSAMPLED PLAYER ACTIONS (verbatim):\n${sample.slice(0, 8000)}` },
+    ], s.model_settings.simulator_model, s.model_settings.fallback_model, true, 700);
+    const parsed = safeJson<{ mbti?: string; read?: string; traits?: string[]; arc?: string }>(out.text, {});
+    const reading = {
+      turn: s.world.current_turn,
+      mbti: String(parsed.mbti ?? "????").slice(0, 6).toUpperCase(),
+      read: String(parsed.read ?? "").slice(0, 500),
+      traits: (parsed.traits ?? []).slice(0, 6).map((t) => String(t).slice(0, 70)),
+      arc: String(parsed.arc ?? "").slice(0, 400),
+    };
+    s.persona_reading = reading;
+    await putSave(s);
+    return reading;
   },
 
   setTracked: async (id: string, char_id: string, tracked: boolean): Promise<ClientSave> => {

@@ -707,15 +707,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       ev.onPhase("reflection");
       state.chapters ??= [];
       const fromTurn = (state.chapters.at(-1)?.to_turn ?? 0) + 1;
-      const beats = state.history.filter((h) => h.kind !== "opening" && h.turn >= fromTurn).map((h) => `T${h.turn}: ${h.summary}`).join("\n");
+      const beats = state.history.filter((h) => h.kind !== "opening" && h.turn >= fromTurn)
+        .map((h) => `T${h.turn}: [did: ${(h.player_action || "").slice(0, 90)}] ${h.summary}`).join("\n");
       if (beats.trim()) {
         const contract = state.world_bible.narrator_direction?.trim() || "";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
-          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 6000)}` },
+          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[] }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
@@ -726,7 +727,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           }
         }
         if (ch.summary) {
-          state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200) });
+          const persona = ch.persona && ch.persona.mbti && ch.persona.read
+            ? { mbti: String(ch.persona.mbti).slice(0, 6).toUpperCase(), read: String(ch.persona.read).slice(0, 300), traits: (ch.persona.traits ?? []).slice(0, 5).map((t) => String(t).slice(0, 60)), shift: ch.persona.shift && String(ch.persona.shift).trim() ? String(ch.persona.shift).slice(0, 160) : undefined }
+            : undefined;
+          state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200), persona });
           // arm or clear the governor
           state.contract_drift = ch.on_contract === false && ch.drift?.trim() ? ch.drift.trim().slice(0, 200) : null;
         }

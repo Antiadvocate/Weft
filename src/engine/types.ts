@@ -42,6 +42,7 @@ export interface Chapter {
   summary: string;
   on_contract?: boolean;      // did this chapter honor the standing direction (story contract)?
   drift?: string;             // one-line description of the drift, when off contract
+  persona?: { mbti: string; read: string; traits: string[]; shift?: string }; // how the PLAYER acted this chapter, typed from behavior
 }
 
 export interface WorldBible {
@@ -392,6 +393,7 @@ export interface SaveState {
   context_anchor?: { turn: number; digest: string; cast_sig: string }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to
   contract_drift?: string | null;
   pressure_state?: { last_beat_turn: number; last_exo_turn: number }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
+  persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
 }
 
