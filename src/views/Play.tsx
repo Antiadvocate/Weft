@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BarChart3, BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Globe2, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Users, X } from "lucide-react";
+import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import { api, streamTurn, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
 import World from "./World";
@@ -50,6 +50,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [proseDone, setProseDone] = useState(false);
   const [armedRollback, setArmedRollback] = useState<number | null>(null);
   const [undoTurn, setUndoTurn] = useState<number | null>(null);
+  const [rolledTo, setRolledTo] = useState<number | null>(null);
   const pendingRef = useRef<string | null>(null);
   const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     setArmedRollback(null); setRollbackOpen(false);
     const before = save.world.current_turn;
     setSave(await api.rollback(save.id, turn));
-    setUndoTurn(before);
+    setUndoTurn(before); setRolledTo(turn);
     pushToasts([`unraveled to turn ${turn} — undo available`]);
   };
 
@@ -275,18 +276,15 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <button className="chip" onClick={() => setRollbackOpen(true)} disabled={!save.snapshot_turns.length}>
           <RotateCcw size={11} /> {save.world.current_turn}
         </button>
-        {undoTurn !== null && (
+        {undoTurn !== null && rolledTo === save.world.current_turn && (
           <button className="chip" onClick={doUndoRollback} title={`undo rollback — return to turn ${undoTurn}`}
-            style={{ color: "var(--accent)", borderColor: "var(--accent-glow)" }}>
-            ⟳ undo → {undoTurn}
+            style={{ color: "var(--accent)" }}>
+            <RotateCcw size={11} style={{ transform: "scaleX(-1)" }} /> {undoTurn}
           </button>
         )}
-        <button className="chip" onClick={() => { setDrawerSel(null); setDrawer("cast"); }} title="cast"><Users size={11} /></button>
-        <button className="chip" onClick={() => setDrawer("world")} title="world"><Globe2 size={11} /></button>
-        <button className="chip" onClick={() => setDrawer("chronicle")} title="chronicle"><BarChart3 size={11} /></button>
+
       </div>
 
-      {/* cost HUD — spend, cache, eco, one-tap lean */}
       {(() => {
         const gov = governorState(save as any);
         const sess = save.telemetry;
@@ -295,22 +293,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         const hit = inTok > 0 ? Math.round((cached / inTok) * 100) : 0;
         const spend = sess.reduce((a, t) => a + (t.turn_cost ?? 0), 0);
         return (
-          <div className="px-4 pb-0.5 flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
-            <span title="provider-reported spend across this save's recent turns">{spend > 0 ? `$${spend.toFixed(2)}` : "$—"}</span>
-            <span title="share of input tokens served from provider prompt cache">cache {hit}%</span>
-            {gov.budget > 0 && (
-              <span className="flex items-center gap-1" title={`today $${gov.spent.toFixed(2)} of $${gov.budget.toFixed(2)} budget${gov.eco ? " — eco engaged" : ""}`}>
-                <span className="inline-block rounded-full" style={{ width: 46, height: 4, background: "var(--ink-2)", overflow: "hidden" }}>
-                  <span className="block h-full" style={{ width: `${Math.min(100, (gov.spent / gov.budget) * 100)}%`, background: gov.over ? "var(--danger)" : gov.eco ? "var(--accent)" : "var(--calm)" }} />
-                </span>
-                {gov.eco && <span style={{ color: "var(--accent)" }} className="flex items-center gap-0.5"><Leaf size={9} /> eco</span>}
-              </span>
-            )}
-            <button className="ml-auto flex items-center gap-1" title="lean mode — compressed prompts, present/tracked cast only (persists)"
-              style={save.model_settings.lean_mode ? { color: "var(--accent)" } : undefined}
-              onClick={async () => setSave(await api.settings(save.id, { ...save.model_settings, lean_mode: !save.model_settings.lean_mode }))}>
-              <Leaf size={10} /> lean {save.model_settings.lean_mode ? "on" : "off"}
-            </button>
+          <div className="px-4 pb-0.5 font-mono text-[9px] uppercase tracking-wider flex items-center gap-2" style={{ color: "var(--text-lo)", opacity: 0.7 }}>
+            <span>{spend > 0 ? `$${spend.toFixed(2)}` : ""}{spend > 0 ? ` · ${hit}% cached` : ""}</span>
+            {gov.budget > 0 && gov.eco && <span className="flex items-center gap-1" style={{ color: "var(--accent)" }}><Leaf size={9} /> eco</span>}
+            {save.model_settings.lean_mode && <span>· lean</span>}
           </div>
         );
       })()}
@@ -601,6 +587,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <button onClick={() => setRollbackOpen(false)}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
               </div>
               <div className="pb-4 space-y-2">
+                {undoTurn !== null && (
+                  <button className="card card-press w-full p-3.5 text-left flex justify-between items-center"
+                    style={{ borderColor: "var(--accent-glow)" }}
+                    onClick={() => { setRollbackOpen(false); doUndoRollback(); }}>
+                    <span className="font-display text-[14px]" style={{ color: "var(--accent)" }}>⟳ Undo last rollback</span>
+                    <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>return to turn {undoTurn}</span>
+                  </button>
+                )}
                 {[...save.snapshot_turns].reverse().filter((t) => t !== 1).map((t) => (
                   <button key={t} className="card card-press w-full p-3.5 text-left flex justify-between items-center"
                     style={armedRollback === t ? { borderColor: "var(--danger)" } : undefined}

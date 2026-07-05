@@ -18,7 +18,7 @@ import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
 import { regenerateDrives, seedDrive } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
-import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs } from "./facts";
+import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
 import { extractHeuristics, backfillDiff } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
@@ -1186,14 +1186,20 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     // CORE PROMOTION: life-defining events (model-flagged core, or importance 9+) become part of
     // the immutable autobiography AND a durable ledger fact — immune to decay, condensation, and
     // retrieval burial. A character's first-in-a-lifetime event must never fade like a Tuesday.
-    if (m.core || (m.importance ?? 3) >= 9) {
+    // CORE PROMOTION — requires the DELIBERATE flag, not just a hot number: models rate every
+    // intense beat a 9, and permanence must be chosen, not inferred. Then a quality gate:
+    // no quote shards, no fragments, no near-duplicates of an entry already held (one life
+    // event = one line, however many turns it took to happen).
+    if (m.core) {
       const line = m.content.replace(/\s+/g, " ").trim().slice(0, 200);
-      if (line && !mem.core.some((c) => c.toLowerCase() === line.toLowerCase())) {
+      const shard = line.split(/\s+/).length < 6 || /["“”]/.test(line);
+      const nearDup = mem.core.some((c) => c.toLowerCase() === line.toLowerCase() || factOverlap(c, line) >= 0.55);
+      if (line && !shard && !nearDup) {
         mem.core.push(line);
         if (mem.core.length > 14) mem.core.splice(4, 1); // keep the founding four, trim the middle
+        addFact(mem, line, turn, m.anchor);
+        shifts.push(`${nameOf(id)} will carry this for the rest of their life.`);
       }
-      addFact(mem, line, turn, m.anchor);
-      shifts.push(`${nameOf(id)} will carry this for the rest of their life.`);
     } else if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
   }
 
