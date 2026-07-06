@@ -167,7 +167,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     return { text: full, usage, model: m };
   };
   try { return yield* attempt(model); }
-  catch { return yield* attempt(fallback); }
+  catch (e: any) { logErr(slug(model), e); return yield* attempt(fallback); }
 }
 
 export function extractJson(text: string): string {

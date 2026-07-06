@@ -10,7 +10,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: Err
     if (this.state.err) {
       return (
         <div className="p-6">
-          <div className="font-display text-lg mb-2">The loom jammed.</div>
+          <div className="font-display text-lg mb-2">Something went wrong.</div>
           <pre className="font-mono text-xs whitespace-pre-wrap" style={{ color: "var(--danger)" }}>
             {String(this.state.err)}
           </pre>

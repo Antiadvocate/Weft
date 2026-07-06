@@ -60,7 +60,7 @@ export default function World({ save }: { save: ClientSave }) {
       </Block>
 
       <Block title="Threads" delay={0.04}>
-        {activeThreads.length === 0 && <Empty>Nothing pulling at the weave yet.</Empty>}
+        {activeThreads.length === 0 && <Empty>No active threads yet.</Empty>}
         {activeThreads.map((t) => (
           <div key={t.id} className="py-2">
             <div className="flex justify-between items-baseline gap-2">
@@ -97,7 +97,7 @@ export default function World({ save }: { save: ClientSave }) {
       </Block>
 
       <Block title="What people are saying" delay={0.1}>
-        {liveRumors.length === 0 && <Empty>The air is quiet. For now.</Empty>}
+        {liveRumors.length === 0 && <Empty>No rumors circulating yet.</Empty>}
         {liveRumors.map((r) => (
           <div key={r.id} className="py-2">
             <div className="text-[13px] leading-relaxed italic">"{r.content}"</div>
@@ -110,6 +110,7 @@ export default function World({ save }: { save: ClientSave }) {
       </Block>
 
       <Block title="Norms" delay={0.15}>
+        {w.norms.length === 0 && <Empty>No social rules recorded.</Empty>}
         {w.norms.map((n) => (
           <div key={n.id} className="py-1.5 text-[13px]">
             <span style={{ color: "var(--text-hi)" }}>{n.rule}</span>

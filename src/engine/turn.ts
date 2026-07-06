@@ -16,7 +16,7 @@ import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
-import { regenerateDrives, seedDrive } from "./drives";
+import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
 import { extractHeuristics, backfillDiff } from "./extract";
@@ -215,7 +215,7 @@ function looksNamed(name: string): boolean {
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
 }
 
-export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean }): Promise<void> {
+export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string }): Promise<void> {
   const t0 = Date.now();
   const framedAction = MODE_FRAME[mode](action);
   const turn = state.world.current_turn;
@@ -410,13 +410,21 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       state.model_settings.narrator_model,
     );
   }
-  const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
   let prose = "";
   let narratorUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
-  while (true) {
-    const { done, value } = await stream.next();
-    if (done) { prose = value.text; narratorUsage = value.usage; break; }
-    ev.onDelta(value);
+  if (opts?.proseOverride) {
+    // RESUME PATH: the narrator already ran (and was paid for) before the app was killed —
+    // iOS suspends web pages the moment they background, so a mid-turn death strands the prose
+    // with no bookkeeping. The journaled prose re-enters here and everything downstream —
+    // simulator, applyDiff, physiology, reflection, chapters, telemetry — runs identically.
+    prose = opts.proseOverride;
+  } else {
+    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
+    while (true) {
+      const { done, value } = await stream.next();
+      if (done) { prose = value.text; narratorUsage = value.usage; break; }
+      ev.onDelta(value);
+    }
   }
   prose = stripMeta(prose);
 
@@ -469,12 +477,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
-  if (!simOk) shifts.push("(the loom stuttered — this turn's records are thin; consider re-running or editing memory by hand)");
-  shifts.push(...undertow.snaps);
-  if (undertow.regime === "cascading") shifts.push("The world is primed — small things cascade.");
+  if (!simOk) shifts.push("(bookkeeping failed this turn — records are incomplete; re-run the turn or edit memory by hand)");
   const offscreenLog = [...(diff.offscreen ?? [])];
-  offscreenLog.push(...undertow.snaps);
-  offscreenLog.push(...undertow.stances.slice(0, 3).map((st) => `${st.name} ${st.stance === "press" ? "presses" : st.stance === "maneuver" ? "maneuvers" : st.stance === "hold" ? "holds position" : "yields ground"} against ${st.vs} (quantal p=${st.p.toFixed(2)})`));
   // present, named characters the player is actually engaging join the long game
   const capCentral = state.model_settings.max_central_characters ?? 6;
   for (const id of state.world.present) {
@@ -523,6 +527,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence
     const cc = state.condition[id];
+    if (!cc) continue; // defensive: imported saves can lack a condition record
     cc.condition_age ??= {};
     const expired = cc.conditions.filter((x) => turn - (cc.condition_age![x] ?? turn) >= CONDITION_LIFESPAN);
     if (expired.length) {
@@ -560,7 +565,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (linked && linked.status === "fired") {
       if (focus.next_label) {
         state.world.focus = { label: focus.next_label, mode: focus.next_mode ?? "active" };
-        shifts.push(`The phase turns: now ${focus.next_label}.`);
+        shifts.push(`Phase change: now ${focus.next_label}.`);
       } else {
         state.world.focus = null;   // the event passed and there's no next phase — release focus
       }
@@ -600,7 +605,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     accruePhysiology(cond, state.characters[pid], minutes, state.world.weather, sleptIds.has(pid));
     if (applyRelaxationCeiling(cond) && pid === "char_player") {
       const why = physioLabel(cond);
-      if (why) shifts.push(`Your body sets the terms now — ${why}.`);
+      if (why) shifts.push(`Your body is limiting you now — ${why}.`);
     }
   }
   state.history.push({
@@ -667,7 +672,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           const tightened = cres.text.trim();
           if (tightened && tightened.length < (ident.life_history?.length ?? 0)) {
             ident.life_history = tightened;
-            shifts.push(`${ident.name}'s long history settled into its essentials.`);
+            shifts.push(`${ident.name}'s accumulated history was condensed.`);
           }
         } catch (e: any) {
           // if the rewrite fails, fall back to a hard tail-trim so it can't grow unbounded
@@ -690,7 +695,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (introduced || spokenAloud) {
         for (const pid of state.world.present) {
           const c = state.characters[pid];
-          if (c && !c.knows_player_name) { c.knows_player_name = true; shifts.push(`${c.name} has your name now.`); }
+          if (c && !c.knows_player_name) { c.knows_player_name = true; shifts.push(`${c.name} now knows your name.`); }
         }
       }
     }
@@ -805,7 +810,13 @@ const CONDITION_LIFESPAN = 10; // turns; afflictions heal unless re-earned
 function findCharByName(state: SaveState, name: string): string | null {
   const n = name.toLowerCase().trim();
   for (const [id, c] of Object.entries(state.characters)) if (c.name.toLowerCase() === n) return id;
-  for (const [id, c] of Object.entries(state.characters)) if (c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())) return id;
+  // fuzzy containment only for names long enough to be meaningful — a 1-2 character name
+  // ("P", "Al") is a substring of half the alphabet and used to swallow every new character
+  for (const [id, c] of Object.entries(state.characters)) {
+    const cn = c.name.toLowerCase();
+    if (cn.length < 3 || n.length < 3) continue;
+    if (cn.includes(n) || n.includes(cn)) return id;
+  }
   return null;
 }
 
@@ -1056,7 +1067,6 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   }
 
 
-  const sleptThisTurn = new Set<string>();
   for (const f of diff.facts ?? []) {
     const id = resolveId(state, f.char_id); if (!id) continue;
     const c = state.condition[id]; if (!c) continue;
@@ -1078,7 +1088,6 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       case "slept": {
         const hrs = parseFloat(f.value);
         applySleep(c, isNaN(hrs) ? 7 : clamp(hrs, 1, 14));
-        sleptThisTurn.add(id);
         break;
       }
       case "condition_add": addCondition(c, f.value, turn); break;
@@ -1127,7 +1136,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
     const d = clamp(p.relaxation_delta ?? 0, -6, 6);
-    if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} opened a little.` : `${nameOf(id)} clenched.`);
+    if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
   }
 
   const explicitEdges = new Set((diff.edges ?? []).map((e) => `${resolveId(state, e.from)}|${resolveId(state, e.to)}`));
@@ -1202,7 +1211,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
         mem.core.push(line);
         if (mem.core.length > 14) mem.core.splice(4, 1); // keep the founding four, trim the middle
         addFact(mem, line, turn, m.anchor);
-        shifts.push(`${nameOf(id)} will carry this for the rest of their life.`);
+        shifts.push(`${nameOf(id)} will never forget this.`);
       }
     } else if (id !== "char_player" && (m.importance ?? 3) >= 6) shifts.push(`${nameOf(id)} will remember that.`);
   }
@@ -1260,7 +1269,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       id: uid("rum"), content: cn, truth: "true", salience: 10, origin_char: origin,
       knowers: [...state.world.present], born_turn: turn, dead: false,
     });
-    shifts.push(`CANON: ${cn} (the world will come to know)`);
+    if (state.world.rumors.length > 40) state.world.rumors = state.world.rumors.slice(-40);
+    shifts.push(`CANON: ${cn} (news will spread over time)`);
   }
 
   for (const a of diff.appearance ?? []) {
@@ -1304,7 +1314,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const id = resolveId(state, tk); if (!id || id === "char_player") continue;
     if (!state.characters[id].tracked) {
       state.characters[id].tracked = true;
-      shifts.push(`${nameOf(id)} steps into the larger story.`);
+      shifts.push(`${nameOf(id)} is now tracked as a recurring character.`);
     }
   }
 
@@ -1315,7 +1325,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const age = state.characters[id]?.age ?? 30;
     if (age < 16 && impliesExpertise(t.label) && age < expertiseFloor(t.label)) continue; // too young for this expertise
     reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
-    shifts.push(`Something is growing on ${nameOf(id)}: "${t.label}".`);
+    shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }
 
   for (const tu of diff.threads_update ?? []) {
@@ -1348,7 +1358,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       born_turn: turn, about_char: r.about_char ? resolveId(state, r.about_char) ?? undefined : undefined,
     });
     if (state.world.rumors.length > 40) state.world.rumors = state.world.rumors.slice(-40);
-    shifts.push(r.truth === "true" ? `A rumor is born.` : `A rumor is born — and it isn't true.`);
+    shifts.push(r.truth === "true" ? `A new rumor is spreading.` : `A new rumor is spreading — and it isn't true.`);
   }
 
   for (const c of diff.consequences_new ?? []) {
@@ -1363,7 +1373,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       severity: c.severity ?? "notable", source_char: c.source_char ? resolveId(state, c.source_char) ?? undefined : undefined,
       location_trigger: c.location_trigger, status: "pending",
     });
-    shifts.push(fire_time ? `Something is set for ${fire_time.replace(/\s*\(.*\)$/, "")}.` : `Something was set in motion. It will come back around.`);
+    shifts.push(fire_time ? `A consequence is scheduled for ${fire_time.replace(/\s*\(.*\)$/, "")}.` : `A consequence was scheduled. It will land in a coming turn.`);
   }
 
   for (const ca of diff.clocks_advance ?? []) {

@@ -155,7 +155,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       <div className="h-full flex items-center justify-center px-8 text-center">
         <div>
           <div className="font-display text-lg mb-1.5">Nothing chronicled yet.</div>
-          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The loom keeps its own ledger — every chart here costs zero tokens.</div>
+          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The engine keeps its own records — every chart here costs zero tokens.</div>
         </div>
       </div>
     );

@@ -193,7 +193,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         ))}
 
         <button className="btn w-full mt-3" onClick={commitBible}>
-          {bibleSaved ? <><Check size={14} /> rewoven</> : "Rewrite the bible"}
+          {bibleSaved ? <><Check size={14} /> saved</> : "Save world bible"}
         </button>
         <button className="btn btn-ghost w-full mt-2" onClick={async () => {
           setWorldErr(""); const raw = await api.getWorldRaw(save.id); setWorldJson(JSON.stringify(raw, null, 2));
@@ -449,7 +449,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       )}
 
       <button className="btn btn-accent w-full" style={{ height: 48 }} onClick={commit}>
-        {saved ? <><Check size={15} /> woven in</> : "Save tuning"}
+        {saved ? <><Check size={15} /> saved</> : "Save tuning"}
       </button>
     </div>
   );

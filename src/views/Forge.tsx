@@ -27,7 +27,7 @@ export default function Forge({ onBack, onCreated }: {
       const m = model.trim();
       onCreated(await api.forge(seed.trim(), m ? (grounded && !m.endsWith(":online") ? m + ":online" : m) : undefined));
     } catch (e: any) {
-      setError(e.message ?? "the forge went cold");
+      setError(e.message ?? "world generation failed");
       setBusy(false);
     }
   };
@@ -80,7 +80,7 @@ export default function Forge({ onBack, onCreated }: {
         </motion.button>
         {busy && (
           <div className="font-mono text-[11px] text-center mt-3">
-            <span className="shimmer">casting people, sharpening grudges, winding clocks…</span>
+            <span className="shimmer">building the people, places, and stakes…</span>
           </div>
         )}
       </motion.div>

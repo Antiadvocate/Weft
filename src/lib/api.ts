@@ -22,7 +22,8 @@ export type {
   ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 };
-export type ActionMode = "do" | "say" | "story";
+export type { ActionMode } from "../engine/types";
+import type { ActionMode } from "../engine/types";
 
 export interface PresetInfo { id: string; name: string; blurb: string; era_theme: string }
 export interface SaveListing { id: string; name: string; updated_at: string; turn: number; world_name: string }
@@ -256,6 +257,7 @@ export const api = {
     // keep the current scene beat as the sole recent-history anchor; drop the long log
     const lastBeat = s.history.filter((h) => h.kind !== "opening").slice(-1);
     s.history = lastBeat.length ? lastBeat : s.history.slice(-1);
+    s.context_anchor = undefined; // chatlog anchor referenced the cleared history — force a fresh anchor
     await putSave(s);
     return clientView(s);
   },
@@ -432,13 +434,8 @@ export const api = {
         if (s.characters["char_player"]) s.characters["char_player"].location = raw.player_location;
       }
       // re-derive room occupancy + scene from locations after any places/location change
-      for (const p of Object.values(s.world.places)) p.contains = [];
-      for (const [cid, c] of Object.entries(s.characters)) {
-        if (c.location && s.world.places[c.location]) s.world.places[c.location].contains.push(cid);
-      }
-      s.world.present = Object.entries(s.characters)
-        .filter(([cid, c]) => cid !== "char_player" && c.location === s.world.player_location)
-        .map(([cid]) => cid);
+      // (shared derivation — filters dead/departed and honors sub-room locales)
+      syncPresence(s);
     }
     await putSave(s);
     return clientView(s);
@@ -710,7 +707,46 @@ export function governorState(s: Pick<SaveState, "telemetry" | "model_settings">
   return { budget, spent, eco: budget > 0 && spent >= budget * 0.7, over: budget > 0 && spent >= budget };
 }
 
+
+/** TURN JOURNAL (write-ahead): iOS suspends web pages seconds after backgrounding; a mid-turn
+ * death used to strand paid narrator prose with no bookkeeping and a hung UI. The journal
+ * records the in-flight turn at two checkpoints (submission; prose-complete). On return,
+ * resumePending() finishes the ledger from the exact point of death — only the cheap simulator
+ * call re-fires; narrator tokens are never re-bought. */
+interface TurnJournal { turn: number; action: string; mode: string; prose?: string; ts: number }
+const journalKey = (id: string): string => "weft:journal:" + id;
+function writeJournal(id: string, j: TurnJournal): void { try { localStorage.setItem(journalKey(id), JSON.stringify(j)); } catch { /* quota */ } }
+function readJournal(id: string): TurnJournal | null { try { const r = localStorage.getItem(journalKey(id)); return r ? JSON.parse(r) as TurnJournal : null; } catch { return null; } }
+function clearJournal(id: string): void { try { localStorage.removeItem(journalKey(id)); } catch { /* noop */ } }
+
+export type PendingResolution =
+  | { kind: "none" }
+  | { kind: "restore_action"; action: string }
+  | { kind: "completed"; save: ClientSave };
+
+/** Finish a turn that died mid-flight. Call on app open / visibility resume. */
+export async function resumePending(id: string, ev?: TurnEvents): Promise<PendingResolution> {
+  const j = readJournal(id);
+  if (!j) return { kind: "none" };
+  const s = await need(id);
+  if (s.world.current_turn !== j.turn || Date.now() - j.ts > 24 * 3600e3) { clearJournal(id); return { kind: "none" }; }
+  if (!j.prose) {
+    clearJournal(id);
+    return { kind: "restore_action", action: j.action }; // partial prose is not a turn — words handed back
+  }
+  const gov = governorState(s);
+  await runTurn(s, j.action, {
+    onPhase: (p) => ev?.onPhase?.(p),
+    onDelta: () => { /* prose already seen; history will render it */ },
+    onMeta: (m) => ev?.onMeta?.(m as Record<string, unknown>),
+  }, (j.mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: j.prose });
+  await putSave(s);
+  clearJournal(id);
+  return { kind: "completed", save: clientView(s) };
+}
+
 export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean }): Promise<void> {
+  let proseJournaled = false;
   try {
     const s = await need(saveId);
     const observe = !!opts?.observe;
@@ -724,17 +760,29 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // Play is never blocked; over-budget just means eco + a visible HUD state.
     const gov = governorState(s);
     if (gov.eco) ev.onPhase?.("eco");
+    writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, ts: Date.now() });
+    let proseAcc = "";
     await runTurn(s, act, {
-      onPhase: (p) => ev.onPhase?.(p),
-      onDelta: (t) => ev.onDelta?.(t),
+      onPhase: (p) => {
+        if (!proseJournaled && p !== "pressure" && p !== "narrator" && p !== "eco" && proseAcc) {
+          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, ts: Date.now() });
+          proseJournaled = true;
+        }
+        ev.onPhase?.(p);
+      },
+      onDelta: (t) => { proseAcc += t; ev.onDelta?.(t); },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco });
     await putSave(s);
     // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
     // bounded to <25 turns even with no export anywhere
     if (s.world.current_turn > 0 && s.world.current_turn % 25 === 0) { try { await putSideRow(s.id, "backup", s); } catch { /* best-effort */ } }
+    clearJournal(saveId);
     ev.onDone?.(clientView(s));
   } catch (e: any) {
+    // the words were handed back via onError; a stale journal would restore them a second
+    // time on the next app open. Keep the journal only when paid prose is in it (resume path).
+    if (!proseJournaled) clearJournal(saveId);
     ev.onError?.(e?.message ?? "turn failed");
   }
 }

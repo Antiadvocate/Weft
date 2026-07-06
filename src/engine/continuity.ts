@@ -18,7 +18,7 @@ import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } fr
 import { absMinutes, advance } from "./time";
 import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche } from "./social";
 import { regenerateDrives } from "./drives";
-import { addCondition } from "./turn";
+import { syncPresence } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { stablePrefix } from "./prompts";
 import { pushSnapshot, uid } from "./state";
@@ -182,8 +182,12 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   if (parsed.weather) state.world.weather = parsed.weather;
   const back = (parsed.present_on_return ?? [])
     .map((nm) => Object.entries(state.characters).find(([id, c]) => id !== "char_player" && c.name.toLowerCase() === String(nm).toLowerCase())?.[0])
-    .filter((x): x is string => !!x);
-  state.world.present = [...new Set(back)];
+    .filter((x): x is string => !!x && state.characters[x].status !== "dead" && state.characters[x].status !== "departed");
+  // present is DERIVED from co-location everywhere else in the engine. Setting present without
+  // moving anyone meant the very next turn's syncPresence wiped this list. Move the returners
+  // to the player's location, then derive the scene the normal way.
+  for (const id of new Set(back)) state.characters[id].location = state.world.player_location;
+  syncPresence(state);
 
   const shifts = [
     ...report.clocks_fired.map((c) => `While you were away: ${c}`),
@@ -268,6 +272,26 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   }
   state.characters[oldId].character_id = oldId;
   state.characters["char_player"].character_id = "char_player";
+  if (state.memory[oldId]) state.memory[oldId].character_id = oldId;
+  if (state.memory["char_player"]) state.memory["char_player"].character_id = "char_player";
+  // knows lists reference character ids — remap them
+  for (const mem of Object.values(state.memory)) mem.knows = [...new Set((mem.knows ?? []).map(swap))];
+  // theory-of-mind models are keyed by believer id and reference target ids — remap both.
+  // Left stale, the new player body kept its old model of "the player" (now itself) and
+  // every other mind kept modeling the wrong person.
+  if (state.minds) {
+    const remapped: typeof state.minds = {};
+    for (const [mid, model] of Object.entries(state.minds)) {
+      const nid = swap(mid);
+      remapped[nid] = {
+        character_id: nid,
+        about: (model.about ?? [])
+          .map((b) => ({ ...b, target: swap(b.target) }))
+          .filter((b) => b.target !== nid), // nobody models themselves
+      };
+    }
+    state.minds = remapped;
+  }
 
   // the abandoned vessel becomes a full citizen: needs a social pulse + a want
   state.characters[oldId].gregariousness ??= 0.5;
@@ -292,22 +316,16 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   for (const cq of state.world.consequences) if (cq.source_char) cq.source_char = swap(cq.source_char);
   // the player now inhabits the target's body → the world's player_location is wherever that body is
   state.world.player_location = state.characters["char_player"].location ?? state.world.player_location;
-  // rebuild room occupancy + scene from locations
-  for (const p of Object.values(state.world.places)) p.contains = [];
-  for (const [id, c] of Object.entries(state.characters)) {
-    if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
-  }
-  state.world.present = Object.entries(state.characters)
-    .filter(([id, c]) => id !== "char_player" && c.location === state.world.player_location)
-    .map(([id]) => id);
+  // rebuild room occupancy + scene from locations (shared derivation — filters the dead, honors sub-rooms)
+  syncPresence(state);
 
   // both souls keep the moment — written neutrally; the fiction is yours to define
   state.memory["char_player"]?.episodic.push({
-    turn, content: `Perspective changed hands: this body now carries the chronicle. ${fromName} walks elsewhere.`,
+    turn, content: `A change of perspective: I now live as ${toName}. ${fromName} continues elsewhere as their own person.`,
     importance: 7, emotional_charge: "vertigo", last_accessed_turn: turn,
   });
   state.memory[oldId]?.episodic.push({
-    turn, content: `Something that was looking out through these eyes has gone. The body is ${fromName}'s own again.`,
+    turn, content: `A strange gap in memory around this moment; ${fromName} is themselves again.`,
     importance: 7, emotional_charge: "unmoored", last_accessed_turn: turn,
   });
 

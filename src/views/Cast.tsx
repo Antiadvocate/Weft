@@ -64,7 +64,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     try {
       const { answer } = await api.interview(save.id, sel, q, ivLog);
       setIvLog((l) => [...l, { q, a: answer }]);
-    } catch (e: any) { setIvErr(e.message ?? "the conversation slipped away"); }
+    } catch (e: any) { setIvErr(e.message ?? "interview failed"); }
     finally { setIvBusy(false); }
   };
 
@@ -267,12 +267,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <button onClick={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} title="raw edit (full JSON)">
                     <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
-                  <button onClick={paint} title="conjure portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
+                  <button onClick={paint} title="generate portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={editing ? () => setEditing(false) : startEdit}><Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={() => { setSel(null); setEditing(false); }}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
                 </div>
               </div>
-              {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">painting from memory…</span></div>}
+              {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portrait…</span></div>}
               {imgErr && <div className="px-5 pb-1 font-mono text-[10px]" style={{ color: "var(--danger)" }}>{imgErr}</div>}
 
               <div className="scroll-y px-5 pb-6 space-y-4">
@@ -286,14 +286,14 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     </div>
                     <div className="flex gap-2 mt-3">
                       <button className="btn btn-accent flex-1" onClick={embody} disabled={embodying}>
-                        {embodying ? "crossing…" : "Cross over"}
+                        {embodying ? "switching…" : "Become them"}
                       </button>
                       <button className="btn btn-ghost flex-1" onClick={() => setEmbodyConfirm(false)}>Stay</button>
                     </div>
                   </div>
                 )}
                 {editing && (
-                  <Section title="Edit (the loom obeys)">
+                  <Section title="Edit">
                     <EditField label="Name" v={draft.name} set={(v) => setDraft((d) => ({ ...d, name: v }))} />
                     <EditField label="Age" v={draft.age} set={(v) => setDraft((d) => ({ ...d, age: v }))} />
                     <EditField label="Appearance — baseline (face, eyes, hair, build; the engine can only append here, never rewrite)" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={3} />
@@ -312,10 +312,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <EditField label="Weight (lbs — scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
                     </div>
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
-                    <EditField label="Story so far — what\u2019s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
+                    <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (comma-sep)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} />
-                    <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Weave changes in</button>
+                    <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
                   </Section>
                 )}
                 <Section title="Now">
@@ -519,12 +519,6 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         </div>
       )}
 
-      {lightbox && (
-        <div onClick={() => setLightbox(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
-        </div>
-      )}
     </div>
   );
 }

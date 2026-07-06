@@ -84,7 +84,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
             onClick={() => !busy && launch(p.id)}>
             <div className="flex items-center justify-between">
               <div className="font-display text-[15px]">{p.name}</div>
-              <span className="chip">{busy === p.id ? "weaving…" : "new"}</span>
+              <span className="chip">{busy === p.id ? "creating…" : "new"}</span>
             </div>
             <div className="text-[13px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{p.blurb}</div>
           </motion.div>

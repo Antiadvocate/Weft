@@ -35,6 +35,10 @@ export async function getSave(id: string): Promise<SaveState | null> {
 
 export async function deleteSave(id: string): Promise<void> {
   await tx("readwrite", (store) => store.delete(id));
+  // side rows (recovery/backup) carry full state copies incl. image data — deleting the save
+  // used to orphan them in IndexedDB forever
+  await tx("readwrite", (store) => store.delete(`${id}::recovery`)).catch(() => {});
+  await tx("readwrite", (store) => store.delete(`${id}::backup`)).catch(() => {});
 }
 
 export async function listSaves(): Promise<{ id: string; name: string; updated_at: string; turn: number; world_name: string }[]> {

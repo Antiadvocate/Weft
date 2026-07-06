@@ -1,4 +1,5 @@
 import { parseTime } from "./time";
+import { factGate, factOverlap } from "./facts";
 /**
  * Generative-agents memory (Park et al. 2023, arXiv:2304.03442), embedding-free.
  *
@@ -89,14 +90,77 @@ export function decayStageFor(m: EpisodicMemory, currentTurn: number): 0 | 1 | 2
 }
 
 /** Advance decay stages each turn (structural only — text rewrite happens lazily at reflection). */
+
+/** STORE RECONCILIATION — the same remembered thing must not occupy core, facts, AND episodic at
+ *  once (the duplication bug). One canonical home per memory, by kind:
+ *   • core = life-defining autobiography (a founding, a first, an irreversible turn) — the spine.
+ *   • facts = durable semantic knowledge (biography, standing truths, semanticized residue).
+ *   • episodic = lived experiences that still carry texture and still decay.
+ *  When content is echoed across stores, the most-semantic surviving copy wins and the others are
+ *  dropped: core outranks facts outranks episodic for the SAME content. Runs on load and after
+ *  each decay tick, so drift self-heals. */
+export function reconcileStores(mem: CharMemory): void {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2);
+  const overlap = (a: string, b: string): number => {
+    const A = new Set(norm(a)), B = new Set(norm(b));
+    if (!A.size || !B.size) return 0;
+    let i = 0; for (const w of A) if (B.has(w)) i++;
+    return i / Math.min(A.size, B.size);
+  };
+  // core is authoritative: any fact or episodic memory it subsumes is a duplicate
+  for (const c of mem.core) {
+    mem.facts = (mem.facts ?? []).filter((f) => overlap(c, f.content) < 0.6);
+    mem.episodic = mem.episodic.filter((m) => overlap(c, m.full_content ?? m.content) < 0.6 || (m.commitment_status === "pending"));
+  }
+  // facts outrank still-decaying episodic copies of the SAME settled knowledge (the experience
+  // already became a fact — keep the fact, release the redundant scene), but never touch a live
+  // commitment or a still-vivid (stage 0) memory that hasn't finished becoming knowledge yet.
+  for (const f of mem.facts ?? []) {
+    mem.episodic = mem.episodic.filter((m) =>
+      m.commitment_status === "pending" || (m.decay_stage ?? 0) < 2 || overlap(f.content, m.full_content ?? m.content) < 0.6);
+  }
+}
+
 export function tickMemoryDecay(mem: CharMemory, currentTurn: number): void {
+  const semanticized: EpisodicMemory[] = [];
   for (const m of mem.episodic) {
     const stage = decayStageFor(m, currentTurn);
     if ((m.decay_stage ?? 0) < stage) {
       m.decay_stage = stage;
       if (stage >= 2) m.where = undefined; // place is lost at the gist-only stage (reconstructable, not stored)
     }
+    // SEMANTICIZATION (Ribot's gradient): a memory reaching terminal decay does not vanish — if
+    // it mattered (importance ≥6), its GIST survives as a durable semantic fact ("I knew this
+    // person; this happened") while the perceptual experience is released from episodic memory.
+    // This is the marriage: the day's light fades, but "we married, and it rained" is kept for
+    // life as knowledge, not re-lived as scene. Low-importance memories at terminal decay simply
+    // fade (nobody carries a forgettable Tuesday as a fact).
+    if (stage >= 3 && !m.folded) {
+      if ((m.importance ?? 3) >= 6) { addFactLocal(mem, semanticGist(m), m.turn); semanticized.push(m); }
+      else if ((m.importance ?? 3) <= 2) semanticized.push(m); // trivial + terminal → released
+    }
   }
+  if (semanticized.length) mem.episodic = mem.episodic.filter((m) => !semanticized.includes(m));
+  reconcileStores(mem);
+}
+
+/** Local fact-writer (mirrors facts.addFact) — kept here to avoid a value-level import cycle
+ *  between memory.ts and facts.ts. Same quality gate and fuzzy dedupe. */
+function addFactLocal(mem: CharMemory, fact: string, turn: number): void {
+  mem.facts ??= [];
+  const f = fact.trim();
+  if (!f || !factGate(f).ok) return;
+  const near = mem.facts.find((x) => relevance(x.content, f) >= 0.6 || factOverlap(x.content, f) >= 0.6);
+  if (near) { if (f.length > near.content.length + 12) near.content = compactGist(f, 140); near.turn = turn; return; }
+  mem.facts.push({ content: compactGist(f, 140), turn });
+  if (mem.facts.length > 30) { mem.facts.sort((a, b) => a.turn - b.turn); mem.facts.shift(); }
+}
+
+/** The durable residue of a faded memory: its gist, stated as settled knowledge rather than
+ *  scene. Strips first/second-person immediacy so it reads as a fact, not a re-experience. */
+function semanticGist(m: EpisodicMemory): string {
+  const g = compactGist(m.full_content ?? m.content, 120).replace(/\s+/g, " ").trim();
+  return g;
 }
 
 /** Commitment boost: a pending appointment outranks decay — hard when its time is NEAR,

@@ -1,5 +1,6 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
+import { reconcileStores } from "./memory";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible } from "./types";
 import { DEFAULT_MODELS } from "./types";
 
@@ -33,6 +34,13 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     current_goal: ident.current_goal, current_activity: ident.current_activity,
     drive: ident.drive, drive_queue: ident.drive_queue,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
+    // These were previously dropped, which (a) broke the central-character cap — every new
+    // character silently entered as central because `central` never landed on the record —
+    // and (b) erased life_history when carrying a cast into a new chapter.
+    central: ident.central,
+    life_history: ident.life_history,
+    appearance_now: ident.appearance_now,
+    knows_player_name: ident.knows_player_name,
   };
   state.condition[id] = blankCondition((ident as any).capacity ?? 2);
   state.traits[id] = [];
@@ -104,6 +112,12 @@ export async function rollback(state: SaveState, toTurn: number): Promise<SaveSt
 }
 
 export function sanitize(state: SaveState): SaveState {
+  // Imported saves can be missing whole maps — a partial file used to crash sanitize on
+  // Object.values(undefined). Initialize every top-level container before touching it.
+  state.characters ??= {}; state.condition ??= {}; state.memory ??= {}; state.traits ??= {};
+  state.world ??= {} as any;
+  state.world.places ??= {};
+  state.history ??= [];
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
   state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= [];
@@ -141,6 +155,7 @@ export function sanitize(state: SaveState): SaveState {
       kept.push(f);
     }
     mem.facts = kept.slice(-30);
+    reconcileStores(mem);
   }
   state.minds ??= {};
   for (const id of Object.keys(state.characters)) {
@@ -168,14 +183,15 @@ export function sanitize(state: SaveState): SaveState {
         : (others.length ? others[scatter++ % others.length] : state.world.player_location);
     }
   }
-  // recompute room occupancy + scene from the source of truth
+  // recompute room occupancy + scene from the source of truth (the gone occupy nothing)
   if (placeIds.length && state.characters["char_player"]) {
     for (const p of Object.values(state.world.places)) p.contains = [];
     for (const [id, c] of Object.entries(state.characters)) {
+      if (c.status === "dead" || c.status === "departed") continue;
       if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
     }
     state.world.present = Object.entries(state.characters)
-      .filter(([id, c]) => id !== "char_player" && c.location === state.world.player_location)
+      .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === state.world.player_location)
       .map(([id]) => id);
   }
   return state;

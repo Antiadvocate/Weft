@@ -147,7 +147,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     const already = ident.core_traits.some((c) => c.toLowerCase().includes(t.label.toLowerCase()) || t.label.toLowerCase().includes(c.toLowerCase()));
     if (!already) {
       ident.core_traits = [...ident.core_traits, t.label].slice(-8);
-      log.push(`${ident.name} is changed at the root: "${t.label}" is now part of who they are.`);
+      log.push(`${ident.name}'s trait "${t.label}" has become part of their core personality.`);
     }
     if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
       const add = t.label.toLowerCase();

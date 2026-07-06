@@ -120,7 +120,7 @@ export function updateMind(
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
       if (trueWarmth > b.predicted_warmth + 25) lines.push(`${sname} is recalibrating: ${tname} is warmer than they'd assumed.`);
-      else if (trueWarmth < b.predicted_warmth - 25) lines.push(`${sname} feels a read curdle — ${tname} is colder than they thought.`);
+      else if (trueWarmth < b.predicted_warmth - 25) lines.push(`${sname} realizes ${tname} is colder toward them than they thought.`);
       else lines.push(`${sname} didn't expect that from ${tname}.`);
     }
 
@@ -155,7 +155,7 @@ export function updateMind(
     } else if (b.held_false && Math.abs(trueWarmth - b.predicted_warmth) < 12 && b.surprise < 0.25) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      lines.push(`${sname} finally sees ${tname} clearly — the misread dissolves.`);
+      lines.push(`${sname} finally sees ${tname} clearly — the misunderstanding clears.`);
       b.held_false = undefined;
     }
   }

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
-import { api, streamTurn, governorState, type ActionMode, type ClientSave } from "../lib/api";
+import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
@@ -10,13 +10,13 @@ import { AnalogClock, WeatherIcon } from "../lib/format";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
-  narrator: "the world answers",
-  simulator: "the loom records",
-  apply: "consequences settle",
-  reflection: "memories distill",
-  "world-turning": "the world turns without you",
-  eco: "eco — spending gently today",
-  undertow: "the undertow shifts",
+  narrator: "the world responds",
+  simulator: "recording changes",
+  apply: "applying consequences",
+  reflection: "updating memories",
+  "world-turning": "advancing the world",
+  eco: "eco — reduced spending today",
+  undertow: "updating world systems",
   interlude: "days pass",
 };
 
@@ -55,6 +55,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
   const observingRef = useRef(false);
+  const runningRef = useRef(false);
+  const [hasPending, setHasPending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastId = useRef(0);
 
@@ -91,7 +93,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
    *  you'd spend reading and typing anyway. One action queues; a failed turn returns it. */
   const runAction = async (a: string) => {
     if (!a) return;
-    setAction(""); setError(null); setRunning(true); setProseDone(false); setLiveProse(""); setPhase("pressure");
+    setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setPhase("pressure");
     let failed = false;
     try {
       await streamTurn(save.id, a, mode, {
@@ -104,8 +106,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
-      setRunning(false); setProseDone(false); setPhase(null);
-      const pend = pendingRef.current; pendingRef.current = null;
+      setRunning(false); runningRef.current = false; setProseDone(false); setPhase(null);
+      const pend = pendingRef.current; pendingRef.current = null; setHasPending(false);
       if (failed) setAction(pend ? `${a}\n${pend}` : a); // a failed turn gives your words back
       else if (pend) void runAction(pend);               // fire the queued action immediately
     }
@@ -116,11 +118,36 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save.id]);
 
+  // ── RESUME A TURN KILLED MID-FLIGHT (iOS suspends backgrounded pages): on open and on
+  // returning to the app, finish any journaled turn — bookkeeping only, no narrator re-buy.
+  useEffect(() => {
+    let busy = false;
+    const tryResume = async () => {
+      // runningRef, not the `running` state: this closure is created once per save and the
+      // state value goes stale — the old check let a resume fire DURING a live turn (clearing
+      // its crash journal, or re-running the simulator against a half-finished turn).
+      if (busy || runningRef.current) return;
+      busy = true;
+      let touched = false;
+      try {
+        const r = await resumePending(save.id, { onPhase: (p) => { touched = true; setRunning(true); setPhase(p ?? "simulator"); } });
+        if (r.kind === "restore_action") { setAction((a) => a || r.action); pushToasts(["that turn never finished — your action is back in the input box"]); }
+        if (r.kind === "completed") { setSave(r.save); pushToasts(["finished recording the interrupted turn"]); }
+      } catch { /* journal stays; next resume retries */ }
+      finally { busy = false; if (touched) { setRunning(false); setPhase(null); } }
+    };
+    void tryResume();
+    const onVis = () => { if (document.visibilityState === "visible") void tryResume(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save.id]);
+
   const submit = async () => {
     const a = action.trim();
     if (!a) return;
     if (running) {
-      if (proseDone && !pendingRef.current) { pendingRef.current = a; setAction(""); pushToasts(["queued — the loom is still settling"]); }
+      if (proseDone && !pendingRef.current) { pendingRef.current = a; setHasPending(true); setAction(""); pushToasts(["queued — sends when this turn finishes recording"]); }
       return;
     }
     await runAction(a);
@@ -135,11 +162,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     const before = save.world.current_turn;
     setSave(await api.rollback(save.id, turn));
     setUndoTurn(before); setRolledTo(turn);
-    pushToasts([`unraveled to turn ${turn} — undo available`]);
+    pushToasts([`rolled back to turn ${turn} — undo available`]);
   };
 
   const doUndoRollback = async () => {
-    try { setSave(await api.undoRollback(save.id)); setUndoTurn(null); pushToasts(["the timeline is restored"]); }
+    try { setSave(await api.undoRollback(save.id)); setUndoTurn(null); pushToasts(["rollback undone"]); }
     catch (e: any) { setError(e.message ?? "nothing to undo"); }
   };
 
@@ -151,7 +178,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       setSave(s);
       const latest = s.history[s.history.length - 1];
       if (latest?.shifts?.length) pushToasts(latest.shifts);
-    } catch (e: any) { setError(e.message ?? "the world refused to turn"); }
+    } catch (e: any) { setError(e.message ?? "time skip failed"); }
     finally { setSkipping(false); setPhase(null); }
   };
 
@@ -160,7 +187,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const runObserve = async () => {
     if (running || observingRef.current) return;
     observingRef.current = true; setObserving(true); setError(null);
-    setRunning(true); setLiveProse(""); setPhase("pressure");
+    setRunning(true); runningRef.current = true; setLiveProse(""); setPhase("pressure");
     await new Promise<void>((resolve) => {
       streamTurn(save.id, "", "story", {
         onPhase: setPhase,
@@ -170,7 +197,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onError: (msg) => { setError(msg); resolve(); },
       }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });
-    setRunning(false); setPhase(null);
+    setRunning(false); runningRef.current = false; setPhase(null);
     observingRef.current = false; setObserving(false);
   };
 
@@ -196,7 +223,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   };
 
   const renderNames = (text: string, keyBase: string): React.ReactNode[] => {
-    const names = Object.keys(nameIndex);
+    const names = Object.keys(nameIndex).filter((n) => n.length >= 2);
     if (!names.length) return [text];
     const re = new RegExp(`\\b(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
     const out: React.ReactNode[] = [];
@@ -305,9 +332,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       <div ref={scrollRef} className="scroll-y flex-1 px-5 pb-4">
         {history.length === 0 && !liveProse && (
           <div className="pt-10 text-center">
-            <div className="font-display text-lg mb-1.5">The loom is threaded.</div>
+            <div className="font-display text-lg mb-1.5">Ready to begin.</div>
             <div className="text-[13.5px]" style={{ color: "var(--text-mid)" }}>
-              Do, say, or narrate. The world answers — and keeps moving when you look away.
+              Type an action or narration. The world responds — and keeps moving when you look away.
             </div>
           </div>
         )}
@@ -490,7 +517,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             }}
           />
           <motion.button className="btn btn-accent" style={{ height: 44, width: 46, padding: 0 }}
-            whileTap={{ scale: 0.92 }} onClick={submit} disabled={(running && !proseDone) || !action.trim() || !!pendingRef.current}>
+            whileTap={{ scale: 0.92 }} onClick={submit} disabled={(running && !proseDone) || !action.trim() || hasPending}>
             <CornerDownLeft size={16} />
           </motion.button>
         </div>
@@ -583,7 +610,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               transition={{ type: "spring", stiffness: 380, damping: 38 }}>
               <div className="grab" />
               <div className="flex items-center justify-between py-2">
-                <div className="font-display text-[16px]">Unravel to…</div>
+                <div className="font-display text-[16px]">Roll back to…</div>
                 <button onClick={() => setRollbackOpen(false)}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
               </div>
               <div className="pb-4 space-y-2">
