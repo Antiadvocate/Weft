@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
+import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
 import World from "./World";
@@ -62,6 +63,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const history = save.history;
 
+  const [readingTurn, setReadingTurn] = useState<number | null>(null);
+  const toggleRead = (turn: number, prose: string) => {
+    if (readingTurn === turn) { stopSpeaking(); setReadingTurn(null); return; }
+    stopSpeaking();
+    setReadingTurn(turn);
+    speak(prose, () => setReadingTurn((cur) => (cur === turn ? null : cur)));
+  };
+  useEffect(() => () => stopSpeaking(), []); // leaving the view stops the reader
   const nameIndex = useMemo(() => {
     const ix: Record<string, string> = {};
     for (const [id, c] of Object.entries(save.characters)) if (id !== "char_player") ix[c.name.toLowerCase()] = id;
@@ -359,6 +368,15 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               )}
               {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
               {h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
+              {h.kind !== "interlude" && h.narrator_prose.trim() && ttsAvailable() && (
+                <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest mb-1"
+                  style={{ color: readingTurn === h.turn ? "var(--accent)" : "var(--text-lo)" }}
+                  onClick={() => toggleRead(h.turn, h.narrator_prose)}
+                  title={readingTurn === h.turn ? "stop reading" : "read aloud (system voice)"}>
+                  {readingTurn === h.turn ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                  {readingTurn === h.turn ? "stop" : "read"}
+                </button>
+              )}
               {(h.shifts?.length || h.offscreen.length) ? (
                 <details className="shifts my-3 pl-3 border-l" style={{ borderColor: "var(--line)" }}>
                   <summary className="font-mono text-[10px] uppercase tracking-widest py-0.5 flex items-center gap-2" style={{ color: "var(--text-lo)" }}>

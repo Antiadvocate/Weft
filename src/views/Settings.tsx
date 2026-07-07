@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ModelPicker } from "./ModelPicker";
 import { Braces, Check, Copy, Download } from "lucide-react";
+import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { getApiKey, setApiKey } from "../config";
 
@@ -66,6 +67,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [draft, setDraft] = useState<ModelSettings>({ ...m });
   const [theme, setTheme] = useState(wb.era_theme ?? "auto");
   const [proseFont, setProseFont] = useState(() => localStorage.getItem("weft-prose-font") ?? "newsreader");
+  const [tts, setTts] = useState(() => getTtsPrefs());
+  const updTts = (patch: Partial<ReturnType<typeof getTtsPrefs>>) => { const next = { ...tts, ...patch }; setTts(next); setTtsPrefs(next); };
   const [saved, setSaved] = useState(false);
   const [orKey, setOrKey] = useState(getApiKey());
   const [keySaved, setKeySaved] = useState(false);
@@ -256,6 +259,30 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <div className="mt-3 text-[15px]" style={{ fontFamily: "var(--font-prose)", color: "var(--text-mid)" }}>
           The ice spoke first, a long groan from under the reeds. <span className="dlg">"Don't,"</span> Ettel said, without turning.
         </div>
+
+        {ttsAvailable() && (
+          <>
+            <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Reader (system voice — device setting)</div>
+            <select className="field" value={tts.voiceURI ?? ""} onChange={(e) => updTts({ voiceURI: e.target.value || undefined })}>
+              <option value="">System default voice</option>
+              {listVoices().map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>speed {(tts.rate ?? 1).toFixed(1)}×</span>
+              <input type="range" min={0.5} max={1.6} step={0.1} value={tts.rate ?? 1} style={{ flex: 1 }}
+                onChange={(e) => updTts({ rate: parseFloat(e.target.value) })} />
+              <button className="chip" style={{ textTransform: "none" }}
+                onClick={() => { stopSpeaking(); speak("The ice spoke first, a long groan from under the reeds."); }}>
+                test
+              </button>
+            </div>
+            <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+              Uses the voices installed on this phone (Settings → Accessibility → Spoken Content → Voices to add more). A read button sits under each narrator reply.
+            </div>
+          </>
+        )}
       </div>
       <SectionHeader label="The machine" blurb="Keys, models, and token economics. Set once, forget mostly." />
       <div className="card p-4">
