@@ -179,6 +179,7 @@ export const api = {
         texture: prev?.texture ?? [],
         attracted_to: prev?.attracted_to,
         taste: prev?.taste,
+        aliases: prev?.aliases,
         portrait_url: prev?.portrait_url,
         tracked: true,
         location: lid,
@@ -409,6 +410,7 @@ export const api = {
       clocks: s.world.clocks,
       norms: s.world.norms,
       canon: s.world.canon,
+      canon_meta: s.world.canon_meta,
       edges: s.world.edges,
       places: s.world.places,
       weather: s.world.weather,
@@ -427,6 +429,7 @@ export const api = {
       if (Array.isArray(raw.clocks)) s.world.clocks = raw.clocks;
       if (Array.isArray(raw.norms)) s.world.norms = raw.norms;
       if (Array.isArray(raw.canon)) s.world.canon = raw.canon.map(String).filter(Boolean).slice(0, 20);
+      if (raw.canon_meta && typeof raw.canon_meta === "object") s.world.canon_meta = raw.canon_meta;
       if (Array.isArray(raw.edges)) s.world.edges = raw.edges;
       if (raw.places && typeof raw.places === "object") s.world.places = raw.places;
       if (typeof raw.weather === "string") s.world.weather = raw.weather;

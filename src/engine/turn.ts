@@ -11,13 +11,14 @@
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
-import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote } from "./prompts";
+import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
 import { getEdge } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
+import { addCanon, expandAliases } from "./state";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
@@ -280,7 +281,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   replanDrives(state);
   updatePaging(state, action);
   const prefix = stablePrefix(state);
-  const digest = volatileDigest(state, action, eco ? { budgetOverride: Math.min(state.model_settings.token_budget || 4000, 3500) } : undefined);
+  const memQuery = expandAliases(state, action); // "the captain" retrieves Sorena's memories
+  const digest = volatileDigest(state, memQuery, eco ? { budgetOverride: Math.min(state.model_settings.token_budget || 4000, 3500) } : undefined);
   const god = !!state.world_bible.god_mode;
   // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
   // behavior — that emerges from each character's relaxation state via the perception gate.
@@ -394,7 +396,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map(([id]) => id).sort().join(",");
     const anchor = state.context_anchor;
     const stale = !anchor || (turn - anchor.turn) >= cad || anchor.cast_sig !== castSig;
-    if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig };
+    if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig, ledger: ledgerSnapshot(state) };
     const a = state.context_anchor!;
     const pairs = state.history
       .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= a.turn)
@@ -402,7 +404,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, action)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
       state.model_settings.narrator_model,
     );
   } else {
@@ -616,7 +618,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     summary: diff.scene_summary || prose.slice(0, 120),
-    shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective,
+    shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
   });
 
@@ -731,9 +733,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
           const line = String(cn).trim();
-          if (line && !state.world.canon.some((x) => x.toLowerCase() === line.toLowerCase())) {
-            state.world.canon.push(line.slice(0, 200));
-            if (state.world.canon.length > 20) state.world.canon.shift();
+          if (line && addCanon(state, line)) {
           }
         }
         if (ch.summary) {
@@ -743,6 +743,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200), persona });
           // arm or clear the governor
           state.contract_drift = ch.on_contract === false && ch.drift?.trim() ? ch.drift.trim().slice(0, 200) : null;
+          // HISTORY COMPACTION — a chapter summary now covers this span, so old entries shed their
+          // hidden bloat (directive, offscreen log). Prose stays: it IS the transcript the player
+          // reads. Ribot applied to the story: the summary is the semantic residue.
+          for (const h of state.history) {
+            if (h.turn <= turn - 30) { if (h.directive) delete (h as any).directive; if (h.offscreen && h.offscreen.length > 2) h.offscreen = h.offscreen.slice(0, 2); }
+          }
         }
       }
     } catch (e: any) { console.warn(`[turn] chaptering failed: ${e.message}`); }
@@ -815,6 +821,7 @@ const CONDITION_LIFESPAN = 10; // turns; afflictions heal unless re-earned
 function findCharByName(state: SaveState, name: string): string | null {
   const n = name.toLowerCase().trim();
   for (const [id, c] of Object.entries(state.characters)) if (c.name.toLowerCase() === n) return id;
+  for (const [id, c] of Object.entries(state.characters)) if (c.aliases?.some((a) => a.toLowerCase().trim() === n)) return id;
   // fuzzy containment only for names long enough to be meaningful — a 1-2 character name
   // ("P", "Al") is a substring of half the alphabet and used to swallow every new character
   for (const [id, c] of Object.entries(state.characters)) {
@@ -1279,10 +1286,26 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     }
   }
 
+  // ALIASES — the fiction coined a handle ("the captain", "Sor"); record it so name resolution
+  // and memory retrieval map the handle to the person. Guarded: ≥3 chars, capped, never another
+  // character's name or existing alias.
+  for (const al of diff.aliases_add ?? []) {
+    const id = resolveId(state, al?.id ?? "");
+    const a = (al?.alias ?? "").trim();
+    if (!id || !state.characters[id] || a.length < 3 || a.length > 40) continue;
+    const lower = a.toLowerCase();
+    const taken = Object.entries(state.characters).some(([oid, oc]) =>
+      (oid !== id && oc.name.toLowerCase() === lower) || (oid !== id && oc.aliases?.some((x) => x.toLowerCase() === lower)));
+    if (taken) continue;
+    const c = state.characters[id];
+    c.aliases ??= [];
+    if (c.name.toLowerCase() === lower || c.aliases.some((x) => x.toLowerCase() === lower)) continue;
+    c.aliases.push(a);
+    if (c.aliases.length > 6) c.aliases.shift();
+  }
+
   for (const cn of diff.canon_add ?? []) {
-    if (!cn || state.world.canon.some((x) => x.toLowerCase() === cn.toLowerCase())) continue;
-    state.world.canon.push(cn);
-    if (state.world.canon.length > 20) state.world.canon.shift();
+    if (!cn || !addCanon(state, cn)) continue;
     // Canon is world-altering and PUBLIC, but knowledge of it PROPAGATES — it does not teleport
     // into every mind at once. Those PRESENT witnessed it and remember it now. Everyone else learns
     // it the way news travels: seeded as a fast-spreading rumor that reaches other minds over turns.

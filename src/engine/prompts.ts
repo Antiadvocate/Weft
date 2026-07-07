@@ -219,6 +219,7 @@ export function simulatorSchemaHint(): string {
 "facts":[{"char_id":"","field":"fatigue|hunger|thirst|slept|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"attraction_delta":0,"note":"","roles_set":[]}],
+"aliases_add":[{"id":"","alias":"a nickname/title/epithet the fiction now uses for this person (\"the captain\", \"Sor\") — record it so references by that handle resolve"}],
 "memories":[{"char_id":"","content":"ONE tight sentence — the core of what happened, gist not essay","importance":4,"emotional_charge":"","scheduled_time":"","anchor":"short VERBATIM span from action/prose containing any specific detail (name/place/number) this memory records","core":false}],\n"facts_learned":[{"char_id":"who learned it","fact":"durable declarative fact, one tight sentence, specifics copied exactly","quote":"verbatim source words establishing it"}],
 "memory_recohere":[{"char_id":"","source_char":"who is supplying the detail (the account being credited or doubted)","about":"the past event being discussed","added_detail":"the detail supplied or revised in this conversation"}],
 "traits":[{"char_id":"","label":"","origin":"","behavioral_impact":"","intensity":3}],
@@ -305,6 +306,45 @@ texture: for the player and each NPC, give 2–3 small standing things drawn fro
  *  history. The I-frame anchor carries the full digest; this carries only what is live NOW —
  *  compact present-state lines and the top couple of scene-cued recalls per present character.
  *  Everything else (bible, cast, canon, threads) lives in the anchor + the prose itself. */
+
+/** LEDGER FINGERPRINT — per-character snapshot of the volatile fields the narrator renders from.
+ *  Taken when a chatlog I-frame is anchored; deltaNote diffs against it so P-frames carry ONLY
+ *  what actually diverged since the snapshot (a few lines, not the whole ledger). This closes the
+ *  window where a character injured mid-window was rendered healthy from the stale anchor. */
+export function ledgerSnapshot(state: SaveState): Record<string, Record<string, string>> {
+  const snap: Record<string, Record<string, string>> = {};
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (c.status === "dead" || c.status === "departed" || c.paged) continue;
+    const cond = state.condition[id];
+    if (!cond) continue;
+    snap[id] = {
+      loc: (c.location && state.world.places[c.location]?.name) || "",
+      inj: cond.injuries.map((i) => i.type).sort().join(", "),
+      cond: cond.conditions.slice().sort().join(", "),
+      wear: cond.wearing.slice().sort().join(", "),
+      inv: cond.inventory.slice(-8).map((i) => i.name).sort().join(", "),
+      states: cond.psyche.active_states.slice().sort().join(", "),
+    };
+  }
+  return snap;
+}
+
+const LEDGER_LABEL: Record<string, string> = { loc: "now at", inj: "injuries now", cond: "conditions now", wear: "wearing now", inv: "carrying now", states: "states now" };
+
+function ledgerDivergence(state: SaveState, id: string): string {
+  const anchor = state.context_anchor?.ledger;
+  if (!anchor) return "";
+  const now = ledgerSnapshot(state)[id];
+  if (!now) return "";
+  const then = anchor[id];
+  const bits: string[] = [];
+  for (const k of Object.keys(now)) {
+    if (!then) { if (now[k]) bits.push(`${LEDGER_LABEL[k]}: ${now[k]}`); continue; } // entered world mid-window
+    if (now[k] !== then[k]) bits.push(`${LEDGER_LABEL[k]}: ${now[k] || "none"}`);
+  }
+  return bits.join("; ");
+}
+
 export function deltaNote(state: SaveState, query: string): string {
   const turn = state.world.current_turn;
   const loc = state.world.places[state.world.player_location];
@@ -315,7 +355,11 @@ export function deltaNote(state: SaveState, query: string): string {
   for (const id of ["char_player", ...state.world.present]) {
     const c = state.characters[id]; const cond = state.condition[id];
     if (!c || !cond) continue;
-    if (id === "char_player") { const ph = physioLabel(cond); lines.push(`— YOU: ${cond.psyche.active_states.join(", ") || "—"}${cond.conditions.length ? `; ${cond.conditions.join(", ")}` : ""}${ph ? `; BODY: ${ph}` : ""}`); continue; }
+    if (id === "char_player") {
+      const ph = physioLabel(cond); const dv = ledgerDivergence(state, id);
+      lines.push(`— YOU: ${cond.psyche.active_states.join(", ") || "—"}${cond.conditions.length ? `; ${cond.conditions.join(", ")}` : ""}${ph ? `; BODY: ${ph}` : ""}${dv ? ` | changed since snapshot → ${dv}` : ""}`);
+      continue;
+    }
     if (c.central === false) { lines.push(`— ${c.name} (background), ${cond.psyche.mood || "even"}`); continue; }
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
     const bits = [
@@ -324,6 +368,8 @@ export function deltaNote(state: SaveState, query: string): string {
       e ? `toward player: ${e.roles?.length ? e.roles.join(" & ") + ", " : ""}w${e.warmth}/t${e.trust}${e.attraction !== undefined ? `/desire: ${attractionWord(e.attraction)}` : ""}` : "",
     ].filter(Boolean).join("; ");
     lines.push(`— ${bits}`);
+    const dv = ledgerDivergence(state, id);
+    if (dv) lines.push(`  changed since snapshot (this is their CURRENT state, overriding the anchor) → ${dv}`);
     const mem = state.memory[id];
     if (mem) {
       const digest = compactMemoryDigest(mem, query, turn, 2, state.world.current_time, cond.psyche.relaxation);
@@ -357,7 +403,20 @@ export function simulatorContext(state: SaveState): string {
       return `${c.name}=${id}${here ? " [IN SCENE]" : ""} @${loc}${c.central === false ? " (background)" : ""}`;
     }).join("; ");
   parts.push(`CHARACTERS (use these exact ids): ${roster}`);
-  const placeNames = Object.values(state.world.places).slice(-24).map((p) => p.name).join("; ");
+  // Places ranked by relevance, not raw recency — the player's location, present characters'
+  // locations, and anything named in the last two turns of prose always survive the cap, so
+  // "reuse exact names" keeps working deep into a long save instead of silently spawning duplicates.
+  const recentProse = state.history.slice(-2).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+  const allPlaces = Object.values(state.world.places);
+  const hot = new Set<string>([state.world.player_location, ...Object.values(state.characters).filter((c) => c.status !== "dead" && c.location).map((c) => c.location!)]);
+  const scoreP = (pl: { id: string; name: string }, idx: number): number =>
+    (hot.has(pl.id) ? 1000 : 0) + (pl.name.length >= 4 && recentProse.includes(pl.name.toLowerCase()) ? 500 : 0) + idx; // idx = insertion recency
+  const placeNames = allPlaces
+    .map((pl, idx) => ({ pl, sc: scoreP(pl, idx) }))
+    .sort((a, b) => b.sc - a.sc)
+    .slice(0, 24)
+    .map((x) => x.pl.name)
+    .join("; ");
   if (placeNames) parts.push(`KNOWN PLACES (reuse exact names): ${placeNames}`);
   // present characters' mutable ledgers — so removes/updates target real current values
   const ledger = ["char_player", ...state.world.present].map((id) => {
@@ -549,8 +608,19 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     : (state.model_settings.token_budget && state.model_settings.token_budget > 0 ? state.model_settings.token_budget : 0);
   const estTok = (str: string) => Math.round(str.length / 4);
 
+  // Canon knowledge PROPAGATES (the rumor system carries it) — it does not teleport into every
+  // mind. A fact younger than the diffusion window is annotated with who actually knows it, so
+  // the narrator never puts fresh canon in a stranger's mouth. After the window it is common
+  // knowledge and renders plain.
+  const DIFFUSION_TURNS = 12;
+  const canonLine = (c: string): string => {
+    const meta = state.world.canon_meta?.[c.toLowerCase()];
+    if (!meta || turn - meta.turn >= DIFFUSION_TURNS) return `• ${c}`;
+    const names = meta.witnesses.map((w) => (w === "char_player" ? "you" : state.characters[w]?.name)).filter(Boolean).join(", ");
+    return `• ${c} — FRESH (turn ${meta.turn}): known so far only to ${names || "its witnesses"}; everyone else learns it as news reaches them`;
+  };
   const canonBlock = state.world.canon?.length
-    ? `=== ESTABLISHED CANON (world-altering facts; EVERY character knows these and lives accordingly) ===\n${state.world.canon.map((c) => `• ${c}`).join("\n")}\n\n`
+    ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\n`
     : "";
   const chaptersBlock = state.chapters?.length
     ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`

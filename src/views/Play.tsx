@@ -65,6 +65,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const nameIndex = useMemo(() => {
     const ix: Record<string, string> = {};
     for (const [id, c] of Object.entries(save.characters)) if (id !== "char_player") ix[c.name.toLowerCase()] = id;
+    for (const [id, c] of Object.entries(save.characters)) if (id !== "char_player") for (const a of c.aliases ?? []) if (a.trim().length >= 3 && !ix[a.toLowerCase()]) ix[a.toLowerCase()] = id;
     return ix;
   }, [save.characters]);
 

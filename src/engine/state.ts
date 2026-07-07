@@ -43,6 +43,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     knows_player_name: ident.knows_player_name,
     attracted_to: ident.attracted_to,
     taste: ident.taste,
+    aliases: ident.aliases,
   };
   state.condition[id] = blankCondition((ident as any).capacity ?? 2);
   state.traits[id] = [];
@@ -122,7 +123,7 @@ export function sanitize(state: SaveState): SaveState {
   state.history ??= [];
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
-  state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= [];
+  state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= []; state.world.canon_meta ??= {};
   state.world.focus ??= null;
   for (const c of Object.values(state.condition ?? {})) (c as any).condition_age ??= {};
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
@@ -197,4 +198,60 @@ export function sanitize(state: SaveState): SaveState {
       .map(([id]) => id);
   }
   return state;
+}
+
+
+/** CANON ENTRY + EVICTION — canon is capped, but a world-altering fact evicted at the cap must not
+ *  simply vanish (the narrator would drift from a truth that still holds). On eviction the fact is
+ *  FOLDED into the world bible field it most resembles — the bible is the permanent home for what
+ *  the world IS; canon is the working set. Also records witness metadata at entry: knowledge
+ *  propagates (the rumor system already models this), so a fresh fact is known only to those who
+ *  were there until news has had time to travel. */
+const BIBLE_FOLD_FIELDS = ["political_situation", "what_people_fear", "technology_level", "cultures_and_languages", "magic_rules", "climate_and_geography"] as const;
+
+function wordSet(x: string): Set<string> {
+  return new Set(x.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
+}
+
+export function addCanon(state: SaveState, line: string): boolean {
+  const l = line.trim().slice(0, 200);
+  if (!l || state.world.canon.some((x) => x.toLowerCase() === l.toLowerCase())) return false;
+  state.world.canon.push(l);
+  state.world.canon_meta ??= {};
+  state.world.canon_meta[l.toLowerCase()] = { turn: state.world.current_turn, witnesses: ["char_player", ...state.world.present] };
+  while (state.world.canon.length > 20) {
+    const evicted = state.world.canon.shift()!;
+    delete state.world.canon_meta[evicted.toLowerCase()];
+    // fold into the most-overlapping bible field so the truth persists as law, not as a lost line
+    const b = state.world_bible as any;
+    let bestF: string | null = null, bestO = 0;
+    const ev = wordSet(evicted);
+    for (const f of BIBLE_FOLD_FIELDS) {
+      const fs = wordSet(String(b[f] ?? ""));
+      let o = 0; for (const w of ev) if (fs.has(w)) o++;
+      if (o > bestO) { bestO = o; bestF = f; }
+    }
+    const target = bestF ?? "political_situation";
+    const cur = String(b[target] ?? "");
+    if (!cur.toLowerCase().includes(evicted.toLowerCase()) && cur.length < 1400) b[target] = (cur ? cur + " ◦ " : "") + evicted;
+  }
+  return true;
+}
+
+/** ALIAS EXPANSION — retrieval and name matching are lexical; "the captain" never finds Sorena's
+ *  memories unless something maps the handle to the name. This appends canonical names to any text
+ *  that mentions a known alias, so downstream token-overlap scoring hits. */
+export function expandAliases(state: SaveState, text: string): string {
+  if (!text) return text;
+  const lower = text.toLowerCase();
+  const extra: string[] = [];
+  for (const c of Object.values(state.characters)) {
+    if (!c.aliases?.length || c.status === "dead") continue;
+    if (lower.includes(c.name.toLowerCase())) continue; // already named
+    for (const a of c.aliases) {
+      const al = a.toLowerCase().trim();
+      if (al.length >= 3 && lower.includes(al)) { extra.push(c.name); break; }
+    }
+  }
+  return extra.length ? `${text} (${extra.join(", ")})` : text;
 }
