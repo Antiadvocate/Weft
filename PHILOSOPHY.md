@@ -1,0 +1,50 @@
+# How people work in Weft
+
+One page, plain language. Every mechanic below is deterministic code unless marked (LLM).
+
+## The kernel: relaxation
+
+Every character has one number for the state of their body: **relaxation**, −10 (clenched) to +10 (open). Everything else hangs off it. Each body has its own **resting point** (capacity) and its own **recovery speed** — some people return to calm fast, some sit braced for days. The number drifts toward the resting point every turn; events (via the simulator) shove it around.
+
+## Seeing: the perception gate
+
+Relaxation sets how accurately a person reads other people. Clenched bodies see poorly and are certain anyway — neutral faces read as threats. Open bodies see people as they actually are. This is rendered as an instruction per character per turn, so the narrator writes misreading, not just mood.
+
+**Exception — conscience.** Calm is not care. Each person has a **conscience** number (0–1): how much other people's pain registers as mattering. For most people, opening up and warming up travel together. For a person at ≤0.3, they come apart: relaxation still sharpens their sight, but what they see never obligates them. Their calm is real (these people are genuinely low-anxiety and stress-immune) and it makes them more effective, not kinder. Clench makes them petty and punitive instead of defensive. Their darkness is constitution, not wound, and comfort does not fix it.
+
+## Feeling: the lifecycle of an emotion
+
+An emotion is an event, not a possession. When one lands (an active state like "anger at the verdict"), what happens next depends on the body holding it:
+
+- **Settled body:** after a couple of turns the state dissolves on its own — felt fully, not fed. It leaves its information behind: anger settles into a clear view of what was actually wrong, fear into alertness to what matters, grief into plain love for what was lost. The charge goes; the knowledge stays.
+- **Clenched body:** the state gets re-told instead of felt. After a few turns it starts feeding on itself — a small ongoing drain on relaxation, because the reaction to the pain has become its own pain. The first hit is the event. The second hit is the story about the event, and the second one is self-inflicted. The oldest fed emotion also colonizes the mood.
+- **Moods are weather:** a mood set turns ago fades once the body settles. Nothing emotional is permanent unless a body keeps it alive.
+
+## Wanting: desire as its own channel
+
+**Attraction is separate from warmth** — wanting someone is not liking them. It's seeded from conditioning (each person's *taste*: what their world and history trained them to find desirable) the moment two people share a scene, gated hard by orientation, and it never moves because someone was kind (kindness moves warmth). Sustained warmth can lift attraction slowly, but a flat first read plateaus at fondness-with-a-mild-pull — a different relationship, not passion.
+
+What desire *does* obeys the kernel: a drawn, settled person acts — flirts, teases, approaches. A drawn, clenched person leaks — staring, sharpness, avoidance. Held long enough in a clenched body, wanting hardens into fixation, which drains the body further until the person settles — at which point it lets go on its own. Same energy, two roads, decided by grip.
+
+## Other people: co-regulation and attachment
+
+Nervous systems are not closed. A settled person you trust, present in the room, pulls you toward settled. But *how* a body uses people under threat is a stable per-person trait:
+
+- **secure** — takes the comfort straight; settles near safe people.
+- **anxious** — runs hot toward people: soothed strongly by presence, but scared and alone, the alarm feeds itself (pursue, escalate, re-check).
+- **avoidant** — runs cold: comfort barely lands, and under real threat closeness is pressure — a warm person leaning in does nothing; they settle alone, later.
+- **disorganized** — reaches for the comfort and flinches from it in the same motion; presence helps some turns and stings on others.
+
+When someone is clenched, the narrator gets their under-threat behavior as a line of law — so two scared people in the same scene do visibly different things.
+
+## Breaking
+
+Clenched long enough and deep enough, a person fractures, then breaks — into a break mode (dissociative, fawning, mirror, fractured) with its own rendering rules. Recovery restores them.
+
+## Becoming: how emotion builds a self
+
+Repeated states become traits (LLM, on the reflection cadence — never per-turn, so a single scene can't move the core). Reflection now also receives the body's recent record: a body that spent the period braced hardens protective, absolute convictions from the same events a settled body would read generously. Belief is shaped by the state it was formed in, not just the facts. Deep-integrated traits fold into core identity; unreinforced ones fade. Memory does the same: experience decays into gist, important gist becomes settled knowledge, and the life-defining residue is permanent.
+
+## The short version
+
+Events land as feeling. Grip turns feeling into story, story into suffering, suffering into disposition, disposition into self. Release lets feeling pass and keeps its information. Other bodies tilt yours toward grip or release, each in its own style. A few people see everything and grip nothing because nothing ever mattered to them but themselves — and they are calm.
