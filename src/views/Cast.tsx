@@ -4,6 +4,7 @@ import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Pencil, RotateCc
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
+import { attractionWord } from "../engine/desire";
 
 function opennessLabel(r: number): string {
   if (r <= -7) return "clenched shut";
@@ -434,7 +435,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                           <div className="flex justify-between text-[13.5px]">
                             <span>→ {other}{e.roles?.length ? <span style={{ color: "var(--accent)" }}> · {e.roles.join(" & ")}</span> : null}</span>
                             <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
-                              {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} · trust {e.trust}
+                              {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} · trust {e.trust}{e.attraction !== undefined ? ` · ${attractionWord(e.attraction)}` : ""}
                             </span>
                           </div>
                           {e.notes && <div className="text-[11.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>{e.notes}</div>}

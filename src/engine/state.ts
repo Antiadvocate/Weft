@@ -41,6 +41,8 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     life_history: ident.life_history,
     appearance_now: ident.appearance_now,
     knows_player_name: ident.knows_player_name,
+    attracted_to: ident.attracted_to,
+    taste: ident.taste,
   };
   state.condition[id] = blankCondition((ident as any).capacity ?? 2);
   state.traits[id] = [];

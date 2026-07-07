@@ -177,12 +177,15 @@ export const api = {
         values: prev?.values ?? [],
         speech_pattern: prev?.speech_pattern ?? "plain",
         texture: prev?.texture ?? [],
+        attracted_to: prev?.attracted_to,
+        taste: prev?.taste,
         portrait_url: prev?.portrait_url,
         tracked: true,
         location: lid,
         drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
       });
-      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, notes: "carried from the last chapter", updated_turn: 1 });
+      const prevEdge = prev ? s.world.edges.find((e) => e.from === prev.character_id && e.to === "char_player") : undefined;
+      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1 });
       ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
       ns.traits[cid] = carry.carried_traits;                            // full traits intact
     }
@@ -495,7 +498,7 @@ export const api = {
       `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
       traits ? `Learned: ${traits}` : "",
       cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (colors every answer per the openness rules).` : "",
-      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
+      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth — liking is not wanting)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
       memDigest,
     ].filter(Boolean).join("\n");
     const msgs: any[] = [{ role: "system", content: INTERVIEW_SYSTEM }, { role: "user", content: ctx }];

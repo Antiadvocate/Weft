@@ -75,6 +75,8 @@ export interface SocialEdge {
   warmth: number;   // affection ↔ hostility
   trust: number;    // reliance ↔ suspicion
   power: number;    // a's perceived standing over b (deference if negative)
+  attraction?: number;      // desire, NOT warmth: wanting someone vs liking them (-100..100; negative = averse). Seeded from conditioning at first co-presence; moves slowly.
+  attraction_base?: number; // the conditioned first read — caps how far warmth alone can lift attraction (flat first read → companionate plateau, a different relationship)
   roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
   updated_turn: number;
@@ -137,6 +139,8 @@ export interface Identity {
   core_traits: string[];
   values: string[];
   speech_pattern: string;
+  attracted_to?: string;      // orientation — who this person can desire at all ("women", "men", "anyone", "no one"). A hard gate, not a preference.
+  taste?: string;             // conditioned desire — plain phrases for what their world and history trained them to find attractive. Habituated, not chosen; drives the first-read seeding.
   texture?: string[];         // a few standing interests/quirks/sensitivities — small enduring things that make them a person between plot beats ("loves trees on a quiet walk", "always cold", "knows too much about rocks"). Surfaced sparingly, never made central.
   skills: Record<string, string>;
   intelligence: "low" | "below-average" | "average" | "sharp" | "brilliant";
@@ -409,7 +413,7 @@ export interface SimulatorDiff {
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
-  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }[];
+  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; note?: string; roles_set?: string[] }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact
   facts_learned?: { char_id: string; fact: string; quote?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];

@@ -16,6 +16,8 @@ import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche } from "./social";
+import { getEdge } from "./social";
+import { seedAttraction, orientationCap, tickDesire } from "./desire";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
@@ -492,6 +494,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+  // desire drift + grasping: warmth slowly earns attraction (under its conditioned ceiling);
+  // strong pull in a clenched body becomes fixation, which taxes relaxation until it settles.
+  for (const l of tickDesire(state)) { shifts.push(l); }
 
   // ── THEORY-OF-MIND UPDATE ── reconnect the mind layer that was orphaned when the undertow (which
   // used to call it, off the deleted QRE stance game) was removed. Without this, characters' models
@@ -1041,6 +1046,14 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   syncPresence(state, diff.present);
 
+  // FIRST READ — the moment two people share a scene, each gets a conditioned read of the
+  // other: taste meeting what the person actually is. Set once; never authors the player's.
+  for (const a of state.world.present) {
+    if (state.characters[a]?.central === false) continue;
+    seedAttraction(state, a, "char_player");
+    for (const b of state.world.present) if (a !== b && state.characters[b]?.central !== false) seedAttraction(state, a, b);
+  }
+
   // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
   // or alive on a later turn (it sees them lingering in a scene and writes them acting), which
   // resurrects them. Nothing above guards against that, so enforce it here as an absolute floor:
@@ -1144,6 +1157,26 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const from = resolveId(state, e.from), to = resolveId(state, e.to);
     if (!from || !to || from === to) continue;
     applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn);
+    // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
+    // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
+    // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.
+    const rawAttr = (e as any).attraction_delta ?? 0;
+    if (rawAttr && from !== "char_player") {
+      const fromC = state.characters[from], toC = state.characters[to];
+      if (fromC && toC) {
+        const edge = getEdge(state.world.edges, from, to);
+        if (edge.attraction === undefined) seedAttraction(state, from, to);
+        const cap = orientationCap(fromC, toC);
+        let next = clamp((edge.attraction ?? 0) + clamp(rawAttr, -8, 8), -100, 100);
+        if (cap !== null) next = Math.min(next, cap);
+        edge.attraction = next;
+        if (edge.attraction_base === undefined) edge.attraction_base = next;
+        if (to === "char_player") {
+          if (rawAttr >= 4) shifts.push(`${nameOf(from)} is drawn to you a little more.`);
+          else if (rawAttr <= -4) shifts.push(`${nameOf(from)}'s pull toward you fades.`);
+        }
+      }
+    }
     // RECIPROCAL ECHO: relationships move both ways, but the simulator usually emits one
     // direction. A meaningful shift echoes back at reduced strength — unless the diff moved
     // the reverse explicitly, and never INTO the player's own head (their feelings are theirs;
