@@ -37,7 +37,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   rumors_new: A(S({ content: str, truth: { type: "string", enum: ["true", "distorted", "false"] }, salience: num, origin_char: str, about_char: str }, ["content"])),
   consequences_new: A(S({ description: str, fire_in_days: num, fire_in_hours: num, fire_in_turns: num, severity: { type: "string", enum: ["minor", "notable", "major"] }, source_char: str, location_trigger: str }, ["description"])),
   clocks_advance: A(S({ id: str, segments: num }, ["id"])),
-  new_characters: A(S({ name: str, age: num, pronouns: str, height_cm: num, weight_kg: num, appearance_facts: str, background: str, core_traits: strA, speech_pattern: str, texture: strA, gregariousness: num, capacity: num, attracted_to: str, taste: str }, ["name"])),
+  new_characters: A(S({ name: str, age: num, pronouns: str, height_cm: num, weight_kg: num, appearance_facts: str, background: str, core_traits: strA, speech_pattern: str, texture: strA, gregariousness: num, capacity: num, attracted_to: str, taste: str, conscience: num, example_lines: strA, never_says: strA, attachment_style: str, under_threat: str }, ["name"])),
   rename: A(S({ who: str, new_name: str }, ["who", "new_name"])),
   bible_update: S({ political_situation: str, what_people_fear: str, technology_level: str, cultures_and_languages: str, magic_rules: str }),
   new_places: A(S({ name: str, description_facts: str }, ["name"])),

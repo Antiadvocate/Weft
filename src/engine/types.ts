@@ -139,6 +139,21 @@ export interface Identity {
   core_traits: string[];
   values: string[];
   speech_pattern: string;
+  attachment?: {              // how this nervous system behaves around other people under threat — clinical attachment, deterministic in play
+    style: "secure" | "anxious" | "avoidant" | "disorganized";
+    under_threat?: string;    // plain sentence: what they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
+    soothed_by?: string;      // plain sentence: what actually settles them
+  };
+  conscience?: number;        // 0..1 — how much other people's experience registers as MATTERING. Orthogonal to relaxation: calm is not care. Most people 0.6-0.9 (openness → warmth, the default physics). ≤0.35 = rudra-type: constitutionally cold — their poise is real (low-anxiety, stress-immune) and their openness yields precision without obligation; comfort does not soften them because there is nothing to soften into.
+  voice?: {                   // the verbal fingerprint — what makes this mouth unmistakable on the page
+    diction?: string;         // vocabulary register: concrete/abstract, schooling, era words, what they'd never name directly
+    syntax?: string;          // sentence shape: length, fragments vs run-ons, where the verb lands, questions vs statements
+    rhythm?: string;          // pacing: self-interruption, trailing off, volley vs monologue
+    tics?: string[];          // recurring verbal habits — used SPARINGLY (at most once a scene, often zero)
+    never_says?: string[];    // constructions this person would never produce
+    agenda?: string;          // subtext: what they're usually angling for under the words — people speak from agenda, not to inform
+    example_lines?: string[]; // 2-4 lines ONLY this person could say — the register in action, never reused verbatim
+  };
   aliases?: string[];         // other handles the fiction uses for this person — nicknames, titles, epithets ("the captain", "Sor"). Feeds name resolution and memory retrieval so a reference by title still finds the person.
   attracted_to?: string;      // orientation — who this person can desire at all ("women", "men", "anyone", "no one"). A hard gate, not a preference.
   taste?: string;             // conditioned desire — plain phrases for what their world and history trained them to find attractive. Habituated, not chosen; drives the first-read seeding.
@@ -188,6 +203,9 @@ export interface Psyche {
   mood: string;                // one-word weather
   mood_valence: number;        // -10..10 derived
   active_states: string[];     // "grief", "infatuated"
+  state_ages?: Record<string, number>;  // turn each active state was added — fuels the lifecycle: states dissolve on their own in a settled body, feed on themselves in a clenched one
+  mood_set_turn?: number;      // when the current mood was set — stale moods fade (weather, not climate)
+  open_run?: number;           // consecutive settled turns (mirror of consecutive_clenched) — long runs feed reflection: ease shapes belief the way clench does
 }
 
 export interface Condition {

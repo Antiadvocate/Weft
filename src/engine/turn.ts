@@ -19,6 +19,7 @@ import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, de
 import { getEdge } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
 import { addCanon, expandAliases } from "./state";
+import { tickEmotions, tickCoRegulation } from "./emotions";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
@@ -499,6 +500,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // desire drift + grasping: warmth slowly earns attraction (under its conditioned ceiling);
   // strong pull in a clenched body becomes fixation, which taxes relaxation until it settles.
   for (const l of tickDesire(state)) { shifts.push(l); }
+  // co-regulation first (who is in the room moves the body), then the emotion lifecycle
+  // (what the body does with what it is carrying) reads the post-company relaxation.
+  for (const l of tickCoRegulation(state)) { shifts.push(l); }
+  for (const l of tickEmotions(state)) { shifts.push(l); }
 
   // ── THEORY-OF-MIND UPDATE ── reconnect the mind layer that was orphaned when the undertow (which
   // used to call it, off the deleted QRE stance game) was removed. Without this, characters' models
@@ -632,7 +637,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const recent = mem.episodic.slice(-20).map((m) => `[T${m.turn}, imp ${m.importance}] ${m.content}`).join("\n");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
@@ -985,7 +990,13 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     // of an established person is exactly the amnesia bug (e.g. "Ellen's mother" not knowing anyone).
     const isReferenced = !!(nc as any).established_reference || ((nc as any).memories?.length ?? 0) > 0;
     const canBeCentral = centralCount() < maxCentral || isReferenced;
-    registerCharacter(state, { ...nc, character_id: undefined as any, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
+    const aStyle = String((nc as any).attachment_style ?? "").toLowerCase();
+    const attachment = ["secure", "anxious", "avoidant", "disorganized"].includes(aStyle)
+      ? { style: aStyle as any, under_threat: (nc as any).under_threat ? String((nc as any).under_threat).slice(0, 160) : undefined }
+      : undefined;
+    const vFlat = { example_lines: (nc as any).example_lines, never_says: (nc as any).never_says };
+    const voice = vFlat.example_lines?.length || vFlat.never_says?.length ? { example_lines: vFlat.example_lines?.slice(0, 4), never_says: vFlat.never_says?.slice(0, 3) } : undefined;
+    registerCharacter(state, { ...nc, character_id: undefined as any, voice, attachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
   }
   for (const np of diff.new_places ?? []) {
@@ -1152,7 +1163,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const c = state.condition[id]; if (!c) continue;
     c.psyche.relaxation = clamp(c.psyche.relaxation + clamp(p.relaxation_delta ?? 0, -6, 6), -10, 10);
     if (p.mood) c.psyche.mood = p.mood;
-    for (const s of p.states_add ?? []) if (s && !c.psyche.active_states.includes(s)) c.psyche.active_states.push(s);
+    for (const s of p.states_add ?? []) if (s && !c.psyche.active_states.includes(s)) { c.psyche.active_states.push(s); (c.psyche.state_ages ??= {})[s] = turn; }
+    if (p.mood) c.psyche.mood_set_turn = turn;
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
     const d = clamp(p.relaxation_delta ?? 0, -6, 6);

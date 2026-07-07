@@ -79,6 +79,7 @@ export function tickPsyche(p: Psyche): void {
   p.relaxation = clamp(p.relaxation + (p.capacity - p.relaxation) * p.recovery, -10, 10);
   if (p.relaxation <= -7) p.consecutive_clenched++;
   else p.consecutive_clenched = 0;
+  p.open_run = p.relaxation >= 3 ? (p.open_run ?? 0) + 1 : 0;
   if (p.state === "intact" && p.consecutive_clenched >= 4) p.state = "fracturing";
   if (p.state === "fracturing" && p.relaxation > -4) { p.state = "intact"; p.break_mode = null; }
   if (p.state === "fracturing" && p.relaxation <= -9) { p.state = "broken"; p.break_mode = p.break_mode ?? "fractured"; }
