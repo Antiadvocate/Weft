@@ -414,6 +414,7 @@ export interface SaveState {
   pressure_trace: number[];    // controller history
   records: { id: string; type: string; title: string; contents: string; location: string }[];
   chapters?: Chapter[];        // auto-generated story chapters (see Chapter)
+  sim_dry_runs?: number;   // consecutive turns where real prose produced an empty bookkeeping diff — a failing simulator model dies silently otherwise (edges freeze, memories stop, toasts vanish); the watchdog makes it visible
   context_anchor?: { turn: number; digest: string; cast_sig: string; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
   contract_drift?: string | null;
   pressure_state?: { last_beat_turn: number; last_exo_turn: number }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes

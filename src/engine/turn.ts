@@ -496,14 +496,40 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       else if (c.central === undefined) c.central = false;
     }
   }
+  // ── BOOKKEEPING WATCHDOG ── a failing simulator model doesn't crash: it returns near-empty
+  // JSON, the engine accepts it, and the story quietly stops being recorded — edges freeze,
+  // memories stop, shift toasts vanish, while prose keeps flowing. (Observed in the wild: 11
+  // consecutive dead turns.) So measure each diff's vitality; substantial prose that yields
+  // nothing, three turns running, is announced instead of swallowed.
+  {
+    const vitality =
+      (diff.memories?.length ?? 0) + (diff.facts?.length ?? 0) + (diff.offscreen?.length ?? 0) +
+      (diff.new_characters?.length ?? 0) + (diff.canon_add?.length ?? 0) +
+      (diff.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
+      (diff.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
+    const substantialProse = prose.split(/\s+/).filter(Boolean).length >= 120;
+    if (substantialProse && vitality === 0 && mode !== "think") {
+      state.sim_dry_runs = (state.sim_dry_runs ?? 0) + 1;
+      if (state.sim_dry_runs % 3 === 0) shifts.push(`bookkeeping has come back empty ${state.sim_dry_runs} turns running — the simulator model may be struggling with this save's context; consider a stronger simulator model in Settings`);
+    } else if (vitality > 0) {
+      if ((state.sim_dry_runs ?? 0) >= 3) shifts.push("bookkeeping is recording again.");
+      state.sim_dry_runs = 0;
+    }
+  }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+  // Deterministic emotional systems, each fault-isolated: a bug in any one of them must degrade
+  // that system for a turn, never abort the turn's tail (history, telemetry, the shifts toasts).
+  const safeTick = (name: string, fn: () => string[]) => {
+    try { for (const l of fn()) shifts.push(l); }
+    catch (err) { console.error(`[weft] ${name} failed this turn (turn continues):`, err); }
+  };
   // desire drift + grasping: warmth slowly earns attraction (under its conditioned ceiling);
   // strong pull in a clenched body becomes fixation, which taxes relaxation until it settles.
-  for (const l of tickDesire(state)) { shifts.push(l); }
+  safeTick("desire", () => tickDesire(state));
   // co-regulation first (who is in the room moves the body), then the emotion lifecycle
   // (what the body does with what it is carrying) reads the post-company relaxation.
-  for (const l of tickCoRegulation(state)) { shifts.push(l); }
-  for (const l of tickEmotions(state)) { shifts.push(l); }
+  safeTick("co-regulation", () => tickCoRegulation(state));
+  safeTick("emotions", () => tickEmotions(state));
 
   // ── THEORY-OF-MIND UPDATE ── reconnect the mind layer that was orphaned when the undertow (which
   // used to call it, off the deleted QRE stance game) was removed. Without this, characters' models
