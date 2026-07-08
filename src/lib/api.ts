@@ -347,7 +347,16 @@ export const api = {
 
   edit: async (id: string, patch: { world_bible?: Partial<WorldBible>; characters?: Record<string, Partial<Identity>>; memory_core?: Record<string, string[]>; canon?: string[] }): Promise<ClientSave> => {
     const s = await need(id);
-    if (patch.world_bible) s.world_bible = { ...s.world_bible, ...patch.world_bible };
+    if (patch.world_bible) {
+      // Changing (or clearing) the destination invalidates any progress scored against the old one —
+      // otherwise a fresh ending inherits the previous reading, or a cleared one stays "reached".
+      const nextDest = patch.world_bible.destination;
+      if (nextDest !== undefined && (nextDest ?? "").trim() !== (s.world_bible.destination ?? "").trim()) {
+        s.destination_progress = null;
+        s.world_bible.destination_reached = false;
+      }
+      s.world_bible = { ...s.world_bible, ...patch.world_bible };
+    }
     for (const [cid, p] of Object.entries(patch.characters ?? {})) {
       if (!s.characters[cid]) continue;
       s.characters[cid] = { ...s.characters[cid], ...p, character_id: cid };
