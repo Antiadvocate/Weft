@@ -61,3 +61,26 @@ The narrator's anti-vagueness rules are not invented here. They use human craft 
 These are *tendencies to prune, not absolutes* — every craft source is emphatic on this, and a human writer exercises judgment the model won't. For a weak narrator model that overuses these moves by default, the prompt draws a harder line than a writer would draw on themselves. That is deliberate: the model needs the floor, not the nuance.
 
 Rules NOT imported, though they appear in the same anti-slop lists, because they are essay rules that break fiction: "no inanimate objects performing human actions" (kills legitimate metaphor — "the fever broke," "grief sat down beside him"), blanket "no em dashes," blanket "no adverbs." Those lists target marketing copy and essays; fiction is a different instrument.
+
+## Earshot
+
+Presence is derived from co-location, and co-location decides who perceives a turn. Two rules follow, and both are enforced in code because the prompt alone never held:
+
+- **Sub-rooms are rooms.** "Tessa's house (kitchen)" and "Tessa's house (outside in the yard)" are not one scene. A sub-room merges only with its bare parent, never with a sibling. Names arrive both dashed ("House - kitchen") and parenthesized; both parse.
+- **Only witnesses learn.** Whoever stood in the room when the player acted — plus anyone the turn moves into the player's place — may gain a memory, a learned fact, an edge shift, a mood change from it. Everyone else gets nothing, no matter what the prose implies. A line spoken alone in the yard cannot be answered from the kitchen, and cannot be remembered there later.
+
+The failure this prevents is quiet and corrosive: a character reacts to something they could not have heard, the player assumes they were overheard, and the world stops being a place with walls.
+
+## Destination
+
+A story may be told toward an ending. Set it once at the Forge — "he learns to feed himself through winter and builds a shelter that holds" — and it becomes the story's gravity.
+
+Three properties make it a destination rather than a plot:
+
+- **Optional.** Blank is the default and emits nothing into the prompt: an open world, unchanged. Never invent one the player didn't ask for.
+- **Gravity, not a rail.** The narrator bends scenes toward the ending — the frictions it raises, the wants it lets characters pursue — but the player may refuse, detour, fail, or walk away. Nobody announces the goal. Nobody nags. Help is never fabricated. Progress can go *down*, and a chapter that loses ground is a truthful chapter. If the player has plainly abandoned the course, the engine follows the player: their standing direction and their choices both outrank it.
+- **Measured, not enforced.** The chapter auditor already judges the story against its contract; it now also scores distance to the ending — a percentage, what was earned, and the next concrete obstacle. The narrator receives that reading; the Chronicle draws it. Nothing forces the number up.
+
+Reaching it does not end the game. `destination_reached` shifts the narrator into aftermath: consequence and cost, smaller and truer scenes, no manufactured replacement arc. A new course is the player's to set.
+
+Implementation note: the destination *text* is immutable and lives in the cache-stable prefix; the *progress* mutates each chapter and lives in the volatile digest. Putting progress in the prefix would break its byte-identity and cost the prompt cache every turn.
