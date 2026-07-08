@@ -58,6 +58,13 @@ export interface WorldBible {
   calendar_and_currency: string;
   political_situation: string;
   narrator_direction?: string;
+  destination?: string;        // OPTIONAL. The ending the story is written toward, set at Forge time
+                               // ("he learns to survive the winter and builds a shelter that holds").
+                               // Empty = open world: the story goes wherever play takes it. When set,
+                               // the narrator bends scenes toward it and each chapter is scored for
+                               // progress. It is a direction, never a rail — the player can still fail,
+                               // refuse, or arrive somewhere else entirely.
+  destination_reached?: boolean; // set once the chapter auditor judges the ending arrived
   start_date?: string;         // "YYYY-MM-DD" — Day 1 of the story; unlocks weekdays/months/years in the clock
   god_mode?: boolean;          // the player is sovereign: powers succeed completely, cost nothing; world still reacts
   era_theme?: string; // ui palette: auto | ember | verdigris | rust | frost
@@ -417,6 +424,10 @@ export interface SaveState {
   sim_dry_runs?: number;   // consecutive turns where real prose produced an empty bookkeeping diff — a failing simulator model dies silently otherwise (edges freeze, memories stop, toasts vanish); the watchdog makes it visible
   context_anchor?: { turn: number; digest: string; cast_sig: string; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
   contract_drift?: string | null;
+  // DESTINATION TRACKING: only when world_bible.destination is set. The chapter auditor scores how
+  // close the story has come to its stated ending and names the next concrete thing standing in the
+  // way; the narrator receives both. `reached` freezes scoring once the ending has actually landed.
+  destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean } | null;
   pressure_state?: { last_beat_turn: number; last_exo_turn: number }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed

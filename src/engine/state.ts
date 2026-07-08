@@ -151,6 +151,7 @@ export function sanitize(state: SaveState): SaveState {
     }
   }
   state.contract_drift ??= null;
+  state.destination_progress ??= null;
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves
   // on load, so junk written before the gate existed drains out instead of accumulating.

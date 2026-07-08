@@ -9,6 +9,7 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
+import { localeOf, isSubRoom } from "./places";
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
@@ -215,7 +216,11 @@ function emptyDiff(): SimulatorDiff {
 const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD and others can hear it; text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks*, and never have someone "overhear" something the player only thought. If the player mixes them in one message, treat each part on its own channel.]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
-  do: (a) => `${a}${/\*/.test(a) ? INLINE_CHANNEL_NOTE : ""}`,
+  // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
+  // turn mixing speech and plain-prose interiority ("I thought I was average height") was read as
+  // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
+  // narrator which parts of a single message were audible.
+  do: (a) => `${a}${INLINE_CHANNEL_NOTE}`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
@@ -520,6 +525,40 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   try { diff = backfillDiff(diff, extractHeuristics(state, action, prose)); }
   catch (e: any) { console.warn(`[turn] heuristic extraction failed (skipped): ${e.message}`); }
 
+  // ── EARSHOT CLAMP ── the simulator reads the prose and cannot tell who was in the room, so it
+  // hands memories to people who weren't there: someone in the kitchen "remembers" a line the
+  // player said alone in the yard, then acts on it. Presence at the START of the turn is the list
+  // of who could see and hear it. Anyone else gets no memory, no learned fact, no feeling-shift
+  // from this turn's events. They may still be MOVED here (locations/exits are how they arrive).
+  // Characters the simulator newly created this turn are exempt — they have no prior location.
+  {
+    const witnesses = new Set<string>([...(state.world.present ?? []), "char_player"]);
+    // Presence here is last turn's — i.e. who stood in the room when the player acted. But if the
+    // player MOVED this turn, or the diff moves someone to the player, those people witness it too.
+    // Resolve the player's post-move place and admit anyone who shares it.
+    try {
+      const destName = diff.player_location;
+      const destId = destName ? resolvePlace(state, destName) : state.world.player_location;
+      const movedTo = new Map<string, string>();
+      for (const l of diff.locations ?? []) movedTo.set(l.char_id, resolvePlace(state, l.place));
+      for (const [id, c] of Object.entries(state.characters)) {
+        if (id === "char_player") continue;
+        const where = movedTo.get(id) ?? c.location;
+        if (where && where === destId) witnesses.add(id);
+      }
+    } catch { /* witness expansion is best-effort; the base set still holds */ }
+    const newIds = new Set((diff.new_characters ?? []).map((c) => c.name.toLowerCase()));
+    const known = (id: string) => !!state.characters[id];
+    const isNew = (id: string) => !known(id) || newIds.has((state.characters[id]?.name ?? "").toLowerCase());
+    const absent = (id: string) => known(id) && !witnesses.has(id) && !isNew(id);
+    let blocked = 0;
+    diff.memories = (diff.memories ?? []).filter((m) => { const bad = absent(m.char_id); if (bad) blocked++; return !bad; });
+    diff.facts_learned = (diff.facts_learned ?? []).filter((f) => { const bad = absent(f.char_id); if (bad) blocked++; return !bad; });
+    diff.edges = (diff.edges ?? []).filter((e) => { const bad = absent(e.from); if (bad) blocked++; return !bad; });
+    diff.psyche = (diff.psyche ?? []).filter((p) => { const bad = absent(p.char_id); if (bad) blocked++; return !bad; });
+    if (blocked) console.warn(`[turn] earshot clamp: dropped ${blocked} write(s) for characters who were not in the scene`);
+  }
+
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
@@ -791,12 +830,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         .map((h) => `T${h.turn}: [did: ${(h.player_action || "").slice(0, 90)}] ${h.summary}`).join("\n");
       if (beats.trim()) {
         const contract = state.world_bible.narrator_direction?.trim() || "";
+        const destination = state.world_bible.destination?.trim() || "";
+        const priorPct = state.destination_progress?.pct;
+        const destLine = destination
+          ? `DESTINATION (the stated ending this story is written toward): "${destination}"\nPROGRESS AT LAST CHAPTER: ${priorPct == null ? "none recorded (this is the first reading)" : `${priorPct}%`}\n`
+          : "DESTINATION: none — this is an open story with no stated ending. Omit the destination object.\n";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
-          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
@@ -811,6 +855,27 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200), persona });
           // arm or clear the governor
           state.contract_drift = ch.on_contract === false && ch.drift?.trim() ? ch.drift.trim().slice(0, 200) : null;
+          // ── DESTINATION PROGRESS ── only when the story has a stated ending. The auditor may move
+          // this DOWN: a setback is real progress information. Once reached, it freezes.
+          if (destination && !state.world_bible.destination_reached && ch.destination) {
+            const d = ch.destination;
+            const pct = Math.max(0, Math.min(100, Math.round(Number(d.pct) || 0)));
+            const prev = state.destination_progress?.pct ?? 0;
+            const reached = d.reached === true || pct >= 100;
+            state.destination_progress = {
+              pct: reached ? 100 : pct,
+              gained: String(d.gained ?? "").slice(0, 120),
+              missing: String(d.missing ?? "").slice(0, 120),
+              turn, reached,
+            };
+            if (reached) {
+              state.world_bible.destination_reached = true;
+              shifts.push(`the story has reached its destination — ${destination}`);
+            } else if (pct !== prev) {
+              const dir = pct > prev ? "closer to" : "further from";
+              shifts.push(`${pct}% — ${dir} the ending${d.missing ? ` · still missing: ${d.missing}` : ""}`);
+            }
+          }
           // HISTORY COMPACTION — a chapter summary now covers this span, so old entries shed their
           // hidden bloat (directive, offscreen log). Prose stays: it IS the transcript the player
           // reads. Ribot applied to the story: the summary is the semantic residue.
@@ -910,9 +975,6 @@ function resolveId(state: SaveState, ref: string): string | null {
 /** The LOCALE of a place name — the building/area, stripping a " - subroom" suffix. So "House - kitchen",
  *  "House - porch", and "House" all share locale "house". Used for presence: people in different rooms
  *  of the same building are in the same scene, instead of flickering apart on sub-room drift. */
-export function localeOf(name: string): string {
-  return (name || "").split(/\s+[-–—]\s+/)[0].trim().toLowerCase().replace(/[.,;:]+$/, "");
-}
 /** Is this a transient motion/state label rather than a real place? "walking home", "driving away",
  *  "in transit" — these shouldn't become persistent place records or break co-location. */
 function isTransientLabel(name: string): boolean {
@@ -973,19 +1035,24 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
   // the scene = living non-player characters in the player's LOCALE — same building/area, even if a
   // different room. "House - kitchen" and "House - porch" are one scene, so people don't flicker out
   // of presence when they move between rooms. Exact-place match OR same locale both count as present.
-  const playerLocaleName = localeOf(state.world.places[ploc]?.name ?? "");
+  // the scene = living non-player characters who can actually see and hear the player. Two SUB-ROOMS
+  // of one building ("house (kitchen)" and "house (yard)") are NOT one scene — treating them as one
+  // is how someone in the kitchen overhears what was said in the yard. A sub-room merges only with
+  // its BARE PARENT ("Tessa's house" + "Tessa's house (kitchen)"), where the parent is the whole place.
+  const plName = state.world.places[ploc]?.name ?? "";
+  const playerLocaleName = localeOf(plName);
+  const playerIsSub = isSubRoom(plName);
   state.world.present = Object.entries(state.characters)
     .filter(([id, c]) => {
       if (id === "char_player" || c.status === "dead" || c.status === "departed" || !c.location) return false;
       if (c.location === "loc_offscene") return false; // explicitly sent out of scene — never re-seat
       if (c.location === ploc) return true; // same exact place
-      // locale match counts only when at least one of the two names is explicitly a SUB-ROOM
-      // ("House - kitchen"). Two distinct dash-less places whose names merely share a first
-      // word ("Harbor", "Harbor House") must not merge into one scene.
       const theirName = state.world.places[c.location]?.name ?? "";
-      const plName = state.world.places[ploc]?.name ?? "";
-      const theirLocale = localeOf(theirName);
-      return !!playerLocaleName && theirLocale === playerLocaleName && (/[-–—]/.test(theirName) || /[-–—]/.test(plName));
+      const theirIsSub = isSubRoom(theirName);
+      if (playerIsSub && theirIsSub) return false;              // two different rooms of one house: separate scenes
+      if (!playerIsSub && !theirIsSub) return false;            // two distinct places that merely share a first word
+      if (!playerLocaleName || localeOf(theirName) !== playerLocaleName) return false;
+      return true;                                              // one is the bare parent of the other
     })
     .map(([id]) => id);
 }
