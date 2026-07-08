@@ -5,7 +5,7 @@ import type {
   SaveState, ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
-import { newSave, registerCharacter, rollback as doRollback, sanitize, uid } from "../engine/state";
+import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits } from "../engine/state";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
@@ -380,7 +380,7 @@ export const api = {
         s.condition[char_id] = { ...s.condition[char_id], ...raw.condition };
         s.condition[char_id].psyche = { ...s.condition[char_id].psyche, ...(raw.condition.psyche ?? {}) };
       }
-      if (Array.isArray(raw.traits)) s.traits[char_id] = raw.traits;
+      if (Array.isArray(raw.traits)) s.traits[char_id] = healTraits(raw.traits);
       if (raw.memory && typeof raw.memory === "object") {
         const m = s.memory[char_id];
         if (Array.isArray(raw.memory.core)) m.core = raw.memory.core.filter(Boolean);

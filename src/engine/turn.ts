@@ -37,6 +37,15 @@ export interface TurnEvents {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Appended after the player's action every turn — the last thing the model reads before writing.
+ *  Exists because mid-tier narrator models resolve scene momentum by moving the player's body
+ *  (an NPC says "shower first," the player replies with words, the model writes them showering).
+ *  The rulebook says never; recency makes it stick. */
+function sovereignty(state: SaveState): string {
+  const n = state.characters["char_player"]?.name ?? "the player";
+  return `\n[${n} does ONLY what the input above states — no added actions, words, feelings, or decisions. Dialogue-only input means ${n} spoke and did nothing else. If the scene is waiting on ${n} (an instruction, a question, an invitation), the world WAITS: end at the waiting point. Never resolve it for them.]`;
+}
+
 /** Does a trait label describe ACQUIRED EXPERTISE (skill built over years) rather than temperament?
  *  Temperament (guarded, cruel, brave, loyal) forms at any age; expertise needs time to develop. */
 function impliesExpertise(label: string): boolean {
@@ -405,13 +414,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   }
@@ -439,8 +448,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // not the narrator's prefix+digest. This cuts its input by more than half AND removes the
   // prose-adjacent noise a small model confabulates from. The prose it must transcribe is the
   // last thing it reads.
+  // Light models (flash/lite/mini/haiku/nano tiers) reliably fail the FULL 23k-char contract —
+  // they return bare or malformed diffs and the story silently stops being recorded. The LEAN
+  // contract carries the same schema with half the instruction mass; give it to them always.
+  const lightSim = /flash|lite|mini|nano|haiku|8b|9b/i.test(state.model_settings.simulator_model);
   const simMsgs = buildMessages(
-    simulatorSystem(lean) + "\n\n" + simulatorSchemaHint(),
+    simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
     `=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth — transcribe its specifics EXACTLY) ===\n${prose}`,
     state.model_settings.simulator_model,

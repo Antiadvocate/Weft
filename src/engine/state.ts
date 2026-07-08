@@ -1,7 +1,7 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
-import type { SaveState, Identity, Condition, CharMemory, WorldBible } from "./types";
+import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
 
 export function uid(prefix: string): string {
@@ -127,6 +127,9 @@ export function sanitize(state: SaveState): SaveState {
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
   state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= []; state.world.canon_meta ??= {};
+  // heal traits: LLM-written or raw-imported trait entries can arrive with null fields, which
+  // crashes every renderer that calls intensity.toFixed. Coerce on load; drop the label-less.
+  for (const id of Object.keys(state.traits ?? {})) state.traits[id] = healTraits(state.traits[id]);
   state.world.focus ??= null;
   for (const c of Object.values(state.condition ?? {})) (c as any).condition_age ??= {};
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
@@ -257,4 +260,24 @@ export function expandAliases(state: SaveState, text: string): string {
     }
   }
   return extra.length ? `${text} (${extra.join(", ")})` : text;
+}
+
+
+/** Coerce a trait list into a safe shape: numbers finite, strings present, label required. */
+export function healTraits(list: unknown): AcquiredTrait[] {
+  if (!Array.isArray(list)) return [];
+  const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+  return (list as any[])
+    .filter((t) => t && typeof t.label === "string" && t.label.trim())
+    .map((t) => ({
+      id: typeof t.id === "string" ? t.id : `trait_${Math.random().toString(36).slice(2, 8)}`,
+      label: String(t.label).slice(0, 80),
+      origin: typeof t.origin === "string" ? t.origin : "",
+      behavioral_impact: typeof t.behavioral_impact === "string" ? t.behavioral_impact : "",
+      intensity: Math.max(0, Math.min(10, num(t.intensity, 2))),
+      self_weight: Math.max(0, Math.min(10, num(t.self_weight, 1))),
+      last_reinforced_turn: num(t.last_reinforced_turn, 0),
+      reinforcement_count: num(t.reinforcement_count, 1),
+      ...(t.integrated !== undefined ? { integrated: !!t.integrated } : {}),
+    })) as AcquiredTrait[];
 }

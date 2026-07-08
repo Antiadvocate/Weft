@@ -356,9 +356,10 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     const ranked = [...mem.facts].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
     const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
     chosen.add(mem.facts[mem.facts.length - 1]);
-    parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => x.content).join(" | ")}`);
+    const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "…" : t);
+    parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
   }
-  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => b.content).join(" | ")}`);
+  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "…" : b.content)).join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
   if (top.length) {
     // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
@@ -388,7 +389,9 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     const when = (full || stage <= 1) ? [m.when_label, ago && ago !== m.when_label ? `≈${ago}` : ""].filter(Boolean).join(", ") : ago;
     const stamp = [when, place].filter(Boolean).join(", ");
     const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
-    const text = full ? (m.full_content ?? m.content) : m.content;
+    const raw = full ? (m.full_content ?? m.content) : m.content;
+    const budget = full ? 300 : 170; // render cap: a memory is a cue for the narrator, not a transcript — verbose bookkeeper output must not flood the digest
+    const text = raw.length > budget ? raw.slice(0, budget - 2).trimEnd() + "…" : raw;
     const faded = full ? (rel >= 0.4 ? " (this moment brings it back sharp and whole)" : "") : stage >= 3 ? " (a dim, distant impression)" : stage === 2 ? " (hazy now)" : "";
     return `[${stamp || `T${m.turn}`}${due}] ${text}${faded}`;
   }).join(" | ")}`);

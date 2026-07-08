@@ -453,7 +453,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         {(save.traits[sel!] ?? []).map((t, i) => (
                           <div key={`at${i}`} className="text-[12.5px] py-0.5 leading-relaxed">
                             <span style={{ color: "var(--accent)" }}>{t.label}</span>
-                            <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>i{t.intensity.toFixed(0)} · w{t.self_weight.toFixed(0)}</span>
+                            <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>i{(t.intensity ?? 0).toFixed(0)} · w{(t.self_weight ?? 0).toFixed(0)}</span>
                             <span style={{ color: "var(--text-mid)" }}> — {t.behavioral_impact}</span>
                           </div>
                         ))}

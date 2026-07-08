@@ -102,14 +102,14 @@ export function desireLine(state: SaveState, id: string): string {
   const a = e.attraction;
   const r = state.condition[id]?.psyche.relaxation ?? 0;
   const cold = typeof state.characters[id]?.conscience === "number" && state.characters[id].conscience! <= 0.35;
-  if (a <= -15) return "desire: none — actively unattracted to you; advances would repel, however warm the friendship";
-  if (a < 15) return "desire: none toward you — your kindness reads as kindness, nothing more; flirtation from you would land as awkward or unwelcome, and no amount of niceness changes that";
+  if (a <= -15) return "desire: none — actively unattracted; advances would repel, however warm the bond";
+  if (a < 15) return "desire: none — kindness reads as kindness; a flirt would land awkward or unwelcome, and niceness never changes that";
   if (cold) return r >= -2
-    ? `desire: wants you (${a}) the way a collector wants a piece — deliberate, patient, charming pursuit; the warmth deployed is technique, and their ease makes it more effective, not gentler`
-    : `desire: wants you (${a}) and is irritated about not having you — possessive, tallying, punitive around rivals`;
-  if (r >= 2) return `desire: drawn to you (${a}) and settled enough to show it — actually flirts, teases, finds reasons to be close, takes small initiatives`;
-  if (r <= -2) return `desire: drawn to you (${a}) but clenched — it can't come out clean: staring, sharpness, avoidance, overcorrection; no smooth flirtation from this state`;
-  return `desire: drawn to you (${a}) — it surfaces in small ways when the moment allows`;
+    ? `desire: wants you (${a}) like a collector — patient, charming pursuit; the warmth is technique`
+    : `desire: wants you (${a}) and resents not having you — possessive, tallying, punitive near rivals`;
+  if (r >= 2) return `desire: drawn (${a}) and settled enough to show it — flirts, teases, gets close`;
+  if (r <= -2) return `desire: drawn (${a}) but clenched — leaks sideways: staring, sharpness, avoidance; no clean flirtation`;
+  return `desire: drawn (${a}) — surfaces in small ways when the moment allows`;
 }
 
 /**
