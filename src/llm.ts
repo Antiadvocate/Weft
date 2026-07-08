@@ -106,7 +106,25 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data: any = await res.json();
-  const text = data.choices?.[0]?.message?.content ?? "";
+  const msg = data.choices?.[0]?.message ?? {};
+  // CONTENT RECOVERY — the #1 silent bookkeeping death. Reasoning-tier models (and some
+  // providers under json_schema) return an empty `content` string and put the actual payload
+  // in `reasoning`, or hand back `content` as an array of parts rather than a string. Treating
+  // only string `content` as valid made every one of those turns a dead black hole: the sim
+  // call threw "empty completion", burned the (identical) fallback, and recorded nothing.
+  // Pull text from wherever it actually landed; for JSON calls, a reasoning field that contains
+  // a JSON object is a perfectly good source.
+  let text: string = typeof msg.content === "string" ? msg.content : "";
+  if (!text && Array.isArray(msg.content)) {
+    text = msg.content.map((p: any) => (typeof p === "string" ? p : p?.text ?? "")).join("");
+  }
+  if (!text && typeof msg.reasoning === "string" && /[{[]/.test(msg.reasoning)) {
+    text = msg.reasoning; // constrained JSON that leaked into the reasoning channel
+  }
+  if (!text && typeof msg.refusal === "string" && msg.refusal.trim()) {
+    // a real refusal is not an empty completion — surface it so fallback/repair can react
+    throw new Error(`model refusal: ${msg.refusal.slice(0, 200)}`);
+  }
   if (!text) throw new Error("empty completion");
   return {
     text,
@@ -128,8 +146,22 @@ export async function complete(messages: any[], model: string, fallback: string,
     if (typeof json === "object" && /response_format|json_schema|400/.test(msg)) {
       try { return await once(messages, model, true, maxTokens, opts); } catch (e2: any) { logErr(model, e2); }
     }
-    try { return await once(messages, fallback, typeof json === "object" ? true : json, maxTokens, { ...opts, omitReasoning: true }); }
-    catch (e3: any) { logErr(fallback, e3); throw e3; }
+    // EMPTY/REFUSAL ON A JSON CALL — before spending the fallback (which for the bookkeeper is
+    // usually the SAME model), give the primary one more chance with the constraints relaxed:
+    // drop json_schema down to plain json_object AND turn reasoning back on. An empty completion
+    // is very often the constrained decoder + disabled reasoning starving a reasoning-tier model;
+    // loosening both is what actually recovers the diff instead of re-failing identically.
+    if (json && /empty completion|refusal/i.test(msg)) {
+      try { return await once(messages, model, true, maxTokens, { ...opts, omitReasoning: true }); } catch (e2b: any) { logErr(model, e2b); }
+    }
+    // FALLBACK — but only if it's genuinely a different model. Routing a dead call to an
+    // identical fallback just burns time and returns the same nothing; skip straight to the
+    // throw so the caller's watchdog/heuristics take over this turn.
+    if (fallback && fallback !== model) {
+      try { return await once(messages, fallback, typeof json === "object" ? true : json, maxTokens, { ...opts, omitReasoning: true }); }
+      catch (e3: any) { logErr(fallback, e3); throw e3; }
+    }
+    throw e1;
   }
 }
 
