@@ -82,10 +82,32 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
     }
   }
 
-  // ── named-character arrival/departure: "Mara enters/arrives", "Mara leaves/storms out"
+  // ── named-character departure. A soft exit (leaving the ROOM, not the story) only removes
+  // someone from the scene if their location changes; the simulator frequently narrates the
+  // exit in prose without emitting a `locations` diff, so this backstop is the real guarantee.
+  // The verb list is deliberately broad and the window wide (60 chars) because natural prose
+  // says "excused herself and stepped out", "disappeared down the hall", "was gone before he
+  // could answer" — none of which the old 6-verb / 24-char pattern caught.
+  const DEPART = "(?:leaves|left|walks out|walked out|storms out|stormed out|departs|departed|slips away|slipped away|slips out|slipped out|heads out|headed out|steps out|stepped out|steps outside|excuses? (?:him|her|them)self|excused (?:him|her|them)self|ducks out|ducked out|disappears?(?: down| into| through| around)|disappeared(?: down| into| through| around)|vanishes?(?: down| into| through)|retreats?(?: to| into| down)|retreated|withdraws?|withdrew|exits?|exited|goes? (?:to|into|back to|off to)|went (?:to|into|back to|off to)|makes? (?:him|her|them)self scarce|is gone|was gone|were gone|has (?:already )?gone|had (?:already )?gone|is no longer (?:here|in the room|present)|are no longer (?:here|present)|takes? (?:his|her|their) leave|took (?:his|her|their) leave|shows? (?:him|her|them)self out|closes? the door behind (?:him|her|them)|shuts? the door behind (?:him|her|them))";
   for (const [lower, id] of names) {
-    if (new RegExp(`\\b${escRe(lower)}\\b[^.!?]{0,24}\\b(leaves|walks out|storms out|departs|slips away|heads out)\\b`, "i").test(text)) {
+    // "<Name> ... <depart-verb>"  OR  "<depart-verb> ... <Name>" (e.g. "then Juniper was gone")
+    const nameFirst = new RegExp(`\\b${escRe(lower)}\\b[^.!?]{0,60}?\\b${DEPART}`, "i");
+    const verbFirst = new RegExp(`\\b${DEPART}\\b[^.!?]{0,40}?\\b${escRe(lower)}\\b`, "i");
+    if (nameFirst.test(text) || verbFirst.test(text)) {
       out.locations.push({ char_id: id, place: "elsewhere nearby" });
+    }
+  }
+
+  // ── PLAYER COMMANDS AN EXIT. If the player's action tells someone present to leave and the
+  // prose doesn't visibly refuse (no "refuses", "stays put", "doesn't move", "ignores you"),
+  // honor the command: a person told to go, who isn't shown resisting, goes. This is the
+  // single most jarring failure — you dismiss someone and they're still standing there.
+  const refuses = /\b(refus|stays? put|stayed put|doesn'?t (?:move|budge|leave)|didn'?t (?:move|budge|leave)|won'?t (?:move|leave|go)|holds? (?:his|her|their|its) ground|ignores? you|remains? (?:seated|where|standing)|shakes? (?:his|her|their) head|not going anywhere)/i.test(text);
+  for (const [lower, id] of names) {
+    const told = new RegExp(`\\b(?:tell|told|order|ordered|command|ask|asked|send|sent|dismiss|dismissed|wave|waved)\\w*\\s+${escRe(lower)}\\b[^.!?]{0,40}?\\b(?:to (?:leave|go|get out|step out|wait outside)|out|away|off|leave|go|home)\\b`, "i");
+    const toldGeneric = new RegExp(`\\b${escRe(lower)}[,.!?]?\\s*(?:please\\s+)?(?:leave|get out|step out(?:side)?|wait outside|go(?: away| home| on)?)\\b`, "i");
+    if ((told.test(action) || toldGeneric.test(action)) && !refuses) {
+      if (!out.locations.some((l) => l.char_id === id)) out.locations.push({ char_id: id, place: "elsewhere nearby" });
     }
   }
   for (const [cid, c] of Object.entries(state.characters)) {

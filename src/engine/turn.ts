@@ -923,6 +923,14 @@ function isTransientLabel(name: string): boolean {
 export function resolvePlace(state: SaveState, ref: string): string {
   if (!ref) return state.world.player_location;
   if (state.world.places[ref]) return ref;
+  // EXIT SENTINEL — "elsewhere nearby" (and bare "elsewhere"/"offscreen") means "out of this
+  // scene but still in the world." It routes to one stable off-scene place that shares NO locale
+  // with any room, so the locale-merge in syncPresence can never drag the character back in.
+  if (/^(elsewhere(?:\s+nearby)?|off[\s-]?screen|out of (?:the )?(?:room|scene))$/i.test(ref.trim())) {
+    const OFF = "loc_offscene";
+    if (!state.world.places[OFF]) state.world.places[OFF] = { id: OFF, name: "\u2014 offscene \u2014", description_facts: "", contains: [] };
+    return OFF;
+  }
   // normalize transient phrasings so "walking outside the dome" and "outside the dome" don't
   // spawn two records: drop leading motion gerunds and "in transit to", trim articles/punctuation.
   const norm = ref.trim()
@@ -969,6 +977,7 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
   state.world.present = Object.entries(state.characters)
     .filter(([id, c]) => {
       if (id === "char_player" || c.status === "dead" || c.status === "departed" || !c.location) return false;
+      if (c.location === "loc_offscene") return false; // explicitly sent out of scene — never re-seat
       if (c.location === ploc) return true; // same exact place
       // locale match counts only when at least one of the two names is explicitly a SUB-ROOM
       // ("House - kitchen"). Two distinct dash-less places whose names merely share a first
