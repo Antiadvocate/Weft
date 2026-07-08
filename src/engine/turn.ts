@@ -461,6 +461,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
   let diff = emptyDiff();
   let simOk = false;
+  // shared vitality measure — a diff can PARSE fine yet carry nothing that changes the world
+  // (just scene_summary + elapsed_minutes). That is the quiet form of the dead-black-hole bug:
+  // simOk=true, watchdog counts it dead, but nothing was ever done to recover the turn. We use
+  // this both to trigger a recovery pass here and for the watchdog below.
+  const vitalityOf = (d: Partial<SimulatorDiff>): number =>
+    (d.memories?.length ?? 0) + (d.facts?.length ?? 0) + ((d as any).facts_learned?.length ?? 0) +
+    (d.offscreen?.length ?? 0) + (d.new_characters?.length ?? 0) + (d.canon_add?.length ?? 0) +
+    (d.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
+    (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
+  const proseWords = prose.split(/\s+/).filter(Boolean).length;
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
     // decoder; `complete` transparently falls back to json_object where unsupported.
@@ -480,6 +490,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       simUsage.prompt_tokens += fix.usage.prompt_tokens; simUsage.completion_tokens += fix.usage.completion_tokens;
       const reparsed = safeJson<Partial<SimulatorDiff> | null>(fix.text, null);
       if (reparsed && Object.keys(reparsed).length) { diff = { ...emptyDiff(), ...reparsed }; simOk = true; }
+    }
+    // VITALITY-DEAD RECOVERY: the diff parsed, but a substantial scene produced zero world
+    // change. Constrained decoding + disabled reasoning starves small/reasoning-tier models into
+    // emitting only the two mandatory keys. Re-run ONCE in plain json_object with reasoning ON
+    // and an explicit instruction to record what changed — the single most effective cure for
+    // the "everything is a black hole" report. Skipped for genuinely quiet turns (short prose).
+    if (simOk && proseWords >= 120 && vitalityOf(diff) === 0 && mode !== "think") {
+      try {
+        const retry = await complete(
+          [ simMsgs[0],
+            simMsgs[1],
+            { role: "user", content: "Your previous diff recorded no changes, but the scene above clearly contains them. Re-read the NARRATOR PROSE and emit a COMPLETE diff as one valid JSON object: every memory a present character would form, every warmth/trust/attraction shift the prose implies, mood/relaxation deltas, facts learned, locations. Do not return only scene_summary and elapsed_minutes. JSON only, no fences." } ],
+          state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000,
+          { ...simOpts, omitReasoning: false });
+        simUsage.prompt_tokens += retry.usage.prompt_tokens; simUsage.completion_tokens += retry.usage.completion_tokens;
+        const rediff = safeJson<Partial<SimulatorDiff> | null>(retry.text, null);
+        if (rediff && vitalityOf(rediff) > 0) diff = { ...emptyDiff(), ...rediff };
+      } catch (e: any) { console.warn(`[turn] vitality-recovery pass failed (kept thin diff): ${e.message}`); }
     }
   } catch (e: any) {
     console.warn(`[turn] simulator failed entirely: ${e.message} — applying heuristics only`);
@@ -515,12 +543,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // consecutive dead turns.) So measure each diff's vitality; substantial prose that yields
   // nothing, three turns running, is announced instead of swallowed.
   {
-    const vitality =
-      (diff.memories?.length ?? 0) + (diff.facts?.length ?? 0) + (diff.offscreen?.length ?? 0) +
-      (diff.new_characters?.length ?? 0) + (diff.canon_add?.length ?? 0) +
-      (diff.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
-      (diff.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
-    const substantialProse = prose.split(/\s+/).filter(Boolean).length >= 120;
+    const vitality = vitalityOf(diff);
+    const substantialProse = proseWords >= 120;
     if (substantialProse && vitality === 0 && mode !== "think") {
       state.sim_dry_runs = (state.sim_dry_runs ?? 0) + 1;
       if (state.sim_dry_runs % 3 === 0) shifts.push(`bookkeeping has come back empty ${state.sim_dry_runs} turns running — the simulator model may be struggling with this save's context; consider a stronger simulator model in Settings`);
