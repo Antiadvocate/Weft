@@ -48,3 +48,16 @@ Repeated states become traits (LLM, on the reflection cadence — never per-turn
 ## The short version
 
 Events land as feeling. Grip turns feeling into story, story into suffering, suffering into disposition, disposition into self. Release lets feeling pass and keeps its information. Other bodies tilt yours toward grip or release, each in its own style. A few people see everything and grip nothing because nothing ever mattered to them but themselves — and they are calm.
+
+## Prose craft: where the narrator rules come from
+
+The narrator's anti-vagueness rules are not invented here. They use human craft vocabulary, so a language model recognizes the term and the correction it was trained alongside:
+
+- **Filter words** (Janet Burroway, *Writing Fiction*) — *saw, felt, heard, noticed, seemed, realized, watched.* They put a pane of glass between reader and moment. Cut the filter: "the cold seeped into her hands," not "she felt the cold seep in." Prune, don't ban — a filter is right when perception itself is the point ("she heard it before she saw it").
+- **Vague declarative** (anti-slop skill vocabulary) — asserting a reaction without naming it. "Something tightened behind her eyes" is the fiction form. Fix: name the specific reaction or cut to action.
+- **Narrator-from-a-distance** (same source) — pulling the camera out of the scene. Our weather-sting ("Outside, the rain picked up") is this. Fix: put the reader in the room; end on a person.
+- **On-the-nose dialogue / subtext** (editor's craft term) — characters saying exactly what they feel, which flattens voice and reads false. Fix: let the surface line be about the small thing and the real thing sit under it. Trust the gap; don't close it with a confession.
+
+These are *tendencies to prune, not absolutes* — every craft source is emphatic on this, and a human writer exercises judgment the model won't. For a weak narrator model that overuses these moves by default, the prompt draws a harder line than a writer would draw on themselves. That is deliberate: the model needs the floor, not the nuance.
+
+Rules NOT imported, though they appear in the same anti-slop lists, because they are essay rules that break fiction: "no inanimate objects performing human actions" (kills legitimate metaphor — "the fever broke," "grief sat down beside him"), blanket "no em dashes," blanket "no adverbs." Those lists target marketing copy and essays; fiction is a different instrument.
