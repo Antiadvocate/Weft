@@ -178,6 +178,41 @@ export default function Chronicle({ save }: { save: ClientSave }) {
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+      {!!save.world_bible.destination?.trim() && (
+        <Fade delay={0}>
+          <div className="card p-4">
+            <Title>Destination</Title>
+            {(() => {
+              const dest = save.world_bible.destination!.trim();
+              const p = save.destination_progress;
+              const done = save.world_bible.destination_reached || p?.reached;
+              const pct = done ? 100 : (p?.pct ?? 0);
+              return (
+                <>
+                  <div className="text-[13.5px] leading-relaxed mb-3" style={{ color: "var(--text-mid)" }}>{dest}</div>
+                  <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--ink-1)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "var(--accent)" : "var(--accent-glow, var(--accent))", transition: "width .6s ease" }} />
+                  </div>
+                  <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>
+                    <span>{done ? "reached" : p ? `${pct}% of the way` : "not yet measured"}</span>
+                    {!!p?.turn && <span>as of turn {p.turn}</span>}
+                  </div>
+                  {!done && !!p?.missing && (
+                    <div className="text-[12.5px] leading-relaxed mt-2.5" style={{ color: "var(--text-mid)" }}>
+                      <span style={{ color: "var(--text-lo)" }}>Still missing — </span>{p.missing}
+                    </div>
+                  )}
+                  {!done && !!p?.gained && (
+                    <div className="text-[12.5px] leading-relaxed mt-1" style={{ color: "var(--text-mid)" }}>
+                      <span style={{ color: "var(--text-lo)" }}>Last gained — </span>{p.gained}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </Fade>
+      )}
       {!!chapters?.length && (
         <Fade delay={0}>
           <div className="card p-4">

@@ -85,6 +85,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     cultures_and_languages: wb.cultures_and_languages ?? "", climate_and_geography: wb.climate_and_geography ?? "",
     calendar_and_currency: wb.calendar_and_currency ?? "",
     narrator_direction: wb.narrator_direction ?? "",
+    destination: wb.destination ?? "",
     art_direction: wb.art_direction ?? "",
   });
   const [palette, setPalette] = useState((wb.pressure_palette ?? []).join(", "));
@@ -180,6 +181,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <TextField label="Pressure palette (comma-sep — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={2} />
         <TextField label="Never the primary engine of a scene (comma-sep)" value={forbidPrimary} onChange={setForbidPrimary} rows={2} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
+        <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
         <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
 
         <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>
