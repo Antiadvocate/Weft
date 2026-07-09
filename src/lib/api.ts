@@ -309,6 +309,84 @@ export const api = {
     return clientView(restored);
   },
 
+  /** THE VETO. Strike something the narrator invented: roll back to before it happened, and record a
+   *  standing correction so it is never regenerated, referred to, or "explained". Characters created
+   *  by the struck turns are removed outright; canon they minted is dropped. Undo via undoRollback. */
+  strike: async (id: string, text: string, to_turn?: number): Promise<ClientSave> => {
+    const s = await need(id);
+    const note = String(text || "").trim().slice(0, 240);
+    if (!note) throw new Error("say what to strike");
+    await putSideRow(id, "recovery", s);            // same safety rail as rollback
+    let t = s;
+    if (typeof to_turn === "number") {
+      const restored = await doRollback(s, to_turn);
+      if (!restored) throw new Error("no snapshot covers that turn");
+      t = restored;
+    }
+    t.retcons = [...(t.retcons ?? []), { text: note, turn: t.world.current_turn }].slice(-12);
+    // purge state the struck material left behind: non-central characters whose names the player named,
+    // and any canon line that quotes the struck text.
+    const words = note.toLowerCase().match(/[a-z']{4,}/g) ?? [];
+    for (const [cid, c] of Object.entries(t.characters)) {
+      if (cid === "char_player" || c.central) continue;
+      const first = (c.name || "").split(/\s+/)[0].toLowerCase();
+      if (first && note.toLowerCase().includes(first)) {
+        delete t.characters[cid]; delete t.condition[cid]; delete t.memory[cid]; delete t.minds?.[cid];
+        t.world.present = t.world.present.filter((p) => p !== cid);
+        t.world.edges = t.world.edges.filter((e) => e.from !== cid && e.to !== cid);
+        for (const p of Object.values(t.world.places)) p.contains = p.contains.filter((x) => x !== cid);
+      }
+    }
+    if (words.length) t.world.canon = t.world.canon.filter((line) => !words.some((w) => line.toLowerCase().includes(w) && w.length > 5));
+    await putSave(t);
+    return clientView(t);
+  },
+
+  /** Drop a standing retcon by index (the struck thing is allowed back into the story). */
+  unstrike: async (id: string, idx: number): Promise<ClientSave> => {
+    const s = await need(id);
+    s.retcons = (s.retcons ?? []).filter((_, i) => i !== idx);
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** RE-RUN THE BOOKKEEPER. The narrator's prose is kept; only the simulator runs again.
+   *  A dead or empty diff means the turn happened in the prose but never in the world — nobody
+   *  remembered it, no feelings moved. Rolls back to the state before the turn (the snapshot ring
+   *  stores pre-turn state) and replays the SAME action and SAME prose through the full downstream
+   *  pipeline: simulator, clamps, applyDiff, physiology, reflection. Costs one simulator call, no
+   *  narrator call. Undo via undoRollback. */
+  rerunBookkeeper: async (id: string, turn?: number, ev?: TurnEvents): Promise<ClientSave> => {
+    const s = await need(id);
+    const t = turn ?? s.world.current_turn;
+    const entry = s.history.find((h) => h.turn === t && (h.kind ?? "turn") === "turn");
+    if (!entry) throw new Error(`turn ${t} is not a re-runnable turn`);
+    if (!entry.narrator_prose?.trim()) throw new Error("that turn has no prose to re-read");
+    await putSideRow(id, "recovery", s);                 // same safety rail as rollback/strike
+    // The snapshot for turn N is taken BEFORE N applies, so replaying N means restoring snapshot N
+    // exactly. doRollback finds the nearest EARLIER snapshot, which would silently replay this prose
+    // against a state several turns stale and destroy everything between — so demand an exact hit.
+    if (!s.snapshots.some((snap) => snap.turn === t)) {
+      throw new Error(`turn ${t} has aged out of the snapshot ring — only the last few turns can be re-run`);
+    }
+    const restored = await doRollback(s, t);
+    if (!restored) throw new Error("no snapshot covers that turn");
+    const gov = governorState(restored);
+    await runTurn(restored, entry.player_action, {
+      onPhase: (p) => ev?.onPhase?.(p),
+      onDelta: () => { /* prose is not regenerated */ },
+      onMeta: (m) => ev?.onMeta?.(m as Record<string, unknown>),
+    }, (entry.action_mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: entry.narrator_prose });
+    // the prose is unchanged, so its illustration is still valid — carry it across the replay
+    // rather than making the player pay to regenerate an identical image.
+    if (entry.illustration_url) {
+      const fresh = restored.history.find((h) => h.turn === t);
+      if (fresh && !fresh.illustration_url) fresh.illustration_url = entry.illustration_url;
+    }
+    await putSave(restored);
+    return clientView(restored);
+  },
+
   /** One level of rollback undo — restores the exact pre-rollback state. */
   undoRollback: async (id: string): Promise<ClientSave> => {
     const rec = await getSideRow(id, "recovery");
@@ -354,6 +432,16 @@ export const api = {
       if (nextDest !== undefined && (nextDest ?? "").trim() !== (s.world_bible.destination ?? "").trim()) {
         s.destination_progress = null;
         s.world_bible.destination_reached = false;
+        s.world_bible.destination_outcome = undefined;
+        // the clock starts when the destination is named, not when the save began
+        s.world_bible.destination_set_turn = (nextDest ?? "").trim() ? s.world.current_turn : undefined;
+      }
+      // changing only the budget re-bases the clock from now, so shortening it never
+      // retroactively spends turns the player did not know were counted
+      if (patch.world_bible.destination_turns !== undefined &&
+          patch.world_bible.destination_turns !== s.world_bible.destination_turns &&
+          !s.world_bible.destination_reached) {
+        s.world_bible.destination_set_turn = s.world.current_turn;
       }
       s.world_bible = { ...s.world_bible, ...patch.world_bible };
     }
@@ -613,7 +701,7 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324"): Promise<ClientSave> => {
+  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number): Promise<ClientSave> => {
     const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", seed, model);
     let g: any = null, lastErr = "";
     for (const m of [model, model, "google/gemini-2.0-flash-001"]) {
@@ -631,6 +719,13 @@ export const api = {
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
     };
+    // FATE: a destination with a turn budget is a promise the engine keeps. The clock starts at 0.
+    if (bible.destination?.trim() && destinationTurns && destinationTurns > 0) {
+      bible.destination_turns = Math.round(destinationTurns);
+      bible.destination_set_turn = 0;
+    } else {
+      delete bible.destination_turns;
+    }
     const s = newSave(g.world_bible.name || seed.slice(0, 40), bible);
     // premise-as-constraint: the forge's canon lines land in world.canon, the strongest
     // channel in the engine — rendered to BOTH models every turn, forever
