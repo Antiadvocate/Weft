@@ -82,9 +82,9 @@ export default function Forge({ onBack, onCreated }: {
                 value={destTurns} onChange={(e) => setDestTurns(e.target.value.replace(/[^0-9]/g, ""))} />
               <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
                 {destTurns.trim()
-                  ? <>The ending <b>will happen</b> within {destTurns} turns — earned, hollow, or as ruin. The road is yours;
-                    the arrival is not. As the budget burns, threads that don't serve the ending fall away and the world closes in.</>
-                  : <>Without a clock the ending is gravity, not fate: it pulls, but you can wander off forever.</>}
+                  ? <>The story ends after {destTurns} turns. Everything before that moves toward the ending; as the turns run down,
+                    unrelated threads fall away. You choose how you get there, not whether you arrive.</>
+                  : <>With no number the ending just pulls. The story can go on past it, or never reach it.</>}
               </div>
             </div>
           )}
