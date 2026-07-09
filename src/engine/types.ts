@@ -69,7 +69,7 @@ export interface WorldBible {
                                // The road is negotiable; the arrival is not. 0/undefined = no clock.
   destination_set_turn?: number; // the turn the clock started (so budgets survive mid-story edits)
   destination_reached?: boolean; // set once the chapter auditor judges the ending arrived
-  destination_outcome?: "triumph" | "ruin" | "hollow"; // how it landed, once it has
+  destination_outcome?: "earned" | "forced"; // whether the player drove the ending or the clock did
   start_date?: string;         // "YYYY-MM-DD" — Day 1 of the story; unlocks weekdays/months/years in the clock
   god_mode?: boolean;          // the player is sovereign: powers succeed completely, cost nothing; world still reacts
   era_theme?: string; // ui palette: auto | ember | verdigris | rust | frost
@@ -441,7 +441,10 @@ export interface SaveState {
   // DESTINATION TRACKING: only when world_bible.destination is set. The chapter auditor scores how
   // close the story has come to its stated ending and names the next concrete thing standing in the
   // way; the narrator receives both. `reached` freezes scoring once the ending has actually landed.
-  destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean } | null;
+  // pct comes from the clock (turns elapsed / budget) and updates every turn. `missing` is the
+  // auditor's description of the remaining gap, refreshed when the act changes. `act` records which
+  // act the last audit ran in, so the next act change triggers exactly one more.
+  destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean; act?: string } | null;
   pressure_state?: { last_beat_turn: number; last_exo_turn: number }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed

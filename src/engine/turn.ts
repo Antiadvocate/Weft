@@ -263,6 +263,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // doze while the ending waits. No destination or no budget → returns inert, nothing changes.
   const fate = readFate(state);
   const fateLog = enforceFate(state, fate);
+  // Progress is the clock. Write it every turn so it never waits on a chapter, an audit, or a model
+  // noticing anything. `missing` and `gained` are left alone; only the auditor touches those.
+  if (fate.active) {
+    const prev = state.destination_progress;
+    state.destination_progress = { pct: fate.pct, gained: prev?.gained ?? "", missing: prev?.missing ?? "", turn, reached: false, act: prev?.act };
+  }
 
   // 1c ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
@@ -408,7 +414,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     : "";
   // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
   // does not get to be asleep. Everything above may shape the scene; fate decides that it happens.
-  const fateNote = fateDirective(fate);
+  const fateNote = fateDirective(fate, state.destination_progress?.missing);
   const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
@@ -629,20 +635,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   if (!simOk) shifts.push("(bookkeeping failed this turn — records are incomplete; re-run the turn or edit memory by hand)");
   // fate's grip on the world, made visible — threads falling away, clocks closing in
   for (const line of fateLog) shifts.push(line);
-  if (fate.active && fate.forceArrival) shifts.push(`the budget is spent — the ending arrives this turn`);
-  else if (fate.active && fate.act === "convergence" && fate.turnsLeft <= 3) shifts.push(`${fate.turnsLeft} turn${fate.turnsLeft === 1 ? "" : "s"} until the ending`);
-  // HARD BACKSTOP. A weak narrator, told the ending arrives now, may still write around it. Fate is
-  // not advice: after three turns of overrun the ending IS what happened, regardless of what the
-  // prose managed. It lands in whatever shape the story earned — and a story that had to be dragged
-  // here earned ruin. The auditor's own reading still decides triumph vs hollow when progress is real.
-  if (fate.active && fate.turnsLeft <= -3 && !state.world_bible.destination_reached) {
-    const outcome = outcomeOf(fate);
+  if (fate.active && fate.forceArrival) shifts.push("the ending is due this turn");
+  else if (fate.active && fate.turnsLeft <= 3) shifts.push(`${fate.turnsLeft} turn${fate.turnsLeft === 1 ? "" : "s"} until the ending`);
+  // BACKSTOP. The narrator gets one turn to write the ending after the clock runs out. If it writes
+  // around it instead, the ending is recorded anyway — a weak model's reluctance is not a veto. One
+  // turn of grace, not three: on a five-turn budget, three would be most of the story.
+  if (fate.active && fate.turnsLeft <= -1 && !state.world_bible.destination_reached) {
     state.world_bible.destination_reached = true;
-    state.world_bible.destination_outcome = outcome;
+    state.world_bible.destination_outcome = "forced";
     state.destination_progress = { pct: 100, gained: state.destination_progress?.gained ?? "", missing: "", turn, reached: true };
-    shifts.push(outcome === "ruin"
-      ? `the ending has come to pass, ruinously — the story ran out of road`
-      : `the ending has come to pass`);
+    shifts.push("the ending has come to pass");
   }
   const offscreenLog = [...(diff.offscreen ?? [])];
   // present, named characters the player is actually engaging join the long game
@@ -908,7 +910,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // Fate needs to KNOW where it stands, and the cadence is far too slow for a closing story: a
   // budget can be spent entirely between two audits, so the ending would arrive unmeasured and
   // never be recognized as having happened. Once the story is converging, audit every turn.
-  const fateAudit = fate.active && (fate.act === "convergence" || fate.forceArrival || (fate.act === "closing" && !state.destination_progress));
+  // The auditor supplies one thing fate needs: a sentence naming what still stands in the way. That
+  // is worth a call when the act changes (the story has entered a new phase and the gap has moved),
+  // not on every turn of the endgame — this is an LLM call, not a free read. The clock, which owns
+  // progress and arrival, never needs it at all.
+  const lastAct = state.destination_progress?.act;
+  const fateAudit = fate.active && fate.act !== "open" && fate.act !== lastAct;
   if ((chapCad > 0 && turn > 0 && turn % chapCad === 0) || fateAudit) {
     try {
       ev.onPhase("reflection");
@@ -936,31 +943,25 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           if (line && addCanon(state, line)) {
           }
         }
-        // ── DESTINATION PROGRESS ── scored on EVERY audit (cadence or fate), not only when a chapter
-        // is minted: a spent budget can fall between two chapters, and an unmeasured ending is one
-        // that never officially happened. The auditor may move this DOWN — a setback is information.
+        // ── THE GAP ── the auditor reads the story and says what still stands between here and the
+        // ending. That is all it does. It does not score progress (turns do) and it does not decide
+        // when the ending lands (the clock does), except to confirm an ending the prose already
+        // wrote — a player can arrive early, and the story should not keep pushing them toward a
+        // place they have reached.
         if (destination && !state.world_bible.destination_reached && ch.destination) {
           const d = ch.destination;
-          const pct = Math.max(0, Math.min(100, Math.round(Number(d.pct) || 0)));
-          const prev = state.destination_progress?.pct ?? 0;
-          const reached = d.reached === true || pct >= 100;
+          const arrivedEarly = d.reached === true;
           state.destination_progress = {
-            pct: reached ? 100 : pct,
+            pct: fate.budget > 0 ? fate.pct : Math.max(0, Math.min(100, Math.round(Number(d.pct) || 0))),
             gained: String(d.gained ?? "").slice(0, 120),
             missing: String(d.missing ?? "").slice(0, 120),
-            turn, reached,
+            turn, reached: arrivedEarly, act: fate.act,
           };
-          if (reached) {
+          if (arrivedEarly) {
+            state.destination_progress.pct = 100;
             state.world_bible.destination_reached = true;
-            // how it landed: earned, empty, or ruinous. Judged against the clock, not the prose.
-            const outcome = outcomeOf({ ...fate, pct: state.destination_progress.pct });
-            state.world_bible.destination_outcome = outcome;
-            shifts.push(outcome === "triumph" ? `the ending arrives, earned — ${destination}`
-              : outcome === "ruin" ? `the ending arrives as ruin — it happened TO you`
-              : `the ending arrives, hollow — you got there without becoming anyone`);
-          } else if (pct !== prev) {
-            const dir = pct > prev ? "closer to" : "further from";
-            shifts.push(`${pct}% — ${dir} the ending${d.missing ? ` · still missing: ${d.missing}` : ""}`);
+            state.world_bible.destination_outcome = "earned";
+            shifts.push(`the story has reached its ending — ${destination}`);
           }
         }
         const onCadence = chapCad > 0 && turn > 0 && turn % chapCad === 0;
