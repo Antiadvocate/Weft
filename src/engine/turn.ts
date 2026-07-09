@@ -12,6 +12,7 @@
 import { localeOf, isSubRoom } from "./places";
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
+import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
@@ -25,6 +26,7 @@ import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
 import { extractHeuristics, backfillDiff } from "./extract";
+import { DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
@@ -255,7 +257,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
 
-  // 1b ── pressure (deterministic), heat amplified when the world is primed
+  // 1b ── FATE. When a destination has a turn budget, the ending is not optional. Fate reads the
+  // clock, seizes the world's machinery as the budget burns (threads that don't serve the ending
+  // lose their grip; clocks turn toward it), and puts a floor under pressure so the world cannot
+  // doze while the ending waits. No destination or no budget → returns inert, nothing changes.
+  const fate = readFate(state);
+  const fateLog = enforceFate(state, fate);
+
+  // 1c ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
@@ -264,6 +273,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
   });
+  // fate's floor: the ending is coming and the world knows it. Never lowers pressure, only raises.
+  const floor = fatePressureFloor(fate);
+  if (floor > verdict.pressure) {
+    verdict.pressure = floor;
+    verdict.source = fate.forceArrival ? "the ending, arriving" : "the ending, closing in";
+  }
   state.pressure_trace.push(verdict.pressure);
 
   // ── SOURCE-DRIVEN BEAT: pressure must name where it comes from, or stay silent.
@@ -391,7 +406,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         ? `\nREST PROTECTION: the player is restoring (sleep, food, bath, quiet). An interruption is permitted ONLY if it is brief, resolvable, and the restoration RESUMES AND COMPLETES within this same turn — a knock, never a siege; once, never twice. The meal gets finished; the night gets slept. Do not convert rest into an incident.`
         : ""
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + restProtection + contractFix + "\n" + (restoration && tensionNow <= 3 ? "" : undertow.directive);
+  // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
+  // does not get to be asleep. Everything above may shape the scene; fate decides that it happens.
+  const fateNote = fateDirective(fate);
+  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
@@ -460,7 +478,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
-    `=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth — transcribe its specifics EXACTLY) ===\n${prose}`,
+    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -525,6 +543,52 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   try { diff = backfillDiff(diff, extractHeuristics(state, action, prose)); }
   catch (e: any) { console.warn(`[turn] heuristic extraction failed (skipped): ${e.message}`); }
 
+  // ── PHANTOM-EXIT CLAMP ── the simulator can write {char_id, place} with no justification and no
+  // cost, and it hallucinates moves the prose never described: a character who is speaking in this
+  // very turn gets teleported to "elsewhere", drops out of `present`, loses her card, and vanishes
+  // from the story. Nothing in the prose said she left. So: if a character ACTS in the prose this
+  // turn — named as a speaker or subject — she cannot be moved out of the scene this turn. Exits
+  // must be written, not inferred. A real departure still lands: the prose says she left, and the
+  // name+depart-verb backstop in extract.ts fires normally on the sentence that says so.
+  {
+    const leaving = new Set<string>();
+    for (const l of diff.locations ?? []) {
+      const dest = String(l.place || "").toLowerCase();
+      if (/^(elsewhere|off[\s-]?screen|loc_offscene|out of)/.test(dest)) leaving.add(l.char_id);
+    }
+    for (const e of diff.character_exits ?? []) leaving.add(e.char_id);
+    if (leaving.size) {
+      const said = (id: string) => {
+        const nm = state.characters[id]?.name;
+        if (!nm) return false;
+        const first = nm.split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // "Active" = the prose treats them as an agent this turn, not a passing mention. Any of:
+        // Name followed by a verb ("Lena cut in"), possessive doing something ("Lena's jaw worked"),
+        // or a name adjacent to a line of dialogue. Deliberately generous — a false "active" only
+        // costs one delayed exit, while a false "inactive" deletes a character from the story.
+        const N = `\\b${first}\\b`;
+        return new RegExp(`${N}\\s+\\w+(ed|s|t)\\b`, "i").test(prose)        // Lena cut / Lena stopped / Lena wasn't
+          || new RegExp(`${N}'s\\s+\\w+`, "i").test(prose)                   // Lena's jaw worked
+          || new RegExp(`"[^"]{0,400}"[^.!?]{0,30}${N}`, "i").test(prose)    // "…," Lena said
+          || new RegExp(`${N}[^.!?]{0,30}"[^"]{0,400}"`, "i").test(prose);   // Lena said, "…"
+      };
+      let vetoed = 0;
+      diff.locations = (diff.locations ?? []).filter((l) => {
+        const dest = String(l.place || "").toLowerCase();
+        const isExit = /^(elsewhere|off[\s-]?screen|loc_offscene|out of)/.test(dest);
+        const bad = isExit && said(l.char_id) && !DEPART_IN_PROSE(prose, state.characters[l.char_id]?.name);
+        if (bad) vetoed++;
+        return !bad;
+      });
+      diff.character_exits = (diff.character_exits ?? []).filter((e) => {
+        const bad = e.kind !== "dead" && said(e.char_id) && !DEPART_IN_PROSE(prose, state.characters[e.char_id]?.name);
+        if (bad) vetoed++;
+        return !bad;
+      });
+      if (vetoed) console.warn(`[turn] phantom-exit clamp: vetoed ${vetoed} unwritten departure(s) — the prose never said they left`);
+    }
+  }
+
   // ── EARSHOT CLAMP ── the simulator reads the prose and cannot tell who was in the room, so it
   // hands memories to people who weren't there: someone in the kitchen "remembers" a line the
   // player said alone in the yard, then acts on it. Presence at the START of the turn is the list
@@ -563,6 +627,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
   if (!simOk) shifts.push("(bookkeeping failed this turn — records are incomplete; re-run the turn or edit memory by hand)");
+  // fate's grip on the world, made visible — threads falling away, clocks closing in
+  for (const line of fateLog) shifts.push(line);
+  if (fate.active && fate.forceArrival) shifts.push(`the budget is spent — the ending arrives this turn`);
+  else if (fate.active && fate.act === "convergence" && fate.turnsLeft <= 3) shifts.push(`${fate.turnsLeft} turn${fate.turnsLeft === 1 ? "" : "s"} until the ending`);
+  // HARD BACKSTOP. A weak narrator, told the ending arrives now, may still write around it. Fate is
+  // not advice: after three turns of overrun the ending IS what happened, regardless of what the
+  // prose managed. It lands in whatever shape the story earned — and a story that had to be dragged
+  // here earned ruin. The auditor's own reading still decides triumph vs hollow when progress is real.
+  if (fate.active && fate.turnsLeft <= -3 && !state.world_bible.destination_reached) {
+    const outcome = outcomeOf(fate);
+    state.world_bible.destination_reached = true;
+    state.world_bible.destination_outcome = outcome;
+    state.destination_progress = { pct: 100, gained: state.destination_progress?.gained ?? "", missing: "", turn, reached: true };
+    shifts.push(outcome === "ruin"
+      ? `the ending has come to pass, ruinously — the story ran out of road`
+      : `the ending has come to pass`);
+  }
   const offscreenLog = [...(diff.offscreen ?? [])];
   // present, named characters the player is actually engaging join the long game
   const capCentral = state.model_settings.max_central_characters ?? 6;
@@ -727,6 +808,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     summary: diff.scene_summary || prose.slice(0, 120),
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
+    // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
+    // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
+    bookkeeping: !simOk ? "failed" : (vitalityOf(diff) === 0 && proseWords >= 120 && mode !== "think") ? "thin" : "ok",
   });
 
   // 5 ── reflection (occasional, importance-gated)
@@ -821,7 +905,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // summaries into a titled chapter — shown in Chronicle and carried as one line each in
   // context, so the verbatim history window can stay small without losing the arc.
   const chapCad = state.model_settings.chapter_cadence ?? 25;
-  if (chapCad > 0 && turn > 0 && turn % chapCad === 0) {
+  // Fate needs to KNOW where it stands, and the cadence is far too slow for a closing story: a
+  // budget can be spent entirely between two audits, so the ending would arrive unmeasured and
+  // never be recognized as having happened. Once the story is converging, audit every turn.
+  const fateAudit = fate.active && (fate.act === "convergence" || fate.forceArrival || (fate.act === "closing" && !state.destination_progress));
+  if ((chapCad > 0 && turn > 0 && turn % chapCad === 0) || fateAudit) {
     try {
       ev.onPhase("reflection");
       state.chapters ??= [];
@@ -848,34 +936,41 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
           if (line && addCanon(state, line)) {
           }
         }
-        if (ch.summary) {
+        // ── DESTINATION PROGRESS ── scored on EVERY audit (cadence or fate), not only when a chapter
+        // is minted: a spent budget can fall between two chapters, and an unmeasured ending is one
+        // that never officially happened. The auditor may move this DOWN — a setback is information.
+        if (destination && !state.world_bible.destination_reached && ch.destination) {
+          const d = ch.destination;
+          const pct = Math.max(0, Math.min(100, Math.round(Number(d.pct) || 0)));
+          const prev = state.destination_progress?.pct ?? 0;
+          const reached = d.reached === true || pct >= 100;
+          state.destination_progress = {
+            pct: reached ? 100 : pct,
+            gained: String(d.gained ?? "").slice(0, 120),
+            missing: String(d.missing ?? "").slice(0, 120),
+            turn, reached,
+          };
+          if (reached) {
+            state.world_bible.destination_reached = true;
+            // how it landed: earned, empty, or ruinous. Judged against the clock, not the prose.
+            const outcome = outcomeOf({ ...fate, pct: state.destination_progress.pct });
+            state.world_bible.destination_outcome = outcome;
+            shifts.push(outcome === "triumph" ? `the ending arrives, earned — ${destination}`
+              : outcome === "ruin" ? `the ending arrives as ruin — it happened TO you`
+              : `the ending arrives, hollow — you got there without becoming anyone`);
+          } else if (pct !== prev) {
+            const dir = pct > prev ? "closer to" : "further from";
+            shifts.push(`${pct}% — ${dir} the ending${d.missing ? ` · still missing: ${d.missing}` : ""}`);
+          }
+        }
+        const onCadence = chapCad > 0 && turn > 0 && turn % chapCad === 0;
+        if (ch.summary && onCadence) {
           const persona = ch.persona && ch.persona.mbti && ch.persona.read
             ? { mbti: String(ch.persona.mbti).slice(0, 6).toUpperCase(), read: String(ch.persona.read).slice(0, 300), traits: (ch.persona.traits ?? []).slice(0, 5).map((t) => String(t).slice(0, 60)), shift: ch.persona.shift && String(ch.persona.shift).trim() ? String(ch.persona.shift).slice(0, 160) : undefined }
             : undefined;
           state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200), persona });
           // arm or clear the governor
           state.contract_drift = ch.on_contract === false && ch.drift?.trim() ? ch.drift.trim().slice(0, 200) : null;
-          // ── DESTINATION PROGRESS ── only when the story has a stated ending. The auditor may move
-          // this DOWN: a setback is real progress information. Once reached, it freezes.
-          if (destination && !state.world_bible.destination_reached && ch.destination) {
-            const d = ch.destination;
-            const pct = Math.max(0, Math.min(100, Math.round(Number(d.pct) || 0)));
-            const prev = state.destination_progress?.pct ?? 0;
-            const reached = d.reached === true || pct >= 100;
-            state.destination_progress = {
-              pct: reached ? 100 : pct,
-              gained: String(d.gained ?? "").slice(0, 120),
-              missing: String(d.missing ?? "").slice(0, 120),
-              turn, reached,
-            };
-            if (reached) {
-              state.world_bible.destination_reached = true;
-              shifts.push(`the story has reached its destination — ${destination}`);
-            } else if (pct !== prev) {
-              const dir = pct > prev ? "closer to" : "further from";
-              shifts.push(`${pct}% — ${dir} the ending${d.missing ? ` · still missing: ${d.missing}` : ""}`);
-            }
-          }
           // HISTORY COMPACTION — a chapter summary now covers this span, so old entries shed their
           // hidden bloat (directive, offscreen log). Prose stays: it IS the transcript the player
           // reads. Ribot applied to the story: the summary is the semantic residue.

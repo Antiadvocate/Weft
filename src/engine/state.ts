@@ -151,7 +151,13 @@ export function sanitize(state: SaveState): SaveState {
     }
   }
   state.contract_drift ??= null;
+  state.retcons ??= [];
   state.destination_progress ??= null;
+  // a destination that predates the clock has no start turn; anchor it to 0 so the budget,
+  // if one is later set, does not retroactively count turns already played
+  if (state.world_bible?.destination?.trim() && state.world_bible.destination_set_turn === undefined) {
+    state.world_bible.destination_set_turn = 0;
+  }
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   // LEDGER HYGIENE (retroactive): the quality gate and fuzzy dedupe also sweep existing saves
   // on load, so junk written before the gate existed drains out instead of accumulating.

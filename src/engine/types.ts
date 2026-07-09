@@ -64,7 +64,12 @@ export interface WorldBible {
                                // the narrator bends scenes toward it and each chapter is scored for
                                // progress. It is a direction, never a rail — the player can still fail,
                                // refuse, or arrive somewhere else entirely.
+  destination_turns?: number;  // OPTIONAL. Turn budget. When set, the ending ARRIVES by this many turns
+                               // after the destination was set — well or badly, earned or catastrophic.
+                               // The road is negotiable; the arrival is not. 0/undefined = no clock.
+  destination_set_turn?: number; // the turn the clock started (so budgets survive mid-story edits)
   destination_reached?: boolean; // set once the chapter auditor judges the ending arrived
+  destination_outcome?: "triumph" | "ruin" | "hollow"; // how it landed, once it has
   start_date?: string;         // "YYYY-MM-DD" — Day 1 of the story; unlocks weekdays/months/years in the clock
   god_mode?: boolean;          // the player is sovereign: powers succeed completely, cost nothing; world still reacts
   era_theme?: string; // ui palette: auto | ember | verdigris | rust | frost
@@ -395,6 +400,10 @@ export interface TurnHistoryEntry {
   directive?: string;          // the exact direction the narrator received — nothing hidden
   illustration_url?: string;
   narrator_prose: string;
+  /** Bookkeeping health for this turn. "thin" = the diff parsed but recorded nothing that changed the
+   *  world; "failed" = the simulator returned nothing usable. Either way the prose happened but the
+   *  world did not notice, and the turn can be re-run through the bookkeeper without re-narrating. */
+  bookkeeping?: "ok" | "thin" | "failed";
   summary: string;             // simulator one-liner, used for context
   offscreen: string[];         // world-motion log lines
   weather?: string;
@@ -424,6 +433,11 @@ export interface SaveState {
   sim_dry_runs?: number;   // consecutive turns where real prose produced an empty bookkeeping diff — a failing simulator model dies silently otherwise (edges freeze, memories stop, toasts vanish); the watchdog makes it visible
   context_anchor?: { turn: number; digest: string; cast_sig: string; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
   contract_drift?: string | null;
+  // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
+  // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
+  // standing correction injected into every subsequent turn: this did not happen, never refer to it.
+  // Unlike canon (what IS true) a retcon states what is NOT and never was.
+  retcons?: { text: string; turn: number }[];
   // DESTINATION TRACKING: only when world_bible.destination is set. The chapter auditor scores how
   // close the story has come to its stated ending and names the next concrete thing standing in the
   // way; the narrator receives both. `reached` freezes scoring once the ending has actually landed.

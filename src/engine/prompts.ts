@@ -638,14 +638,28 @@ The following is the player's explicit instruction for how this story must run. 
   // chapter and would break this block's byte-identity, costing the prompt cache on every single turn.
   // The live progress reading is appended in volatileDigest instead.
   const dest = b.destination?.trim()
-    ? `=== DESTINATION (the ending this story is written toward) ===
+    ? (b.destination_turns ?? 0) > 0
+      ? `=== DESTINATION (the ending this story WILL reach) ===
+"${b.destination.trim()}"
+This ending is not optional and it is not a hope. It happens — within the story's turn budget, well or badly. What is negotiable is the ROAD: how the player gets there, what it costs them, whether they arrive as someone who earned it or someone it was done to. They may fight it, refuse it, take the long way, ruin themselves on the way. They may not avoid it.
+So: never railroad the player's CHOICES, and never let the ending fail to arrive. Do not have characters announce the goal or narrate progress at the player — the world does not know it is in a story. Do not fabricate convenient help. Setbacks are honest and the ending can arrive as catastrophe. As the budget burns you will be told which act you are in and how hard to close the distance; obey it.
+
+`
+      : `=== DESTINATION (the ending this story is written toward) ===
 "${b.destination.trim()}"
 This is where the story is going. Bend scenes toward it: the frictions you raise, the wants you let characters pursue, the developments you end turns on should — over time — make this ending nearer or make its cost clearer. Prefer a complication that tests the player against this goal over one unrelated to it.
 It is GRAVITY, NOT A RAIL. Never railroad: the player may refuse, detour, fail, or walk away, and the world lets them. Do not have characters announce the goal, nag the player toward it, or narrate progress at them. Do not fabricate convenient help. Setbacks are honest — the destination can move further away this turn, and often should. A story that arrives too easily was never about anything. If the player has plainly abandoned this course for many turns, follow THEM; the standing direction and their choices both outrank this.
 
 `
     : "";
-  return `${supreme}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
+  const retcons = (state.retcons ?? []).length
+    ? `=== STRUCK FROM THE STORY (the player's veto — ABSOLUTE) ===
+The following never happened and never existed. The player has struck them. Treat them as though the words were never written: do not mention them, do not refer back to them, do not have any character remember, allude to, or account for them. Do not "explain" or "resolve" them — there is nothing to resolve. If a recent turn's prose depends on one of these, that prose is void; continue from what came before it.
+${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}
+
+`
+    : "";
+  return `${supreme}${retcons}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}
@@ -681,7 +695,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     return `• ${c} — FRESH (turn ${meta.turn}): known so far only to ${names || "its witnesses"}; everyone else learns it as news reaches them`;
   };
   const canonBlock = state.world.canon?.length
-    ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\n`
+    ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\nCANON IS A CONSTRAINT ON WHAT MAY EXIST, not merely background. Before any person, creature, or thing enters a scene — even in one throwaway line, even offstage, even as a sound through a wall — check it against every line above. If canon says a kind of being does not exist here, then one does not knock at the door, shout from the street, or turn out to have been living two blocks over all along. You may not introduce an exception and then explain it; the explanation is the violation. If a scene seems to need such a thing, the scene is wrong — find the beat elsewhere. If the player challenges something you wrote as impossible, they are almost certainly right: do not defend it, do not build lore to justify it. Drop it, and continue as though it was never said.\n\n`
     : "";
   const chaptersBlock = state.chapters?.length
     ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`
@@ -818,9 +832,18 @@ Player carries: ${state.world.money || "—"}${(() => {
   const b = state.world_bible;
   if (!b.destination?.trim()) return "";
   const p = state.destination_progress;
-  if (b.destination_reached || p?.reached) return `\nDESTINATION REACHED — "${b.destination.trim()}". This is aftermath now: consequence and cost, not a new grand arc. Let scenes be smaller and truer. Do not invent a replacement goal for the player.`;
+  if (b.destination_reached || p?.reached) {
+    const o = b.destination_outcome;
+    const how = o === "triumph" ? "It was earned. The player made it happen."
+      : o === "ruin" ? "It arrived as ruin — it happened TO the player, at a cost they did not choose. Do not soften this."
+      : "It arrived hollow — reached without being become. Let the emptiness of it be real.";
+    return `\nDESTINATION REACHED — "${b.destination.trim()}" ${how}\nThis is aftermath now: consequence and cost, not a new grand arc. Let scenes be smaller and truer. Do not invent a replacement goal for the player.`;
+  }
   if (!p) return "";
-  return `\nDESTINATION — "${b.destination.trim()}" | ${p.pct}% of the way there.${p.gained ? ` Earned: ${p.gained}` : ""}${p.missing ? ` Still missing: ${p.missing}` : ""}\nBend this scene toward it without railroading — never have anyone announce the goal or narrate progress at the player. Setbacks are allowed and honest.`;
+  const budget = Math.max(0, Math.round(b.destination_turns ?? 0));
+  const left = budget > 0 ? budget - (state.world.current_turn - (b.destination_set_turn ?? 0)) : 0;
+  const clock = budget > 0 ? ` | ${left <= 0 ? "THE BUDGET IS SPENT — the ending arrives now, by any road" : `${left} turn${left === 1 ? "" : "s"} remain before it must arrive`}` : "";
+  return `\nDESTINATION — "${b.destination.trim()}" | ${p.pct}% of the way there.${clock}${p.gained ? ` Earned: ${p.gained}` : ""}${p.missing ? ` Still missing: ${p.missing}` : ""}`;
 })()}${(() => {
   const plName = state.world.places[state.world.player_location]?.name ?? "";
   const near = Object.entries(state.characters)
