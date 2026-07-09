@@ -71,16 +71,40 @@ Presence is derived from co-location, and co-location decides who perceives a tu
 
 The failure this prevents is quiet and corrosive: a character reacts to something they could not have heard, the player assumes they were overheard, and the world stops being a place with walls.
 
-## Destination
+## The veto
 
-A story may be told toward an ending. Set it once at the Forge — "he learns to feed himself through winter and builds a shelter that holds" — and it becomes the story's gravity.
+The narrator is a weak model with authority to invent, and the bookkeeper is told the prose is source of truth. That combination means one bad sentence becomes permanent world-fact within a turn, and the next turn builds lore on top of it. The player must be able to say *no* and have it stick.
 
-Three properties make it a destination rather than a plot:
+**Strike** does that. It rolls back past the offending turn and records a standing retcon — a statement of what is NOT and never was — injected into every subsequent narrator and simulator prompt at absolute authority. Struck things are not explained or resolved; they are treated as never written. Characters the strike names are deleted; canon it minted is dropped. Undo restores everything.
 
-- **Optional.** Blank is the default and emits nothing into the prompt: an open world, unchanged. Never invent one the player didn't ask for.
-- **Gravity, not a rail.** The narrator bends scenes toward the ending — the frictions it raises, the wants it lets characters pursue — but the player may refuse, detour, fail, or walk away. Nobody announces the goal. Nobody nags. Help is never fabricated. Progress can go *down*, and a chapter that loses ground is a truthful chapter. If the player has plainly abandoned the course, the engine follows the player: their standing direction and their choices both outrank it.
-- **Measured, not enforced.** The chapter auditor already judges the story against its contract; it now also scores distance to the ending — a percentage, what was earned, and the next concrete obstacle. The narrator receives that reading; the Chronicle draws it. Nothing forces the number up.
+Three guards sit under it, because a veto after the fact is a poor substitute for not breaking the world:
 
-Reaching it does not end the game. `destination_reached` shifts the narrator into aftermath: consequence and cost, smaller and truer scenes, no manufactured replacement arc. A new course is the player's to set.
+- **Canon is a constraint on what may exist**, not a fact sheet. Before anything enters a scene — even a shout through a wall — it is checked against canon. Introducing an exception and then explaining it *is* the violation. If the player says something was impossible, they are almost certainly right.
+- **The prose is not authority to violate canon.** The simulator no longer transcribes "exactly"; it refuses to create, record, or learn from anything canon forbids.
+- **Exits must be written, never inferred.** The simulator can emit `{char_id, place}` with no justification and no cost, and it hallucinates departures: a character speaking in this very turn gets teleported to `elsewhere`, drops from `present`, loses her card, and vanishes. Now a character who is active in the prose cannot be moved out of the scene unless the prose actually says she left.
 
-Implementation note: the destination *text* is immutable and lives in the cache-stable prefix; the *progress* mutates each chapter and lives in the volatile digest. Putting progress in the prefix would break its byte-identity and cost the prompt cache every turn.
+## Re-running the bookkeeper
+
+Two models write each turn. The narrator produces prose; the bookkeeper turns that prose into world change — memories formed, feelings moved, people relocated. When the bookkeeper returns an empty or dead diff, the turn happened on the page and did not happen in the world. Nobody remembers it. This failure is silent by default, and it is the single most corrosive bug in the engine: the story reads fine and the characters are quietly amnesiac.
+
+Every turn now carries a `bookkeeping` verdict — `ok`, `thin` (parsed, but recorded nothing despite substantial prose), or `failed` (nothing usable came back). Flagged turns show a banner and a re-run button; any turn can be re-run manually.
+
+A re-run keeps the prose. The snapshot for turn N is taken *before* N applies, so re-running N restores that snapshot and replays the same action and same prose through the whole downstream pipeline — simulator, clamps, applyDiff, physiology, reflection. One simulator call, no narrator call, illustration carried across. Undo restores the pre-re-run state.
+
+The trap worth naming: `rollback` finds the nearest *earlier* snapshot, not an exact one. Re-running a turn whose snapshot had aged out of the seven-entry ring would have replayed its prose against a state several turns stale and destroyed everything between. The re-run therefore demands an exact snapshot and refuses otherwise. Only the last several turns are re-runnable, and that is the honest limit rather than a silent catastrophe.
+
+## The ending
+
+A destination is an ending plus a number of turns: "in 30 turns, he has built the shelter." The turn count is the clock, and it is the only one. Progress is turns elapsed divided by turns budgeted — arithmetic, not a model's opinion. It cannot stall because a weak simulator failed to notice the story moved, and it has nothing to do with the chapter cadence, which exists to summarize history and save context.
+
+The chapter auditor still reads the story, but only to answer one question: what still stands between here and the ending? That sentence goes to the narrator. The auditor never scores progress and never decides when the ending arrives, with one exception — if the prose has already reached the ending, it says so, and the story stops pushing toward a place it has arrived.
+
+Acts are proportions of the budget, so a five-turn story passes through all of them just as a sixty-turn story does:
+
+- **open** (first quarter) — the ending is far. The player is free.
+- **rising** — scenes are asked to bring it nearer or show its cost.
+- **closing** (past halfway) — threads that do not serve the ending lose tension. Abandoned roads stop staying open. Pressure gets a floor.
+- **convergence** (final fifth) — unrelated threads close. Faction clocks turn toward the ending. No new subjects.
+- **arrival** (turns spent) — the ending is written in this scene.
+
+Two things make this hold. Fate changes threads, clocks, and pressure rather than only instructing the narrator, because a directive leaves the machinery pulling elsewhere. And if the narrator writes around the ending when it is due, the engine records it anyway one turn later — a weak model's reluctance is not a veto. When that happens the ending is marked `forced` rather than `earned`, and the aftermath is told not to pretend the player made it happen.
