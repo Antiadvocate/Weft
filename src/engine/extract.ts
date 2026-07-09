@@ -17,6 +17,19 @@ import type { SaveState, SimulatorDiff } from "./types";
  *  save data. Everything interpolated into a RegExp gets escaped, no exceptions. */
 const escRe = (x: string): string => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/** The verbs and phrasings by which prose says someone left. Shared: extractHeuristics uses it to
+ *  MOVE people out, and the phantom-exit clamp uses it to REFUSE moves the prose never described. */
+export const DEPART_PATTERN = "(?:leaves|left|walks out|walked out|storms out|stormed out|departs|departed|slips away|slipped away|slips out|slipped out|heads out|headed out|steps out|stepped out|steps outside|excuses? (?:him|her|them)self|excused (?:him|her|them)self|ducks out|ducked out|disappears?(?: down| into| through| around)|disappeared(?: down| into| through| around)|vanishes?(?: down| into| through)|retreats?(?: to| into| down)|retreated|withdraws?|withdrew|exits?|exited|goes? (?:to|into|back to|off to)|went (?:to|into|back to|off to)|makes? (?:him|her|them)self scarce|is gone|was gone|were gone|has (?:already )?gone|had (?:already )?gone|is no longer (?:here|in the room|present)|are no longer (?:here|present)|takes? (?:his|her|their) leave|took (?:his|her|their) leave|shows? (?:him|her|them)self out|closes? the door behind (?:him|her|them)|shuts? the door behind (?:him|her|them))";
+
+/** Did the prose actually say this person left? Exits must be written, never inferred. */
+export function DEPART_IN_PROSE(prose: string, name?: string): boolean {
+  if (!name) return false;
+  const first = name.split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const nameFirst = new RegExp(`\\b${first}\\b[^.!?]{0,60}?\\b${DEPART_PATTERN}`, "i");
+  const verbFirst = new RegExp(`\\b${DEPART_PATTERN}\\b[^.!?]{0,40}?\\b${first}\\b`, "i");
+  return nameFirst.test(prose) || verbFirst.test(prose);
+}
+
 export interface HeuristicDiff {
   elapsed_minutes?: number;
   player_location?: string;
@@ -88,11 +101,10 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
   // The verb list is deliberately broad and the window wide (60 chars) because natural prose
   // says "excused herself and stepped out", "disappeared down the hall", "was gone before he
   // could answer" — none of which the old 6-verb / 24-char pattern caught.
-  const DEPART = "(?:leaves|left|walks out|walked out|storms out|stormed out|departs|departed|slips away|slipped away|slips out|slipped out|heads out|headed out|steps out|stepped out|steps outside|excuses? (?:him|her|them)self|excused (?:him|her|them)self|ducks out|ducked out|disappears?(?: down| into| through| around)|disappeared(?: down| into| through| around)|vanishes?(?: down| into| through)|retreats?(?: to| into| down)|retreated|withdraws?|withdrew|exits?|exited|goes? (?:to|into|back to|off to)|went (?:to|into|back to|off to)|makes? (?:him|her|them)self scarce|is gone|was gone|were gone|has (?:already )?gone|had (?:already )?gone|is no longer (?:here|in the room|present)|are no longer (?:here|present)|takes? (?:his|her|their) leave|took (?:his|her|their) leave|shows? (?:him|her|them)self out|closes? the door behind (?:him|her|them)|shuts? the door behind (?:him|her|them))";
   for (const [lower, id] of names) {
     // "<Name> ... <depart-verb>"  OR  "<depart-verb> ... <Name>" (e.g. "then Juniper was gone")
-    const nameFirst = new RegExp(`\\b${escRe(lower)}\\b[^.!?]{0,60}?\\b${DEPART}`, "i");
-    const verbFirst = new RegExp(`\\b${DEPART}\\b[^.!?]{0,40}?\\b${escRe(lower)}\\b`, "i");
+    const nameFirst = new RegExp(`\\b${escRe(lower)}\\b[^.!?]{0,60}?\\b${DEPART_PATTERN}`, "i");
+    const verbFirst = new RegExp(`\\b${DEPART_PATTERN}\\b[^.!?]{0,40}?\\b${escRe(lower)}\\b`, "i");
     if (nameFirst.test(text) || verbFirst.test(text)) {
       out.locations.push({ char_id: id, place: "elsewhere nearby" });
     }
