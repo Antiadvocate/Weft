@@ -86,6 +86,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     calendar_and_currency: wb.calendar_and_currency ?? "",
     narrator_direction: wb.narrator_direction ?? "",
     destination: wb.destination ?? "",
+    destination_turns: wb.destination_turns ?? 0,
     art_direction: wb.art_direction ?? "",
   });
   const [palette, setPalette] = useState((wb.pressure_palette ?? []).join(", "));
@@ -120,6 +121,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const commitBible = async () => {
     const s = await api.edit(save.id, { canon: canon.split("\n").map((x: string) => x.trim()).filter(Boolean), world_bible: {
       ...bible,
+      destination_turns: Math.max(0, parseInt(String(bible.destination_turns ?? 0), 10) || 0),
       god_mode: godMode,
       difficulty_profile: difficulty,
       pressure_palette: palette.split(",").map((x) => x.trim()).filter(Boolean),
@@ -182,6 +184,34 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <TextField label="Never the primary engine of a scene (comma-sep)" value={forbidPrimary} onChange={setForbidPrimary} rows={2} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
         <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
+        {!!bible.destination?.trim() && (
+          <div className="mt-2">
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+              Turn budget — 0 = no clock (gravity, not fate)
+            </div>
+            <input className="field" inputMode="numeric" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+              value={String(bible.destination_turns || "")}
+              onChange={(e) => setB("destination_turns")(e.target.value.replace(/[^0-9]/g, ""))} />
+            <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
+              {(bible.destination_turns || 0) > 0
+                ? <>The ending arrives within this many turns, well or badly. Changing this restarts the clock from the current turn.</>
+                : <>No clock: the ending pulls but never forces.</>}
+            </div>
+          </div>
+        )}
+        {!!save.retcons?.length && (
+          <div className="mt-3">
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Struck from the story — the narrator cannot write these</div>
+            <div className="space-y-1.5">
+              {save.retcons.map((r, i) => (
+                <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
+                  <div className="flex-1 text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{r.text}</div>
+                  <button className="chip shrink-0" onClick={async () => setSave(await api.unstrike(save.id, i))}>allow</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
 
         <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>

@@ -16,6 +16,7 @@ export default function Forge({ onBack, onCreated }: {
 }) {
   const [seed, setSeed] = useState("");
   const [destination, setDestination] = useState("");
+  const [destTurns, setDestTurns] = useState("");
   const [model, setModel] = useState("deepseek/deepseek-chat-v3-0324");
   const [grounded, setGrounded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,8 @@ export default function Forge({ onBack, onCreated }: {
       const fullSeed = destination.trim()
         ? `${seed.trim()}\n\nSTATED ENDING (the destination this story is written toward): ${destination.trim()}`
         : seed.trim();
-      onCreated(await api.forge(fullSeed, m ? (grounded && !m.endsWith(":online") ? m + ":online" : m) : undefined));
+      const budget = destination.trim() ? Math.max(0, parseInt(destTurns, 10) || 0) : 0;
+      onCreated(await api.forge(fullSeed, m ? (grounded && !m.endsWith(":online") ? m + ":online" : m) : undefined, budget || undefined));
     } catch (e: any) {
       setError(e.message ?? "world generation failed");
       setBusy(false);
@@ -68,10 +70,24 @@ export default function Forge({ onBack, onCreated }: {
             placeholder="He learns to feed himself through winter and builds a shelter that holds…"
             value={destination} onChange={(e) => setDestination(e.target.value)} />
           <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
-            Name the ending and every chapter is steered toward it — the narrator bends scenes that way and the
-            chronicle tracks how near you are. It is gravity, not a rail: you can still fail, refuse, or wander off.
-            Leave it blank for an open world that goes wherever you take it.
+            Name the ending and every scene is steered toward it. Leave it blank for an open world.
           </div>
+          {!!destination.trim() && (
+            <div className="mt-3">
+              <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+                Turn budget <span style={{ opacity: 0.6 }}>(blank = no clock)</span>
+              </div>
+              <input className="field" inputMode="numeric" placeholder="60"
+                style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
+                value={destTurns} onChange={(e) => setDestTurns(e.target.value.replace(/[^0-9]/g, ""))} />
+              <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
+                {destTurns.trim()
+                  ? <>The ending <b>will happen</b> within {destTurns} turns — earned, hollow, or as ruin. The road is yours;
+                    the arrival is not. As the budget burns, threads that don't serve the ending fall away and the world closes in.</>
+                  : <>Without a clock the ending is gravity, not fate: it pulls, but you can wander off forever.</>}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-4">

@@ -187,16 +187,30 @@ export default function Chronicle({ save }: { save: ClientSave }) {
               const p = save.destination_progress;
               const done = save.world_bible.destination_reached || p?.reached;
               const pct = done ? 100 : (p?.pct ?? 0);
+              const budget = Math.max(0, Math.round(save.world_bible.destination_turns ?? 0));
+              const used = budget > 0 ? save.world.current_turn - (save.world_bible.destination_set_turn ?? 0) : 0;
+              const left = budget - used;
+              const frac = budget > 0 ? used / budget : 0;
+              const act = !budget ? "" : frac >= 1 ? "arrival" : frac >= 0.85 ? "convergence" : frac >= 0.6 ? "closing" : frac >= 0.25 ? "rising" : "open";
+              const outcome = save.world_bible.destination_outcome;
               return (
                 <>
                   <div className="text-[13.5px] leading-relaxed mb-3" style={{ color: "var(--text-mid)" }}>{dest}</div>
                   <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--ink-1)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: done ? "var(--accent)" : "var(--accent-glow, var(--accent))", transition: "width .6s ease" }} />
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)", transition: "width .6s ease" }} />
                   </div>
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>
-                    <span>{done ? "reached" : p ? `${pct}% of the way` : "not yet measured"}</span>
-                    {!!p?.turn && <span>as of turn {p.turn}</span>}
+                    <span>{done ? (outcome ?? "reached") : p ? `${pct}% of the way` : "not yet measured"}</span>
+                    {!done && budget > 0 && <span>{left > 0 ? `${left} turns left · ${act}` : "the budget is spent"}</span>}
+                    {done && !!p?.turn && <span>turn {p.turn}</span>}
                   </div>
+                  {done && !!outcome && (
+                    <div className="text-[12.5px] leading-relaxed mt-2.5" style={{ color: "var(--text-mid)" }}>
+                      {outcome === "triumph" ? "You earned it. The ending happened because of who you became."
+                        : outcome === "ruin" ? "It happened to you. The story ran out of road and the ending arrived anyway, at a cost you did not choose."
+                        : "You arrived without becoming anyone. The ending is yours and it is empty."}
+                    </div>
+                  )}
                   {!done && !!p?.missing && (
                     <div className="text-[12.5px] leading-relaxed mt-2.5" style={{ color: "var(--text-mid)" }}>
                       <span style={{ color: "var(--text-lo)" }}>Still missing — </span>{p.missing}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
+import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -39,6 +39,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [liveProse, setLiveProse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [rerunning, setRerunning] = useState<number | null>(null);
   const [skipOpen, setSkipOpen] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
@@ -178,6 +179,33 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const doUndoRollback = async () => {
     try { setSave(await api.undoRollback(save.id)); setUndoTurn(null); pushToasts(["rollback undone"]); }
     catch (e: any) { setError(e.message ?? "nothing to undo"); }
+  };
+
+  /** Re-run the bookkeeper on a turn whose prose is fine but whose bookkeeping died. */
+  const doRerun = async (turn: number) => {
+    if (rerunning !== null) return;
+    setRerunning(turn);
+    const before = save.world.current_turn;
+    try {
+      setSave(await api.rerunBookkeeper(save.id, turn, { onPhase: () => {}, onDelta: () => {}, onMeta: () => {} }));
+      setUndoTurn(before);
+      pushToasts(["bookkeeper re-run — the prose is unchanged"]);
+    } catch (e: any) { setError(e.message ?? "re-run failed"); }
+    finally { setRerunning(null); }
+  };
+
+  /** THE VETO. Strike what the narrator invented — roll back past it and forbid it forever. */
+  const doStrike = async (turn: number) => {
+    const what = prompt(
+      `Strike from the story — what did the narrator get wrong?\n\nEverything from turn ${turn} on is rolled back, and this becomes a standing rule the narrator cannot break.\n\ne.g. "There is no boy named Leo. No males exist in the Dominion except Rabi."`
+    );
+    if (!what?.trim()) return;
+    const before = save.world.current_turn;
+    try {
+      setSave(await api.strike(save.id, what.trim(), turn - 1));
+      setUndoTurn(before); setRolledTo(turn - 1);
+      pushToasts([`struck — rolled back to turn ${turn - 1}`, "the narrator will never write it again"]);
+    } catch (e: any) { setError(e.message ?? "strike failed"); }
   };
 
   const doSkip = async (days: number) => {
@@ -368,6 +396,36 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               )}
               {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
               {h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
+              {h.kind !== "interlude" && h.narrator_prose.trim() && (h.bookkeeping === "thin" || h.bookkeeping === "failed") && (
+                <div className="flex items-center gap-2 mb-1.5 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
+                  <div className="flex-1 text-[11.5px] leading-snug" style={{ color: "var(--text-mid)" }}>
+                    {h.bookkeeping === "failed"
+                      ? "The bookkeeper failed on this turn — nothing was recorded."
+                      : "The bookkeeper recorded nothing here. Nobody remembered this."}
+                  </div>
+                  <button className="chip shrink-0" disabled={rerunning !== null}
+                    onClick={() => doRerun(h.turn)}
+                    title="re-run the bookkeeper on this turn — the prose is kept, only the record is rebuilt">
+                    {rerunning === h.turn ? "re-running…" : "re-run"}
+                  </button>
+                </div>
+              )}
+              {h.kind !== "interlude" && h.narrator_prose.trim() && (
+                <div className="flex items-center gap-3 mb-1">
+                  <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest"
+                    style={{ color: "var(--text-lo)" }}
+                    onClick={() => doStrike(h.turn)}
+                    title="strike this from the story — roll back past it and forbid it forever">
+                    <Ban size={12} /> strike
+                  </button>
+                  <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest"
+                    style={{ color: "var(--text-lo)" }} disabled={rerunning !== null}
+                    onClick={() => doRerun(h.turn)}
+                    title="re-run the bookkeeper — keeps the prose, rebuilds memories and feelings">
+                    <RotateCcw size={12} /> {rerunning === h.turn ? "re-running…" : "re-run records"}
+                  </button>
+                </div>
+              )}
               {h.kind !== "interlude" && h.narrator_prose.trim() && ttsAvailable() && (
                 <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest mb-1"
                   style={{ color: readingTurn === h.turn ? "var(--accent)" : "var(--text-lo)" }}
