@@ -14,6 +14,7 @@ import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM,
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
+import { detectWorldPronoun } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 
@@ -744,8 +745,15 @@ export const api = {
       s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [], founding: true };
       nameToId[p.name?.toLowerCase?.() ?? ""] = lid;
     }
+    // PRONOUN BACKSTOP. If canon declares this world's people use a non-default pronoun set (a
+    // premise like "everyone uses xe/xem, there are no men or women"), a model that slips and writes
+    // "she/her" on the sheets poisons the whole cast — the narrator then renders every native as a
+    // woman. Detect the declared set from canon and force it onto every native NPC. The player keeps
+    // theirs; they are the outsider.
+    const worldPronoun = detectWorldPronoun(s.world.canon);
     for (const n of g.npcs ?? []) {
       const cid = registerCharacter(s, { ...n, drive: n.drive_goal ? { goal: n.drive_goal, progress: 10, updated_turn: 1 } : undefined });
+      if (worldPronoun && s.characters[cid]) s.characters[cid].pronouns = worldPronoun;
       s.memory[cid].core = [n.background].filter(Boolean);
       s.world.edges.push({ from: cid, to: "char_player", warmth: Math.max(-100, Math.min(100, n.warmth ?? 0)), trust: Math.max(-100, Math.min(100, n.trust ?? 0)), power: 0, notes: n.relation_to_player ?? "", updated_turn: 1 });
     }
