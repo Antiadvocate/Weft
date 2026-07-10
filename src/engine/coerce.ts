@@ -45,3 +45,26 @@ export function asNum(v: unknown, lo: number, hi: number): number | undefined {
   if (!Number.isFinite(n)) return undefined;
   return Math.max(lo, Math.min(hi, n));
 }
+
+/** If canon declares that this world's people use a specific pronoun set — "they use xe/xem",
+ *  "everyone uses ze/zir", "only they/them" — return that set as a "subj/obj/poss" string the
+ *  narration layer understands. Returns undefined when canon says nothing, i.e. an ordinary world.
+ *
+ *  This exists because a model, told a world has no men or women, still tends to stamp "she/her" on
+ *  every sheet out of habit, and the narrator then writes the whole cast as women. Canon is the
+ *  premise's own voice, so canon is where we look for the world's real pronouns. */
+export function detectWorldPronoun(canon: string[] | undefined): string | undefined {
+  const text = (canon ?? []).join(" ").toLowerCase();
+  if (!text) return undefined;
+  // a pronoun set the premise explicitly names, e.g. "xe/xem/xer", "ze/zir", "they/them"
+  const m = text.match(/\b(xe\s*\/\s*x[ei]m(?:\s*\/\s*x[ei]r)?|ze\s*\/\s*zir|ey\s*\/\s*em|they\s*\/\s*them)\b/);
+  if (!m) return undefined;
+  // only treat it as world-wide if canon frames it as the norm, not a single character's preference
+  if (!/\b(use|uses|only|all|every|no (?:men|man|women|woman|gender)|no concept)\b/.test(text)) return undefined;
+  const set = m[1].replace(/\s+/g, "");
+  // normalize the common trio
+  if (/^xe\/x[ei]m/.test(set)) return "xe/xem/xer";
+  if (set.startsWith("ze/zir")) return "ze/zir/zir";
+  if (set.startsWith("they/them")) return "they/them";
+  return set;
+}

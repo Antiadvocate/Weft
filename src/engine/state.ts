@@ -3,7 +3,7 @@ import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun } from "./coerce";
 
 export function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -196,6 +196,23 @@ export function sanitize(state: SaveState): SaveState {
     const ps = Object.values(state.world?.places ?? {});
     if (ps.length && !ps.some((p) => p.founding)) {
       for (const p of ps) if (p.id !== "loc_offscene") p.founding = true;
+    }
+  }
+
+  // ── WORLD-PRONOUN HEAL ── a save forged before the pronoun backstop can hold a whole cast of
+  // "she/her" in a world whose canon says everyone uses xe/xem. Only act when canon is unambiguous
+  // (declares the set AND says there are no men/women), and only overwrite a DEFAULT binary pronoun —
+  // never touch a character deliberately given something else, and never touch the player.
+  {
+    const wp = detectWorldPronoun(state.world?.canon);
+    const canonText = (state.world?.canon ?? []).join(" ").toLowerCase();
+    const noBinary = /\bno (?:men|man|women|woman|gender|sex)\b|no concept of (?:man|woman|gender)/.test(canonText);
+    if (wp && noBinary) {
+      for (const [id, c] of Object.entries(state.characters ?? {})) {
+        if (id === "char_player" || !c) continue;
+        const pr = (c.pronouns ?? "").toLowerCase();
+        if (!pr || pr.startsWith("she/") || pr.startsWith("he/") || pr === "she" || pr === "he") c.pronouns = wp;
+      }
     }
   }
 
