@@ -326,6 +326,7 @@ export interface Place {
   name: string;
   description_facts: string;
   contains: string[];
+  founding?: boolean;   // named at the Forge. Never evicted by the place cap; the world's spine.
 }
 
 /** The convergence/phase system. A phase shapes the tension curve toward (or around) an event,

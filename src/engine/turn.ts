@@ -67,6 +67,32 @@ function expertiseFloor(label: string): number {
  * trailing parenthetical block that reads as self-commentary, and any standalone line that is
  * clearly the model talking about its own writing rather than narrating the scene.
  */
+/** The narrator ends each turn with a one-line footer naming where the scene is and who came or went:
+ *
+ *      <<<SCENE place="The Rusty Anchor" entered="Drew Calloway" left="Marisol Vega">>>
+ *
+ *  It exists because the SIMULATOR cannot see a scene, only prose, and it guessed — inventing moves
+ *  nobody wrote and inventing places that did not exist ("the kitchen doorway"), which the resolver
+ *  then dumped into `elsewhere`, taking the player with it. The narrator knows where it just set the
+ *  scene. Asking it directly is cheaper and truer than inferring. The footer is stripped before the
+ *  prose is ever shown or stored. */
+export interface SceneFooter { place?: string; entered: string[]; left: string[] }
+
+export function parseSceneFooter(text: string): { prose: string; footer: SceneFooter | null } {
+  const m = text.match(/\n?\s*<<<\s*SCENE\b([^>]*)>>>\s*$/i);
+  if (!m) return { prose: text, footer: null };
+  const attrs = m[1];
+  const grab = (k: string) => {
+    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)"`, "i").exec(attrs);
+    return r ? r[1].trim() : "";
+  };
+  const names = (v: string) => v.split(/[,;]/).map((x) => x.trim()).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
+  return {
+    prose: text.slice(0, m.index).trimEnd(),
+    footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")) },
+  };
+}
+
 function stripMeta(text: string): string {
   if (!text) return text;
   let t = text.trim();
@@ -121,11 +147,15 @@ export function updatePaging(state: SaveState, action: string): void {
   }
 }
 
+/** The world may grow, but not without limit. Above this, the oldest unused, non-founding place is
+ *  forgotten — the Forge's own locations are the spine and are never taken. */
+export const PLACE_CAP = 16;
+
 /** PLACE GC — resolvePlace creates a record for every unmatched name and nothing ever cleaned
  *  them up, so long campaigns accumulate junk locations. Sweep: over a soft cap, evict places
  *  that are unoccupied, aren't anyone's location, and aren't referenced in recent play —
  *  oldest first (creation time is embedded in the uid). */
-export function gcPlaces(state: SaveState, cap = 60): void {
+export function gcPlaces(state: SaveState, cap = PLACE_CAP): void {
   const ids = Object.keys(state.world.places);
   if (ids.length <= cap) return;
   const used = new Set<string>([state.world.player_location]);
@@ -137,7 +167,7 @@ export function gcPlaces(state: SaveState, cap = 60): void {
     return parseInt(m[1].slice(0, m[1].length - 5), 36) || 0;
   };
   const evictable = ids
-    .filter((id) => !used.has(id) && !(state.world.places[id].contains?.length) && !recentText.includes(state.world.places[id].name.toLowerCase()))
+    .filter((id) => id !== OFFSCENE && !state.world.places[id].founding && !used.has(id) && !(state.world.places[id].contains?.length) && !recentText.includes(state.world.places[id].name.toLowerCase()))
     .sort((a, b) => bornAt(a) - bornAt(b));
   for (const id of evictable) {
     if (Object.keys(state.world.places).length <= cap) break;
@@ -465,7 +495,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       ev.onDelta(value);
     }
   }
-  prose = stripMeta(prose);
+  // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
+  const parsedScene = parseSceneFooter(prose);
+  prose = stripMeta(parsedScene.prose);
+  const footer = parsedScene.footer;
 
   // 3 ── simulator (one JSON call: bookkeeper + world tick + memory writes)
   ev.onPhase("simulator");
@@ -480,7 +513,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
-    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the only places in this world; use a name exactly, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (anywhere not on this list)\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
+    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (not in a tracked place)\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -545,6 +578,40 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   try { diff = backfillDiff(diff, extractHeuristics(state, action, prose)); }
   catch (e: any) { console.warn(`[turn] heuristic extraction failed (skipped): ${e.message}`); }
 
+  // ── THE NARRATOR'S FOOTER WINS ── it wrote the scene; it knows where the scene is and who walked
+  // in or out. The simulator only reads prose and guesses, so when the two disagree the footer is
+  // right. When the narrator gives a footer we rebuild the movement diff from it entirely, which
+  // means the simulator can no longer invent a place, teleport a speaking character, or drop anyone
+  // into `elsewhere` by accident.
+  if (footer) {
+    const findChar = (nm: string) => {
+      const first = nm.split(/\s+/)[0].toLowerCase();
+      return Object.entries(state.characters).find(([id, c]) =>
+        id !== "char_player" && (c.name.toLowerCase() === nm.toLowerCase() || c.name.toLowerCase().split(/\s+/)[0] === first))?.[0];
+    };
+    if (footer.place) {
+      const pid = resolvePlace(state, footer.place, { keepIfUnknown: true });
+      diff.player_location = state.world.places[pid]?.name ?? undefined;
+      if (state.world.places[pid] && pid !== state.world.player_location) {
+        console.info(`[places] narrator set the scene at "${state.world.places[pid].name}"`);
+      }
+    }
+    const rebuilt: { char_id: string; place: string; said?: string }[] = [];
+    const hereName = state.world.places[state.world.player_location]?.name ?? "";
+    for (const nm of footer.entered) {
+      const id = findChar(nm);
+      if (id) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: entered" });
+    }
+    for (const nm of footer.left) {
+      const id = findChar(nm);
+      if (id) rebuilt.push({ char_id: id, place: "elsewhere", said: "narrator: left" });
+    }
+    // keep any simulator move for a character the footer said nothing about (offscreen world motion)
+    const spoken = new Set(rebuilt.map((r) => r.char_id));
+    for (const l of diff.locations ?? []) if (!spoken.has(l.char_id) && l.char_id !== "char_player") rebuilt.push(l);
+    diff.locations = rebuilt;
+  }
+
   // ── MOVEMENT NEEDS EVIDENCE ── every location change must quote the prose that describes it. The
   // simulator invents moves the narrator never wrote: a character speaking in this very turn gets
   // sent to "elsewhere", drops out of the scene, and vanishes from the story. So each entry in
@@ -566,7 +633,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     let vetoed = 0;
     diff.locations = (diff.locations ?? []).filter((l) => {
       if (l.char_id === "char_player") return true;               // the player's own movement is the action
-      if (quoted((l as { said?: string }).said)) return true;
+      const said = (l as { said?: string }).said ?? "";
+      if (said.startsWith("narrator:")) return true;              // the narrator declared it; no quote needed
+      if (quoted(said)) return true;
       vetoed++;
       return false;
     });
@@ -593,9 +662,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // Resolve the player's post-move place and admit anyone who shares it.
     try {
       const destName = diff.player_location;
-      const destId = destName ? resolvePlace(state, destName) : state.world.player_location;
+      // read-only: this only works out who witnessed the turn. Creating a place here would be a side
+      // effect during a lookup, and applyDiff is about to resolve these names for real anyway.
+      const destId = destName ? resolvePlace(state, destName, { keepIfUnknown: true, noCreate: true }) : state.world.player_location;
       const movedTo = new Map<string, string>();
-      for (const l of diff.locations ?? []) movedTo.set(l.char_id, resolvePlace(state, l.place));
+      for (const l of diff.locations ?? []) movedTo.set(l.char_id, resolvePlace(state, l.place, { noCreate: true }));
       for (const [id, c] of Object.entries(state.characters)) {
         if (id === "char_player") continue;
         const where = movedTo.get(id) ?? c.location;
@@ -1084,7 +1155,7 @@ export function ensureOffscene(state: SaveState): string {
  *  Matching is deliberately generous — exact id, exact name, then the strongest substring overlap —
  *  because the cost of a near-miss is a character standing in the wrong room, while the cost of a
  *  new place is the maze. */
-export function resolvePlace(state: SaveState, ref: string): string {
+export function resolvePlace(state: SaveState, ref: string, opts?: { keepIfUnknown?: boolean; noCreate?: boolean }): string {
   if (!ref) return state.world.player_location;
   if (state.world.places[ref]) return ref;
 
@@ -1106,25 +1177,106 @@ export function resolvePlace(state: SaveState, ref: string): string {
 
   const key = norm.toLowerCase();
   const real = Object.values(state.world.places).filter((p) => p.id !== OFFSCENE);
+  if (!real.length) return state.world.player_location;
 
   for (const p of real) {
     const pn = p.name.toLowerCase();
     if (pn === key || pn === raw.toLowerCase()) return p.id;
   }
-  // substring either way ("Tessa's house yard" ~ "Tessa's house"); longest match wins
-  let best: { id: string; len: number } | null = null;
-  for (const p of real) {
-    const pn = p.name.toLowerCase();
-    if (key.includes(pn) || pn.includes(key)) {
-      const len = Math.min(pn.length, key.length);
-      if (len >= 4 && (!best || len > best.len)) best = { id: p.id, len };
-    }
-  }
-  if (best) return best.id;
 
-  // Not a place this world has. The character is simply not in the scene.
-  console.warn(`[places] "${raw}" is not a known location — treating as elsewhere`);
-  return ensureOffscene(state);
+  const scored = real
+    .map((p) => ({ id: p.id, score: placeSimilarity(key, p.name.toLowerCase()) }))
+    .sort((a, b) => b.score - a.score);
+  // Require a clear winner, not merely a passing score: "north service center" scores 0.39 against
+  // "Sole Service" on the word `service` alone, which would be the wrong place if the right one were
+  // missing. A strong match (>=0.6) stands on its own; a weak one must also beat the runner-up.
+  const top = scored[0], next = scored[1];
+  if (top && (top.score >= 0.6 || (top.score >= 0.34 && (!next || top.score >= next.score * 1.5)))) return top.id;
+
+  // Nothing resembles this. Two very different things look identical at this point:
+  //
+  //   "the kitchen doorway"  — a corner of a place that already exists. Making it a location splits
+  //                            one house into three rooms and scatters everyone across them.
+  //   "the Old Cannery"      — somewhere the story genuinely needs and the Forge never named.
+  //
+  // A part-name is the first; anything else is the second. Parts get folded into the place the scene
+  // is already in. Real new places are created, up to a cap, after which the world is full and the
+  // oldest unused non-founding place is evicted to make room.
+  if (isPartOfAPlace(raw)) {
+    console.info(`[places] "${raw}" is part of a place, not a place — keeping the scene where it is`);
+    return state.world.player_location;
+  }
+  if (opts?.noCreate) {
+    console.warn(`[places] "${raw}" matches nothing and creation is off`);
+    return opts?.keepIfUnknown ? state.world.player_location : ensureOffscene(state);
+  }
+  return createPlace(state, norm);
+}
+
+/** Is this the name of a ROOM, CORNER, or THRESHOLD rather than a place you travel to?
+ *  "the kitchen", "upstairs", "the back of the bar", "outside the door" are all parts of somewhere. */
+export function isPartOfAPlace(ref: string): boolean {
+  const bare = ref.trim().replace(/^(the|a|an)\s+/i, "").trim();
+  // A proper name is a place, even when its last word is an ordinary one: "Kubota Garden" and
+  // "Interbay Yard" are somewhere you go; "the garden" and "the yard" are part of where you are.
+  // Two or more capitalized words, or a possessive, means somebody named this.
+  const capped = bare.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).length;
+  if (capped >= 2 || /'s\b/.test(bare)) return false;
+  const r = bare.toLowerCase();
+  const PART = /\b(kitchen|bedroom|bathroom|washroom|restroom|toilet|hallway|hall|corridor|landing|stairs|stairwell|staircase|doorway|door|threshold|porch|stoop|yard|garden|lawn|driveway|garage|attic|basement|cellar|loft|balcony|terrace|patio|deck|roof|rooftop|closet|pantry|cupboard|corner|booth|table|bar top|counter|window|windowsill|fireplace|hearth|couch|sofa|bed|desk|floor|ceiling|wall|upstairs|downstairs|inside|indoors|back room|front room|living room|dining room|sitting room|spare room|back office|storeroom|storage|foyer|entryway|entrance|lobby|vestibule|alley|alleyway|sidewalk|pavement|curb|parking lot|car ?park)\b/;
+  if (PART.test(r)) return true;
+  // "edge of X", "back of X", "near the X", "just outside X" — a position relative to a place
+  return /^(edge|side|back|front|middle|centre|center|top|bottom|foot|head|end|corner|far end|other side)\s+of\b/.test(r)
+    || /^(just )?(outside|inside|behind|beside|beneath|under|above|across from|next to|near|by|toward|towards)\b/.test(r);
+}
+
+export function createPlace(state: SaveState, name: string): string {
+  const clean = name.trim().replace(/^(the|a|an)\s+/i, "").slice(0, 60);
+  const title = clean.charAt(0).toUpperCase() + clean.slice(1);
+  const id = uid("loc");
+  state.world.places[id] = { id, name: title, description_facts: "", contains: [] };
+  console.info(`[places] created "${title}" (${Object.keys(state.world.places).length - 1} places)`);
+  // gcPlaces runs at the end of every turn and holds the cap by forgetting the oldest place nobody
+  // is in and nothing has mentioned. Founding locations are never forgotten.
+  return id;
+}
+
+/** How much two place names look like the same place. Token overlap weighted toward the rarer,
+ *  longer words, so "kitchen doorway" scores 0 against "The Rusty Anchor" but "the rusty anchor bar"
+ *  scores high. Substring matching alone was useless here — "kitchen" shares no substring with
+ *  "Tessa's house" even though a model meant the latter. */
+export function placeSimilarity(a: string, b: string): number {
+  // Generic nouns are everywhere in place names ("service", "center", "house", "street"), so two
+  // unrelated places share them and score a false match. They count for a fraction of their length.
+  // Coverage is measured in BOTH directions and the better taken: a reference may carry extra words
+  // ("sole service front counter") or fewer ("the anchor") than the place name it names.
+  const GENERIC = new Set(["service", "center", "centre", "house", "street", "road", "avenue", "place",
+    "building", "office", "shop", "store", "station", "hall", "room", "club", "bar", "cafe", "market", "north",
+    "south", "east", "west", "old", "new", "great", "little", "upper", "lower", "main", "city", "town"]);
+  const STOP = new Set(["the", "a", "an", "of", "at", "in", "on", "near", "by", "and", "to"]);
+  const toks = (s: string) => new Set((s.toLowerCase().match(/[a-z0-9']+/g) ?? []).filter((w) => w.length > 2 && !STOP.has(w)));
+  const A = toks(a), B = toks(b);
+  if (!A.size || !B.size) return 0;
+  const weight = (w: string) => (GENERIC.has(w) ? w.length * 0.15 : w.length);
+
+  const side = (X: Set<string>, Y: Set<string>) => {
+    let shared = 0, distinctive = false;
+    for (const w of X) {
+      if (Y.has(w)) { shared += weight(w); if (!GENERIC.has(w)) distinctive = true; continue; }
+      for (const v of Y) if (v.length > 3 && w.length > 3 && (v.startsWith(w) || w.startsWith(v))) {
+        shared += Math.min(weight(v), weight(w)) * 0.7;
+        if (!GENERIC.has(w) && !GENERIC.has(v)) distinctive = true;
+        break;
+      }
+    }
+    const total = [...X].reduce((n, w) => n + weight(w), 0);
+    if (!total) return 0;
+    const cov = Math.min(1, shared / total);
+    // A place whose whole name is ordinary words ("Sole Service") must still match itself, so high
+    // coverage alone can carry it. A reference that merely brushes a generic word is held down.
+    return distinctive ? cov : cov >= 0.85 ? cov : cov * 0.35;
+  };
+  return Math.max(side(A, B), side(B, A));
 }
 
 /** present is DERIVED: whoever shares the player's place is in the scene. Rebuilds every place's
@@ -1251,7 +1403,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   //    id or name and are created on first mention (incl. "in-between" places like
   //    "walking outside the dome"). present is DERIVED from co-location, never authored. ──
   if (diff.player_location) {
-    state.world.player_location = resolvePlace(state, diff.player_location);
+    // the player never lands in `elsewhere`: an unrecognized name means they stayed put
+    state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
     state.characters["char_player"].location = state.world.player_location;
   }
   for (const mv of diff.locations ?? []) {

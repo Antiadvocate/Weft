@@ -122,6 +122,35 @@ export async function rollback(state: SaveState, toTurn: number): Promise<SaveSt
   return restored;
 }
 
+/** Force every model-authored character field to the type the rest of the engine assumes.
+ *
+ *  The schema says `taste: string`; models send `["strength", "directness"]`. `?? ""` does not catch
+ *  that — it only catches null — so the array reaches state and `.trim` throws three systems away,
+ *  in the desire engine, with no clue where it came from. This runs on every read AND every write,
+ *  because healing on read alone leaves the bad value on disk for whatever reads it next.
+ *
+ *  Idempotent and cheap: a correctly-typed save touches nothing. */
+export function healCharacterTypes(state: SaveState): void {
+  for (const c of Object.values(state.characters ?? {})) {
+    if (!c) continue;
+    if (c.taste !== undefined && typeof c.taste !== "string") c.taste = asText(c.taste);
+    if (c.attracted_to !== undefined && typeof c.attracted_to !== "string") c.attracted_to = asText(c.attracted_to);
+    if (c.pronouns !== undefined && typeof c.pronouns !== "string") c.pronouns = asText(c.pronouns);
+    if (c.name !== undefined && typeof c.name !== "string") c.name = asText(c.name);
+    if (c.appearance_facts !== undefined && typeof c.appearance_facts !== "string") c.appearance_facts = asText(c.appearance_facts, " ");
+    if (c.appearance_now !== undefined && typeof c.appearance_now !== "string") c.appearance_now = asText(c.appearance_now, " ");
+    if (c.background !== undefined && typeof c.background !== "string") c.background = asText(c.background, " ");
+    if (c.life_history !== undefined && typeof c.life_history !== "string") c.life_history = asText(c.life_history, " ");
+    if (c.speech_pattern !== undefined && typeof c.speech_pattern !== "string") c.speech_pattern = asText(c.speech_pattern);
+    if (c.current_goal !== undefined && typeof c.current_goal !== "string") c.current_goal = asText(c.current_goal);
+    if (c.current_activity !== undefined && typeof c.current_activity !== "string") c.current_activity = asText(c.current_activity);
+    if (c.core_traits !== undefined && !Array.isArray(c.core_traits)) c.core_traits = asList(c.core_traits);
+    if (c.values !== undefined && !Array.isArray(c.values)) c.values = asList(c.values);
+    if (c.texture !== undefined && !Array.isArray(c.texture)) c.texture = asList(c.texture);
+    if (c.aliases !== undefined && !Array.isArray(c.aliases)) c.aliases = asList(c.aliases);
+  }
+}
+
 export function sanitize(state: SaveState): SaveState {
   // Imported saves can be missing whole maps — a partial file used to crash sanitize on
   // Object.values(undefined). Initialize every top-level container before touching it.
@@ -158,21 +187,16 @@ export function sanitize(state: SaveState): SaveState {
   state.contract_drift ??= null;
   state.retcons ??= [];
 
-  // ── HEAL MODEL-TYPED FIELDS ── saves written before coercion hold whatever the model emitted:
-  // `taste` as an array, `core_traits` as a comma-joined string. Those throw far from their origin
-  // (`(i.taste ?? "").trim is not a function`, deep in the desire engine). Normalize on load.
-  for (const c of Object.values(state.characters ?? {})) {
-    if (c.taste !== undefined && typeof c.taste !== "string") c.taste = asText(c.taste);
-    if (c.attracted_to !== undefined && typeof c.attracted_to !== "string") c.attracted_to = asText(c.attracted_to);
-    if (c.pronouns !== undefined && typeof c.pronouns !== "string") c.pronouns = asText(c.pronouns);
-    if (c.appearance_facts !== undefined && typeof c.appearance_facts !== "string") c.appearance_facts = asText(c.appearance_facts, " ");
-    if (c.background !== undefined && typeof c.background !== "string") c.background = asText(c.background, " ");
-    if (c.life_history !== undefined && typeof c.life_history !== "string") c.life_history = asText(c.life_history, " ");
-    if (c.speech_pattern !== undefined && typeof c.speech_pattern !== "string") c.speech_pattern = asText(c.speech_pattern);
-    if (!Array.isArray(c.core_traits)) c.core_traits = asList(c.core_traits);
-    if (!Array.isArray(c.values)) c.values = asList(c.values);
-    if (!Array.isArray(c.texture)) c.texture = asList(c.texture);
-    if (c.aliases !== undefined && !Array.isArray(c.aliases)) c.aliases = asList(c.aliases);
+  healCharacterTypes(state);
+
+  // Saves made before places were marked have no founding flag, so the place GC would happily forget
+  // the world's original locations. Anything present with no flag is treated as founding: it either
+  // came from the Forge, or it has already earned its place by surviving this long.
+  {
+    const ps = Object.values(state.world?.places ?? {});
+    if (ps.length && !ps.some((p) => p.founding)) {
+      for (const p of ps) if (p.id !== "loc_offscene") p.founding = true;
+    }
   }
 
   // ── GAZETTEER MIGRATION ── older saves let the simulator mint a place for any string it produced,
