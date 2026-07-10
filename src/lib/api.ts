@@ -708,7 +708,12 @@ export const api = {
       try {
         const out = await complete(msgs, m, m, true, 8000);
         g = safeJson<any>(out.text, null);
-        if (g?.world_bible?.name && g?.player?.name && (g.npcs?.length ?? 0) >= 1) break;
+        // A world with three places is a world where the narrator has nowhere legal to move anyone,
+        // so it invents "the kitchen doorway" and the resolver strands whoever went there. Demand a
+        // real gazetteer; a model that gives two locations will do it again on the next seed, not
+        // the next retry, so accept 6 rather than burn all three attempts on a strict 10.
+        if (g?.world_bible?.name && g?.player?.name && (g.npcs?.length ?? 0) >= 1 && (g.places?.length ?? 0) >= 6) break;
+        if (g && (g.places?.length ?? 0) < 6) lastErr = `model ${m} returned only ${g.places?.length ?? 0} locations (need at least 6)`;
         lastErr = `model ${m} returned an incomplete world`;
         g = null;
       } catch (e: any) { lastErr = `${m}: ${e.message}`; g = null; }
@@ -736,7 +741,7 @@ export const api = {
     const nameToId: Record<string, string> = {};
     for (const p of g.places ?? []) {
       const lid = uid("loc");
-      s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [] };
+      s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [], founding: true };
       nameToId[p.name?.toLowerCase?.() ?? ""] = lid;
     }
     for (const n of g.npcs ?? []) {
