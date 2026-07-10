@@ -3,6 +3,7 @@ import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
+import { asText, asList, asNum } from "./coerce";
 
 export function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -21,30 +22,34 @@ export function blankMemory(id: string): CharMemory {
 
 export function registerCharacter(state: SaveState, ident: Partial<Identity> & { name: string }): string {
   const id = ident.character_id ?? uid("char");
+  // Everything here may have come straight from a model, which does not respect the schema's types:
+  // `taste` arrives as an array, `core_traits` as a comma-joined sentence. Coerce at the boundary so
+  // a bad value never reaches state and never crashes a system three layers away.
   state.characters[id] = {
-    character_id: id, name: ident.name, age: ident.age ?? 30,
-    appearance_facts: ident.appearance_facts ?? "", background: ident.background ?? "",
-    core_traits: ident.core_traits ?? [], values: ident.values ?? [],
-    speech_pattern: ident.speech_pattern ?? "plain", skills: ident.skills ?? {},
-    texture: ident.texture ?? [],
-    pronouns: ident.pronouns,
-    height_cm: ident.height_cm, weight_kg: ident.weight_kg,
+    character_id: id, name: asText(ident.name), age: asNum(ident.age, 0, 200) ?? 30,
+    appearance_facts: asText(ident.appearance_facts, " "), background: asText(ident.background, " "),
+    core_traits: asList(ident.core_traits), values: asList(ident.values),
+    speech_pattern: asText(ident.speech_pattern) || "plain", skills: ident.skills ?? {},
+    texture: asList(ident.texture),
+    pronouns: ident.pronouns ? asText(ident.pronouns) : undefined,
+    height_cm: asNum(ident.height_cm, 30, 300), weight_kg: asNum(ident.weight_kg, 2, 500),
     intelligence: ident.intelligence ?? "average",
-    gregariousness: ident.gregariousness ?? 0.5,
-    current_goal: ident.current_goal, current_activity: ident.current_activity,
+    gregariousness: asNum(ident.gregariousness, 0, 1) ?? 0.5,
+    current_goal: ident.current_goal ? asText(ident.current_goal) : undefined,
+    current_activity: ident.current_activity ? asText(ident.current_activity) : undefined,
     drive: ident.drive, drive_queue: ident.drive_queue,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
     // These were previously dropped, which (a) broke the central-character cap — every new
     // character silently entered as central because `central` never landed on the record —
     // and (b) erased life_history when carrying a cast into a new chapter.
     central: ident.central,
-    life_history: ident.life_history,
-    appearance_now: ident.appearance_now,
+    life_history: ident.life_history ? asText(ident.life_history, " ") : undefined,
+    appearance_now: ident.appearance_now ? asText(ident.appearance_now, " ") : undefined,
     knows_player_name: ident.knows_player_name,
-    attracted_to: ident.attracted_to,
-    taste: ident.taste,
-    aliases: ident.aliases,
-    conscience: typeof ident.conscience === "number" ? Math.max(0, Math.min(1, ident.conscience)) : undefined,
+    attracted_to: ident.attracted_to ? asText(ident.attracted_to) : undefined,
+    taste: ident.taste ? asText(ident.taste) : undefined,
+    aliases: ident.aliases ? asList(ident.aliases) : undefined,
+    conscience: asNum(ident.conscience, 0, 1),
     voice: ident.voice,
     attachment: ident.attachment,
   };
@@ -152,6 +157,53 @@ export function sanitize(state: SaveState): SaveState {
   }
   state.contract_drift ??= null;
   state.retcons ??= [];
+
+  // ── HEAL MODEL-TYPED FIELDS ── saves written before coercion hold whatever the model emitted:
+  // `taste` as an array, `core_traits` as a comma-joined string. Those throw far from their origin
+  // (`(i.taste ?? "").trim is not a function`, deep in the desire engine). Normalize on load.
+  for (const c of Object.values(state.characters ?? {})) {
+    if (c.taste !== undefined && typeof c.taste !== "string") c.taste = asText(c.taste);
+    if (c.attracted_to !== undefined && typeof c.attracted_to !== "string") c.attracted_to = asText(c.attracted_to);
+    if (c.pronouns !== undefined && typeof c.pronouns !== "string") c.pronouns = asText(c.pronouns);
+    if (c.appearance_facts !== undefined && typeof c.appearance_facts !== "string") c.appearance_facts = asText(c.appearance_facts, " ");
+    if (c.background !== undefined && typeof c.background !== "string") c.background = asText(c.background, " ");
+    if (c.life_history !== undefined && typeof c.life_history !== "string") c.life_history = asText(c.life_history, " ");
+    if (c.speech_pattern !== undefined && typeof c.speech_pattern !== "string") c.speech_pattern = asText(c.speech_pattern);
+    if (!Array.isArray(c.core_traits)) c.core_traits = asList(c.core_traits);
+    if (!Array.isArray(c.values)) c.values = asList(c.values);
+    if (!Array.isArray(c.texture)) c.texture = asList(c.texture);
+    if (c.aliases !== undefined && !Array.isArray(c.aliases)) c.aliases = asList(c.aliases);
+  }
+
+  // ── GAZETTEER MIGRATION ── older saves let the simulator mint a place for any string it produced,
+  // so one house became "Tessa's house", "Tessa's house (kitchen)", and "Tessa's house (outside in
+  // the yard)", and characters scattered across rooms that were never real. Fold every sub-room back
+  // into its parent, and move anyone standing in one to the parent. Places are whole places now.
+  {
+    const places = state.world.places ?? {};
+    const parentOf = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+[-–—]\s+.*$/, "").trim();
+    const byName = new Map<string, string>();
+    for (const p of Object.values(places)) if (p.id !== "loc_offscene") byName.set(p.name.trim().toLowerCase(), p.id);
+    const remap = new Map<string, string>();
+    for (const p of Object.values(places)) {
+      if (p.id === "loc_offscene") continue;
+      const parent = parentOf(p.name);
+      if (!parent || parent.toLowerCase() === p.name.trim().toLowerCase()) continue;
+      const pid = byName.get(parent.toLowerCase());
+      if (pid && pid !== p.id) remap.set(p.id, pid);
+    }
+    if (remap.size) {
+      for (const c of Object.values(state.characters)) {
+        if (c.location && remap.has(c.location)) c.location = remap.get(c.location)!;
+      }
+      if (remap.has(state.world.player_location)) state.world.player_location = remap.get(state.world.player_location)!;
+      for (const id of remap.keys()) delete places[id];
+      console.warn(`[places] merged ${remap.size} sub-room(s) back into their parent locations`);
+    }
+    // the offscene record is named plainly now
+    const off = places["loc_offscene"];
+    if (off && off.name !== "elsewhere") off.name = "elsewhere";
+  }
   state.destination_progress ??= null;
   // a destination that predates the clock has no start turn; anchor it to 0 so the budget,
   // if one is later set, does not retroactively count turns already played

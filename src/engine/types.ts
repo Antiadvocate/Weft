@@ -457,7 +457,7 @@ export interface SimulatorDiff {
   elapsed_minutes: number;
   weather?: string;
   player_location?: string;       // a place id, OR a free-text place name (auto-created if new) — where the PLAYER now is
-  locations?: { char_id: string; place: string }[]; // move characters between places; place is an id or a name (auto-created). Use when anyone moves, is teleported, arrives, or leaves.
+  locations?: { char_id: string; place: string; said?: string }[]; // move characters between places. `place` must name an existing place, or "elsewhere". `said` quotes the prose that says they moved.
   money?: string;
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];

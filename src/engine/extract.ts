@@ -95,41 +95,11 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
     }
   }
 
-  // ── named-character departure. A soft exit (leaving the ROOM, not the story) only removes
-  // someone from the scene if their location changes; the simulator frequently narrates the
-  // exit in prose without emitting a `locations` diff, so this backstop is the real guarantee.
-  // The verb list is deliberately broad and the window wide (60 chars) because natural prose
-  // says "excused herself and stepped out", "disappeared down the hall", "was gone before he
-  // could answer" — none of which the old 6-verb / 24-char pattern caught.
-  for (const [lower, id] of names) {
-    // "<Name> ... <depart-verb>"  OR  "<depart-verb> ... <Name>" (e.g. "then Juniper was gone")
-    const nameFirst = new RegExp(`\\b${escRe(lower)}\\b[^.!?]{0,60}?\\b${DEPART_PATTERN}`, "i");
-    const verbFirst = new RegExp(`\\b${DEPART_PATTERN}\\b[^.!?]{0,40}?\\b${escRe(lower)}\\b`, "i");
-    if (nameFirst.test(text) || verbFirst.test(text)) {
-      out.locations.push({ char_id: id, place: "elsewhere nearby" });
-    }
-  }
-
-  // ── PLAYER COMMANDS AN EXIT. If the player's action tells someone present to leave and the
-  // prose doesn't visibly refuse (no "refuses", "stays put", "doesn't move", "ignores you"),
-  // honor the command: a person told to go, who isn't shown resisting, goes. This is the
-  // single most jarring failure — you dismiss someone and they're still standing there.
-  const refuses = /\b(refus|stays? put|stayed put|doesn'?t (?:move|budge|leave)|didn'?t (?:move|budge|leave)|won'?t (?:move|leave|go)|holds? (?:his|her|their|its) ground|ignores? you|remains? (?:seated|where|standing)|shakes? (?:his|her|their) head|not going anywhere)/i.test(text);
-  for (const [lower, id] of names) {
-    const told = new RegExp(`\\b(?:tell|told|order|ordered|command|ask|asked|send|sent|dismiss|dismissed|wave|waved)\\w*\\s+${escRe(lower)}\\b[^.!?]{0,40}?\\b(?:to (?:leave|go|get out|step out|wait outside)|out|away|off|leave|go|home)\\b`, "i");
-    const toldGeneric = new RegExp(`\\b${escRe(lower)}[,.!?]?\\s*(?:please\\s+)?(?:leave|get out|step out(?:side)?|wait outside|go(?: away| home| on)?)\\b`, "i");
-    if ((told.test(action) || toldGeneric.test(action)) && !refuses) {
-      if (!out.locations.some((l) => l.char_id === id)) out.locations.push({ char_id: id, place: "elsewhere nearby" });
-    }
-  }
-  for (const [cid, c] of Object.entries(state.characters)) {
-    if (cid === "char_player" || state.world.present.includes(cid) || c.status === "dead" || c.status === "departed") continue;
-    const first = c.name.split(/\s+/)[0];
-    if (!first || first.length < 3) continue;
-    if (new RegExp(`\\b${escRe(first)}\\b[^.!?]{0,24}\\b(enters|arrives|walks in|steps in(?:to)?|appears at the door|joins you)\\b`, "i").test(text)) {
-      out.locations.push({ char_id: cid, place: state.world.places[state.world.player_location]?.name ?? "here" });
-    }
-  }
+  // Movement is NOT inferred from prose here. Guessing exits from verb lists moved people who were
+  // still speaking, and guessing arrivals moved people who were only mentioned. The narrator now
+  // writes entrances and departures plainly and the simulator quotes the words that say so, with the
+  // quote checked against the prose before the move is applied. A regex has no business deciding
+  // who is in the room.
 
   // ── CLOTHING: this is the fix for "I put on my shirt and the sheet still says shirtless."
   // Models rarely emit wearing updates from casual phrasing, so the deterministic layer owns it.

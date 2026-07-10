@@ -9,7 +9,6 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
-import { localeOf, isSubRoom } from "./places";
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
@@ -481,7 +480,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
-    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
+    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the only places in this world; use a name exactly, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (anywhere not on this list)\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -546,50 +545,39 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   try { diff = backfillDiff(diff, extractHeuristics(state, action, prose)); }
   catch (e: any) { console.warn(`[turn] heuristic extraction failed (skipped): ${e.message}`); }
 
-  // ── PHANTOM-EXIT CLAMP ── the simulator can write {char_id, place} with no justification and no
-  // cost, and it hallucinates moves the prose never described: a character who is speaking in this
-  // very turn gets teleported to "elsewhere", drops out of `present`, loses her card, and vanishes
-  // from the story. Nothing in the prose said she left. So: if a character ACTS in the prose this
-  // turn — named as a speaker or subject — she cannot be moved out of the scene this turn. Exits
-  // must be written, not inferred. A real departure still lands: the prose says she left, and the
-  // name+depart-verb backstop in extract.ts fires normally on the sentence that says so.
+  // ── MOVEMENT NEEDS EVIDENCE ── every location change must quote the prose that describes it. The
+  // simulator invents moves the narrator never wrote: a character speaking in this very turn gets
+  // sent to "elsewhere", drops out of the scene, and vanishes from the story. So each entry in
+  // locations[] carries `said`, and that quote has to appear in the prose. If it doesn't, the move
+  // didn't happen. This replaces the old verb-list backstop, which guessed and was often wrong.
   {
-    const leaving = new Set<string>();
-    for (const l of diff.locations ?? []) {
-      const dest = String(l.place || "").toLowerCase();
-      if (/^(elsewhere|off[\s-]?screen|loc_offscene|out of)/.test(dest)) leaving.add(l.char_id);
-    }
-    for (const e of diff.character_exits ?? []) leaving.add(e.char_id);
-    if (leaving.size) {
-      const said = (id: string) => {
-        const nm = state.characters[id]?.name;
-        if (!nm) return false;
-        const first = nm.split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        // "Active" = the prose treats them as an agent this turn, not a passing mention. Any of:
-        // Name followed by a verb ("Lena cut in"), possessive doing something ("Lena's jaw worked"),
-        // or a name adjacent to a line of dialogue. Deliberately generous — a false "active" only
-        // costs one delayed exit, while a false "inactive" deletes a character from the story.
-        const N = `\\b${first}\\b`;
-        return new RegExp(`${N}\\s+\\w+(ed|s|t)\\b`, "i").test(prose)        // Lena cut / Lena stopped / Lena wasn't
-          || new RegExp(`${N}'s\\s+\\w+`, "i").test(prose)                   // Lena's jaw worked
-          || new RegExp(`"[^"]{0,400}"[^.!?]{0,30}${N}`, "i").test(prose)    // "…," Lena said
-          || new RegExp(`${N}[^.!?]{0,30}"[^"]{0,400}"`, "i").test(prose);   // Lena said, "…"
-      };
-      let vetoed = 0;
-      diff.locations = (diff.locations ?? []).filter((l) => {
-        const dest = String(l.place || "").toLowerCase();
-        const isExit = /^(elsewhere|off[\s-]?screen|loc_offscene|out of)/.test(dest);
-        const bad = isExit && said(l.char_id) && !DEPART_IN_PROSE(prose, state.characters[l.char_id]?.name);
-        if (bad) vetoed++;
-        return !bad;
-      });
-      diff.character_exits = (diff.character_exits ?? []).filter((e) => {
-        const bad = e.kind !== "dead" && said(e.char_id) && !DEPART_IN_PROSE(prose, state.characters[e.char_id]?.name);
-        if (bad) vetoed++;
-        return !bad;
-      });
-      if (vetoed) console.warn(`[turn] phantom-exit clamp: vetoed ${vetoed} unwritten departure(s) — the prose never said they left`);
-    }
+    const hay = prose.toLowerCase().replace(/\s+/g, " ");
+    const quoted = (said?: string): boolean => {
+      const q = (said ?? "").toLowerCase().replace(/\s+/g, " ").replace(/^["'\u201c\u2018]|["'\u201d\u2019]$/g, "").trim();
+      if (q.length < 6) return false;
+      if (hay.includes(q)) return true;
+      // models paraphrase lightly; accept when most of the quote's distinctive words are present in order
+      const words = q.split(" ").filter((w) => w.length > 3);
+      if (words.length < 2) return false;
+      let at = 0, hit = 0;
+      for (const w of words) { const i = hay.indexOf(w, at); if (i >= 0) { hit++; at = i + w.length; } }
+      return hit / words.length >= 0.75;
+    };
+    let vetoed = 0;
+    diff.locations = (diff.locations ?? []).filter((l) => {
+      if (l.char_id === "char_player") return true;               // the player's own movement is the action
+      if (quoted((l as { said?: string }).said)) return true;
+      vetoed++;
+      return false;
+    });
+    // an exit that is not a death also needs the prose to say it
+    diff.character_exits = (diff.character_exits ?? []).filter((e) => {
+      if (e.kind === "dead") return true;
+      const ok = DEPART_IN_PROSE(prose, state.characters[e.char_id]?.name);
+      if (!ok) vetoed++;
+      return ok;
+    });
+    if (vetoed) console.warn(`[turn] movement clamp: dropped ${vetoed} move(s) the prose never described`);
   }
 
   // ── EARSHOT CLAMP ── the simulator reads the prose and cannot tell who was in the room, so it
@@ -1075,35 +1063,68 @@ function isTransientLabel(name: string): boolean {
     /\b(home|away|off|out|back|toward|towards|to|from)\b/i.test(name);
 }
 
+export const OFFSCENE = "loc_offscene";
+
+/** The offscene record — one place, outside every locale, for everyone who is not in a named
+ *  location. Characters there are never in the player's scene and never re-seated by locale merging. */
+export function ensureOffscene(state: SaveState): string {
+  if (!state.world.places[OFFSCENE]) {
+    state.world.places[OFFSCENE] = { id: OFFSCENE, name: "elsewhere", description_facts: "", contains: [] };
+  }
+  return OFFSCENE;
+}
+
+/** THE GAZETTEER IS CLOSED. The world has the locations it was forged with and no others.
+ *
+ *  This used to mint a new place for any string a model produced, so "the yard", "outside in the
+ *  yard", and "Tessa's house (outside in the yard)" became three rooms of one house and presence
+ *  fractured across them. Now a reference either names a place that exists or it means `elsewhere`.
+ *  Rooms, thresholds, and doorways are prose, not geography.
+ *
+ *  Matching is deliberately generous — exact id, exact name, then the strongest substring overlap —
+ *  because the cost of a near-miss is a character standing in the wrong room, while the cost of a
+ *  new place is the maze. */
 export function resolvePlace(state: SaveState, ref: string): string {
   if (!ref) return state.world.player_location;
   if (state.world.places[ref]) return ref;
-  // EXIT SENTINEL — "elsewhere nearby" (and bare "elsewhere"/"offscreen") means "out of this
-  // scene but still in the world." It routes to one stable off-scene place that shares NO locale
-  // with any room, so the locale-merge in syncPresence can never drag the character back in.
-  if (/^(elsewhere(?:\s+nearby)?|off[\s-]?screen|out of (?:the )?(?:room|scene))$/i.test(ref.trim())) {
-    const OFF = "loc_offscene";
-    if (!state.world.places[OFF]) state.world.places[OFF] = { id: OFF, name: "\u2014 offscene \u2014", description_facts: "", contains: [] };
-    return OFF;
-  }
-  // normalize transient phrasings so "walking outside the dome" and "outside the dome" don't
-  // spawn two records: drop leading motion gerunds and "in transit to", trim articles/punctuation.
-  const norm = ref.trim()
-    .replace(/^(walking|heading|moving|going|running|traveling|travelling|in transit|en route)\s+(to|toward|towards|into|through|out|outside|past|along|near|by)?\s*/i, "")
+
+  const raw = ref.trim();
+  if (!raw) return state.world.player_location;
+
+  // explicit ways of saying "not in a tracked place"
+  if (/^(elsewhere|somewhere else|off[\s-]?screen|away|out|outside|out of (?:the )?(?:room|scene|house)|unknown|nowhere)\b/i.test(raw)) return ensureOffscene(state);
+
+  // strip motion and articles: "walking back to the Iron Roof" -> "iron roof"
+  const norm = raw
+    .replace(/^(walking|heading|moving|going|running|traveling|travelling|driving|riding|in transit|en route|on (?:the|their) way)\s+(?:to|toward|towards|into|through|back to|out|outside|past|along|near|by)?\s*/i, "")
     .replace(/^(the|a|an)\s+/i, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")            // "Tessa's house (kitchen)" -> "Tessa's house"
+    .replace(/\s+[-–—]\s+.*$/, "")               // "Warehouse - stairwell" -> "Warehouse"
     .replace(/[.,;:]+$/, "")
-    .trim() || ref.trim();
-  // a transient motion label ("walking home", "driving away") is NOT a new place — it means the
-  // character is leaving the current locale. Resolve it to their current place rather than spawning junk.
-  if (isTransientLabel(norm)) return state.world.player_location;
-  // exact-name match first
-  const byName = Object.values(state.world.places).find((p) => p.name.toLowerCase() === norm.toLowerCase() || p.name.toLowerCase() === ref.trim().toLowerCase());
-  if (byName) return byName.id;
-  // locale match: if a "House - kitchen" already exists and we're resolving "House - living room",
-  // we still make the new room, but if we're resolving the bare "House" and rooms exist, reuse one.
-  const id = uid("loc");
-  state.world.places[id] = { id, name: norm, description_facts: "", contains: [] };
-  return id;
+    .trim();
+  if (!norm) return ensureOffscene(state);
+
+  const key = norm.toLowerCase();
+  const real = Object.values(state.world.places).filter((p) => p.id !== OFFSCENE);
+
+  for (const p of real) {
+    const pn = p.name.toLowerCase();
+    if (pn === key || pn === raw.toLowerCase()) return p.id;
+  }
+  // substring either way ("Tessa's house yard" ~ "Tessa's house"); longest match wins
+  let best: { id: string; len: number } | null = null;
+  for (const p of real) {
+    const pn = p.name.toLowerCase();
+    if (key.includes(pn) || pn.includes(key)) {
+      const len = Math.min(pn.length, key.length);
+      if (len >= 4 && (!best || len > best.len)) best = { id: p.id, len };
+    }
+  }
+  if (best) return best.id;
+
+  // Not a place this world has. The character is simply not in the scene.
+  console.warn(`[places] "${raw}" is not a known location — treating as elsewhere`);
+  return ensureOffscene(state);
 }
 
 /** present is DERIVED: whoever shares the player's place is in the scene. Rebuilds every place's
@@ -1111,6 +1132,7 @@ export function resolvePlace(state: SaveState, ref: string): string {
  *  for characters who don't yet have a location set. */
 export function syncPresence(state: SaveState, hint?: string[]): void {
   const ploc = state.world.player_location;
+  ensureOffscene(state);
   // seed locations for anyone the narrator named as present but who has no place yet
   if (hint) {
     for (const ref of hint) {
@@ -1125,28 +1147,10 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     if (c.status === "dead" || c.status === "departed") continue;
     if (c.location && state.world.places[c.location]) state.world.places[c.location].contains.push(id);
   }
-  // the scene = living non-player characters in the player's LOCALE — same building/area, even if a
-  // different room. "House - kitchen" and "House - porch" are one scene, so people don't flicker out
-  // of presence when they move between rooms. Exact-place match OR same locale both count as present.
-  // the scene = living non-player characters who can actually see and hear the player. Two SUB-ROOMS
-  // of one building ("house (kitchen)" and "house (yard)") are NOT one scene — treating them as one
-  // is how someone in the kitchen overhears what was said in the yard. A sub-room merges only with
-  // its BARE PARENT ("Tessa's house" + "Tessa's house (kitchen)"), where the parent is the whole place.
-  const plName = state.world.places[ploc]?.name ?? "";
-  const playerLocaleName = localeOf(plName);
-  const playerIsSub = isSubRoom(plName);
+  // The scene is the player's location. Nothing else. Locations are whole places now — a house, not
+  // its kitchen — so there is no locale to merge and no sub-room to argue about. Same place or absent.
   state.world.present = Object.entries(state.characters)
-    .filter(([id, c]) => {
-      if (id === "char_player" || c.status === "dead" || c.status === "departed" || !c.location) return false;
-      if (c.location === "loc_offscene") return false; // explicitly sent out of scene — never re-seat
-      if (c.location === ploc) return true; // same exact place
-      const theirName = state.world.places[c.location]?.name ?? "";
-      const theirIsSub = isSubRoom(theirName);
-      if (playerIsSub && theirIsSub) return false;              // two different rooms of one house: separate scenes
-      if (!playerIsSub && !theirIsSub) return false;            // two distinct places that merely share a first word
-      if (!playerLocaleName || localeOf(theirName) !== playerLocaleName) return false;
-      return true;                                              // one is the bare parent of the other
-    })
+    .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === ploc)
     .map(([id]) => id);
 }
 
@@ -1261,9 +1265,16 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       const toName = state.world.places[pid]?.name ?? mv.place;
       const mem = state.memory[cid];
       if (mem && fromPid) {
+        // "elsewhere" is not a place, so the memory has to carry the detail: the words the narrator
+        // used for where they went. Without this the character simply disappears with no account of it.
+        const said = String((mv as { said?: string }).said ?? "").trim();
+        const content = pid === OFFSCENE
+          ? `Left ${fromName}${said ? ` — ${said.replace(/^["'\u201c\u2018]|["'\u201d\u2019]$/g, "")}` : ""}.`
+          : `Left ${fromName} and went to ${toName}.`;
         mem.episodic.push({
-          turn, content: `Left ${fromName} and went to ${toName}.`,
-          importance: 4, emotional_charge: "", when_label: state.world.current_time, where: toName,
+          turn, content: content.slice(0, 200),
+          importance: 4, emotional_charge: "", when_label: state.world.current_time,
+          where: pid === OFFSCENE ? fromName : toName,
           last_accessed_turn: turn,
         });
         mem.episodic = capMemory(mem.episodic);

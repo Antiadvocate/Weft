@@ -27,6 +27,7 @@
  *      only with explicit cause in the prose.
  */
 import type { SaveState, Identity } from "./types";
+import { asText, asList } from "./coerce";
 import { getEdge } from "./social";
 import { relevance } from "./memory";
 
@@ -47,11 +48,11 @@ function pairNoise(a: string, b: string): number {
  * absence of a field never manufactures a gate.
  */
 export function orientationCap(from: Identity, to: Identity): number | null {
-  const o = (from.attracted_to ?? "").toLowerCase().trim();
+  const o = asText(from.attracted_to).toLowerCase();
   if (!o) return null;
   if (/\b(no ?one|none|nobody)\b/.test(o)) return 0;
   if (/\b(anyone|everyone|any|all)\b/.test(o)) return null;
-  const p = (to.pronouns ?? "").toLowerCase();
+  const p = asText(to.pronouns).toLowerCase();
   const targetFem = /\bshe\b|\bher\b/.test(p);
   const targetMasc = /\bhe\b|\bhim\b/.test(p);
   if (!targetFem && !targetMasc) return null; // they/them or unknown: don't hard-gate
@@ -79,8 +80,10 @@ export function seedAttraction(state: SaveState, fromId: string, toId: string): 
   if (cap !== null && cap <= 5) {
     a = 0;
   } else {
-    const targetBlob = [to.appearance_facts, (to.core_traits ?? []).join(" "), to.background ?? ""].join(" ");
-    const taste = (from.taste ?? "").trim();
+    // asText/asList, not `?? ""` — saves written before coercion hold arrays in `taste` and strings
+    // in `core_traits`, and `.trim`/`.join` on those throws.
+    const targetBlob = [asText(to.appearance_facts, " "), asList(to.core_traits).join(" "), asText(to.background, " ")].join(" ");
+    const taste = asText(from.taste);
     const match = taste ? relevance(targetBlob, taste) : 0; // 0..1 token overlap
     a = Math.round(clamp(match * 55 + pairNoise(fromId, toId) + (e.warmth > 0 ? e.warmth * 0.1 : 0), -20, 70));
   }

@@ -14,6 +14,7 @@
  * Simulator deltas; psyche state derived from thresholds and dwell time.
  */
 import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
+import { asText } from "./coerce";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -115,7 +116,7 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
     .slice()
     .sort((a, b) => a.turn - b.turn)
     .map((m) => m.content.trim())
-    .filter((c) => c && !(ident.life_history ?? "").includes(c) && !ident.background.includes(c));
+    .filter((c) => c && !asText(ident.life_history, " ").includes(c) && !asText(ident.background, " ").includes(c));
   if (facts.length) {
     // fold into the ACCRETED layer, never the bedrock forge background
     ident.life_history = `${ident.life_history ?? ""} ${facts.join(" ")}`.trim();

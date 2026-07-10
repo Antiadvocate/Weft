@@ -16,7 +16,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   elapsed_minutes: num,
   weather: str,
   player_location: str,
-  locations: A(S({ char_id: str, place: str }, ["char_id", "place"])),
+  locations: A(S({ char_id: str, place: str, said: str }, ["char_id", "place", "said"])),
   money: str,
   present: strA,
   facts: A(S({ char_id: str, field: { type: "string", enum: ["fatigue","hunger","thirst","slept","condition_add","condition_remove","inventory_add","inventory_remove","wearing_add","wearing_remove","injury","injury_remove"] }, value: str }, ["char_id", "field", "value"])),
