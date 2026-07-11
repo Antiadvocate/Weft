@@ -12,6 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
+import { detectWorldPronoun } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
@@ -441,7 +442,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
   // does not get to be asleep. Everything above may shape the scene; fate decides that it happens.
   const fateNote = fateDirective(fate, state.destination_progress?.missing);
-  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote;
+  // PRONOUN LOCK. When canon declares the world's people all use one non-default set (xe/xem etc.),
+  // the narration tag on each sheet isn't enough: characters keep saying "him"/"her" in DIALOGUE,
+  // because the player has their own pronouns and the narrator sees those words as valid nearby. So
+  // reassert it loudly every turn, name the specific failure, and separate narration from speech.
+  const worldPro = detectWorldPronoun(state.world.canon);
+  const playerPro = (state.characters["char_player"]?.pronouns ?? "").trim();
+  const pronounLock = worldPro
+    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro}, and the player may use those words about himself — but a native hearing them finds them alien and does not adopt them. If a native repeats the player's odd word, that is a deliberate, marked moment (curiosity, mockery, testing), never a casual slip.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
+    : "";
+  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
   const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
@@ -1614,10 +1624,29 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   // names was confabulated (the "told him Seattle, it saved Portland" bug); we repair it by
   // swapping in the best verbatim source sentence — truth by construction, zero tokens.
   const sourceText = `${action}\n${prose}`;
+  // What the PLAYER actually said aloud this turn — the only channel through which the world can
+  // learn the player's private background. Facts about the player that trace only to NARRATION are
+  // leaks: the narrator wrote "you're an engineer" and then a character "learned" it. Reject those.
+  const playerSpeech = (action.match(/"([^"]*)"/g) ?? []).join(" ").toLowerCase();
+  const bg = `${state.characters["char_player"]?.background ?? ""} ${state.characters["char_player"]?.life_history ?? ""}`.toLowerCase();
+  const bgTokens = new Set((bg.match(/[a-z][a-z']{4,}/g) ?? []).filter((w) => !["their","there","which","would","about","other","being","these","those","after","before","because","service"].includes(w)));
+  const isPrivateBackgroundLeak = (factText: string, learnerId: string): boolean => {
+    if (learnerId === "char_player") return false; // the player knowing their own background is fine
+    const ft = factText.toLowerCase();
+    // does this fact repeat a distinctive word from the player's private dossier?
+    const hits = [...bgTokens].filter((t) => ft.includes(t));
+    if (!hits.length) return false;
+    // allowed only if the player themselves said that word aloud this turn
+    return !hits.some((t) => playerSpeech.includes(t));
+  };
   const whitelist = knownNameWhitelist(state);
   for (const fl of diff.facts_learned ?? []) {
     const id = resolveId(state, fl.char_id); if (!id || !fl.fact) continue;
     const mem = state.memory[id]; if (!mem) continue;
+    if (isPrivateBackgroundLeak(fl.fact, id)) {
+      console.warn(`[facts] BLOCKED background leak: ${nameOf(id)} cannot know "${fl.fact.slice(0, 60)}" — the player never revealed it`);
+      continue;
+    }
     const quoteOk = !!fl.quote && sourceText.toLowerCase().includes(fl.quote.trim().toLowerCase());
     const g = groundMemoryContent(fl.fact, quoteOk ? fl.quote : undefined, sourceText, whitelist);
     // a fact whose specifics can't be traced to the source at all is not stored as fact —
@@ -1631,6 +1660,10 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const m of diff.memories ?? []) {
     const id = resolveId(state, m.char_id); if (!id || !m.content) continue;
     const mem = state.memory[id]; if (!mem) continue;
+    if (isPrivateBackgroundLeak(m.content, id)) {
+      console.warn(`[memory] BLOCKED background leak in ${nameOf(id)}'s memory — the player never revealed it`);
+      continue;
+    }
     const g = groundMemoryContent(m.content, m.anchor, sourceText, whitelist);
     if (g.repaired) m.content = g.content;
     else if (g.suspects.length) console.warn(`[memory] suspect specifics in ${nameOf(id)}'s memory (${g.suspects.join(", ")}) — no source sentence matched; stored as-is`);

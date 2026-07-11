@@ -68,3 +68,40 @@ export function detectWorldPronoun(canon: string[] | undefined): string | undefi
   if (set.startsWith("they/them")) return "they/them";
   return set;
 }
+
+/** When the world uses one pronoun set, natives cannot speak "he/him/his/she/her/hers" — those words
+ *  don't exist for them. The narrator still slips them into DIALOGUE. This repairs only inside quotes,
+ *  never in narration (where an outsider player with different pronouns legitimately takes "him"), and
+ *  leaves the player's own name-adjacent references alone. Returns the fixed prose and a count.
+ *
+ *  Deliberately conservative: a wrong correction is worse than a missed one, so it only fires on the
+ *  common set xe/xem/xer and only rewrites a gendered pronoun that is NOT within two words of the
+ *  player's name (so "Rabi said he was lost", spoken by a native quoting the outsider, is left be —
+ *  that is a marked moment, not a slip). */
+export function repairNativePronouns(prose: string, worldPronoun: string | undefined, playerName: string): { prose: string; fixed: number } {
+  if (!worldPronoun) return { prose, fixed: 0 };
+  const parts = worldPronoun.split("/");
+  const subj = parts[0] || "xe", obj = parts[1] || "xem", poss = parts[2] || parts[1] || "xer";
+  const name = (playerName || "").split(/\s+/)[0];
+  let fixed = 0;
+
+  // operate only inside "..." dialogue spans
+  const out = prose.replace(/"([^"]*)"/g, (whole, inner: string) => {
+    const repaired = inner.replace(/\b(he|him|his|she|her|hers)\b/gi, (m: string, _g: string, offset: number) => {
+      // leave alone if the player's name is within ~12 chars either side (likely about the outsider)
+      const around = inner.slice(Math.max(0, offset - 14), offset + m.length + 14);
+      if (name && around.toLowerCase().includes(name.toLowerCase())) return m;
+      const low = m.toLowerCase();
+      let repl = low === "he" || low === "she" ? subj : low === "him" || low === "her" ? obj : poss;
+      if (low === "her") { // "her" is ambiguous (obj or poss); default to obj
+        repl = obj;
+      }
+      // preserve capitalization
+      if (m[0] === m[0].toUpperCase()) repl = repl.charAt(0).toUpperCase() + repl.slice(1);
+      fixed++;
+      return repl;
+    });
+    return `"${repaired}"`;
+  });
+  return { prose: out, fixed };
+}
