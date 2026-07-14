@@ -238,6 +238,7 @@ export function sanitize(state: SaveState): SaveState {
         if (c.location && remap.has(c.location)) c.location = remap.get(c.location)!;
       }
       if (remap.has(state.world.player_location)) state.world.player_location = remap.get(state.world.player_location)!;
+      for (const t of state.travel_log ?? []) if (remap.has(t.place)) t.place = remap.get(t.place)!;
       for (const id of remap.keys()) delete places[id];
       console.warn(`[places] merged ${remap.size} sub-room(s) back into their parent locations`);
     }
@@ -302,6 +303,14 @@ export function sanitize(state: SaveState): SaveState {
     state.world.present = Object.entries(state.characters)
       .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === state.world.player_location)
       .map(([id]) => id);
+  }
+  // travel-log backfill for saves made before the story map existed: drop entries whose
+  // place is gone, collapse consecutive repeats, and seed with the current location so
+  // the map always has at least the "you are here" node.
+  state.travel_log = (state.travel_log ?? []).filter((t) => state.world.places[t.place]);
+  state.travel_log = state.travel_log.filter((t, i, a) => i === 0 || t.place !== a[i - 1].place);
+  if (!state.travel_log.length && state.world.player_location && state.world.places[state.world.player_location]) {
+    state.travel_log.push({ turn: state.world.current_turn ?? 0, place: state.world.player_location });
   }
   return state;
 }

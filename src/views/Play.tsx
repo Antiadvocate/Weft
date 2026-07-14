@@ -8,6 +8,9 @@ import World from "./World";
 import Chronicle from "./Chronicle";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
+import Atmosphere from "../lib/Atmosphere";
+import Backdrop from "../lib/Backdrop";
+import { sceneTone, reducedMotion } from "../lib/tone";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
@@ -63,6 +66,35 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const toastId = useRef(0);
 
   const history = save.history;
+
+  // ── ambient layers: one tone derived from state drives particles, backdrop, prose cadence ──
+  const tone = useMemo(() => sceneTone(save), [save]);
+  const locale = save.world.places[save.world.player_location]?.name ?? "";
+
+  // ── state-driven fx: strikes flash red and decay; canon events ripple once ──
+  const [fx, setFx] = useState<null | "strike" | "canon">(null);
+  const fxTimer = useRef(0);
+  const flash = (kind: "strike" | "canon") => {
+    window.clearTimeout(fxTimer.current);
+    setFx(kind);
+    fxTimer.current = window.setTimeout(() => setFx(null), kind === "strike" ? 1000 : 1300);
+  };
+  const lastHistLen = useRef(history.length);
+  useEffect(() => {
+    if (history.length > lastHistLen.current) {
+      const latest = history[history.length - 1];
+      if ((latest?.shifts ?? []).some((s) => s.startsWith("CANON:"))) flash("canon");
+    }
+    lastHistLen.current = history.length;
+  }, [history.length]);
+
+  // ── per-word reveal bookkeeping: words already shown while streaming never re-animate ──
+  const revealCount = useRef(new Map<React.Key, number>());
+  const pendingReveal = useRef(new Map<React.Key, number>());
+  useEffect(() => {
+    if (!liveProse) { revealCount.current.clear(); pendingReveal.current.clear(); return; }
+    for (const [k, v] of pendingReveal.current) revealCount.current.set(k, v);
+  });
 
   const [readingTurn, setReadingTurn] = useState<number | null>(null);
   const toggleRead = (turn: number, prose: string) => {
@@ -204,6 +236,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     try {
       setSave(await api.strike(save.id, what.trim(), turn - 1));
       setUndoTurn(before); setRolledTo(turn - 1);
+      flash("strike");
       pushToasts([`struck — rolled back to turn ${turn - 1}`, "the narrator will never write it again"]);
     } catch (e: any) { setError(e.message ?? "strike failed"); }
   };
@@ -247,30 +280,58 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch (e: any) { setError(e.message); } finally { setIllustrating(false); }
   };
 
+  /** Per-word settle-in for the live paragraph. Cadence comes from the scene tone —
+   *  tense reads fast, meditative drifts. `counter` tracks the paragraph-global word
+   *  index and how many words were already revealed while streaming, so text that has
+   *  settled never re-animates as new words arrive. */
+  type RevealCounter = { i: number; from: number };
+  const revealWords = (text: string, keyBase: string, counter: RevealCounter): React.ReactNode[] => {
+    const dur = `${Math.min(700, 240 + tone.revealMs * 8)}ms`;
+    return text.split(/(\s+)/).map((tok, ti) => {
+      if (!tok || /^\s+$/.test(tok)) return tok;
+      const idx = counter.i++;
+      if (idx < counter.from) return tok;
+      return (
+        <span key={`${keyBase}-w${ti}`} className="w-in"
+          style={{ animationDelay: `${Math.min(idx - counter.from, 40) * tone.revealMs}ms`, ["--w-dur" as any]: dur }}>
+          {tok}
+        </span>
+      );
+    });
+  };
+
   /** Disco-style prose renderer: "dialogue" gets the accent ink; known names become tappable refs. */
   const renderParagraph = (text: string, key: React.Key, animate: boolean) => {
+    const counter: RevealCounter | null = animate && !reducedMotion()
+      ? { i: 0, from: revealCount.current.get(key) ?? 0 } : null;
     const nodes: React.ReactNode[] = [];
     // split on double-quoted spans (straight + curly)
     const parts = text.split(/("[^"]+"|“[^”]+”)/g);
     parts.forEach((part, pi) => {
       const isDlg = /^["“]/.test(part);
-      const sub = renderNames(part, `${key}-${pi}`);
+      const sub = renderNames(part, `${key}-${pi}`, counter);
       nodes.push(isDlg ? <span key={`${key}-${pi}`} className="dlg">{sub}</span> : <React.Fragment key={`${key}-${pi}`}>{sub}</React.Fragment>);
     });
+    if (counter) pendingReveal.current.set(key, counter.i);
     return <p key={key} style={animate ? undefined : { animation: "none" }}>{nodes}</p>;
   };
 
-  const renderNames = (text: string, keyBase: string): React.ReactNode[] => {
+  const renderNames = (text: string, keyBase: string, counter?: RevealCounter | null): React.ReactNode[] => {
     const names = Object.keys(nameIndex).filter((n) => n.length >= 2);
-    if (!names.length) return [text];
+    const plain = (s: string, k: string): React.ReactNode[] =>
+      counter ? revealWords(s, k, counter) : [s];
+    if (!names.length) return plain(text, keyBase);
     const re = new RegExp(`\\b(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`, "gi");
     const out: React.ReactNode[] = [];
     let last = 0; let m: RegExpExecArray | null; let i = 0;
     while ((m = re.exec(text))) {
-      if (m.index > last) out.push(text.slice(last, m.index));
+      if (m.index > last) out.push(...plain(text.slice(last, m.index), `${keyBase}-p${i}`));
       const nm = m[0];
+      const idx = counter ? counter.i++ : 0;
+      const revealing = counter && idx >= counter.from;
       out.push(
-        <span key={`${keyBase}-n${i++}`} className="name-ref"
+        <span key={`${keyBase}-n${i++}`} className={revealing ? "name-ref w-in" : "name-ref"}
+          style={revealing ? { animationDelay: `${Math.min(idx - counter!.from, 40) * tone.revealMs}ms` } : undefined}
           onClick={(e) => {
             const r = (e.target as HTMLElement).getBoundingClientRect();
             setTip({ name: nm, x: r.left, y: r.bottom });
@@ -278,7 +339,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       );
       last = m.index + nm.length;
     }
-    if (last < text.length) out.push(text.slice(last));
+    if (last < text.length) out.push(...plain(text.slice(last), `${keyBase}-pt`));
     return out;
   };
 
@@ -310,6 +371,16 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* seismograph strip */}
       <div className="px-4 pt-2 pb-1.5 flex items-center gap-2">
+        {(() => {
+          const r = (save as any).condition?.["char_player"]?.psyche?.relaxation ?? 0;
+          const color = r <= -7 ? "var(--danger)" : r <= -3 ? "var(--accent)" : r >= 4 ? "var(--calm)" : "var(--text-lo)";
+          const amp = 1.04 + ((r + 10) / 20) * 0.14; // clenched breathes shallow, open breathes deep
+          return (
+            <div className="breath-orb" title={`openness: ${r >= 4 ? "open" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : "level"}`}
+              style={{ background: color, boxShadow: `0 0 10px ${color}`, opacity: 0.85,
+                ["--breath-s" as any]: `${tone.breathS}s`, ["--breath-amp" as any]: amp }} />
+          );
+        })()}
         <div className="seismo flex-1 px-1">
           <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => (t.player_mood_valence ?? 0) / 16)} />
         </div>
@@ -366,8 +437,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         );
       })()}
 
-      {/* prose scroll */}
-      <div ref={scrollRef} className="scroll-y flex-1 px-5 pb-4">
+      {/* prose scroll — ambient layers (seeded backdrop + tone-driven particles) sit beneath it */}
+      <div className="relative flex-1 min-h-0">
+        <Backdrop tone={tone} locale={locale} />
+        <Atmosphere tone={tone} />
+        {fx && <div className={fx === "strike" ? "fx-strike" : "fx-canon"} aria-hidden />}
+        <div ref={scrollRef} className="scroll-y h-full px-5 pb-4 relative" style={{ zIndex: 1 }}>
         {history.length === 0 && !liveProse && (
           <div className="pt-10 text-center">
             <div className="font-display text-lg mb-1.5">Ready to begin.</div>
@@ -483,6 +558,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             {error}
           </div>
         )}
+        </div>
       </div>
 
       {/* the clock — tap to correct it when the bookkeeper drifts from the prose */}

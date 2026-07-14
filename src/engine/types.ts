@@ -449,6 +449,7 @@ export interface SaveState {
   pressure_state?: { last_beat_turn: number; last_exo_turn: number }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
+  travel_log?: { turn: number; place: string }[]; // player's path through places, in visit order — feeds the story map
 }
 
 // ───────────────────────────── simulator contract ─────────────────────────────

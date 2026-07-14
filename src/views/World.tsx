@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
 import { RelationshipWeb } from "./RelationshipWeb";
+import StoryMap from "../lib/StoryMap";
 import { nice } from "../lib/format";
 
 export default function World({ save }: { save: ClientSave }) {
@@ -57,6 +58,13 @@ export default function World({ save }: { save: ClientSave }) {
       )}
       <Block title="The web" delay={0.03}>
         <RelationshipWeb save={save} />
+      </Block>
+
+      <Block title="The map" delay={0.035}>
+        <StoryMap save={save} />
+        <div className="text-[10.5px] italic pt-1" style={{ color: "var(--text-lo)" }}>
+          The world as you've walked it — every place you've stood, every path between.
+        </div>
       </Block>
 
       <Block title="Threads" delay={0.04}>

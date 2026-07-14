@@ -281,3 +281,54 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   text-align: left;
   margin: 0 0 1em;
 }
+
+/* ───────── ambient & state-driven motion ───────── */
+
+/* per-word prose reveal — cadence set inline from scene tone */
+@keyframes wordIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.w-in { display: inline-block; opacity: 0; animation: wordIn var(--w-dur, .42s) cubic-bezier(.2,.8,.3,1) both; }
+
+/* openness orb — the relaxation scalar, breathing. Period + depth set inline. */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: .8; }
+  50%      { transform: scale(var(--breath-amp, 1.12)); opacity: 1; }
+}
+.breath-orb {
+  width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0;
+  animation: breathe var(--breath-s, 4s) ease-in-out infinite;
+}
+
+/* strike — the veto lands as a red flash that decays */
+@keyframes strikeFlash { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
+.fx-strike {
+  position: fixed; inset: 0; z-index: 80; pointer-events: none;
+  background: radial-gradient(115% 100% at 50% 50%, transparent 42%, rgba(199, 81, 70, .38));
+  animation: strikeFlash .9s ease-out both;
+}
+
+/* canon — a world-altering fact ripples outward once */
+@keyframes canonRipple {
+  from { opacity: .85; transform: scale(.15); }
+  to   { opacity: 0;   transform: scale(1.5); }
+}
+.fx-canon { position: fixed; inset: 0; z-index: 80; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.fx-canon::before {
+  content: ""; width: 46vmin; height: 46vmin; border-radius: 999px;
+  border: 1.5px solid var(--accent); box-shadow: 0 0 70px var(--accent-glow);
+  animation: canonRipple 1.15s cubic-bezier(.2,.8,.3,1) both;
+}
+
+/* story map — "you are here" pulse and newest-edge draw-in */
+@keyframes youPulse { from { r: 5; opacity: .8; } to { r: 13; opacity: 0; } }
+.map-you { animation: youPulse 2.4s ease-out infinite; }
+@keyframes edgeDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.map-edge-new { stroke-dasharray: 1; animation: edgeDraw 1.2s cubic-bezier(.2,.8,.3,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .w-in, .breath-orb, .fx-strike, .fx-canon::before, .map-you, .map-edge-new { animation: none !important; opacity: 1; }
+  .map-you { opacity: .5; }
+  .fx-strike, .fx-canon { display: none; }
+}

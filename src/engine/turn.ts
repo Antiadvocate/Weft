@@ -1446,6 +1446,19 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
   }
+  // ── TRAVEL LOG ── the player's path through places, in order. Feeds the story map:
+  //    each visited place is a node, each move an edge. Skips "elsewhere" (not a place)
+  //    and consecutive repeats (staying put is not travel). Capped so old saves stay small.
+  {
+    const pid = state.world.player_location;
+    if (pid && pid !== OFFSCENE) {
+      const log = (state.travel_log ??= []);
+      if (!log.length || log[log.length - 1].place !== pid) {
+        log.push({ turn, place: pid });
+        if (log.length > 400) log.splice(0, log.length - 400);
+      }
+    }
+  }
 
   // ── EXITS: someone died or left the story for good. Mark them, pull them from the
   //    scene and any room, and stop the engine from seeding them new wants. ──
