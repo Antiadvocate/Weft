@@ -499,10 +499,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     prose = opts.proseOverride;
   } else {
     const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
+    let narratorSources: { url: string; title?: string }[] | undefined;
     while (true) {
       const { done, value } = await stream.next();
-      if (done) { prose = value.text; narratorUsage = value.usage; break; }
+      if (done) { prose = value.text; narratorUsage = value.usage; narratorSources = value.annotations; break; }
       ev.onDelta(value);
+    }
+    // GROUNDING RECEIPT — the search is invisible unless we show it. Cited sources prove it ran;
+    // zero sources is worth saying out loud too, so "grounded" never silently means "wasn't".
+    if (opts?.ground) {
+      const hosts = [...new Set((narratorSources ?? []).map((s) => { try { return new URL(s.url).hostname.replace(/^www\./, ""); } catch { return s.url; } }))];
+      ev.onMeta({ shifts: [hosts.length
+        ? `web-grounded — ${hosts.length} source${hosts.length > 1 ? "s" : ""}: ${hosts.slice(0, 3).join(", ")}`
+        : "web grounding: search returned no sources — this turn wrote from memory"] });
     }
   }
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.

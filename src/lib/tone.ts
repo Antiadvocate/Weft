@@ -110,3 +110,15 @@ export function makeNoise2D(seed: number): (x: number, y: number) => number {
 
 export const reducedMotion = (): boolean =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+/* ── ambience level — the prose is the point; the ambient layers must never cost readability.
+      off: nothing mounts. subtle (default): faint presence. full: the previous look, tamed. ── */
+export type AmbienceLevel = "off" | "subtle" | "full";
+const AMB_KEY = "weft-ambience";
+export function getAmbience(): AmbienceLevel {
+  const v = typeof localStorage !== "undefined" ? localStorage.getItem(AMB_KEY) : null;
+  return v === "off" || v === "full" ? v : "subtle";
+}
+export function setAmbience(v: AmbienceLevel): void {
+  try { localStorage.setItem(AMB_KEY, v); } catch { /* private mode */ }
+}

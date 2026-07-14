@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, Play as PlayIcon, RotateCcw, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -10,7 +10,7 @@ import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
 import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
-import { sceneTone, reducedMotion } from "../lib/tone";
+import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel } from "../lib/tone";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
@@ -67,9 +67,16 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const history = save.history;
 
-  // ── ambient layers: one tone derived from state drives particles, backdrop, prose cadence ──
+  // ── ambient layers: one tone derived from state drives particles, backdrop, prose cadence.
+  //    Readability rules them: one tap cycles subtle → full → off, persisted locally. ──
   const tone = useMemo(() => sceneTone(save), [save]);
   const locale = save.world.places[save.world.player_location]?.name ?? "";
+  const [ambience, setAmb] = useState<AmbienceLevel>(getAmbience);
+  const cycleAmbience = () => {
+    const next: AmbienceLevel = ambience === "subtle" ? "full" : ambience === "full" ? "off" : "subtle";
+    setAmbience(next); setAmb(next);
+    pushToasts([`ambience: ${next}`]);
+  };
 
   // ── state-driven fx: strikes flash red and decay; canon events ripple once ──
   const [fx, setFx] = useState<null | "strike" | "canon">(null);
@@ -399,6 +406,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         <button className="chip" onClick={() => setSkipOpen(true)} disabled={running || skipping}>
           <Moon size={11} />
         </button>
+        <button className="chip" onClick={cycleAmbience}
+          title={`ambience: ${ambience} — tap to cycle (subtle / full / off)`}
+          style={ambience === "off" ? { opacity: 0.45 } : ambience === "full" ? { color: "var(--accent)", borderColor: "var(--accent-glow)" } : undefined}>
+          <Sparkles size={11} />
+        </button>
         <button className="chip" disabled={running || chaptering} title="refresh — condense memory to clean up drift, same moment and relationships, clears runaway threads (fixes recap confusion)"
           onClick={async () => {
             if (!confirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character.")) return;
@@ -439,8 +451,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* prose scroll — ambient layers (seeded backdrop + tone-driven particles) sit beneath it */}
       <div className="relative flex-1 min-h-0">
-        <Backdrop tone={tone} locale={locale} />
-        <Atmosphere tone={tone} />
+        {ambience !== "off" && <Backdrop tone={tone} locale={locale} level={ambience} />}
+        {ambience !== "off" && <Atmosphere tone={tone} level={ambience} />}
         {fx && <div className={fx === "strike" ? "fx-strike" : "fx-canon"} aria-hidden />}
         <div ref={scrollRef} className="scroll-y h-full px-5 pb-4 relative" style={{ zIndex: 1 }}>
         {history.length === 0 && !liveProse && (
@@ -548,7 +560,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           {phase && (
             <motion.div key={phase} className="font-mono text-[11px] uppercase tracking-widest py-2"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <span className="shimmer">{PHASE_LABEL[phase] ?? phase}…</span>
+              <span className="shimmer">{phase === "narrator" && ground ? "narrator · searching the web" : PHASE_LABEL[phase] ?? phase}…</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -651,7 +663,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 mt-0.5"
               style={ground ? { color: "var(--accent)", background: "var(--accent-soft)" } : { color: "var(--text-lo)" }}
               title="Ground this reply with a live web search (real places/facts). Costs more for this turn."
-              onClick={() => setGround((g) => !g)}>
+              onClick={() => {
+                const n = !ground; setGround(n);
+                pushToasts([n ? "web grounding on — turns will search the live web (costs a little more)" : "web grounding off"]);
+              }}>
               <Globe size={10} /> web
             </button>
           </div>

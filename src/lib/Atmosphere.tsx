@@ -6,7 +6,14 @@
  * static single frame under prefers-reduced-motion.
  */
 import React, { useEffect, useRef } from "react";
-import { reducedMotion, type ParticleKind, type SceneTone } from "./tone";
+import { reducedMotion, type AmbienceLevel, type ParticleKind, type SceneTone } from "./tone";
+
+/** Readability is the contract: particles must read as texture, never as noise over glyphs.
+ *  subtle keeps the field sparse and dim; full is denser but still alpha-capped. */
+const LEVELS: Record<Exclude<AmbienceLevel, "off">, { alpha: number; density: number; cap: number }> = {
+  subtle: { alpha: 0.35, density: 0.55, cap: 0.16 },
+  full:   { alpha: 0.7,  density: 0.9,  cap: 0.3 },
+};
 
 interface P {
   x: number; y: number; vx: number; vy: number;
@@ -39,10 +46,12 @@ function spawn(kind: ParticleKind, color: string, w: number, h: number, now: num
   return p;
 }
 
-export default function Atmosphere({ tone }: { tone: SceneTone }) {
+export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone; level?: Exclude<AmbienceLevel, "off"> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const toneRef = useRef(tone);
   toneRef.current = tone;
+  const levelRef = useRef(level);
+  levelRef.current = level;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -67,13 +76,15 @@ export default function Atmosphere({ tone }: { tone: SceneTone }) {
     const ro = new ResizeObserver(resize);
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
-    const targetCount = () => Math.round(Math.min(80, Math.max(10, (w * h) / 14000)) * toneRef.current.density) || 0;
+    const targetCount = () =>
+      Math.round(Math.min(80, Math.max(8, (w * h) / 14000)) * toneRef.current.density * LEVELS[levelRef.current].density) || 0;
 
     const draw = (p: P, now: number) => {
       const t = toneRef.current;
+      const lv = LEVELS[levelRef.current];
       const ageIn = Math.min(1, (now - p.born) / 1200);
-      const alpha = p.a * ageIn * (p.dying ? Math.max(0, 1 - (now - p.born) / 1400) : 1)
-        * (p.kind === "motes" ? 0.6 + 0.4 * Math.sin(now / 900 + p.phase) : 1);
+      const alpha = Math.min(lv.cap, lv.alpha * p.a * ageIn * (p.dying ? Math.max(0, 1 - (now - p.born) / 1400) : 1)
+        * (p.kind === "motes" ? 0.6 + 0.4 * Math.sin(now / 900 + p.phase) : 1));
       if (alpha <= 0.005) return;
       ctx.globalAlpha = alpha;
       if (p.kind === "rain") {

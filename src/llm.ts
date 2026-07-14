@@ -5,7 +5,7 @@ import { getApiKey } from "./config";
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export interface Usage { prompt_tokens: number; completion_tokens: number; cached_tokens?: number; cost?: number }
-export interface LLMResult { text: string; usage: Usage; model: string }
+export interface LLMResult { text: string; usage: Usage; model: string; annotations?: { url: string; title?: string }[] }
 
 /** Per-save LLM preferences, set by the turn loop each call batch (module-level because the
  *  llm layer deliberately knows nothing about SaveState). */
@@ -166,16 +166,20 @@ export async function complete(messages: any[], model: string, fallback: string,
 }
 
 export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false): AsyncGenerator<string, LLMResult, unknown> {
-  const slug = (m: string) => (online && !m.endsWith(":online") ? `${m}:online` : m);
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
-    const res = await fetch(OR_URL, {
-      method: "POST", headers: headers(),
-      body: JSON.stringify({ model: slug(m), messages, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } }),
-    });
+    // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
+    // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
+    // via the fallback: grounding failed silently and looked like it did nothing. The plugins
+    // param is the documented path, works with streaming, and returns url_citation annotations
+    // we surface to the player as proof the search actually happened.
+    const body: Record<string, unknown> = { model: m, messages, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } };
+    if (online && !m.endsWith(":online")) body.plugins = [{ id: "web", max_results: 3 }];
+    const res = await fetch(OR_URL, { method: "POST", headers: headers(), body: JSON.stringify(body) });
     if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "", full = "", usage: Usage = { prompt_tokens: 0, completion_tokens: 0 };
+    const annotations: { url: string; title?: string }[] = [];
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -191,15 +195,20 @@ export async function* completeStream(messages: any[], model: string, fallback: 
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
           if (delta) { full += delta; yield delta; }
+          const ann = j.choices?.[0]?.delta?.annotations ?? j.choices?.[0]?.message?.annotations;
+          if (Array.isArray(ann)) for (const a of ann) {
+            const u = a?.url_citation?.url ?? a?.url;
+            if (u && !annotations.some((x) => x.url === u)) annotations.push({ url: u, title: a?.url_citation?.title });
+          }
           if (j.usage) usage = { prompt_tokens: j.usage.prompt_tokens ?? 0, completion_tokens: j.usage.completion_tokens ?? 0, cached_tokens: j.usage.prompt_tokens_details?.cached_tokens ?? 0, cost: j.usage.cost ?? undefined };
         } catch { /* keep-alive */ }
       }
     }
     if (!full.trim()) throw new Error("empty stream");
-    return { text: full, usage, model: m };
+    return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined };
   };
   try { return yield* attempt(model); }
-  catch (e: any) { logErr(slug(model), e); return yield* attempt(fallback); }
+  catch (e: any) { logErr(model, e); return yield* attempt(fallback); }
 }
 
 export function extractJson(text: string): string {

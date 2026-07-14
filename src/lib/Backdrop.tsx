@@ -6,20 +6,20 @@
  * Drifts very slowly; crossfades ~2s on scene change. Static under reduced motion.
  */
 import React, { useEffect, useRef } from "react";
-import { hashSeed, makeNoise2D, mulberry32, reducedMotion, type SceneTone } from "./tone";
+import { hashSeed, makeNoise2D, mulberry32, reducedMotion, type AmbienceLevel, type SceneTone } from "./tone";
 
 type RGB = [number, number, number];
 const lerp3 = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /** Palette stops per tone: [deep, mid, glow]. Kept dark — this sits UNDER ink, not over it. */
 const PALETTES: Record<SceneTone["id"], [RGB, RGB, RGB]> = {
-  calm:    [[13, 12, 10], [26, 24, 18], [46, 40, 28]],
-  warm:    [[16, 11, 8],  [38, 24, 14], [70, 42, 22]],
-  wonder:  [[10, 12, 16], [22, 28, 40], [40, 52, 74]],
-  grief:   [[11, 11, 12], [21, 21, 23], [34, 34, 37]],
-  neutral: [[13, 11, 9],  [24, 21, 16], [38, 33, 24]],
-  tense:   [[14, 10, 9],  [30, 20, 16], [52, 30, 22]],
-  dread:   [[10, 8, 8],   [24, 14, 13], [44, 20, 18]],
+  calm:    [[13, 12, 10], [21, 19, 15], [30, 26, 19]],
+  warm:    [[15, 11, 8],  [27, 18, 12], [44, 27, 15]],
+  wonder:  [[10, 12, 15], [17, 21, 28], [26, 33, 46]],
+  grief:   [[11, 11, 12], [17, 17, 19], [23, 23, 25]],
+  neutral: [[13, 11, 9],  [20, 17, 13], [26, 22, 16]],
+  tense:   [[13, 10, 9],  [23, 16, 13], [34, 21, 16]],
+  dread:   [[10, 8, 8],   [19, 12, 11], [29, 15, 13]],
 };
 
 /** The place's own name bends its light: hearths run warm, reaches run cool. */
@@ -32,7 +32,7 @@ function placeShift(locale: string): number {
 
 const BW = 96, BH = 60;
 
-export default function Backdrop({ tone, locale }: { tone: SceneTone; locale: string }) {
+export default function Backdrop({ tone, locale, level = "subtle" }: { tone: SceneTone; locale: string; level?: Exclude<AmbienceLevel, "off"> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef({ tone, locale });
   sceneRef.current = { tone, locale };
@@ -55,7 +55,7 @@ export default function Backdrop({ tone, locale }: { tone: SceneTone; locale: st
       const rnd = mulberry32(seed);
       noise = makeNoise2D(seed);
       ox = rnd() * 64; oy = rnd() * 64;
-      warm = placeShift(loc) * 8 + (rnd() - 0.5) * 6;
+      warm = placeShift(loc) * 5 + (rnd() - 0.5) * 4;
       palette = PALETTES[t.id];
     };
 
@@ -121,6 +121,8 @@ export default function Backdrop({ tone, locale }: { tone: SceneTone; locale: st
 
   return (
     <canvas ref={canvasRef} aria-hidden
-      style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0.55, filter: "blur(26px) saturate(1.15)", transform: "scale(1.12)" }} />
+      style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+        opacity: level === "full" ? 0.32 : 0.16,
+        filter: "blur(32px) saturate(1.1)", transform: "scale(1.12)" }} />
   );
 }
