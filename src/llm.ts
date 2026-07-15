@@ -5,7 +5,7 @@ import { getApiKey } from "./config";
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export interface Usage { prompt_tokens: number; completion_tokens: number; cached_tokens?: number; cost?: number }
-export interface LLMResult { text: string; usage: Usage; model: string; annotations?: { url: string; title?: string }[] }
+export interface LLMResult { text: string; usage: Usage; model: string; annotations?: { url: string; title?: string }[]; truncated?: boolean }
 
 /** Per-save LLM preferences, set by the turn loop each call batch (module-level because the
  *  llm layer deliberately knows nothing about SaveState). */
@@ -179,6 +179,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "", full = "", usage: Usage = { prompt_tokens: 0, completion_tokens: 0 };
+    let truncated = false;
     const annotations: { url: string; title?: string }[] = [];
     for (;;) {
       const { done, value } = await reader.read();
@@ -195,6 +196,9 @@ export async function* completeStream(messages: any[], model: string, fallback: 
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
           if (delta) { full += delta; yield delta; }
+          // hit the output cap mid-generation — the tail (scene footer) was cut. Flag it so the
+          // caller can recover rather than silently losing the footer.
+          if (j.choices?.[0]?.finish_reason === "length") truncated = true;
           const ann = j.choices?.[0]?.delta?.annotations ?? j.choices?.[0]?.message?.annotations;
           if (Array.isArray(ann)) for (const a of ann) {
             const u = a?.url_citation?.url ?? a?.url;
@@ -205,7 +209,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       }
     }
     if (!full.trim()) throw new Error("empty stream");
-    return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined };
+    return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined, truncated };
   };
   try { return yield* attempt(model); }
   catch (e: any) { logErr(model, e); return yield* attempt(fallback); }
