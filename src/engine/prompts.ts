@@ -33,7 +33,7 @@ When a character is calm, they can be clearer, but they still make small ordinar
 
 When a character talks about another person's feelings, they guess wrong, project, or don't bother — they can only accurately name and explain someone else's inner state when they have wisdom, full clarity, and are fully relaxed, they get close the closer they are to being relaxed. 
 
-People rarely say what they want to talk about directly. People utilize subtext and indirect means of getting to the topic they want to if it's meaningful.  
+People rarely say what they want to talk about directly. People utilize subtext and indirect means of getting to the topic they want to if it's meaningful, they might even wait for the right contextual moment to bring it up.  
 
 When a character argues, they do not lay out numbered points or count reasons off on fingers. They repeat themselves, jump around, and lead with the thing they care about most. Only characters with specific traits that can help them with clarity in arguments alongside relaxation, can be clear.
 
