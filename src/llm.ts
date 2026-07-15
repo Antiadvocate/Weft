@@ -165,15 +165,37 @@ export async function complete(messages: any[], model: string, fallback: string,
   }
 }
 
-export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false): AsyncGenerator<string, LLMResult, unknown> {
+export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string): AsyncGenerator<string, LLMResult, unknown> {
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
     // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
     // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
     // via the fallback: grounding failed silently and looked like it did nothing. The plugins
     // param is the documented path, works with streaming, and returns url_citation annotations
     // we surface to the player as proof the search actually happened.
-    const body: Record<string, unknown> = { model: m, messages, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } };
-    if (online && !m.endsWith(":online")) body.plugins = [{ id: "web", max_results: 3 }];
+    //
+    // TARGETED QUERY — the web plugin has NO query field: Exa auto-derives the search terms from
+    // the message content, and against a 5000-token narrator prompt that auto-query grabs whatever
+    // is most salient (hence a Warhammer scene pulling sports links). The fix is to steer Exa: we
+    // (a) push a single high-salience search line onto the tail of the last user message so it
+    // dominates the derived query, and (b) restate it in search_prompt. Both point Exa at the
+    // topic we actually want instead of letting it guess from the whole digest.
+    let outMsgs = messages;
+    const q = searchQuery?.trim();
+    if (online && q && !m.endsWith(":online")) {
+      outMsgs = messages.map((x) => ({ ...x }));
+      for (let i = outMsgs.length - 1; i >= 0; i--) {
+        if (outMsgs[i].role === "user" && typeof outMsgs[i].content === "string") {
+          outMsgs[i] = { ...outMsgs[i], content: `${outMsgs[i].content}\n\n=== WEB SEARCH TARGET (search the web for exactly this, ignore other topics) ===\n${q}` };
+          break;
+        }
+      }
+    }
+    const body: Record<string, unknown> = { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } };
+    if (online && !m.endsWith(":online")) {
+      const web: Record<string, unknown> = { id: "web", max_results: 3 };
+      if (q) web.search_prompt = `Web results for "${q}". Incorporate the factual detail into the prose; do not cite sources or break fiction.`;
+      body.plugins = [web];
+    }
     const res = await fetch(OR_URL, { method: "POST", headers: headers(), body: JSON.stringify(body) });
     if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const reader = res.body.getReader();
