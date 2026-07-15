@@ -37,6 +37,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [focused, setFocused] = useState(false);
   const [mode, setMode] = useState<ActionMode>("do");
   const [ground, setGround] = useState(false);
+  // SOMATIC TIGHTNESS — the player's own body reading 0–5 vs their meditative zero (undefined = let the
+  // engine infer from text). `baseline` routes it to the persistent ceiling instead of this-turn's scalar:
+  // "running low today" (bad sleep the clock can't see) rather than "this beat tightened me".
+  const [tightness, setTightness] = useState<number | undefined>(undefined);
+  const [baseline, setBaseline] = useState(false);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<string | null>(null);
   const [liveProse, setLiveProse] = useState("");
@@ -152,11 +157,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); },
         onError: (msg) => { setError(msg); failed = true; },
-      }, { ground });
+      }, { ground, tightness });
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
       setRunning(false); runningRef.current = false; setProseDone(false); setPhase(null);
+      // reactive tightness is a per-turn reading — it clears once the turn commits (a spike, not a setting).
+      // the baseline (ceiling) is separate and persists in save state until the player clears it.
+      if (!failed) setTightness(undefined);
       const pend = pendingRef.current; pendingRef.current = null; setHasPending(false);
       if (failed) setAction(pend ? `${a}\n${pend}` : a); // a failed turn gives your words back
       else if (pend) void runAction(pend);               // fire the queued action immediately
@@ -649,6 +657,41 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* composer */}
       <div className="px-4 pb-2.5 pt-1">
+        {/* SOMATIC TIGHTNESS — one-tap body reading vs your meditative zero. Off = the engine infers
+            from your text. `base` reroutes the tap to a persistent baseline (bad sleep the clock can't
+            see) that holds until cleared; otherwise it's a this-turn spike that clears on send. */}
+        <div className="flex items-center gap-1.5 pb-1.5">
+          <span className="font-mono text-[8px] uppercase tracking-widest shrink-0" style={{ color: "var(--text-lo)" }} title="how tight your body is right now, 0 (fully calm) to 5 (fully tightened), against your own baseline. leave off to let the engine read it from your words.">
+            tight
+          </span>
+          {[0, 1, 2, 3, 4, 5].map((n) => {
+            const active = baseline
+              ? (() => { const sc = (save as any).condition?.char_player?.subjective_ceiling;
+                  const cur = sc === undefined ? undefined : sc >= 3 ? 2 : sc >= 0 ? 3 : sc >= -3 ? 4 : 5;
+                  return cur === n; })()
+              : tightness === n;
+            return (
+              <button key={n}
+                className="font-mono text-[10px] leading-none rounded-full flex items-center justify-center shrink-0"
+                style={{ width: 18, height: 18,
+                  color: active ? "var(--bg, #111)" : "var(--text-lo)",
+                  background: active ? "var(--accent)" : "var(--accent-soft, rgba(180,140,90,.10))",
+                  border: active ? "1px solid var(--accent)" : "1px solid transparent" }}
+                title={["fully calm", "neutral", "curious / focused", "tight — and I know it", "tight — without noticing", "fully tightened"][n] + (baseline ? " (baseline — holds until cleared)" : " (this turn)")}
+                onClick={async () => {
+                  if (baseline) { setSave(await api.setBaselineTightness(save.id, n)); }
+                  else { setTightness((v) => v === n ? undefined : n); }
+                }}>{n}</button>
+            );
+          })}
+          <button
+            className="font-mono text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+            style={baseline ? { color: "var(--accent)", background: "var(--accent-soft)" } : { color: "var(--text-lo)" }}
+            title="baseline mode: the number sets a persistent 'running low today' ceiling (e.g. bad sleep) that holds across turns, instead of a one-turn spike. tap a number in this mode to set it; tap 0/1 to clear."
+            onClick={() => setBaseline((v) => !v)}>
+            base
+          </button>
+        </div>
         <div className="flex items-end gap-2">
           <div className="flex flex-col gap-1 pb-1">
             {MODES.map((m) => (
