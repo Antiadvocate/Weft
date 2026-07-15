@@ -282,6 +282,14 @@ function looksNamed(name: string): boolean {
 
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number }): Promise<void> {
   const t0 = Date.now();
+  // WEB SEARCH TARGET — the player can name exactly what to ground on with ((double parens)):
+  //   "I lead the Imperial Guard into the breach ((Warhammer 40k Astra Militarum tactics))"
+  // The ((...)) is a directive to the search layer, NOT story text, so it's stripped from the
+  // action before framing/rendering — the narrator never sees it, the prose never contains it.
+  // Multiple ((...)) blocks join into one query. When present it forces grounding on for the turn.
+  let searchTarget = "";
+  const cleanedAction = action.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
+  action = cleanedAction;
   const framedAction = MODE_FRAME[mode](action);
   const turn = state.world.current_turn;
   setLLMPrefs({ routeByPrice: !!state.model_settings.route_by_price });
@@ -470,7 +478,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro}, and the player may use those words about himself — but a native hearing them finds them alien and does not adopt them. If a native repeats the player's odd word, that is a deliberate, marked moment (curiosity, mockery, testing), never a casual slip.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
   const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
-  const groundNote = opts?.ground ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
+  // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
+  const groundOn = opts?.ground === true || !!searchTarget;
+  // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
+  // the toggle, derive a focused query from the SCENE (place + freshest canon) rather than letting
+  // Exa auto-derive from the whole digest — that auto-query is exactly what pulled off-topic links.
+  const resolvedQuery = searchTarget
+    || (opts?.ground === true
+        ? [state.world.player_location, ...(state.world.canon ?? []).slice(-2)].filter(Boolean).join(" — ").slice(0, 200)
+        : "");
+  const groundNote = groundOn ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right${resolvedQuery ? ` about: ${resolvedQuery}` : ""} — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
   //   the prefix rides the provider cache.
@@ -517,7 +534,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // simulator, applyDiff, physiology, reflection, chapters, telemetry — runs identically.
     prose = opts.proseOverride;
   } else {
-    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, opts?.ground === true);
+    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, groundOn, resolvedQuery || undefined);
     let narratorSources: { url: string; title?: string }[] | undefined;
     while (true) {
       const { done, value } = await stream.next();
@@ -526,11 +543,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
     // GROUNDING RECEIPT — the search is invisible unless we show it. Cited sources prove it ran;
     // zero sources is worth saying out loud too, so "grounded" never silently means "wasn't".
-    if (opts?.ground) {
+    if (groundOn) {
       const hosts = [...new Set((narratorSources ?? []).map((s) => { try { return new URL(s.url).hostname.replace(/^www\./, ""); } catch { return s.url; } }))];
+      const qTag = resolvedQuery ? ` [${resolvedQuery.length > 48 ? resolvedQuery.slice(0, 48) + "…" : resolvedQuery}]` : "";
       ev.onMeta({ shifts: [hosts.length
-        ? `web-grounded — ${hosts.length} source${hosts.length > 1 ? "s" : ""}: ${hosts.slice(0, 3).join(", ")}`
-        : "web grounding: search returned no sources — this turn wrote from memory"] });
+        ? `web-grounded${qTag} — ${hosts.length} source${hosts.length > 1 ? "s" : ""}: ${hosts.slice(0, 3).join(", ")}`
+        : `web grounding${qTag}: search returned no sources — this turn wrote from memory`] });
     }
   }
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
