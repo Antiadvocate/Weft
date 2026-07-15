@@ -25,7 +25,7 @@ import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
-import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel } from "./physiology";
+import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 
@@ -262,7 +262,7 @@ function looksNamed(name: string): boolean {
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
 }
 
-export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string }): Promise<void> {
+export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number }): Promise<void> {
   const t0 = Date.now();
   const framedAction = MODE_FRAME[mode](action);
   const turn = state.world.current_turn;
@@ -707,6 +707,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
+  // PLAYER TIGHTNESS ANCHOR — the player's own body reading (0–5) corrects the simulator's guess at
+  // where they sit. Applied AFTER applyDiff (so the sim's relaxation_delta is the baseline it overrides)
+  // and BEFORE the physiology ceiling below (which can still clamp them further for sleep/hunger). It
+  // only ever caps them TIGHTER, never looser — a brutal scene's earned low stands. Untouched → inference.
+  {
+    const pc = state.condition["char_player"];
+    if (pc) {
+      const anchored = reconcilePlayerTightness(pc, opts?.tightness);
+      if (anchored !== null && anchored <= -4) shifts.push("You came in tight.");
+    }
+  }
   if (!simOk) shifts.push("(bookkeeping failed this turn — records are incomplete; re-run the turn or edit memory by hand)");
   // fate's grip on the world, made visible — threads falling away, clocks closing in
   for (const line of fateLog) shifts.push(line);

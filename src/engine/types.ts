@@ -229,6 +229,9 @@ export interface Condition {
   hunger_meter?: number;       // 0 sated .. 10 starving — time-driven (physiology.ts); strings above derive from this
   thirst_meter?: number;       // 0 hydrated .. 10 parched — time-driven, weight- and weather-scaled
   awake_minutes?: number;      // in-world minutes since last real sleep; drives fatigue + the relaxation ceiling
+  subjective_ceiling?: number; // PLAYER-ONLY baseline override (-10..+10). A manual "running low today" the sleep/hunger
+                               // clock can't see (unrested despite the hours, an off day, ambient stress outside the fiction).
+                               // Stacks UNDER the physiological ceiling via min(); persists until the player clears it (=undefined).
   inventory: { id: string; name: string; notes?: string }[];
   wearing: string[];
   psyche: Psyche;

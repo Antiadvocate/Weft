@@ -65,7 +65,8 @@ export function applySleep(cond: Condition, hours: number): void {
 }
 
 /** THE CEILING — the highest relaxation (-10..+10) this body can currently reach.
- *  Sleep debt dominates; severe thirst and hunger stack on top. */
+ *  Sleep debt dominates; severe thirst and hunger stack on top; a player-set subjective baseline
+ *  stacks under all of it. Context can still lower you below the ceiling; nothing lifts you above. */
 export function relaxationCeiling(cond: Condition): number {
   const awakeH = (cond.awake_minutes ?? 0) / 60;
   let cap = 10;
@@ -77,12 +78,57 @@ export function relaxationCeiling(cond: Condition): number {
   else if ((cond.thirst_meter ?? 0) >= 6.5) cap = Math.min(cap, 3);
   if ((cond.hunger_meter ?? 0) >= 9) cap = Math.min(cap, 0);
   else if ((cond.hunger_meter ?? 0) >= 7) cap = Math.min(cap, 4);
+  // Subjective baseline (player-only): the body reading the physiology clock can't see. Holds until cleared.
+  if (typeof cond.subjective_ceiling === "number") cap = Math.min(cap, cond.subjective_ceiling);
   return cap;
 }
 export function applyRelaxationCeiling(cond: Condition): boolean {
   const cap = relaxationCeiling(cond);
   if (cond.psyche.relaxation > cap) { cond.psyche.relaxation = cap; return true; }
   return false;
+}
+
+/** PLAYER SOMATIC TIGHTNESS → relaxation anchor.
+ *
+ *  The player refuses to name emotions; they report a single body reading 0–5 against their own
+ *  meditative zero (0 fully calm … 5 fully tightened). This is a truer signal than the simulator's
+ *  guess from their text, so when given it OVERRIDES that guess for the turn — but it never lifts
+ *  the player out of a lower relaxation they legitimately earned from a brutal scene. Tightness CAPS;
+ *  it does not un-tighten.
+ *
+ *  Mapping to the -10..+10 scalar (anchor = where this body sits when the reading is taken):
+ *    0 fully calm        → +7   (meditative, wide-open)
+ *    1 neutral           → +2
+ *    2 curious/focused    → +1   (engaged, not tight)
+ *    3 tightened, recognized → -2   (clench beginning, but seen — not yet fear-blind)
+ *    4 tight, unrecognized   → -4   (clenched-perception zone)
+ *    5 fully tightened    → -6   (hard clench)
+ *
+ *  Reconciliation: the anchor is a CEILING on relaxation, not an assignment. If the engine already
+ *  has the player at or below the anchor (the scene tightened them at least this much), their earned
+ *  value stands. If the engine has them ABOVE the anchor (it thought they were calmer than their body
+ *  says), the anchor wins and pulls them down. Returns the applied anchor for telemetry, or null. */
+const TIGHTNESS_ANCHOR: Record<number, number> = { 0: 7, 1: 2, 2: 1, 3: -2, 4: -4, 5: -6 };
+export function reconcilePlayerTightness(cond: Condition, tightness: number | undefined): number | null {
+  if (typeof tightness !== "number") return null;               // untouched → inference stands, no anchor
+  const t = Math.max(0, Math.min(5, Math.round(tightness)));
+  const anchor = TIGHTNESS_ANCHOR[t];
+  if (anchor === undefined) return null;
+  // cap toward tight: only move if the body reads tighter than the engine currently has them
+  if (cond.psyche.relaxation > anchor) cond.psyche.relaxation = anchor;
+  return anchor;
+}
+
+/** A visible-tension cue for the narrator — a BODY reading a person across the table would catch,
+ *  never the interior. Derived from the player's current relaxation after the anchor is applied.
+ *  Empty until they're actually tight, so it costs nothing when they're settled. Deliberately
+ *  describes shoulders/jaw/breath, not feelings: rule 5 keeps the player's interior theirs. */
+export function playerTensionCue(cond: Condition): string {
+  const r = cond.psyche.relaxation;
+  if (r <= -6) return "wound tight — shoulders up, jaw set, breath short and shallow";
+  if (r <= -4) return "visibly tense — shoulders drawn, movements clipped";
+  if (r <= -2) return "a little tight — held in the shoulders, breath a touch shallow";
+  return "";
 }
 
 /** Compact label for the digest — empty until something crosses a threshold, so it costs
