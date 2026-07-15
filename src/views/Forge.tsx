@@ -33,7 +33,7 @@ export default function Forge({ onBack, onCreated }: {
         ? `${seed.trim()}\n\nSTATED ENDING (the destination this story is written toward): ${destination.trim()}`
         : seed.trim();
       const budget = destination.trim() ? Math.max(0, parseInt(destTurns, 10) || 0) : 0;
-      onCreated(await api.forge(fullSeed, m ? (grounded && !m.endsWith(":online") ? m + ":online" : m) : undefined, budget || undefined));
+      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded));
     } catch (e: any) {
       setError(e.message ?? "world generation failed");
       setBusy(false);
@@ -99,7 +99,7 @@ export default function Forge({ onBack, onCreated }: {
             {grounded ? "◉" : "○"} ground with web search
           </button>
           <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
-            Grounding appends OpenRouter's ":online" — the forge searches the web while building, so worlds seeded from real media, places, or history come back canon-accurate. Costs a little more.
+            The forge searches the web while building, so worlds seeded from real media, places, or history come back canon-accurate. Add ((exact topic)) anywhere in your seed to aim the search precisely; otherwise it uses the seed itself. Costs a little more.
           </div>
         </div>
 
