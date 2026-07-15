@@ -702,12 +702,20 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number): Promise<ClientSave> => {
-    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", seed, model);
+  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean): Promise<ClientSave> => {
+    // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
+    // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
+    // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and
+    // it's short, so Exa stays on-target (unlike the play loop's giant digest).
+    let searchTarget = "";
+    const cleanSeed = seed.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
+    const online = ground || !!searchTarget;
+    const searchQuery = searchTarget || (online ? cleanSeed.slice(0, 200) : undefined);
+    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed, model);
     let g: any = null, lastErr = "";
     for (const m of [model, model, "google/gemini-2.0-flash-001"]) {
       try {
-        const out = await complete(msgs, m, m, true, 8000);
+        const out = await complete(msgs, m, m, true, 8000, online ? { online: true, searchQuery } : undefined);
         g = safeJson<any>(out.text, null);
         // A world with three places is a world where the narrator has nowhere legal to move anyone,
         // so it invents "the kitchen doorway" and the resolver strands whoever went there. Demand a
