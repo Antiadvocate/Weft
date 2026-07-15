@@ -76,20 +76,38 @@ function expertiseFloor(label: string): number {
  *  nobody wrote and inventing places that did not exist ("the kitchen doorway"), which the resolver
  *  then dumped into `elsewhere`, taking the player with it. The narrator knows where it just set the
  *  scene. Asking it directly is cheaper and truer than inferring. The footer is stripped before the
- *  prose is ever shown or stored. */
+ *  prose is ever shown or stored. Parsing is deliberately truncation-tolerant: the footer is the last
+ *  thing emitted, so it's the first thing lost to an output-cap cut — a footer missing its closing
+ *  `>`s or even its final quote is still parsed for whatever survived, rather than dropped (which
+ *  would hand the scene back to the simulator to guess). */
 export interface SceneFooter { place?: string; entered: string[]; left: string[] }
 
 export function parseSceneFooter(text: string): { prose: string; footer: SceneFooter | null } {
-  const m = text.match(/\n?\s*<<<\s*SCENE\b([^>]*)>>>\s*$/i);
-  if (!m) return { prose: text, footer: null };
-  const attrs = m[1];
-  const grab = (k: string) => {
-    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)"`, "i").exec(attrs);
+  // Find the LAST `<<<SCENE` marker — the real footer is always at the very end, and if a model
+  // erroneously emits two, its final word on the scene is the one that counts. A stray `<<<SCENE`
+  // buried mid-narration is not a thing models do, but the last-match rule also naturally ignores
+  // any earlier one in favor of the true trailing footer.
+  const markers = [...text.matchAll(/<<<\s*SCENE\b/gi)];
+  if (!markers.length) return { prose: text, footer: null };
+  const at = markers[markers.length - 1].index!;
+  // guard: the true footer lives in the final stretch. If the last marker somehow sits far from the
+  // end with lots of text after it, it's not a footer (freak case) — bail rather than eat prose.
+  if (text.length - at > 400) return { prose: text, footer: null };
+  return splitAt(text, at);
+}
+
+/** Split prose from a footer starting at `at`, parsing whatever attributes survived truncation. */
+function splitAt(text: string, at: number): { prose: string; footer: SceneFooter } {
+  const attrs = text.slice(at).replace(/^<<<\s*SCENE\b/i, "").replace(/>+\s*$/, "").trim();
+  // tolerant grab: closing quote optional (truncation may have eaten it), value runs to the next
+  // attribute keyword, a closing `>`, or end-of-string.
+  const grab = (k: string): string => {
+    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left)\\s*=)|>|$)`, "i").exec(attrs);
     return r ? r[1].trim() : "";
   };
   const names = (v: string) => v.split(/[,;]/).map((x) => x.trim()).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
   return {
-    prose: text.slice(0, m.index).trimEnd(),
+    prose: text.slice(0, at).trimEnd(),
     footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")) },
   };
 }
@@ -491,6 +509,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
   let prose = "";
   let narratorUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
+  let narratorTruncated = false;
   if (opts?.proseOverride) {
     // RESUME PATH: the narrator already ran (and was paid for) before the app was killed —
     // iOS suspends web pages the moment they background, so a mid-turn death strands the prose
@@ -498,11 +517,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // simulator, applyDiff, physiology, reflection, chapters, telemetry — runs identically.
     prose = opts.proseOverride;
   } else {
-    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 4000, opts?.ground === true);
+    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, opts?.ground === true);
     let narratorSources: { url: string; title?: string }[] | undefined;
     while (true) {
       const { done, value } = await stream.next();
-      if (done) { prose = value.text; narratorUsage = value.usage; narratorSources = value.annotations; break; }
+      if (done) { prose = value.text; narratorUsage = value.usage; narratorSources = value.annotations; narratorTruncated = !!value.truncated; break; }
       ev.onDelta(value);
     }
     // GROUNDING RECEIPT — the search is invisible unless we show it. Cited sources prove it ran;
@@ -517,7 +536,21 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
-  const footer = parsedScene.footer;
+  let footer = parsedScene.footer;
+  // TRUNCATION SAFETY NET. If the narrator hit the output cap, its tail (the scene footer) may have
+  // been cut past even the tolerant parser's reach. Rather than let the simulator GUESS the scene
+  // (the resolver then dumps invented moves to `elsewhere`, dragging the player with them), synthesize
+  // a conservative footer: the scene stayed where it was, nobody moved. Any real move the prose
+  // actually describes is still caught downstream by the quote-evidence check on the simulator's own
+  // locations[]. A no-op footer is always safe; a guessed one is not.
+  let truncationNote = "";
+  if (narratorTruncated && !footer) {
+    const hereName = state.world.places[state.world.player_location]?.name;
+    footer = { place: hereName, entered: [], left: [] };
+    truncationNote = "(the narrator's reply ran long and was cut off — the scene was held in place; if someone should have entered or left, say so next turn)";
+  } else if (narratorTruncated) {
+    truncationNote = "(the narrator's reply ran long and may have been cut short)";
+  }
 
   // 3 ── simulator (one JSON call: bookkeeper + world tick + memory writes)
   ev.onPhase("simulator");
@@ -707,6 +740,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
+  if (truncationNote) shifts.push(truncationNote);
   // PLAYER TIGHTNESS ANCHOR — the player's own body reading (0–5) corrects the simulator's guess at
   // where they sit. Applied AFTER applyDiff (so the sim's relaxation_delta is the baseline it overrides)
   // and BEFORE the physiology ceiling below (which can still clamp them further for sleep/hunger). It
