@@ -52,7 +52,7 @@ export function buildMessages(system: string, stable: string, volatile: string, 
 }
 
 export type JsonMode = boolean | { schema: object; name?: string };
-export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; omitReasoning?: boolean }
+export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; omitReasoning?: boolean; online?: boolean; searchQuery?: string }
 
 
 /** CHATLOG-MODE message builder. The full state snapshot (I-frame) rides inside the system
@@ -87,11 +87,33 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
         ? { response_format: { type: "json_schema", json_schema: { name: json.name ?? "diff", strict: false, schema: json.schema } } }
         : { response_format: { type: "json_object" } })
     : {};
+  // WEB GROUNDING (non-streaming) — same mechanism as completeStream: the web plugin has no
+  // query field, so to keep Exa on-topic we push a high-salience search line onto the tail user
+  // message and restate it in search_prompt. Used by the Forge (world-building from real media/
+  // places/history) instead of the fragile ":online" model-slug suffix.
+  let groundMsgs = messages;
+  const gq = opts?.searchQuery?.trim();
+  const groundOn = !!opts?.online && !model.endsWith(":online");
+  if (groundOn && gq) {
+    groundMsgs = messages.map((x) => ({ ...x }));
+    for (let i = groundMsgs.length - 1; i >= 0; i--) {
+      if (groundMsgs[i].role === "user" && typeof groundMsgs[i].content === "string") {
+        groundMsgs[i] = { ...groundMsgs[i], content: `${groundMsgs[i].content}\n\n=== WEB SEARCH TARGET (search the web for exactly this, ignore other topics) ===\n${gq}` };
+        break;
+      }
+    }
+  }
+  const webPlugin = groundOn
+    ? [gq
+        ? { id: "web", max_results: 3, search_prompt: `Web results for "${gq}". Use the factual detail; cite nothing.` }
+        : { id: "web", max_results: 3 }]
+    : undefined;
   const res = await fetch(OR_URL, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
-      model, messages, max_tokens: maxTokens,
+      model, messages: groundMsgs, max_tokens: maxTokens,
+      ...(webPlugin ? { plugins: webPlugin } : {}),
       temperature: json ? 0.2 : 0.85,
       ...rf,
       // ROUTING: an explicit per-call sort (the bookkeeper routes for throughput) beats the
