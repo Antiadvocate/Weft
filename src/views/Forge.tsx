@@ -19,6 +19,7 @@ export default function Forge({ onBack, onCreated }: {
   const [destTurns, setDestTurns] = useState("");
   const [model, setModel] = useState("deepseek/deepseek-chat-v3-0324");
   const [grounded, setGrounded] = useState(false);
+  const [chronicle, setChronicle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +34,13 @@ export default function Forge({ onBack, onCreated }: {
         ? `${seed.trim()}\n\nSTATED ENDING (the destination this story is written toward): ${destination.trim()}`
         : seed.trim();
       const budget = destination.trim() ? Math.max(0, parseInt(destTurns, 10) || 0) : 0;
-      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded));
+      const seedThreads = chronicle.split("\n").map((l) => l.trim()).filter(Boolean).map((line) => {
+        // "Title — description" or "Title: description" or just "Title"; leading "- " and "1." stripped
+        const clean = line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "");
+        const m = clean.match(/^(.*?)\s*(?:—|--|:)\s*(.+)$/);
+        return m ? { title: m[1].trim(), description: m[2].trim() } : { title: clean };
+      }).filter((t) => t.title);
+      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded, seedThreads.length ? seedThreads : undefined));
     } catch (e: any) {
       setError(e.message ?? "world generation failed");
       setBusy(false);
@@ -88,6 +95,18 @@ export default function Forge({ onBack, onCreated }: {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="mt-4">
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+            Chronicle threads — story beats to seed <span style={{ opacity: 0.6 }}>(optional)</span>
+          </div>
+          <textarea className="field" rows={4}
+            placeholder={"One beat per line. Title — optional detail.\nThe Rite of Voidbirth cult is smuggling artifacts through the Expanse\nAn old debt to Rogue Trader Vaicis comes due\nThe ship's Navigator is slowly going mad"}
+            value={chronicle} onChange={(e) => setChronicle(e.target.value)} />
+          <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
+            Set the plot points you want in play. Each becomes an active thread the world draws from, so what emerges is anchored to your intent instead of invented cold — the forge builds the cast and places so these are primed to happen. One per line; add "— detail" after a title to say more. You can always ignore them.
+          </div>
         </div>
 
         <div className="mt-4">

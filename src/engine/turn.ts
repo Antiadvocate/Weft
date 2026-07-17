@@ -261,7 +261,7 @@ function emptyDiff(): SimulatorDiff {
   };
 }
 
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD and others can hear it; text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), and never have someone "overhear" something the player only thought or felt. If the player mixes them in one message, treat each part on its own channel.]`;
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel.]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
@@ -388,6 +388,25 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     state.history.slice(-1)[0]?.player_action ?? "",
   ].join(" ");
   const tier = detectPowerTier(god, recentText);
+  // WITNESS STAMP — when the player wields genuinely impossible power in front of others, that
+  // witnessing durably rewrites how each present character relates to them. Stamp an active_state so
+  // the reorientation PERSISTS across later turns (not just the turn of the act): a character who saw
+  // a planet-scale teleport keeps reacting as someone who saw it, even turns afterward, until it
+  // decays. This is what stops the incoherent "wounded peer scolds the god" beat — their standing
+  // state now says otherwise. Only non-god-mode: in god mode the whole world already knows the frame.
+  if ((tier === "mythic" || tier === "cosmic") && !god) {
+    const witnessState = tier === "cosmic" ? "awestruck by the player's impossible power" : "shaken by the player's impossible power";
+    for (const wid of state.world.present) {
+      if (wid === "char_player") continue;
+      const wc = state.condition[wid];
+      if (!wc) continue;
+      // replace any prior witness-stamp so the freshest reading holds, and re-age it
+      wc.psyche.active_states = wc.psyche.active_states.filter((s) => !/impossible power/.test(s));
+      wc.psyche.active_states.push(witnessState);
+      (wc.psyche.state_ages ??= {})[witnessState] = state.world.current_turn;
+      if (wc.psyche.active_states.length > 5) wc.psyche.active_states = wc.psyche.active_states.slice(-5);
+    }
+  }
   let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier, beat);
 
   // ── RESTORATION DETECTION ── sleeping, eating, bathing, quiet hours. To the stall detector,
@@ -500,7 +519,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // (dialogue + agenda duties now live in the cached system prompt as every-turn rules)
   const earnedResponse = (tier === "mythic" || tier === "cosmic")
-    ? `\nAPPLY POLICY EARNED_RESPONSE — the player operates at extraordinary scale; the world responds at that scale.`
+    ? `\nAPPLY POLICY EARNED_RESPONSE — the player operates at extraordinary scale; the world responds at that scale.\nCONTINUITY UNDER THE IMPOSSIBLE: the player just did something reality-bending (moved someone, undid a thing, bent space). Render that act cleanly and literally — but the REST of the world stays COHERENT. Every character keeps their established identity, name, role, and relationships exactly as the ledger has them; do not let anyone's status silently flip (an apprentice does not become a master, a stranger does not become a friend) unless the player's act explicitly caused it. Track WHO IS PRESENT precisely: if the player removed someone from the scene, they are GONE until brought back; if the player returned them, they are present again, unchanged. One impossible thing happened; everything else obeys normal continuity. Do not spawn random events, reassign lines between characters, or let the scene dissolve — anchor hard to the established cast and their standing state.\nWITNESS REACTION MUST FLOW FROM WHAT THEY SAW — this is the crucial one. Any character who just WITNESSED the player do the impossible has their entire relationship to the player REWRITTEN by it in that instant. They are no longer dealing with a peer, a rival, or someone they can scold, bargain with as an equal, or lecture. A person who watched someone get snapped off the planet with a gesture does NOT plant their feet and argue with the one who did it — that is a scripted "someone challenges the protagonist" beat imported regardless of the facts, and it is FORBIDDEN here. Instead the witness reacts as a real person confronted with overwhelming power: fear, awe, flight, careful submission, stunned silence, frantic appeasement, worship, or a very cautious approach — whichever their NATURE produces under the genuinely impossible. Wounded pride, indignation, and moral confrontation are only available to someone who has NOT grasped what they just saw, or whose nature is recklessly defiant to the point of self-destruction — and even then it reads as terror or denial underneath, never casual equality. Do NOT manufacture a confrontation or a moral challenge against a being the character has just seen wield godlike power. Their behavior bends around the fact of that power, always.`
     : "";
   // CONTRACT GOVERNOR: when the last chapter audit found the story drifting from its standing
   // direction, every turn carries a course-correction until the next audit passes. This is the
@@ -1467,6 +1486,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   if (tension <= 0) {
     diff = { ...diff,
       consequences_new: [],
+      // at rest: no fresh people wander in either, unless the PLAYER's own action summoned them
+      new_characters: (diff.new_characters ?? []).filter(() => /\b(summon|conjure|create|bring|call|invite|make)\b/i.test(action)),
       threads_update: (diff.threads_update ?? []).filter((t) => {
         const exists = state.world.threads.some((x) => x.id === t.id || x.title.toLowerCase() === t.title.toLowerCase());
         return exists; // allow updates/resolutions to existing threads, block brand-new ones

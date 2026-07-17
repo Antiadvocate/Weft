@@ -265,7 +265,7 @@ export function selectBeat(inp: BeatInput): Beat {
 export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat): string {
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
-    lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion.");
+    lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate — if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
   } else if (beat) {
     // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
     switch (beat.kind) {
@@ -330,6 +330,11 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
     /killed everyone/, /raised the dead/, /mass(acre|-kill)/, /levitat\w+ the/,
     /leveled (a|the) (building|city|block)/, /with (a|his|her|their) (mind|hand|will)/,
     /no one could (stop|touch|harm) (him|her|them)/, /impervious|invulnerable|untouchable/,
+    // casual reality-bending: teleporting, banishing, recalling, vanishing people/things at will
+    /(other side of|across) the (planet|world|continent|country)/, /teleport\w*/,
+    /(banish\w*|sent?) (him|her|them|\w+) (away|elsewhere|to the)/, /(bring|brought|brings|summon\w*|recall\w*) (him|her|them|\w+) back/,
+    /(vanish\w*|disappear\w*|blink\w*) (him|her|them|\w+)/, /snap\w* (him|her|them|\w+) (away|out|back)/,
+    /with a (thought|gesture|wave|word)/, /out of (existence|the world|reality)/,
   ].some((re) => re.test(t));
   if (cosmic) return "cosmic";
   if (mythic) return godMode ? "cosmic" : "mythic";

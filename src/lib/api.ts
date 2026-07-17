@@ -764,7 +764,7 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean): Promise<ClientSave> => {
+  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[]): Promise<ClientSave> => {
     // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
     // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
     // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and
@@ -773,7 +773,10 @@ export const api = {
     const cleanSeed = seed.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
     const online = ground || !!searchTarget;
     const searchQuery = searchTarget || (online ? cleanSeed.slice(0, 200) : undefined);
-    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed, model);
+    const beatsBlock = (seedThreads?.length)
+      ? `\n\nSTORY BEATS THE PLAYER WANTS SEEDED (build the world, cast, places, and clocks so these are POSSIBLE and primed — don't resolve them, just make the world ready for them to emerge; the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n")}`
+      : "";
+    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + beatsBlock, model);
     let g: any = null, lastErr = "";
     for (const m of [model, model, "google/gemini-2.0-flash-001"]) {
       try {
@@ -832,6 +835,14 @@ export const api = {
     }
     for (const n of g.norms ?? []) {
       s.world.norms.push({ id: uid("nrm"), rule: n.rule ?? "", enforcement: n.enforcement ?? "gossip", holders: n.holders ?? "" });
+    }
+    // PLAYER-AUTHORED SEED THREADS — the chronicle beats the player set in the forge become real
+    // active threads the pressure system draws from, so what emerges is anchored to their intent
+    // rather than invented cold. They start at a modest tension so they surface as the story wants
+    // them, not all at once; the player can always ignore them (they resolve/abandon like any thread).
+    for (const t of seedThreads ?? []) {
+      if (!t.title?.trim()) continue;
+      s.world.threads.push({ id: uid("thr"), title: t.title.trim(), status: "active", description: t.description?.trim() ?? "", turn_started: 1, tension: clampNum(t.tension ?? 3, 1, 10) });
     }
     const op = g.opening ?? {};
     s.world.current_time = op.time?.match(/day/i) ? `${op.time}` : "Day 1, 09:00 (Morning)";
