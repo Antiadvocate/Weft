@@ -408,6 +408,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
   let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier, beat);
+  // CROSS-TALK NUDGE — when two or more NPCs share the scene, the narrator tends to line them all up
+  // facing the player. Remind it they have each other: with 2+ present NPCs, at least one exchange this
+  // turn should run NPC↔NPC (they address, answer, needle, or side-deal with each other), not everyone
+  // aimed at the player. Fires only when there's actually more than one other person in the room.
+  const presentNpcs = state.world.present.filter((id) => id !== "char_player" && state.characters[id]);
+  if (presentNpcs.length >= 2) {
+    directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. At least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player; let the room have its own conversations that the player is sometimes only a witness to.`;
+  }
 
   // ── RESTORATION DETECTION ── sleeping, eating, bathing, quiet hours. To the stall detector,
   // a character asleep is indistinguishable from a stalled scene — low event density, passive
