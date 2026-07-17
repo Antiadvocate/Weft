@@ -41,6 +41,40 @@ function pairNoise(a: string, b: string): number {
   return ((Math.abs(h) % 100) / 100) * 25 - 10;
 }
 
+/** Stable per-person noise so a fallback beauty is reproducible per character: -8..+8. */
+function soloNoise(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return ((Math.abs(h) % 100) / 100) * 16 - 8;
+}
+
+/**
+ * Intrinsic attractiveness, 0..100 — the millisecond snap-read, BEFORE any observer's taste.
+ * Species-agnostic: symmetry, youth/vitality, presence, striking features — the model that
+ * created the character sets it. When unset (older saves, or the AI omitted it), we derive a
+ * deterministic fallback: a broad youth/vitality curve peaking in the reproductively-signalled
+ * years and easing on both sides, plus stable per-person noise so not everyone is average.
+ * This is not a claim that only the young are beautiful — it's the default prior a stranger's
+ * nervous system applies at first sight; the authored value should override it whenever it exists.
+ */
+export function beautyOf(c: Identity): number {
+  if (typeof c.beauty === "number") return clamp(c.beauty, 0, 100);
+  const age = typeof c.age === "number" ? c.age : 30;
+  // youth/vitality curve: rises through adolescence, broad plateau ~18–32, gentle decline after.
+  let v: number;
+  if (age < 18) v = 44 + (age - 13) * 2;          // pre-adult: lower, climbing
+  else if (age <= 32) v = 56;                      // peak plateau
+  else v = Math.max(30, 56 - (age - 32) * 0.7);    // slow decline, floored
+  return clamp(Math.round(v + soloNoise(c.character_id ?? c.name ?? "")), 0, 100);
+}
+
+/** Map intrinsic beauty (0..100, 50≈ordinary) to a signed baseline pull (-25..+45).
+ *  This is the shared first read everyone gets before personal taste is applied. */
+function beautyPull(beauty: number): number {
+  // 50 → ~0 (neutral). 75 → ~+25 (turns heads). 90 → ~+42. 30 → ~-16 (off-putting).
+  return clamp(Math.round((beauty - 50) * (beauty >= 50 ? 1.7 : 0.9)), -25, 45);
+}
+
 /**
  * Orientation gate. Returns null when no cap applies, otherwise the maximum attraction
  * this pairing can hold. "no one" caps at 0; a stated orientation that excludes the target
@@ -78,18 +112,71 @@ export function seedAttraction(state: SaveState, fromId: string, toId: string): 
   const cap = orientationCap(from, to);
   let a: number;
   if (cap !== null && cap <= 5) {
+    // orientation excludes this target: no desire, whatever they look like. Aesthetic appreciation only.
     a = 0;
   } else {
-    // asText/asList, not `?? ""` — saves written before coercion hold arrays in `taste` and strings
-    // in `core_traits`, and `.trim`/`.join` on those throws.
+    // BASELINE — the millisecond snap-read: intrinsic beauty, before personal taste. Beauty is
+    // objective (symmetry/vitality is a given) and the body registers it fully regardless of clench.
+    // Clench does NOT reduce the pull — a clenched nervous system wants the beautiful thing just as
+    // much, often more. What clench governs is ADMISSIBILITY (below): whether that wanting can reach
+    // the person's own self-report, or discharges sideways as grasping/possession. So the seed
+    // magnitude is the clean intrinsic pull; the entrance clench is stamped separately.
+    const base = beautyPull(beautyOf(to));
+    // PERSONAL DEVIATION — this observer's conditioning (taste) matched against what the target IS.
+    // A taste match makes them extra compelling on top of the shared read; a flat/mismatched taste
+    // leaves only the baseline. asText/asList (not `?? ""`): pre-coercion saves hold arrays/strings.
     const targetBlob = [asText(to.appearance_facts, " "), asList(to.core_traits).join(" "), asText(to.background, " ")].join(" ");
     const taste = asText(from.taste);
     const match = taste ? relevance(targetBlob, taste) : 0; // 0..1 token overlap
-    a = Math.round(clamp(match * 55 + pairNoise(fromId, toId) + (e.warmth > 0 ? e.warmth * 0.1 : 0), -20, 70));
+    const tasteBonus = match * 40; // taste deviates UP from the shared baseline, doesn't replace it
+    a = Math.round(clamp(base + tasteBonus + pairNoise(fromId, toId) + (e.warmth > 0 ? e.warmth * 0.1 : 0), -25, 80));
   }
   e.attraction = a;
   e.attraction_base = a;
+  // ADMISSIBILITY STAMP — born grasping or born in awe. Set once, from how clenched the perceiver
+  // was at first sight. A pull that arises in a gripped body (low relaxation) is high-magnitude but
+  // can't reach clean self-report: it will express as possession, sharpness, gift-that's-taking —
+  // the picked flower. A pull that arises open is ownable: flirtation, letting-stand. Only stamped
+  // when there's actual desire to color; a null/near-zero pull needs no texture. This then DRIFTS
+  // toward current relaxation each turn (tickDesire) — slowly up under calm, faster down under clench.
+  if (a >= 12) {
+    const r = state.condition[fromId]?.psyche.relaxation ?? 0; // -10..+10
+    e.desire_admissibility = +clamp(0.5 + r * 0.05, 0, 1).toFixed(2); // clenched entrance ~0, open ~1
+  }
 }
+
+/**
+ * BEAUTY RECOMPUTE (delta-propagation). When a person's judged-on-sight appearance changes
+ * permanently — a scar, aging, weight change, an ear blown off, being shrunk — their intrinsic
+ * beauty is re-scored (by the caller: either the small AI rescore or the manual button), and the
+ * change must ripple to everyone already attracted to them WITHOUT resetting those edges. An
+ * established bond is history; a new scar shifts it, it does not erase it. So we nudge each
+ * existing attraction edge toward the new first-read by the beauty delta, scaled DOWN the more
+ * invested/warm the observer already is: a stranger's flicker of interest tracks looks almost
+ * fully; a devoted partner barely moves. Returns the number of edges nudged.
+ */
+export function applyBeautyChange(state: SaveState, toId: string, oldBeauty: number, newBeauty: number): number {
+  const dPull = beautyPull(clamp(newBeauty, 0, 100)) - beautyPull(clamp(oldBeauty, 0, 100));
+  if (dPull === 0) return 0;
+  let nudged = 0;
+  for (const e of state.world.edges) {
+    if (e.to !== toId || e.attraction === undefined) continue;
+    if (e.from === "char_player") continue; // never author the player's own desire
+    // investment 0..1: warmth + how far attraction sits above baseline both count as "bond".
+    const warmthInv = clamp(Math.abs(e.warmth) / 100, 0, 1);
+    const invested = clamp(warmthInv * 0.7 + clamp(e.attraction / 100, 0, 1) * 0.3, 0, 1);
+    // strangers track the delta ~fully; the deeply-bonded barely move (down to ~15%).
+    const scale = 1 - invested * 0.85;
+    const shift = dPull * scale;
+    e.attraction = Math.round(clamp(e.attraction + shift, -25, 100));
+    // the conditioned FIRST read also drifts, but half as much — bedrock memory of the first sight.
+    if (e.attraction_base !== undefined) e.attraction_base = Math.round(clamp(e.attraction_base + shift * 0.5, -25, 100));
+    e.updated_turn = state.world.current_turn;
+    nudged++;
+  }
+  return nudged;
+}
+
 
 export function attractionWord(a: number): string {
   if (a <= -15) return "averse";
@@ -107,12 +194,18 @@ export function desireLine(state: SaveState, id: string): string {
   const cold = typeof state.characters[id]?.conscience === "number" && state.characters[id].conscience! <= 0.35;
   if (a <= -15) return "desire: none — actively unattracted; advances would repel, however warm the bond";
   if (a < 15) return "desire: none — kindness reads as kindness; a flirt would land awkward or unwelcome, and niceness never changes that";
-  if (cold) return r >= -2
+  // TEXTURE is set by ADMISSIBILITY — the slow grasp/awe variable — not by momentary relaxation.
+  // This is the picked-flower distinction: a pull can be strong and still be unable to reach clean
+  // wanting, so it discharges as possession. Admissibility drifts with relaxation but lags it, so a
+  // briefly-calm body whose desire was grasp-born still grasps until the texture has migrated.
+  // Fallback to live relaxation only when unstamped (older saves / pre-admissibility edges).
+  const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
+  if (cold) return adm >= 0.4
     ? `desire: wants you (${a}) like a collector — patient, charming pursuit; the warmth is technique`
-    : `desire: wants you (${a}) and resents not having you — possessive, tallying, punitive near rivals`;
-  if (r >= 2) return `desire: drawn (${a}) and settled enough to show it — flirts, teases, gets close`;
-  if (r <= -2) return `desire: drawn (${a}) but clenched — leaks sideways: staring, sharpness, avoidance; no clean flirtation`;
-  return `desire: drawn (${a}) — surfaces in small ways when the moment allows`;
+    : `desire: wants you (${a}) and resents not having you — possessive, tallying, punitive near rivals; would sooner own or spoil the thing than admit wanting it`;
+  if (adm >= 0.6) return `desire: drawn (${a}) and it can be owned — flirts, teases, lets you be; wants without needing to seize`;
+  if (adm <= 0.35) return `desire: wants you (${a}) but can't admit it — the pull won't reach clean self-report, so it leaks as grasping: possessiveness, sharpness, taking-for-your-own-good, a gift that's really a claim`;
+  return `desire: drawn (${a}) — surfaces in small ways when the moment allows; not yet settled enough to show it clean`;
 }
 
 /**
@@ -137,6 +230,17 @@ export function tickDesire(state: SaveState): string[] {
     }
     const cond = state.condition[id];
     if (!cond) continue;
+    // ADMISSIBILITY DRIFT — the stamped grasp/awe texture migrates toward CURRENT relaxation, but
+    // asymmetrically: learning to see rather than pick is slow work; losing it under stress is fast.
+    // Target = where this body's current openness would place the wanting. Creeps UP (+0.02/turn) when
+    // the target is higher than now; drops DOWN (−0.06/turn, ~3× faster) when clench pulls it lower.
+    // The groove down is always easier to fall into than the climb out.
+    if (e.desire_admissibility !== undefined && e.attraction >= 12) {
+      const target = clamp(0.5 + cond.psyche.relaxation * 0.05, 0, 1);
+      const cur = e.desire_admissibility;
+      if (target > cur) e.desire_admissibility = +Math.min(target, cur + 0.02).toFixed(2);
+      else if (target < cur) e.desire_admissibility = +Math.max(target, cur - 0.06).toFixed(2);
+    }
     const label = `fixated on ${player?.name ?? "you"}`;
     const has = cond.psyche.active_states.includes(label);
     if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && !has) {

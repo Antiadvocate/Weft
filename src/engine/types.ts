@@ -89,6 +89,7 @@ export interface SocialEdge {
   power: number;    // a's perceived standing over b (deference if negative)
   attraction?: number;      // desire, NOT warmth: wanting someone vs liking them (-100..100; negative = averse). Seeded from conditioning at first co-presence; moves slowly.
   attraction_base?: number; // the conditioned first read — caps how far warmth alone can lift attraction (flat first read → companionate plateau, a different relationship)
+  desire_admissibility?: number; // 0..1 — how much of the attraction can reach clean self-report vs. discharging as grasping/possession. Stamped at first sight from the perceiver's clench (clenched→grasp-born, open→awe-born), then drifts toward current relaxation each turn: slowly UP under calm (the flower learned to be seen not picked), faster DOWN under clench (re-roughened). Low = possessive/sideways/collector texture; high = flirtation/letting-stand. Same magnitude of wanting, opposite texture.
   roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
   updated_turn: number;
@@ -168,6 +169,7 @@ export interface Identity {
   };
   aliases?: string[];         // other handles the fiction uses for this person — nicknames, titles, epithets ("the captain", "Sor"). Feeds name resolution and memory retrieval so a reference by title still finds the person.
   attracted_to?: string;      // orientation — who this person can desire at all ("women", "men", "anyone", "no one"). A hard gate, not a preference.
+  beauty?: number;            // 0..100 intrinsic attractiveness — the millisecond snap-read a stranger gets before any relationship. Species-agnostic: a disembodied voice, a machine, a beast can all be beautiful. Set at creation from appearance (symmetry, youth/vitality, presence, striking features), NOT from who's looking — personal taste is applied on top per-observer at seeding. ~50 = ordinary; 75+ = turns heads; <30 = plain/off-putting. The engine derives a fallback from age when unset; never overwrites a set value.
   taste?: string;             // conditioned desire — plain phrases for what their world and history trained them to find attractive. Habituated, not chosen; drives the first-read seeding.
   texture?: string[];         // a few standing interests/quirks/sensitivities — small enduring things that make them a person between plot beats ("loves trees on a quiet walk", "always cold", "knows too much about rocks"). Surfaced sparingly, never made central.
   skills: Record<string, string>;
@@ -410,6 +412,7 @@ export interface TurnHistoryEntry {
   bookkeeping?: "ok" | "thin" | "failed";
   summary: string;             // simulator one-liner, used for context
   offscreen: string[];         // world-motion log lines
+  gm_intents?: { char_id: string; name: string; surface: string; truth: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
   weather?: string;
   time_label: string;
 }
@@ -427,6 +430,7 @@ export interface SaveState {
   condition: Record<string, Condition>;
   memory: Record<string, CharMemory>;
   minds?: Record<string, MindModel>;   // theory-of-mind: per-character private models of others (active-inference belief layer)
+  pending_beauty_rescore?: string[];   // char_ids whose on-sight appearance changed and whose intrinsic beauty needs re-scoring (flushed via a small AI call after the turn)
   history: TurnHistoryEntry[];
   vessel_history?: { turn: number; from_name: string; to_name: string; time_label: string }[]; // bodies the player has worn
   undertow?: unknown;          // continuous substrate state (phases, tangent, cusps) — engine-internal

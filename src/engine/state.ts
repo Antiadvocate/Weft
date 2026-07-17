@@ -50,6 +50,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     taste: ident.taste ? asText(ident.taste) : undefined,
     aliases: ident.aliases ? asList(ident.aliases) : undefined,
     conscience: asNum(ident.conscience, 0, 1),
+    beauty: typeof ident.beauty === "number" ? Math.max(0, Math.min(100, ident.beauty)) : undefined,
     voice: ident.voice,
     attachment: ident.attachment,
   };

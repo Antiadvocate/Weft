@@ -68,6 +68,78 @@ function blankBelief(target: string, turn: number, trueWarmth: number): BeliefAb
 
 const stanceWarmthHint: Record<Stance, number> = { press: -8, maneuver: -3, hold: 0, yield: 6 };
 
+// ── INTERPRETATION-UNDER-AFFECT ──────────────────────────────────────────────
+// No mind perceives a raw event. The reader sees whatever the actor did THROUGH the
+// reader's own edge toward that actor — warmth, attraction, and attachment style bend
+// the percept before any prediction error is computed. This is what makes miscommunication
+// emergent rather than authored: A acts warm, B's cold edge reads manipulation, B updates
+// negative, A then reads B's new coldness through A's own edge, and the two spiral apart
+// with no author input. Runs player→NPC and NPC→NPC, both signs.
+//
+// The distortion is a signed, magnitude-scaled bend of the objective valence:
+//   • low warmth toward the actor COMPRESSES neutral/ambiguous acts toward a hostile read
+//     (a warm gesture from someone you distrust looks like a move).
+//   • high attraction toward the actor PULLS neutral toward the intimate/invested read
+//     (you find the meaning you want to find).
+//   • attachment style shapes HOW the bend behaves, it is not flavor:
+//       - secure: light bend, quick to take the act near-straight.
+//       - anxious: amplifies the negative direction — reads abandonment into ambiguity.
+//       - avoidant: compresses warmth specifically — intimacy gets flattened to neutral/mild threat.
+//       - disorganized: WIDENS VARIANCE — the same input swings threat↔desire across turns,
+//         gated on turn parity + edge so it is deterministic but non-stationary.
+type PerceptEdge = { warmth: number; attraction: number; style: AttachStyle };
+type AttachStyle = "secure" | "anxious" | "avoidant" | "disorganized";
+
+function perceivedValence(objective: number, edge: PerceptEdge, turn: number): number {
+  const w = edge.warmth / 100;      // -1..1 reader→actor warmth
+  const a = edge.attraction / 100;  // -1..1 reader→actor desire
+  // ambiguity weight: the bend acts hardest on near-neutral events, barely on extremes —
+  // an unmistakable act (someone screams at you / saves your life) resists reinterpretation.
+  const ambiguity = 1 - Math.min(1, Math.abs(objective) / 60);
+
+  // cold edge drags neutral toward hostile; the colder, the harder. Only pulls DOWN.
+  const hostileDrag = w < 0 ? w * 26 * ambiguity : w * 6 * ambiguity;
+  // attraction pulls neutral toward the invested/intimate read (positive). Averse attraction pushes away.
+  const intimatePull = a * 20 * ambiguity;
+
+  let bend = hostileDrag + intimatePull;
+
+  switch (edge.style) {
+    case "secure": bend *= 0.5; break;                         // takes it closer to straight
+    case "anxious": if (bend < 0) bend *= 1.6; break;          // catastrophizes the negative read
+    case "avoidant": if (objective > 0) bend -= 10 * ambiguity; break; // flattens warmth specifically
+    case "disorganized": {
+      // non-stationary: same input, different sign across turns. Deterministic on turn + edge,
+      // so replays identically but reads as instability. Widens, doesn't just shift.
+      const swing = Math.sin(turn * 1.7 + edge.warmth * 0.11 + edge.attraction * 0.07);
+      bend += swing * 22 * ambiguity;
+      break;
+    }
+  }
+  return clamp(objective + bend, -100, 100);
+}
+
+// ── BREAKTHROUGH THRESHOLD ──────────────────────────────────────────────────
+// The one knob separating "misreads that repair" with sustained contradiction from a mind
+// that "cannot be reached." When THIS turn's raw prediction error is large enough, the
+// percept filter is BYPASSED and the mind takes the objective valence straight — reality
+// broke through. The cutoff is per-character: most minds are recoverable (a moderate cutoff),
+// but a few are sealed — pushed so high that no ordinary contradiction lands. Sealing is
+// driven by edge extremity and attachment: an avoidant/disorganized reader with a strongly
+// negative edge is the hard case. A sealed mind's cutoff sits above the max achievable error,
+// so nothing bypasses; the player's only counters are distance (stop generating misreadable
+// events) and the record (other minds' accurate models in minds[].about).
+function breakthroughCutoff(edge: PerceptEdge): number {
+  let cut = 0.62; // baseline: a strong single-turn violation punches through
+  // hostility raises the wall — the more negative the edge, the harder truth must hit.
+  if (edge.warmth < 0) cut += (-edge.warmth / 100) * 0.3;
+  if (edge.style === "avoidant") cut += 0.12;
+  if (edge.style === "disorganized") cut += 0.18; // instability itself resists correction
+  if (edge.style === "secure") cut -= 0.15;       // secure minds are cheaply reached
+  // sealed: extreme negative edge + guarded style pushes the cutoff past 1.0 (unreachable by error∈[0,1])
+  return clamp(cut, 0.2, 1.2);
+}
+
 /**
  * Update one believer's whole theory of mind against ground truth this turn.
  * Returns humanized surprise lines (for shifts) and the peak surprise scalar (for the cusp).
@@ -97,15 +169,29 @@ export function updateMind(
     let b = model.about.find((x) => x.target === target);
     if (!b) { b = blankBelief(target, turn, trueWarmth); model.about.push(b); continue; } // first sighting: no surprise yet
 
-    // ── PREDICTION ERROR ──
-    // warmth error: how far the agent's model was from the truth, normalized to 0..1
-    const warmthErr = Math.abs(trueWarmth - b.predicted_warmth) / 200;
-    // stance error: did the target act against the agent's read? (the target's stance vs THIS agent, if any)
-    const targetStance = observedStances[target];
+    // ── PERCEPT (interpretation-under-affect) ──
+    // The reader (id) perceives the actor's (target's) act through id's OWN edge toward target.
+    // We distort the objective valence FIRST, then the predictor reasons on the percept, not truth.
+    const rawWarmth = trueWarmth;
+    const targetStance = observedStances[target]; // the stance the QRE layer sampled for the actor this turn
+    const rawStanceHint = targetStance ? stanceWarmthHint[targetStance] : 0;
+    const readerStyle = (state.characters[id]?.attachment?.style ?? "secure") as AttachStyle;
+    const pEdge: PerceptEdge = { warmth: trueEdge?.warmth ?? 0, attraction: trueEdge?.attraction ?? 0, style: readerStyle };
+    // raw single-turn error (truth vs model) decides whether reality BREAKS THROUGH the filter.
+    const rawWarmthErr = Math.abs(rawWarmth - b.predicted_warmth) / 200;
+    const broughtThrough = rawWarmthErr >= breakthroughCutoff(pEdge);
+    // if breakthrough: take the objective act straight. otherwise: perceive it through the edge.
+    const seenWarmth = broughtThrough ? rawWarmth : perceivedValence(rawWarmth, pEdge, turn);
+    const seenStanceHint = broughtThrough ? rawStanceHint : perceivedValence(rawStanceHint * 7, pEdge, turn) / 7;
+
+    // ── PREDICTION ERROR ── computed on the PERCEPT, not the truth.
+    // warmth error: how far the agent's model was from what it PERCEIVED, normalized to 0..1
+    const warmthErr = Math.abs(seenWarmth - b.predicted_warmth) / 200;
+    // stance error: did the target act against the agent's read? (perceived stance valence vs expectation)
     let stanceErr = 0;
     if (targetStance) {
       const expected = b.predicted_stance === "ally" ? 6 : b.predicted_stance === "rival" ? -6 : 0;
-      stanceErr = Math.abs(stanceWarmthHint[targetStance] - expected) / 14;
+      stanceErr = Math.abs(seenStanceHint - expected) / 14;
     }
     const err = clamp(warmthErr * 0.7 + stanceErr * 0.3, 0, 1);
 
@@ -119,8 +205,8 @@ export function updateMind(
     if (weightedErr > 0.28 && trueEdge) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      if (trueWarmth > b.predicted_warmth + 25) lines.push(`${sname} is recalibrating: ${tname} is warmer than they'd assumed.`);
-      else if (trueWarmth < b.predicted_warmth - 25) lines.push(`${sname} realizes ${tname} is colder toward them than they thought.`);
+      if (seenWarmth > b.predicted_warmth + 25) lines.push(`${sname} is recalibrating: ${tname} is warmer than they'd assumed.`);
+      else if (seenWarmth < b.predicted_warmth - 25) lines.push(`${sname} realizes ${tname} is colder toward them than they thought.`);
       else lines.push(`${sname} didn't expect that from ${tname}.`);
     }
 
@@ -129,10 +215,12 @@ export function updateMind(
     const gap = (1 - b.confidence) * (stakes / 130);
     if (gap > epistemicGap) { epistemicGap = gap; if (gap > 0.4) epistemicTarget = target; }
 
-    // ── BELIEF UPDATE ── move the model toward what was observed; surprised models move more,
-    //    confident models resist (Bayesian precision). Confidence rises when predictions land, falls on shock.
+    // ── BELIEF UPDATE ── move the model toward what was PERCEIVED (seenWarmth), not the raw truth —
+    //    a mind that misread the act updates toward its misreading; that's what makes the filter bite
+    //    rather than being cosmetic. On a breakthrough turn seenWarmth == rawWarmth, so reality lands.
+    //    surprised models move more, confident models resist (Bayesian precision).
     const lr = clamp(0.25 + b.surprise * 0.5, 0, 0.85);
-    b.predicted_warmth = clamp(Math.round(b.predicted_warmth + (trueWarmth - b.predicted_warmth) * lr), -100, 100);
+    b.predicted_warmth = clamp(Math.round(b.predicted_warmth + (seenWarmth - b.predicted_warmth) * lr), -100, 100);
     b.predicted_stance = b.predicted_warmth > 20 ? "ally" : b.predicted_warmth < -20 ? "rival" : "unknown";
     // confidence rises when predictions land, falls on shock — but the GAIN is capped low when the
     // cast is fracturing: under social pressure you don't get to feel certain about people just
@@ -145,14 +233,16 @@ export function updateMind(
     b.confidence = clamp(b.confidence - dispersion * 0.22 * b.confidence, 0.05, 0.98);
     b.updated_turn = turn;
 
-    // a large, sustained warmth gap that the agent keeps NOT resolving crystallizes into a
-    // concrete false belief — the misunderstanding that can drive a scene. cleared when the gap closes.
-    if (b.surprise > 0.6 && Math.abs(trueWarmth - b.predicted_warmth) > 35 && !b.held_false) {
+    // a large, sustained PERCEIVED warmth gap that the agent keeps NOT resolving crystallizes into a
+    // concrete false belief — the misunderstanding that can drive a scene. The gap is measured against
+    // the percept: a sealed mind keeps perceiving hostility even as the truth contradicts it, so the
+    // false belief holds until either a breakthrough lands or the player stops feeding misreadable acts.
+    if (b.surprise > 0.6 && Math.abs(seenWarmth - b.predicted_warmth) > 35 && !b.held_false) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
-      b.held_false = trueWarmth < b.predicted_warmth
+      b.held_false = seenWarmth < b.predicted_warmth
         ? `is convinced ${tname} has turned on them`
         : `can't believe ${tname} actually means them well`;
-    } else if (b.held_false && Math.abs(trueWarmth - b.predicted_warmth) < 12 && b.surprise < 0.25) {
+    } else if (b.held_false && Math.abs(seenWarmth - b.predicted_warmth) < 12 && b.surprise < 0.25) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
       lines.push(`${sname} finally sees ${tname} clearly — the misunderstanding clears.`);

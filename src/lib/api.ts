@@ -10,6 +10,8 @@ import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { seedDrive } from "../engine/drives";
+import { TIGHTNESS_ANCHOR } from "../engine/physiology";
+import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
@@ -631,6 +633,45 @@ export const api = {
     return { baseline: out.text.trim().replace(/^"|"$/g, "").slice(0, 600) };
   },
 
+  /** BEAUTY RESCORE — a small, cheap call that assigns intrinsic attractiveness (0-100) from a
+   *  character's CURRENT physical baseline + age + height/weight. Species-agnostic: a machine, a
+   *  beast, a disembodied voice can score high on presence and symmetry. Called automatically when
+   *  a character's on-sight appearance changed this turn (scar, aging, weight, ruin, new dress) and
+   *  available as a manual button. On return it delta-propagates the change to everyone already
+   *  attracted to them (established bonds move least) rather than reseeding. `ids` omitted = flush
+   *  the whole pending queue. Returns the new scores. */
+  rescoreBeauty: async (id: string, ids?: string[]): Promise<{ scores: Record<string, number> }> => {
+    const s = await need(id);
+    const targets = (ids && ids.length ? ids : (s.pending_beauty_rescore ?? [])).filter((cid) => s.characters[cid]);
+    const scores: Record<string, number> = {};
+    for (const cid of targets) {
+      const c = s.characters[cid];
+      const dims = [
+        c.height_cm ? `${c.height_cm}cm` : "",
+        c.weight_kg ? `${c.weight_kg}kg` : "",
+      ].filter(Boolean).join(", ");
+      try {
+        const out = await complete([
+          { role: "system", content: "You assign a character's INTRINSIC ATTRACTIVENESS as a single integer 0-100 — the snap-judgment a stranger's nervous system makes on sight, before knowing them. Judge from physical form ONLY: symmetry, youthfulness/vitality, proportion, striking or distinctive features, presence. This is species-AGNOSTIC and body-agnostic: a machine, a beast, an angel, or a disembodied voice can be beautiful on presence and form alone — do not penalize non-human. Do not judge personality, clothing brand, or morality. Scale: 50 = ordinary/average, 65-75 = notably attractive, 85+ = stunning/head-turning, below 35 = plain or off-putting. Age and permanent marks (scars, ruin, aging, weight) shift the number as a stranger's eye would weigh them — sometimes down, sometimes not (a scar can be striking). Output ONLY the integer, nothing else." },
+          { role: "user", content: `CHARACTER: ${c.name}, age ${c.age}${dims ? `, ${dims}` : ""}${c.pronouns ? `, ${c.pronouns}` : ""}.\nPHYSICAL BASELINE: ${c.appearance_facts || "(unspecified)"}\nCURRENT PRESENTATION: ${c.appearance_now || "(nothing notable)"}` },
+        ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 12);
+        const n = parseInt((out.text.match(/\d+/) ?? ["50"])[0], 10);
+        const newB = Math.max(0, Math.min(100, isNaN(n) ? 50 : n));
+        const oldB = typeof c.beauty === "number" ? c.beauty : beautyOf(c);
+        c.beauty = newB;
+        applyBeautyChange(s, cid, oldB, newB);
+        scores[cid] = newB;
+      } catch { /* leave beauty as-is on a failed call; it'll retry next change */ }
+    }
+    // clear the flushed ids from the pending queue
+    if (s.pending_beauty_rescore?.length) {
+      const done = new Set(targets);
+      s.pending_beauty_rescore = s.pending_beauty_rescore.filter((cid) => !done.has(cid));
+    }
+    await putSave(s);
+    return { scores };
+  },
+
 
   /** FULL-HISTORY PERSONA READ — types the player as actually played, from every chapter plus a
    *  sample of their literal typed actions. One cheap call; stored on the save so Chronicle can
@@ -668,6 +709,27 @@ export const api = {
       if (seeded) c.drive = seeded;
     }
     if (!tracked) c.drive = undefined;                 // unfollowed: recede into the background
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** BASELINE TIGHTNESS — a player-only standing override of their own relaxation ceiling that
+   *  HOLDS across turns (unlike the per-turn `tightness` opt, which is a one-turn spike). Level 0-5
+   *  maps to a relaxation anchor via TIGHTNESS_ANCHOR; passing null/undefined clears it so the
+   *  engine goes back to inferring the player's state from their words. The Play UI reads this back
+   *  from condition.char_player.subjective_ceiling. */
+  setBaselineTightness: async (id: string, level: number | null): Promise<ClientSave> => {
+    const s = await need(id);
+    const cond = s.condition.char_player;
+    if (!cond) throw new Error("no player condition");
+    if (level === null || level === undefined) {
+      cond.subjective_ceiling = undefined;             // cleared → inference resumes
+    } else {
+      const n = Math.max(0, Math.min(5, Math.round(level)));
+      cond.subjective_ceiling = TIGHTNESS_ANCHOR[n];
+      // if the body currently reads looser than the new baseline, pull it down to match now
+      if (cond.psyche.relaxation > cond.subjective_ceiling) cond.psyche.relaxation = cond.subjective_ceiling;
+    }
     await putSave(s);
     return clientView(s);
   },
@@ -879,7 +941,7 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   return { kind: "completed", save: clientView(s) };
 }
 
-export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean }): Promise<void> {
+export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean; tightness?: number }): Promise<void> {
   let proseJournaled = false;
   try {
     const s = await need(saveId);

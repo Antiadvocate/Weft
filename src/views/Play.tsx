@@ -146,6 +146,18 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
    *  in the background: type freely, and a submitted action queues and fires the instant the
    *  turn commits. On a slow bookkeeper this hides most or all of its latency behind the time
    *  you'd spend reading and typing anyway. One action queues; a failed turn returns it. */
+  /** After a turn commits, if any character's on-sight appearance changed, re-score their
+   *  intrinsic beauty in the background (one small AI call per changed character) and fold the
+   *  updated save back in. Silent and non-blocking — a stale beauty for one turn is harmless. */
+  const flushBeautyRescore = async (s: ClientSave) => {
+    if (!s.pending_beauty_rescore?.length) return;
+    try {
+      await api.rescoreBeauty(s.id);
+      const fresh = await api.save(s.id);
+      if (fresh) setSave(fresh);
+    } catch { /* non-critical; will retry on the next appearance change */ }
+  };
+
   const runAction = async (a: string) => {
     if (!a) return;
     setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setPhase("pressure");
@@ -155,7 +167,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); void flushBeautyRescore(s); },
         onError: (msg) => { setError(msg); failed = true; },
       }, { ground, tightness });
     } catch (e: any) {
@@ -279,7 +291,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onPhase: setPhase,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); resolve(); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); void flushBeautyRescore(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
       }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });

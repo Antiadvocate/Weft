@@ -108,7 +108,7 @@ export function applyRelaxationCeiling(cond: Condition): boolean {
  *  has the player at or below the anchor (the scene tightened them at least this much), their earned
  *  value stands. If the engine has them ABOVE the anchor (it thought they were calmer than their body
  *  says), the anchor wins and pulls them down. Returns the applied anchor for telemetry, or null. */
-const TIGHTNESS_ANCHOR: Record<number, number> = { 0: 7, 1: 2, 2: 1, 3: -2, 4: -4, 5: -6 };
+export const TIGHTNESS_ANCHOR: Record<number, number> = { 0: 7, 1: 2, 2: 1, 3: -2, 4: -4, 5: -6 };
 export function reconcilePlayerTightness(cond: Condition, tightness: number | undefined): number | null {
   if (typeof tightness !== "number") return null;               // untouched → inference stands, no anchor
   const t = Math.max(0, Math.min(5, Math.round(tightness)));

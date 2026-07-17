@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -20,6 +20,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [showGone, setShowGone] = useState(false);
   const [editing, setEditing] = useState(false);
   const [painting, setPainting] = useState(false);
+  const [scoring, setScoring] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [rawErr, setRawErr] = useState("");
@@ -102,6 +103,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     catch (e: any) { setImgErr(e.message); }
     finally { setPainting(false); }
   };
+  const rescore = async () => {
+    if (!sel || scoring) return;
+    setScoring(true);
+    try { await api.rescoreBeauty(save.id, [sel]); setSave(await api.save(save.id)); }
+    catch { /* non-critical */ }
+    finally { setScoring(false); }
+  };
   const allIds = Object.keys(save.characters);
   const gone = (id: string) => { const st = save.characters[id]?.status; return st === "dead" || st === "departed"; };
   const present = new Set(save.world.present);
@@ -113,6 +121,18 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const cond = sel ? save.condition[sel] : null;
   const mem = sel ? save.memory[sel] : null;
   const traits = sel ? save.traits[sel] ?? [] : [];
+  // GM VIEW — this character's recent PRIVATE intents (the lie/hidden want the prose concealed).
+  // Pulled from turn history, newest first. This is how the player verifies the intent system:
+  // what xe actually meant vs. what the prose let show. Only meaningful when it diverges.
+  const gmIntents = useMemo(() => {
+    if (!sel) return [] as { turn: number; surface: string; truth: string; lying: boolean }[];
+    const out: { turn: number; surface: string; truth: string; lying: boolean }[] = [];
+    for (let i = save.history.length - 1; i >= 0 && out.length < 5; i--) {
+      const hit = save.history[i].gm_intents?.find((g) => g.char_id === sel);
+      if (hit) out.push({ turn: save.history[i].turn, surface: hit.surface, truth: hit.truth, lying: hit.lying });
+    }
+    return out;
+  }, [sel, save.history]);
   const playerEdges = useMemo(
     () => (sel ? save.world.edges.filter((e) => e.from === sel) : []),
     [sel, save.world.edges]
@@ -269,6 +289,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
                   <button onClick={paint} title="generate portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
+                  <button onClick={rescore} title={`re-score attractiveness${typeof c.beauty === "number" ? ` (now ${c.beauty})` : ""} — recomputes the on-sight read from current appearance`}><Heart size={16} style={{ color: scoring ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={editing ? () => setEditing(false) : startEdit}><Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={() => { setSel(null); setEditing(false); }}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
                 </div>
@@ -442,6 +463,24 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         </div>
                       );
                     })}
+                  </Section>
+                )}
+
+                {gmIntents.length > 0 && (
+                  <Section title="GM · what they concealed">
+                    <div className="text-[11px] mb-1.5" style={{ color: "var(--text-lo)" }}>
+                      Private intent behind the prose — the truth the narration deliberately hid. Newest first. This is your verification that {c?.name ?? "they"} act from their own hidden state, not the surface.
+                    </div>
+                    {gmIntents.map((g) => (
+                      <div key={g.turn} className="py-1.5 border-t" style={{ borderColor: "var(--hairline)" }}>
+                        <div className="flex justify-between text-[11px] mb-0.5">
+                          <span style={{ color: "var(--text-lo)" }}>turn {g.turn}</span>
+                          {g.lying && <span className="font-mono text-[10px]" style={{ color: "var(--danger)" }}>LIED</span>}
+                        </div>
+                        <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>showed:</span> {g.surface}</div>
+                        <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
+                      </div>
+                    ))}
                   </Section>
                 )}
 

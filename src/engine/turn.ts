@@ -16,6 +16,7 @@ import { detectWorldPronoun } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
+import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { advance, heuristicMinutes } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
@@ -260,14 +261,14 @@ function emptyDiff(): SimulatorDiff {
   };
 }
 
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD and others can hear it; text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks*, and never have someone "overhear" something the player only thought. If the player mixes them in one message, treat each part on its own channel.]`;
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD and others can hear it; text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), and never have someone "overhear" something the player only thought or felt. If the player mixes them in one message, treat each part on its own channel.]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
   // turn mixing speech and plain-prose interiority ("I thought I was average height") was read as
   // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
   // narrator which parts of a single message were audible.
-  do: (a) => `${a}${INLINE_CHANNEL_NOTE}`,
+  do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I keep reading because I feel ignored"), that feeling is PRIVATE. Use it to shape what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
@@ -367,6 +368,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 2 ── narrator (streamed)
   ev.onPhase("narrator");
+  // INTENT PASS — before the narrator writes, each present NPC with something at stake privately
+  // commits to their true intent this beat (the lie, the hidden want, the withheld feeling),
+  // authored from their OWN state, never from the player's thoughts. Split downstream: the narrator
+  // gets only the SURFACE (renders deniable behavior — the player reads a face, not a decoded
+  // answer); the bookkeeper gets the TRUTH (records what really happened). Fires 0 calls when nobody
+  // has stakes, 1 cheap call per staked NPC otherwise (usually 0–1).
+  const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
   updatePaging(state, action);
   const prefix = stablePrefix(state);
@@ -406,6 +414,54 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const stallDirective = (stalled && !restoration)
     ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot and the player is passive: advance a STANDING source (an open thread, a maturing clock, an offscreen character's goal) concretely into the scene and end on it. Only if truly nothing stands may a small ambient development occur — witnessed nearby, never targeted at the player.`
     : "";
+
+  // ── DITHER-BREAK ── The opposite failure to a stall: the PLAYER is actively pushing (long
+  // dialogue, a direct demand, a plea for a choice) but the NARRATOR keeps writing the same
+  // on-the-verge beat every turn — a character opens and closes their mouth, "stops," swallows,
+  // "couldn't," trails off, and the decision is deferred AGAIN. Rules 30/90 (feeling → fragments,
+  // trailing off) plus rule 15's "let unfinished beats continue" collude into an infinite
+  // hesitation loop that reaction-prose happily sustains. Detect it structurally: the last few
+  // narrator beats are saturated with verge-markers and NOBODY lands anything. When that holds and
+  // the player is NOT passive (they're the ones demanding motion), force the decision to land now.
+  const VERGE = /\b(swallow(?:ed|s|ing)?|stopped\.|(?:she|he|they) stopped|trail(?:ed|ing)? off|didn'?t finish|opened.{0,8}closed|mouth (?:opened|worked|closed)|couldn'?t (?:speak|answer|say)|the words (?:hung|wouldn'?t|caught|died)|on the verge|voice cracked|not yet\.|almost said)\b/i;
+  const recentProse = state.history.slice(-4).filter((h) => h.narrator_prose).map((h) => h.narrator_prose as string);
+  const vergeTurns = recentProse.filter((p) => VERGE.test(p)).length;
+  // dithering = 3+ of the last 4 narrator beats are verge-saturated, the player is actively pushing
+  // (not passive), and this isn't a deliberately quiet restoration scene.
+  const dithering = vergeTurns >= 3 && !passiveAct && !restoration && recentProse.length >= 3;
+  const ditherDirective = dithering
+    ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. No more "she stopped," no more trailing off, no more "not yet," no fresh hesitation to replace the old one. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. Landing the beat imperfectly is the goal; hovering at the edge one more turn is the failure.`
+    : "";
+
+  // ── POV INTERIORITY FILTER ── The scene is the player's to READ, not the narrator's to explain.
+  // The cardinal leak: the narrator states another character's sealed interior as fact to the player
+  // ("xe doesn't say what xe actually meant, which is that xe...") — handing over exactly the private
+  // thing the character withheld. That removes all epistemic friction: the player never has to read
+  // anyone, never risks being wrong, always wins. Fix: the narrator's ACCESS to other minds is bounded
+  // by the PLAYER'S own openness, the inverse of the mind-layer perception gate. A clenched, dysregulated
+  // player does not receive clean telemetry on others' feelings — a clenched nervous system is a bad
+  // reader of other people, projecting and missing. So the render must degrade: surface only, and where
+  // feeling is implied it is the PLAYER'S (possibly wrong) read, free to omit, misattribute, or fixate
+  // on the wrong signal. Only a relaxed player earns accurate insight into what others feel.
+  const pcRelax = state.condition["char_player"]?.psyche.relaxation ?? 0; // -10..+10
+  // INTERIOR-HEAVY GUARD — when a "do" action is mostly the player thinking/planning/musing with
+  // little actual physical action, the narrator is most tempted to mine that interior for plot
+  // (player muses about electrician work → an NPC volunteers electrician leads). Detect the shape —
+  // first-person plan/wish/rumination language, especially "I keep thinking / I should / I could /
+  // maybe / I'll ... later" — and, when present, hard-remind that this turn's interior is inert:
+  // it may color the player's own body and experience, but the world must not answer or be built
+  // around it. Only speech and physical acts are inputs.
+  const musingHits = (action.match(/\b(i keep thinking|i should|i could|i need to|maybe i|i'?ll (?:find|go|see|look|try)|i want to|i'?m thinking|thinking about|i wonder|part of me|i tell myself)\b/gi) ?? []).length;
+  const spoke = /"[^"]+"/.test(action);
+  const interiorHeavy = mode === "do" && musingHits >= 2 && !spoke;
+  const interiorGuard = interiorHeavy
+    ? `\nINTERIOR IS INERT THIS TURN — the player's action is mostly private thought/planning (musing about what they might do, where they might go, what they could become). This interior is NOT a story input: it shapes only the player's own experience and what their body does, and the world CANNOT see, answer, or be built around it. Do NOT have any character raise, offer, or respond to the subject of the player's private thoughts (a job they mused about, a plan they turned over, a wish). Render only the physical action the player actually took, and let the world proceed from its OWN standing state — the present character's own want and the live threads — indifferent to what the player was thinking. If the only physical act was small (finishing food, walking over), the scene stays small; do not manufacture a development to match the player's rumination.`
+    : "";
+  const povFilter = pcRelax <= -3
+    ? `\nPOV — READ, DON'T REPORT (player is clenched, relaxation ${Math.round(pcRelax)}): The player is dysregulated and is therefore a BAD reader of other people right now. Do NOT state any other character's inner feelings, motives, or unspoken meaning as fact. Forbidden absolutely: narrator lines that reveal what someone "really" means, "doesn't say," "actually feels," or is thinking behind their words — especially a character's withheld or sealed interior. Render only what the player can SEE and HEAR: face, posture, tone, motion, the words actually spoken, the body. Where feeling colors the scene at all, it is the PLAYER'S projection onto them — and a clenched read is often WRONG: it may misattribute (see coldness where there's fear, rejection where there's confusion), fixate on the wrong signal, or miss what the other person is plainly feeling. You MAY let the player misread. You may omit an emotion the other character is actually having if the player wouldn't catch it. Leave the others' interiors OPAQUE — a surface the player has to interpret, and can get wrong.`
+    : pcRelax < 3
+    ? `\nPOV — mostly surface (player relaxation ${Math.round(pcRelax)}): Render other characters from the OUTSIDE — what shows in face, voice, and act. You may imply feeling through behavior but do NOT hand the player a character's exact unspoken thought or sealed interior as narrator-fact. If someone is withholding something, let it stay withheld and visible only as a pressure under their surface; the player has to read it, and may read it wrong.`
+    : `\nPOV — clear-eyed (player relaxation ${Math.round(pcRelax)}): The player is open and reads people well right now, so their INFERENCES about others tend to be ACCURATE — but they are still inferences, made from the outside, never omniscient fact. You may let the player's read land close to the truth (a correct sense of what's under someone's surface), framed as the player perceiving/sensing it, NOT as the narrator declaring another mind's sealed contents. Still never write "xe doesn't say what xe really means, which is X" — instead "something in how xe says it makes him think X," leaving the player the one reading, and leaving room to be wrong.`;
 
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
   // plot-solver. In god mode it is suppressed entirely (the player is sovereign). Outside god
@@ -477,7 +533,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro}, and the player may use those words about himself — but a native hearing them finds them alien and does not adopt them. If a native repeats the player's odd word, that is a deliberate, marked moment (curiosity, mockery, testing), never a casual slip.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
+  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + ditherDirective + povFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -514,13 +570,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   }
@@ -580,10 +636,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // they return bare or malformed diffs and the story silently stops being recorded. The LEAN
   // contract carries the same schema with half the instruction mass; give it to them always.
   const lightSim = /flash|lite|mini|nano|haiku|8b|9b/i.test(state.model_settings.simulator_model);
+  // The bookkeeper needs the player's RAW action (channels intact, WITHOUT the narrator-facing
+  // instruction brackets that MODE_FRAME adds) — those brackets tell the NARRATOR to hide the
+  // player's feeling from the page, and a bookkeeper reading "do NOT state the feeling" could wrongly
+  // drop it from the ledger too. The opposite is required: the player's interior — their stated
+  // thoughts, feelings, and (parenthetical) inner state — is the AUTHORITATIVE signal for the
+  // player's own valence, truer than anything inferable from the deliberately-opaque prose. The
+  // narrator hides it; the bookkeeper must consume it directly.
+  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the truest evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
-    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (not in a tracked place)\n\n=== PLAYER ACTION ===\n${framedAction}\n\n=== NARRATOR PROSE (source of truth for what happened — but it is NOT authority to violate canon: if it introduces a person or thing the ESTABLISHED CANON forbids, do not create them, do not record them, do not learn facts from them) ===\n${prose}`,
+    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (not in a tracked place)\n\n=== PLAYER ACTION ===\n${bookkeeperAction}${intentForBookkeeper(intents)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -948,6 +1012,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     summary: diff.scene_summary || prose.slice(0, 120),
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
+    gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
     bookkeeping: !simOk ? "failed" : (vitalityOf(diff) === 0 && proseWords >= 120 && mode !== "think") ? "thin" : "ok",
@@ -1855,6 +1920,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     shifts.push(`CANON: ${cn} (news will spread over time)`);
   }
 
+  const beautyDirty = new Set<string>(); // chars whose on-sight appearance changed this turn → rescore
   for (const a of diff.appearance ?? []) {
     const id = resolveId(state, a.char_id); if (!id || !a.value) continue;
     const c = state.characters[id];
@@ -1869,12 +1935,21 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       if (!c.appearance_facts.toLowerCase().includes(sentence.toLowerCase().slice(0, -1))) {
         c.appearance_facts = `${c.appearance_facts.replace(/[.\s]+$/, "")}. ${sentence}`.slice(0, 700);
         shifts.push(`${nameOf(id)} is permanently marked — ${cleaned}`);
+        beautyDirty.add(id); // a permanent bodily change alters the on-sight read → rescore beauty
       }
     } else {
-      // presentation layer: freely replaced, never touches the baseline
-      c.appearance_now = a.value.replace(/\s+/g, " ").trim().slice(0, 300);
+      // presentation layer: freely replaced, never touches the baseline. A stranger still judges
+      // it on sight (revealing dress, armor, ruin), so a genuine CHANGE of presentation also
+      // triggers a rescore — but only when the text actually changed, so unchanging outfits
+      // (the common case, turn after turn) never fire a call.
+      const next = a.value.replace(/\s+/g, " ").trim().slice(0, 300);
+      if (next && next.toLowerCase() !== (c.appearance_now ?? "").toLowerCase()) {
+        c.appearance_now = next;
+        beautyDirty.add(id);
+      }
     }
   }
+  state.pending_beauty_rescore = [...new Set([...(state.pending_beauty_rescore ?? []), ...beautyDirty])];
 
   // group drives_update by character; highest priority becomes active, rest become the queue (max 2)
   const drivesByChar = new Map<string, typeof diff.drives_update>();
