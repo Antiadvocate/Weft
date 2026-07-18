@@ -791,7 +791,7 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[]): Promise<ClientSave> => {
+  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string): Promise<ClientSave> => {
     // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
     // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
     // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and
@@ -803,7 +803,10 @@ export const api = {
     const beatsBlock = (seedThreads?.length)
       ? `\n\nSTORY BEATS THE PLAYER WANTS SEEDED (build the world, cast, places, and clocks so these are POSSIBLE and primed — don't resolve them, just make the world ready for them to emerge; the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n")}`
       : "";
-    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + beatsBlock, model);
+    const toneBlock = tone?.trim()
+      ? `\n\nGENRE & TONE (the register this story must be built and written in — shape the world, threat, pressure palette, and cast to fit it): ${tone.trim()}`
+      : "";
+    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + toneBlock + beatsBlock, model);
     let g: any = null, lastErr = "";
     for (const m of [model, model, "google/gemini-2.0-flash-001"]) {
       try {
@@ -825,6 +828,9 @@ export const api = {
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
     };
+    // GENRE: an explicit player-set tone wins over whatever the forge model inferred, so the
+    // narrator's GENRE line reflects what the player actually asked for.
+    if (tone?.trim()) bible.tone = tone.trim();
     // FATE: a destination with a turn budget is a promise the engine keeps. The clock starts at 0.
     if (bible.destination?.trim() && destinationTurns && destinationTurns > 0) {
       bible.destination_turns = Math.round(destinationTurns);

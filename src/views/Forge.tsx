@@ -19,6 +19,7 @@ export default function Forge({ onBack, onCreated }: {
   const [destTurns, setDestTurns] = useState("");
   const [model, setModel] = useState("deepseek/deepseek-chat-v3-0324");
   const [grounded, setGrounded] = useState(false);
+  const [tone, setTone] = useState("");
   const [chronicle, setChronicle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export default function Forge({ onBack, onCreated }: {
         const m = clean.match(/^(.*?)\s*(?:—|--|:)\s*(.+)$/);
         return m ? { title: m[1].trim(), description: m[2].trim() } : { title: clean };
       }).filter((t) => t.title);
-      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded, seedThreads.length ? seedThreads : undefined));
+      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded, seedThreads.length ? seedThreads : undefined, tone.trim() || undefined));
     } catch (e: any) {
       setError(e.message ?? "world generation failed");
       setBusy(false);
@@ -95,6 +96,18 @@ export default function Forge({ onBack, onCreated }: {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="mt-4">
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+            Genre &amp; tone <span style={{ opacity: 0.6 }}>(optional — sets the register)</span>
+          </div>
+          <input className="field" type="text"
+            placeholder={"e.g. action-horror survival, lethal and fast, romance under threat"}
+            value={tone} onChange={(e) => setTone(e.target.value)} />
+          <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
+            The key the whole story is written in. Set it and the world, threat, and prose are all built and rendered to match — no drifting into a quiet character study when you wanted horror. Leave blank to let the forge infer it from your seed.
+          </div>
         </div>
 
         <div className="mt-4">

@@ -53,6 +53,7 @@ export interface WorldBible {
   magic_rules: string;
   forbidden: string;
   what_people_fear: string;
+  tone?: string;                  // GENRE & REGISTER: the story's genre and tonal key, set by the player at forge time or inferred from the seed — e.g. "action-horror survival, lethal and fast, romance under threat", "cozy small-town mystery", "grimdark military SF". Surfaced to the narrator as the GENRE line so the prose is written in this register and never drifts into the wrong key.
   cultures_and_languages: string;
   climate_and_geography: string;
   calendar_and_currency: string;
