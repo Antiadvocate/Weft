@@ -307,6 +307,26 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   //    removed — it severed the generative kernel. Relaxation is the driver again: the
   //    simulator's per-character relaxation_delta moves it, tickPsyche drifts it toward
   //    capacity and derives state. Emergence from one scalar, as originally designed.) ──
+  // CAPACITY HEAL — older saves (and forge slips) left some characters with a resting openness that
+  // contradicts their nature: a cold, predatory character sitting at capacity 3+ drifts to serene
+  // openness and the perception gate reads them as placid. Recompute capacity from conscience+traits
+  // for any character whose current capacity is clearly too high for who they are, then let the
+  // faster above-capacity decay in tickPsyche pull their inflated relaxation back down.
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player") continue;
+    const cond = state.condition[id]; if (!cond) continue;
+    const consc = typeof c.conscience === "number" ? c.conscience : 0.6;
+    const traitBlob = `${(Array.isArray(c.core_traits) ? c.core_traits.join(" ") : c.core_traits ?? "")} ${(c.voice as any)?.agenda ?? ""} ${c.attachment?.under_threat ?? ""}`.toLowerCase();
+    const guarded = /\b(cold|hollow|vindictive|cruel|ruthless|predatory|paranoid|hostile|guarded|calculating|manipulat|menac|instrument|vicious|contempt|sadis|controlling|suspicious|wary|hardened|brutal)\b/.test(traitBlob);
+    let natural = consc <= 0.3 ? -2 : consc >= 0.8 ? 4 : 2;
+    if (guarded) natural -= 2;
+    natural = Math.max(-6, Math.min(6, natural));
+    // only heal DOWNWARD and only when clearly off (>2 too high), so we don't churn every turn
+    if (cond.psyche.capacity > natural + 2) {
+      cond.psyche.capacity = natural;
+      if (cond.psyche.relaxation > natural + 2) cond.psyche.relaxation = natural + 1; // nudge the inflated reading down now
+    }
+  }
   for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche);
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
@@ -415,6 +435,25 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const presentNpcs = state.world.present.filter((id) => id !== "char_player" && state.characters[id]);
   if (presentNpcs.length >= 2) {
     directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. At least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player; let the room have its own conversations that the player is sometimes only a witness to.`;
+  }
+  // DRIVE EXECUTION — a present character whose drive is a concrete ACTION ("deliver him to the
+  // Palace", "get the ledger", "call the guards") should ACT on it, not converse about it forever.
+  // The failure this fixes: an inquisitor walks the player toward the Palace for many turns and never
+  // arrives, never signals the guards, never makes the move — the drive is stated but never executes,
+  // so the scene idles in pleasant talk. If a present character has held the same actionable drive
+  // across several turns without visibly advancing it, this turn they take a concrete STEP toward
+  // completing it — the arrival, the signal, the grab, the demand — moving the scene, not padding it.
+  {
+    const acters = presentNpcs
+      .map((id) => ({ id, c: state.characters[id] }))
+      .filter(({ c }) => c.drive?.goal && /\b(deliver|bring|take|get|call|signal|seize|arrest|detain|kill|steal|reach|deploy|summon|capture|hand over|turn in|escort|force|make .* (talk|pay|come)|collect|retrieve|find|corner|trap)\b/i.test(c.drive.goal)
+        // only nudge execution once the drive has LINGERED (held a few turns without completing) —
+        // a fresh drive gets room to breathe; a stale one gets pushed to act.
+        && (state.world.current_turn - (c.drive!.updated_turn ?? state.world.current_turn)) >= 2);
+    if (acters.length) {
+      const who = acters[0];
+      directive += `\nDRIVE EXECUTION: ${who.c.name} has a concrete goal in motion ("${who.c.drive!.goal}"). They have been pursuing it — this turn they take a real STEP toward COMPLETING it (arrive, signal, seize, demand, deploy — whatever the goal's next concrete move is), not merely talk around it. A character with an actionable agenda who only converses, turn after turn, is a stalled scene; let them ACT on what they want and change the situation.`;
+    }
   }
 
   // ── RESTORATION DETECTION ── sleeping, eating, bathing, quiet hours. To the stall detector,
@@ -633,6 +672,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         ? `web-grounded${qTag} — ${hosts.length} source${hosts.length > 1 ? "s" : ""}: ${hosts.slice(0, 3).join(", ")}`
         : `web grounding${qTag}: search returned no sources — this turn wrote from memory`] });
     }
+  }
+  // TELEMETRY BACKSTOP — some streaming routes omit the usage block on the final chunk, so
+  // narratorUsage can come back all-zeros even though the narrator clearly ran (we have prose).
+  // Rather than log a phantom "0 tokens" turn, estimate from text length (~4 chars/token): prompt
+  // from the assembled narrator messages, completion from the prose. Marked approximate via cost 0.
+  if ((narratorUsage.prompt_tokens ?? 0) === 0 && (narratorUsage.completion_tokens ?? 0) === 0 && prose) {
+    const est = (s: string) => Math.max(1, Math.round((s?.length ?? 0) / 4));
+    const promptChars = JSON.stringify(narratorMsgs ?? []).length;
+    narratorUsage = { ...narratorUsage, prompt_tokens: est(" ".repeat(promptChars)), completion_tokens: est(prose) };
   }
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
@@ -875,7 +923,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     state.destination_progress = { pct: 100, gained: state.destination_progress?.gained ?? "", missing: "", turn, reached: true };
     shifts.push("the ending has come to pass");
   }
-  const offscreenLog = [...(diff.offscreen ?? [])];
+  // Offscreen world-motion from the simulator — but drop lines that just repeat a recent one. The
+  // model tends to re-narrate the same standing activity every turn ("Sarn continues her sweep..."),
+  // which reads as the world stuck in a loop. Compare against the last few turns' offscreen lines and
+  // keep only genuinely new motion.
+  const recentOffscreen = state.history.slice(-4).flatMap((h) => h.offscreen ?? []);
+  const offscreenLog = [...(diff.offscreen ?? []).filter((line) =>
+    !recentOffscreen.some((prev) => overlapRatio(prev, line) >= 0.5))];
   // present, named characters the player is actually engaging join the long game
   const capCentral = state.model_settings.max_central_characters ?? 6;
   for (const id of state.world.present) {
@@ -1254,6 +1308,20 @@ function wordOverlap(a: string, b: string): boolean {
   const wa = a.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w));
   const wb = b.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w));
   return wb.some((w) => wa.some((x) => x === w || x.startsWith(w) || w.startsWith(x)));
+}
+
+/** Fraction of significant words shared between two strings (Jaccard-ish over content words).
+ *  Used to detect NEAR-DUPLICATE threads and consequences the model re-emits with reworded titles
+ *  ("The Inquisitorius (Sarn Veylo) — locate and claim the anomaly" vs "Sarn Veylo — locate and
+ *  claim the anomaly"). Returns 0..1; ~0.5+ means they're the same beat wearing different words. */
+function overlapRatio(a: string, b: string): number {
+  const STOP = new Set(["the","a","an","of","in","on","and","with","from","to","for","by","at","as","that","this","it","is","are","was","were","be","has","have","had","who","which","their","they","them","his","her","its","if","when","then","now","up","down","fast","two","one"]);
+  const toks = (s: string) => new Set(s.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w)));
+  const sa = toks(a), sb = toks(b);
+  if (!sa.size || !sb.size) return 0;
+  let shared = 0;
+  for (const w of sa) if (sb.has(w)) shared++;
+  return shared / Math.min(sa.size, sb.size); // fraction of the SMALLER set covered
 }
 
 /** Add a condition with dedupe: a variant of an existing condition REPLACES it instead of stacking. */
@@ -2014,9 +2082,31 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }
 
+  // SELF-HEAL — collapse any near-duplicate active threads already in the world (from before dedup
+  // existed). Keep the oldest (lowest turn_started), fold the rest into it. Runs cheaply each turn.
+  {
+    const act = state.world.threads.filter((t) => t.status === "active");
+    const drop = new Set<string>();
+    for (let i = 0; i < act.length; i++) {
+      if (drop.has(act[i].id)) continue;
+      for (let j = i + 1; j < act.length; j++) {
+        if (drop.has(act[j].id)) continue;
+        if (overlapRatio(act[i].title, act[j].title) >= 0.6) {
+          const keep = (act[i].turn_started ?? 0) <= (act[j].turn_started ?? 0) ? act[i] : act[j];
+          const lose = keep === act[i] ? act[j] : act[i];
+          keep.tension = Math.max(keep.tension ?? 3, lose.tension ?? 3);
+          drop.add(lose.id);
+        }
+      }
+    }
+    if (drop.size) state.world.threads = state.world.threads.filter((t) => !drop.has(t.id));
+  }
+
   for (const tu of diff.threads_update ?? []) {
     if (!tu?.title) continue;
-    const existing = state.world.threads.find((t) => t.id === tu.id || t.title.toLowerCase() === tu.title.toLowerCase());
+    const existing = state.world.threads.find((t) => t.id === tu.id || t.title.toLowerCase() === tu.title.toLowerCase()
+      // near-duplicate: same beat with a reworded title (subject + action overlap heavily)
+      || (t.status === "active" && overlapRatio(t.title, tu.title) >= 0.6));
     if (existing) {
       existing.status = tu.status;
       if (tu.description) existing.description = tu.description;
@@ -2049,6 +2139,14 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   for (const c of diff.consequences_new ?? []) {
     if (!c?.description) continue;
+    // DEDUP — the model re-emits the same impending event across turns ("two speeders dropping fast
+    // reach the plaza") and it stacks as separate consequences that then all fire. Skip a new one
+    // that closely matches an existing PENDING consequence, or one that FIRED in the last few turns
+    // (so a just-fired beat isn't immediately re-scheduled). Match on description overlap.
+    const dupExisting = state.world.consequences.find((x) =>
+      (x.status === "pending" || (x.status === "fired" && (x.fire_turn ?? 0) >= turn - 3))
+      && overlapRatio(x.description, c.description) >= 0.55);
+    if (dupExisting) continue;
     // prefer an in-world-time schedule: "in 2 days" must mean two days of story time, not two turns.
     const deltaMin = (c.fire_in_days ? c.fire_in_days * 1440 : 0) + (c.fire_in_hours ? c.fire_in_hours * 60 : 0);
     const fire_time = deltaMin > 0 ? advance(state.world.current_time, deltaMin) : undefined;

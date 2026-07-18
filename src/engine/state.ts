@@ -54,7 +54,23 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     voice: ident.voice,
     attachment: ident.attachment,
   };
-  state.condition[id] = blankCondition((ident as any).capacity ?? 2);
+  // CAPACITY = resting openness the person's nature drifts toward. When the forge gives an explicit
+  // sensible value, honor it; otherwise derive it from nature so a cold, guarded, or predatory
+  // character doesn't default to a relaxed, open baseline (which the perception gate then reads as
+  // serene — the bug where a 0.15-conscience inquisitor ran permanently placid). Low conscience and
+  // hostile/guarded traits lower the resting point; warm, secure natures raise it.
+  const explicitCap = typeof (ident as any).capacity === "number" ? (ident as any).capacity : undefined;
+  let cap = explicitCap ?? 2;
+  if (explicitCap === undefined) {
+    const consc = asNum(ident.conscience, 0, 1) ?? 0.6;
+    const traitBlob = `${asList(ident.core_traits).join(" ")} ${asText((ident.voice as any)?.agenda ?? "")} ${asText(ident.attachment?.under_threat ?? "")}`.toLowerCase();
+    const guarded = /\b(cold|hollow|vindictive|cruel|ruthless|predatory|paranoid|hostile|guarded|calculating|manipulat|menac|instrument|vicious|contempt|sadis|controlling|suspicious|wary|hardened|brutal)\b/.test(traitBlob);
+    // base on conscience: dark (≤0.3) rests tense (~-2), ordinary (~2), warm (≥0.8) rests open (~4)
+    cap = consc <= 0.3 ? -2 : consc >= 0.8 ? 4 : 2;
+    if (guarded) cap -= 2;               // a guarded/predatory nature rests tenser still
+    cap = Math.max(-6, Math.min(6, cap));
+  }
+  state.condition[id] = blankCondition(cap);
   state.traits[id] = [];
   state.memory[id] = blankMemory(id);
   return id;

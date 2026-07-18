@@ -77,10 +77,21 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
 
 /** Per-turn drift of relaxation toward capacity; derive psyche state. */
 export function tickPsyche(p: Psyche): void {
-  p.relaxation = clamp(p.relaxation + (p.capacity - p.relaxation) * p.recovery, -10, 10);
+  // Drift toward capacity. Overshoot ABOVE capacity decays FASTER than recovery from below —
+  // a person's nature sets a ceiling on how open they get, and they don't float far above it just
+  // because scenes are pleasant. This is the fix for a low-capacity (tense, guarded, predatory)
+  // character being pushed up to serene openness by repeated positive relaxation_deltas and staying
+  // there: above capacity the pull-back is strong, so their natural tension reasserts.
+  const gap = p.capacity - p.relaxation;
+  const rate = p.relaxation > p.capacity ? Math.max(p.recovery, 0.5) : p.recovery; // above-capacity overshoot collapses fast
+  p.relaxation = clamp(p.relaxation + gap * rate, -10, 10);
   if (p.relaxation <= -7) p.consecutive_clenched++;
   else p.consecutive_clenched = 0;
-  p.open_run = p.relaxation >= 3 ? (p.open_run ?? 0) + 1 : 0;
+  // open_run tracks how long they've sat AT/ABOVE their own resting openness — a character whose
+  // capacity is low (guarded by nature) shouldn't accrue a long "open run" just for being at rest.
+  // Reset when relaxation falls meaningfully below their capacity OR below the neutral line.
+  const openFloor = Math.min(3, Math.max(0, p.capacity - 1));
+  p.open_run = p.relaxation >= openFloor ? (p.open_run ?? 0) + 1 : 0;
   if (p.state === "intact" && p.consecutive_clenched >= 4) p.state = "fracturing";
   if (p.state === "fracturing" && p.relaxation > -4) { p.state = "intact"; p.break_mode = null; }
   if (p.state === "fracturing" && p.relaxation <= -9) { p.state = "broken"; p.break_mode = p.break_mode ?? "fractured"; }
