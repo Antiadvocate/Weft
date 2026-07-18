@@ -322,7 +322,11 @@ export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: num
 
 /** After the LLM produces beliefs, fold them in and compact the episodic store. */
 export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn: number, keepRecent = 8): void {
-  mem.beliefs.push(...beliefs.map((b) => ({ ...b, content: compactGist(b.content, 130) })));
+  // Stamp every belief with the turn it was actually formed. Without this, beliefs carried no
+  // formed_turn and defaulted to 0/-1, which made a late-invented conviction ("her father is in
+  // trouble") look like origin backstory that predated events it actually came after — and the
+  // narrator then treated it as long-established truth.
+  mem.beliefs.push(...beliefs.map((b) => ({ ...b, formed_turn: currentTurn, content: compactGist(b.content, 130) })));
   if (mem.beliefs.length > 14) mem.beliefs = mem.beliefs.slice(-14);
   // keep the most recent + the few highest-importance episodics; drop the rest (now represented as beliefs)
   const recent = mem.episodic.filter((m) => currentTurn - m.turn <= keepRecent);
@@ -346,6 +350,27 @@ function agoLabel(whenLabel: string | undefined, nowLabel: string): string {
   if (days === 1) return "yesterday";
   if (days < 14) return `${days} days ago`;
   return `${Math.round(days / 7)} weeks ago`;
+}
+
+/** Time is verbatim detail — it decays FIRST and FASTEST. Widen the stored exact stamp by decay
+ *  stage: 0 exact → 1 part-of-day → 2 just the day → 3 the absolute is gone, only the STICKY
+ *  landmark anchor ("before the outbreak") remains. The anchor never decays, so ordinal placement
+ *  survives even when the clock dissolves — a faded memory keeps its before/after relation and can't
+ *  drift into the wrong point in the timeline. Full recall (a vivid re-surfacing) restores the exact
+ *  stamp, matching how a strong retrieval momentarily brings back specifics. */
+function fuzzedWhen(m: EpisodicMemory, full: boolean): string {
+  const anchor = m.anchor_rel?.trim();
+  if (full) return [m.when_label, anchor].filter(Boolean).join(" — ");
+  const stage = m.decay_stage ?? 0;
+  if (stage <= 0) return [m.when_label, anchor].filter(Boolean).join(" — ");
+  const t = m.when_label ? parseTime(m.when_label) : null;
+  if (stage === 1 && t) {
+    const part = t.hour < 5 ? "night" : t.hour < 12 ? "morning" : t.hour < 17 ? "afternoon" : t.hour < 21 ? "evening" : "night";
+    return [`Day ${t.day}, ${part}`, anchor].filter(Boolean).join(" — ");
+  }
+  if (stage === 2 && t) return [`around Day ${t.day}`, anchor].filter(Boolean).join(" — ");
+  // stage 3: the absolute time is gone. Only the sticky landmark anchor remains (or a vague "a while back").
+  return anchor || "a while back";
 }
 
 export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0): string {
@@ -378,15 +403,14 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     parts.push(`RECALLS${tint ? ` (${tint})` : ""}: ${top.map(({ m, rel }) => {
     const full = fullSet.has(m);
     const stage = m.decay_stage ?? 0;
-    const ago = agoLabel(m.when_label, nowLabel);
     // place: present at stages 0–1, or whenever recalled full; at stage 2+ gist it's lost but reconstructable
     let place = (m.where || full) ? (m.where ? `at ${m.where}` : "") : "";
     if (!place && !full && stage >= 2) {
       const neighbor = mem.episodic.find((o) => o !== m && o.where && Math.abs(o.turn - m.turn) <= 3);
       if (neighbor?.where) place = `somewhere around ${neighbor.where}`; // contextual reconstruction
     }
-    // full recall ignores the fade: exact time + the original vivid text come back
-    const when = (full || stage <= 1) ? [m.when_label, ago && ago !== m.when_label ? `≈${ago}` : ""].filter(Boolean).join(", ") : ago;
+    // time decays first and fastest — exact stamp fuzzes to a range by stage, sticky anchor persists
+    const when = fuzzedWhen(m, full);
     const stamp = [when, place].filter(Boolean).join(", ");
     const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
     const raw = full ? (m.full_content ?? m.content) : m.content;

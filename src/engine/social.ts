@@ -39,7 +39,42 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
   e.trust = clamp(e.trust + clamp(trustDelta, -20, 20), -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
   if (d.note) e.notes = d.note.slice(0, 140);
-  if (d.roles_set) e.roles = d.roles_set.map((r) => r.trim()).filter(Boolean).slice(0, 4);
+  if (d.roles_set) {
+    let roles = d.roles_set.map((r) => r.trim()).filter(Boolean).slice(0, 4);
+    // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
+    // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent — Marie's
+    // role toward Joe is daughter; father is Joe's role toward Marie. When a known reciprocal PAIR
+    // appears together on one edge, keep only the side that fits THIS direction and stamp the inverse
+    // on the reverse edge, so the narrator gets a correct, directional anchor (this is what prevents
+    // garbled "you daughter her"-type lines: the relationship is unambiguous in state).
+    const RECIP: Record<string, string> = {
+      father: "child", mother: "child", dad: "child", mom: "child", parent: "child",
+      son: "parent", daughter: "parent", child: "parent",
+      husband: "wife", wife: "husband", boss: "employee", employee: "boss",
+      teacher: "student", student: "teacher", master: "apprentice", apprentice: "master",
+      mentor: "mentee", mentee: "mentor", owner: "pet", captain: "crew",
+    };
+    const inverseHits = roles.filter((r) => RECIP[r.toLowerCase()]);
+    if (inverseHits.length >= 2) {
+      // Two reciprocal terms collided. Decide which belongs to from->to using the CHILD/PARENT axis:
+      // a younger/subordinate term (daughter, son, child, student, apprentice, employee, mentee, crew)
+      // is what `from` is TO `to`; the senior term goes on the reverse edge.
+      const JUNIOR = new Set(["son","daughter","child","student","apprentice","employee","mentee","crew","pet"]);
+      const junior = roles.find((r) => JUNIOR.has(r.toLowerCase()));
+      const senior = roles.find((r) => !JUNIOR.has(r.toLowerCase()) && RECIP[r.toLowerCase()]);
+      if (junior && senior) {
+        roles = roles.filter((r) => r.toLowerCase() !== senior.toLowerCase()); // from keeps junior (+ any non-recip roles)
+        const rev = getEdge(edges, d.to, d.from);
+        const revRole = senior;
+        rev.roles = rev.roles ?? [];
+        if (!rev.roles.some((r) => r.toLowerCase() === revRole.toLowerCase())) {
+          rev.roles = [...rev.roles.filter((r) => r.toLowerCase() !== (RECIP[revRole.toLowerCase()] ?? "")), revRole].slice(0, 4);
+          rev.updated_turn = turn;
+        }
+      }
+    }
+    e.roles = roles;
+  }
   e.updated_turn = turn;
 }
 

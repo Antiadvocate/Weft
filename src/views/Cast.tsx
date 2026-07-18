@@ -501,10 +501,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     {mem.beliefs.map((b, i) => (
                       <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</div>
                     ))}
-                    {[...mem.episodic].sort((a, b) => b.turn - a.turn).slice(0, 7).map((m, i) => (
+                    {[...mem.episodic].sort((a, b) => ((b.event_turn ?? b.turn) - (a.event_turn ?? a.turn))).slice(0, 7).map((m, i) => (
                       <div key={i} className="text-[12.5px] py-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
                         <span className="font-mono text-[9.5px] mr-1.5" style={{ color: "var(--text-lo)" }}>
-                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.where ? ` · ${m.where}` : ""}
+                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` · ${m.anchor_rel}` : ""}{m.where ? ` · ${m.where}` : ""}
                         </span>
                         {m.content}
                       </div>

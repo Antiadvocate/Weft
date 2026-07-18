@@ -307,6 +307,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   //    removed — it severed the generative kernel. Relaxation is the driver again: the
   //    simulator's per-character relaxation_delta moves it, tickPsyche drifts it toward
   //    capacity and derives state. Emergence from one scalar, as originally designed.) ──
+  // INVENTORY DEDUP — older saves (and repeated inventory_add before the guard existed) can hold the
+  // same item twice ("KSG shotgun" x2). Collapse by name so nobody carries a phantom duplicate.
+  for (const cond of Object.values(state.condition)) {
+    if (!cond.inventory?.length) continue;
+    const seen = new Set<string>();
+    cond.inventory = cond.inventory.filter((i) => {
+      const k = i.name.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  }
   // CAPACITY HEAL — older saves (and forge slips) left some characters with a resting openness that
   // contradicts their nature: a cold, predatory character sitting at capacity 3+ drifts to serene
   // openness and the perception gate reads them as placid. Recompute capacity from conscience+traits
@@ -453,6 +464,26 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (acters.length) {
       const who = acters[0];
       directive += `\nDRIVE EXECUTION: ${who.c.name} has a concrete goal in motion ("${who.c.drive!.goal}"). They have been pursuing it — this turn they take a real STEP toward COMPLETING it (arrive, signal, seize, demand, deploy — whatever the goal's next concrete move is), not merely talk around it. A character with an actionable agenda who only converses, turn after turn, is a stalled scene; let them ACT on what they want and change the situation.`;
+    }
+  }
+
+  // GENRE-THREAT ESCALATION — a world whose core danger is lethal (being eaten, hunted, killed) must
+  // not let that threat sit offstage as atmosphere for many turns while the scene stays domestic. If
+  // the world's stated fear is a predator/violent threat AND the recent prose has not brought it
+  // onscreen, escalate: this turn the danger becomes PRESENT and CONSEQUENTIAL, at the scale the
+  // genre demands (a predator seen, heard closing, taking someone; the block reacting with flight or
+  // defense). This is the fix for "wrong birdsong" standing in for actual horror across dozens of turns.
+  {
+    const fear = (state.world_bible.what_people_fear ?? "").toLowerCase();
+    const lethalWorld = /\b(eaten|eat|devour|hunt|predator|prey|killed|kill|maul|attack|torn|blood|beast|creature|monster|dinosaur|claw|teeth)\b/.test(fear)
+      || (state.world_bible.pressure_palette ?? []).some((p) => /predator|threat|attack|hunt|violence|kill/i.test(p));
+    if (lethalWorld && (state.model_settings.tension ?? 5) >= 3) {
+      const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+      const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
+      const threatOnscreenRecently = threatWords.test(recentProse);
+      if (!threatOnscreenRecently) {
+        directive += `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — the recent turns have stayed domestic while the lethal threat is reduced to distant sound. This is a horror/survival world and the register has drifted wrong. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves into the block, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong" or a shiver in the ferns again; make the danger concrete, physical, and consequential, and let the characters react with the fear and urgency the genre demands. People in this world can die; the world does not stay safe because the scene turned tender.`;
+      }
     }
   }
 
@@ -848,9 +879,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       vetoed++;
       return false;
     });
-    // an exit that is not a death also needs the prose to say it
+    // an exit needs grounding in the prose. A DEATH of someone who was PRESENT can be accepted (the
+    // scene depicted it). But a death of an OFF-SCENE character cannot come from a line of dialogue —
+    // a grieving character saying "my dad's dead" is a claim, not an event, and the narrator may have
+    // invented it to fill emotional space (the state may even hold their fate explicitly open). Killing
+    // someone off-scene requires the prose to actually DEPICT the death, not merely have someone assert
+    // it. Otherwise the claim is left as just that — a claim — and the character stays alive until the
+    // world actually resolves them.
     diff.character_exits = (diff.character_exits ?? []).filter((e) => {
-      if (e.kind === "dead") return true;
+      if (e.kind === "dead") {
+        const present = state.world.present.includes(e.char_id);
+        if (present) return true;
+        const name = state.characters[e.char_id]?.name;
+        const depicted = DEPART_IN_PROSE(prose, name); // reuse: was their leaving/end actually shown?
+        if (!depicted) { vetoed++; console.warn(`[turn] death clamp: refused to kill off-scene ${name} on a dialogue claim alone`); }
+        return depicted;
+      }
       const ok = DEPART_IN_PROSE(prose, state.characters[e.char_id]?.name);
       if (!ok) vetoed++;
       return ok;
@@ -892,6 +936,35 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     diff.edges = (diff.edges ?? []).filter((e) => { const bad = absent(e.from); if (bad) blocked++; return !bad; });
     diff.psyche = (diff.psyche ?? []).filter((p) => { const bad = absent(p.char_id); if (bad) blocked++; return !bad; });
     if (blocked) console.warn(`[turn] earshot clamp: dropped ${blocked} write(s) for characters who were not in the scene`);
+  }
+
+  // FALSE-DEATH GUARD — the narrator sometimes invents that an off-scene, still-living character died
+  // ("my dad's dead") and the bookkeeper canonizes it into memories/facts across the cast, poisoning
+  // the store and driving a hallucination loop. A memory may only assert a character's death if that
+  // character is actually dead/departed in state, OR the prose DEPICTED their death this turn. An
+  // assertion about a roster-alive character who was not onscreen-killed is dropped — the claim can
+  // live in dialogue, but it does not become a recorded fact that later turns treat as true.
+  {
+    const assertsDeath = (text: string): string | null => {
+      const m = text?.match(/\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)('s)?\b[^.]*\b(is dead|is gone|died|was killed|killed|dead on the|corpse|body)\b/);
+      return m ? m[1] : null;
+    };
+    const livingByName = (name: string) => Object.entries(state.characters).find(([, c]) =>
+      c.status !== "dead" && c.status !== "departed" && (c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase().startsWith(name.toLowerCase() + " ")));
+    const deathDepicted = (name: string) => DEPART_IN_PROSE(prose, name);
+    let falseDeath = 0;
+    const scrubDeath = (text: string): boolean => {
+      const who = text ? assertsDeath(text) : null;
+      if (!who) return false;
+      const hit = livingByName(who);
+      if (!hit) return false;                       // not a living roster character — leave it
+      if (state.world.present.includes(hit[0])) return false; // present: the scene could have shown it
+      if (deathDepicted(hit[1].name)) return false; // prose actually depicted the death — allow
+      falseDeath++; return true;                    // living, off-scene, not depicted → drop the claim
+    };
+    diff.memories = (diff.memories ?? []).filter((m) => !scrubDeath(m.content));
+    diff.facts_learned = (diff.facts_learned ?? []).filter((f) => !scrubDeath(f.fact));
+    if (falseDeath) console.warn(`[turn] false-death guard: dropped ${falseDeath} record(s) asserting a living off-scene character died`);
   }
 
   // 4 ── apply diff + deterministic systems
@@ -1784,7 +1857,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
         });
         break;
       }
-      case "inventory_add": if (f.value) c.inventory.push({ id: uid("itm"), name: f.value }); break;
+      case "inventory_add": if (f.value && !c.inventory.some((i) => i.name.toLowerCase() === f.value.toLowerCase())) c.inventory.push({ id: uid("itm"), name: f.value }); break;
       case "inventory_remove": c.inventory = c.inventory.filter((i) => i.name.toLowerCase() !== f.value.toLowerCase()); break;
       case "wearing_add": {
         if (!f.value) break;
@@ -1915,11 +1988,25 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (g.repaired) m.content = g.content;
     else if (g.suspects.length) console.warn(`[memory] suspect specifics in ${nameOf(id)}'s memory (${g.suspects.join(", ")}) — no source sentence matched; stored as-is`);
     const wherePid = state.characters[id]?.location;
+    // HYBRID TEMPORAL MODEL. Time is verbatim detail — it decays FIRST (fastest), fuzzing from an
+    // exact stamp to a widening range as the memory fades (handled at DISPLAY time by decay_stage, so
+    // the stored value stays intact for sorting). What survives the fade is the GIST anchor: a sticky
+    // landmark-relative placement ("before the outbreak") the bookkeeper supplies, which NEVER decays
+    // and keeps the memory's before/after ordering even when the clock dissolves. This is faithful to
+    // reconstructive memory (verbatim time fuzzes, semantic gist persists) and guards against a faded
+    // memory drifting into the wrong point in the timeline. A normal now-memory needs neither field.
+    const suppliedLabel = (m as any).when_label?.trim();
+    const anchorRel = (m as any).anchor_rel?.trim() || undefined;
+    // event_turn is for chronological SORT only (so recalled-past events sit in the past), never for
+    // display precision. If the bookkeeper gave a past label or a "before …" anchor, treat the event
+    // as older than now; otherwise it happened this turn.
+    const isPast = !!anchorRel && /\b(before|prior|earlier|ago|used to|back (when|then)|once|years?|childhood|outbreak|the note|arriv)/i.test(anchorRel);
     mem.episodic.push({
-      turn, content: compactGist(m.content), full_content: m.content, decay_stage: 0,
+      turn, event_turn: isPast ? 0 : turn, anchor_rel: anchorRel,
+      content: compactGist(m.content), full_content: m.content, decay_stage: 0,
       importance: clamp(m.importance ?? 3, 1, 10),
       emotional_charge: m.emotional_charge ?? "", last_accessed_turn: turn,
-      when_label: state.world.current_time,
+      when_label: suppliedLabel || state.world.current_time,
       where: (wherePid && state.world.places[wherePid]?.name) || undefined,
       ...(m.scheduled_time ? { scheduled_time: m.scheduled_time, commitment_status: "pending" as const } : {}),
     });

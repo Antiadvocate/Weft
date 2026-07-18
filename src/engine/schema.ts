@@ -23,7 +23,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   psyche: A(S({ char_id: str, relaxation_delta: num, mood: str, states_add: strA, states_remove: strA }, ["char_id"])),
   edges: A(S({ from: str, to: str, warmth_delta: num, trust_delta: num, power_delta: num, attraction_delta: num, note: str, roles_set: strA }, ["from", "to"])),
   aliases_add: A(S({ id: str, alias: str }, ["id", "alias"])),
-  memories: A(S({ char_id: str, content: str, importance: num, emotional_charge: str, scheduled_time: str, anchor: str, core: { type: "boolean" } }, ["char_id", "content"])),
+  memories: A(S({ char_id: str, content: str, importance: num, emotional_charge: str, scheduled_time: str, anchor: str, core: { type: "boolean" }, when_label: str, anchor_rel: str }, ["char_id", "content"])),
   facts_learned: A(S({ char_id: str, fact: str, quote: str }, ["char_id", "fact"])),
   memory_recohere: A(S({ char_id: str, source_char: str, about: str, added_detail: str }, ["char_id", "about", "added_detail"])),
   traits: A(S({ char_id: str, label: str, origin: str, behavioral_impact: str, intensity: num }, ["char_id", "label"])),

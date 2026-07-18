@@ -341,6 +341,33 @@ export const api = {
       }
     }
     if (words.length) t.world.canon = t.world.canon.filter((line) => !words.some((w) => line.toLowerCase().includes(w) && w.length > 5));
+    // PURGE POISONED MEMORIES — the struck material's real damage is the episodic/core/belief/fact
+    // memories the bookkeeper canonized from it (an invented death recorded across the whole cast).
+    // Leaving those in place lets the narrator keep reading the struck event as true and regenerating
+    // it. Strip any memory entry that substantially matches the struck note, across every character.
+    // Match on distinctive content words (5+ letters) so a specific strike ("Marie's father is dead
+    // in the garage") clears the related memories without nuking unrelated ones.
+    const strongWords = words.filter((w) => w.length >= 5);
+    const matchesStruck = (text: string): boolean => {
+      if (!text) return false;
+      const t2 = text.toLowerCase();
+      const hits = strongWords.filter((w) => t2.includes(w)).length;
+      // require a couple of distinctive words to overlap, so we target the struck event specifically
+      return hits >= Math.min(2, strongWords.length) && hits >= 2;
+    };
+    if (strongWords.length >= 2) {
+      let purged = 0;
+      for (const mem of Object.values(t.memory)) {
+        for (const key of ["episodic", "core", "beliefs", "facts"] as const) {
+          const arr = (mem as any)[key];
+          if (!Array.isArray(arr)) continue;
+          const before = arr.length;
+          (mem as any)[key] = arr.filter((m: any) => !matchesStruck(typeof m === "string" ? m : (m?.content ?? m?.fact ?? "")));
+          purged += before - (mem as any)[key].length;
+        }
+      }
+      if (purged) console.warn(`[retcon] purged ${purged} memory entr${purged === 1 ? "y" : "ies"} matching the struck material`);
+    }
     await putSave(t);
     return clientView(t);
   },
