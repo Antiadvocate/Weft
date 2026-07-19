@@ -31,14 +31,22 @@ export function minutesBetween(a: string, b: string): number {
   return absMinutes(b) - absMinutes(a);
 }
 
-/** Fallback elapse heuristic when the Simulator omits elapsed_minutes. */
-export function heuristicMinutes(action: string, prose: string): number {
-  const a = action.toLowerCase();
-  if (/\bsleep|rest for the night|until morning\b/.test(a)) return 8 * 60;
-  if (/\btravel|journey|ride to|walk to|hike\b/.test(a)) return 90;
-  if (/\bcook|build|craft|repair|mend|forage|hunt\b/.test(a)) return 60;
-  if (/\beat|meal|drink\b/.test(a)) return 30;
-  return Math.min(45, 8 + Math.round(prose.length / 220) * 4);
+/** Fallback elapse heuristic when the Simulator omits elapsed_minutes. Reads BOTH the player's
+ *  action and the narrator's prose — a scene's real duration is usually described in the narration
+ *  (sleeping, hours passing, dawn breaking), not just the terse action line. Ordered from longest
+ *  to shortest so the biggest applicable jump wins. */
+export function heuristicMinutes(action: string, prose = ""): number {
+  const s = `${action}\n${prose}`.toLowerCase();
+  // explicit long spans described anywhere in the turn
+  if (/\b(sleep|slept|fell asleep|rest for the night|until (morning|dawn|first light)|through the night|next morning|woke|dawn (broke|came)|hours later|the following day)\b/.test(s)) return 8 * 60;
+  if (/\b(all afternoon|all morning|for hours|hours passed|the rest of the day|by evening|by nightfall|as the sun set)\b/.test(s)) return 4 * 60;
+  if (/\b(travel|journey|rode to|ride to|walked to|walk to|hiked|drove to|made (their|his|her|the) way to|set out for|the trek|the road to)\b/.test(s)) return 90;
+  if (/\b(cook|cooked|build|built|craft|repair|mend|forage|hunt|dug|dig|assembled|prepared a meal)\b/.test(s)) return 60;
+  if (/\b(a while later|some time later|later that|after a time|eventually)\b/.test(s)) return 45;
+  if (/\b(eat|ate|meal|drank|drink|washed|bathed|dressed)\b/.test(s)) return 30;
+  // default: scale gently with how much prose was written (a longer scene covers more time), but a
+  // pure exchange of a few lines is only a few minutes. Floor 2, cap 30 for an ordinary beat.
+  return Math.min(30, 2 + Math.round(prose.length / 320) * 3);
 }
 
 /** CALENDAR — layered over the canonical "Day N, HH:MM" clock without changing the stored

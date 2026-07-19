@@ -181,8 +181,9 @@ export function applyBeautyChange(state: SaveState, toId: string, oldBeauty: num
 export function attractionWord(a: number): string {
   if (a <= -15) return "averse";
   if (a < 15) return "not drawn";
-  if (a < 45) return "drawn";
-  return "wants";
+  if (a < 35) return "drawn to";
+  if (a < 55) return "wants";
+  return "aches for";
 }
 
 /** One digest line: this character's desire toward the player, gated by their openness. */
