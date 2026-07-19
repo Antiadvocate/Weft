@@ -444,8 +444,20 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // turn should run NPC↔NPC (they address, answer, needle, or side-deal with each other), not everyone
   // aimed at the player. Fires only when there's actually more than one other person in the room.
   const presentNpcs = state.world.present.filter((id) => id !== "char_player" && state.characters[id]);
-  if (presentNpcs.length >= 2) {
-    directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. At least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player; let the room have its own conversations that the player is sometimes only a witness to.`;
+  // CROSS-TALK should NOT fire when the scene's context makes NPC banter wrong: an intimate or
+  // tender moment, an acutely dangerous or violent beat, a tense standoff, stealth, or the hush after
+  // something shocking. In those turns the correct amount of NPC-to-NPC chatter is often ZERO —
+  // forcing an exchange breaks the moment. This is a DEFAULT nudge against player-orbit, not a mandate
+  // to chatter through every scene. Suppress it when the recent prose or the player's action signals
+  // one of those contexts; otherwise nudge as before.
+  const ctx = recentText.toLowerCase();
+  const suppressChatter =
+    /\b(kiss|kissed|naked|undress|bare|caress|breath|whisper|moan|trembl|skin|intimate|tender|make love|between them|close enough to|foreheads?)\b/.test(ctx) || // intimacy
+    /\b(gun|knife|blade|blood|scream|silence|frozen|frozen still|don'?t move|hold your breath|creeping|sneak|stalk|hiding|hidden|hunt|predator|snarl|growl|aim|barrel|trigger|corpse|body|dying|dead)\b/.test(ctx) || // danger / stealth
+    /\b(standoff|stared|staring|neither (spoke|moved)|no one (spoke|moved)|held (his|her|their|xer) breath|dead quiet|deathly|shock|stunned|reeling|grief|sobb|weeping)\b/.test(ctx) || // standoff / shock / grief
+    (verdict as any)?.mode === "escalate"; // active pressure spike
+  if (presentNpcs.length >= 2 && !suppressChatter) {
+    directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. When the moment allows it, at least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player. But read the room: if the scene is intimate, dangerous, tense, or stunned, silence or a single held beat is correct — do not force banter that breaks it.`;
   }
   // DRIVE EXECUTION — a present character whose drive is a concrete ACTION ("deliver him to the
   // Palace", "get the ledger", "call the guards") should ACT on it, not converse about it forever.
