@@ -469,17 +469,36 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const pressureCandidates: { prio: number; text: string }[] = [];
   const consequenceHoldsSlot = !!verdict.due_consequence;
 
-  // DRIVE EXECUTION — a present character whose drive is a concrete ACTION should ACT on a stale drive
-  // rather than converse about it forever. Candidate, not immediate.
-  {
-    const acters = presentNpcs
-      .map((id) => ({ id, c: state.characters[id] }))
-      .filter(({ c }) => c.drive?.goal && /\b(deliver|bring|take|get|call|signal|seize|arrest|detain|kill|steal|reach|deploy|summon|capture|hand over|turn in|escort|force|make .* (talk|pay|come)|collect|retrieve|find|corner|trap)\b/i.test(c.drive.goal)
-        && (state.world.current_turn - (c.drive!.updated_turn ?? state.world.current_turn)) >= 2);
-    if (acters.length) {
-      const who = acters[0];
-      pressureCandidates.push({ prio: 5, text: `\nDRIVE EXECUTION: ${who.c.name} has a concrete goal in motion ("${who.c.drive!.goal}"). This turn they take ONE real step toward it — the arrival, the signal, the grab, the demand — and the turn ENDS the instant that move lands on the player (the demand made, the hand closing), not after the scene resolves it. Do not follow their move with the player's reaction or a second pressure; that reaction is the player's next input.` });
-    }
+  // Is the player supplying momentum this turn, or inert? (Defined here so the drive system can cede
+  // the wheel to a desiring character when the player does nothing.)
+  const playerInert = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
+
+  // ── DRIVE IS THE DEFAULT ── Centrality is not assigned to the player; it EMERGES from desire.
+  // Every present character who wants something pursues it THIS turn, by their own means — this is the
+  // engine's baseline, not an occasional nudge. The character with the strongest active drive is the
+  // one the scene naturally turns around, especially when the player supplies no momentum of their
+  // own. A character's relationships are INSTRUMENTS of their drive, not substitutes for it: someone
+  // who loves the player pursues their goal in a way that routes through the player (asking, waiting a
+  // beat, carrying them along), but the goal still drives — affection is a method, not the objective.
+  const drivers = presentNpcs
+    .map((id) => ({ id, c: state.characters[id] }))
+    .filter(({ c }) => c.drive?.goal)
+    .sort((a, b) => (b.c.drive!.priority ?? 1) - (a.c.drive!.priority ?? 1));
+
+  if (drivers.length) {
+    const lead = drivers[0];
+    // The scene's prime mover this turn: the highest-desire present character. When the player is
+    // inert, this character sets the turn's direction and the player is carried, asked, or given
+    // something to react to — the world does not stall waiting on a passive player, it flows with
+    // whoever wants something. When the player DID act, the driver still advances their goal, woven
+    // against what the player just did.
+    const relToPlayer = state.world.edges.find((e) => e.from === lead.id && e.to === "char_player");
+    const loves = relToPlayer && (relToPlayer.warmth ?? 0) >= 55;
+    const carriesPlayer = loves || (relToPlayer?.roles?.some((r) => /partner|lover|friend|ally|protector|sister|brother|parent|guardian/i.test(r)) ?? false);
+    const leadText = playerInert
+      ? `\nSCENE IS DRIVEN BY ${lead.c.name.toUpperCase()} (the player gave no direction this turn, so the character who WANTS something drives the scene — the world does not wait on a passive player). ${lead.c.name} pursues their goal ("${lead.c.drive!.goal}") by a concrete means of their own choosing this turn — using whatever they have (their abilities, position, knowledge, allies, force, words), MAKING the next thing happen rather than discussing it. ${carriesPlayer ? `Because ${lead.c.name} cares about the player, their method ROUTES THROUGH the player — they bring the player along, ask "you coming?", press a task into their hands, or simply pull them into motion — and if the player has spoken, ${lead.c.name} genuinely listens and it bends their approach. But the goal still drives; the player is carried by ${lead.c.name}'s momentum, not orbited by the scene.` : `The player is one object in the world ${lead.c.name} moves through — carried along, worked around, or addressed, but not the center the scene orbits.`} END THE TURN the moment ${lead.c.name}'s move creates a genuine demand on the player SPECIFICALLY — their body must move or react, a question is put to them, or the next beat cannot resolve without their input. If ${lead.c.name}'s action does not actually require the player this turn, the world simply moves and carries them; do not manufacture a decision point just to hand the player the wheel.`
+      : `\n${lead.c.name} is pursuing their goal ("${lead.c.drive!.goal}") and acts toward it THIS turn by a concrete means of their own — woven against what the player just did, not set aside to react to the player. Advance their aim; let it intersect the player's action rather than orbit it.`;
+    pressureCandidates.push({ prio: 5, text: leadText });
   }
 
   // GENRE-THREAT ESCALATION — a lethal-threat world must not let its danger sit offstage for many
@@ -492,7 +511,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
       if (!threatWords.test(recentProse)) {
-        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and control returns to the player (they must run, fight, or choose) — do not narrate their response for them.` });
+        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them.` });
       }
     }
   }
@@ -522,11 +541,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const liveThread = plotThreads.length > 0;
   const pendingCons = (state.world.consequences ?? []).some((c) => c.status === "pending");
   const liveClock = (state.world.clocks ?? []).some((c: any) => c?.threshold && (c.progress ?? 0) < c.threshold);
-  const passiveAct = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
   // stalled: no OUTWARD plot pressure of any kind, and the player isn't supplying momentum either
-  const stalled = !liveThread && !pendingCons && !liveClock && passiveAct;
-  const stallDirective = (stalled && !restoration)
-    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot and the player is passive: advance a STANDING source (an open thread, a maturing clock, an offscreen character's goal) concretely into the scene and end on it. Only if truly nothing stands may a small ambient development occur — witnessed nearby, never targeted at the player.`
+  const stalled = !liveThread && !pendingCons && !liveClock && playerInert;
+  // STALL_BREAK only when there is truly no momentum: no outward pressure, a passive player, AND no
+  // present character with a drive to carry the scene. If a present character wants something, the
+  // drive system above already handed them the wheel — inventing an external event on top would be a
+  // manufactured cascade. STALL_BREAK is the last resort for a genuinely dead scene.
+  const stallDirective = (stalled && !restoration && drivers.length === 0)
+    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot, the player is passive, and no present character has a goal to pursue: advance a STANDING source (an open thread, a maturing clock, an offscreen character's goal) concretely into the scene and end on it. Only if truly nothing stands may a small ambient development occur — witnessed nearby, never targeted at the player.`
     : "";
 
   // ── DITHER-BREAK ── The opposite failure to a stall: the PLAYER is actively pushing (long
@@ -542,7 +564,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const vergeTurns = recentProse.filter((p) => VERGE.test(p)).length;
   // dithering = 3+ of the last 4 narrator beats are verge-saturated, the player is actively pushing
   // (not passive), and this isn't a deliberately quiet restoration scene.
-  const dithering = vergeTurns >= 3 && !passiveAct && !restoration && recentProse.length >= 3;
+  const dithering = vergeTurns >= 3 && !playerInert && !restoration && recentProse.length >= 3;
   const ditherDirective = dithering
     ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. No more "she stopped," no more trailing off, no more "not yet," no fresh hesitation to replace the old one. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. Landing the beat imperfectly is the goal; hovering at the edge one more turn is the failure.`
     : "";
