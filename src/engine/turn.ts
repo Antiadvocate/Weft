@@ -459,32 +459,31 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   if (presentNpcs.length >= 2 && !suppressChatter) {
     directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. When the moment allows it, at least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player. But read the room: if the scene is intimate, dangerous, tense, or stunned, silence or a single held beat is correct — do not force banter that breaks it.`;
   }
-  // DRIVE EXECUTION — a present character whose drive is a concrete ACTION ("deliver him to the
-  // Palace", "get the ledger", "call the guards") should ACT on it, not converse about it forever.
-  // The failure this fixes: an inquisitor walks the player toward the Palace for many turns and never
-  // arrives, never signals the guards, never makes the move — the drive is stated but never executes,
-  // so the scene idles in pleasant talk. If a present character has held the same actionable drive
-  // across several turns without visibly advancing it, this turn they take a concrete STEP toward
-  // completing it — the arrival, the signal, the grab, the demand — moving the scene, not padding it.
+  // ── PRESSURE QUEUE ── At most ONE new pressure aimed at the player is released per turn. Multiple
+  // injectors (an NPC's drive executing, the genre threat coming onscreen, a due consequence) can all
+  // be live at once; releasing them together manufactures a cascade — arrival + approach + demand all
+  // in one narrator call, which overruns the turn and ends it mid-escalation. Instead we collect the
+  // candidate pressures, order them by urgency, and inject only the top one. The rest stay pending and
+  // surface on later turns. A due consequence carried by the pressure verdict already occupies the
+  // slot, so the discretionary injectors below defer to it.
+  const pressureCandidates: { prio: number; text: string }[] = [];
+  const consequenceHoldsSlot = !!verdict.due_consequence;
+
+  // DRIVE EXECUTION — a present character whose drive is a concrete ACTION should ACT on a stale drive
+  // rather than converse about it forever. Candidate, not immediate.
   {
     const acters = presentNpcs
       .map((id) => ({ id, c: state.characters[id] }))
       .filter(({ c }) => c.drive?.goal && /\b(deliver|bring|take|get|call|signal|seize|arrest|detain|kill|steal|reach|deploy|summon|capture|hand over|turn in|escort|force|make .* (talk|pay|come)|collect|retrieve|find|corner|trap)\b/i.test(c.drive.goal)
-        // only nudge execution once the drive has LINGERED (held a few turns without completing) —
-        // a fresh drive gets room to breathe; a stale one gets pushed to act.
         && (state.world.current_turn - (c.drive!.updated_turn ?? state.world.current_turn)) >= 2);
     if (acters.length) {
       const who = acters[0];
-      directive += `\nDRIVE EXECUTION: ${who.c.name} has a concrete goal in motion ("${who.c.drive!.goal}"). They have been pursuing it — this turn they take a real STEP toward COMPLETING it (arrive, signal, seize, demand, deploy — whatever the goal's next concrete move is), not merely talk around it. A character with an actionable agenda who only converses, turn after turn, is a stalled scene; let them ACT on what they want and change the situation.`;
+      pressureCandidates.push({ prio: 5, text: `\nDRIVE EXECUTION: ${who.c.name} has a concrete goal in motion ("${who.c.drive!.goal}"). This turn they take ONE real step toward it — the arrival, the signal, the grab, the demand — and the turn ENDS the instant that move lands on the player (the demand made, the hand closing), not after the scene resolves it. Do not follow their move with the player's reaction or a second pressure; that reaction is the player's next input.` });
     }
   }
 
-  // GENRE-THREAT ESCALATION — a world whose core danger is lethal (being eaten, hunted, killed) must
-  // not let that threat sit offstage as atmosphere for many turns while the scene stays domestic. If
-  // the world's stated fear is a predator/violent threat AND the recent prose has not brought it
-  // onscreen, escalate: this turn the danger becomes PRESENT and CONSEQUENTIAL, at the scale the
-  // genre demands (a predator seen, heard closing, taking someone; the block reacting with flight or
-  // defense). This is the fix for "wrong birdsong" standing in for actual horror across dozens of turns.
+  // GENRE-THREAT ESCALATION — a lethal-threat world must not let its danger sit offstage for many
+  // turns. Candidate, not immediate.
   {
     const fear = (state.world_bible.what_people_fear ?? "").toLowerCase();
     const lethalWorld = /\b(eaten|eat|devour|hunt|predator|prey|killed|kill|maul|attack|torn|blood|beast|creature|monster|dinosaur|claw|teeth)\b/.test(fear)
@@ -492,11 +491,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (lethalWorld && (state.model_settings.tension ?? 5) >= 3) {
       const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
-      const threatOnscreenRecently = threatWords.test(recentProse);
-      if (!threatOnscreenRecently) {
-        directive += `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — the recent turns have stayed domestic while the lethal threat is reduced to distant sound. This is a horror/survival world and the register has drifted wrong. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves into the block, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong" or a shiver in the ferns again; make the danger concrete, physical, and consequential, and let the characters react with the fear and urgency the genre demands. People in this world can die; the world does not stay safe because the scene turned tender.`;
+      if (!threatWords.test(recentProse)) {
+        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and control returns to the player (they must run, fight, or choose) — do not narrate their response for them.` });
       }
     }
+  }
+
+  // Release only the top candidate, and only if a due consequence isn't already occupying the turn's
+  // one-pressure slot. Everything else waits for a future turn.
+  if (!consequenceHoldsSlot && pressureCandidates.length) {
+    pressureCandidates.sort((a, b) => b.prio - a.prio);
+    directive += pressureCandidates[0].text;
   }
 
   // ── RESTORATION DETECTION ── sleeping, eating, bathing, quiet hours. To the stall detector,
@@ -728,6 +733,33 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
+  // ── TURN-ENDING GUARDS ── Deterministic, zero-cost backstops for the two overrun patterns the
+  // prompt can't fully prevent: a CASCADE (the turn keeps escalating past the first new pressure) and
+  // a PREEMPT (an NPC resolves the player's choice by moving their body after a demand). Both are
+  // detectable in the final paragraph. When caught, we TRIM to the paragraph before the overrun rather
+  // than regenerate — output is prose paragraphs, so a paragraph cut is safe, and stopping earlier is
+  // exactly the fix. We only ever trim the LAST paragraph, and only when 2+ remain, so a turn always
+  // keeps its substance.
+  {
+    const paras = prose.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+    if (paras.length >= 2) {
+      const last = paras[paras.length - 1];
+      const priorText = paras.slice(0, -1).join(" ").toLowerCase();
+      // PREEMPT: after a demand/grab was already in play, the final paragraph moves the PLAYER'S body
+      // for them ("pulling you", "drags you", "grabs your wrist/arm", "hauls you", "shoves you").
+      const bodyMoved = /\b(pull(s|ing|ed)?|drag(s|ging|ged)?|haul(s|ing|ed)?|shov(e|es|ing|ed)|yank(s|ing|ed)?|drav?g(s|ging)?|steer(s|ing|ed)?|march(es|ing|ed)?|forc(e|es|ing|ed))\b[^.?!]{0,30}\byou(r)?\b[^.?!]{0,20}\b(wrist|arm|hand|shoulder|collar|toward|into|through|down|away|along|to (his|her|their|the))\b/i.test(last);
+      const demandInPlay = /\b(stop|halt|come with|hand it|give me|on your knees|don'?t move|now|or (i|we|you)|drop it|move|get (up|down|back))\b/i.test(priorText) || /["""][^"""]*[?!][^"""]*["""]/.test(priorText);
+      // CASCADE: the final paragraph introduces a NEW named arrival AND has them speaking/acting —
+      // i.e. a fresh pressure stacked on top of whatever the turn already delivered.
+      const newArrivalActing = /\b(appear(s|ed|ing)?|arriv(e|es|ed|ing)|burst(s|ing)?|storm(s|ed|ing)? (in|through)|round(s|ed)? the corner|step(s|ped|ping)? (in|into|through)|enter(s|ed|ing)?|in the doorway|behind (you|them|him|her))\b/i.test(last)
+        && /["""][^"""]{2,}["""]/.test(last);
+
+      if ((bodyMoved && demandInPlay) || newArrivalActing) {
+        prose = paras.slice(0, -1).join("\n\n");
+        console.warn(`[turn] ending guard: trimmed a ${bodyMoved ? "preempt" : "cascade"} tail paragraph so the turn ends on the first pressure`);
+      }
+    }
+  }
   let footer = parsedScene.footer;
   // TRUNCATION SAFETY NET. If the narrator hit the output cap, its tail (the scene footer) may have
   // been cut past even the tolerant parser's reach. Rather than let the simulator GUESS the scene
