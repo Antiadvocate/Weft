@@ -281,6 +281,36 @@ function looksNamed(name: string): boolean {
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
 }
 
+/** Derive serviceable default values for a spawned character whose bookkeeper record left them empty.
+ *  Not a substitute for authored depth — a floor so a character is never a valueless plot-label. */
+function deriveDefaultValues(traits: string[], background: string): string[] {
+  const blob = `${traits.join(" ")} ${background}`.toLowerCase();
+  const out: string[] = [];
+  if (/child|son|daughter|kid|family|mother|father|parent/.test(blob)) out.push("the people they've lost or protect");
+  if (/surviv|scrap|steal|hungr|cold|edge|forest|wild/.test(blob)) out.push("staying alive one more day");
+  if (/proud|honor|warrior|fight|soldier|raider/.test(blob)) out.push("not being seen as weak");
+  if (/lonely|alone|trust no|wary|suspicious/.test(blob)) out.push("finding someone safe to trust");
+  if (/faith|god|spirit|sacred|priest/.test(blob)) out.push("their faith");
+  while (out.length < 2) out.push(out.length === 0 ? "being treated as a person, not a problem" : "a small dignity of their own");
+  return out.slice(0, 3);
+}
+
+/** Derive a minimal but non-empty voice so a spawned character can actually speak in-character. */
+function deriveDefaultVoice(traits: string[], age: string): { diction?: string; example_lines?: string[]; never_says?: string[] } {
+  const blob = traits.join(" ").toLowerCase();
+  const young = parseInt(age, 10) <= 16;
+  const rough = /desperate|fading|hard|grim|raider|hungry|feral/.test(blob);
+  return {
+    diction: young ? "simple, concrete, a child's directness" : rough ? "clipped, plain, spends words like they cost something" : "plain and direct, no flourish",
+    example_lines: young
+      ? ["You have food? Real food?", "I know these woods. You don't."]
+      : rough
+        ? ["I don't want your pity. I want to move.", "You think I haven't seen worse?"]
+        : ["Say what you mean.", "I've got my own troubles."],
+    never_says: ["long philosophical speeches", "clever wordplay they'd have no schooling for"],
+  };
+}
+
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number }): Promise<void> {
   const t0 = Date.now();
   // WEB SEARCH TARGET — the player can name exactly what to ground on with ((double parens)):
@@ -568,6 +598,28 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const ditherDirective = dithering
     ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. No more "she stopped," no more trailing off, no more "not yet," no fresh hesitation to replace the old one. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. Landing the beat imperfectly is the goal; hovering at the edge one more turn is the failure.`
     : "";
+
+  // ── ATMOSPHERE_BREAK ── The failure where a story becomes ALL mood and no plot: turn after turn of
+  // mist, wet moss, dripping branches, a rigid silent character — sensory texture standing in for
+  // events, nothing ever happening, no one pursuing anything. Distinct from DITHER_BREAK (a character
+  // stuck mid-decision): here the WORLD is inert, drowned in atmosphere. Detect it structurally — the
+  // recent beats are saturated with ambient/sensory description AND carry almost no event verbs (no one
+  // acts, decides, moves on a goal, arrives, takes, changes anything). When that holds for several
+  // turns, force a concrete development this turn — whether the player is pushing or quiet, because an
+  // atmosphere-locked story fails the player either way.
+  const ATMOS = /\b(mist|fog|drizzl|damp|moss|sphagnum|birch|pine|drip(?:ping|s)?|grey light|diffuse|the (?:air|silence|quiet|cold)|scent of|metallic tang|clung? to the skin|rain-soaked|sodden|wet earth|churned mud|low-hanging)\b/i;
+  const EVENTVERB = /\b(grab|grabb|seize|seized|strike|struck|hit|throw|threw|pull|pulled|push|shoved?|run|ran|flee|fled|draw|drew|fire|fired|shot|stab|swing|swung|lunge|charge|arrive|arrived|burst|enter|reach|reached|take|took|hand|gave|open|opened|break|broke|shout|scream|yell|demand|order|attack|kill|walk(?:ed)? (?:in|up|over|to|toward)|steps? (?:in|out|toward|into)|crosses?|climbs?|kneel|stand|stood up|turns? and)\b/i;
+  const atmosSaturated = recentProse.filter((p) => ATMOS.test(p)).length >= 3;
+  const eventStarved = recentProse.filter((p) => EVENTVERB.test(p)).length <= 1;
+  // present characters who could actually generate an event (have a drive, or are hostile/threatening)
+  const canGenerateEvent = drivers.length > 0 || presentNpcs.some((id) => {
+    const cc = state.characters[id];
+    return cc && (cc.conscience ?? 0.6) <= 0.35;
+  });
+  const atmosphereLocked = atmosSaturated && eventStarved && recentProse.length >= 3 && !restoration;
+  if (atmosphereLocked) {
+    directive += `\nATMOSPHERE_BREAK — the last several turns have been almost entirely MOOD: mist, wet moss, dripping branches, silence, a character standing rigid — sensory texture where events should be. Atmosphere is not plot, and a story that is only atmosphere has stalled. THIS TURN something concrete HAPPENS and changes the situation: ${canGenerateEvent ? `a present character ACTS on what they want (moves, takes, demands, threatens, reaches for something, forces the issue) — pick the one with the strongest drive or the most menace and let them MAKE a beat` : `a standing pressure lands — an arrival, a discovered thing, a threat closing, a consequence of what was already set in motion`}. Not another sensory paragraph, not a character "listening to the trees," not a held silence — an actual event with a before and an after. End the turn on what changed, not on the weather.`;
+  }
 
   // ── POV INTERIORITY FILTER ── The scene is the player's to READ, not the narrator's to explain.
   // The cardinal leak: the narrator states another character's sealed interior as fact to the player
@@ -1767,7 +1819,32 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       : undefined;
     const vFlat = { example_lines: (nc as any).example_lines, never_says: (nc as any).never_says };
     const voice = vFlat.example_lines?.length || vFlat.never_says?.length ? { example_lines: vFlat.example_lines?.slice(0, 4), never_says: vFlat.never_says?.slice(0, 3) } : undefined;
-    registerCharacter(state, { ...nc, character_id: undefined as any, voice, attachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
+    // MULTIPLE GOALS — a character is several live wants, not one. Take drive_goals[] if the bookkeeper
+    // supplied it; else fall back to the single drive_goal/current_goal. The first becomes the active
+    // drive, the rest seed the queue as simultaneous wants the narrator can surface by context. A lone
+    // goal is what makes a spawned character a broken record (the farmer who only says "raiders, my son").
+    const goalList: string[] = (Array.isArray((nc as any).drive_goals) ? (nc as any).drive_goals : [])
+      .map((g: any) => String(g).trim()).filter(Boolean);
+    const singleGoal = String((nc as any).drive_goal ?? (nc as any).current_goal ?? "").trim();
+    const allGoals = (goalList.length ? goalList : (singleGoal ? [singleGoal] : []))
+      .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3);
+    const drive = allGoals.length ? { goal: allGoals[0], priority: 3, progress: 0, updated_turn: turn } : undefined;
+    const driveQueue = allGoals.slice(1).map((g, i) => ({ goal: g, priority: 2 - i, progress: 0, updated_turn: turn }));
+    // HOLLOW-CHARACTER FLOOR — if the bookkeeper spawned a thin character (no voice, no values), give
+    // them serviceable defaults derived from their nature so they are never a plot-label with nothing
+    // to render. This is a floor, not a replacement: real authored depth is always better, but an
+    // empty character can never be a person, and a null voice literally cannot be reactive.
+    const values: string[] = Array.isArray((nc as any).values) && (nc as any).values.length
+      ? (nc as any).values.map((v: any) => String(v)).slice(0, 4)
+      : deriveDefaultValues(nc.core_traits ?? [], nc.background ?? "");
+    const floorVoice = voice ?? (nc.speech_pattern ? undefined : deriveDefaultVoice(nc.core_traits ?? [], String((nc as any).age ?? 30)));
+    const floorAttachment = attachment ?? { style: "secure" as any, under_threat: "goes quiet and watchful, keeps their distance until they read the room" };
+    registerCharacter(state, { ...nc, values, character_id: undefined as any, voice: floorVoice, attachment: floorAttachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
+    // apply the multi-goal drive after registration (registerCharacter doesn't take drive_queue)
+    if (drive) {
+      const newId = findCharByName(state, nc.name);
+      if (newId) { state.characters[newId].drive = drive; state.characters[newId].drive_queue = driveQueue; }
+    }
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
   }
   for (const np of diff.new_places ?? []) {
@@ -1835,6 +1912,40 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   // ── EXITS: someone died or left the story for good. Mark them, pull them from the
   //    scene and any room, and stop the engine from seeding them new wants. ──
+  // FORCED-DEATH DETECTOR — the death clamp prevents FALSE deaths (a live off-scene character
+  // "dying" on a dialogue claim). This is its missing half: a REAL death the prose clearly depicts but
+  // the bookkeeper failed to record. When that happens, status stays alive and the corpse stays in
+  // world.present — so next turn the narrator keeps animating a dead body ("his fingers twitch"). If
+  // the prose unambiguously kills a PRESENT character this turn and no exit was emitted for them, we
+  // synthesize the exit so the engine marks them dead and removes them from the scene.
+  {
+    const alreadyExiting = new Set((diff.character_exits ?? []).map((e) => resolveId(state, e.char_id)).filter(Boolean));
+    const proseLc = prose.toLowerCase();
+    // a clear killing blow depicted this turn (the player shooting/stabbing, or the body going still/dead)
+    const lethalDepicted = /\b(shot (him|her|them|it) in the head|head jerks? back|blows? (his|her|their) (head|brains)|goes (instantly|limp|still)|body (sags|slumps|drops|goes still|goes limp)|lifeless|dead(?:,| |\.)|killed (him|her|them)|throat (opens|cut)|stops? breathing|crumples? (dead|lifeless)|collapses? dead)\b/i.test(proseLc);
+    if (lethalDepicted) {
+      for (const pid of [...state.world.present]) {
+        if (pid === "char_player" || alreadyExiting.has(pid)) continue;
+        const c = state.characters[pid];
+        if (!c || c.status === "dead" || c.status === "departed") continue;
+        const name = c.name;
+        // require the death to be attributable to THIS character: their name near a death verb, OR the
+        // player's action this turn targeted them and the prose shows a body going still.
+        const firstName = name.split(/\s+/)[0]?.toLowerCase() ?? name.toLowerCase();
+        const named = new RegExp(`\\b${firstName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\b[^.!?]{0,60}\\b(dead|dies|died|killed|lifeless|goes (still|limp)|slumps?|head jerks?|stops? breathing)\\b`, "i").test(prose)
+          || new RegExp(`\\b(shot|stab|kill|struck|put (a|the) (round|bullet|blade) (in|through))\\b[^.!?]{0,40}\\b${firstName}`, "i").test(prose);
+        // the stranger case: unnamed present target + player action was a kill + a body goes still
+        const playerKilled = /\b(i (shoot|shot|stab|kill|execute)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
+        const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless)\b/i.test(proseLc);
+        if (named || (playerKilled && bodyStill)) {
+          (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
+          console.warn(`[turn] forced-death detector: recorded ${name}'s depicted death that the bookkeeper failed to emit`);
+          break; // one forced death per turn is plenty; avoid a cascade of guesses
+        }
+      }
+    }
+  }
+
   for (const ex of diff.character_exits ?? []) {
     const cid = resolveId(state, ex.char_id);
     if (!cid || cid === "char_player") continue;
