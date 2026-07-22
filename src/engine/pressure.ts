@@ -328,13 +328,17 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
   ].some((re) => re.test(t));
   const mythic = [
     /killed everyone/, /raised the dead/, /mass(acre|-kill)/, /levitat\w+ the/,
-    /leveled (a|the) (building|city|block)/, /with (a|his|her|their) (mind|hand|will)/,
+    /leveled (a|the) (building|city|block)/,
     /no one could (stop|touch|harm) (him|her|them)/, /impervious|invulnerable|untouchable/,
-    // casual reality-bending: teleporting, banishing, recalling, vanishing people/things at will
-    /(other side of|across) the (planet|world|continent|country)/, /teleport\w*/,
-    /(banish\w*|sent?) (him|her|them|\w+) (away|elsewhere|to the)/, /(bring|brought|brings|summon\w*|recall\w*) (him|her|them|\w+) back/,
-    /(vanish\w*|disappear\w*|blink\w*) (him|her|them|\w+)/, /snap\w* (him|her|them|\w+) (away|out|back)/,
-    /with a (thought|gesture|wave|word)/, /out of (existence|the world|reality)/,
+    // casual reality-bending: teleporting, banishing, recalling, vanishing people/things at will.
+    // NOTE: patterns here must be UNAMBIGUOUS power — "with a wave of her hand" and "with his hand" and
+    // a bare "teleport" occur in ordinary prose and used to false-stamp every NPC as awestruck and inject
+    // the EARNED_RESPONSE block. Removed: /with a (thought|gesture|wave|word)/, /with (a|his|her|their)
+    // (mind|hand|will)/, bare /teleport\w*/. Kept only phrasings that can't be innocent.
+    /(other side of|across) the (planet|world|continent|country)/, /teleported (him|her|them|it|across|away|to)/,
+    /(banish\w*|sent?) (him|her|them|\w+) (away|elsewhere|to the) (void|nether|other side|realm)/, /(summon\w*|recall\w*) (him|her|them) (back )?across/,
+    /(vanish\w*|disappear\w*) (him|her|them|\w+) (from (existence|the world|sight))/, /snap\w* (his|her|their) fingers and (\w+ )?(vanish|disappear|die|fall|burn)/,
+    /out of (existence|the world|reality)/, /with (a|his|her|their) (mind|will) alone/,
   ].some((re) => re.test(t));
   if (cosmic) return "cosmic";
   if (mythic) return godMode ? "cosmic" : "mythic";

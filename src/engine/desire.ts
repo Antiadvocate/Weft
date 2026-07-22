@@ -193,20 +193,18 @@ export function desireLine(state: SaveState, id: string): string {
   const a = e.attraction;
   const r = state.condition[id]?.psyche.relaxation ?? 0;
   const cold = typeof state.characters[id]?.conscience === "number" && state.characters[id].conscience! <= 0.35;
-  if (a <= -15) return "desire: none — actively unattracted; advances would repel, however warm the bond";
-  if (a < 15) return "desire: none — kindness reads as kindness; a flirt would land awkward or unwelcome, and niceness never changes that";
-  // TEXTURE is set by ADMISSIBILITY — the slow grasp/awe variable — not by momentary relaxation.
-  // This is the picked-flower distinction: a pull can be strong and still be unable to reach clean
-  // wanting, so it discharges as possession. Admissibility drifts with relaxation but lags it, so a
-  // briefly-calm body whose desire was grasp-born still grasps until the texture has migrated.
-  // Fallback to live relaxation only when unstamped (older saves / pre-admissibility edges).
+  if (a <= -15) return "desire toward you: none, actively repelled — SHOW: subtle withdrawal, stiffening at closeness; never narrate the aversion as a stated feeling";
+  if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
+  // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
+  // convert the desire into a quotable interior sentence ("she resented not having him"). Magnitude (a)
+  // is kept for calibration; the interpretation is stripped so it can't be paraphrased into prose.
   if (cold) return adm >= 0.4
-    ? `desire: wants you (${a}) like a collector — patient, charming pursuit; the warmth is technique`
-    : `desire: wants you (${a}) and resents not having you — possessive, tallying, punitive near rivals; would sooner own or spoil the thing than admit wanting it`;
-  if (adm >= 0.6) return `desire: drawn (${a}) and it can be owned — flirts, teases, lets you be; wants without needing to seize`;
-  if (adm <= 0.35) return `desire: wants you (${a}) but can't admit it — the pull won't reach clean self-report, so it leaks as grasping: possessiveness, sharpness, taking-for-your-own-good, a gift that's really a claim`;
-  return `desire: drawn (${a}) — surfaces in small ways when the moment allows; not yet settled enough to show it clean`;
+    ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth deployed as a tool, gifts with strings; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
+    : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, tallying who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
+  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, seeks closeness, lets you be; NEVER state the wanting outright — render it as behavior`;
+  if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, a claim dressed as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
+  return `desire toward you: real (${a}), not yet settled — SHOW: surfaces in small glances and half-gestures when the moment allows; NEVER state it outright — behavior only`;
 }
 
 /**

@@ -267,12 +267,14 @@ export function mindDigest(state: SaveState, id: string): string {
     const trueWarmth = trueEdge?.warmth ?? 0;
     const divergence = Math.abs(trueWarmth - b.predicted_warmth);
     // only surface the model when it MEANINGFULLY differs from truth, or there's a held misread / live surprise
-    if (b.held_false) out.push(`believes (wrongly) the player ${b.held_false} — act on this misread, not the truth`);
-    else if (divergence > 25) out.push(`misreads the player as ${b.predicted_stance === "unknown" ? "an unknown quantity" : b.predicted_stance === "ally" ? "warmer than they are" : "more hostile than they are"} (their read, act on it)`);
-    if (b.surprise > 0.45) out.push(`is freshly thrown — the player just acted against expectation`);
-    if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't get a clean read on the player and it nags`);
+    // Behavioral imperatives, not quotable belief-statements: the narrator must let the misread COLOR
+    // behavior without ever naming the belief in prose ("she believed he had betrayed her").
+    if (b.held_false) out.push(`acts as if the player ${b.held_false} — let this false read drive their behavior and word choice; NEVER state the belief in prose, only show them acting on it`);
+    else if (divergence > 25) out.push(`treats the player as ${b.predicted_stance === "unknown" ? "an unknown quantity" : b.predicted_stance === "ally" ? "warmer than they truly are" : "more hostile than they truly are"} — behavior follows their read; do not narrate the misjudgment`);
+    if (b.surprise > 0.45) out.push(`is freshly thrown — the player just did something against their expectation; SHOW the recalibration, don't state it`);
+    if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't get a clean read on the player — SHOW it as watchfulness or probing, never as narrated confusion`);
   }
-  return out.length ? `believes about you: ${out.join("; ")}` : "";
+  return out.length ? `how they read you (behavior only, never stated in prose): ${out.join("; ")}` : "";
 }
 
 /** An epistemic drive goal-string: A wants to resolve uncertainty about `target`. The

@@ -126,10 +126,12 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
 
 const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player stepped away; the world kept moving. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it — invent texture, never contradict it.
 
+CRITICAL — MEMORIES ARE PERSONAL. Each character's memory is only what THAT character personally lived through or would plausibly have heard where they were during these days. A character does NOT remember a distant event (a faction's clock firing three towns over, a rumor spreading in a place they weren't) unless they were there or someone credibly carried the news to them. A companion who spent these days beside the player remembers the ordinary days beside the player — NOT a battle in a city they never visited. Do not hand a character a memory of something they have no way of knowing; when in doubt, give them the small, local, personal version (what they did, where they were, who they were with), not the world-scale event. World-scale events belong in the interlude prose (which is the omniscient narrator's view), not in any individual's memory.
+
 Output ONLY strict JSON:
 {"interlude":"2-3 paragraphs of world-scale prose. Days passing, seasons of small life, the report's events landing among real people. NO player interiority — they were absent. End on the player's return: where they are as the world comes back into focus.",
 "events":["3-6 one-line happenings drawn from the report, plain statements"],
-"memories":[{"char_id":"","content":"what this character will remember from these days","importance":4}],
+"memories":[{"char_id":"","content":"what THIS character personally lived these days — local and first-hand, never a distant event they couldn't know","importance":4}],
 "present_on_return":["names of 0-3 characters plausibly near the player when play resumes"],
 "weather":"the weather on the day of return"}`;
 
@@ -169,11 +171,35 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
       || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world kept its own books.`;
   }
 
-  // apply grounded memories
+  // apply grounded memories — with a deterministic guard against the model handing a character a
+  // memory of a distant event they couldn't know (a companion who was beside the player "remembering"
+  // a faction battle three towns over). If the memory names a faction, clock, or thread the character
+  // has no recorded connection to, and they weren't co-located with that event, drop it. World-scale
+  // events live in the interlude prose, not in an individual's head.
+  const factionNames = new Set(state.world.clocks.map((c) => c.faction.toLowerCase()));
+  const threadTitles = state.world.threads.map((t) => t.title.toLowerCase());
   for (const m of parsed.memories ?? []) {
     const id = state.characters[m.char_id] ? m.char_id
       : Object.entries(state.characters).find(([, c]) => c.name.toLowerCase() === String(m.char_id).toLowerCase())?.[0];
     if (!id || !m.content) continue;
+    const content = String(m.content).toLowerCase();
+    // does this memory reference a distant faction/thread event?
+    const namesDistantEvent = [...factionNames].some((f) => f && content.includes(f))
+      || threadTitles.some((t) => t && t.length > 6 && content.includes(t));
+    if (namesDistantEvent) {
+      // allow it only if this character has a prior recorded source for that subject (already has a
+      // memory/fact mentioning it) — otherwise they have no way to know it happened.
+      const mem = state.memory[id];
+      const hasSource = !!mem && [...(mem.episodic ?? []), ...(mem.facts ?? [])].some((e) => {
+        const txt = String((e as any).content ?? (e as any).fact ?? "").toLowerCase();
+        return [...factionNames].some((f) => f && txt.includes(f) && content.includes(f))
+          || threadTitles.some((t) => t && content.includes(t) && txt.includes(t));
+      });
+      if (!hasSource) {
+        console.warn(`[interlude] dropped a memory for ${state.characters[id].name} referencing a distant event they have no source for: "${String(m.content).slice(0, 60)}"`);
+        continue;
+      }
+    }
     state.memory[id]?.episodic.push({
       turn, content: m.content, importance: clamp(m.importance ?? 4, 1, 10),
       emotional_charge: "", last_accessed_turn: turn,

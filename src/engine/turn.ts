@@ -1997,11 +1997,21 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
         // require the death to be attributable to THIS character: their name near a death verb, OR the
         // player's action this turn targeted them and the prose shows a body going still.
         const firstName = name.split(/\s+/)[0]?.toLowerCase() ?? name.toLowerCase();
-        const named = new RegExp(`\\b${firstName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\b[^.!?]{0,60}\\b(dead|dies|died|killed|lifeless|goes (still|limp)|slumps?|head jerks?|stops? breathing)\\b`, "i").test(prose)
-          || new RegExp(`\\b(shot|stab|kill|struck|put (a|the) (round|bullet|blade) (in|through))\\b[^.!?]{0,40}\\b${firstName}`, "i").test(prose);
-        // the stranger case: unnamed present target + player action was a kill + a body goes still
-        const playerKilled = /\b(i (shoot|shot|stab|kill|execute)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
-        const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless)\b/i.test(proseLc);
+        const esc = firstName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // Tightened: the death word must sit CLOSE to the name (<=25 chars, not 60), and we exclude the
+        // common false positive where an inanimate object of theirs is what's "dead"/"still" — "Mara's
+        // phone is dead", "his radio went still", "her lamp died". Without this, an object dying marks
+        // the person dead. We also drop the bare "still/limp" verbs from the name-adjacency test (too
+        // easy to hit in intimacy or collapse-from-exhaustion); those only count in the explicit
+        // player-killed branch below.
+        const inanimate = new RegExp(`\\b${esc}('s|s')?\\s+\\w{0,3}\\s*(phone|radio|signal|light|lamp|lantern|torch|fire|engine|battery|line|comm|screen|candle|voice|hope|eyes?|smile|arm|leg|hand)\\b`, "i").test(prose);
+        const named = !inanimate && (
+          new RegExp(`\\b${esc}\\b[^.!?]{0,25}\\b(is dead|lies dead|dies|died|is killed|was killed|lifeless|stops breathing|stopped breathing)\\b`, "i").test(prose)
+          || new RegExp(`\\b(shot|stabbed?|killed?|struck down|put (a|the) (round|bullet|blade) (in|through))\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
+        );
+        // the stranger case: unnamed present target + player action was an explicit kill + a body goes still
+        const playerKilled = /\b(i (shoot|shot|stab|stabbed|kill|killed|execute|executed)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
+        const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless|crumples? (dead|to the ground))\b/i.test(proseLc);
         if (named || (playerKilled && bodyStill)) {
           (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
           console.warn(`[turn] forced-death detector: recorded ${name}'s depicted death that the bookkeeper failed to emit`);

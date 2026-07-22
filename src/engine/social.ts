@@ -82,10 +82,24 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
   const log: string[] = [];
   const groups: string[][] = [];
-  // group 1: everyone in the player's scene; group 2: offscreen NPCs bucketed by current_activity keyword overlap (cheap co-location proxy)
+  // group 1: everyone in the player's scene. Then: offscreen NPCs bucketed by their actual LOCATION —
+  // only characters in the SAME place exchange rumors. The old code dumped every offscreen character
+  // into one "village-scale" group regardless of where they were, so a rumor hopped instantly from a
+  // character fifty miles away to one in the next room, and an NPC who stepped offscreen for a day
+  // returned "knowing" everything everywhere. Bucketing by location makes news travel at the speed of
+  // people actually moving between places.
   groups.push([...state.world.present]);
-  const offscreen = Object.keys(state.characters).filter((id) => id !== "char_player" && !state.world.present.includes(id));
-  if (offscreen.length > 1) groups.push(offscreen); // village-scale: offscreen cast mingles
+  const byLocation = new Map<string, string[]>();
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || state.world.present.includes(id) || c.status === "dead" || c.status === "departed") continue;
+    const loc = c.location || "loc_elsewhere";
+    const list = byLocation.get(loc) ?? [];
+    list.push(id);
+    byLocation.set(loc, list);
+  }
+  for (const group of byLocation.values()) {
+    if (group.length > 1) groups.push(group); // only same-place offscreen characters mingle
+  }
   for (const rumor of state.world.rumors) {
     if (rumor.dead) continue;
     const age = state.world.current_turn - rumor.born_turn;

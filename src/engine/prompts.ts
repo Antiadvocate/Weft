@@ -837,27 +837,40 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       presentStr = presentIds.map((id) => presentBlock(id, id === "char_player" || keepFull.has(id) ? 1 : 0)).filter(Boolean).join("\n");
     }
 
-    // offscreen: full list at lvl>=3, trimmed at lvl 2, dropped below
+    // offscreen: the narrator must NOT see where absent characters are or what they are doing — that
+    // is world-state the player can't perceive, and handing it over in quotable form is the direct
+    // cause of "a companion knows about a faction move three towns over". The narrator only needs to
+    // know WHO is absent (so it doesn't accidentally speak for them or forget they left) and who is
+    // dormant. Their locations, activities, and goals stay in the bookkeeper's context only. The ONE
+    // offscreen thread the narrator should advance this turn arrives through the beat directive, which
+    // is the legitimate, scoped channel.
     const offAll = Object.entries(state.characters)
       .filter(([id, c]) => id !== "char_player" && !state.world.present.includes(id) && c.status !== "dead" && c.status !== "departed");
-    const stubs = offAll.filter(([, c]) => c.paged).map(([, c]) => `${c.name} (dormant — full card paged out; wake by naming them)`);
+    const stubs = offAll.filter(([, c]) => c.paged).map(([, c]) => `${c.name} (dormant — wake by naming them)`);
     const offLive = offAll.filter(([, c]) => !c.paged);
-    const offscreenCast = lvl >= 3
-      ? [...offLive.map(([, c]) => `${c.name} — at ${placeName(c.location)}: ${c.current_activity || c.drive?.goal || "about their life"}`), ...stubs].join("; ")
-      : lvl >= 2
-        ? [...offLive.filter(([id]) => state.characters[id]?.tracked).map(([, c]) => `${c.name} — ${c.drive?.goal || "elsewhere"}`), ...stubs].join("; ")
-        : "";
+    // names only — no location, no goal, no activity
+    const offscreenCast = lvl >= 2
+      ? [...offLive.map(([, c]) => c.name), ...stubs].join(", ")
+      : stubs.join(", ");
 
-    // recent turns: full window at lvl>=2, just the last summary below; last prose always kept
+    // recent turns: full window at lvl>=2, just the last summary below; last prose always kept. The
+    // per-turn offscreen world-motion lines are cut — same leak: they tell the narrator what happened
+    // elsewhere that no one present witnessed.
     const recentStr = (lvl >= 2 ? recent : recent.slice(-1))
-      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}${h.offscreen.length && lvl >= 3 ? ` | offscreen: ${h.offscreen.join("; ")}` : ""}`)
+      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}`)
       .join("\n") || "This is the opening.";
     const proseTail = lastProse ? `\n\n=== THE MOMENT JUST BEFORE THIS (most recent prose — continue from here, keep voices and facts consistent with it) ===\n${lastProse.narrator_prose.slice(lvl >= 3 ? -900 : -500)}` : "";
 
     const focusBlock = state.world.focus ? `=== FOCUS — ${state.world.focus.mode === "active" ? "now inside this event" : "building toward this; do not sideline it"} ===\n${state.world.focus.label}\n` : "";
-    const threadsBlock = threads.length ? `=== OPEN THREADS ===\n${threads.map((t) => `[tension ${t.tension}] ${t.title}: ${t.description}`).join("\n")}\n` : "";
-    const clocksBlock = clocks.length ? `=== FACTION CLOCKS ===\n${clocks.map((c) => `${c.faction}: ${c.objective} [${c.filled}/${c.segments}] — signs: ${c.visible_signs.join(", ")}`).join("\n")}\n` : "";
-    const offBlock = offscreenCast ? `=== OFFSCREEN ===\n${offscreenCast}\n` : "";
+    // Threads/clocks: the narrator does NOT get the full descriptions, objectives, and visible signs —
+    // that is the world's private bookkeeping, and the narrator inventing that a present character
+    // "knows" a faction's objective is the omniscience leak. The single thread/consequence the narrator
+    // should advance THIS turn is delivered, already scoped, through the beat directive. Here we surface
+    // only a bare, non-leaky awareness that tensions exist, so continuity holds without handing over
+    // content no one in the room could know.
+    const threadsBlock = "";
+    const clocksBlock = "";
+    const offBlock = offscreenCast ? `=== NOT IN THIS SCENE (do not speak for them, do not let anyone present report their doings — you do not know where they are or what they're doing) ===\n${offscreenCast}\n` : "";
 
     // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
     // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
