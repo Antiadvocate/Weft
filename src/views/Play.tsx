@@ -11,6 +11,8 @@ import { AnalogClock, WeatherIcon } from "../lib/format";
 import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
 import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel } from "../lib/tone";
+import { AnimNumber } from "../lib/AnimNumber";
+import { turnDeltas } from "../lib/ledger";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
@@ -71,6 +73,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const toastId = useRef(0);
 
   const history = save.history;
+  const deltas = useMemo(() => turnDeltas(save), [save.telemetry, save.world.present]);
 
   // ── ambient layers: one tone derived from state drives particles, backdrop, prose cadence.
   //    Readability rules them: one tap cycles subtle → full → off, persisted locally. ──
@@ -574,6 +577,45 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             </div>
           ))}
           {liveProse && liveProse.split(/\n{2,}/).map((p, i, arr) => renderParagraph(p, `live-${i}`, i === arr.length - 1))}
+          <AnimatePresence>
+            {!running && !liveProse && deltas.length > 0 && (
+              <motion.div
+                className="ledger-card"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.35 }}
+              >
+                {deltas.map((r, i) => (
+                  <motion.div
+                    key={r.key}
+                    className="ledger-row"
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: reducedMotion() ? 0 : i * 0.07 }}
+                  >
+                    <span className="ledger-text">{r.text}</span>
+                    {r.from !== undefined && r.to !== undefined && (
+                      <span className="ledger-delta">
+                        {r.icon === "clock" ? (
+                          <AnimNumber value={r.to} format={(v) => {
+                            const m = Math.round(v), h = Math.floor(m / 60), mm = m % 60;
+                            return h ? `${h}h${mm ? ` ${mm}m` : ""}` : `${m}m`;
+                          }} good />
+                        ) : (
+                          <>
+                            <AnimNumber value={r.from} />
+                            <span className="ledger-arrow"> → </span>
+                            <AnimNumber value={r.to} good={r.good} />
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <AnimatePresence>
