@@ -21,6 +21,7 @@
 
 import type { SaveState } from "./types";
 import { complete, buildMessages, safeJson } from "../llm";
+import { dispositionCue } from "./desire";
 
 export interface NpcIntent {
   char_id: string;
@@ -64,7 +65,9 @@ Return ONE strict JSON object, nothing else:
 
 Rules:
 - The character acts from THEIR nature, agenda, and feelings — sovereign, not in service of the player. They pursue their own want this beat.
-- surface and truth may match (an honest, open character) or diverge sharply (a liar, someone hiding desire, someone saving face). Divergence is where the drama lives — use it when the character's state supports it.
+- surface and truth may match (an honest, open character, or one who is simply, plainly feeling what they feel) or diverge (a liar, someone hiding desire, someone saving face). Divergence is ONE tool, not the default — use it only when the character's state actually supports a concealed truth. A resigned, hurt, or wary person is usually just that underneath; do not manufacture a hidden agenda, a secret scheme, or a dark reading of the player where the state shows only ordinary feeling. Most beats, surface and truth are close and lying is false.
+- CALIBRATE TO THE STATE — the truth must be PROPORTIONAL to the character's actual disposition (given as warmth/trust with their plain-language meaning). Mild negatives are mild: warmth slightly below zero is "a little hurt, a little guarded", NOT terror; low trust is "cautious, watching", NOT conviction that the player is a monster. Do NOT escalate a wary or resigned character into someone secretly certain the player is a manipulator, a monster, a hollow shell, or a danger — that is invention, and it poisons how the character is played. Only write fear, hatred, or a dark verdict when the warmth/trust and history genuinely support that intensity. If the numbers say "mildly hurt but still cares," the truth is mildly hurt, full stop.
+- The character reacts to what the player actually SAID and DID this beat and to their real history — never to a sinister interpretation the state doesn't justify. If nothing hostile has actually happened, the character is not secretly seething about it.
 - Keep each field to one or two tight sentences. Concrete, not literary.
 - NEVER reference the player's unspoken thoughts or feelings. The character reacts only to what the player audibly said and visibly did.`;
 
@@ -99,7 +102,7 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       c.voice?.agenda ? `Agenda (their subtext): ${c.voice.agenda}` : "",
       c.drive?.goal ? `Wants: ${c.drive.goal}` : "",
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
-      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player.",
+      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player.",
       `WHY THEY HAVE STAKES THIS BEAT: ${reason}`,
       `WHAT THE PLAYER AUDIBLY SAID / VISIBLY DID: ${perceptibleAction}`,
     ].filter(Boolean).join("\n");

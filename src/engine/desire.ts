@@ -257,3 +257,37 @@ export function tickDesire(state: SaveState): string[] {
   }
   return shifts;
 }
+
+/** Translate raw warmth/trust toward the player into an explicit BEHAVIORAL cue on a named emotional
+ *  scale, so the narrator understands what the numbers MEAN, not just a bare figure it can default
+ *  past. Warmth (−100..100) is how much they CARE; trust (−100..100) is how much they RELY on you.
+ *  They diverge: someone can care deeply while still not trusting (warm but cautious), which reads as
+ *  warmth WITH guardedness, never as coldness. The key failure this fixes is a narrator fixating on
+ *  low trust and writing a loyal, warming companion as a hostile stranger. */
+export function dispositionCue(warmth: number, trust: number): string {
+  // warmth band on the full scale, with what it looks like in behavior
+  const care =
+    warmth >= 70 ? "loves you / devoted (warmth very high) — open affection, protectiveness, seeks your closeness" :
+    warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses" :
+    warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, drawn to you, glad you're near" :
+    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, no hostility" :
+    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline, neither warm nor cold" :
+    warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged" :
+    warmth > -45 ? "dislikes you (warmth negative) — sharp, unwelcoming" :
+    "resents or hates you (warmth very negative) — openly cold or antagonistic";
+  const rely =
+    trust >= 50 ? "and trusts you (relies on your word, lowers their guard)" :
+    trust >= 20 ? "and is starting to trust you (testing, hopeful)" :
+    trust >= 0 ? "but doesn't fully trust you yet (still cautious, watching)" :
+    trust > -25 ? "and is wary of trusting you (guarded, keeps a little distance)" :
+    "and does not trust you (expects the worst, stays defensive)";
+  // spell out the divergence so the narrator can't collapse warm-but-cautious into cold
+  const note = warmth >= 20 && trust < 20
+    ? " — RENDER BOTH: the warmth is real and shows (care, softness, loyalty), the low trust only makes them guarded, NOT cold or hostile; do not write a caring character as a distant stranger"
+    : warmth <= -20
+      ? " — this coldness is THIS character's earned stance from what's passed between you, not a default suspicion to apply to everyone"
+      : warmth >= 45 && trust >= 20
+        ? " — let this warmth be plainly visible; do not make the player re-earn it every scene"
+        : "";
+  return `${care} ${rely}${note}`;
+}

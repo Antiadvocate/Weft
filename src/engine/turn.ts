@@ -9,7 +9,7 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
-import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance } from "./types";
+import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun } from "./coerce";
@@ -279,6 +279,29 @@ function looksNamed(name: string): boolean {
   const generic = /^(the |a |an )?(guard|thug|man|woman|figure|stranger|officer|cop|patron|crowd|bystander|clerk|driver|waiter|nurse|soldier|guy|girl|boy|kid|person|someone)s?$/i;
   if (generic.test(name.trim())) return false;
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
+}
+
+/** Detect a model safety-refusal returned in place of narration, so we can retry on the fallback
+ *  rather than storing it as the turn's prose. Catches: a refusal in the model's native language
+ *  (unexpected CJK when the story isn't written in an East-Asian language), common English refusal
+ *  stems, and a suspiciously tiny response where a full narrator turn was expected. */
+function isRefusal(text: string, bible?: WorldBible): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return true; // empty is a failed generation
+  // Unexpected CJK: deepseek/qwen/etc emit a native-language refusal. If the world's own language
+  // isn't East-Asian and a meaningful chunk of the response is CJK, it's almost certainly a refusal.
+  const cjk = (t.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+  const storyLang = `${bible?.cultures_and_languages ?? ""}`.toLowerCase();
+  const storyIsEastAsian = /chinese|mandarin|cantonese|japanese|korean|hanzi|kanji|hangul/.test(storyLang);
+  if (cjk >= 4 && !storyIsEastAsian && cjk / t.length > 0.15) return true;
+  // Common refusal stems (English and a few localized), especially when the whole response is short.
+  const low = t.toLowerCase();
+  const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
+  if (refusalStem && t.length < 400) return true;
+  // A full narrator turn is 120–350 words; a response under ~12 words is not narration (a refusal,
+  // an error echo, or a stub). Guard against storing it.
+  if (t.split(/\s+/).filter(Boolean).length < 12 && !/[.!?]"?\s*$/.test(t)) return true;
+  return false;
 }
 
 /** Derive serviceable default values for a spawned character whose bookkeeper record left them empty.
@@ -785,6 +808,30 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (done) { prose = value.text; narratorUsage = value.usage; narratorSources = value.annotations; narratorTruncated = !!value.truncated; break; }
       ev.onDelta(value);
     }
+    // REFUSAL → FALLBACK. The narrator model can hit its own safety filter on legitimate in-fiction
+    // content (a violent threat, dark material) and return a canned refusal — often in the model's
+    // native language (e.g. a Chinese model emitting "我无法给到相关内容"), or a terse "I can't provide
+    // that." Left unchecked, that refusal gets stored AS the turn's narration and poisons the save.
+    // Detect it and re-run the SAME turn on the fallback model, which usually isn't gated the same way.
+    if (isRefusal(prose, state.world_bible)) {
+      console.warn(`[turn] narrator refusal detected ("${prose.slice(0, 40)}…") — retrying on fallback model`);
+      ev.onMeta?.({ shifts: [`narrator model declined this turn — retrying on fallback`] });
+      const fb = state.model_settings.fallback_model || "google/gemini-2.5-flash";
+      try {
+        const retry = completeStream(narratorMsgs, fb, fb, 5000, groundOn, resolvedQuery || undefined);
+        let rprose = "";
+        while (true) {
+          const { done, value } = await retry.next();
+          if (done) { rprose = value.text; if (value.usage) narratorUsage = value.usage; narratorTruncated = !!value.truncated; break; }
+          ev.onDelta(value);
+        }
+        if (rprose && !isRefusal(rprose, state.world_bible)) prose = rprose;
+        else { prose = ""; ev.onMeta?.({ shifts: [`both narrator models declined this turn — no narration written; try rephrasing`] }); }
+      } catch (e) {
+        prose = "";
+        console.warn(`[turn] fallback narrator also failed: ${e}`);
+      }
+    }
     // GROUNDING RECEIPT — the search is invisible unless we show it. Cited sources prove it ran;
     // zero sources is worth saying out loud too, so "grounded" never silently means "wasn't".
     if (groundOn) {
@@ -794,6 +841,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         ? `web-grounded${qTag} — ${hosts.length} source${hosts.length > 1 ? "s" : ""}: ${hosts.slice(0, 3).join(", ")}`
         : `web grounding${qTag}: search returned no sources — this turn wrote from memory`] });
     }
+  }
+  // BOTH MODELS REFUSED — if we have no prose after the fallback retry, do NOT run the bookkeeper on
+  // nothing or commit an empty turn (which would poison the save the way the raw refusal string did).
+  // Abort cleanly: the world is unchanged, the player can rephrase and try again.
+  if (!prose.trim()) {
+    ev.onMeta?.({ shifts: ["no narration this turn — both models declined. The scene is unchanged; try rephrasing your action."] });
+    return;
   }
   // TELEMETRY BACKSTOP — some streaming routes omit the usage block on the final chunk, so
   // narratorUsage can come back all-zeros even though the narrator clearly ran (we have prose).
@@ -1125,6 +1179,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const capCentral = state.model_settings.max_central_characters ?? 6;
   for (const id of state.world.present) {
     const c = state.characters[id];
+    // Keep each present character's story-so-far (life_history) CURRENT every turn — the defining
+    // beats they just lived fold in immediately, instead of waiting for the reflection cadence to come
+    // around (which could miss a cluster of major beats entirely, e.g. a heartbreak that all happens
+    // in the last few turns before they leave). Deterministic, zero-token string work; safe to run
+    // every turn. This is why a character's "what's happened so far" could freeze early: the fold was
+    // gated on reflection timing and on the character being in that loop.
+    if (c && id !== "char_player" && state.memory[id]) {
+      const blog = consolidateBackground(c, state.memory[id]);
+      for (const l of blog) offscreenLog.push(l);
+    }
     if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
@@ -1517,9 +1581,10 @@ function overlapRatio(a: string, b: string): number {
 
 /** Add a condition with dedupe: a variant of an existing condition REPLACES it instead of stacking. */
 export function addCondition(c: { conditions: string[]; condition_age?: Record<string, number> }, value: string, turn: number): void {
+  value = typeof value === "string" ? value : String(value ?? "");
   if (!value) return;
   c.condition_age ??= {};
-  const dup = c.conditions.find((x) => x.toLowerCase() === value.toLowerCase() || wordOverlap(x, value));
+  const dup = c.conditions.find((x) => typeof x === "string" && (x.toLowerCase() === value.toLowerCase() || wordOverlap(x, value)));
   if (dup) {
     delete c.condition_age[dup];
     c.conditions = c.conditions.filter((x) => x !== dup);
@@ -2004,6 +2069,13 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const f of diff.facts ?? []) {
     const id = resolveId(state, f.char_id); if (!id) continue;
     const c = state.condition[id]; if (!c) continue;
+    // COERCE VALUE — the model sometimes emits a fact value as a number, array, or object instead of
+    // a string (e.g. thirst as 7, or a condition as ["cold","wet"]). Downstream handlers call
+    // .toLowerCase()/regex on it, which throws "a.toLowerCase is not a function" and crashes the whole
+    // bookkeeper apply. Normalize to a string once, here, so every case below is safe.
+    if (Array.isArray((f as any).value)) (f as any).value = (f as any).value.map((v: any) => String(v)).join(", ");
+    else if (f.value != null && typeof f.value !== "string") (f as any).value = String((f as any).value);
+    else if (f.value == null) (f as any).value = "";
     switch (f.field) {
       case "fatigue": if (["fresh","tired","exhausted"].includes(f.value)) c.fatigue = f.value as any; break;
       case "hunger": {

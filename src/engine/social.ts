@@ -40,7 +40,7 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
   if (d.note) e.notes = d.note.slice(0, 140);
   if (d.roles_set) {
-    let roles = d.roles_set.map((r) => r.trim()).filter(Boolean).slice(0, 4);
+    let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean).slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
     // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent — Marie's
     // role toward Joe is daughter; father is Joe's role toward Marie. When a known reciprocal PAIR
@@ -156,7 +156,14 @@ export function capMemory(episodic: EpisodicMemory[], cap = 60): EpisodicMemory[
 
 export function consolidateBackground(ident: Identity, mem: CharMemory): string[] {
   const log: string[] = [];
-  const defining = mem.episodic.filter((m) => m.importance >= 8 && !m.folded);
+  // What counts as "defining" enough to accrete into the character's story-so-far. The old bar was
+  // importance >= 8, which — with a bookkeeper that under-scores — silently dropped genuinely
+  // life-shaping beats (being abandoned, a betrayal, a rescue) that it happened to score a 6 or 7, so
+  // life_history froze early and stopped reflecting what the character actually lived. Broaden it: a
+  // core memory always counts; so does an importance>=6 beat carrying real emotional charge, or any
+  // importance>=7. This keeps trivia out while catching the beats that actually reshape a person.
+  const charged = (m: EpisodicMemory) => !!(m.emotional_charge && m.emotional_charge.trim() && !/none|neutral|calm/i.test(m.emotional_charge));
+  const defining = mem.episodic.filter((m) => !m.folded && (m.importance >= 7 || (m.importance >= 6 && charged(m))));
   if (!defining.length) return log;
   const facts = defining
     .slice()
