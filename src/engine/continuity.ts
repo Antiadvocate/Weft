@@ -16,7 +16,7 @@
  */
 import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } from "./types";
 import { absMinutes, advance } from "./time";
-import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche } from "./social";
+import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche, tickBonds } from "./social";
 import { regenerateDrives } from "./drives";
 import { syncPresence } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
@@ -53,6 +53,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
     report.drive_log.push(...tickDrives(state, rng));
     report.drive_log.push(...regenerateDrives(state, rng)); // tracked idle NPCs get fresh wants across the days
     report.rumor_log.push(...diffuseRumors(state, rng));
+    report.drive_log.push(...tickBonds(state, rng)); // offscreen same-place pairs drift closer/cooler
   }
   // psyche valence resettles
   for (const id of Object.keys(state.condition)) {
@@ -132,6 +133,7 @@ Output ONLY strict JSON:
 {"interlude":"2-3 paragraphs of world-scale prose. Days passing, seasons of small life, the report's events landing among real people. NO player interiority — they were absent. End on the player's return: where they are as the world comes back into focus.",
 "events":["3-6 one-line happenings drawn from the report, plain statements"],
 "memories":[{"char_id":"","content":"what THIS character personally lived these days — local and first-hand, never a distant event they couldn't know","importance":4}],
+"character_updates":[{"char_id":"","line":"one plain sentence: what this character has been doing / where their head is after these days (first-hand, local)","new_location":"OPTIONAL place name if they moved","drive_nudge":"OPTIONAL short new want that grew from these days"}],
 "present_on_return":["names of 0-3 characters plausibly near the player when play resumes"],
 "weather":"the weather on the day of return"}`;
 
@@ -157,7 +159,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
 
   let interlude = "";
   let usage = { prompt_tokens: 0, completion_tokens: 0 };
-  let parsed: { interlude?: string; events?: string[]; memories?: { char_id: string; content: string; importance?: number }[]; present_on_return?: string[]; weather?: string } = {};
+  let parsed: { interlude?: string; events?: string[]; memories?: { char_id: string; content: string; importance?: number }[]; character_updates?: { char_id: string; line?: string; new_location?: string; drive_nudge?: string }[]; present_on_return?: string[]; weather?: string } = {};
   try {
     const msgs = buildMessages(INTERLUDE_SYSTEM, stablePrefix(state), reportText, state.model_settings.simulator_model);
     const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 2500);
@@ -205,6 +207,30 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
       emotional_charge: "", last_accessed_turn: turn,
       source: "inferred", // written by the passage-of-time pass; the character lived it offscreen, not witnessed in play
     });
+  }
+  // per-character vignettes: a line of what they were up to, an optional move, an optional new want.
+  // Applied under the same "first-hand / local" spirit as memories — these are things the character
+  // themselves lived, so they're always self-sourced (inferred = offscreen but personally experienced).
+  for (const cu of parsed.character_updates ?? []) {
+    const id = state.characters[cu.char_id] ? cu.char_id
+      : Object.entries(state.characters).find(([, c]) => c.name.toLowerCase() === String(cu.char_id).toLowerCase())?.[0];
+    if (!id || state.characters[id].status === "dead" || state.characters[id].status === "departed") continue;
+    // a move: only to a place that exists (don't invent geography here)
+    if (cu.new_location) {
+      const pid = Object.entries(state.world.places).find(([, p]) => p.name.toLowerCase() === String(cu.new_location).toLowerCase())?.[0];
+      if (pid) state.characters[id].location = pid;
+    }
+    // a new want that grew over the days — only if they don't already have a live drive
+    if (cu.drive_nudge && !state.characters[id].drive?.goal) {
+      state.characters[id].drive = { goal: String(cu.drive_nudge).slice(0, 160), progress: 0, updated_turn: turn } as any;
+    }
+    // a first-hand memory of their own days (self-sourced, personally lived → inferred/offscreen)
+    if (cu.line && state.memory[id]) {
+      state.memory[id].episodic.push({
+        turn, content: String(cu.line).slice(0, 240), importance: 3,
+        emotional_charge: "", last_accessed_turn: turn, source: "inferred",
+      });
+    }
   }
   if (parsed.weather) state.world.weather = parsed.weather;
   const back = (parsed.present_on_return ?? [])

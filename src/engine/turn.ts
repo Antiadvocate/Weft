@@ -304,6 +304,44 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
   return false;
 }
 
+/** DRIFT VETO — the structural fix for "moral cancer": the narrator can write a weak, out-of-character
+ *  moment (statistical gravity pulls every world toward our-world defaults), but the real damage is the
+ *  BOOKKEEPER canonizing that moment as growth — "she realized kindness felt good" becomes a memory,
+ *  then a trait, and next turn the character genuinely HAS changed because the ledger says so. Killing
+ *  the persistence removes the drift's substrate: the moment can happen in prose, but it evaporates
+ *  instead of compounding into a rewritten person. This checks a proposed memory/trait/edge write
+ *  against the character's own grain and rejects the ones that would soften a constitutionally-hard
+ *  character or reverse their nature WITHOUT the earned door (reflection, which bypasses this veto).
+ *
+ *  Conservative by design: a missed drift is far cheaper than a murdered arc, so it only fires on
+ *  clear reversal language against a clear cold/hard nature, and every rejection is logged. */
+const SOFTENING_PATTERN = /\b(soften(ed|ing|s)?|realized? (that )?(kindness|caring|warmth|mercy|being (kind|good|gentle))|began to (care|feel|soften)|learned to (care|love|trust|feel)|guilt|remorse|redemption|redeem\w*|touched by|melted|warmed to|opened (his|her|their) heart|found (his|her|their) humanity|no longer (so )?(cold|cruel|hard|ruthless)|a better (man|woman|person)|change of heart|conscience (stirred|awoke|pricked))\b/i;
+const NORM_REVERSAL_PATTERN = /\b(was (strange|odd|wrong|pointless)|felt (right|nice|good|freeing)|kinda nice|no longer (made sense|needed)|stopped doing|why do we even|questioned (the|their|whether)|doubted (the|their)|began to wonder if)\b/i;
+
+function isColdNatured(state: SaveState, id: string): boolean {
+  const c = state.characters[id];
+  return !!c && typeof c.conscience === "number" && c.conscience <= 0.35;
+}
+
+/** Returns a rejection reason if this content would illegitimately drift the character, else null. */
+function driftVeto(state: SaveState, id: string, content: string, opts?: { isReflection?: boolean }): string | null {
+  if (opts?.isReflection) return null; // the earned door: reflection may move identity against the grain
+  if (id === "char_player") return null; // the player is who the player plays
+  const text = content.toLowerCase();
+  // a constitutionally cold character (rudra-type) being written as softening/redeeming
+  if (isColdNatured(state, id) && SOFTENING_PATTERN.test(text)) {
+    return `${nameOf2(state, id)} is cold by nature; a softening/redemption write was refused (no earned turning point this turn)`;
+  }
+  // anyone's core trait being flatly reversed by a memory that narrates the reversal as fact
+  const core = (state.characters[id]?.core_traits ?? []) as string[];
+  const HARD = /\b(cruel|ruthless|cold|merciless|brutal|vicious|callous)\b/i;
+  if (core.some((t) => HARD.test(t)) && SOFTENING_PATTERN.test(text)) {
+    return `${nameOf2(state, id)}'s hard nature was reversed by an unearned softening write — refused`;
+  }
+  return null;
+}
+function nameOf2(state: SaveState, id: string): string { return state.characters[id]?.name ?? "someone"; }
+
 /** Derive serviceable default values for a spawned character whose bookkeeper record left them empty.
  *  Not a substitute for authored depth — a floor so a character is never a valueless plot-label. */
 function deriveDefaultValues(traits: string[], background: string): string[] {
@@ -808,6 +846,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (done) { prose = value.text; narratorUsage = value.usage; narratorSources = value.annotations; narratorTruncated = !!value.truncated; break; }
       ev.onDelta(value);
     }
+    // DEAD-TAB GUARD (iOS). Safari suspends/kills a backgrounded page within seconds; if it dies
+    // mid-narrator-stream we get back an EMPTY prose — which is NOT a refusal. Running the refusal
+    // path here would buy a whole fallback paragraph to replace a stream that was merely interrupted,
+    // and commit it. An empty stream means "the tab died", so abort silently: nothing is committed,
+    // the world is unchanged, and the turn can be cleanly retried/resumed when the user returns.
+    if (!prose || !prose.trim()) {
+      console.warn("[turn] empty narrator stream — treating as an interrupted/dead tab, not a refusal; aborting turn cleanly");
+      return;
+    }
     // REFUSAL → FALLBACK. The narrator model can hit its own safety filter on legitimate in-fiction
     // content (a violent threat, dark material) and return a canned refusal — often in the model's
     // native language (e.g. a Chinese model emitting "我无法给到相关内容"), or a terse "I can't provide
@@ -945,7 +992,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // constrained decoding: providers that support json_schema enforce the diff shape at the
     // decoder; `complete` transparently falls back to json_object where unsupported.
     const simOpts = state.model_settings.sim_route_speed !== false ? { providerSort: "throughput" as const } : undefined;
-    const res = await complete(simMsgs, state.model_settings.simulator_model, state.model_settings.fallback_model, { schema: SIMULATOR_JSON_SCHEMA, name: "weft_diff" }, 3000, simOpts);
+    // ADAPTIVE ESCALATION — if the simulator has been failing (see watchdog below), temporarily route
+    // bookkeeping to the fallback model for a few turns. A different model often clears whatever context
+    // was choking the primary; it auto-clears after a healthy streak. Only meaningful when they differ.
+    const escalated = (state.sim_escalated_until ?? 0) >= turn && state.model_settings.fallback_model && state.model_settings.fallback_model !== state.model_settings.simulator_model;
+    const simModel = escalated ? state.model_settings.fallback_model : state.model_settings.simulator_model;
+    const res = await complete(simMsgs, simModel, state.model_settings.fallback_model, { schema: SIMULATOR_JSON_SCHEMA, name: "weft_diff" }, 3000, simOpts);
     simUsage = res.usage;
     const parsed = safeJson<Partial<SimulatorDiff> | null>(res.text, null);
     if (parsed && Object.keys(parsed).length) { diff = { ...emptyDiff(), ...parsed }; simOk = true; }
@@ -1207,10 +1259,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const substantialProse = proseWords >= 120;
     if (substantialProse && vitality === 0 && mode !== "think") {
       state.sim_dry_runs = (state.sim_dry_runs ?? 0) + 1;
+      // after 2 consecutive dead turns, escalate: route bookkeeping to the fallback model for the next
+      // 5 turns. Self-healing on the cheap model — a different model usually breaks the failure loop.
+      if ((state.sim_dry_runs ?? 0) >= 2 && state.model_settings.fallback_model && state.model_settings.fallback_model !== state.model_settings.simulator_model) {
+        if ((state.sim_escalated_until ?? 0) < turn) shifts.push("bookkeeping kept coming back empty — switching to the backup model for a few turns to recover.");
+        state.sim_escalated_until = turn + 5;
+      }
       if (state.sim_dry_runs % 3 === 0) shifts.push(`bookkeeping has come back empty ${state.sim_dry_runs} turns running — the simulator model may be struggling with this save's context; consider a stronger simulator model in Settings`);
     } else if (vitality > 0) {
       if ((state.sim_dry_runs ?? 0) >= 3) shifts.push("bookkeeping is recording again.");
       state.sim_dry_runs = 0;
+      // healthy again past the escalation window → drop back to the primary simulator
+      if (state.sim_escalated_until && turn > state.sim_escalated_until) state.sim_escalated_until = undefined;
     }
   }
   offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
@@ -2248,6 +2308,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       console.warn(`[memory] BLOCKED background leak in ${nameOf(id)}'s memory — the player never revealed it`);
       continue;
     }
+    { const v = driftVeto(state, id, m.content); if (v) { console.warn(`[drift] refused memory: ${v}`); shifts.push(`the ledger held the line: ${nameOf(id)} doesn't change against their grain without cause.`); continue; } }
     const g = groundMemoryContent(m.content, m.anchor, sourceText, whitelist);
     if (g.repaired) m.content = g.content;
     else if (g.suspects.length) console.warn(`[memory] suspect specifics in ${nameOf(id)}'s memory (${g.suspects.join(", ")}) — no source sentence matched; stored as-is`);
@@ -2435,6 +2496,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     // ACQUIRED EXPERTISE needs years a child hasn't lived. Block mastery-type traits on the young.
     const age = state.characters[id]?.age ?? 30;
     if (age < 16 && impliesExpertise(t.label) && age < expertiseFloor(t.label)) continue; // too young for this expertise
+    { const v = driftVeto(state, id, t.label); if (v) { console.warn(`[drift] refused trait "${t.label}": ${v}`); continue; } }
     reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
     shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }

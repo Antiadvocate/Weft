@@ -394,3 +394,61 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
     return to === "char_player" ? `${fromName} broke their word: ${p.text}.` : `${fromName} broke a promise to ${toName}${hist.broken > 0 ? " — not the first time" : ""}.`;
   }
 }
+
+// ─────────────────────────── OFF-SCREEN BOND DRIFT ───────────────────────────
+// The world shouldn't freeze between scenes. Characters who share a place while the player is away
+// slowly warm to or cool from each other based on compatibility — how alike their consciences are
+// (do they both care, or both not?) and how much their values overlap. This is a gentle ±1/round
+// nudge, so bonds evolve over days offscreen without lurching. Only same-locale, non-present,
+// living pairs; the player is never included (their edges are earned in play, not drifted).
+function compatibility(a: Identity, b: Identity): number {
+  // conscience closeness: two warm people or two cold people are more compatible than a mismatch
+  const ca = typeof a.conscience === "number" ? a.conscience : 0.7;
+  const cb = typeof b.conscience === "number" ? b.conscience : 0.7;
+  const conscienceScore = 1 - Math.abs(ca - cb); // 0..1, 1 = identical temperament
+  // value overlap
+  const av = (a.values ?? []).map((v) => v.toLowerCase());
+  const bv = (b.values ?? []).map((v) => v.toLowerCase());
+  const shared = av.filter((v) => bv.some((w) => w === v || w.includes(v) || v.includes(w))).length;
+  const valueScore = av.length && bv.length ? shared / Math.max(av.length, bv.length) : 0.3;
+  // combine → a target sign: compatible pairs drift warm, incompatible drift cool
+  return (conscienceScore * 0.5 + valueScore * 0.5); // 0..1
+}
+
+/** Drift warmth ±1 between same-place offscreen pairs toward their compatibility. Returns occasional
+ *  human lines for pairs that cross a threshold, so the player can hear a bond shifted while away. */
+export function tickBonds(state: SaveState, rng: () => number = Math.random): string[] {
+  const log: string[] = [];
+  // bucket living, offscreen characters by location
+  const byLoc = new Map<string, string[]>();
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || state.world.present.includes(id) || c.status === "dead" || c.status === "departed") continue;
+    const loc = c.location || "loc_elsewhere";
+    (byLoc.get(loc) ?? byLoc.set(loc, []).get(loc)!).push(id);
+  }
+  for (const group of byLoc.values()) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i], b = group[j];
+        if (rng() > 0.5) continue; // not every pair every round — bonds move slowly
+        const comp = compatibility(state.characters[a], state.characters[b]);
+        const dir = comp >= 0.5 ? 1 : -1; // compatible warm up, incompatible cool
+        const e1 = getEdge(state.world.edges, a, b), e2 = getEdge(state.world.edges, b, a);
+        const before = e1.warmth;
+        // drift toward the compatibility-implied ceiling/floor, never past it
+        const ceil = dir > 0 ? 20 + Math.round(comp * 40) : -(10 + Math.round((1 - comp) * 30));
+        if ((dir > 0 && e1.warmth < ceil) || (dir < 0 && e1.warmth > ceil)) {
+          e1.warmth = clampWarmth(e1.warmth + dir);
+          e2.warmth = clampWarmth(e2.warmth + dir);
+        }
+        // occasional shift line when a bond crosses a round number (a felt change)
+        const crossed = (t: number) => (before < t && e1.warmth >= t) || (before > t && e1.warmth <= t);
+        if (dir > 0 && crossed(20)) log.push(`${state.characters[a].name} and ${state.characters[b].name} have been growing closer.`);
+        else if (dir < 0 && crossed(-10)) log.push(`Something has cooled between ${state.characters[a].name} and ${state.characters[b].name}.`);
+      }
+    }
+  }
+  return log;
+}
+function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
