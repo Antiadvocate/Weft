@@ -27,6 +27,7 @@ export interface ModelSettings {
   iframe_cadence?: number;        // chatlog mode: turns between full state re-anchors (default 6)
   route_by_price?: boolean;       // OpenRouter provider sort: price — route each call to the cheapest healthy provider
   sim_route_speed?: boolean;      // route BOOKKEEPER calls for throughput instead of price — default true; bookkeeping latency is the felt latency
+  habit_engine?: boolean;         // EXPERIMENTAL: core traits become probabilistic firing habits that loosen when seen (dzogchen self-liberation) and deepen when unseen. Inert unless true.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   paging?: boolean;               // MemGPT-style paging: cold central characters' identity cards page out of the prefix to one-line stubs until they matter again
@@ -80,6 +81,23 @@ export interface WorldBible {
 }
 
 // ───────────────────────────── social fabric ─────────────────────────────
+
+/** A core behavioral habit as PHYSICS, not label. The engine owns whether it fires each beat; the
+ *  narrator only ever receives a fire verdict, never the numbers or the lexicon. Change happens by
+ *  the dzogchen mechanic: a habit SEEN as it fires (clarity gated by relaxation) loses a little
+ *  automaticity; a habit that fires UNSEEN deepens and feeds a dwelling. No self tracks the change —
+ *  it moves in the dark and only becomes narratable when ANOTHER character notices the difference.
+ *  Directionless by construction: the engine never judges a habit good or bad, and what fills the
+ *  space of a dissolved habit comes from surviving desire, never a moral pole. */
+export interface CoreHabit {
+  trait: string;             // the concrete established behavior, verbatim from core_traits — never a category
+  strength: number;          // 0..100 — firing probability when the trigger context is live. Forged ~95: a wall.
+  baseline: number;          // what it re-grooves toward when unwatched (extinction is inhibition, not erasure)
+  seen_fires: number;        // times it fired while clearly seen (the reps that loosen it)
+  last_fired_turn: number;
+  noticed_watermark: number; // strength at which an observer last remarked the change — noticing is stepwise
+  dormant?: boolean;         // dissolved below threshold and retired at a reflection cadence; can revive on relapse
+}
 
 /** A promise on the ledger — who swore what to whom. Weight scales the emotional payoff/damage. */
 export interface Promise {
@@ -454,6 +472,7 @@ export interface SaveState {
   world: WorldState;
   characters: Record<string, Identity>;
   traits: Record<string, AcquiredTrait[]>;
+  habits?: Record<string, CoreHabit[]>;   // per-character core habits as firing physics (behind habit_engine flag). Backfilled from core_traits.
   condition: Record<string, Condition>;
   memory: Record<string, CharMemory>;
   minds?: Record<string, MindModel>;   // theory-of-mind: per-character private models of others (active-inference belief layer)

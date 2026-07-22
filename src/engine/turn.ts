@@ -17,6 +17,7 @@ import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, sim
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
+import { tickHabits, habitVerdicts, regrooveHabits } from "./habits";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
@@ -496,6 +497,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // gets only the SURFACE (renders deniable behavior — the player reads a face, not a decoded
   // answer); the bookkeeper gets the TRUTH (records what really happened). Fires 0 calls when nobody
   // has stakes, 1 cheap call per staked NPC otherwise (usually 0–1).
+  // ── HABIT ENGINE (experimental, flag-gated) ── Core traits fire as physics before the intent pass,
+  // so intent authors from a world where the automatic behavior has already occurred. The narrator
+  // receives ONLY concrete fire verdicts (no numbers, no lexicon); seen/unseen and all strength math
+  // stay engine-side. Change moves in the dark; only an observer can ever surface it.
+  let habitVerdict = "";
+  const habitShifts: string[] = [];
+  if (state.model_settings.habit_engine) {
+    const presentForHabits = state.world.present.filter((pid) => pid !== "char_player");
+    const beatText = `${action} ${state.history.slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
+    const hb = tickHabits(state, presentForHabits, beatText);
+    habitVerdict = habitVerdicts(hb.fires, state);
+    for (const s of hb.shifts) habitShifts.push(s);
+    for (const d of hb.dwellings) {
+      const ps = state.condition[d.char_id]?.psyche;
+      if (ps && !ps.active_states.includes(d.label)) ps.active_states.push(d.label);
+    }
+    regrooveHabits(state);
+  }
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
   updatePaging(state, action);
@@ -819,13 +838,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   }
@@ -1194,6 +1213,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
+  for (const s of habitShifts) shifts.push(s);
   if (truncationNote) shifts.push(truncationNote);
   // PLAYER TIGHTNESS ANCHOR — the player's own body reading (0–5) corrects the simulator's guess at
   // where they sit. Applied AFTER applyDiff (so the sim's relaxation_delta is the baseline it overrides)

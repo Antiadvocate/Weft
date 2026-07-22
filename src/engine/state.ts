@@ -1,6 +1,7 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
+import { ensureHabits } from "./habits";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
 import { asText, asList, asNum, detectWorldPronoun } from "./coerce";
@@ -186,6 +187,11 @@ export function sanitize(state: SaveState): SaveState {
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
+  // HABIT ENGINE backfill (experimental, flag-gated): populate firing-strength habits from each
+  // character's core_traits so an existing save can opt in. Inert unless habit_engine is set.
+  if (state.model_settings?.habit_engine) {
+    for (const id of Object.keys(state.characters)) { try { ensureHabits(state, id); } catch { /* best-effort */ } }
+  }
   // PROVENANCE backfill: saves that predate source-tracking have memories/facts with no `source`.
   // Default them to "witnessed" — for existing memories that's the safe assumption (they were formed
   // in play, in scene), and it keeps the GM "how do they know this?" view from showing blanks.
