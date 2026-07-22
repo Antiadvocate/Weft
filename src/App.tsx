@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2 } from "lucide-react";
+import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText } from "lucide-react";
 import { api, type ClientSave } from "./lib/api";
 import { hasApiKey, setApiKey } from "./config";
 import Library from "./views/Library";
@@ -8,15 +8,17 @@ import Play from "./views/Play";
 import Cast from "./views/Cast";
 import World from "./views/World";
 import Chronicle from "./views/Chronicle";
+import Journal from "./views/Journal";
 import Forge from "./views/Forge";
 import Settings, { applyProseFont } from "./views/Settings";
 
-export type Tab = "play" | "cast" | "world" | "chronicle" | "settings";
+export type Tab = "play" | "cast" | "world" | "journal" | "chronicle" | "settings";
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { id: "play", label: "Play", icon: Feather },
   { id: "cast", label: "Cast", icon: Users },
   { id: "world", label: "World", icon: Globe2 },
+  { id: "journal", label: "Journal", icon: ScrollText },
   { id: "chronicle", label: "Chronicle", icon: BarChart3 },
   { id: "settings", label: "Tuning", icon: Settings2 },
 ];
@@ -126,6 +128,7 @@ export default function App() {
               {tab === "cast" && <Cast save={save} setSave={setSave} />}
               {tab === "world" && <World save={save} />}
               {tab === "chronicle" && <Chronicle save={save} />}
+              {tab === "journal" && <Journal save={save} />}
               {tab === "settings" && <Settings save={save} setSave={setSave} />}
             </motion.div>
           )}
