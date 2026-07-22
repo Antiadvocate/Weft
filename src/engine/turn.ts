@@ -17,7 +17,7 @@ import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, sim
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
-import { tickHabits, habitVerdicts, regrooveHabits } from "./habits";
+import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
@@ -506,7 +506,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   if (state.model_settings.habit_engine) {
     const presentForHabits = state.world.present.filter((pid) => pid !== "char_player");
     const beatText = `${action} ${state.history.slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
-    const hb = tickHabits(state, presentForHabits, beatText);
+    const hb = tickHabits(state, presentForHabits, beatText, verdict.pressure ?? 3);
     habitVerdict = habitVerdicts(hb.fires, state);
     for (const s of hb.shifts) habitShifts.push(s);
     for (const d of hb.dwellings) {
@@ -1362,6 +1362,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       // identity-defining memories fold permanently into background (survive eviction, shape who they are)
       const blog = consolidateBackground(state.characters[id], state.memory[id]);
       for (const l of blog) { offscreenLog.push(l); shifts.push(l); }
+      // HABIT DISSOLUTION — the reflection cadence is the only door identity moves through. A habit
+      // worn below threshold by being seen goes dormant here (not deleted — it can relapse). The space
+      // it leaves is filled by what the character STILL wants, never a moral pole: the fist stops, the
+      // desire it served remains and finds another shape. Written neutrally in third person.
+      if (state.model_settings.habit_engine) {
+        for (const l of dissolveWornHabits(state, id, turn)) { offscreenLog.push(l); shifts.push(l); }
+      }
     }
   }
   for (const id of Object.keys(state.condition)) {
@@ -2517,6 +2524,12 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const age = state.characters[id]?.age ?? 30;
     if (age < 16 && impliesExpertise(t.label) && age < expertiseFloor(t.label)) continue; // too young for this expertise
     { const v = driftVeto(state, id, t.label); if (v) { console.warn(`[drift] refused trait "${t.label}": ${v}`); continue; } }
+    // HABIT ENGINE: a trait that contradicts an established habit doesn't flip the person — it credits
+    // the arc. The dramatic moment feeds the slow dissolution instead of skipping it.
+    if (state.model_settings.habit_engine) {
+      const absorbed = absorbContradiction(state, id, t.label, 6);
+      if (absorbed) { console.warn(`[habit] "${t.label}" absorbed as a seen-fire credit against "${absorbed}" (not planted — arcs are earned, not flipped)`); continue; }
+    }
     reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
     shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }

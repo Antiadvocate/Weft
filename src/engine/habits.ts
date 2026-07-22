@@ -79,6 +79,7 @@ export function tickHabits(
   state: SaveState,
   presentIds: string[],
   beatText: string,
+  salience: number = 3,
   rng: () => number = Math.random,
 ): { fires: HabitFire[]; shifts: string[]; dwellings: { char_id: string; label: string }[] } {
   const fires: HabitFire[] = [];
@@ -120,7 +121,9 @@ export function tickHabits(
 
     if (seen) {
       // recognition loosens the grip — nothing written to memory, no self, no insight recorded.
-      const searing = false; // salience upgrade is applied by the caller when the beat is importance≥8
+      // A SEARING seen fire (a high-salience beat clearly witnessed) is a genuinely bigger step — the
+      // honest version of a "coming to Jesus" moment: it counts double. Still a step, never a flip.
+      const searing = salience >= 8;
       const drop = SEEN_DROP * (searing ? SEARING_MULT : 1);
       best.strength = Math.max(0, best.strength - drop);
       best.seen_fires += 1;
@@ -142,7 +145,7 @@ export function tickHabits(
         best.noticed_watermark = best.strength;
         // neutral, non-evaluative observation — no "better/growing/softened", just a plain difference.
         if (state.memory[observer]) state.memory[observer].episodic.push({
-          turn, content: neutralObservation(state.characters[observer], c, best.trait),
+          turn, content: lexScrub(neutralObservation(state.characters[observer], c, best.trait)),
           importance: 5, emotional_charge: "", last_accessed_turn: turn, source: "witnessed",
         });
         shifts.push(`${state.characters[observer].name} noticed something different about ${c.name}.`);
@@ -185,7 +188,75 @@ function describeAbsence(trait: string): string {
   return `as ${t}`;
 }
 
-export const HABIT_TUNING = { FORGE_STRENGTH, NEW_HABIT_STRENGTH, SEEN_DROP, CLENCH_GROOVE, DORMANT_BELOW, NOTICE_DROP, OPPORTUNITY_THRESHOLD };
+/** POLARITY CHECK — the single-moment-flip killer. When the bookkeeper tries to plant a trait that
+ *  CONTRADICTS an established core habit ("gentle" onto a habitual striker), it must not flat-plant —
+ *  that's the drift, a whole personality reversed by one scene. Instead the contradicting moment is
+ *  credited as a SEEN FIRE against the habit: the dramatic beat feeds the slow arc instead of skipping
+ *  it. Returns true if the incoming trait was absorbed as a credit (and should NOT be planted). */
+const POLARITY_PAIRS: [RegExp, RegExp][] = [
+  [/\b(cruel|ruthless|cold|harsh|brutal|violent|aggressive|merciless|callous)\b/i, /\b(gentle|kind|warm|tender|merciful|soft|caring|compassionate|nurturing)\b/i],
+  [/\b(guarded|closed|withdrawn|secretive|distrustful)\b/i, /\b(open|trusting|forthcoming|vulnerable|candid)\b/i],
+  [/\b(cowardly|timid|meek|fearful)\b/i, /\b(brave|bold|fearless|courageous)\b/i],
+  [/\b(dishonest|deceptive|lying|manipulative)\b/i, /\b(honest|truthful|sincere|straightforward)\b/i],
+];
+function contradicts(habitTrait: string, incoming: string): boolean {
+  for (const [a, b] of POLARITY_PAIRS) {
+    if ((a.test(habitTrait) && b.test(incoming)) || (b.test(habitTrait) && a.test(incoming))) return true;
+  }
+  return false;
+}
+/** If `incoming` contradicts one of this character's habits, credit it as a seen fire (double for a
+ *  searing beat) and return true — absorbed, do not plant. Else false. */
+export function absorbContradiction(state: SaveState, id: string, incoming: string, salience: number): string | null {
+  const habits = state.habits?.[id]; if (!habits) return null;
+  for (const h of habits) {
+    if (h.dormant) continue;
+    if (contradicts(h.trait, incoming)) {
+      const drop = SEEN_DROP * (salience >= 8 ? SEARING_MULT : 1);
+      h.strength = Math.max(0, h.strength - drop);
+      h.seen_fires += 1;
+      h.last_fired_turn = state.world.current_turn;
+      return h.trait; // absorbed
+    }
+  }
+  return null;
+}
+
+/** At the reflection cadence, retire any habit worn below the dormancy threshold. Directionless: the
+ *  habit goes dormant (revivable on relapse), it's removed from the live core_traits list, and a
+ *  NEUTRAL third-person life_history line marks the absence. What fills the space is NOT authored here
+ *  as a moral improvement — the character's surviving desires and other traits simply operate without
+ *  the automatism now. Returns neutral shift lines. Lexicon-banned: no better/growth/softened. */
+export function dissolveWornHabits(state: SaveState, id: string, turn: number): string[] {
+  const out: string[] = [];
+  const habits = state.habits?.[id]; if (!habits) return out;
+  const c = state.characters[id]; if (!c) return out;
+  for (const h of habits) {
+    if (h.dormant || h.strength > DORMANT_BELOW) continue;
+    h.dormant = true;
+    // remove from the live core_traits list (kept in habits[] as dormant, so it can revive)
+    c.core_traits = (c.core_traits ?? []).filter((t) => t.toLowerCase() !== h.trait.toLowerCase());
+    // neutral life_history note — plain absence, no valence
+    const note = `Over that stretch, ${lexScrub(gerund(h.trait))} stopped being automatic for ${c.name}.`;
+    c.life_history = c.life_history ? `${c.life_history} ${note}` : note;
+    out.push(`Something long-set in ${c.name} has loosened.`);
+  }
+  return out;
+}
+
+/** crude gerund/absence phrasing for a trait, valence-free */
+function gerund(trait: string): string {
+  const t = trait.toLowerCase().trim();
+  if (/^(hits?|strikes?|snaps?|lies?|steals?|drinks?|hums?|paces?|flinch\w*|grasps?|guards?)/.test(t)) {
+    return t.replace(/^(\w+?)s?\b/, (_m, v) => v.replace(/s$/, "") + "ing");
+  }
+  return `being ${t}`;
+}
+
+/** strip any evaluative word that could smuggle a moral direction back into an engine-authored string */
+function lexScrub(s: string): string {
+  return s.replace(/\b(better|good|bad|worse|growth|growing|grown|improv\w*|heal\w*|soften\w*|kinder|nicer|wiser|redeem\w*|progress\w*)\b/gi, "").replace(/\s{2,}/g, " ").trim();
+}
 
 /** The ONLY habit output the narrator ever receives. Concrete behavior verbatim, framed as law that
  *  already happened. No numbers, no lexicon (groove/strength/habit/probability never appear), no

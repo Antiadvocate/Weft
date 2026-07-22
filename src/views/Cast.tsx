@@ -528,6 +528,24 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     {c.core_traits.map((t) => <span key={t} className="chip">{nice(t)}</span>)}
                   </div>
                 </Section>
+
+                {(save.habits?.[sel!] ?? []).length > 0 && (
+                  <Section title="How set their patterns are">
+                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. Seen clearly as it fires, a pattern loosens; unseen, it deepens. No one changes on purpose.</div>
+                    {(save.habits?.[sel!] ?? []).map((h) => (
+                      <div key={h.trait} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-[12.5px]" style={{ color: h.dormant ? "var(--text-lo)" : "var(--text-mid)", textDecoration: h.dormant ? "line-through" : "none" }}>{nice(h.trait)}</span>
+                          <span className="text-[10px] font-mono" style={{ color: "var(--text-lo)" }}>{h.dormant ? "loosened" : `${Math.round(h.strength)}`}</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: "var(--ink-2)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, h.strength))}%`, background: h.dormant ? "var(--text-lo)" : h.strength > 70 ? "var(--text-mid)" : "var(--accent, #8a7a9e)", transition: "width .3s" }} />
+                        </div>
+                        {h.seen_fires > 0 && <div className="text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>seen {h.seen_fires}×</div>}
+                      </div>
+                    ))}
+                  </Section>
+                )}
               </div>
             </motion.div>
           </>
