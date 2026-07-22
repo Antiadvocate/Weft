@@ -203,6 +203,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
     state.memory[id]?.episodic.push({
       turn, content: m.content, importance: clamp(m.importance ?? 4, 1, 10),
       emotional_charge: "", last_accessed_turn: turn,
+      source: "inferred", // written by the passage-of-time pass; the character lived it offscreen, not witnessed in play
     });
   }
   if (parsed.weather) state.world.weather = parsed.weather;

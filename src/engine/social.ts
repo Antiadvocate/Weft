@@ -15,6 +15,8 @@
  */
 import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
 import { asText } from "./coerce";
+import { relevance } from "./memory";
+import { uid } from "./state";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -310,4 +312,85 @@ export function playerEdgeSnapshot(state: SaveState): { pair: string; warmth: nu
   return state.world.edges
     .filter((e) => e.to === "char_player" && state.characters[e.from])
     .map((e) => ({ pair: state.characters[e.from].name, warmth: e.warmth, trust: e.trust }));
+}
+
+// ─────────────────────────── PROMISE LEDGER ───────────────────────────
+// Who swore what to whom, and what it costs to keep or break it. The emotional swing scales with
+// TWO things, like real life: how BIG the promise was (weight 1–3), and the PATTERN of this person's
+// track record with the one they promised (a first slip from someone reliable is forgivable; the
+// fifth broken vow is who they are now). Kept promises build trust faster than warmth (you can rely
+// on them); broken ones cost trust hardest, and warmth too when the promise was large.
+
+import type { Promise as PromiseRec } from "./types";
+
+/** How many promises `from` has already KEPT vs BROKEN toward `to` — the track record that bends
+ *  how the next outcome lands. */
+function promiseHistory(state: SaveState, from: string, to: string): { kept: number; broken: number } {
+  let kept = 0, broken = 0;
+  for (const p of state.world.promises ?? []) {
+    if (p.from !== from || p.to !== to) continue;
+    if (p.status === "kept") kept++;
+    else if (p.status === "broken") broken++;
+  }
+  return { kept, broken };
+}
+
+/** Record a new promise on the ledger. Weight defaults to a real commitment (2) unless the text
+ *  reads small (a quick favor) or huge (a vow / life-stakes). */
+export function addPromise(state: SaveState, from: string, to: string, text: string, weight?: 1 | 2 | 3, due_time?: string): PromiseRec | null {
+  if (!state.characters[from] || !state.characters[to] || !text.trim()) return null;
+  state.world.promises ??= [];
+  // don't double-log a near-identical open promise between the same pair
+  const dup = state.world.promises.find((p) => p.from === from && p.to === to && p.status === "open" && relevance(p.text, text) >= 0.6);
+  if (dup) return dup;
+  const w: 1 | 2 | 3 = weight ?? (/(\bvow\b|\bswear\b|\bwith my life\b|protect|never leave|marry|die for|always be)/i.test(text) ? 3
+    : /(\bhelp\b|\bbring\b|\bget\b|\bfetch\b|\bwalk\b|\bmeet\b|\bstop by\b|\blook after\b for a)/i.test(text) ? 1 : 2);
+  const rec: PromiseRec = { id: uid("promise"), from, to, text: text.trim().slice(0, 160), made_turn: state.world.current_turn, due_time, weight: w, status: "open" };
+  state.world.promises.push(rec);
+  if (state.world.promises.length > 40) state.world.promises = state.world.promises.filter((p) => p.status === "open").concat(state.world.promises.filter((p) => p.status !== "open").slice(-20));
+  return rec;
+}
+
+/** Resolve a promise kept or broken, applying the weight- and pattern-scaled relationship change and
+ *  a memory for the one it was made to. Returns a human line for the shift log. */
+export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" | "broken", turn: number): string {
+  if (p.status !== "open") return "";
+  p.status = outcome;
+  const from = p.from, to = p.to;
+  const fromName = state.characters[from]?.name ?? "someone";
+  const toName = to === "char_player" ? "you" : state.characters[to]?.name ?? "someone";
+  const hist = promiseHistory(state, from, to);
+  const edge = getEdge(state.world.edges, to, from); // how `to` feels about `from`
+
+  if (outcome === "kept") {
+    // reliability compounds: keeping builds trust more than warmth, and a good track record makes
+    // each kept promise land a little softer (already expected) — but a big vow kept always matters.
+    const base = p.weight === 3 ? 10 : p.weight === 2 ? 6 : 3;
+    const familiarity = Math.max(0.6, 1 - hist.kept * 0.08); // slight diminishing returns
+    const trustGain = Math.round(base * familiarity);
+    const warmthGain = Math.round(trustGain * 0.6);
+    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthGain, trust_delta: trustGain, power_delta: 0, note: `kept a promise: ${p.text}` }, turn);
+    if (state.memory[to]) state.memory[to].episodic.push({
+      turn, content: `${fromName} kept their promise to ${toName === "you" ? "me" : toName}: ${p.text}`,
+      importance: Math.min(8, 3 + p.weight * 2), emotional_charge: "trust, relief", last_accessed_turn: turn,
+      source: state.world.present.includes(to) ? "witnessed" : "inferred",
+    });
+    return to === "char_player" ? `${fromName} kept their word: ${p.text}.` : `${fromName} kept a promise to ${toName}.`;
+  } else {
+    // breaking costs trust hardest, warmth too when the promise was large. A PATTERN of breaking
+    // (this isn't the first) deepens the wound sharply — that's when "unreliable" becomes identity.
+    const base = p.weight === 3 ? 14 : p.weight === 2 ? 9 : 5;
+    const patternMult = 1 + Math.min(1.0, hist.broken * 0.4); // 1st break ×1, 2nd ×1.4, 3rd ×1.8, capped ×2
+    // being genuinely trusted softens a FIRST, small break — benefit of the doubt, once
+    const soften = (hist.broken === 0 && p.weight === 1 && (edge?.trust ?? 0) >= 40) ? 0.5 : 1;
+    const trustLoss = -Math.round(base * patternMult * soften);
+    const warmthLoss = -Math.round(base * patternMult * soften * (p.weight === 3 ? 0.8 : 0.45));
+    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthLoss, trust_delta: trustLoss, power_delta: 0, note: `broke a promise: ${p.text}` }, turn);
+    if (state.memory[to]) state.memory[to].episodic.push({
+      turn, content: `${fromName} broke their promise to ${toName === "you" ? "me" : toName}: ${p.text}${hist.broken > 0 ? " — again" : ""}`,
+      importance: Math.min(9, 4 + p.weight * 2 + hist.broken), emotional_charge: hist.broken > 0 ? "hurt, hardening, done giving chances" : "hurt, let down", last_accessed_turn: turn,
+      source: state.world.present.includes(to) ? "witnessed" : "inferred",
+    });
+    return to === "char_player" ? `${fromName} broke their word: ${p.text}.` : `${fromName} broke a promise to ${toName}${hist.broken > 0 ? " — not the first time" : ""}.`;
+  }
 }

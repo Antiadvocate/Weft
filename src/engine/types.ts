@@ -81,6 +81,18 @@ export interface WorldBible {
 
 // ───────────────────────────── social fabric ─────────────────────────────
 
+/** A promise on the ledger — who swore what to whom. Weight scales the emotional payoff/damage. */
+export interface Promise {
+  id: string;
+  from: string;                // who made it (char id — often char_player)
+  to: string;                  // who it was made to
+  text: string;                // "walk you home", "protect your son", "pay the debt by spring"
+  made_turn: number;
+  due_time?: string;           // in-world time it comes due, if time-bound
+  weight: 1 | 2 | 3;           // 1 small favor · 2 real commitment · 3 a vow / life-stakes
+  status: "open" | "kept" | "broken";
+}
+
 /** Directed edge a→b. Axes in [-100, 100]. */
 export interface SocialEdge {
   from: string;
@@ -242,6 +254,15 @@ export interface Condition {
 
 // ───────────────────────────── memory (Park et al.) ─────────────────────────────
 
+/** Where a memory or fact came from — the provenance chain. Lets the engine (and the GM UI) answer
+ *  "how does this character know that?" and lets future weighting treat hearsay as weaker than
+ *  first-hand knowledge. Backfilled to "witnessed" on old saves by sanitize(). */
+export type MemorySource =
+  | "witnessed"                 // the character was present when it happened
+  | "rumor"                     // reached them through the rumor mill
+  | "inferred"                  // written by an offscreen/interlude pass — they didn't directly see it
+  | { told_by: string };        // a specific character conveyed it (char id), e.g. via memory_recohere
+
 export interface EpisodicMemory {
   turn: number;                // the turn this memory was FILED (when the character formed/recorded it)
   event_turn?: number;         // in-fiction turn the event actually happened at; defaults to `turn`. Earlier than `turn` for a recalled/backstory event. Used only for chronological sort, not for display precision.
@@ -256,6 +277,7 @@ export interface EpisodicMemory {
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
   folded?: boolean;            // a high-salience memory already folded into the character's background (identity consolidation)
+  source?: MemorySource;       // provenance: how this character came to know this (witnessed / rumor / inferred / told_by). Backfilled to "witnessed" on old saves.
   last_accessed_turn: number;
 }
 
@@ -273,6 +295,7 @@ export interface DurableFact {
   content: string;             // the fact, as verified against the turn's source text
   turn: number;
   quote?: string;              // the verbatim source span that grounded it
+  source?: MemorySource;       // provenance — how the character learned this fact
 }
 
 export interface CharMemory {
@@ -364,6 +387,7 @@ export interface WorldState {
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];
+  promises?: Promise[];         // the promise ledger: who swore what to whom, and whether it was kept
   focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }
 
@@ -483,6 +507,8 @@ export interface SimulatorDiff {
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string; permanent?: boolean }[]; // default: replaces appearance_now (presentation). permanent:true = ONE sentence APPENDED to the bedrock appearance_facts; bedrock is never replaced by the engine
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
+  promises_new?: { from: string; to: string; text: string; weight?: 1 | 2 | 3; due_time?: string }[];
+  promises_resolved?: { id?: string; from?: string; to?: string; text?: string; outcome: "kept" | "broken" }[];
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
   texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")

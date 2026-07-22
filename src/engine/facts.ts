@@ -138,7 +138,7 @@ export function factOverlap(a: string, b: string): number {
   return inter / Math.min(A.size, B.size);
 }
 
-export function addFact(mem: CharMemory, fact: string, turn: number, quote?: string): boolean {
+export function addFact(mem: CharMemory, fact: string, turn: number, quote?: string, source?: import("./types").MemorySource): boolean {
   mem.facts ??= [];
   const f = fact.trim();
   if (!f) return false;
@@ -151,7 +151,7 @@ export function addFact(mem: CharMemory, fact: string, turn: number, quote?: str
     near.turn = turn; if (quote && !near.quote) near.quote = quote;
     return false;
   }
-  mem.facts.push({ content: compactGist(f, 140), turn, quote: quote?.slice(0, 160) });
+  mem.facts.push({ content: compactGist(f, 140), turn, quote: quote?.slice(0, 160), source });
   if (mem.facts.length > 30) {
     // evict the oldest low-signal fact (never the newest); facts are cheap, so this is rare
     mem.facts.sort((a, b) => a.turn - b.turn);

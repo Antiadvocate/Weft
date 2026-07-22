@@ -63,3 +63,38 @@ export function dateLabel(timeStr: string, startDate?: string): string {
   if (isNaN(d.getTime())) return "";
   return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
+
+// ─────────────────────────── WEATHER CONTINUITY ───────────────────────────
+// Weather is an ordered scale from fair to severe. The bookkeeper often jumps it wildly turn to turn;
+// this smooths it so it evolves at a believable rate — one step per short turn, more as time passes.
+// A big time skip (hours) lets it move freely; a two-minute beat can't go clear→blizzard.
+const WEATHER_SCALE: { k: RegExp; level: number; label: string }[] = [
+  { k: /\b(clear|sunny|bright|cloudless|fair|blue sky)\b/i, level: 0, label: "clear" },
+  { k: /\b(hazy|humid|still|muggy|warm)\b/i, level: 1, label: "hazy and still" },
+  { k: /\b(cloud|overcast|grey|gray|dull|leaden)\b/i, level: 2, label: "overcast" },
+  { k: /\b(mist|fog|drizzl|damp)\b/i, level: 3, label: "misting" },
+  { k: /\b(rain|shower|wet|pour|downpour)\b/i, level: 4, label: "raining" },
+  { k: /\b(wind|gust|blustery|gale)\b/i, level: 5, label: "windy" },
+  { k: /\b(storm|thunder|lightning|squall|tempest)\b/i, level: 6, label: "storming" },
+  { k: /\b(snow|sleet|hail|blizzard|frost|freezing)\b/i, level: 6, label: "snowing" },
+];
+function weatherLevel(w: string): number {
+  const hit = WEATHER_SCALE.find((s) => s.k.test(w || ""));
+  return hit ? hit.level : 2; // default overcast if unrecognized
+}
+/** Return the weather to actually store: the target if it's a believable move from `current` given
+ *  `minutes` elapsed, otherwise `current` nudged ONE step toward the target. */
+export function advanceWeather(current: string, target: string, minutes: number): string {
+  if (!current) return target;
+  if (!target || target === current) return current;
+  const cur = weatherLevel(current), tgt = weatherLevel(target);
+  const gap = Math.abs(tgt - cur);
+  // how many steps are believable in this span: ~1 per 30 min, min 1, and a long skip (3h+) is free
+  const allowed = minutes >= 180 ? 99 : Math.max(1, Math.round(minutes / 30));
+  if (gap <= allowed) return target; // plausible — accept the bookkeeper's weather verbatim
+  // too big a jump for the time: step one notch toward it, keeping the target's own phrasing if adjacent
+  const dir = tgt > cur ? 1 : -1;
+  const nextLevel = cur + dir * allowed;
+  const near = WEATHER_SCALE.find((s) => s.level === nextLevel) ?? WEATHER_SCALE.reduce((a, b) => Math.abs(b.level - nextLevel) < Math.abs(a.level - nextLevel) ? b : a);
+  return near.label;
+}

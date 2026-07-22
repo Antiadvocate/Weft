@@ -120,6 +120,15 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const c = sel ? save.characters[sel] : null;
   const cond = sel ? save.condition[sel] : null;
   const mem = sel ? save.memory[sel] : null;
+  // provenance → short human label for the GM "how do they know this?" view
+  const sourceLabel = (s: any): string => {
+    if (!s) return "";
+    if (s === "witnessed") return "saw it";
+    if (s === "rumor") return "heard a rumor";
+    if (s === "inferred") return "offscreen";
+    if (typeof s === "object" && s.told_by) return `told by ${save.characters[s.told_by]?.name ?? "someone"}`;
+    return "";
+  };
   const traits = sel ? save.traits[sel] ?? [] : [];
   // GM VIEW — this character's recent PRIVATE intents (the lie/hidden want the prose concealed).
   // Pulled from turn history, newest first. This is how the player verifies the intent system:
@@ -390,6 +399,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="flex-1">
                         <div className="text-[12.5px] leading-snug">{f.content}</div>
                         {f.quote && <div className="text-[10.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>“{f.quote}”</div>}
+                        {sourceLabel((f as any).source) && <div className="text-[9.5px] mt-0.5 uppercase tracking-wide" style={{ color: "var(--text-lo)" }}>via {sourceLabel((f as any).source)}</div>}
                       </div>
                       <button disabled={factsBusy} onClick={() => commitFacts((mem?.facts ?? []).filter((_, j) => j !== i).map((x) => ({ content: x.content, quote: x.quote })))}>
                         <X size={13} style={{ color: "var(--text-lo)" }} />
@@ -504,7 +514,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     {[...mem.episodic].sort((a, b) => ((b.event_turn ?? b.turn) - (a.event_turn ?? a.turn))).slice(0, 7).map((m, i) => (
                       <div key={i} className="text-[12.5px] py-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
                         <span className="font-mono text-[9.5px] mr-1.5" style={{ color: "var(--text-lo)" }}>
-                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` · ${m.anchor_rel}` : ""}{m.where ? ` · ${m.where}` : ""}
+                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` · ${m.anchor_rel}` : ""}{m.where ? ` · ${m.where}` : ""}{sourceLabel((m as any).source) ? ` · ${sourceLabel((m as any).source)}` : ""}
                         </span>
                         {m.content}
                       </div>

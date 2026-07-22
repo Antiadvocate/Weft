@@ -186,6 +186,13 @@ export function sanitize(state: SaveState): SaveState {
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
+  // PROVENANCE backfill: saves that predate source-tracking have memories/facts with no `source`.
+  // Default them to "witnessed" — for existing memories that's the safe assumption (they were formed
+  // in play, in scene), and it keeps the GM "how do they know this?" view from showing blanks.
+  for (const mem of Object.values(state.memory ?? {})) {
+    for (const m of (mem.episodic ?? [])) if (!(m as any).source) (m as any).source = "witnessed";
+    for (const f of (mem.facts ?? [])) if (!(f as any).source) (f as any).source = "witnessed";
+  }
   for (const cond of Object.values(state.condition)) { cond.hunger_meter ??= 2; cond.thirst_meter ??= 2; cond.awake_minutes ??= 0; }
   // NAME-KNOWLEDGE backfill for saves that predate epistemics: a character who has the player's
   // name in their memories/facts, or a real relationship, clearly knows it; everyone else doesn't.

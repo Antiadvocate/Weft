@@ -31,6 +31,8 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   drives_update: A(S({ char_id: str, goal: str, progress: num, blocker: str, priority: num }, ["char_id", "goal"])),
   canon_add: strA,
   track: strA,
+  promises_new: A(S({ from: str, to: str, text: str, weight: num, due_time: str }, ["from", "to", "text"])),
+  promises_resolved: A(S({ id: str, from: str, to: str, text: str, outcome: { type: "string", enum: ["kept", "broken"] } }, ["outcome"])),
   threads_update: A(S({ id: str, title: str, status: { type: "string", enum: ["active", "resolved"] }, description: str, tension: num }, ["title", "status"])),
   character_exits: A(S({ char_id: str, kind: { type: "string", enum: ["dead", "departed"] }, note: str }, ["char_id", "kind"])),
   texture_add: A(S({ char_id: str, item: str }, ["char_id", "item"])),

@@ -17,13 +17,13 @@ import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, sim
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
-import { advance, heuristicMinutes } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge } from "./social";
+import { advance, heuristicMinutes, advanceWeather } from "./time";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation } from "./emotions";
 import { regenerateDrives } from "./drives";
-import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist } from "./memory";
+import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
@@ -1921,7 +1921,12 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     }
   }
 
-  if (diff.weather) state.world.weather = diff.weather;
+  // WEATHER CONTINUITY — the bookkeeper's raw weather jumps (clear → storm → clear in three turns).
+  // Weather should EVOLVE: a storm doesn't vanish in one turn, clear skies don't become a blizzard
+  // without a build-up. Accept the new weather only if it's a plausible neighbor of the current one
+  // within the elapsed time; otherwise nudge one step toward it. Fully skipped for dramatic jumps the
+  // fiction explicitly caused (a storm the player summoned) — those come through as-is when elapsed is large.
+  if (diff.weather) state.world.weather = advanceWeather(state.world.weather, diff.weather, diff.elapsed_minutes ?? 30);
   if (diff.money) state.world.money = diff.money;
 
   // ── LOCATION: the bookkeeper records where everyone is. Places auto-resolve by
@@ -2234,7 +2239,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       console.warn(`[facts] unverifiable fact for ${nameOf(id)} (suspects: ${g.suspects.join(", ")}) — not ledgered`);
       continue;
     }
-    if (addFact(mem, g.content, turn, quoteOk ? fl.quote : undefined) && id !== "char_player") shifts.push(`${nameOf(id)} now knows: ${g.content}`);
+    if (addFact(mem, g.content, turn, quoteOk ? fl.quote : undefined, state.world.present.includes(id) ? "witnessed" : "inferred") && id !== "char_player") shifts.push(`${nameOf(id)} now knows: ${g.content}`);
   }
   for (const m of diff.memories ?? []) {
     const id = resolveId(state, m.char_id); if (!id || !m.content) continue;
@@ -2267,6 +2272,10 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       emotional_charge: m.emotional_charge ?? "", last_accessed_turn: turn,
       when_label: suppliedLabel || state.world.current_time,
       where: (wherePid && state.world.places[wherePid]?.name) || undefined,
+      // PROVENANCE — a character present this turn witnessed it first-hand; one not in the scene who
+      // still gets a memory (rare, and gated elsewhere) only inferred/heard it. This is what makes
+      // "how does she know that?" answerable and lets hearsay be weighted below witnessed later.
+      source: state.world.present.includes(id) ? "witnessed" : "inferred",
       ...(m.scheduled_time ? { scheduled_time: m.scheduled_time, commitment_status: "pending" as const } : {}),
     });
     mem.episodic = capMemory(mem.episodic);
@@ -2315,6 +2324,8 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       mem.episodic.push({
         turn, content: rc.added_detail, full_content: rc.added_detail, decay_stage: 1,
         importance: 4, emotional_charge: "", last_accessed_turn: turn, when_label: state.world.current_time,
+        // came from someone else supplying the detail in conversation → told_by that source
+        source: srcId && srcId !== id ? { told_by: srcId } : "witnessed",
       });
       mem.episodic = capMemory(mem.episodic);
     }
@@ -2446,6 +2457,23 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       }
     }
     if (drop.size) state.world.threads = state.world.threads.filter((t) => !drop.has(t.id));
+  }
+
+  // ── PROMISES ── new promises land on the ledger; resolved ones apply their weight-and-pattern
+  // scaled relationship change. The player's own kept/broken word is the biggest driver here.
+  for (const pn of diff.promises_new ?? []) {
+    const from = resolveId(state, pn.from), to = resolveId(state, pn.to);
+    if (from && to) addPromise(state, from, to, pn.text, pn.weight, pn.due_time);
+  }
+  for (const pr of diff.promises_resolved ?? []) {
+    let target = pr.id ? (state.world.promises ?? []).find((p) => p.id === pr.id && p.status === "open") : undefined;
+    if (!target) {
+      const from = pr.from ? resolveId(state, pr.from) : undefined;
+      const to = pr.to ? resolveId(state, pr.to) : undefined;
+      const open = (state.world.promises ?? []).filter((p) => p.status === "open" && (!from || p.from === from) && (!to || p.to === to));
+      target = pr.text ? open.find((p) => relevance(p.text, pr.text!) >= 0.5) : open[0];
+    }
+    if (target) { const line = resolvePromise(state, target, pr.outcome, turn); if (line) shifts.push(line); }
   }
 
   for (const tu of diff.threads_update ?? []) {
