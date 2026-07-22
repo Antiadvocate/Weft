@@ -12,6 +12,7 @@ import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
 import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel } from "../lib/tone";
 import { AnimNumber } from "../lib/AnimNumber";
+import { Odometer } from "../lib/Odometer";
 import { turnDeltas } from "../lib/ledger";
 
 const PHASE_LABEL: Record<string, string> = {
@@ -112,6 +113,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   });
 
   const [readingTurn, setReadingTurn] = useState<number | null>(null);
+  const [revealedTurn, setRevealedTurn] = useState<number | null>(null);
   const toggleRead = (turn: number, prose: string) => {
     if (readingTurn === turn) { stopSpeaking(); setReadingTurn(null); return; }
     stopSpeaking();
@@ -505,7 +507,20 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               </div>
               )}
               {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
-              {h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
+              {h.kind !== "interlude" && h.narrator_prose.trim() ? (
+                <div
+                  onClick={(e) => {
+                    // tap the prose to reveal this turn's actions — but not when tapping a character name (that opens the tip)
+                    if ((e.target as HTMLElement).closest(".name-ref")) return;
+                    setRevealedTurn((cur) => (cur === h.turn ? null : h.turn));
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  {h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
+                </div>
+              ) : (
+                h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))
+              )}
               {h.kind !== "interlude" && h.narrator_prose.trim() && (h.bookkeeping === "thin" || h.bookkeeping === "failed") && (
                 <div className="flex items-center gap-2 mb-1.5 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
                   <div className="flex-1 text-[11.5px] leading-snug" style={{ color: "var(--text-mid)" }}>
@@ -520,31 +535,33 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   </button>
                 </div>
               )}
-              {h.kind !== "interlude" && h.narrator_prose.trim() && (
-                <div className="flex items-center gap-3 mb-1">
-                  <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest"
-                    style={{ color: "var(--text-lo)" }}
-                    onClick={() => doStrike(h.turn)}
-                    title="strike this from the story — roll back past it and forbid it forever">
-                    <Ban size={12} /> strike
-                  </button>
-                  <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest"
-                    style={{ color: "var(--text-lo)" }} disabled={rerunning !== null}
-                    onClick={() => doRerun(h.turn)}
-                    title="re-run the bookkeeper — keeps the prose, rebuilds memories and feelings">
-                    <RotateCcw size={12} /> {rerunning === h.turn ? "re-running…" : "re-run records"}
-                  </button>
-                </div>
-              )}
-              {h.kind !== "interlude" && h.narrator_prose.trim() && ttsAvailable() && (
-                <button className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest mb-1"
-                  style={{ color: readingTurn === h.turn ? "var(--accent)" : "var(--text-lo)" }}
-                  onClick={() => toggleRead(h.turn, h.narrator_prose)}
-                  title={readingTurn === h.turn ? "stop reading" : "read aloud (system voice)"}>
-                  {readingTurn === h.turn ? <VolumeX size={12} /> : <Volume2 size={12} />}
-                  {readingTurn === h.turn ? "stop" : "read"}
-                </button>
-              )}
+              <AnimatePresence>
+                {h.kind !== "interlude" && h.narrator_prose.trim() && revealedTurn === h.turn && (
+                  <motion.div className="turn-actions"
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.22 }}>
+                    <button className="turn-action"
+                      onClick={() => doStrike(h.turn)}
+                      title="strike this from the story — roll back past it and forbid it forever">
+                      <Ban size={12} /> strike
+                    </button>
+                    <button className="turn-action" disabled={rerunning !== null}
+                      onClick={() => doRerun(h.turn)}
+                      title="re-run the bookkeeper — keeps the prose, rebuilds memories and feelings">
+                      <RotateCcw size={12} /> {rerunning === h.turn ? "re-running…" : "re-run"}
+                    </button>
+                    {ttsAvailable() && (
+                      <button className="turn-action"
+                        style={readingTurn === h.turn ? { color: "var(--accent)" } : undefined}
+                        onClick={() => toggleRead(h.turn, h.narrator_prose)}
+                        title={readingTurn === h.turn ? "stop reading" : "read aloud (system voice)"}>
+                        {readingTurn === h.turn ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                        {readingTurn === h.turn ? "stop" : "read"}
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {(h.shifts?.length || h.offscreen.length) ? (
                 <details className="shifts my-3 pl-3 border-l" style={{ borderColor: "var(--line)" }}>
                   <summary className="font-mono text-[10px] uppercase tracking-widest py-0.5 flex items-center gap-2" style={{ color: "var(--text-lo)" }}>
@@ -643,7 +660,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             const next = window.prompt("Set the in-world time (e.g. \"Day 2, 08:00\" or \"Day 3, 14:30\"):", cur.replace(/\s*\(.*\)$/, ""));
             if (next && next.trim() && next.trim() !== cur) setSave(await api.setTime(save.id, next.trim()));
           }}>
-          🕐 {save.world.current_time}
+          🕐 <Odometer text={save.world.current_time} />
         </button>
       </div>
 

@@ -346,3 +346,19 @@ details.shifts > summary::-webkit-details-marker { display: none; }
 .ledger-text { color: var(--text-mid); letter-spacing: .02em; }
 .ledger-delta { color: var(--text-lo); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ledger-arrow { color: var(--text-lo); opacity: .6; }
+
+/* ── tap-to-reveal per-turn actions — no permanent button rows ── */
+.turn-actions {
+  display: flex; align-items: center; gap: 6px; overflow: hidden;
+  margin: 2px 0 6px;
+}
+.turn-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-lo);
+  padding: 7px 11px; min-height: 34px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--ink-1);
+  transition: color .2s, border-color .2s;
+}
+.turn-action:disabled { opacity: .5; }
+.turn-action:active { border-color: var(--text-lo); }
