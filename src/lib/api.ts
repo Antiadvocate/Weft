@@ -9,6 +9,8 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, heal
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
+import { runMontage } from "../engine/montage-run";
+import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
@@ -485,6 +487,26 @@ export const api = {
     }
     await putSave(s);
     return clientView(s);
+  },
+
+  /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
+  montagePreflight: async (id: string, direction: string): Promise<string[]> => {
+    const s = await need(id);
+    return preflightDirection(s, direction);
+  },
+
+  /** Directed montage — a plan executed in beats, every beat through the real ledgers. */
+  montage: async (
+    id: string, days: number, direction: string,
+    granularity: "quick" | "standard" | "full",
+    onPhase?: (p: string) => void,
+  ): Promise<{ save: ClientSave; scorecard: { item: string; landed: boolean }[] }> => {
+    const s = await need(id);
+    const res = await runMontage(s, {
+      days: Math.max(1, Math.min(120, days)), direction, granularity,
+    }, { onPhase: onPhase ?? (() => {}) });
+    await putSave(s);
+    return { save: clientView(s), scorecard: res.scorecard };
   },
 
   advance: async (id: string, days: number): Promise<ClientSave> => {

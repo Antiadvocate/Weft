@@ -27,7 +27,7 @@ const BASE_V: Record<ParticleKind, { vx: number; vy: number }> = {
   ash:    { vx: 6,  vy: 10 },
   rain:   { vx: 18, vy: 160 },
   snow:   { vx: 8,  vy: 18 },
-  fog:    { vx: 6,  vy: 0.5 },
+  fog:    { vx: 22, vy: 1.5 },
 };
 
 function spawn(kind: ParticleKind, color: string, w: number, h: number, now: number, edge = false): P {
@@ -38,8 +38,8 @@ function spawn(kind: ParticleKind, color: string, w: number, h: number, now: num
     y: edge && kind === "embers" ? h + 6 : edge && (kind === "rain" || kind === "snow" || kind === "ash") ? -6 : Math.random() * h,
     vx: (Math.random() - 0.5) * 2 * v.vx,
     vy: v.vy * (0.6 + Math.random() * 0.8),
-    r: kind === "fog" ? 40 + Math.random() * 60 : kind === "rain" ? 0.7 : 0.6 + Math.random() * 1.3,
-    a: kind === "fog" ? 0.05 + Math.random() * 0.05 : 0.25 + Math.random() * 0.5,
+    r: kind === "fog" ? 26 + Math.random() * 30 : kind === "rain" ? 0.7 : 0.6 + Math.random() * 1.3,
+    a: kind === "fog" ? 0.018 + Math.random() * 0.022 : 0.25 + Math.random() * 0.5,
     phase: Math.random() * Math.PI * 2,
   };
   if (kind === "snow") p.r = 1 + Math.random() * 1.8;
@@ -78,14 +78,21 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
 
     // touch devices pay far more per particle (mobile Safari especially) — halve the field there.
     const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-    const targetCount = () =>
-      Math.round(Math.min(80, Math.max(8, (w * h) / 14000)) * toneRef.current.density * LEVELS[levelRef.current].density * (coarse ? 0.5 : 1)) || 0;
+    const targetCount = () => {
+      const base = Math.round(Math.min(80, Math.max(8, (w * h) / 14000))
+        * toneRef.current.density * LEVELS[levelRef.current].density * (coarse ? 0.5 : 1)) || 0;
+      // fog draws large radial gradients whose coverage ADDS where they overlap: a field sized for
+      // 1px motes stacks into an opaque sheet over the prose. Hold it to a handful of drifting banks.
+      return toneRef.current.particle === "fog" ? Math.min(base, coarse ? 5 : 8) : base;
+    };
 
     const draw = (p: P, now: number) => {
       const t = toneRef.current;
       const lv = LEVELS[levelRef.current];
       const ageIn = Math.min(1, (now - p.born) / 1200);
-      const alpha = Math.min(lv.cap, lv.alpha * p.a * ageIn * (p.dying ? Math.max(0, 1 - (now - p.born) / 1400) : 1)
+      // fog is the one kind that can obscure prose, so it gets a ceiling of its own well under lv.cap
+      const cap = p.kind === "fog" ? Math.min(lv.cap, 0.05) : lv.cap;
+      const alpha = Math.min(cap, lv.alpha * p.a * ageIn * (p.dying ? Math.max(0, 1 - (now - p.born) / 1400) : 1)
         * (p.kind === "motes" ? 0.6 + 0.4 * Math.sin(now / 900 + p.phase) : 1));
       if (alpha <= 0.005) return;
       ctx.globalAlpha = alpha;

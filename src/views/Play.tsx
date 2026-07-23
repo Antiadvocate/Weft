@@ -52,6 +52,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rerunning, setRerunning] = useState<number | null>(null);
   const [skipOpen, setSkipOpen] = useState(false);
+  const [montageMode, setMontageMode] = useState(false);
+  const [mDirection, setMDirection] = useState("");
+  const [mDays, setMDays] = useState(30);
+  const [mGran, setMGran] = useState<"quick" | "standard" | "full">("standard");
+  const [mWarnings, setMWarnings] = useState<string[]>([]);
+  const [scorecard, setScorecard] = useState<{ item: string; landed: boolean }[] | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
@@ -285,6 +291,24 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     finally { setSkipping(false); setPhase(null); }
   };
 
+  const doMontage = async () => {
+    if (skipping || !mDirection.trim()) return;
+    setSkipOpen(false); setSkipping(true); setError(null); setScorecard(null);
+    setPhase("planning the montage");
+    try {
+      const { save: s, scorecard: sc } = await api.montage(
+        save.id, mDays, mDirection.trim(), mGran, (p) => setPhase(p),
+      );
+      setSave(s);
+      setScorecard(sc);
+      const missed = sc.filter((x) => !x.landed);
+      pushToasts(missed.length
+        ? [`Montage done — ${sc.length - missed.length}/${sc.length} landed. Missed: ${missed.map((m) => m.item).join(", ")}`]
+        : [`Montage done — everything landed.`]);
+    } catch (e: any) { setError(e.message ?? "montage failed"); }
+    finally { setSkipping(false); setPhase(null); }
+  };
+
   /** Observer: run ONE autonomous turn. You watch; the world and your own character
    *  act on their own. One press = one beat. */
   const runObserve = async () => {
@@ -478,6 +502,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       <div className="relative flex-1 min-h-0">
         {ambience !== "off" && <Backdrop tone={tone} locale={locale} level={ambience} />}
         {ambience !== "off" && <Atmosphere tone={tone} level={ambience} />}
+        {ambience !== "off" && <div className="prose-scrim" aria-hidden />}
         {fx && <div className={fx === "strike" ? "fx-strike" : "fx-canon"} aria-hidden />}
         <div ref={scrollRef} className="scroll-y h-full px-5 pb-4 relative" style={{ zIndex: 1 }}>
         {history.length === 0 && !liveProse && (
@@ -850,6 +875,36 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
       </AnimatePresence>
 
+      {/* montage scorecard — what the run landed, and what it missed */}
+      <AnimatePresence>
+        {scorecard && scorecard.length > 0 && (
+          <motion.div className="fixed left-0 right-0 z-40 px-5"
+            style={{ bottom: 96 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+            <div className="card p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>
+                  montage scorecard
+                </div>
+                <button className="font-mono text-[10px] uppercase tracking-widest"
+                  style={{ color: "var(--text-lo)" }} onClick={() => setScorecard(null)}>close</button>
+              </div>
+              {scorecard.map((r, i) => (
+                <div key={i} className="flex items-baseline gap-2 text-[12px] leading-relaxed">
+                  <span style={{ color: r.landed ? "var(--calm)" : "var(--danger)" }}>{r.landed ? "✓" : "○"}</span>
+                  <span style={{ color: r.landed ? "var(--text-mid)" : "var(--text-lo)" }}>{r.item}</span>
+                </div>
+              ))}
+              {scorecard.some((r) => !r.landed) && (
+                <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+                  Unlanded items didn't happen in the story. Run another short montage aimed at just those, or play them out.
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* skip drawer — let the world turn */}
       <AnimatePresence>
         {skipOpen && (
@@ -867,14 +922,57 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   Step away. Drives advance, rumors saturate, clocks fill and fire, bodies heal. You return to whatever it became.
                 </div>
               </div>
-              <div className="pb-5 grid grid-cols-2 gap-2">
-                {[["Overnight", 1], ["Three days", 3], ["A week", 7], ["A fortnight", 14]].map(([label, d]) => (
-                  <button key={d} className="card card-press p-3.5 text-left" onClick={() => doSkip(d as number)}>
-                    <div className="font-display text-[14px]">{label}</div>
-                    <div className="font-mono text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>{d}d · 1 small call</div>
+              {!montageMode ? (
+                <>
+                  <div className="pb-3 grid grid-cols-2 gap-2">
+                    {[["Overnight", 1], ["Three days", 3], ["A week", 7], ["A fortnight", 14]].map(([label, d]) => (
+                      <button key={d} className="card card-press p-3.5 text-left" onClick={() => doSkip(d as number)}>
+                        <div className="font-display text-[14px]">{label}</div>
+                        <div className="font-mono text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>{d}d · 1 small call</div>
+                      </button>
+                    ))}
+                  </div>
+                  <button className="card card-press p-3.5 text-left w-full mb-5"
+                    onClick={() => { setMontageMode(true); setMWarnings([]); }}>
+                    <div className="font-display text-[14px]">Direct the montage…</div>
+                    <div className="text-[11.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+                      Say what should be true by the end. The engine writes the middle in beats — the decision, the friction, the settling.
+                    </div>
                   </button>
-                ))}
-              </div>
+                </>
+              ) : (
+                <div className="pb-5">
+                  <textarea className="composer-input w-full mb-2" rows={3}
+                    placeholder="thirty days — we move in together, fall deeper, adopt two cats, argue about tacos"
+                    value={mDirection}
+                    onChange={(e) => { setMDirection(e.target.value); setMWarnings([]); }}
+                    onBlur={async () => {
+                      if (!mDirection.trim()) return;
+                      try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim())); } catch {}
+                    }} />
+                  {mWarnings.map((w, i) => (
+                    <div key={i} className="text-[11.5px] mb-1.5 px-2.5 py-1.5 rounded-lg"
+                      style={{ background: "var(--ink-1)", color: "var(--text-mid)" }}>⚠ {w}</div>
+                  ))}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>days</span>
+                    <input type="range" min={3} max={120} value={mDays} className="flex-1"
+                      onChange={(e) => setMDays(Number(e.target.value))} />
+                    <span className="font-mono text-[12px]" style={{ minWidth: 34, textAlign: "right" }}>{mDays}</span>
+                  </div>
+                  <div className="flex gap-1.5 mb-3">
+                    {(["quick", "standard", "full"] as const).map((g) => (
+                      <button key={g} className={g === mGran ? "chip chip-accent" : "chip"}
+                        onClick={() => setMGran(g)}>{g}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="chip" onClick={() => setMontageMode(false)}>back</button>
+                    <button className="chip chip-accent flex-1" disabled={!mDirection.trim()}
+                      onClick={doMontage}>run the montage</button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </>
         )}
