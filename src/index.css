@@ -362,3 +362,7 @@ details.shifts > summary::-webkit-details-marker { display: none; }
 }
 .turn-action:disabled { opacity: .5; }
 .turn-action:active { border-color: var(--text-lo); }
+
+/* ── offscreen turns stop rendering entirely — the scroll-weight fix on long histories.
+      The latest turn is exempt (see Play.tsx) so streaming prose and scroll anchoring stay exact. ── */
+.turn-block { content-visibility: auto; contain-intrinsic-size: auto 380px; }

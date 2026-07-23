@@ -490,7 +490,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
         <div className="prose-stream pt-3">
           {history.map((h) => (
-            <div key={`${h.kind ?? "turn"}-${h.turn}`}>
+            <div className={h.turn === history[history.length - 1]?.turn ? undefined : "turn-block"} key={`${h.kind ?? "turn"}-${h.turn}`}>
               {h.kind === "interlude" ? (
                 <div className="interlude my-5">
                   <div className="interlude-rule"><span>✦ {h.span_label} ✦</span></div>

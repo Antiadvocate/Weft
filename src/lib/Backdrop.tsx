@@ -1,8 +1,8 @@
 /**
  * BACKDROP — a seeded, noise-driven color field under the prose.
  * Deterministic: seed = hash(locale + tone), so returning to a place reproduces its light.
- * A tiny offscreen buffer (96×60) is filled from 3-octave value noise mapped through a
- * tone palette (nudged warm/cool by the place's own name), then drawn scaled + blurred.
+ * A tiny offscreen buffer (64×40) is filled from 3-octave value noise mapped through a
+ * tone palette (nudged warm/cool by the place's own name), then drawn scaled — the upscale itself does the blurring, no CSS filter.
  * Drifts very slowly; crossfades ~2s on scene change. Static under reduced motion.
  */
 import React, { useEffect, useRef } from "react";
@@ -30,7 +30,7 @@ function placeShift(locale: string): number {
   return 0;
 }
 
-const BW = 96, BH = 60;
+const BW = 64, BH = 40;
 
 export default function Backdrop({ tone, locale, level = "subtle" }: { tone: SceneTone; locale: string; level?: Exclude<AmbienceLevel, "off"> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,6 +123,6 @@ export default function Backdrop({ tone, locale, level = "subtle" }: { tone: Sce
     <canvas ref={canvasRef} aria-hidden
       style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
         opacity: level === "full" ? 0.32 : 0.16,
-        filter: "blur(32px) saturate(1.1)", transform: "scale(1.12)" }} />
+        filter: "saturate(1.1)", transform: "scale(1.06)" }} />
   );
 }

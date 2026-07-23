@@ -76,8 +76,10 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
     const ro = new ResizeObserver(resize);
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
+    // touch devices pay far more per particle (mobile Safari especially) — halve the field there.
+    const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
     const targetCount = () =>
-      Math.round(Math.min(80, Math.max(8, (w * h) / 14000)) * toneRef.current.density * LEVELS[levelRef.current].density) || 0;
+      Math.round(Math.min(80, Math.max(8, (w * h) / 14000)) * toneRef.current.density * LEVELS[levelRef.current].density * (coarse ? 0.5 : 1)) || 0;
 
     const draw = (p: P, now: number) => {
       const t = toneRef.current;
