@@ -490,9 +490,9 @@ export const api = {
   },
 
   /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
-  montagePreflight: async (id: string, direction: string): Promise<string[]> => {
+  montagePreflight: async (id: string, direction: string, days?: number): Promise<string[]> => {
     const s = await need(id);
-    return preflightDirection(s, direction);
+    return preflightDirection(s, direction, days);
   },
 
   /** Directed montage — a plan executed in beats, every beat through the real ledgers. */

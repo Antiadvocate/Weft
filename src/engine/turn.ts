@@ -18,6 +18,7 @@ import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
+import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
@@ -515,6 +516,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
     regrooveHabits(state);
   }
+  // NOVELTY — a trait keeps its intensity forever; what fades is its narrative airtime.
+  // Without this the tenth basketball scene is written like the first (all discovery, all
+  // commentary) instead of the habit becoming the floor the scene stands on.
+  const novelty = noveltyDigest(state);
+  const noveltyNote = novelty ? `\n\n=== LONG-WORN BEHAVIOR ===\n${novelty}` : "";
+
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
   updatePaging(state, action);
@@ -838,13 +845,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
       state.model_settings.narrator_model,
     );
   }
@@ -1430,6 +1437,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (why) shifts.push(`Your body is limiting you now — ${why}.`);
     }
   }
+  // NOVELTY BOOKKEEPING — count which traits this turn actually put on screen, measured
+  // against the committed prose rather than what the engine predicted. Only the FIRST
+  // expression per trait per turn counts; a scene that mentions basketball six times is
+  // still one expression. Strength (habits.ts) is untouched: how automatic a behavior is
+  // and how much airtime it still deserves are different axes.
+  if (state.model_settings.habit_engine) {
+    // Prefer the simulator's semantic read (it knows a gelato expresses "loves ice cream");
+    // fall back to string matching only for characters it didn't report on.
+    const reportedBy = new Map<string, string[]>();
+    for (const r of diff.traits_expressed ?? []) {
+      const cid = resolveId(state, r.char_id);
+      if (cid && Array.isArray(r.traits)) reportedBy.set(cid, r.traits.map(String));
+    }
+    for (const pid of state.world.present)
+      recordExpressions(state, pid, prose, turn, reportedBy.get(pid));
+  }
+
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     summary: diff.scene_summary || prose.slice(0, 120),

@@ -128,7 +128,7 @@ export function planBeats(days: number, granularity: "quick" | "standard" | "ful
  * sovereign over their own story, but they should know when a direction is
  * fighting the physics rather than discover it thirty in-world days later.
  */
-export function preflightDirection(state: SaveState, direction: string): string[] {
+export function preflightDirection(state: SaveState, direction: string, days?: number): string[] {
   const warnings: string[] = [];
   const text = direction.toLowerCase();
 
@@ -157,6 +157,18 @@ export function preflightDirection(state: SaveState, direction: string): string[
       if (cap !== null && cap <= 5)
         warnings.push(`${c.name} isn't oriented toward you by the engine's read — a romance arc here will fight the desire model. It'll still run if you mean it.`);
     }
+  }
+
+  // heavy arcs the skip will refuse to settle — say so before tokens are spent, not after
+  if (typeof days === "number") {
+    const ceiling = days <= 2 ? 2 : days <= 6 ? 3 : days <= 13 ? 4 : days <= 29 ? 5 : days <= 59 ? 6 : 7;
+    const heavy = state.world.threads
+      .filter((t) => t.status === "active" && (t.tension ?? 0) > ceiling)
+      .map((t) => t.title);
+    if (heavy.length)
+      warnings.push(
+        `A ${days}-day skip won't settle the heavy threads — ${heavy.slice(0, 3).join("; ")}${heavy.length > 3 ? `, +${heavy.length - 3} more` : ""}. Those resolve in scenes you play.`,
+      );
   }
 
   if (!/\d/.test(text) && direction.trim().length < 12)

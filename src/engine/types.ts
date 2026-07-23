@@ -97,6 +97,14 @@ export interface CoreHabit {
   last_fired_turn: number;
   noticed_watermark: number; // strength at which an observer last remarked the change — noticing is stepwise
   dormant?: boolean;         // dissolved below threshold and retired at a reflection cadence; can revive on relapse
+  /** Times this trait has been EXPRESSED on screen. Distinct from strength (how automatic it is)
+   *  and from seen_fires (times its owner caught it firing). This counts narrative airtime, and it
+   *  only ever goes up. A trait keeps its intensity forever; what decays is its NOVELTY. The first
+   *  time someone plays basketball is an event and the scene is about basketball; the tenth time it
+   *  is the floor the scene stands on, and the conversation happening over it is about something
+   *  else. Without this count the narrator re-performs the discovery every time. */
+  expressions?: number;
+  last_expressed_turn?: number;
 }
 
 /** A promise on the ledger — who swore what to whom. Weight scales the emotional payoff/damage. */
@@ -535,6 +543,7 @@ export interface SimulatorDiff {
   promises_resolved?: { id?: string; from?: string; to?: string; text?: string; outcome: "kept" | "broken" }[];
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
+  traits_expressed?: { char_id: string; traits: string[] }[]; // which core traits this turn actually put on screen, judged by meaning (a gelato expresses "loves ice cream")
   texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];

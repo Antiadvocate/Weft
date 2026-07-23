@@ -13,9 +13,10 @@ import { simulateForward } from "./continuity";
 import { applyEdgeDelta } from "./social";
 import { addFact, groundMemoryContent } from "./facts";
 import { regrooveHabits } from "./habits";
+import { recordExpressions } from "./novelty";
 import { syncPresence } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
-import { stablePrefix } from "./prompts";
+import { stablePrefix, CHAPTER_SYSTEM } from "./prompts";
 import { pushSnapshot, uid } from "./state";
 import {
   type MontagePlan, type MontageEdgeTarget, type EdgeOrigins,
@@ -40,11 +41,15 @@ RULES
 - Never target attraction; the engine models desire on its own rules.
 - Only name characters that exist in the world state you were given.
 - Cats, dogs, objects and household details are FACTS, not characters.
+- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a debt paid, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves the board exactly as it found it has moved the clock, not the story.
+- BUT TIME DOES NOT RESOLVE EPICS. Only LOW-WEIGHT threads settle offscreen: errands, small debts, minor waits, questions time answers on its own. A central conflict, a mystery the story is built on, a war, a hunt, a betrayal — these are the story's spine and they resolve in scenes the player is PRESENT for, never in a skip. You are told the maximum weight this span may settle; propose nothing above it. When unsure, leave it open — an unresolved thread costs nothing, a spine dissolved offscreen cannot be undone.
 
 Output ONLY strict JSON:
 {"checklist":["short phrase per player ask"],
 "targets":[{"from":"char_id","to":"char_id","warmth":78,"trust":65,"roles":["partner"]}],
 "place_plan":{"create":{"name":"","description_facts":""},"player_moves_to":""},
+"threads_resolve":["EXACT title of an open thread this span of time settles, verbatim from OPEN THREADS. A month of living resolves things — a debt gets paid, a question gets answered, a waiting ends. Only what the direction actually implies."],
+"threads_new":[{"title":"a NEW open question the DESTINATION creates, born from where they arrive, not where they started","description":"","tension":3}],
 "household_facts":["durable facts true by the end, full sentences, no pronouns as subject"],
 "beats":[{"span_days":3,"goal":"what this stretch of days is ABOUT"}]}`;
 
@@ -66,7 +71,12 @@ Output ONLY strict JSON:
 "memories":[{"char_id":"","content":"what this character personally lived these days","importance":4,"day_offset":0}],
 "facts":[{"char_id":"","content":"durable fact that became true in these days"}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
-"events":["2-4 one-line happenings from these days"]}`;
+"events":["2-4 one-line happenings from these days"],
+"threads_resolve":["EXACT title of an open thread these days settled — only if the vignette actually shows it settling"],
+"threads_new":[{"title":"a new open question these days raised","description":"","tension":3}],
+"traits_expressed":[{"char_id":"","traits":["EXACT core trait string, verbatim from that character's Core: list"]}]}
+
+TRAITS_EXPRESSED: which of a character's core traits these days actually put on screen — judged by MEANING, not wording. Someone whose trait is "loves ice cream" expresses it by eating gelato or sorbet; "loves basketball" by a pickup game. Copy the trait string verbatim so it can be matched, but decide by what the scene means. Omit anyone whose traits didn't surface.`;
 
 export interface MontageOptions {
   days: number;
@@ -92,6 +102,9 @@ export async function planMontage(state: SaveState, opts: MontageOptions): Promi
     `SPAN: ${opts.days} days, to be told in exactly ${spans.length} beats of ${spans.join(", ")} days.`,
     `ROSTER:\n${roster}`,
     `PLACES: ${Object.values(state.world.places).map((p) => p.name).join(", ")}`,
+    state.world.threads.some((t) => t.status === "active")
+      ? `OPEN THREADS (resolve by EXACT title). A ${opts.days}-day skip may settle threads of tension ${resolvableTension(opts.days)} or LOWER — anything heavier stays open no matter what you propose:\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(opts.days) ? " — TOO HEAVY, leave open" : ""}`).join("\n")}`
+      : "",
     `Return exactly ${spans.length} beats with span_days ${spans.join(", ")} in that order.`,
   ].join("\n\n");
 
@@ -113,6 +126,114 @@ export async function planMontage(state: SaveState, opts: MontageOptions): Promi
     (t) => state.characters[t.from] && state.characters[t.to],
   ).slice(0, 6);
   return plan;
+}
+
+/** Content-word overlap — near-duplicate thread titles reworded ("the water debt" vs
+ *  "Kildare's water debt") must not become two threads. Mirrors turn.ts's guard. */
+function overlapRatio(a: string, b: string): number {
+  const stop = new Set(["the","a","an","and","or","of","in","on","to","is","are","was","were","for","with","at","by","from","that","this","it","his","her","their"]);
+  const words = (x: string) => new Set(
+    x.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w)),
+  );
+  const A = words(a), B = words(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / Math.min(A.size, B.size);
+}
+
+/**
+ * How heavy a thread a skip of `days` is ALLOWED to settle.
+ *
+ * Time passing resolves errands, not epics. Two days can settle "return the
+ * borrowed cart"; it cannot settle "who burned the ledger" or a war. Without a
+ * ceiling the planner treats any skip as licence to clear the board, and the
+ * story's spine gets dissolved offscreen by a button press — the single worst
+ * thing a time-skip can do, because the player never sees it happen.
+ *
+ * The curve is deliberately steep at the short end:
+ *   1-2 days  -> tension <= 2   (errands only)
+ *   3-6 days  -> tension <= 3
+ *   7-13 days -> tension <= 4
+ *   14-29days -> tension <= 5
+ *   30-59days -> tension <= 6
+ *   60+ days  -> tension <= 7
+ *
+ * Nothing at tension 8+ ever resolves in a montage, at any length. Those are the
+ * story's load-bearing arcs; they resolve in played scenes where the player is
+ * present, or not at all.
+ */
+export function resolvableTension(days: number): number {
+  if (days <= 2) return 2;
+  if (days <= 6) return 3;
+  if (days <= 13) return 4;
+  if (days <= 29) return 5;
+  if (days <= 59) return 6;
+  return 7;
+}
+
+/** A thread must also have EXISTED for a while before time alone can settle it —
+ *  something raised three turns ago hasn't been sitting long enough to lapse. */
+const MIN_AGE_TURNS = 4;
+
+/**
+ * Thread motion during a skip. A month of living settles some open questions and
+ * raises others; a montage that leaves the board untouched has moved the clock but
+ * not the story.
+ *
+ * Resolution is matched against EXISTING threads only — the model can close what is
+ * open, never invent a thread just to close it — and is additionally gated by
+ * weight (resolvableTension) and age. New threads are born capped the same way
+ * turn.ts caps them: potential, not a mature crisis.
+ */
+function applyThreads(
+  state: SaveState, resolve: unknown, born: unknown, turn: number, shifts: string[],
+  days: number,
+): void {
+  const ceiling = resolvableTension(days);
+  for (const title of (Array.isArray(resolve) ? resolve : [])) {
+    const want = String(title ?? "").trim();
+    if (!want) continue;
+    const t = state.world.threads.find(
+      (x) => x.status === "active"
+        && (x.title.toLowerCase() === want.toLowerCase() || overlapRatio(x.title, want) >= 0.6),
+    );
+    if (!t) continue;   // never invent a thread in order to resolve it
+    // WEIGHT GATE — a short skip cannot dissolve a heavy arc. The model asked; the
+    // engine decides. Refusals are logged, not silent, so an over-eager planner is
+    // visible rather than mysterious.
+    if ((t.tension ?? 0) > ceiling) {
+      console.warn(`[montage] refused to resolve "${t.title}" (tension ${t.tension}) — a ${days}-day skip may settle at most tension ${ceiling}`);
+      continue;
+    }
+    // AGE GATE — time settles what has been sitting, not what was just raised.
+    if (turn - (t.turn_started ?? 0) < MIN_AGE_TURNS) {
+      console.warn(`[montage] refused to resolve "${t.title}" — raised too recently for time alone to settle it`);
+      continue;
+    }
+    t.status = "resolved";
+    t.turn_resolved = turn;
+    shifts.push(`Thread resolved: ${t.title}.`);
+  }
+
+  for (const n of (Array.isArray(born) ? born : [])) {
+    const title = String((n as any)?.title ?? "").trim();
+    if (!title) continue;
+    const dupe = state.world.threads.some(
+      (x) => x.status === "active"
+        && (x.title.toLowerCase() === title.toLowerCase() || overlapRatio(x.title, title) >= 0.6),
+    );
+    if (dupe) continue;
+    if (state.world.threads.filter((x) => x.status === "active").length >= 12) break;
+    state.world.threads.push({
+      id: uid("thr"), title, status: "active",
+      description: String((n as any)?.description ?? "").slice(0, 240),
+      turn_started: turn,
+      // same birth calibration as turn.ts: a thread arrives as potential, never a crisis
+      tension: clamp(Number((n as any)?.tension) || 3, 0, 6),
+    });
+    shifts.push(`A new thread: ${title}.`);
+  }
 }
 
 function applyBeat(
@@ -246,6 +367,9 @@ export async function runMontage(
       report.clocks_fired.length ? `CLOCKS FIRED (these HAPPENED):\n${report.clocks_fired.join("\n")}` : "",
       report.drive_log.length ? `WORLD MOTION:\n${report.drive_log.slice(0, 8).join("\n")}` : "",
       report.consequences_due.length ? `NOW AT THE DOOR:\n${report.consequences_due.join("\n")}` : "",
+      state.world.threads.some((t) => t.status === "active")
+        ? `OPEN THREADS (resolve by EXACT title, only what these ${b.span_days} day(s) actually settle — max tension ${resolvableTension(b.span_days)}; heavier arcs resolve in played scenes, never here):\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(b.span_days) ? " — TOO HEAVY" : ""}`).join("\n")}`
+        : "",
     ].filter(Boolean).join("\n\n");
 
     let beat: any = {};
@@ -262,6 +386,25 @@ export async function runMontage(
 
     applyBeat(state, beat, plan, i, n, origins, landed, beatStartTime);
 
+    const threadShifts: string[] = [];
+    applyThreads(state, beat?.threads_resolve, beat?.threads_new, state.world.current_turn, threadShifts, b.span_days);
+
+    // a month of living a trait grounds it — the montage ages novelty the same way play does,
+    // so a character doesn't come out of a 30-day skip rediscovering their oldest habit.
+    if (state.model_settings.habit_engine)
+    {
+      // the beat writer read its own days and reports by MEANING — string matching
+      // would miss gelato-for-ice-cream exactly the way it does in a normal turn.
+      const rep = new Map<string, string[]>();
+      for (const r of (beat?.traits_expressed ?? [])) {
+        const cid = state.characters[r?.char_id] ? r.char_id
+          : Object.entries(state.characters).find(([, c]) => c.name.toLowerCase() === String(r?.char_id).toLowerCase())?.[0];
+        if (cid && Array.isArray(r.traits)) rep.set(cid, r.traits.map(String));
+      }
+      for (const pid of state.world.present)
+        recordExpressions(state, pid, vignette, state.world.current_turn, rep.get(pid));
+    }
+
     state.history.push({
       turn: state.world.current_turn,
       kind: "interlude",
@@ -273,6 +416,7 @@ export async function runMontage(
       shifts: [
         ...report.clocks_fired.map((c) => `While the days passed: ${c}`),
         ...(beat?.landed ?? []).map((l: string) => `Landed: ${l}`),
+        ...threadShifts,
       ].slice(0, 8),
       offscreen: (beat?.events ?? report.drive_log).slice(0, 6),
       weather: state.world.weather,
@@ -299,8 +443,64 @@ export async function runMontage(
   }
 
   // ── arrival: zero calls ──
+  // ── CHAPTER ── a montage IS a chapter-sized arc: a span of time with a shape, an
+  // ending, and a changed world. Chaptering normally fires on a turn cadence
+  // (turn % chapter_cadence), which a multi-beat skip can jump clean over — leaving
+  // the Chronicle with N orphaned beat entries and no chapter covering them. Write one
+  // for the montage itself, so the Chronicle reads "A month at Fen Street" rather than
+  // eight interludes nobody grouped.
+  ev.onPhase("closing the chapter");
+  try {
+    const fromTurn = state.world.current_turn - n;
+    const beats = state.history
+      .filter((h) => (h as any).montage_id === montage_id)
+      .map((h) => `${h.span_label ?? ""}: ${h.narrator_prose}`)
+      .join("\n\n")
+      .slice(0, 6000);
+    const priorPersona = [...(state.chapters ?? [])].reverse().find((c) => c.persona)?.persona;
+    const ask = [
+      `These beats are one directed montage the player asked for: "${opts.direction}"`,
+      `SPAN: ${opts.days} days, ${n} beats.`,
+      priorPersona ? `PRIOR READING OF THE PLAYER: ${priorPersona.mbti} — ${priorPersona.read}` : "",
+      state.world_bible.destination ? `DESTINATION: ${state.world_bible.destination}` : "",
+      `BEATS:\n${beats}`,
+    ].filter(Boolean).join("\n\n");
+    const msgs = buildMessages(CHAPTER_SYSTEM, stablePrefix(state), ask, state.model_settings.simulator_model);
+    const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 1200);
+    tokensIn += res.usage.prompt_tokens; tokensOut += res.usage.completion_tokens;
+    const ch = safeJson<any>(res.text, {});
+    if (ch?.summary) {
+      const persona = ch.persona?.mbti && ch.persona?.read
+        ? {
+            mbti: String(ch.persona.mbti).slice(0, 6).toUpperCase(),
+            read: String(ch.persona.read).slice(0, 300),
+            traits: (ch.persona.traits ?? []).slice(0, 5).map((t: any) => String(t).slice(0, 60)),
+            shift: ch.persona.shift && String(ch.persona.shift).trim() ? String(ch.persona.shift).slice(0, 160) : undefined,
+          }
+        : undefined;
+      state.chapters ??= [];
+      state.chapters.push({
+        idx: state.chapters.length + 1,
+        from_turn: fromTurn, to_turn: state.world.current_turn,
+        title: (ch.title ?? `${opts.days} days`).slice(0, 60),
+        summary: String(ch.summary).slice(0, 400),
+        on_contract: ch.on_contract !== false,
+        drift: ch.drift?.slice(0, 200),
+        persona,
+      });
+    }
+  } catch { /* a montage without a chapter entry is still a valid montage */ }
+
   ev.onPhase("arriving");
+  const arrivalShifts: string[] = [];
+  // the destination's own thread motion: what arriving here settles, and what it opens.
+  // Applied once at the end so it describes the ARRIVAL, not any single beat.
+  applyThreads(state, (plan as any).threads_resolve, (plan as any).threads_new, state.world.current_turn, arrivalShifts, opts.days);
   finalizeMontage(state, plan);
+  if (arrivalShifts.length) {
+    const last = state.history[state.history.length - 1];
+    if (last) last.shifts = [...(last.shifts ?? []), ...arrivalShifts].slice(0, 10);
+  }
 
   return { plan, scorecard: scoreChecklist(plan.checklist, landed), beatsRun: n, montage_id };
 }

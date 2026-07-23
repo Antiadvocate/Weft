@@ -14,6 +14,7 @@ import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel 
 import { AnimNumber } from "../lib/AnimNumber";
 import { Odometer } from "../lib/Odometer";
 import { turnDeltas } from "../lib/ledger";
+import { previouslyHere, dueSoon, dueLabel } from "../lib/psychic";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
@@ -81,6 +82,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const history = save.history;
   const deltas = useMemo(() => turnDeltas(save), [save.telemetry, save.world.present]);
+  const recall = useMemo(() => previouslyHere(save), [save.world.player_location, save.memory, save.world.present]);
+  const soon = useMemo(() => dueSoon(save), [save.world.consequences, save.world.current_time]);
+  // recall is for RE-entry: show it when the place changes, let it go once you're playing here
+  const [recallDismissed, setRecallDismissed] = useState<string | null>(null);
+  useEffect(() => { setRecallDismissed(null); }, [save.world.player_location]);
 
   // ── ambient layers: one tone derived from state drives particles, backdrop, prose cadence.
   //    Readability rules them: one tap cycles subtle → full → off, persisted locally. ──
@@ -514,6 +520,32 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           </div>
         )}
         <div className="prose-stream pt-3">
+          {/* previously, here — place-indexed recall on re-entry. Not persistent chrome:
+              it appears when you arrive somewhere you have history, and goes when dismissed. */}
+          <AnimatePresence>
+            {recall.length > 0 && recallDismissed !== save.world.player_location && (
+              <motion.div className="recall-card"
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}>
+                <div className="recall-head">
+                  <span>previously, here</span>
+                  <button onClick={() => setRecallDismissed(save.world.player_location)}
+                    style={{ color: "var(--text-lo)" }}>dismiss</button>
+                </div>
+                {recall.map((r) => (
+                  <div key={r.key} className="recall-line">
+                    {r.text}
+                    {r.when && <span className="recall-when"> · {r.when}</span>}
+                  </div>
+                ))}
+                {recall[0]?.shared && (
+                  <div className="recall-line" style={{ color: "var(--text-lo)" }}>
+                    {recall[0].shared} was here too.
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
           {history.map((h) => (
             <div className={h.turn === history[history.length - 1]?.turn ? undefined : "turn-block"} key={`${h.kind ?? "turn"}-${h.turn}`}>
               {h.kind === "interlude" ? (
@@ -751,6 +783,23 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
       </div>
 
+      {/* due soon — only what the schedule already holds, never invented dread.
+          Appears only when something is actually pending, so it isn't a permanent row. */}
+      {soon.length > 0 && (
+        <div className="duesoon">
+          {soon.map((d) => (
+            <div key={d.key} className="duesoon-row">
+              <span className="duesoon-when"
+                style={{ color: d.severity === "major" ? "var(--danger)" : "var(--text-lo)" }}>
+                {dueLabel(d.hours)}
+              </span>
+              <span className="duesoon-text">{d.text}</span>
+              {d.mine && <span className="duesoon-mine">yours</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* composer */}
       <div className="px-4 pb-2.5 pt-1">
         {/* SOMATIC TIGHTNESS — one-tap body reading vs your meditative zero. Off = the engine infers
@@ -948,7 +997,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     onChange={(e) => { setMDirection(e.target.value); setMWarnings([]); }}
                     onBlur={async () => {
                       if (!mDirection.trim()) return;
-                      try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim())); } catch {}
+                      try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
                     }} />
                   {mWarnings.map((w, i) => (
                     <div key={i} className="text-[11.5px] mb-1.5 px-2.5 py-1.5 rounded-lg"
@@ -957,7 +1006,11 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   <div className="flex items-center gap-2 mb-2">
                     <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>days</span>
                     <input type="range" min={3} max={120} value={mDays} className="flex-1"
-                      onChange={(e) => setMDays(Number(e.target.value))} />
+                      onChange={(e) => setMDays(Number(e.target.value))}
+                      onPointerUp={async () => {
+                        if (!mDirection.trim()) return;
+                        try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
+                      }} />
                     <span className="font-mono text-[12px]" style={{ minWidth: 34, textAlign: "right" }}>{mDays}</span>
                   </div>
                   <div className="flex gap-1.5 mb-3">
