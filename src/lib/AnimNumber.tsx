@@ -1,7 +1,7 @@
 
-// AnimNumber â€” the measurable-animation primitive. Tweens old â†’ new,
+// AnimNumber — the measurable-animation primitive. Tweens old → new,
 // tints by direction of change, then settles back to neutral. Motion only
-// fires when Î” â‰  0; it shows the delta and rests. Respects reduced motion.
+// fires when Δ ≠ 0; it shows the delta and rests. Respects reduced motion.
 import React, { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "./tone";
 

@@ -60,7 +60,7 @@ export const api = {
 
   remove: async (id: string) => { await dbDelete(id); return { ok: true }; },
 
-  /** Generate (or regenerate) the opening scene prose â€” the moment before turn 1. Stored as a kind:"opening" history entry. */
+  /** Generate (or regenerate) the opening scene prose — the moment before turn 1. Stored as a kind:"opening" history entry. */
   generateOpening: async (id: string): Promise<ClientSave> => {
     const s = await need(id);
     const hint = (s.world.places[s.world.player_location]?.name ?? "") + ". " +
@@ -102,11 +102,11 @@ export const api = {
       const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
       const traits = [...(c.core_traits ?? []), ...((s.traits[cid] ?? []).map((t) => t.label))];
       // relationship SHAPE, not just temperature: roles + qualitative notes carry estrangement,
-      // warnings, debts, "you withdrew from her", etc. â€” the stuff the forge needs to not reset it.
+      // warnings, debts, "you withdrew from her", etc. — the stuff the forge needs to not reset it.
       const rel = edge
-        ? `toward you: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` â€” ${edge.notes}` : ""}`
+        ? `toward you: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` — ${edge.notes}` : ""}`
         : "no established relationship with you";
-      // the character's own strongest memories ABOUT the player â€” this is where "he told me they were
+      // the character's own strongest memories ABOUT the player — this is where "he told me they were
       // using me", "he left without saying why", "he pulled away" actually live. The recap must see them.
       const aboutPlayer = (s.memory[cid]?.episodic ?? [])
         .filter((m) => /\b(you|him|rabi|the player)\b/i.test(m.content) || (m.full_content && /\byou\b/i.test(m.full_content)))
@@ -115,11 +115,11 @@ export const api = {
         .map((m) => m.content.trim());
       // presence/distance: is this person actually still in the player's life, or pushed away/distant?
       const inScene = s.world.present.includes(cid);
-      const distance = (edge && edge.warmth < 10 && edge.trust < 10) ? " [DISTANT/estranged â€” not currently close to the player]" : inScene ? " [was present at chapter's end]" : " [offscreen â€” not necessarily nearby]";
-      return `${c.name} (${traits.slice(0, 6).join(", ")}) â€” ${rel}${c.drive?.goal ? `; wants: ${c.drive.goal}` : ""}${distance}${aboutPlayer.length ? `\n    remembers about you: ${aboutPlayer.join(" | ")}` : ""}`;
+      const distance = (edge && edge.warmth < 10 && edge.trust < 10) ? " [DISTANT/estranged — not currently close to the player]" : inScene ? " [was present at chapter's end]" : " [offscreen — not necessarily nearby]";
+      return `${c.name} (${traits.slice(0, 6).join(", ")}) — ${rel}${c.drive?.goal ? `; wants: ${c.drive.goal}` : ""}${distance}${aboutPlayer.length ? `\n    remembers about you: ${aboutPlayer.join(" | ")}` : ""}`;
     }).join("\n");
-    const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-16).map((h) => h.summary).filter(Boolean).join(" â†’ ");
-    // the player's OWN defining recent memories â€” their choices (leaving, isolating, warning people)
+    const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-16).map((h) => h.summary).filter(Boolean).join(" → ");
+    // the player's OWN defining recent memories — their choices (leaving, isolating, warning people)
     // that shaped where things stand and that a recap must not overwrite with a generic reunion.
     const playerChoices = (s.memory["char_player"]?.episodic ?? [])
       .filter((m) => (m.importance ?? 0) >= 6)
@@ -128,7 +128,7 @@ export const api = {
       .map((m) => m.content.trim());
     const player = s.characters["char_player"];
     const digest = [
-      `WORLD: ${s.world_bible.name} â€” ${s.world_bible.era}. ${s.world_bible.political_situation}`,
+      `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
       s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION (honor it): ${s.world_bible.narrator_direction}` : "",
       `PLAYER: ${player?.name}. ${player?.background ?? ""}`,
       `CAST:\n${cast}`,
@@ -141,17 +141,17 @@ export const api = {
     const msgs = buildMessages(NEWSEASON_SYSTEM, "A finished playthrough to carry into a new chapter:", digest, s.model_settings.forge_model);
     const out = await complete(msgs, s.model_settings.forge_model, s.model_settings.fallback_model, true, 4000);
     const g = safeJson<any>(out.text, null);
-    if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't distill a new chapter â€” try again, or use a stronger forge model.");
+    if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't distill a new chapter — try again, or use a stronger forge model.");
 
     // build the fresh save from the distilled bible (keep most of the original bible, overlay the updates)
     const bible: WorldBible = {
       ...s.world_bible,
       ...(g.world_bible ?? {}),
-      name: g.world_bible?.name || `${s.world_bible.name} â€” Next Chapter`,
+      name: g.world_bible?.name || `${s.world_bible.name} — Next Chapter`,
     };
     const ns = newSave(bible.name, bible);
     // player carries forward COMPLETE: full memory, full traits, nothing dropped or sanitized.
-    // A new chapter is a time-skip, not a personality wipe â€” who they became persists entirely.
+    // A new chapter is a time-skip, not a personality wipe — who they became persists entirely.
     const playerCarry = condenseForNewChapter(player, s.memory["char_player"], s.traits["char_player"]);
     registerCharacter(ns, {
       ...player, character_id: "char_player",
@@ -167,7 +167,7 @@ export const api = {
     ns.world.player_location = lid;
     ns.characters["char_player"].location = lid;
 
-    // surviving cast carry forward COMPLETE â€” full memory, full traits, full identity. The
+    // surviving cast carry forward COMPLETE — full memory, full traits, full identity. The
     // background_addition is APPENDED as a "where they ended up" note, never replacing who they are.
     for (const c of (g.cast ?? [])) {
       if (c.still_present === false || !c.name) continue;
@@ -196,7 +196,7 @@ export const api = {
       });
       const prevEdge = prev ? s.world.edges.find((e) => e.from === prev.character_id && e.to === "char_player") : undefined;
       ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1 });
-      ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact â€” nothing stripped
+      ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
       ns.traits[cid] = carry.carried_traits;                            // full traits intact
     }
     // carry canon forward (the world-altering facts still happened)
@@ -216,7 +216,7 @@ export const api = {
     return clientView(ns);
   },
 
-  /** CONTEXT REFRESH â€” NOT a time-skip. Same moment, same board: keep every character, their
+  /** CONTEXT REFRESH — NOT a time-skip. Same moment, same board: keep every character, their
    *  identity, traits, relationships (edges), the world bible, location, and turn count. What it
    *  does: (1) uses the BOOKKEEPER model to condense each character's long fragmented memory into a
    *  small POV summary while preserving the full factual record underneath (content = their reading;
@@ -232,7 +232,7 @@ export const api = {
       if (!mem || (mem.episodic?.length ?? 0) < 8) continue; // nothing to condense
       const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
       const rel = cid === "char_player" ? "(this is the player)" :
-        (edge ? `toward the player: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` â€” ${edge.notes}` : ""}` : "no established bond with the player");
+        (edge ? `toward the player: warmth ${edge.warmth}, trust ${edge.trust}${edge.roles?.length ? `, role: ${edge.roles.join("/")}` : ""}${edge.notes ? ` — ${edge.notes}` : ""}` : "no established bond with the player");
       const raw = mem.episodic.slice().sort((a, b) => (a.turn ?? 0) - (b.turn ?? 0))
         .map((m) => `[T${m.turn}] ${m.full_content ?? m.content}`).join("\n");
       const info = `CHARACTER: ${c.name}. ${c.background ?? ""} ${c.life_history ?? ""}\nRELATIONSHIP: ${rel}\n\nRAW MEMORIES (oldest first):\n${raw}`;
@@ -243,7 +243,7 @@ export const api = {
         // the condensed POV summaries become the new episodic memory. full_content keeps the JOINED
         // factual record so state-gated stress-recall can still surface the whole scenario underneath.
         const factualUnderlayer = mem.episodic.map((m) => m.full_content ?? m.content).join(" ");
-        // FIDELITY: the condensation is a cheap-model paraphrase of the whole history â€” the single
+        // FIDELITY: the condensation is a cheap-model paraphrase of the whole history — the single
         // most dangerous place for a specific (a city, a name) to silently mutate across ALL of a
         // character's memory at once. Ground every condensed line against the raw record; a line
         // whose specifics can't be traced is repaired to the best verbatim source sentence.
@@ -253,7 +253,7 @@ export const api = {
           return { turn: 0, content: grounded.content, full_content: grounded.content, importance: clampNum(m.importance ?? 5, 1, 10), emotional_charge: m.emotional_charge ?? "", last_accessed_turn: 0, decay_stage: 0 as const };
         });
 
-        // â€¦and stash the complete factual record as one deep-background memory kept vivid under stress
+        // …and stash the complete factual record as one deep-background memory kept vivid under stress
         s.memory[cid].episodic.push({
           turn: 0, content: "(the full history, as it actually happened)",
           full_content: factualUnderlayer.slice(0, 4000),
@@ -261,7 +261,7 @@ export const api = {
         } as any);
       } catch { /* leave this character's memory as-is on failure */ }
     }
-    // clear the accumulated engine state that regenerates runaway plots â€” keep relationships & world
+    // clear the accumulated engine state that regenerates runaway plots — keep relationships & world
     s.world.threads = [];
     s.world.consequences = [];
     s.world.rumors = (s.world.rumors ?? []).slice(-3); // keep a few, drop the pile
@@ -270,7 +270,7 @@ export const api = {
     // keep the current scene beat as the sole recent-history anchor; drop the long log
     const lastBeat = s.history.filter((h) => h.kind !== "opening").slice(-1);
     s.history = lastBeat.length ? lastBeat : s.history.slice(-1);
-    s.context_anchor = undefined; // chatlog anchor referenced the cleared history â€” force a fresh anchor
+    s.context_anchor = undefined; // chatlog anchor referenced the cleared history — force a fresh anchor
     await putSave(s);
     return clientView(s);
   },
@@ -344,7 +344,7 @@ export const api = {
       }
     }
     if (words.length) t.world.canon = t.world.canon.filter((line) => !words.some((w) => line.toLowerCase().includes(w) && w.length > 5));
-    // PURGE POISONED MEMORIES â€” the struck material's real damage is the episodic/core/belief/fact
+    // PURGE POISONED MEMORIES — the struck material's real damage is the episodic/core/belief/fact
     // memories the bookkeeper canonized from it (an invented death recorded across the whole cast).
     // Leaving those in place lets the narrator keep reading the struck event as true and regenerating
     // it. Strip any memory entry that substantially matches the struck note, across every character.
@@ -384,7 +384,7 @@ export const api = {
   },
 
   /** RE-RUN THE BOOKKEEPER. The narrator's prose is kept; only the simulator runs again.
-   *  A dead or empty diff means the turn happened in the prose but never in the world â€” nobody
+   *  A dead or empty diff means the turn happened in the prose but never in the world — nobody
    *  remembered it, no feelings moved. Rolls back to the state before the turn (the snapshot ring
    *  stores pre-turn state) and replays the SAME action and SAME prose through the full downstream
    *  pipeline: simulator, clamps, applyDiff, physiology, reflection. Costs one simulator call, no
@@ -398,9 +398,9 @@ export const api = {
     await putSideRow(id, "recovery", s);                 // same safety rail as rollback/strike
     // The snapshot for turn N is taken BEFORE N applies, so replaying N means restoring snapshot N
     // exactly. doRollback finds the nearest EARLIER snapshot, which would silently replay this prose
-    // against a state several turns stale and destroy everything between â€” so demand an exact hit.
+    // against a state several turns stale and destroy everything between — so demand an exact hit.
     if (!s.snapshots.some((snap) => snap.turn === t)) {
-      throw new Error(`turn ${t} has aged out of the snapshot ring â€” only the last few turns can be re-run`);
+      throw new Error(`turn ${t} has aged out of the snapshot ring — only the last few turns can be re-run`);
     }
     const restored = await doRollback(s, t);
     if (!restored) throw new Error("no snapshot covers that turn");
@@ -410,7 +410,7 @@ export const api = {
       onDelta: () => { /* prose is not regenerated */ },
       onMeta: (m) => ev?.onMeta?.(m as Record<string, unknown>),
     }, (entry.action_mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: entry.narrator_prose });
-    // the prose is unchanged, so its illustration is still valid â€” carry it across the replay
+    // the prose is unchanged, so its illustration is still valid — carry it across the replay
     // rather than making the player pay to regenerate an identical image.
     if (entry.illustration_url) {
       const fresh = restored.history.find((h) => h.turn === t);
@@ -420,7 +420,7 @@ export const api = {
     return clientView(restored);
   },
 
-  /** One level of rollback undo â€” restores the exact pre-rollback state. */
+  /** One level of rollback undo — restores the exact pre-rollback state. */
   undoRollback: async (id: string): Promise<ClientSave> => {
     const rec = await getSideRow(id, "recovery");
     if (!rec) throw new Error("no rollback to undo");
@@ -433,7 +433,7 @@ export const api = {
     return rec ? { available: true, turn: rec.world.current_turn } : { available: false };
   },
 
-  /** Rolling 25-turn checkpoint restore â€” bounds catastrophic loss without exports. */
+  /** Rolling 25-turn checkpoint restore — bounds catastrophic loss without exports. */
   restoreBackup: async (id: string): Promise<ClientSave> => {
     const cur = await need(id);
     const bak = await getSideRow(id, "backup");
@@ -459,7 +459,7 @@ export const api = {
   edit: async (id: string, patch: { world_bible?: Partial<WorldBible>; characters?: Record<string, Partial<Identity>>; memory_core?: Record<string, string[]>; canon?: string[] }): Promise<ClientSave> => {
     const s = await need(id);
     if (patch.world_bible) {
-      // Changing (or clearing) the destination invalidates any progress scored against the old one â€”
+      // Changing (or clearing) the destination invalidates any progress scored against the old one —
       // otherwise a fresh ending inherits the previous reading, or a cleared one stays "reached".
       const nextDest = patch.world_bible.destination;
       if (nextDest !== undefined && (nextDest ?? "").trim() !== (s.world_bible.destination ?? "").trim()) {
@@ -496,7 +496,7 @@ export const api = {
     return preflightDirection(s, direction, days);
   },
 
-  /** Directed montage â€” a plan executed in beats, every beat through the real ledgers. */
+  /** Directed montage — a plan executed in beats, every beat through the real ledgers. */
   montage: async (
     id: string, days: number, direction: string,
     granularity: "quick" | "standard" | "full",
@@ -554,7 +554,7 @@ export const api = {
     };
   },
 
-  /** The editable world slice for the raw world editor (no per-character data â€” use the character editor for that). */
+  /** The editable world slice for the raw world editor (no per-character data — use the character editor for that). */
   getWorldRaw: async (id: string): Promise<any> => {
     const s = await need(id);
     return {
@@ -593,7 +593,7 @@ export const api = {
         if (s.characters["char_player"]) s.characters["char_player"].location = raw.player_location;
       }
       // re-derive room occupancy + scene from locations after any places/location change
-      // (shared derivation â€” filters dead/departed and honors sub-room locales)
+      // (shared derivation — filters dead/departed and honors sub-room locales)
       syncPresence(s);
     }
     await putSave(s);
@@ -623,7 +623,7 @@ export const api = {
   },
 
 
-  /** TRUTH PANEL â€” the verified-fact ledger, readable and player-editable. Corrections here are
+  /** TRUTH PANEL — the verified-fact ledger, readable and player-editable. Corrections here are
    *  authoritative: the engine treats ledger facts as verbatim truth in every future digest. */
   setFacts: async (id: string, char_id: string, facts: { content: string; quote?: string }[]): Promise<ClientSave> => {
     const s = await need(id);
@@ -637,7 +637,7 @@ export const api = {
     return clientView(s);
   },
 
-  /** INTERVIEW MODE â€” talk to a character out of scene. Pure: no state mutation, no turn, no
+  /** INTERVIEW MODE — talk to a character out of scene. Pure: no state mutation, no turn, no
    *  memory written; the character answers from their own digest on the cheap model. */
   interview: async (id: string, char_id: string, question: string, transcript: { q: string; a: string }[] = []): Promise<{ answer: string }> => {
     const s = await need(id);
@@ -646,7 +646,7 @@ export const api = {
     const cond = s.condition[char_id];
     const mem = s.memory[char_id];
     const edge = s.world.edges.find((e) => e.from === char_id && e.to === "char_player");
-    const traits = (s.traits[char_id] ?? []).slice(0, 5).map((t) => `${t.label} â€” ${t.behavioral_impact}`).join("; ");
+    const traits = (s.traits[char_id] ?? []).slice(0, 5).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ");
     const memDigest = mem ? compactMemoryDigest(mem, question, s.world.current_turn, 6, s.world.current_time, cond?.psyche.relaxation ?? 0) : "";
     const ctx = [
       `CHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. ${c.background}`,
@@ -654,7 +654,7 @@ export const api = {
       `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
       traits ? `Learned: ${traits}` : "",
       cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (colors every answer per the openness rules).` : "",
-      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth â€” liking is not wanting)` : ""}${edge.notes ? ` â€” ${edge.notes}` : ""}.` : "They barely know the player.",
+      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth — liking is not wanting)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
       memDigest,
     ].filter(Boolean).join("\n");
     const msgs: any[] = [{ role: "system", content: INTERVIEW_SYSTEM }, { role: "user", content: ctx }];
@@ -666,24 +666,24 @@ export const api = {
   },
 
 
-  /** BASELINE COMPLETION â€” one cheap call that fills the gaps in a thin appearance card
+  /** BASELINE COMPLETION — one cheap call that fills the gaps in a thin appearance card
    *  (hair, eyes, skin, face, build, age, one unique mark). Every already-stated detail is
    *  kept verbatim; only the silences are invented, consistent with the world. Returns a
-   *  suggestion â€” nothing is saved until the player weaves it in. */
+   *  suggestion — nothing is saved until the player weaves it in. */
   completeBaseline: async (id: string, char_id: string): Promise<{ baseline: string }> => {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("no such character");
     const b = s.world_bible;
-    const premise = [b.era, b.cultures_and_languages].filter(Boolean).join(" Â· ");
+    const premise = [b.era, b.cultures_and_languages].filter(Boolean).join(" · ");
     const out = await complete([
-      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline is SACRED â€” keep it verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY â€” no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
+      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline is SACRED — keep it verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
       { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
     return { baseline: out.text.trim().replace(/^"|"$/g, "").slice(0, 600) };
   },
 
-  /** BEAUTY RESCORE â€” a small, cheap call that assigns intrinsic attractiveness (0-100) from a
+  /** BEAUTY RESCORE — a small, cheap call that assigns intrinsic attractiveness (0-100) from a
    *  character's CURRENT physical baseline + age + height/weight. Species-agnostic: a machine, a
    *  beast, a disembodied voice can score high on presence and symmetry. Called automatically when
    *  a character's on-sight appearance changed this turn (scar, aging, weight, ruin, new dress) and
@@ -702,7 +702,7 @@ export const api = {
       ].filter(Boolean).join(", ");
       try {
         const out = await complete([
-          { role: "system", content: "You assign a character's INTRINSIC ATTRACTIVENESS as a single integer 0-100 â€” the snap-judgment a stranger's nervous system makes on sight, before knowing them. Judge from physical form ONLY: symmetry, youthfulness/vitality, proportion, striking or distinctive features, presence. This is species-AGNOSTIC and body-agnostic: a machine, a beast, an angel, or a disembodied voice can be beautiful on presence and form alone â€” do not penalize non-human. Do not judge personality, clothing brand, or morality. Scale: 50 = ordinary/average, 65-75 = notably attractive, 85+ = stunning/head-turning, below 35 = plain or off-putting. Age and permanent marks (scars, ruin, aging, weight) shift the number as a stranger's eye would weigh them â€” sometimes down, sometimes not (a scar can be striking). Output ONLY the integer, nothing else." },
+          { role: "system", content: "You assign a character's INTRINSIC ATTRACTIVENESS as a single integer 0-100 — the snap-judgment a stranger's nervous system makes on sight, before knowing them. Judge from physical form ONLY: symmetry, youthfulness/vitality, proportion, striking or distinctive features, presence. This is species-AGNOSTIC and body-agnostic: a machine, a beast, an angel, or a disembodied voice can be beautiful on presence and form alone — do not penalize non-human. Do not judge personality, clothing brand, or morality. Scale: 50 = ordinary/average, 65-75 = notably attractive, 85+ = stunning/head-turning, below 35 = plain or off-putting. Age and permanent marks (scars, ruin, aging, weight) shift the number as a stranger's eye would weigh them — sometimes down, sometimes not (a scar can be striking). Output ONLY the integer, nothing else." },
           { role: "user", content: `CHARACTER: ${c.name}, age ${c.age}${dims ? `, ${dims}` : ""}${c.pronouns ? `, ${c.pronouns}` : ""}.\nPHYSICAL BASELINE: ${c.appearance_facts || "(unspecified)"}\nCURRENT PRESENTATION: ${c.appearance_now || "(nothing notable)"}` },
         ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 12);
         const n = parseInt((out.text.match(/\d+/) ?? ["50"])[0], 10);
@@ -723,7 +723,7 @@ export const api = {
   },
 
 
-  /** FULL-HISTORY PERSONA READ â€” types the player as actually played, from every chapter plus a
+  /** FULL-HISTORY PERSONA READ — types the player as actually played, from every chapter plus a
    *  sample of their literal typed actions. One cheap call; stored on the save so Chronicle can
    *  show it, refreshable any time. */
   analyzePersona: async (id: string): Promise<{ turn: number; mbti: string; read: string; traits: string[]; arc: string }> => {
@@ -734,7 +734,7 @@ export const api = {
     const sample = acts.filter((_, i) => i % step === 0).map((h) => `T${h.turn}: ${h.player_action.slice(0, 80)}`).join("\n");
     const out = await complete([
       { role: "system", content: PERSONA_SYSTEM },
-      { role: "user", content: `CHAPTERS:\n${chapters || "(none yet â€” story is young)"}\n\nSAMPLED PLAYER ACTIONS (verbatim):\n${sample.slice(0, 8000)}` },
+      { role: "user", content: `CHAPTERS:\n${chapters || "(none yet — story is young)"}\n\nSAMPLED PLAYER ACTIONS (verbatim):\n${sample.slice(0, 8000)}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, true, 700);
     const parsed = safeJson<{ mbti?: string; read?: string; traits?: string[]; arc?: string }>(out.text, {});
     const reading = {
@@ -763,7 +763,7 @@ export const api = {
     return clientView(s);
   },
 
-  /** BASELINE TIGHTNESS â€” a player-only standing override of their own relaxation ceiling that
+  /** BASELINE TIGHTNESS — a player-only standing override of their own relaxation ceiling that
    *  HOLDS across turns (unlike the per-turn `tightness` opt, which is a one-turn spike). Level 0-5
    *  maps to a relaxation anchor via TIGHTNESS_ANCHOR; passing null/undefined clears it so the
    *  engine goes back to inferring the player's state from their words. The Play UI reads this back
@@ -773,7 +773,7 @@ export const api = {
     const cond = s.condition.char_player;
     if (!cond) throw new Error("no player condition");
     if (level === null || level === undefined) {
-      cond.subjective_ceiling = undefined;             // cleared â†’ inference resumes
+      cond.subjective_ceiling = undefined;             // cleared → inference resumes
     } else {
       const n = Math.max(0, Math.min(5, Math.round(level)));
       cond.subjective_ceiling = TIGHTNESS_ANCHOR[n];
@@ -817,17 +817,17 @@ export const api = {
   forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string): Promise<ClientSave> => {
     // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
     // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
-    // the query when grounding is on without an explicit ((...)) â€” the seed IS the topic here, and
+    // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and
     // it's short, so Exa stays on-target (unlike the play loop's giant digest).
     let searchTarget = "";
     const cleanSeed = seed.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
     const online = ground || !!searchTarget;
     const searchQuery = searchTarget || (online ? cleanSeed.slice(0, 200) : undefined);
     const beatsBlock = (seedThreads?.length)
-      ? `\n\nSTORY BEATS THE PLAYER WANTS SEEDED (build the world, cast, places, and clocks so these are POSSIBLE and primed â€” don't resolve them, just make the world ready for them to emerge; the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` â€” ${t.description}` : ""}`).join("\n")}`
+      ? `\n\nSTORY BEATS THE PLAYER WANTS SEEDED (build the world, cast, places, and clocks so these are POSSIBLE and primed — don't resolve them, just make the world ready for them to emerge; the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n")}`
       : "";
     const toneBlock = tone?.trim()
-      ? `\n\nGENRE & TONE (the register this story must be built and written in â€” shape the world, threat, pressure palette, and cast to fit it): ${tone.trim()}`
+      ? `\n\nGENRE & TONE (the register this story must be built and written in — shape the world, threat, pressure palette, and cast to fit it): ${tone.trim()}`
       : "";
     const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + toneBlock + beatsBlock, model);
     let g: any = null, lastErr = "";
@@ -845,7 +845,7 @@ export const api = {
         g = null;
       } catch (e: any) { lastErr = `${m}: ${e.message}`; g = null; }
     }
-    if (!g) throw new Error(`The forge failed after 3 attempts â€” ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
+    if (!g) throw new Error(`The forge failed after 3 attempts — ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
 
     const bible: WorldBible = {
       ...g.world_bible,
@@ -863,7 +863,7 @@ export const api = {
     }
     const s = newSave(g.world_bible.name || seed.slice(0, 40), bible);
     // premise-as-constraint: the forge's canon lines land in world.canon, the strongest
-    // channel in the engine â€” rendered to BOTH models every turn, forever
+    // channel in the engine — rendered to BOTH models every turn, forever
     s.world.canon = (Array.isArray(g.canon) ? g.canon : []).map(String).map((x: string) => x.trim()).filter(Boolean).slice(0, 6);
     registerCharacter(s, { ...g.player, character_id: "char_player" });
     s.memory["char_player"].core = [g.player.background].filter(Boolean);
@@ -876,7 +876,7 @@ export const api = {
     }
     // PRONOUN BACKSTOP. If canon declares this world's people use a non-default pronoun set (a
     // premise like "everyone uses xe/xem, there are no men or women"), a model that slips and writes
-    // "she/her" on the sheets poisons the whole cast â€” the narrator then renders every native as a
+    // "she/her" on the sheets poisons the whole cast — the narrator then renders every native as a
     // woman. Detect the declared set from canon and force it onto every native NPC. The player keeps
     // theirs; they are the outsider.
     const worldPronoun = detectWorldPronoun(s.world.canon);
@@ -892,7 +892,7 @@ export const api = {
     for (const n of g.norms ?? []) {
       s.world.norms.push({ id: uid("nrm"), rule: n.rule ?? "", enforcement: n.enforcement ?? "gossip", holders: n.holders ?? "" });
     }
-    // PLAYER-AUTHORED SEED THREADS â€” the chronicle beats the player set in the forge become real
+    // PLAYER-AUTHORED SEED THREADS — the chronicle beats the player set in the forge become real
     // active threads the pressure system draws from, so what emerges is anchored to their intent
     // rather than invented cold. They start at a modest tension so they surface as the story wants
     // them, not all at once; the player can always ignore them (they resolve/abandon like any thread).
@@ -927,7 +927,7 @@ export const api = {
   /** export returns the full SaveState as a pretty JSON string for download */
   exportSave: async (id: string): Promise<{ name: string; json: string }> => {
     const s = await need(id);
-    // snapshots are device-local rollback state (and the biggest payload â€” full copies Ã— image data).
+    // snapshots are device-local rollback state (and the biggest payload — full copies × image data).
     // They don't belong in a portable backup; strip them so exports stay small and share/copy reliably.
     const { snapshots, ...portable } = s;
     return { name: s.name.replace(/[^a-z0-9 _-]/gi, ""), json: JSON.stringify(portable, null, 1) };
@@ -956,7 +956,7 @@ export interface TurnEvents {
  *  When opts.observe is set, the turn runs with no player action: the world and
  *  the player's own character act on their own, and you watch. */
 
-/** Today's spend (USD) from telemetry â€” turns whose provider reported a cost, since local midnight. */
+/** Today's spend (USD) from telemetry — turns whose provider reported a cost, since local midnight. */
 export function todaySpend(telemetry: { ts?: number; turn_cost?: number }[]): number {
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   const t0 = midnight.getTime();
@@ -974,7 +974,7 @@ export function governorState(s: Pick<SaveState, "telemetry" | "model_settings">
 /** TURN JOURNAL (write-ahead): iOS suspends web pages seconds after backgrounding; a mid-turn
  * death used to strand paid narrator prose with no bookkeeping and a hung UI. The journal
  * records the in-flight turn at two checkpoints (submission; prose-complete). On return,
- * resumePending() finishes the ledger from the exact point of death â€” only the cheap simulator
+ * resumePending() finishes the ledger from the exact point of death — only the cheap simulator
  * call re-fires; narrator tokens are never re-bought. */
 interface TurnJournal { turn: number; action: string; mode: string; prose?: string; ts: number }
 const journalKey = (id: string): string => "weft:journal:" + id;
@@ -995,7 +995,7 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   if (s.world.current_turn !== j.turn || Date.now() - j.ts > 24 * 3600e3) { clearJournal(id); return { kind: "none" }; }
   if (!j.prose) {
     clearJournal(id);
-    return { kind: "restore_action", action: j.action }; // partial prose is not a turn â€” words handed back
+    return { kind: "restore_action", action: j.action }; // partial prose is not a turn — words handed back
   }
   const gov = governorState(s);
   await runTurn(s, j.action, {
@@ -1016,10 +1016,10 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // In observe mode there is no player action; the engine is told to advance
     // the scene on its own, moving every actor (including the player's vessel).
     const act = observe
-      ? "[OBSERVER] The player takes no action and only watches. Advance the scene on its own: let every present character â€” INCLUDING the player's own character â€” act, speak, and pursue their drives as they naturally would in this moment. Do not wait for the player. Move the story forward one concrete beat."
+      ? "[OBSERVER] The player takes no action and only watches. Advance the scene on its own: let every present character — INCLUDING the player's own character — act, speak, and pursue their drives as they naturally would in this moment. Do not wait for the player. Move the story forward one concrete beat."
       : action;
     // COST GOVERNOR: past 70% of the daily budget the engine shifts to eco for the rest of the
-    // day â€” lean prompts + tightened context â€” transparently, without touching saved settings.
+    // day — lean prompts + tightened context — transparently, without touching saved settings.
     // Play is never blocked; over-budget just means eco + a visible HUD state.
     const gov = governorState(s);
     if (gov.eco) ev.onPhase?.("eco");
@@ -1037,7 +1037,7 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco });
     await putSave(s);
-    // rolling checkpoint: every 25 turns, a full-state backup row â€” catastrophic loss is
+    // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
     // bounded to <25 turns even with no export anywhere
     if (s.world.current_turn > 0 && s.world.current_turn % 25 === 0) { try { await putSideRow(s.id, "backup", s); } catch { /* best-effort */ } }
     clearJournal(saveId);

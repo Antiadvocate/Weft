@@ -1,5 +1,5 @@
 
-// Odometer â€” renders a time/label string where each digit flips vertically
+// Odometer — renders a time/label string where each digit flips vertically
 // when it changes, and non-digit characters stay put. Motion fires only on the
 // digits that actually changed. Respects reduced motion (no flip, just swap).
 import React from "react";

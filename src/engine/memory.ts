@@ -4,15 +4,15 @@ import { factGate, factOverlap } from "./facts";
 /**
  * Generative-agents memory (Park et al. 2023, arXiv:2304.03442), embedding-free.
  *
- * retrieval(m, q, t) = Î±Â·recency(t âˆ’ t_access) + Î²Â·importance(m) + Î³Â·relevance(m, q)
- *   recency   = exp(âˆ’ln2 Â· Î”turns / H)        H = half-life in turns
+ * retrieval(m, q, t) = α·recency(t − t_access) + β·importance(m) + γ·relevance(m, q)
+ *   recency   = exp(−ln2 · Δturns / H)        H = half-life in turns
  *   importance= normalized poignancy 0..1
  *   relevance = token-overlap cosine (BM25-lite, no API call, zero tokens)
  *
  * Reflection (every R turns): episodic memories above an importance-sum
  * threshold are compressed into Beliefs by one cheap LLM call, then the
  * compressed episodics are dropped. This bounds per-character context at
- * O(core + beliefs + k) â€” constant in total turn count. See verify.ts for
+ * O(core + beliefs + k) — constant in total turn count. See verify.ts for
  * the geometric-series bound and Monte Carlo precision checks.
  */
 import type { CharMemory, EpisodicMemory, Belief } from "./types";
@@ -41,19 +41,19 @@ export function relevance(memory: string, query: string): number {
 }
 
 /**
- * MOOD-CONGRUENT RECALL â€” the perception gate pointed inward at the past.
+ * MOOD-CONGRUENT RECALL — the perception gate pointed inward at the past.
  * A memory carries no fixed emotional value; its valence is recomputed on retrieval through the
  * recaller's CURRENT state. A clenched person recalls a shared evening as the night it started
  * going wrong; an open person recalls the same evening as warmth. We don't rewrite the stored
- * trace here (that's reconsolidation, and it's gated) â€” we tint how the memory PRESENTS to the
+ * trace here (that's reconsolidation, and it's gated) — we tint how the memory PRESENTS to the
  * narrator, so the character recalls it colored by how they're holding themselves right now.
  * Returns a short lens cue, or "" when the recaller is level (no distortion).
  */
 export function recallTint(relaxation: number): string {
-  if (relaxation <= -7) return "recalled through a clenched, sour lens â€” its worst reading foregrounded, slights and threats sharpened, the warmth in it hard to feel right now";
-  if (relaxation <= -3) return "recalled warily â€” the guarded reading, what went wrong easier to reach than what went right";
-  if (relaxation >= 6) return "recalled warmly â€” its kinder reading, the good in it foregrounded, old friction softened";
-  if (relaxation >= 3) return "recalled with some ease â€” leaning toward the better reading of it";
+  if (relaxation <= -7) return "recalled through a clenched, sour lens — its worst reading foregrounded, slights and threats sharpened, the warmth in it hard to feel right now";
+  if (relaxation <= -3) return "recalled warily — the guarded reading, what went wrong easier to reach than what went right";
+  if (relaxation >= 6) return "recalled warmly — its kinder reading, the good in it foregrounded, old friction softened";
+  if (relaxation >= 3) return "recalled with some ease — leaning toward the better reading of it";
   return "";
 }
 
@@ -62,7 +62,7 @@ export function recency(deltaTurns: number, halfLife = HALF_LIFE_TURNS): number 
 }
 
 /**
- * MEMORY DECAY â€” graceful degradation, modeling how human episodic memory actually fades:
+ * MEMORY DECAY — graceful degradation, modeling how human episodic memory actually fades:
  *   stage 0  vivid: full somatic detail, exact words, place, the works (just happened)
  *   stage 1  gist + person + place: you have the shape of it, not the exact words
  *   stage 2  gist + person, PLACE LOST: where is gone (but reconstructable from temporal neighbors)
@@ -80,7 +80,7 @@ export function decayStageFor(m: EpisodicMemory, currentTurn: number): 0 | 1 | 2
   const sinceAccess = currentTurn - m.last_accessed_turn;
   const base = age * 0.6 + sinceAccess * 0.4;             // unaccessed memories blur faster
   // EXPONENTIAL on the unimportant: a trivial memory's effective age accelerates, so it falls off
-  // a cliff; a searing one's barely moves. importance in [1,10] â†’ forget-rate factor.
+  // a cliff; a searing one's barely moves. importance in [1,10] → forget-rate factor.
   // imp 1: ~age^1.5 (collapses fast). imp 10: ~age^0.55 (stays vivid for a very long time).
   const exponent = 1.6 - (m.importance / 10) * 1.05;       // 1.55 (trivial) .. 0.55 (searing)
   const effAge = Math.pow(Math.max(0, base), exponent);
@@ -90,13 +90,13 @@ export function decayStageFor(m: EpisodicMemory, currentTurn: number): 0 | 1 | 2
   return 3;
 }
 
-/** Advance decay stages each turn (structural only â€” text rewrite happens lazily at reflection). */
+/** Advance decay stages each turn (structural only — text rewrite happens lazily at reflection). */
 
-/** STORE RECONCILIATION â€” the same remembered thing must not occupy core, facts, AND episodic at
+/** STORE RECONCILIATION — the same remembered thing must not occupy core, facts, AND episodic at
  *  once (the duplication bug). One canonical home per memory, by kind:
- *   â€¢ core = life-defining autobiography (a founding, a first, an irreversible turn) â€” the spine.
- *   â€¢ facts = durable semantic knowledge (biography, standing truths, semanticized residue).
- *   â€¢ episodic = lived experiences that still carry texture and still decay.
+ *   • core = life-defining autobiography (a founding, a first, an irreversible turn) — the spine.
+ *   • facts = durable semantic knowledge (biography, standing truths, semanticized residue).
+ *   • episodic = lived experiences that still carry texture and still decay.
  *  When content is echoed across stores, the most-semantic surviving copy wins and the others are
  *  dropped: core outranks facts outranks episodic for the SAME content. Runs on load and after
  *  each decay tick, so drift self-heals. */
@@ -114,7 +114,7 @@ export function reconcileStores(mem: CharMemory): void {
     mem.episodic = mem.episodic.filter((m) => overlap(c, m.full_content ?? m.content) < 0.6 || (m.commitment_status === "pending"));
   }
   // facts outrank still-decaying episodic copies of the SAME settled knowledge (the experience
-  // already became a fact â€” keep the fact, release the redundant scene), but never touch a live
+  // already became a fact — keep the fact, release the redundant scene), but never touch a live
   // commitment or a still-vivid (stage 0) memory that hasn't finished becoming knowledge yet.
   for (const f of mem.facts ?? []) {
     mem.episodic = mem.episodic.filter((m) =>
@@ -130,22 +130,22 @@ export function tickMemoryDecay(mem: CharMemory, currentTurn: number): void {
       m.decay_stage = stage;
       if (stage >= 2) m.where = undefined; // place is lost at the gist-only stage (reconstructable, not stored)
     }
-    // SEMANTICIZATION (Ribot's gradient): a memory reaching terminal decay does not vanish â€” if
-    // it mattered (importance â‰¥6), its GIST survives as a durable semantic fact ("I knew this
+    // SEMANTICIZATION (Ribot's gradient): a memory reaching terminal decay does not vanish — if
+    // it mattered (importance ≥6), its GIST survives as a durable semantic fact ("I knew this
     // person; this happened") while the perceptual experience is released from episodic memory.
     // This is the marriage: the day's light fades, but "we married, and it rained" is kept for
     // life as knowledge, not re-lived as scene. Low-importance memories at terminal decay simply
     // fade (nobody carries a forgettable Tuesday as a fact).
     if (stage >= 3 && !m.folded) {
       if ((m.importance ?? 3) >= 6) { addFactLocal(mem, semanticGist(m), m.turn); semanticized.push(m); }
-      else if ((m.importance ?? 3) <= 2) semanticized.push(m); // trivial + terminal â†’ released
+      else if ((m.importance ?? 3) <= 2) semanticized.push(m); // trivial + terminal → released
     }
   }
   if (semanticized.length) mem.episodic = mem.episodic.filter((m) => !semanticized.includes(m));
   reconcileStores(mem);
 }
 
-/** Local fact-writer (mirrors facts.addFact) â€” kept here to avoid a value-level import cycle
+/** Local fact-writer (mirrors facts.addFact) — kept here to avoid a value-level import cycle
  *  between memory.ts and facts.ts. Same quality gate and fuzzy dedupe. */
 function addFactLocal(mem: CharMemory, fact: string, turn: number): void {
   mem.facts ??= [];
@@ -164,7 +164,7 @@ function semanticGist(m: EpisodicMemory): string {
   return g;
 }
 
-/** Commitment boost: a pending appointment outranks decay â€” hard when its time is NEAR,
+/** Commitment boost: a pending appointment outranks decay — hard when its time is NEAR,
  *  soft when it is still days out (a dinner next week shouldn't crowd out today). */
 function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""): number {
   if (m.commitment_status !== "pending" || !m.scheduled_time) return 0;
@@ -177,8 +177,8 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""):
   return 0.25;                            // distant: present, not dominant
 }
 
-/** Rough valence of a memory's emotional charge: âˆ’1 threat/pain â€¦ +1 warmth/safety, 0 neutral.
- *  Used for state-gated retrieval â€” a clenched mind reaches for threat-toned memories, an open
+/** Rough valence of a memory's emotional charge: −1 threat/pain … +1 warmth/safety, 0 neutral.
+ *  Used for state-gated retrieval — a clenched mind reaches for threat-toned memories, an open
  *  mind for warm ones (mood-congruent RETRIEVAL, not just mood-congruent coloring). */
 function chargeValence(charge: string): number {
   if (!charge) return 0;
@@ -191,15 +191,15 @@ function chargeValence(charge: string): number {
 }
 
 export function score(m: EpisodicMemory, query: string, currentTurn: number, recallerRelaxation = 0, nowLabel = ""): number {
-  // relevance matches the FULL trace, not just the decayed gist â€” a faded memory can still be the
+  // relevance matches the FULL trace, not just the decayed gist — a faded memory can still be the
   // right one when the scene cues its original detail (the cue is what brings it back vivid).
   const rel = Math.max(relevance(m.content, query), relevance(m.full_content ?? m.content, query));
   // STATE-GATED RETRIEVAL: the recaller's current openness shifts WHICH memories surface, not just
   // how they're worded. A clenched mind (negative relaxation) reaches for threat/pain-toned
-  // memories â€” old defensive precedents â€” and away from warmth; an open mind reaches for warm ones.
-  // congruence is +1 when the memory's valence matches the recaller's lean, âˆ’1 when it opposes.
-  const lean = clampN(recallerRelaxation / 10, -1, 1);      // âˆ’1 clenched â€¦ +1 open
-  const congruence = chargeValence(m.emotional_charge) * lean; // same sign â†’ boost, opposite â†’ suppress
+  // memories — old defensive precedents — and away from warmth; an open mind reaches for warm ones.
+  // congruence is +1 when the memory's valence matches the recaller's lean, −1 when it opposes.
+  const lean = clampN(recallerRelaxation / 10, -1, 1);      // −1 clenched … +1 open
+  const congruence = chargeValence(m.emotional_charge) * lean; // same sign → boost, opposite → suppress
   const stateBias = congruence * 0.4 * Math.abs(lean);        // scales with how far from neutral the recaller is
   return (
     ALPHA * recency(currentTurn - m.last_accessed_turn) +
@@ -221,7 +221,7 @@ export function retrieveScored(mem: CharMemory, query: string, currentTurn: numb
     .slice(0, k);
   for (const x of ranked) {
     // RICH-GET-RICHER GUARD: a memory the scene actually reached into (real relevance) is
-    // rehearsed â€” full refresh. One that surfaced only on recency/importance gets a half-step,
+    // rehearsed — full refresh. One that surfaced only on recency/importance gets a half-step,
     // so the same top-k can't lock itself in forever by being retrieved.
     x.m.last_accessed_turn = x.rel >= 0.2 ? currentTurn : Math.round((x.m.last_accessed_turn + currentTurn) / 2);
   }
@@ -239,7 +239,7 @@ export function retrieve(mem: CharMemory, query: string, currentTurn: number, k:
 }
 
 /**
- * INTEGRATION GATE â€” whether a character actually absorbs a correction/detail someone supplies.
+ * INTEGRATION GATE — whether a character actually absorbs a correction/detail someone supplies.
  * Not automatic: the same kernel logic as perception, applied to whose account you trust. You fold
  * another person's version into your memory only if your bond to them carries it.
  *
@@ -247,9 +247,9 @@ export function retrieve(mem: CharMemory, query: string, currentTurn: number, k:
  *   resist   = how clenched the receiver is (a stressed/guarded mind digs into its own version)
  *
  * The dynamic specified: clench makes you RESIST, but a strong warm/trusting bond OVERRIDES the
- * resistance â€” an annoyed but loving partner will still question their own memory and take the
- * correction. Bond is the override term, clench is the resistance term. Low bond + any clench â†’
- * reject (hold your version). High bond â†’ integrate even while annoyed. Neutral acquaintance â†’ it
+ * resistance — an annoyed but loving partner will still question their own memory and take the
+ * correction. Bond is the override term, clench is the resistance term. Low bond + any clench →
+ * reject (hold your version). High bond → integrate even while annoyed. Neutral acquaintance → it
  * mostly rides on whether they're calm enough to be open to it.
  */
 export function integrationGate(receiverRelaxation: number, warmthToSource: number, trustToSource: number): boolean {
@@ -260,11 +260,11 @@ export function integrationGate(receiverRelaxation: number, warmthToSource: numb
 }
 
 /**
- * RECONSOLIDATION â€” recall rewrites the trace. Memory is reconstructive, not reproductive: when
+ * RECONSOLIDATION — recall rewrites the trace. Memory is reconstructive, not reproductive: when
  * a past event is actively discussed and someone supplies detail, the retrieved memory is rebuilt,
  * and the rebuilt version (including the supplied detail, even if wrong, and the recaller's mood)
  * OVERWRITES the original. A decayed "blue dresses, dancing" recoheres with "and cake, and music"
- * into one fuller trace â€” and the character can no longer tell which parts they witnessed and which
+ * into one fuller trace — and the character can no longer tell which parts they witnessed and which
  * were supplied. This counters decay (discussed memories stay alive and sharp) and lets false detail
  * propagate. Finds the best-matching existing memory; if none, this was genuinely new (caller adds it
  * as a fresh memory instead).
@@ -276,11 +276,11 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
     const s = relevance(m.content + " " + (m.full_content ?? ""), about);
     if (s > bestScore) { bestScore = s; best = m; }
   }
-  if (!best || bestScore < 0.3) return false; // nothing close enough â€” not a recoherence, it's new
+  if (!best || bestScore < 0.3) return false; // nothing close enough — not a recoherence, it's new
   // PROPER-NOUN CONFLICT GUARD: reconsolidation rewrites the trace, so a mismatched merge is how
   // "Seattle" becomes "Portland" permanently. If the supplied detail introduces a capitalized name
   // the target memory doesn't contain, require a much stronger match before we let it overwrite.
-  const newNames = (addedDetail.match(/\b[A-Z][a-zA-Z'â€™-]{2,}\b/g) ?? []).filter((n) => !(best!.content + " " + (best!.full_content ?? "")).includes(n));
+  const newNames = (addedDetail.match(/\b[A-Z][a-zA-Z'’-]{2,}\b/g) ?? []).filter((n) => !(best!.content + " " + (best!.full_content ?? "")).includes(n));
   if (newNames.length && bestScore < 0.5) return false;
   // rebuild: fold the supplied detail in, restore vividness (recall sharpens), mark it freshly handled
   const merged = best.content.includes(addedDetail) ? best.content : `${best.content} ${addedDetail}`.replace(/\s+/g, " ").trim();
@@ -293,7 +293,7 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
 }
 
 /**
- * GIST COMPACTION â€” a memory trace is a gist, not an essay. Stored memories are kept tight (a
+ * GIST COMPACTION — a memory trace is a gist, not an essay. Stored memories are kept tight (a
  * paragraph of vivid prose costs ~80 tokens and repeats in context every turn it's recalled). Keeps
  * whole leading sentences up to a budget, preserving the core event; drops trailing elaboration.
  * The original is preserved in full_content so decay/recoherence can still reach it. Lossy by design.
@@ -301,19 +301,19 @@ export function reconsolidate(mem: CharMemory, about: string, addedDetail: strin
 export function compactGist(text: string, maxLen = 170): string {
   if (!text || text.length <= maxLen) return text;
   // Protect common abbreviations from being read as sentence ends, then split, then restore.
-  // Two classes: simple trailing-dot (Mr. Dr.) and internal-dot (a.m. e.g. i.e.) â€” guard both.
+  // Two classes: simple trailing-dot (Mr. Dr.) and internal-dot (a.m. e.g. i.e.) — guard both.
   const guarded = text
     .replace(/\b(a\.m|p\.m|e\.g|i\.e)\./gi, (m) => m.replace(/\./g, "\u0001"))
     .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sgt|Capt|Lt|Col|Gen|Gov|Sr|Jr|St|vs|etc|No)\.(\s|$)/gi, (_m, a, sp) => `${a}\u0001${sp}`);
   const sents = guarded.match(/[^.!?]+[.!?]+/g) ?? [guarded];
   let out = "";
   for (const s of sents) { if ((out + s).length > maxLen && out) break; out += s; }
-  out = (out.trim() || text.slice(0, maxLen).replace(/\s+\S*$/, "") + "â€¦");
+  out = (out.trim() || text.slice(0, maxLen).replace(/\s+\S*$/, "") + "…");
   return out.replace(/\u0001/g, "."); // restore protected periods
 }
 
 export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number, salt = 0): boolean {
-  // salt (a stable per-character hash) staggers reflections across turns â€” previously every
+  // salt (a stable per-character hash) staggers reflections across turns — previously every
   // character reflected on the SAME turn, producing a burst of LLM calls and a visible stall.
   if ((currentTurn + salt) % cadence !== 0) return false;
   const unreflected = mem.episodic.filter((m) => m.turn > (mem.beliefs.at(-1)?.formed_turn ?? 0));
@@ -325,7 +325,7 @@ export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: num
 export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn: number, keepRecent = 8): void {
   // Stamp every belief with the turn it was actually formed. Without this, beliefs carried no
   // formed_turn and defaulted to 0/-1, which made a late-invented conviction ("her father is in
-  // trouble") look like origin backstory that predated events it actually came after â€” and the
+  // trouble") look like origin backstory that predated events it actually came after — and the
   // narrator then treated it as long-established truth.
   mem.beliefs.push(...beliefs.map((b) => ({ ...b, formed_turn: currentTurn, content: compactGist(b.content, 130) })));
   if (mem.beliefs.length > 14) mem.beliefs = mem.beliefs.slice(-14);
@@ -353,23 +353,23 @@ function agoLabel(whenLabel: string | undefined, nowLabel: string): string {
   return `${Math.round(days / 7)} weeks ago`;
 }
 
-/** Time is verbatim detail â€” it decays FIRST and FASTEST. Widen the stored exact stamp by decay
- *  stage: 0 exact â†’ 1 part-of-day â†’ 2 just the day â†’ 3 the absolute is gone, only the STICKY
+/** Time is verbatim detail — it decays FIRST and FASTEST. Widen the stored exact stamp by decay
+ *  stage: 0 exact → 1 part-of-day → 2 just the day → 3 the absolute is gone, only the STICKY
  *  landmark anchor ("before the outbreak") remains. The anchor never decays, so ordinal placement
- *  survives even when the clock dissolves â€” a faded memory keeps its before/after relation and can't
+ *  survives even when the clock dissolves — a faded memory keeps its before/after relation and can't
  *  drift into the wrong point in the timeline. Full recall (a vivid re-surfacing) restores the exact
  *  stamp, matching how a strong retrieval momentarily brings back specifics. */
 function fuzzedWhen(m: EpisodicMemory, full: boolean): string {
   const anchor = m.anchor_rel?.trim();
-  if (full) return [m.when_label, anchor].filter(Boolean).join(" â€” ");
+  if (full) return [m.when_label, anchor].filter(Boolean).join(" — ");
   const stage = m.decay_stage ?? 0;
-  if (stage <= 0) return [m.when_label, anchor].filter(Boolean).join(" â€” ");
+  if (stage <= 0) return [m.when_label, anchor].filter(Boolean).join(" — ");
   const t = m.when_label ? parseTime(m.when_label) : null;
   if (stage === 1 && t) {
     const part = t.hour < 5 ? "night" : t.hour < 12 ? "morning" : t.hour < 17 ? "afternoon" : t.hour < 21 ? "evening" : "night";
-    return [`Day ${t.day}, ${part}`, anchor].filter(Boolean).join(" â€” ");
+    return [`Day ${t.day}, ${part}`, anchor].filter(Boolean).join(" — ");
   }
-  if (stage === 2 && t) return [`around Day ${t.day}`, anchor].filter(Boolean).join(" â€” ");
+  if (stage === 2 && t) return [`around Day ${t.day}`, anchor].filter(Boolean).join(" — ");
   // stage 3: the absolute time is gone. Only the sticky landmark anchor remains (or a vague "a while back").
   return anchor || "a while back";
 }
@@ -377,19 +377,19 @@ function fuzzedWhen(m: EpisodicMemory, full: boolean): string {
 export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0): string {
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
-  // the fact ledger: verified declarative knowledge, never decayed â€” most query-relevant few + newest
+  // the fact ledger: verified declarative knowledge, never decayed — most query-relevant few + newest
   if (mem.facts?.length) {
     const ranked = [...mem.facts].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
     const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
     chosen.add(mem.facts[mem.facts.length - 1]);
-    const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "â€¦" : t);
+    const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "…" : t);
     parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
   }
-  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "â€¦" : b.content)).join(" | ")}`);
+  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "…" : b.content)).join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
   if (top.length) {
     // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
-    // bring it back whole. Restore full fidelity for at most 2 memories per character â€” the ones
+    // bring it back whole. Restore full fidelity for at most 2 memories per character — the ones
     // the current moment is strongly cued to (high relevance), or that are genuinely defining
     // (high importance). A cue brings the whole thing back; everything else stays a gist.
     const RECALL_CAP = 2;
@@ -404,19 +404,19 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     parts.push(`RECALLS${tint ? ` (${tint})` : ""}: ${top.map(({ m, rel }) => {
     const full = fullSet.has(m);
     const stage = m.decay_stage ?? 0;
-    // place: present at stages 0â€“1, or whenever recalled full; at stage 2+ gist it's lost but reconstructable
+    // place: present at stages 0–1, or whenever recalled full; at stage 2+ gist it's lost but reconstructable
     let place = (m.where || full) ? (m.where ? `at ${m.where}` : "") : "";
     if (!place && !full && stage >= 2) {
       const neighbor = mem.episodic.find((o) => o !== m && o.where && Math.abs(o.turn - m.turn) <= 3);
       if (neighbor?.where) place = `somewhere around ${neighbor.where}`; // contextual reconstruction
     }
-    // time decays first and fastest â€” exact stamp fuzzes to a range by stage, sticky anchor persists
+    // time decays first and fastest — exact stamp fuzzes to a range by stage, sticky anchor persists
     const when = fuzzedWhen(m, full);
     const stamp = [when, place].filter(Boolean).join(", ");
     const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
     const raw = full ? (m.full_content ?? m.content) : m.content;
-    const budget = full ? 300 : 170; // render cap: a memory is a cue for the narrator, not a transcript â€” verbose bookkeeper output must not flood the digest
-    const text = raw.length > budget ? raw.slice(0, budget - 2).trimEnd() + "â€¦" : raw;
+    const budget = full ? 300 : 170; // render cap: a memory is a cue for the narrator, not a transcript — verbose bookkeeper output must not flood the digest
+    const text = raw.length > budget ? raw.slice(0, budget - 2).trimEnd() + "…" : raw;
     const faded = full ? (rel >= 0.4 ? " (this moment brings it back sharp and whole)" : "") : stage >= 3 ? " (a dim, distant impression)" : stage === 2 ? " (hazy now)" : "";
     return `[${stamp || `T${m.turn}`}${due}] ${text}${faded}`;
   }).join(" | ")}`);

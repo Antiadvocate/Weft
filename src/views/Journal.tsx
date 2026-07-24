@@ -4,9 +4,9 @@ import { ScrollText, HandshakeIcon, CircleHelp, Users2 } from "lucide-react";
 import type { ClientSave } from "../lib/api";
 
 /**
- * The PLAYER JOURNAL â€” a read-only, zero-LLM view derived entirely from state the engine already
+ * The PLAYER JOURNAL — a read-only, zero-LLM view derived entirely from state the engine already
  * tracks: the promise ledger, the fact ledger (with provenance), edges, and open threads. It is the
- * player's-eye answer to "where do I stand?" â€” what I've sworn and to whom, who owes me, what I know
+ * player's-eye answer to "where do I stand?" — what I've sworn and to whom, who owes me, what I know
  * about people and how I came to know it, and what's still hanging open. Nothing here writes; it only
  * reflects. This is the payoff screen for provenance + promises.
  */
@@ -42,7 +42,7 @@ export default function Journal({ save }: { save: ClientSave }) {
       .sort((a, b) => (Math.abs(b.warmth) + Math.abs(b.trust)) - (Math.abs(a.warmth) + Math.abs(a.trust)));
   }, [save]);
 
-  // what YOU know about each person â€” the player's own fact ledger, grouped by whom it concerns
+  // what YOU know about each person — the player's own fact ledger, grouped by whom it concerns
   const [openPerson, setOpenPerson] = useState<string | null>(null);
   const playerFacts = save.memory["char_player"]?.facts ?? [];
 
@@ -59,10 +59,10 @@ export default function Journal({ save }: { save: ClientSave }) {
       <div className="flex items-center gap-2 mb-5">
         <ScrollText size={18} style={{ color: "var(--text-mid)" }} />
         <h2 className="text-lg font-semibold">Journal</h2>
-        <span className="text-[11px] ml-2" style={{ color: "var(--text-lo)" }}>where you stand â€” drawn from what's actually happened, nothing invented</span>
+        <span className="text-[11px] ml-2" style={{ color: "var(--text-lo)" }}>where you stand — drawn from what's actually happened, nothing invented</span>
       </div>
 
-      {/* â”€â”€ PROMISES â”€â”€ */}
+      {/* ── PROMISES ── */}
       <section className="mb-7">
         <div className="flex items-center gap-2 mb-2">
           <HandshakeIcon size={14} style={{ color: "var(--text-mid)" }} />
@@ -78,7 +78,7 @@ export default function Journal({ save }: { save: ClientSave }) {
             {myWord.map((p) => (
               <div key={p.id} className="flex items-baseline justify-between gap-3 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                 <div className="text-[12.5px]">
-                  <span style={{ color: "var(--text-lo)" }}>to {nameOf(p.to)} â€” </span>{p.text}
+                  <span style={{ color: "var(--text-lo)" }}>to {nameOf(p.to)} — </span>{p.text}
                   <span className="text-[10.5px] ml-1.5" style={{ color: "var(--text-lo)" }}>({weightLabel(p.weight)})</span>
                 </div>
                 <div className="text-[11px] uppercase tracking-wide shrink-0" style={statusStyle(p.status)}>
@@ -95,7 +95,7 @@ export default function Journal({ save }: { save: ClientSave }) {
             {owedToMe.map((p) => (
               <div key={p.id} className="flex items-baseline justify-between gap-3 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                 <div className="text-[12.5px]">
-                  <span style={{ color: "var(--text-lo)" }}>{nameOf(p.from)} â€” </span>{p.text}
+                  <span style={{ color: "var(--text-lo)" }}>{nameOf(p.from)} — </span>{p.text}
                   <span className="text-[10.5px] ml-1.5" style={{ color: "var(--text-lo)" }}>({weightLabel(p.weight)})</span>
                 </div>
                 <div className="text-[11px] uppercase tracking-wide shrink-0" style={statusStyle(p.status)}>
@@ -107,7 +107,7 @@ export default function Journal({ save }: { save: ClientSave }) {
         )}
       </section>
 
-      {/* â”€â”€ PEOPLE & WHAT YOU KNOW â”€â”€ */}
+      {/* ── PEOPLE & WHAT YOU KNOW ── */}
       <section className="mb-7">
         <div className="flex items-center gap-2 mb-2">
           <Users2 size={14} style={{ color: "var(--text-mid)" }} />
@@ -122,14 +122,14 @@ export default function Journal({ save }: { save: ClientSave }) {
             <div key={p.id} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
               <button className="w-full flex items-center justify-between gap-3 text-left" onClick={() => setOpenPerson(open ? null : p.id)}>
                 <span className="text-[13px] font-medium">{p.name}</span>
-                <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>{feel(p.warmth, p.trust)}{aboutThem.length ? ` Â· ${aboutThem.length} known` : ""}</span>
+                <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>{feel(p.warmth, p.trust)}{aboutThem.length ? ` · ${aboutThem.length} known` : ""}</span>
               </button>
               {open && aboutThem.length > 0 && (
                 <div className="mt-1.5 pl-3">
                   {aboutThem.map((f, i) => (
                     <div key={i} className="text-[12px] py-0.5" style={{ color: "var(--text-mid)" }}>
                       {f.content}
-                      {sourceLabel((f as any).source) && <span className="text-[10px] ml-1.5" style={{ color: "var(--text-lo)" }}>â€” {sourceLabel((f as any).source)}</span>}
+                      {sourceLabel((f as any).source) && <span className="text-[10px] ml-1.5" style={{ color: "var(--text-lo)" }}>— {sourceLabel((f as any).source)}</span>}
                     </div>
                   ))}
                 </div>
@@ -142,13 +142,13 @@ export default function Journal({ save }: { save: ClientSave }) {
         })}
       </section>
 
-      {/* â”€â”€ OPEN LOOPS â”€â”€ */}
+      {/* ── OPEN LOOPS ── */}
       <section>
         <div className="flex items-center gap-2 mb-2">
           <CircleHelp size={14} style={{ color: "var(--text-mid)" }} />
           <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-mid)" }}>Open loops</h3>
         </div>
-        {threads.length === 0 && <div className="text-[12.5px]" style={{ color: "var(--text-lo)" }}>Nothing hanging â€” the water's still.</div>}
+        {threads.length === 0 && <div className="text-[12.5px]" style={{ color: "var(--text-lo)" }}>Nothing hanging — the water's still.</div>}
         {threads.map((t) => (
           <div key={t.id} className="flex items-baseline justify-between gap-3 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
             <div className="text-[12.5px]">{t.title}</div>

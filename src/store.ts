@@ -36,7 +36,7 @@ export async function getSave(id: string): Promise<SaveState | null> {
 
 export async function deleteSave(id: string): Promise<void> {
   await tx("readwrite", (store) => store.delete(id));
-  // side rows (recovery/backup) carry full state copies incl. image data â€” deleting the save
+  // side rows (recovery/backup) carry full state copies incl. image data — deleting the save
   // used to orphan them in IndexedDB forever
   await tx("readwrite", (store) => store.delete(`${id}::recovery`)).catch(() => {});
   await tx("readwrite", (store) => store.delete(`${id}::backup`)).catch(() => {});
@@ -50,10 +50,10 @@ export async function listSaves(): Promise<{ id: string; name: string; updated_a
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
 
-/** â”€â”€ SAFETY RAILS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/** ── SAFETY RAILS ─────────────────────────────────────────────────────────────
  * Side rows in the same store, keyed `${id}::recovery` and `${id}::backup`.
  * recovery = the FULL pre-rollback state (snapshots included), written the moment
- * a rollback executes â€” one level of undo for the "oh fuck" moment.
+ * a rollback executes — one level of undo for the "oh fuck" moment.
  * backup   = a rolling checkpoint written every 25 turns, so catastrophic loss is
  * bounded even when no export exists. Neither appears in save lists. */
 export async function putSideRow(id: string, kind: "recovery" | "backup", s: SaveState): Promise<void> {

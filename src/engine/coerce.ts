@@ -7,11 +7,11 @@
 // where they came in: `(i.taste ?? "").trim is not a function` fires in the desire engine, three
 // systems away from the Forge call that accepted the bad value.
 //
-// So nothing model-authored reaches state without passing through here. `?? ""` is not a guard â€” it
+// So nothing model-authored reaches state without passing through here. `?? ""` is not a guard — it
 // only catches null and undefined, and the problem is never null. It is an array where a string
 // belongs.
 
-/** Any model value â†’ string. Arrays join, objects stringify, numbers render, nullish â†’ "". */
+/** Any model value → string. Arrays join, objects stringify, numbers render, nullish → "". */
 export function asText(v: unknown, joiner = ", "): string {
   if (v == null) return "";
   if (typeof v === "string") return v.trim();
@@ -24,7 +24,7 @@ export function asText(v: unknown, joiner = ", "): string {
   return "";
 }
 
-/** Any model value â†’ string[]. Strings split on commas/semicolons/newlines; nullish â†’ []. */
+/** Any model value → string[]. Strings split on commas/semicolons/newlines; nullish → []. */
 export function asList(v: unknown, cap = 12): string[] {
   if (v == null) return [];
   if (Array.isArray(v)) return v.map((x) => asText(x)).map((s) => s.trim()).filter(Boolean).slice(0, cap);
@@ -33,12 +33,12 @@ export function asList(v: unknown, cap = 12): string[] {
   return one ? [one] : [];
 }
 
-/** Any model value â†’ number in [lo, hi], or undefined when it isn't a usable number. */
+/** Any model value → number in [lo, hi], or undefined when it isn't a usable number. */
 export function asNum(v: unknown, lo: number, hi: number): number | undefined {
   let n: number;
   if (typeof v === "number") n = v;
   else if (typeof v === "string") {
-    // strip units ("170cm") but never let a value with no digits become 0 â€” Number("") is 0, which
+    // strip units ("170cm") but never let a value with no digits become 0 — Number("") is 0, which
     // would silently turn conscience:"unknown" into conscience:0 and make the character a sociopath.
     const digits = v.replace(/[^0-9.\-]/g, "");
     n = /[0-9]/.test(digits) ? Number(digits) : NaN;
@@ -47,8 +47,8 @@ export function asNum(v: unknown, lo: number, hi: number): number | undefined {
   return Math.max(lo, Math.min(hi, n));
 }
 
-/** If canon declares that this world's people use a specific pronoun set â€” "they use xe/xem",
- *  "everyone uses ze/zir", "only they/them" â€” return that set as a "subj/obj/poss" string the
+/** If canon declares that this world's people use a specific pronoun set — "they use xe/xem",
+ *  "everyone uses ze/zir", "only they/them" — return that set as a "subj/obj/poss" string the
  *  narration layer understands. Returns undefined when canon says nothing, i.e. an ordinary world.
  *
  *  This exists because a model, told a world has no men or women, still tends to stamp "she/her" on
@@ -70,14 +70,14 @@ export function detectWorldPronoun(canon: string[] | undefined): string | undefi
   return set;
 }
 
-/** When the world uses one pronoun set, natives cannot speak "he/him/his/she/her/hers" â€” those words
+/** When the world uses one pronoun set, natives cannot speak "he/him/his/she/her/hers" — those words
  *  don't exist for them. The narrator still slips them into DIALOGUE. This repairs only inside quotes,
  *  never in narration (where an outsider player with different pronouns legitimately takes "him"), and
  *  leaves the player's own name-adjacent references alone. Returns the fixed prose and a count.
  *
  *  Deliberately conservative: a wrong correction is worse than a missed one, so it only fires on the
  *  common set xe/xem/xer and only rewrites a gendered pronoun that is NOT within two words of the
- *  player's name (so "Rabi said he was lost", spoken by a native quoting the outsider, is left be â€”
+ *  player's name (so "Rabi said he was lost", spoken by a native quoting the outsider, is left be —
  *  that is a marked moment, not a slip). */
 export function repairNativePronouns(prose: string, worldPronoun: string | undefined, playerName: string): { prose: string; fixed: number } {
   if (!worldPronoun) return { prose, fixed: 0 };

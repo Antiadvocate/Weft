@@ -1,10 +1,10 @@
 
 /**
- * SCENE TONE â€” one derived signal that drives every ambient layer.
+ * SCENE TONE — one derived signal that drives every ambient layer.
  * The engine already computes the real state (player openness, thread tension, weather,
  * mood); this module reads it and folds it into a single tone the visual layers key off:
  * particle kind/density/speed, backdrop palette, and prose reveal cadence.
- * Pure + deterministic: same save â†’ same tone. No engine writes, ever.
+ * Pure + deterministic: same save → same tone. No engine writes, ever.
  */
 import type { ClientSave } from "./api";
 
@@ -14,7 +14,7 @@ export type ParticleKind = "motes" | "embers" | "ash" | "rain" | "snow" | "fog";
 export interface SceneTone {
   id: ToneId;
   particle: ParticleKind;
-  density: number;    // 0..1 â€” how populated the field is
+  density: number;    // 0..1 — how populated the field is
   speed: number;      // multiplier on the kind's base velocity
   color: string;      // particle base color (rgba)
   revealMs: number;   // per-word stagger for prose reveal
@@ -25,7 +25,7 @@ const GRIEF = /\bgrief|mourn|sorrow|loss|bereft|hollow\b/;
 const WONDER = /\bawe|wonder|transcend|luminous|vast\b/;
 const WARM = /\bwarm|tender|content|safe|loved|held\b/;
 
-/** Weather words override the tone's default particle â€” rain is rain whatever the mood. */
+/** Weather words override the tone's default particle — rain is rain whatever the mood. */
 function weatherParticle(weather: string): ParticleKind | null {
   const w = (weather || "").toLowerCase();
   if (/rain|storm|drizzle|downpour|squall/.test(w)) return "rain";
@@ -52,8 +52,8 @@ export function sceneTone(save: ClientSave): SceneTone {
   else if (r >= 4 && WARM.test(moodText)) id = "warm";
   else if (r >= 4) id = "calm";
 
-  // openness â†’ breathing period: clenched breathes fast and shallow, open breathes slow and deep
-  const breathS = 1.6 + ((r + 10) / 20) * 4.6; // -10 â†’ 1.6s, +10 â†’ 6.2s
+  // openness → breathing period: clenched breathes fast and shallow, open breathes slow and deep
+  const breathS = 1.6 + ((r + 10) / 20) * 4.6; // -10 → 1.6s, +10 → 6.2s
 
   const base: Record<ToneId, Omit<SceneTone, "id" | "breathS">> = {
     calm:    { particle: "motes",  density: 0.45, speed: 0.5,  color: "rgba(236,228,212,0.5)",  revealMs: 34 },
@@ -75,7 +75,7 @@ export function sceneTone(save: ClientSave): SceneTone {
   return t;
 }
 
-/* â”€â”€ seeded randomness â€” deterministic backdrops and map layouts â”€â”€ */
+/* ── seeded randomness — deterministic backdrops and map layouts ── */
 
 export function hashSeed(s: string): number {
   let h = 2166136261 >>> 0;
@@ -93,7 +93,7 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** Seeded 2D value noise (bilinear over a hashed lattice) â€” enough for a color field. */
+/** Seeded 2D value noise (bilinear over a hashed lattice) — enough for a color field. */
 export function makeNoise2D(seed: number): (x: number, y: number) => number {
   const lattice = (ix: number, iy: number) => {
     let h = (ix * 374761393 + iy * 668265263 + seed * 951274213) >>> 0;
@@ -112,8 +112,8 @@ export function makeNoise2D(seed: number): (x: number, y: number) => number {
 export const reducedMotion = (): boolean =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-/* â”€â”€ ambience level â€” the prose is the point; the ambient layers must never cost readability.
-      off: nothing mounts. subtle (default): faint presence. full: the previous look, tamed. â”€â”€ */
+/* ── ambience level — the prose is the point; the ambient layers must never cost readability.
+      off: nothing mounts. subtle (default): faint presence. full: the previous look, tamed. ── */
 export type AmbienceLevel = "off" | "subtle" | "full";
 const AMB_KEY = "weft-ambience";
 export function getAmbience(): AmbienceLevel {

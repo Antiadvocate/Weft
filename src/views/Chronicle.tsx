@@ -6,7 +6,7 @@ import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
 import { nice, niceCap } from "../lib/format";
 
-/** Everything here is computed locally from telemetry â€” zero token cost. */
+/** Everything here is computed locally from telemetry — zero token cost. */
 export default function Chronicle({ save }: { save: ClientSave }) {
   const [reading, setReading] = useState((save as any).persona_reading as { turn: number; mbti: string; read: string; traits: string[]; arc: string } | undefined);
   const [readingBusy, setReadingBusy] = useState(false);
@@ -55,7 +55,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     return { turns, words, tokens, ms, avgPressure, peak, screenTime, bonds, moods, pressures, rumorsBorn, rumorsFalse, beliefs, memTotal, traitsGrown, consequencesFired, quietest };
   }, [tel, save]);
 
-  // â”€â”€ character arcs: who changed, and how â”€â”€ (must run before any early return â€” rules of hooks)
+  // ── character arcs: who changed, and how ── (must run before any early return — rules of hooks)
   const arcs = useMemo(() => {
     if (!tel.length) return [] as any[];
     const screen: Record<string, number> = {};
@@ -78,7 +78,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     }).filter((a) => a.c);
   }, [tel, save]);
 
-  // â”€â”€ superlatives: the records of this chronicle â”€â”€ (also a hook â€” keep above early return)
+  // ── superlatives: the records of this chronicle ── (also a hook — keep above early return)
   const records = useMemo(() => {
     const out: { label: string; value: string }[] = [];
     if (!tel.length) return out;
@@ -90,12 +90,12 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       const r = Math.max(...vals) - Math.min(...vals);
       if (r > volRange) { volRange = r; volName = nm; }
     }
-    if (volName && volRange >= 8) out.push({ label: "Most volatile bond", value: `${volName} â€” warmth swung ${Math.round(volRange)} points` });
+    if (volName && volRange >= 8) out.push({ label: "Most volatile bond", value: `${volName} — warmth swung ${Math.round(volRange)} points` });
     // steadiest companion
     const screen: Record<string, number> = {};
     for (const t of tel) for (const id of t.present) if (id !== "char_player") screen[id] = (screen[id] ?? 0) + 1;
     const steadiest = Object.entries(screen).sort((a, b) => b[1] - a[1])[0];
-    if (steadiest) out.push({ label: "Steadiest companion", value: `${save.characters[steadiest[0]]?.name} â€” in ${steadiest[1]} of ${tel.length} scenes` });
+    if (steadiest) out.push({ label: "Steadiest companion", value: `${save.characters[steadiest[0]]?.name} — in ${steadiest[1]} of ${tel.length} scenes` });
     // busiest gossip
     const gossip: Record<string, number> = {};
     for (const r of save.world.rumors) gossip[r.origin_char] = (gossip[r.origin_char] ?? 0) + 1;
@@ -107,25 +107,25 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     if (best >= 3) out.push({ label: "The long quiet", value: `${best} consecutive turns at low pressure` });
     // the day everything happened
     const busiest = save.history.slice().sort((a, b) => (b.shifts?.length ?? 0) - (a.shifts?.length ?? 0))[0];
-    if (busiest?.shifts?.length) out.push({ label: "The day everything happened", value: `turn ${busiest.turn} â€” ${busiest.shifts.length} shifts (${busiest.time_label})` });
+    if (busiest?.shifts?.length) out.push({ label: "The day everything happened", value: `turn ${busiest.turn} — ${busiest.shifts.length} shifts (${busiest.time_label})` });
     // deepest mark: most reinforced trait in the world
     let mark: { name: string; label: string; n: number } | null = null;
     for (const [id, ts] of Object.entries(save.traits)) for (const t of ts ?? []) {
       if (!mark || t.reinforcement_count > mark.n) mark = { name: save.characters[id]?.name ?? id, label: t.label, n: t.reinforcement_count };
     }
-    if (mark && mark.n >= 2) out.push({ label: "Deepest mark", value: `${mark.name} â€” "${niceCap(mark.label)}", reinforced Ã—${mark.n}` });
+    if (mark && mark.n >= 2) out.push({ label: "Deepest mark", value: `${mark.name} — "${niceCap(mark.label)}", reinforced ×${mark.n}` });
     for (const v of save.vessel_history ?? []) {
-      out.push({ label: "A vessel changed", value: `${v.from_name} â†’ ${v.to_name}, turn ${v.turn} (${v.time_label})` });
+      out.push({ label: "A vessel changed", value: `${v.from_name} → ${v.to_name}, turn ${v.turn} (${v.time_label})` });
     }
     const interludes = save.history.filter((h) => h.kind === "interlude").length;
-    if (interludes) out.push({ label: "The world turned alone", value: `${interludes} interlude${interludes > 1 ? "s" : ""} â€” days the chronicle ran without you` });
+    if (interludes) out.push({ label: "The world turned alone", value: `${interludes} interlude${interludes > 1 ? "s" : ""} — days the chronicle ran without you` });
     // emotional-weather records from the real signal (player mood valence over the run)
     const moods = tel.map((t) => t.player_mood_valence ?? 0);
     if (moods.length) {
       const lowIdx = moods.indexOf(Math.min(...moods));
       const highIdx = moods.indexOf(Math.max(...moods));
-      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn} â€” you were most clenched here (${tel[lowIdx].time_label})` });
-      if (moods[highIdx] >= 5) out.push({ label: "The most open you got", value: `turn ${tel[highIdx].turn} â€” ${tel[highIdx].time_label}` });
+      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn} — you were most clenched here (${tel[lowIdx].time_label})` });
+      if (moods[highIdx] >= 5) out.push({ label: "The most open you got", value: `turn ${tel[highIdx].turn} — ${tel[highIdx].time_label}` });
       // longest stretch in the clench (negative mood)
       let run = 0, best = 0;
       for (const m of moods) { run = m <= -3 ? run + 1 : 0; best = Math.max(best, run); }
@@ -146,7 +146,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         }
       }
       if (misreaders.length) out.push({ label: "Carrying a misread of you", value: misreaders.join(", ") });
-      if (widest) out.push({ label: "Widest gap between read and truth", value: `${widest.name} â€” ${Math.round(widest.gap)} points off how they picture you` });
+      if (widest) out.push({ label: "Widest gap between read and truth", value: `${widest.name} — ${Math.round(widest.gap)} points off how they picture you` });
     }
     return out;
   }, [tel, save]);
@@ -156,14 +156,14 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       <div className="h-full flex items-center justify-center px-8 text-center">
         <div>
           <div className="font-display text-lg mb-1.5">Nothing chronicled yet.</div>
-          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The engine keeps its own records â€” every chart here costs zero tokens.</div>
+          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The engine keeps its own records — every chart here costs zero tokens.</div>
         </div>
       </div>
     );
   }
 
   const facts: string[] = [
-    `${stats.rumorsBorn} rumors entered the world â€” ${stats.rumorsFalse} of them weren't true.`,
+    `${stats.rumorsBorn} rumors entered the world — ${stats.rumorsFalse} of them weren't true.`,
     `The cast holds ${stats.memTotal} memories and has distilled ${stats.beliefs} beliefs about you and each other.`,
     stats.traitsGrown > 0 ? `${stats.traitsGrown} acquired traits have grown on people because of what happened.` : `No one has been permanently changed yet. Give it time.`,
     stats.consequencesFired > 0 ? `${stats.consequencesFired} delayed consequences came back around.` : `Consequences are still in flight. They land whether you watch or not.`,
@@ -206,7 +206,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                   </div>
                   {!done && !!p?.missing && (
                     <div className="text-[12.5px] leading-relaxed mt-2.5" style={{ color: "var(--text-mid)" }}>
-                      <span style={{ color: "var(--text-lo)" }}>Still in the way â€” </span>{p.missing}
+                      <span style={{ color: "var(--text-lo)" }}>Still in the way — </span>{p.missing}
                     </div>
                   )}
                 </>
@@ -218,13 +218,13 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {!!chapters?.length && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>The story so far â€” chapters</Title>
+            <Title>The story so far — chapters</Title>
             <div className="mb-3 p-3 rounded-xl" style={{ background: "var(--ink-1)" }}>
               <div className="flex items-center justify-between">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>the player, as played</div>
                 <button className="chip" disabled={readingBusy}
                   onClick={async () => { setReadingBusy(true); try { setReading(await api.analyzePersona(save.id)); } finally { setReadingBusy(false); } }}>
-                  {readingBusy ? "readingâ€¦" : reading ? "re-read" : "read me"}
+                  {readingBusy ? "reading…" : reading ? "re-read" : "read me"}
                 </button>
               </div>
               {reading && (
@@ -249,7 +249,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                   </div>
                   <div className="pb-1">
                     <div className="text-[13.5px] font-display">{c.title}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>turns {c.from_turn}â€“{c.to_turn}</div>
+                    <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>turns {c.from_turn}–{c.to_turn}</div>
                     <div className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-mid)" }}>{c.summary}</div>
                     {c.persona && (
                       <div className="mt-1.5 pl-2" style={{ borderLeft: "2px solid var(--ink-2)" }}>
@@ -258,7 +258,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                         <div className="flex flex-wrap gap-1 mt-1">
                           {c.persona.traits.map((t, i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: "var(--ink-2)", color: "var(--text-lo)" }}>{t}</span>)}
                         </div>
-                        {c.persona.shift && <div className="text-[10.5px] italic mt-1" style={{ color: "var(--text-lo)" }}>â†³ {c.persona.shift}</div>}
+                        {c.persona.shift && <div className="text-[10.5px] italic mt-1" style={{ color: "var(--text-lo)" }}>↳ {c.persona.shift}</div>}
                       </div>
                     )}
                   </div>
@@ -271,7 +271,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {marginalia.length > 0 && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>Marginalia â€” what the world noted</Title>
+            <Title>Marginalia — what the world noted</Title>
             <div className="space-y-1.5 mt-1 max-h-64 overflow-y-auto scroll-y">
               {marginalia.map((m, i) => (
                 <div key={i} className="flex gap-2.5 items-baseline">
@@ -285,7 +285,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       )}
       <Fade delay={0}>
         <div className="card p-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>Token usage â€” this chronicle</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>Token usage — this chronicle</div>
           {(() => {
             const inTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.simulator_tokens_in, 0);
             const outTok = tel.reduce((a, t) => a + t.narrator_tokens_out + t.simulator_tokens_out, 0);
@@ -303,7 +303,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 <div className="flex justify-between text-[13px] py-0.5" style={{ borderTop: "1px solid var(--line)", marginTop: 4, paddingTop: 6 }}><span>Total</span><span className="font-mono">{stats.tokens.toLocaleString()}</span></div>
                 <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--text-lo)" }}>per turn (avg)</span><span className="font-mono" style={{ color: "var(--text-lo)" }}>{perTurn.toLocaleString()}</span></div>
                 {cachedTok > 0 ? (
-                  <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--calm)" }}>cache hits (billed ~Â¼)</span><span className="font-mono" style={{ color: "var(--calm)" }}>{cacheRatio}% of input</span></div>
+                  <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--calm)" }}>cache hits (billed ~¼)</span><span className="font-mono" style={{ color: "var(--calm)" }}>{cacheRatio}% of input</span></div>
                 ) : (
                   <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--accent)" }}>cache hits</span><span className="font-mono" style={{ color: "var(--accent)" }}>none detected</span></div>
                 )}
@@ -311,11 +311,11 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                   <div className="flex justify-between text-[12px] py-0.5"><span style={{ color: "var(--text-mid)" }}>actual cost (provider)</span><span className="font-mono">${realCost.toFixed(3)}</span></div>
                 )}
                 <div className="text-[11px] mt-2.5 leading-relaxed" style={{ color: pricey ? "var(--danger)" : "var(--text-lo)" }}>
-                  Narrator: <span className="font-mono">{nm}</span> â€” runs every turn ({narrTok.toLocaleString()} tokens, {Math.round(narrTok / Math.max(stats.tokens, 1) * 100)}% of all usage).
+                  Narrator: <span className="font-mono">{nm}</span> — runs every turn ({narrTok.toLocaleString()} tokens, {Math.round(narrTok / Math.max(stats.tokens, 1) * 100)}% of all usage).
                   {pricey ? " This is a premium model; cost adds up fast at this volume. A cheaper narrator in Tuning cuts most of the spend." : ""}
                 </div>
                 <div className="text-[10.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-                  See live billing at openrouter.ai/activity â€” Weft tracks token counts, not prices.
+                  See live billing at openrouter.ai/activity — Weft tracks token counts, not prices.
                 </div>
               </>
             );
@@ -327,7 +327,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
           <Stat label="Turns" value={String(stats.turns)} sub={save.world.current_time} />
           <Stat label="Words lived" value={stats.words.toLocaleString()} sub={`${Math.round(stats.words / Math.max(stats.turns, 1))}/turn`} />
           <Stat label="Tokens spent" value={stats.tokens.toLocaleString()} sub={`${Math.round(stats.tokens / Math.max(stats.turns, 1)).toLocaleString()}/turn`} />
-          <Stat label="Avg pressure" value={stats.avgPressure.toFixed(1)} sub={`peak ${stats.peak?.pressure ?? 0} @ t${stats.peak?.turn ?? "â€”"}`} />
+          <Stat label="Avg pressure" value={stats.avgPressure.toFixed(1)} sub={`peak ${stats.peak?.pressure ?? 0} @ t${stats.peak?.turn ?? "—"}`} />
         </div>
       </Fade>
 
@@ -342,7 +342,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
               return <div key={i} className="flex-1" style={{ background: col }} />;
             })}
           </div>
-          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather â€” red is clenched, amber guarded, green open.</Note>
+          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather — red is clenched, amber guarded, green open.</Note>
         </div>
       </Fade>
 
@@ -350,7 +350,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         <div className="card p-4">
           <Title>Your inner weather</Title>
           <MoodArc values={stats.moods} />
-          <Note>Mood valence per turn, âˆ’10 to +10. The line above the dashes is the good days.</Note>
+          <Note>Mood valence per turn, −10 to +10. The line above the dashes is the good days.</Note>
         </div>
       </Fade>
 
@@ -381,7 +381,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {arcs.length > 0 && (
         <Fade delay={0.18}>
           <div className="card p-4">
-            <Title>Arcs â€” how people changed</Title>
+            <Title>Arcs — how people changed</Title>
             <div className="space-y-4 mt-1">
               {arcs.map((a) => (
                 <div key={a.id} className="pb-3" style={{ borderBottom: "1px solid var(--line)" }}>
@@ -390,14 +390,14 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                     <div className="flex-1 min-w-0">
                       <div className="font-display text-[15px]">{a.c.name}</div>
                       <div className="font-mono text-[9.5px]" style={{ color: "var(--text-lo)" }}>
-                        {a.scenes} scenes{a.psy ? ` Â· now ${nice(a.psy.mood)}` : ""}{a.psy && a.psy.state !== "intact" ? ` Â· ${nice(a.psy.state)}` : ""}
+                        {a.scenes} scenes{a.psy ? ` · now ${nice(a.psy.mood)}` : ""}{a.psy && a.psy.state !== "intact" ? ` · ${nice(a.psy.state)}` : ""}
                       </div>
                     </div>
                     {a.warmth.length >= 2 && (
                       <div className="text-right">
                         <Sparkline values={a.warmth} w={84} h={24} yMin={-100} yMax={100}
                           stroke={a.warmth[a.warmth.length - 1] >= a.warmth[0] ? "var(--calm)" : "var(--danger)"} fill />
-                        <div className="font-mono text-[8.5px]" style={{ color: "var(--text-lo)" }}>warmth â†’ you</div>
+                        <div className="font-mono text-[8.5px]" style={{ color: "var(--text-lo)" }}>warmth → you</div>
                       </div>
                     )}
                   </div>
@@ -405,13 +405,13 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {a.traits.slice(0, 3).map((t: AcquiredTrait) => (
                         <span key={t.id} className="chip" style={{ textTransform: "none", letterSpacing: 0 }}>
-                          {niceCap(t.label)} Ã—{t.reinforcement_count}
+                          {niceCap(t.label)} ×{t.reinforcement_count}
                         </span>
                       ))}
                     </div>
                   )}
                   {a.beliefs.map((b: Belief, i: number) => (
-                    <div key={i} className="text-[12px] mt-1.5" style={{ color: "var(--accent)" }}>â€» {b.content}</div>
+                    <div key={i} className="text-[12px] mt-1.5" style={{ color: "var(--accent)" }}>※ {b.content}</div>
                   ))}
                   {a.heaviest && (
                     <div className="text-[12px] italic mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>
@@ -456,7 +456,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
           <div className="space-y-2 mt-1">
             {facts.map((f, i) => (
               <div key={i} className="text-[13px] leading-relaxed flex gap-2">
-                <span style={{ color: "var(--accent)" }}>âœ§</span>
+                <span style={{ color: "var(--accent)" }}>✧</span>
                 <span style={{ color: "var(--text-mid)" }}>{f}</span>
               </div>
             ))}

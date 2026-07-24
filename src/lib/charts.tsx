@@ -34,7 +34,7 @@ export function Sparkline({ values, w = 120, h = 34, stroke = "var(--accent)", y
   );
 }
 
-/** Live pressure seismograph + optional instability hairline (Î»Ì‚ of the social map). */
+/** Live pressure seismograph + optional instability hairline (λ̂ of the social map). */
 export function Seismograph({ trace, overlay, w = 340, h = 32, max = 60 }: { trace: number[]; overlay?: number[]; w?: number; h?: number; max?: number }) {
   const vals = trace.slice(-max);
   const gap = w / max;
@@ -66,10 +66,10 @@ function clampL(v: number, lo: number, hi: number) { return Math.max(lo, Math.mi
 /** Cusp catastrophe glyph: the bistable wedge in the (b, a) control plane + this psyche's position. */
 export function CuspGlyph({ a, b, x, size = 86 }: { a: number; b: number; x: number; size?: number }) {
   const w = size, h = size * 0.78;
-  // control plane: b âˆˆ [âˆ’1.2, 1.2] horizontal, a âˆˆ [0.4, âˆ’1.6] vertical (fold deepens downward)
+  // control plane: b ∈ [−1.2, 1.2] horizontal, a ∈ [0.4, −1.6] vertical (fold deepens downward)
   const px = (bv: number) => ((bv + 1.2) / 2.4) * w;
   const py = (av: number) => ((0.4 - av) / 2.0) * h;
-  // wedge boundary: |b| = 2(âˆ’a/3)^{3/2} for a â‰¤ 0
+  // wedge boundary: |b| = 2(−a/3)^{3/2} for a ≤ 0
   const left: string[] = [], right: string[] = [];
   for (let av = 0; av >= -1.6; av -= 0.05) {
     const bb = 2 * Math.pow(-av / 3, 1.5);
@@ -101,7 +101,7 @@ export function Bars({ data, w = 320, h = 120, color = "var(--accent)" }: {
         return (
           <g key={d.label} transform={`translate(0,${i * rowH})`}>
             <text x={0} y={rowH / 2 + 3.5} fill="var(--text-mid)" fontSize={10.5} fontFamily="var(--font-mono)">
-              {d.label.length > 14 ? d.label.slice(0, 13) + "â€¦" : d.label}
+              {d.label.length > 14 ? d.label.slice(0, 13) + "…" : d.label}
             </text>
             <rect x={104} y={rowH / 2 - 5} width={Math.max(bw, 2)} height={10} rx={5} fill={color} opacity={0.85} />
             <text x={110 + bw} y={rowH / 2 + 3.5} fill="var(--text-lo)" fontSize={10} fontFamily="var(--font-mono)">

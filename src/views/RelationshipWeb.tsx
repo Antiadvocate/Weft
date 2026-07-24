@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import type { ClientSave } from "../lib/api";
 
 /** The social web. Player at center, cast around a ring. Edges colored by warmth
- *  (green warm â†” red hostile), thickness by strength. Tap a node to focus its ties. */
+ *  (green warm ↔ red hostile), thickness by strength. Tap a node to focus its ties. */
 export function RelationshipWeb({ save }: { save: ClientSave }) {
   const [focus, setFocus] = useState<string | null>(null);
   const ids = Object.keys(save.characters).filter((id) => { const st = save.characters[id]?.status; return st !== "dead" && st !== "departed"; });
@@ -67,7 +67,7 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
         <span style={{ color: "var(--calm)" }}>â— warm</span>
         <span style={{ color: "#a8743f" }}>â— cool</span>
         <span style={{ color: "var(--danger)" }}>â— hostile</span>
-        <span>Â· tap a face to isolate</span>
+        <span>· tap a face to isolate</span>
       </div>
       {focus && (() => {
         const ch = save.characters[focus];

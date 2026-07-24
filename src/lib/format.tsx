@@ -3,7 +3,7 @@
 import React from "react";
 import { Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, Moon, Snowflake, Sun, Wind } from "lucide-react";
 
-/** "terrified_by_heat" / "hungry-eating" / "testingRabi" â†’ "terrified by heat" etc. */
+/** "terrified_by_heat" / "hungry-eating" / "testingRabi" → "terrified by heat" etc. */
 export function nice(s: string): string {
   if (!s) return s;
   return s
@@ -19,7 +19,7 @@ export function niceCap(s: string): string {
   return n.charAt(0).toUpperCase() + n.slice(1);
 }
 
-/** Parse "Day 2, 14:30 (Afternoon)" â†’ {h, m} or null. */
+/** Parse "Day 2, 14:30 (Afternoon)" → {h, m} or null. */
 export function parseClock(label?: string): { h: number; m: number } | null {
   const mt = label?.match(/(\d{1,2}):(\d{2})/);
   if (!mt) return null;

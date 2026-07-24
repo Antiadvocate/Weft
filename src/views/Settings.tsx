@@ -21,7 +21,7 @@ export function applyProseFont(id: string) {
   localStorage.setItem("weft-prose-font", f.id);
 }
 
-/* Field components live at MODULE level â€” defining them inside the component
+/* Field components live at MODULE level — defining them inside the component
    recreates the type every render, React remounts the input, and the keyboard
    dies after one keystroke. Never again. */
 function TextField({ label, value, onChange, mono, rows }: {
@@ -109,7 +109,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
   const previewTheme = (t: string) => {
     setTheme(t);
-    // live preview â€” saving makes it stick to the save file
+    // live preview — saving makes it stick to the save file
     document.documentElement.setAttribute("data-theme", t === "auto" ? "ember" : t);
   };
 
@@ -134,7 +134,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
-      <SectionHeader label="The story" blurb="How this world behaves â€” tension, direction, canon." />
+      <SectionHeader label="The story" blurb="How this world behaves — tension, direction, canon." />
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World tension</div>
         <div className="flex items-center justify-between mb-1">
@@ -146,49 +146,49 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           className="w-full" style={{ accentColor: "var(--accent)" }} />
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
           {(draft.tension ?? 5) === 0
-            ? "0 â€” at rest. The world introduces nothing new: no fresh threats, threads, events, faction moves, or background drives. It only responds to what you do. Pure breathing room."
+            ? "0 — at rest. The world introduces nothing new: no fresh threats, threads, events, faction moves, or background drives. It only responds to what you do. Pure breathing room."
             : (draft.tension ?? 5) <= 2
-              ? "Low â€” quiet. Existing situations can resolve and people react, but little new friction is manufactured, and no scheduled consequences are created."
+              ? "Low — quiet. Existing situations can resolve and people react, but little new friction is manufactured, and no scheduled consequences are created."
               : (draft.tension ?? 5) <= 4
-                ? "Below midpoint â€” gentle. Friction stays mild; the world rarely escalates on its own."
+                ? "Below midpoint — gentle. Friction stays mild; the world rarely escalates on its own."
                 : (draft.tension ?? 5) === 5
-                  ? "Balanced â€” the default rhythm of complication and calm."
+                  ? "Balanced — the default rhythm of complication and calm."
                   : (draft.tension ?? 5) <= 7
-                    ? "Above midpoint â€” eventful. The world presses harder and more often."
-                    : "High â€” relentless. Expect frequent, fast escalation."}
+                    ? "Above midpoint — eventful. The world presses harder and more often."
+                    : "High — relentless. Expect frequent, fast escalation."}
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible â€” every rule, yours (live next turn)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, yours (live next turn)</div>
 
         <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
           style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
-          {godMode ? "â—‰" : "â—‹"} god mode â€” powers cost nothing; the world reacts to a god
+          {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to a god
         </button>
 
         <TextField label="Name" value={bible.name} onChange={setB("name")} />
         <TextField label="Era" value={bible.era} onChange={setB("era")} />
-        <TextField label="Art direction (portraits & scenes â€” style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
+        <TextField label="Art direction (portraits & scenes — style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
-          e.g. "muted painterly chiaroscuro, oil texture" Â· "90s cel anime, hard ink lines" Â· "gritty photoreal, 35mm film grain". Portraits are full-body on white studio; scenes use this same style.
+          e.g. "muted painterly chiaroscuro, oil texture" · "90s cel anime, hard ink lines" · "gritty photoreal, 35mm film grain". Portraits are full-body on white studio; scenes use this same style.
         </div>
         <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
-        <TextField label="Magic / power rules (incl. any costs â€” delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
+        <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
         <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
-        <TextField label="Start date of Day 1 (YYYY-MM-DD â€” unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
+        <TextField label="Start date of Day 1 (YYYY-MM-DD — unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
         <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
         <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
         <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
         <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
-        <TextField label="Pressure palette (comma-sep â€” where friction is allowed to come from)" value={palette} onChange={setPalette} rows={2} />
+        <TextField label="Pressure palette (comma-sep — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={2} />
         <TextField label="Never the primary engine of a scene (comma-sep)" value={forbidPrimary} onChange={setForbidPrimary} rows={2} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
-        <TextField label="Destination â€” the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
+        <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
         {!!bible.destination?.trim() && (
           <div className="mt-2">
             <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
-              Turn budget â€” 0 = no clock (gravity, not fate)
+              Turn budget — 0 = no clock (gravity, not fate)
             </div>
             <input className="field" inputMode="numeric" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
               value={String(bible.destination_turns || "")}
@@ -202,7 +202,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
         {!!save.retcons?.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Struck from the story â€” the narrator cannot write these</div>
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Struck from the story — the narrator cannot write these</div>
             <div className="space-y-1.5">
               {save.retcons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
@@ -213,7 +213,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             </div>
           </div>
         )}
-        <TextField label="Established canon (one per line â€” world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
+        <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
 
         <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>
         {(Object.keys(DIFF_OPTIONS) as (keyof typeof DIFF_OPTIONS)[]).map((k) => (
@@ -237,7 +237,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           <Braces size={14} /> Raw world edit (full JSON)
         </button>
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
-          Edit the world directly â€” bible, threads, faction clocks, places, edges, canon. Handy at turn 1 to fix anything the forge over-baked.
+          Edit the world directly — bible, threads, faction clocks, places, edges, canon. Handy at turn 1 to fix anything the forge over-baked.
         </div>
       </div>
       <div className="card p-4">
@@ -249,7 +249,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             try { const v = await api.generateOpening(save.id); setSave(v); const op = v.history.find((h: any) => h.kind === "opening"); setOpeningText(op?.narrator_prose ?? ""); }
             catch (e: any) { alert(`Opening failed: ${e.message}`); }
             finally { setOpeningBusy(false); }
-          }}>{openingBusy ? "writingâ€¦" : "Generate"}</button>
+          }}>{openingBusy ? "writing…" : "Generate"}</button>
           <button className="btn btn-ghost flex-1" onClick={() => {
             const op = save.history.find((h: any) => h.kind === "opening");
             setOpeningText(op?.narrator_prose ?? "");
@@ -267,7 +267,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live â€” save to keep)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live — save to keep)</div>
         <div className="flex flex-wrap gap-2">
           {THEMES.map((t) => (
             <button key={t} className="chip" onClick={() => previewTheme(t)}
@@ -295,7 +295,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
         {ttsAvailable() && (
           <>
-            <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Reader (system voice â€” device setting)</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Reader (system voice — device setting)</div>
             <select className="field" value={tts.voiceURI ?? ""} onChange={(e) => updTts({ voiceURI: e.target.value || undefined })}>
               <option value="">System default voice</option>
               {listVoices().map((v) => (
@@ -303,7 +303,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
               ))}
             </select>
             <div className="flex items-center gap-3 mt-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>speed {(tts.rate ?? 1).toFixed(1)}Ã—</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>speed {(tts.rate ?? 1).toFixed(1)}×</span>
               <input type="range" min={0.5} max={1.6} step={0.1} value={tts.rate ?? 1} style={{ flex: 1 }}
                 onChange={(e) => updTts({ rate: parseFloat(e.target.value) })} />
               <button className="chip" style={{ textTransform: "none" }}
@@ -312,7 +312,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
               </button>
             </div>
             <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-              Uses the voices installed on this phone (Settings â†’ Accessibility â†’ Spoken Content â†’ Voices to add more). A read button sits under each narrator reply.
+              Uses the voices installed on this phone (Settings → Accessibility → Spoken Content → Voices to add more). A read button sits under each narrator reply.
             </div>
           </>
         )}
@@ -331,17 +331,17 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids)</div>
-        <ModelPicker label="Narrator â€” the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />
-        <ModelPicker label="Simulator â€” the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
-        <ModelPicker label="Forge â€” world generation" value={draft.forge_model} onChange={setM("forge_model")} />
+        <ModelPicker label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />
+        <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
+        <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
         <ModelPicker label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} />
-        <ModelPicker label="Images â€” portraits & scenes" value={draft.image_model} onChange={setM("image_model")} kind="image" />
+        <ModelPicker label="Images — portraits & scenes" value={draft.image_model} onChange={setM("image_model")} kind="image" />
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
-          Live list from OpenRouter, newest first â€” search or type a custom id. Image field shows image-capable models.
+          Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
           Two calls per turn. Prefix `anthropic/` models get prompt-cache breakpoints automatically.
-          Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding â€” works for the narrator, simulator, or forge.
+          Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
       </div>
       <div className="card p-4">
@@ -354,16 +354,16 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
         <Toggle on={draft.paging !== false} onFlip={() => setDraft((d) => ({ ...d, paging: d.paging === false ? true : false }))}
           title="Page out cold characters"
-          desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is untouched â€” only their card leaves the room." />
+          desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is untouched — only their card leaves the room." />
         <Toggle on={!!draft.habit_engine} onFlip={() => setDraft((d) => ({ ...d, habit_engine: !d.habit_engine }))}
           title="Habit engine (experimental)"
-          desc="Core traits become firing habits that loosen only when a character sees themselves do them (clarity, not kindness) and deepen when they don't. Change is slow, directionless, and never chosen â€” a character finds out they've changed when someone else notices. Watch it in each character's drawer." />
+          desc="Core traits become firing habits that loosen only when a character sees themselves do them (clarity, not kindness) and deepen when they don't. Change is slow, directionless, and never chosen — a character finds out they've changed when someone else notices. Watch it in each character's drawer." />
         <Toggle on={draft.sim_route_speed !== false} onFlip={() => setDraft((d) => ({ ...d, sim_route_speed: d.sim_route_speed === false ? true : false }))}
           title="Bookkeeper: route for speed"
           desc="Send bookkeeping calls to the highest-throughput provider for the model instead of the cheapest. Bookkeeping is the wait you actually feel between turns; the narrator can still route by price below." />
         <Toggle on={!!draft.route_by_price} onFlip={() => setDraft((d) => ({ ...d, route_by_price: !d.route_by_price }))}
           title="Route by price"
-          desc="Let OpenRouter send each call to the cheapest healthy provider for the chosen model. DeepSeek also discounts off-peak hours (â‰ˆ16:30â€“00:30 UTC) automatically on its own end." />
+          desc="Let OpenRouter send each call to the cheapest healthy provider for the chosen model. DeepSeek also discounts off-peak hours (≈16:30–00:30 UTC) automatically on its own end." />
       </div>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Token economy</div>
@@ -379,7 +379,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <div className="mt-2">
           <TextField label="Token budget per turn (0 = off; e.g. 4000 to cap context)" value={String(draft.token_budget ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, token_budget: Number(v) || 0 }))} mono />
           <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
-            When set, the per-turn context is trimmed toward this many input tokens â€” shedding offscreen detail, old memories, and rumors first, collapsing only the least-involved present characters as a last resort. People in your scene are never dropped.
+            When set, the per-turn context is trimmed toward this many input tokens — shedding offscreen detail, old memories, and rumors first, collapsing only the least-involved present characters as a last resort. People in your scene are never dropped.
           </div>
         </div>
       </div>
@@ -387,11 +387,11 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Cost governor</div>
         <TextField label="Daily budget in USD (0 = off)" value={String(draft.daily_budget_usd ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, daily_budget_usd: Number(v) || 0 }))} mono />
         <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
-          Soft ceiling, never a wall: past 70% of today's budget the engine quietly shifts to eco â€” lean prompts and a tightened context â€” for the rest of the day. Play is never blocked. The Play screen shows spend, the eco state, and cache hit rate live.
+          Soft ceiling, never a wall: past 70% of today's budget the engine quietly shifts to eco — lean prompts and a tightened context — for the rest of the day. Play is never blocked. The Play screen shows spend, the eco state, and cache hit rate live.
         </div>
         <TextField label="Auto-chapter every N turns (0 = off)" value={String(draft.chapter_cadence ?? 25)} onChange={(v) => setDraft((d) => ({ ...d, chapter_cadence: Number(v) || 0 }))} mono />
         <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
-          One cheap call per chapter distills the last stretch into a titled summary â€” shown in Chronicle, carried as one line each in context â€” so the verbatim history window can stay small without losing the arc.
+          One cheap call per chapter distills the last stretch into a titled summary — shown in Chronicle, carried as one line each in context — so the verbatim history window can stay small without losing the arc.
         </div>
       </div>
       <div className="card p-4">
@@ -404,7 +404,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           onChange={(e) => setDraft((d) => ({ ...d, max_central_characters: Number(e.target.value) }))}
           className="w-full mt-1" style={{ accentColor: "var(--accent)" }} />
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
-          How many full, autonomous characters the world holds at once â€” each with memory, goals, and inner life. Beyond this, new people enter as lightweight background figures (a guard, a vendor) that cost almost nothing and stay simple, until a central slot frees up. Fewer central characters means each gets more presence and autonomy; more means a busier, costlier cast. Default 6.
+          How many full, autonomous characters the world holds at once — each with memory, goals, and inner life. Beyond this, new people enter as lightweight background figures (a guard, a vendor) that cost almost nothing and stay simple, until a central slot frees up. Fewer central characters means each gets more presence and autonomy; more means a busier, costlier cast. Default 6.
         </div>
       </div>
       <div className="card p-4">
@@ -431,7 +431,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             <div className="flex gap-2 mt-2.5">
               <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
                 try { const parsed = JSON.parse(worldJson); setSave(await api.rawEditWorld(save.id, parsed)); setWorldJson(null); setWorldErr(""); }
-                catch (e) { const m = e instanceof Error ? e.message : String(e); setWorldErr(m.includes("JSON") ? "Invalid JSON â€” check brackets and commas." : m); }
+                catch (e) { const m = e instanceof Error ? e.message : String(e); setWorldErr(m.includes("JSON") ? "Invalid JSON — check brackets and commas." : m); }
               }}>Save world</button>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setWorldJson(null); setWorldErr(""); }}>Cancel</button>
             </div>
@@ -445,7 +445,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);
         const filename = `${name}.weft.json`;
-        // 1) iOS/modern: native share sheet with a real file (Save to Files, AirDrop, Messagesâ€¦)
+        // 1) iOS/modern: native share sheet with a real file (Save to Files, AirDrop, Messages…)
         try {
           const file = new File([json], filename, { type: "application/json" });
           const nav = navigator as any;
@@ -463,7 +463,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           return;
         } catch { /* fall through */ }
         // 3) last resort: clipboard (paste into Notes/email; Import accepts pasted text)
-        try { await navigator.clipboard.writeText(json); alert("Couldn't open a download here, so your save was copied to the clipboard. Paste it into Notes or email to keep it â€” you can re-import it later."); }
+        try { await navigator.clipboard.writeText(json); alert("Couldn't open a download here, so your save was copied to the clipboard. Paste it into Notes or email to keep it — you can re-import it later."); }
         catch { alert("Export failed on this browser. Try Copy save instead."); }
       }}>
         <Download size={14} /> Export save (share / download)
@@ -471,7 +471,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { json } = await api.exportSave(save.id);
-        try { await navigator.clipboard.writeText(json); alert("Save copied to clipboard. Paste it somewhere safe (Notes, email). Re-import it later via Library â†’ paste."); }
+        try { await navigator.clipboard.writeText(json); alert("Save copied to clipboard. Paste it somewhere safe (Notes, email). Re-import it later via Library → paste."); }
         catch {
           // clipboard blocked: drop the text into a prompt so it can be selected/copied manually
           window.prompt("Select all and copy your save:", json.slice(0, 100000));
@@ -490,14 +490,14 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       {rescueText !== null && (
         <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
           <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
-            <div className="font-display text-[16px]">Your save â€” back it up</div>
+            <div className="font-display text-[16px]">Your save — back it up</div>
             <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
-              Tap and hold the text below â†’ Select All â†’ Copy. Paste into Notes or email. To restore later: Library â†’ Paste a chronicle.
+              Tap and hold the text below → Select All → Copy. Paste into Notes or email. To restore later: Library → Paste a chronicle.
             </div>
             <div className="flex gap-2 mt-2.5">
               <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
                 try { await navigator.clipboard.writeText(rescueText); alert("Copied to clipboard."); }
-                catch { alert("Couldn't auto-copy â€” long-press the text and choose Select All â†’ Copy."); }
+                catch { alert("Couldn't auto-copy — long-press the text and choose Select All → Copy."); }
               }}>Try auto-copy</button>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setRescueText(null)}>Done</button>
             </div>

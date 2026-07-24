@@ -1,26 +1,26 @@
 
 /**
- * PHYSIOLOGY â€” deterministic, time-driven body simulation. Zero tokens.
+ * PHYSIOLOGY — deterministic, time-driven body simulation. Zero tokens.
  *
  * Hunger, thirst, and sleep pressure accrue from in-world elapsed time, scaled by body mass
- * (Kleiber-style Â¾-power metabolic scaling) and weather. The LLM's only physiological job is
- * REFILLS â€” noticing that someone ate, drank, or slept â€” plus dramatic overrides (a battle can
+ * (Kleiber-style ¾-power metabolic scaling) and weather. The LLM's only physiological job is
+ * REFILLS — noticing that someone ate, drank, or slept — plus dramatic overrides (a battle can
  * still exhaust a rested body). The clock does the rest.
  *
  * The centerpiece: a physiological CEILING on relaxation. A body running on no sleep, no water,
- * or an empty stomach cannot be at ease no matter how sweet the scene â€” the ceiling clamps the
+ * or an empty stomach cannot be at ease no matter how sweet the scene — the ceiling clamps the
  * psyche's relaxation scalar (-10..+10) after every turn's psychological updates. Context can
  * lower you below the ceiling; nothing can lift you above it.
  *
- * Meters are 0â€“10 (0 = sated/fresh, 10 = starving/parched). Offscreen characters are assumed
- * self-maintaining â€” accrual runs only for the player and the present cast, because a person
+ * Meters are 0–10 (0 = sated/fresh, 10 = starving/parched). Offscreen characters are assumed
+ * self-maintaining — accrual runs only for the player and the present cast, because a person
  * living their life eats without being watched.
  */
 import type { Condition, Identity } from "./types";
 
-// â”€â”€ accrual rates (meter points per hour, for a 70 kg body, temperate weather)
-const HUNGER_PER_H = 10 / 16;   // empty â†’ starving over ~16 waking hours
-const THIRST_PER_H = 10 / 12;   // hydrated â†’ parched over ~12 hours
+// ── accrual rates (meter points per hour, for a 70 kg body, temperate weather)
+const HUNGER_PER_H = 10 / 16;   // empty → starving over ~16 waking hours
+const THIRST_PER_H = 10 / 12;   // hydrated → parched over ~12 hours
 const HOT = /\b(hot|scorch|blaz|swelter|heat ?wave|arid|parch)/i;
 
 const massScale = (weight_kg?: number): number => Math.pow(Math.max(35, Math.min(180, weight_kg ?? 70)) / 70, 0.75);
@@ -33,7 +33,7 @@ export function accruePhysiology(cond: Condition, ident: Identity | undefined, m
   const h = minutes / 60;
   const scale = massScale(ident?.weight_kg);
   // IMPLICIT UPKEEP on long spans: a time skip is not a hunger strike. People feed themselves
-  // inside an unnarrated afternoon â€” deprivation must be STATED (captivity, wilderness, the LLM
+  // inside an unnarrated afternoon — deprivation must be STATED (captivity, wilderness, the LLM
   // setting "starving"), never inferred from elapsed minutes. Long turns cap at a rough
   // "hard traveling day" level of accrual; short scenes accrue linearly.
   const long = minutes > 240;
@@ -65,7 +65,7 @@ export function applySleep(cond: Condition, hours: number): void {
   else if (cond.fatigue === "exhausted") cond.fatigue = "tired";
 }
 
-/** THE CEILING â€” the highest relaxation (-10..+10) this body can currently reach.
+/** THE CEILING — the highest relaxation (-10..+10) this body can currently reach.
  *  Sleep debt dominates; severe thirst and hunger stack on top; a player-set subjective baseline
  *  stacks under all of it. Context can still lower you below the ceiling; nothing lifts you above. */
 export function relaxationCeiling(cond: Condition): number {
@@ -89,21 +89,21 @@ export function applyRelaxationCeiling(cond: Condition): boolean {
   return false;
 }
 
-/** PLAYER SOMATIC TIGHTNESS â†’ relaxation anchor.
+/** PLAYER SOMATIC TIGHTNESS → relaxation anchor.
  *
- *  The player refuses to name emotions; they report a single body reading 0â€“5 against their own
- *  meditative zero (0 fully calm â€¦ 5 fully tightened). This is a truer signal than the simulator's
- *  guess from their text, so when given it OVERRIDES that guess for the turn â€” but it never lifts
+ *  The player refuses to name emotions; they report a single body reading 0–5 against their own
+ *  meditative zero (0 fully calm … 5 fully tightened). This is a truer signal than the simulator's
+ *  guess from their text, so when given it OVERRIDES that guess for the turn — but it never lifts
  *  the player out of a lower relaxation they legitimately earned from a brutal scene. Tightness CAPS;
  *  it does not un-tighten.
  *
  *  Mapping to the -10..+10 scalar (anchor = where this body sits when the reading is taken):
- *    0 fully calm        â†’ +7   (meditative, wide-open)
- *    1 neutral           â†’ +2
- *    2 curious/focused    â†’ +1   (engaged, not tight)
- *    3 tightened, recognized â†’ -2   (clench beginning, but seen â€” not yet fear-blind)
- *    4 tight, unrecognized   â†’ -4   (clenched-perception zone)
- *    5 fully tightened    â†’ -6   (hard clench)
+ *    0 fully calm        → +7   (meditative, wide-open)
+ *    1 neutral           → +2
+ *    2 curious/focused    → +1   (engaged, not tight)
+ *    3 tightened, recognized → -2   (clench beginning, but seen — not yet fear-blind)
+ *    4 tight, unrecognized   → -4   (clenched-perception zone)
+ *    5 fully tightened    → -6   (hard clench)
  *
  *  Reconciliation: the anchor is a CEILING on relaxation, not an assignment. If the engine already
  *  has the player at or below the anchor (the scene tightened them at least this much), their earned
@@ -111,7 +111,7 @@ export function applyRelaxationCeiling(cond: Condition): boolean {
  *  says), the anchor wins and pulls them down. Returns the applied anchor for telemetry, or null. */
 export const TIGHTNESS_ANCHOR: Record<number, number> = { 0: 7, 1: 2, 2: 1, 3: -2, 4: -4, 5: -6 };
 export function reconcilePlayerTightness(cond: Condition, tightness: number | undefined): number | null {
-  if (typeof tightness !== "number") return null;               // untouched â†’ inference stands, no anchor
+  if (typeof tightness !== "number") return null;               // untouched → inference stands, no anchor
   const t = Math.max(0, Math.min(5, Math.round(tightness)));
   const anchor = TIGHTNESS_ANCHOR[t];
   if (anchor === undefined) return null;
@@ -120,19 +120,19 @@ export function reconcilePlayerTightness(cond: Condition, tightness: number | un
   return anchor;
 }
 
-/** A visible-tension cue for the narrator â€” a BODY reading a person across the table would catch,
+/** A visible-tension cue for the narrator — a BODY reading a person across the table would catch,
  *  never the interior. Derived from the player's current relaxation after the anchor is applied.
  *  Empty until they're actually tight, so it costs nothing when they're settled. Deliberately
  *  describes shoulders/jaw/breath, not feelings: rule 5 keeps the player's interior theirs. */
 export function playerTensionCue(cond: Condition): string {
   const r = cond.psyche.relaxation;
-  if (r <= -6) return "wound tight â€” shoulders up, jaw set, breath short and shallow";
-  if (r <= -4) return "visibly tense â€” shoulders drawn, movements clipped";
-  if (r <= -2) return "a little tight â€” held in the shoulders, breath a touch shallow";
+  if (r <= -6) return "wound tight — shoulders up, jaw set, breath short and shallow";
+  if (r <= -4) return "visibly tense — shoulders drawn, movements clipped";
+  if (r <= -2) return "a little tight — held in the shoulders, breath a touch shallow";
   return "";
 }
 
-/** Compact label for the digest â€” empty until something crosses a threshold, so it costs
+/** Compact label for the digest — empty until something crosses a threshold, so it costs
  *  nothing while everyone is fine. */
 export function physioLabel(cond: Condition): string {
   const bits: string[] = [];
@@ -146,7 +146,7 @@ export function physioLabel(cond: Condition): string {
   return bits.join(", ");
 }
 
-/** American rendering â€” storage stays metric, every visible surface speaks ft-in and lbs. */
+/** American rendering — storage stays metric, every visible surface speaks ft-in and lbs. */
 export function ftIn(height_cm?: number): string {
   if (!height_cm) return "";
   const totalIn = Math.round(height_cm / 2.54);

@@ -7,7 +7,7 @@ interface ORModel { id: string; name: string; created?: number; image?: boolean 
 let CACHE: ORModel[] | null = null;
 let CACHE_AT = 0;
 
-// curated fallback if the live fetch is blocked/offline â€” kept reasonably current
+// curated fallback if the live fetch is blocked/offline — kept reasonably current
 const FALLBACK: ORModel[] = [
   { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
   { id: "anthropic/claude-opus-4.1", name: "Claude Opus 4.1" },
@@ -92,11 +92,11 @@ export function ModelPicker({
             </div>
             <div className="field flex items-center gap-2" style={{ padding: "0 10px" }}>
               <Search size={14} style={{ color: "var(--text-lo)" }} />
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={kind === "image" ? "search image modelsâ€¦" : "search modelsâ€¦"}
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={kind === "image" ? "search image models…" : "search models…"}
                 className="flex-1 bg-transparent outline-none py-2" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-hi)" }} />
             </div>
             <div className="text-[10.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-              {loading ? "loading live model listâ€¦" : `${filtered.length} ${kind === "image" ? "image " : ""}models Â· newest first`}
+              {loading ? "loading live model list…" : `${filtered.length} ${kind === "image" ? "image " : ""}models · newest first`}
             </div>
           </div>
 

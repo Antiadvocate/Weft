@@ -7,12 +7,12 @@
 export function localeOf(name: string): string {
   return (name || "")
     .split(/\s*\(/)[0]                 // "House (kitchen)" -> "House"
-    .split(/\s+[-â€“â€”]\s+/)[0]           // "House - kitchen"  -> "House"
+    .split(/\s+[-–—]\s+/)[0]           // "House - kitchen"  -> "House"
     .trim().toLowerCase().replace(/[.,;:]+$/, "");
 }
 
 /** Does this place name mark itself as a sub-room of a larger locale? */
 export function isSubRoom(name: string): boolean {
-  return /\(/.test(name || "") || /\s+[-â€“â€”]\s+/.test(name || "");
+  return /\(/.test(name || "") || /\s+[-–—]\s+/.test(name || "");
 }
 

@@ -30,13 +30,13 @@ function sump9(): SaveState {
     what_people_fear: "Enforcer grid-sweeps, Neural Core burn-out, the Corrosive Sump Drip that melts rubber boots and synthetic skin.",
     cultures_and_languages: "The Chromeheads (obsessively augmented, Solder-Slang) and the Dredgers (sub-basement survivors, Broken Dialect).",
     climate_and_geography: "Subterranean sewer corridors, rusty sludge water, glowing green condensation mold, heated copper and ozone on the air.",
-    calendar_and_currency: "Battery Shifts (4Ã—8h, 360-shift Cycles). Blue Credits ('chits') as stamped plastic coins.",
+    calendar_and_currency: "Battery Shifts (4×8h, 360-shift Cycles). Blue Credits ('chits') as stamped plastic coins.",
     political_situation: "Sector 9 abandoned by Vanguard Corp. Drone Enforcers execute anyone on upper levels; scrap boss Razor-Face controls water filtration.",
     era_theme: "rust",
     difficulty_profile: { lethality: "medium", friction_density: "balanced", antagonist_aggression: "active", protagonist_competence: "average" },
     pressure_palette: [
       "Enforcer drone sweep patterns shifting",
-      "Filtration politics â€” Razor-Face's water tax and collectors",
+      "Filtration politics — Razor-Face's water tax and collectors",
       "Hardware failure: corroded seals, dying batteries, bad solder",
       "The Hum acting up in socket-damaged people",
       "Dredger/Chromehead frictions, debts and gossip in the Ray Deck",
@@ -46,7 +46,7 @@ function sump9(): SaveState {
 
   const clinic = place(s, "Slam-Gate Cyber-Clinic", "A pneumatic-door clinic lit by cathode tubes; smells of burnt flux and antiseptic gel.", ["surgical rig", "parts bins", "a wall of pawned augments"]);
   const weir = place(s, "Hydro-Weir Filter Grate", "The great filtration weir; Razor-Face's collectors tally water debt here.", ["roaring grate", "chained sluice wheel"]);
-  const ray = place(s, "Ray Deck", "Dredger commons under a dead cargo lift â€” barter stalls, rumor, sour mash.", ["barter stalls", "mash still"]);
+  const ray = place(s, "Ray Deck", "Dredger commons under a dead cargo lift — barter stalls, rumor, sour mash.", ["barter stalls", "mash still"]);
 
   registerCharacter(s, {
     character_id: "char_player", name: "Vex", age: 31,
@@ -97,7 +97,7 @@ function sump9(): SaveState {
   s.world.money = "14 chits";
   s.world.current_time = "Day 1, 09:00 (Morning)";
   s.memory["char_player"].core = ["Owes 60 chits of water debt at the Hydro-Weir.", "Keeps the clinic's old generator alive as quiet charity."];
-  s.memory[kildare].core = ["Three kids in the sub-basements; weir debt hangs over all of it.", "Vex once fixed his cutters for a song â€” that meant something."];
+  s.memory[kildare].core = ["Three kids in the sub-basements; weir debt hangs over all of it.", "Vex once fixed his cutters for a song — that meant something."];
   s.memory[mara].core = ["The Hum spoke in threes last episode. Nobody believes her.", "Her jaw socket is dying; lead shielding or burn-out within the cycle."];
   return s;
 }
@@ -117,10 +117,10 @@ function thaw(): SaveState {
     era_theme: "frost",
     difficulty_profile: { lethality: "medium", friction_density: "sparse", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
     pressure_palette: [
-      "Hunger arithmetic â€” the fish racks running low",
+      "Hunger arithmetic — the fish racks running low",
       "Ice condition: soft patches, the weir failing",
       "Standing at the fire: gossip, obligation, marriage talk",
-      "The Ettel succession â€” Brant and Saiva circling",
+      "The Ettel succession — Brant and Saiva circling",
       "Weather fronts and wolf sign",
     ],
     forbidden_as_primary: ["supernatural events treated as real", "random predator attacks without sign", "tone-policing the player's manner"],
@@ -178,7 +178,7 @@ function thaw(): SaveState {
     { from: ettel, to: saiva, warmth: 25, trust: 40, power: 40, notes: "the count is the band", updated_turn: 1 },
   );
   s.world.clocks.push({
-    id: uid("clk"), faction: "The lake ice", objective: "The thaw â€” ice unsafe, weir season over",
+    id: uid("clk"), faction: "The lake ice", objective: "The thaw — ice unsafe, weir season over",
     segments: 8, filled: 2, consequence: "The band must scatter to spring grounds; whoever is named leads the move",
     visible_signs: ["grey patches off the reed point", "the weir poles weeping at noon", "geese heard high up"],
     status: "running",
@@ -193,7 +193,7 @@ function thaw(): SaveState {
   s.world.money = "a pouch of good flint blanks";
   s.world.current_time = "Day 1, 08:30 (Morning)";
   s.memory["char_player"].core = ["His own band starved out six winters ago; he walked here alone over the ice.", "Ettel took him in over objections he was meant to overhear."];
-  s.memory[ettel].core = ["The winter of the dog marrow â€” what she allowed, and never speaks of.", "Orun read the soft ice last spring and saved two children; she has not forgotten."];
+  s.memory[ettel].core = ["The winter of the dog marrow — what she allowed, and never speaks of.", "Orun read the soft ice last spring and saved two children; she has not forgotten."];
   s.memory[brant].core = ["His bear scar came from a sow he provoked; the story has improved.", "Ettel looked past him at the midwinter fire. Everyone saw."];
   s.memory[saiva].core = ["Her brother went through the ice hauling Brant's heavy traps.", "The count says nine days of fish at full mouths. She tells no one the true number."];
   return s;

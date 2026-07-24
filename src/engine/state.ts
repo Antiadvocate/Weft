@@ -41,8 +41,8 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     current_activity: ident.current_activity ? asText(ident.current_activity) : undefined,
     drive: ident.drive, drive_queue: ident.drive_queue,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
-    // These were previously dropped, which (a) broke the central-character cap â€” every new
-    // character silently entered as central because `central` never landed on the record â€”
+    // These were previously dropped, which (a) broke the central-character cap — every new
+    // character silently entered as central because `central` never landed on the record —
     // and (b) erased life_history when carrying a cast into a new chapter.
     central: ident.central,
     life_history: ident.life_history ? asText(ident.life_history, " ") : undefined,
@@ -59,7 +59,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
   // CAPACITY = resting openness the person's nature drifts toward. When the forge gives an explicit
   // sensible value, honor it; otherwise derive it from nature so a cold, guarded, or predatory
   // character doesn't default to a relaxed, open baseline (which the perception gate then reads as
-  // serene â€” the bug where a 0.15-conscience inquisitor ran permanently placid). Low conscience and
+  // serene — the bug where a 0.15-conscience inquisitor ran permanently placid). Low conscience and
   // hostile/guarded traits lower the resting point; warm, secure natures raise it.
   const explicitCap = typeof (ident as any).capacity === "number" ? (ident as any).capacity : undefined;
   let cap = explicitCap ?? 2;
@@ -67,7 +67,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     const consc = asNum(ident.conscience, 0, 1) ?? 0.6;
     const traitBlob = `${asList(ident.core_traits).join(" ")} ${asText((ident.voice as any)?.agenda ?? "")} ${asText(ident.attachment?.under_threat ?? "")}`.toLowerCase();
     const guarded = /\b(cold|hollow|vindictive|cruel|ruthless|predatory|paranoid|hostile|guarded|calculating|manipulat|menac|instrument|vicious|contempt|sadis|controlling|suspicious|wary|hardened|brutal)\b/.test(traitBlob);
-    // base on conscience: dark (â‰¤0.3) rests tense (~-2), ordinary (~2), warm (â‰¥0.8) rests open (~4)
+    // base on conscience: dark (≤0.3) rests tense (~-2), ordinary (~2), warm (≥0.8) rests open (~4)
     cap = consc <= 0.3 ? -2 : consc >= 0.8 ? 4 : 2;
     if (guarded) cap -= 2;               // a guarded/predatory nature rests tenser still
     cap = Math.max(-6, Math.min(6, cap));
@@ -94,7 +94,7 @@ export function newSave(name: string, bible: WorldBible): SaveState {
   };
 }
 
-/** gzip a string â†’ base64 (browser CompressionStream); returns null when unavailable. */
+/** gzip a string → base64 (browser CompressionStream); returns null when unavailable. */
 async function gz(text: string): Promise<string | null> {
   try {
     if (typeof CompressionStream === "undefined") return null;
@@ -118,7 +118,7 @@ async function gunz(b64: string): Promise<string> {
 
 /** Snapshot ring for rollback. Origin (turn 1) is pinned forever. Image data URLs are stripped
  *  (a rollback point doesn't need portrait bytes), and the JSON is gzip-compressed when the
- *  browser supports CompressionStream â€” long campaigns with fact ledgers and life histories
+ *  browser supports CompressionStream — long campaigns with fact ledgers and life histories
  *  would otherwise carry 7 full-state copies per save. Falls back to plain JSON silently. */
 export async function pushSnapshot(state: SaveState): Promise<void> {
   if (state.snapshots.some((s) => s.turn === state.world.current_turn)) return;
@@ -144,7 +144,7 @@ export async function rollback(state: SaveState, toTurn: number): Promise<SaveSt
 /** Force every model-authored character field to the type the rest of the engine assumes.
  *
  *  The schema says `taste: string`; models send `["strength", "directness"]`. `?? ""` does not catch
- *  that â€” it only catches null â€” so the array reaches state and `.trim` throws three systems away,
+ *  that — it only catches null — so the array reaches state and `.trim` throws three systems away,
  *  in the desire engine, with no clue where it came from. This runs on every read AND every write,
  *  because healing on read alone leaves the bad value on disk for whatever reads it next.
  *
@@ -171,7 +171,7 @@ export function healCharacterTypes(state: SaveState): void {
 }
 
 export function sanitize(state: SaveState): SaveState {
-  // Imported saves can be missing whole maps â€” a partial file used to crash sanitize on
+  // Imported saves can be missing whole maps — a partial file used to crash sanitize on
   // Object.values(undefined). Initialize every top-level container before touching it.
   state.characters ??= {}; state.condition ??= {}; state.memory ??= {}; state.traits ??= {};
   state.world ??= {} as any;
@@ -194,7 +194,7 @@ export function sanitize(state: SaveState): SaveState {
     for (const id of Object.keys(state.characters)) { try { ensureHabits(state, id); } catch { /* best-effort */ } }
   }
   // PROVENANCE backfill: saves that predate source-tracking have memories/facts with no `source`.
-  // Default them to "witnessed" â€” for existing memories that's the safe assumption (they were formed
+  // Default them to "witnessed" — for existing memories that's the safe assumption (they were formed
   // in play, in scene), and it keeps the GM "how do they know this?" view from showing blanks.
   for (const mem of Object.values(state.memory ?? {})) {
     for (const m of (mem.episodic ?? [])) if (!(m as any).source) (m as any).source = "witnessed";
@@ -230,9 +230,9 @@ export function sanitize(state: SaveState): SaveState {
     }
   }
 
-  // â”€â”€ WORLD-PRONOUN HEAL â”€â”€ a save forged before the pronoun backstop can hold a whole cast of
+  // ── WORLD-PRONOUN HEAL ── a save forged before the pronoun backstop can hold a whole cast of
   // "she/her" in a world whose canon says everyone uses xe/xem. Only act when canon is unambiguous
-  // (declares the set AND says there are no men/women), and only overwrite a DEFAULT binary pronoun â€”
+  // (declares the set AND says there are no men/women), and only overwrite a DEFAULT binary pronoun —
   // never touch a character deliberately given something else, and never touch the player.
   {
     const wp = detectWorldPronoun(state.world?.canon);
@@ -247,13 +247,13 @@ export function sanitize(state: SaveState): SaveState {
     }
   }
 
-  // â”€â”€ GAZETTEER MIGRATION â”€â”€ older saves let the simulator mint a place for any string it produced,
+  // ── GAZETTEER MIGRATION ── older saves let the simulator mint a place for any string it produced,
   // so one house became "Tessa's house", "Tessa's house (kitchen)", and "Tessa's house (outside in
   // the yard)", and characters scattered across rooms that were never real. Fold every sub-room back
   // into its parent, and move anyone standing in one to the parent. Places are whole places now.
   {
     const places = state.world.places ?? {};
-    const parentOf = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+[-â€“â€”]\s+.*$/, "").trim();
+    const parentOf = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+[-–—]\s+.*$/, "").trim();
     const byName = new Map<string, string>();
     for (const p of Object.values(places)) if (p.id !== "loc_offscene") byName.set(p.name.trim().toLowerCase(), p.id);
     const remap = new Map<string, string>();
@@ -347,9 +347,9 @@ export function sanitize(state: SaveState): SaveState {
 }
 
 
-/** CANON ENTRY + EVICTION â€” canon is capped, but a world-altering fact evicted at the cap must not
+/** CANON ENTRY + EVICTION — canon is capped, but a world-altering fact evicted at the cap must not
  *  simply vanish (the narrator would drift from a truth that still holds). On eviction the fact is
- *  FOLDED into the world bible field it most resembles â€” the bible is the permanent home for what
+ *  FOLDED into the world bible field it most resembles — the bible is the permanent home for what
  *  the world IS; canon is the working set. Also records witness metadata at entry: knowledge
  *  propagates (the rumor system already models this), so a fresh fact is known only to those who
  *  were there until news has had time to travel. */
@@ -379,12 +379,12 @@ export function addCanon(state: SaveState, line: string): boolean {
     }
     const target = bestF ?? "political_situation";
     const cur = String(b[target] ?? "");
-    if (!cur.toLowerCase().includes(evicted.toLowerCase()) && cur.length < 1400) b[target] = (cur ? cur + " â—¦ " : "") + evicted;
+    if (!cur.toLowerCase().includes(evicted.toLowerCase()) && cur.length < 1400) b[target] = (cur ? cur + " ◦ " : "") + evicted;
   }
   return true;
 }
 
-/** ALIAS EXPANSION â€” retrieval and name matching are lexical; "the captain" never finds Sorena's
+/** ALIAS EXPANSION — retrieval and name matching are lexical; "the captain" never finds Sorena's
  *  memories unless something maps the handle to the name. This appends canonical names to any text
  *  that mentions a known alias, so downstream token-overlap scoring hits. */
 export function expandAliases(state: SaveState, text: string): string {

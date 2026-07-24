@@ -1,12 +1,12 @@
 
-/** SYSTEM TTS READER â€” reads narrator prose aloud through the device's own speech engine
- *  (window.speechSynthesis â†’ the iPhone system voices on iOS Safari; free, offline, no API).
+/** SYSTEM TTS READER — reads narrator prose aloud through the device's own speech engine
+ *  (window.speechSynthesis → the iPhone system voices on iOS Safari; free, offline, no API).
  *
  *  iOS quirks handled here:
- *  - speechSynthesis.getVoices() is EMPTY until the async `voiceschanged` event fires â€” cached + refreshed.
- *  - Long utterances get silently cut off on several engines â€” prose is chunked into sentence
+ *  - speechSynthesis.getVoices() is EMPTY until the async `voiceschanged` event fires — cached + refreshed.
+ *  - Long utterances get silently cut off on several engines — prose is chunked into sentence
  *    packs (~220 chars) and queued; the engine treats each as a fresh utterance.
- *  - pause()/resume() are unreliable on iOS â€” the UI model is play/stop only.
+ *  - pause()/resume() are unreliable on iOS — the UI model is play/stop only.
  *  - Playback must start from a user gesture (the button tap provides it).
  *
  *  Voice + rate preferences are device-specific (installed voices differ per phone), so they
@@ -54,11 +54,11 @@ export function setTtsPrefs(p: TtsPrefs) {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* private mode */ }
 }
 
-/** Sentence-pack chunking: split on sentence ends, greedily pack to â‰¤ maxLen. */
+/** Sentence-pack chunking: split on sentence ends, greedily pack to ≤ maxLen. */
 function chunk(text: string, maxLen = 220): string[] {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return [];
-  const sentences = clean.match(/[^.!?â€¦]+[.!?â€¦]+["'â€â€™)]*|[^.!?â€¦]+$/g) ?? [clean];
+  const sentences = clean.match(/[^.!?…]+[.!?…]+["'”’)]*|[^.!?…]+$/g) ?? [clean];
   const out: string[] = [];
   let cur = "";
   for (const sent of sentences) {

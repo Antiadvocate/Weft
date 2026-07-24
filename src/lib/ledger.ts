@@ -1,5 +1,5 @@
 
-// ledger â€” derive the measurable deltas of the latest turn by comparing the
+// ledger — derive the measurable deltas of the latest turn by comparing the
 // last two telemetry frames. Nothing here calls a model; every number is
 // already in the save. The ledger card renders these, then collapses when the
 // next turn starts streaming.
@@ -21,7 +21,7 @@ export function turnDeltas(save: ClientSave): LedgerRow[] {
   const t1 = tel[tel.length - 1];
   const t0 = tel[tel.length - 2];
 
-  // time passed â€” read straight off the two most recent frames' labels
+  // time passed — read straight off the two most recent frames' labels
   if (t0 && t1) {
     const mins = Math.max(0, minutesBetween(t0.time_label, t1.time_label));
     if (mins >= 30) {
@@ -55,7 +55,7 @@ export function turnDeltas(save: ClientSave): LedgerRow[] {
         rows.push({
           key: e.pair + "w",
           icon: "edge",
-          text: `${e.pair} Â· warmth`,
+          text: `${e.pair} · warmth`,
           from: prev.warmth,
           to: e.warmth,
           good: e.warmth > prev.warmth,
@@ -64,7 +64,7 @@ export function turnDeltas(save: ClientSave): LedgerRow[] {
         rows.push({
           key: e.pair + "t",
           icon: "edge",
-          text: `${e.pair} Â· trust`,
+          text: `${e.pair} · trust`,
           from: prev.trust,
           to: e.trust,
           good: e.trust > prev.trust,

@@ -46,7 +46,7 @@ export default function App() {
 
   useEffect(() => { applyProseFont(localStorage.getItem("weft-prose-font") ?? "newsreader"); }, []);
 
-  /* iOS KEYBOARD â€” 100dvh ignores the software keyboard, so a focused composer
+  /* iOS KEYBOARD — 100dvh ignores the software keyboard, so a focused composer
      used to slide under it. Track the visual viewport and size the shell to what
      is actually visible; the composer then docks just above the keys. */
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function App() {
   const closeSave = useCallback(() => { setSave(null); setMode("library"); }, []);
 
   const title = mode === "game" && save ? save.world_bible.name : mode === "forge" ? "The Forge" : "Weft";
-  const subtitle = mode === "game" && save ? `${save.world.current_time} Â· turn ${save.world.current_turn}` : "a world that reacts";
+  const subtitle = mode === "game" && save ? `${save.world.current_time} · turn ${save.world.current_turn}` : "a world that reacts";
 
   if (needKey) {
     return (
@@ -84,7 +84,7 @@ export default function App() {
           <div className="card p-6 max-w-sm w-full">
             <div className="font-display text-[22px] mb-1" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>Weft</div>
             <div className="text-[13.5px] mb-4" style={{ color: "var(--text-mid)" }}>
-              A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key â€” paste it once to begin.
+              A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key — paste it once to begin.
             </div>
             <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
               placeholder="sk-or-..." value={keyInput} onChange={(e) => setKeyInput(e.target.value)} />

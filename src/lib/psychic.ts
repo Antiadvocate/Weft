@@ -1,10 +1,10 @@
 
 /**
- * PSYCHIC â€” two pure derivations off data the engine already keeps.
+ * PSYCHIC — two pure derivations off data the engine already keeps.
  *
- *   previouslyHere()  â€” the player's own memories of the place they're standing in.
+ *   previouslyHere()  — the player's own memories of the place they're standing in.
  *                       Locations get a memory without spending a token.
- *   dueSoon()         â€” pending consequences the player's own actions set in motion,
+ *   dueSoon()         — pending consequences the player's own actions set in motion,
  *                       arriving within a couple of in-world days. Free dread, and
  *                       it makes the consequence system feel FAIR rather than random.
  *
@@ -24,7 +24,7 @@ export interface RecallLine {
  * The freshest one or two things the player remembers about where they are.
  *
  * `where` drops off a memory as it decays (stage 2+ loses the place), so this
- * naturally surfaces sharper memories and lets faded ones fall away â€” which is
+ * naturally surfaces sharper memories and lets faded ones fall away — which is
  * the correct behaviour, not a limitation: you don't get a crisp recollection of
  * a room you barely remember being in.
  */
@@ -43,7 +43,7 @@ export function previouslyHere(save: ClientSave, limit = 2): RecallLine[] {
       // match the locale, so "The Ray Deck (galley)" still counts as the Ray Deck
       return w === here || w.includes(here) || here.includes(w);
     })
-    // don't surface what just happened â€” this is for RE-entry, not the current scene
+    // don't surface what just happened — this is for RE-entry, not the current scene
     .filter((m) => currentTurn - (m.turn ?? 0) >= 3)
     .sort((a, b) => {
       const imp = (b.importance ?? 0) - (a.importance ?? 0);
@@ -51,7 +51,7 @@ export function previouslyHere(save: ClientSave, limit = 2): RecallLine[] {
     })
     .slice(0, limit);
 
-  // if someone present shares a memory of this place, say so â€” one line, no call
+  // if someone present shares a memory of this place, say so — one line, no call
   const presentNames = new Map<string, string>();
   for (const id of save.world.present) {
     if (id === "char_player") continue;
@@ -85,7 +85,7 @@ export interface DueSoonLine {
 /**
  * Pending consequences arriving within `withinDays` in-world days.
  *
- * Only things already scheduled â€” this never invents dread. Player-sourced ones
+ * Only things already scheduled — this never invents dread. Player-sourced ones
  * are marked so the UI can lead with them: a storm you can see coming because of
  * something you did is tension; one that arrives unannounced is just noise.
  */
@@ -111,7 +111,7 @@ export function dueSoon(save: ClientSave, withinDays = 2): DueSoonLine[] {
     }));
 }
 
-/** "in ~3h" / "in ~1 day" â€” vague on purpose; the engine knows the minute, the player shouldn't. */
+/** "in ~3h" / "in ~1 day" — vague on purpose; the engine knows the minute, the player shouldn't. */
 export function dueLabel(hours: number): string {
   if (hours <= 1) return "within the hour";
   if (hours < 20) return `in ~${hours}h`;

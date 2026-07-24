@@ -1,6 +1,6 @@
 
 /**
- * RETIRED LAYER â€” formerly the "undertow": Kuramoto phase-synchronization, Lyapunov
+ * RETIRED LAYER — formerly the "undertow": Kuramoto phase-synchronization, Lyapunov
  * exponents, and a cusp-catastrophe psyche manifold. That apparatus was the wrong model
  * for emotion. It severed the generative kernel by OVERWRITING the relaxation scalar with
  * a readout of a catastrophe manifold (p.relaxation = cusp.x * 8), turning the one driving
