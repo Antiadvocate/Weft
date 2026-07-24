@@ -493,6 +493,10 @@ export interface SaveState {
   world_bible: WorldBible;
   model_settings: ModelSettings;
   world: WorldState;
+  /** AUXILIARY SPEND — model calls the per-turn telemetry never sees: montage planner/beats/
+   *  chapter and image generation. The spend meter reads this so the number you see matches the
+   *  OpenRouter dashboard instead of undercounting the two biggest lump costs. */
+  aux_spend?: { images: number; montage_calls: number; tokens_in: number; tokens_out: number; cost: number };
   characters: Record<string, Identity>;
   traits: Record<string, AcquiredTrait[]>;
   habits?: Record<string, CoreHabit[]>;   // per-character core habits as firing physics (behind habit_engine flag). Backfilled from core_traits.

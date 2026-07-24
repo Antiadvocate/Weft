@@ -39,6 +39,14 @@ function clientView(s: SaveState): ClientSave {
   const { snapshots, ...rest } = s;
   return { ...rest, snapshot_turns: snapshots.map((x) => x.turn) };
 }
+
+/** IMAGE SPEND — per-image billing, counted where it happens so the spend meter sees it.
+ *  Real provider cost when reported; otherwise the gemini-2.5-flash-image list price (~$0.039). */
+function trackImageSpend(s: SaveState, realCost?: number): void {
+  const a = (s.aux_spend ??= { images: 0, montage_calls: 0, tokens_in: 0, tokens_out: 0, cost: 0 });
+  a.images++;
+  a.cost += realCost ?? 0.039;
+}
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
@@ -795,7 +803,9 @@ export const api = {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
-    c.portrait_url = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
+    const img = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
+    c.portrait_url = img.url;
+    trackImageSpend(s, img.cost);
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
   },
@@ -808,7 +818,9 @@ export const api = {
     const refs = ["char_player", ...s.world.present]
       .map((cid) => s.characters[cid]?.portrait_url)
       .filter((u): u is string => !!u && u.startsWith("data:"));
-    entry.illustration_url = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs, "landscape");
+    const img = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs, "landscape");
+    entry.illustration_url = img.url;
+    trackImageSpend(s, img.cost);
     await putSave(s);
     return { url: entry.illustration_url, save: clientView(s) };
   },

@@ -15,9 +15,17 @@ import { addFact, groundMemoryContent } from "./facts";
 import { regrooveHabits } from "./habits";
 import { recordExpressions } from "./novelty";
 import { syncPresence } from "./turn";
-import { buildMessages, complete, safeJson } from "../llm";
+import { buildMessages, complete, safeJson, type Usage } from "../llm";
 import { stablePrefix, CHAPTER_SYSTEM } from "./prompts";
 import { pushSnapshot, uid } from "./state";
+
+/** AUX SPEND — montage calls that aren't tied to a single beat (planner, chapter) accumulate
+ *  on the save so the spend meter matches the OpenRouter dashboard. Beats themselves carry
+ *  per-beat telemetry with real cost. */
+function trackAux(s: SaveState, u: Usage): void {
+  const a = (s.aux_spend ??= { images: 0, montage_calls: 0, tokens_in: 0, tokens_out: 0, cost: 0 });
+  a.montage_calls++; a.tokens_in += u.prompt_tokens ?? 0; a.tokens_out += u.completion_tokens ?? 0; a.cost += u.cost ?? 0;
+}
 import {
   type MontagePlan, type MontageEdgeTarget, type EdgeOrigins,
   planBeats, captureOrigins, beatAllowance, scoreChecklist, pairKey,
@@ -112,6 +120,7 @@ export async function planMontage(state: SaveState, opts: MontageOptions): Promi
   try {
     const msgs = buildMessages(PLANNER_SYSTEM, stablePrefix(state), ask, state.model_settings.simulator_model);
     const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 1600);
+    trackAux(state, res.usage);
     plan = safeJson(res.text, plan) as MontagePlan;
   } catch { /* fall through to the deterministic shape below */ }
 
@@ -373,10 +382,14 @@ export async function runMontage(
     ].filter(Boolean).join("\n\n");
 
     let beat: any = {};
+    // PER-BEAT usage (never cumulative — the spend meter sums telemetry, and cumulative values
+    // would count every earlier beat again on each new one)
+    let beatIn = 0, beatOut = 0, beatCost = 0;
     try {
       const msgs = buildMessages(BEAT_SYSTEM, stablePrefix(state), ask, state.model_settings.simulator_model);
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 2000);
-      tokensIn += res.usage.prompt_tokens; tokensOut += res.usage.completion_tokens;
+      beatIn = res.usage.prompt_tokens; beatOut = res.usage.completion_tokens; beatCost = res.usage.cost ?? 0;
+      tokensIn += beatIn; tokensOut += beatOut;
       beat = safeJson(res.text, {});
     } catch { /* deterministic fallback below */ }
 
@@ -428,7 +441,8 @@ export async function runMontage(
       turn: state.world.current_turn, pressure: 1,
       pressure_source: `montage ${i + 1}/${n} — ${b.goal}`,
       narrator_tokens_in: 0, narrator_tokens_out: 0,
-      simulator_tokens_in: tokensIn, simulator_tokens_out: tokensOut,
+      simulator_tokens_in: beatIn, simulator_tokens_out: beatOut,
+      turn_cost: beatCost,
       reflection_tokens: 0, duration_ms: Date.now() - t0,
       word_count: vignette.split(/\s+/).filter(Boolean).length,
       player_mood_valence: state.condition["char_player"]?.psyche.mood_valence ?? 0,
@@ -467,6 +481,7 @@ export async function runMontage(
     ].filter(Boolean).join("\n\n");
     const msgs = buildMessages(CHAPTER_SYSTEM, stablePrefix(state), ask, state.model_settings.simulator_model);
     const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 1200);
+    trackAux(state, res.usage);
     tokensIn += res.usage.prompt_tokens; tokensOut += res.usage.completion_tokens;
     const ch = safeJson<any>(res.text, {});
     if (ch?.summary) {

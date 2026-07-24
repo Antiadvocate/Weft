@@ -109,7 +109,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     pushToasts([`ambience: ${next}`]);
   };
 
-  // ── session spend, shown in the menu sheet footer instead of a permanent line ──
+  // ── session spend, shown in the menu sheet footer instead of a permanent line.
+  //    Turns carry telemetry; montage planner/chapter calls and images accumulate in
+  //    aux_spend — the footer shows both so the number matches the OpenRouter dashboard. ──
   const spend = useMemo(() => {
     const gov = governorState(save as any);
     const sess = save.telemetry;
@@ -117,8 +119,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     const cached = sess.reduce((a, t) => a + (t.cached_tokens ?? 0), 0);
     const hit = inTok > 0 ? Math.round((cached / inTok) * 100) : 0;
     const cost = sess.reduce((a, t) => a + (t.turn_cost ?? 0), 0);
-    return { gov, hit, cost };
-  }, [save.telemetry]);
+    const aux = save.aux_spend ?? { images: 0, montage_calls: 0, tokens_in: 0, tokens_out: 0, cost: 0 };
+    return { gov, hit, cost, aux };
+  }, [save.telemetry, save.aux_spend]);
 
   // ── state-driven fx: strikes flash red and decay; canon events ripple once ──
   const [fx, setFx] = useState<null | "strike" | "canon">(null);
@@ -1033,7 +1036,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               {/* the session meter, demoted from a permanent line to a footer readout */}
               <div className="font-mono text-[9.5px] uppercase tracking-wider flex items-center gap-2 px-2.5 pt-3 pb-2"
                 style={{ color: "var(--text-lo)", opacity: 0.85 }}>
-                <span>{spend.cost > 0 ? `$${spend.cost.toFixed(2)} · ${spend.hit}% cached` : "no spend yet"}</span>
+                <span>
+                  {spend.cost > 0 || spend.aux.cost > 0
+                    ? `$${(spend.cost + spend.aux.cost).toFixed(2)} · ${spend.hit}% cached`
+                      + (spend.aux.images > 0 ? ` · ${spend.aux.images} img` : "")
+                      + (spend.aux.montage_calls > 0 ? ` · ${spend.aux.montage_calls} montage` : "")
+                    : "no spend yet"}
+                </span>
                 {spend.gov.budget > 0 && spend.gov.eco && (
                   <span className="flex items-center gap-1" style={{ color: "var(--accent)" }}><Leaf size={9} /> eco</span>
                 )}

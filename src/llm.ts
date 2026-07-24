@@ -324,7 +324,7 @@ export function safeJson<T>(text: string, fallback: T): T {
   try { return JSON.parse(repairJson(ex)) as T; } catch { return fallback; }
 }
 
-export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image", refImages: string[] = [], aspect: "portrait" | "landscape" | "square" = "landscape"): Promise<string> {
+export async function generateImage(prompt: string, model = "google/gemini-2.5-flash-image", refImages: string[] = [], aspect: "portrait" | "landscape" | "square" = "landscape"): Promise<{ url: string; cost?: number }> {
   // reference images (e.g. character portraits) are passed as image_url content blocks;
   // models that support multimodal input use them for consistency, others ignore them.
   // Aspect: the image models default to landscape/square, so we both (a) state the orientation
@@ -347,5 +347,6 @@ export async function generateImage(prompt: string, model = "google/gemini-2.5-f
   const j: any = await res.json();
   const img = j.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   if (!img) throw new Error("model returned no image — try google/gemini-2.5-flash-image");
-  return img as string;
+  // image models bill per image; when the provider reports usage.cost we keep the REAL number
+  return { url: img as string, cost: j.usage?.cost ?? undefined };
 }
