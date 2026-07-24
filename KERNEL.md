@@ -73,9 +73,13 @@ Per turn in `src/engine/turn.ts`:
    body toward capacity (fast collapse above it, own-rate recovery below) and derives
    intact/fracturing/broken from the clench counter. Discharge lift decays here.
 2. **Undertow, fate, pressure** (deterministic) decide what the world throws.
-3. **Narrator + simulator (LLM).** The simulator's `relaxation_delta` per character is the main
+3. **Attempt frame (deterministic).** If the player's typed action is a stakes-bearing attempt
+   (`attempt.ts`), the outcome is resolved HERE, before a word of prose: capability × body ×
+   circumstance against a difficulty from pressure and the verb class. The verdict is appended
+   to the narrator directive as law (§8).
+4. **Narrator + simulator (LLM).** The simulator's `relaxation_delta` per character is the main
    event-driven shove. The player's tightness anchor caps after this.
-4. **Tail ticks, each fault-isolated** (a failure degrades one system for one turn, never the turn):
+5. **Tail ticks, each fault-isolated** (a failure degrades one system for one turn, never the turn):
    - `tickDesire` — warmth earns attraction under its conditioned ceiling; fixation taxes relaxation.
    - `tickCoRegulation` — **pairwise** safe-person pull (attachment-styled, clamp ±0.5), then the
      **mean-field** pass (§5): the room's aggregate leans on everyone, clamp ±0.3.
@@ -120,6 +124,25 @@ up to ×2.5 faster in a clenched room, warm news in a settled one. And the field
 boredom, not old age), while transmission in matching weather feeds `+0.6` once per turn ("the
 story grows in the telling"). Growth and decay on the same rule — the destruction phase is
 inherited from the kernel the field rides.
+
+## 5b. The attempt frame (`attempt.ts`)
+
+Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine
+tracks the causes, so it reads them. When the player's action matches a risk-verb gate (and is
+not god mode, story mode, mythic/cosmic tier, restful, or inert), three readings resolve the
+outcome before the narrator writes:
+
+| reading | weight | what it reads |
+|---|---|---|
+| capability | 0.45 | token-relevance of the action against the player's fact corpus: background, life history, core traits, skills, acquired traits, grooved habits, inventory. Social attempts get a 0.3 floor of ordinary human competence. |
+| body | 0.30 | the relaxation band (+1 settled … −1.6 deep-clenched), fatigue, hunger, thirst, and injuries — matched by ACTIVITY CLASS (a gashed palm fails every gripping action, however phrased) |
+| circumstance | 0.25 | weather for physical work; for social attempts, the named target's actual disposition toward the player, straight from the edge |
+
+Difficulty = `0.25 + pressure/10 × 0.35 + (0.22 dangerous / 0.10 risky)`. Verdict bands at
+margin ±0.12: **sufficient** (it works, plainly), **contested** (it works at a cost named from
+the weakest reading), **insufficient** (it fails, traced to the weakest reading — never by
+luck, never catastrophized). Fully deterministic: same state, same verdict. The LLM renders
+the verdict as law; it never decides it. The summary lands in "what shifted."
 
 ## 6. The dissipation inventory
 

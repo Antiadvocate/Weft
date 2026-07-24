@@ -24,6 +24,7 @@ import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, de
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
+import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
@@ -596,6 +597,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // Is the player supplying momentum this turn, or inert? (Defined here so the drive system can cede
   // the wheel to a desiring character when the player does nothing.)
   const playerInert = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
+
+  // ── ATTEMPT FRAME ── stakes-bearing player actions resolve by CAUSE, not chance: capability,
+  // body, and circumstance are read deterministically from state, the outcome is decided HERE,
+  // and the narrator renders the verdict rather than deciding it. Same state, same verdict,
+  // every time. Never fires in god mode (the player is sovereign), in story mode (the player
+  // authors outcomes), at mythic/cosmic tier (the world's frame already bends around them), or
+  // for restful/inert turns. See attempt.ts.
+  let attemptShift: string | null = null;
+  if (!god && mode === "do" && tier !== "mythic" && tier !== "cosmic" && !playerInert && !RESTORE_INTENT.test(action)) {
+    const frame = frameAttempt(state, action, verdict.pressure ?? 3);
+    if (frame) { directive += attemptDirective(frame, action); attemptShift = frame.summary; }
+  }
 
   // ── DRIVE IS THE DEFAULT ── Centrality is not assigned to the player; it EMERGES from desire.
   // Every present character who wants something pursues it THIS turn, by their own means — this is the
@@ -1228,6 +1241,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ev.onPhase("apply");
   const shifts = applyDiff(state, diff, action, prose);
   for (const s of habitShifts) shifts.push(s);
+  if (attemptShift) shifts.push(attemptShift); // the frame's verdict, legible in "what shifted"
   if (truncationNote) shifts.push(truncationNote);
   // PLAYER TIGHTNESS ANCHOR — the player's own body reading (0–5) corrects the simulator's guess at
   // where they sit. Applied AFTER applyDiff (so the sim's relaxation_delta is the baseline it overrides)

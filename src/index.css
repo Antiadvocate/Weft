@@ -147,6 +147,35 @@ body {
   margin: 1.4em 0 1.1em;
   opacity: .92;
 }
+/* your LATEST message reads as a bubble — immediately findable in the stream; older
+   echoes stay quiet marginalia so history doesn't turn into a chat log */
+.player-echo.latest {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-glow);
+  border-left: 2px solid var(--accent);
+  border-radius: 12px;
+  padding: 8px 12px;
+  opacity: 1;
+}
+/* the in-flight bubble pulses very gently while the world is still answering */
+.player-echo.live { animation: echoWait 2.2s ease-in-out infinite; }
+@keyframes echoWait {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .72; }
+}
+/* echo-nav landing flash: the eye goes where the scroll went */
+.player-echo.flash { animation: echoFlash 1.35s ease-out; border-radius: 12px; }
+@keyframes echoFlash {
+  0% { background: var(--accent-glow); box-shadow: 0 0 0 4px var(--accent-soft); }
+  100% { box-shadow: none; }
+}
+.echo-nav {
+  width: 30px; min-width: 30px; height: 24px; padding: 0;
+  border: 1px solid var(--line);
+  color: var(--text-lo);
+}
+.echo-nav:active { background: var(--ink-2); }
+.echo-nav[disabled] { opacity: .3; pointer-events: none; }
 
 /* seismograph strip */
 .seismo {

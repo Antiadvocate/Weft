@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -83,6 +83,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   // actions, and the compose extras (mode / web / tightness) behind the "+"
   const [menuOpen, setMenuOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
+  // YOUR OWN WORDS — the in-flight action shows as a bubble the instant you send it (before the
+  // turn commits and it lands in history), and the echo-nav arrows walk you back through your
+  // committed messages so you never lose the line you typed under a long response.
+  const [liveAction, setLiveAction] = useState("");
+  const [echoNav, setEchoNav] = useState<number | null>(null); // index into echoes; null = parked at the bottom
+  const [flashTurn, setFlashTurn] = useState<number | null>(null);
 
   const history = save.history;
   const deltas = useMemo(() => turnDeltas(save), [save.telemetry, save.world.present]);
@@ -160,6 +166,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     if (el) el.scrollTop = el.scrollHeight;
   }, [liveProse, history.length, phase]);
 
+  // a new turn landing shifts every echo index — park the nav back at the live edge
+  useEffect(() => { setEchoNav(null); setFlashTurn(null); }, [history.length]);
+
   // never lose a draft: tab switches, remounts, failures — it survives
   useEffect(() => { sessionStorage.setItem(draftKey, action); }, [action, draftKey]);
 
@@ -193,6 +202,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const runAction = async (a: string) => {
     if (!a) return;
     setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setPhase("pressure");
+    setLiveAction(a); // your words go up as a bubble immediately — they anchor the reading while the world works
     let failed = false;
     try {
       await streamTurn(save.id, a, mode, {
@@ -205,7 +215,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
-      setRunning(false); runningRef.current = false; setProseDone(false); setPhase(null);
+      setRunning(false); runningRef.current = false; setProseDone(false); setPhase(null); setLiveAction("");
       // reactive tightness is a per-turn reading — it clears once the turn commits (a spike, not a setting).
       // the baseline (ceiling) is separate and persists in save state until the player clears it.
       if (!failed) setTightness(undefined);
@@ -459,6 +469,34 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const shortTime = save.world.current_time.replace(/\s*\(.*\)$/, "");
 
+  // ── ECHO NAV — your committed messages, oldest to newest. The latest one renders as a bubble;
+  //  the arrows beside the composer walk you back through them (and forward, and home to the
+  //  bottom), flashing the target so the eye lands where the scroll lands. ──
+  const echoes = useMemo(
+    () => history.filter((h) => h.kind !== "interlude" && h.kind !== "opening" && (h.player_action ?? "").trim()),
+    [history]
+  );
+  const latestEchoTurn = echoes.length ? echoes[echoes.length - 1].turn : null;
+  const jumpToEcho = (dir: -1 | 1) => {
+    if (!echoes.length) return;
+    const cur = echoNav === null ? echoes.length : echoNav; // null = parked past the newest, at the bottom
+    let next = cur + dir;
+    if (next >= echoes.length) { // stepped past the newest → glide home to the live edge
+      setEchoNav(null); setFlashTurn(null);
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      return;
+    }
+    if (next < 0) next = 0;
+    setEchoNav(next);
+    const turn = echoes[next].turn;
+    setFlashTurn(turn);
+    window.setTimeout(() => setFlashTurn((t) => (t === turn ? null : t)), 1400);
+    const container = scrollRef.current;
+    const el = container?.querySelector(`#echo-${turn}`) as HTMLElement | null;
+    if (container && el) container.scrollTo({ top: el.offsetTop - 14, behavior: "smooth" });
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* toasts */}
@@ -557,7 +595,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               ) : h.kind === "opening" ? (
                 <div className="interlude-rule mb-3"><span>the beginning</span></div>
               ) : (
-              <div className="player-echo">
+              <div id={`echo-${h.turn}`}
+                className={
+                  "player-echo"
+                  + (h.turn === latestEchoTurn ? " latest" : "")
+                  + (h.turn === flashTurn ? " flash" : "")
+                }>
                 {h.action_mode === "say" ? `“${h.player_action}”` : h.player_action}
               </div>
               )}
@@ -648,6 +691,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               ) : null}
             </div>
           ))}
+          {/* your in-flight words — the bubble anchors the top of the incoming response so you
+              read from your own line down, never hunting for where the turn began */}
+          {liveAction && <div className="player-echo latest live">{liveAction}</div>}
           {liveProse && liveProse.split(/\n{2,}/).map((p, i, arr) => renderParagraph(p, `live-${i}`, i === arr.length - 1))}
           <AnimatePresence>
             {!running && !liveProse && deltas.length > 0 && (
@@ -838,12 +884,28 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           )}
         </AnimatePresence>
         <div className="flex items-end gap-2">
-          <motion.button className="icon-btn" style={{ height: 44, width: 40, padding: 0, border: "1px solid var(--line)" }}
-            animate={{ rotate: extrasOpen ? 45 : 0 }} transition={{ duration: 0.18 }}
-            onClick={() => setExtrasOpen((v) => !v)}
-            aria-label="compose options — mode, web grounding, body tightness" title="compose options — mode, web grounding, body tightness">
-            <Plus size={16} />
-          </motion.button>
+          <div className="flex flex-col items-center gap-1">
+            {echoes.length > 0 && (
+              <>
+                <button className="icon-btn echo-nav" onClick={() => jumpToEcho(-1)}
+                  disabled={echoNav === 0}
+                  aria-label="jump to your last message, then earlier ones" title="jump to your last message, then earlier ones">
+                  <ChevronUp size={13} />
+                </button>
+                <button className="icon-btn echo-nav" onClick={() => jumpToEcho(1)}
+                  disabled={echoNav === null}
+                  aria-label="jump to your next message, then back to the bottom" title="jump to your next message, then back to the bottom">
+                  <ChevronDown size={13} />
+                </button>
+              </>
+            )}
+            <motion.button className="icon-btn" style={{ height: 44, width: 40, padding: 0, border: "1px solid var(--line)" }}
+              animate={{ rotate: extrasOpen ? 45 : 0 }} transition={{ duration: 0.18 }}
+              onClick={() => setExtrasOpen((v) => !v)}
+              aria-label="compose options — mode, web grounding, body tightness" title="compose options — mode, web grounding, body tightness">
+              <Plus size={16} />
+            </motion.button>
+          </div>
           <textarea
             className="field flex-1"
             rows={focused || action.includes("\n") || action.length > 60 ? 3 : 1}
