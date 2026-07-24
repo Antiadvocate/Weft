@@ -1,4 +1,3 @@
-
 // AnimNumber — the measurable-animation primitive. Tweens old → new,
 // tints by direction of change, then settles back to neutral. Motion only
 // fires when Δ ≠ 0; it shows the delta and rests. Respects reduced motion.
@@ -68,4 +67,3 @@ export function AnimNumber({
     </span>
   );
 }
-

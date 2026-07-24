@@ -1,4 +1,3 @@
-
 /**
  * WEFT — world-loom engine types.
  * The world model: a social fabric that reacts, remembers, and moves offscreen.
@@ -424,4 +423,3 @@ export const DEFAULT_MODELS: ModelSettings = {
   token_budget: 0,
   tension: 3,
 };
-

@@ -1,4 +1,3 @@
-
 /**
  * MONTAGE — directed passage of time.
  *
@@ -190,4 +189,3 @@ export function scoreChecklist(checklist: string[], landed: string[]): { item: s
     landed: done.some((d) => d.includes(item.toLowerCase()) || item.toLowerCase().includes(d)),
   }));
 }
-

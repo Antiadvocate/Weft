@@ -1,4 +1,3 @@
-
 // Coercion for model-supplied fields.
 //
 // The JSON schema says `taste: string` and `core_traits: string[]`, and models ignore that constantly.
@@ -106,4 +105,3 @@ export function repairNativePronouns(prose: string, worldPronoun: string | undef
   });
   return { prose: out, fixed };
 }
-

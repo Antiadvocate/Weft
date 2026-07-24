@@ -1,4 +1,3 @@
-
 /**
  * PHYSIOLOGY — deterministic, time-driven body simulation. Zero tokens.
  *
@@ -155,4 +154,3 @@ export function ftIn(height_cm?: number): string {
 export function lbs(weight_kg?: number): number | undefined {
   return weight_kg ? Math.round(weight_kg * 2.20462) : undefined;
 }
-

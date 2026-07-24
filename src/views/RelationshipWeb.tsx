@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import type { ClientSave } from "../lib/api";
 
@@ -64,9 +63,9 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
         })}
       </svg>
       <div className="flex items-center justify-center gap-3 mt-1 font-mono text-[9px]" style={{ color: "var(--text-lo)" }}>
-        <span style={{ color: "var(--calm)" }}>â— warm</span>
-        <span style={{ color: "#a8743f" }}>â— cool</span>
-        <span style={{ color: "var(--danger)" }}>â— hostile</span>
+        <span style={{ color: "var(--calm)" }}>● warm</span>
+        <span style={{ color: "#a8743f" }}>● cool</span>
+        <span style={{ color: "var(--danger)" }}>● hostile</span>
         <span>· tap a face to isolate</span>
       </div>
       {focus && (() => {
@@ -84,4 +83,3 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
     </div>
   );
 }
-

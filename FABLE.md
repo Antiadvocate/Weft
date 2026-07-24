@@ -1,4 +1,3 @@
-
 # WEFT — FABLE REVISION
 
 A refresh of the engine, not a remake. Every core system — relaxation kernel, perception gate, salience-weighted memory with decay/reconsolidation/mood-congruent recall, edges, rumors, drives, pressure controller, theory-of-mind, focus phases — is preserved exactly. What changed: where the tokens go, and whether a specific fact can survive contact with a small model.
@@ -101,4 +100,3 @@ A central character offscreen ≥ 12 turns, unnamed in recent prose/action, with
 **Views:** `Play.tsx` (HUD, drawers, presence deep-link), `Cast.tsx` (Truth panel, interview), `Chronicle.tsx` (chapters), `Settings.tsx` (triage + new controls).
 
 All type-checked (`tsc --noEmit` clean) and built (`vite build` clean). Unit tests: fact grounding (Portland→Seattle repair, clean-fact pass-through, belief filtering) and heuristic extraction (movement, hand-offs, condition removal, elapsed time, arrivals) both pass.
-

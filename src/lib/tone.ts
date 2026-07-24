@@ -1,4 +1,3 @@
-
 /**
  * SCENE TONE — one derived signal that drives every ambient layer.
  * The engine already computes the real state (player openness, thread tension, weather,
@@ -123,4 +122,3 @@ export function getAmbience(): AmbienceLevel {
 export function setAmbience(v: AmbienceLevel): void {
   try { localStorage.setItem(AMB_KEY, v); } catch { /* private mode */ }
 }
-

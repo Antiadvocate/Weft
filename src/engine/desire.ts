@@ -1,4 +1,3 @@
-
 /**
  * Desire — attraction as its own axis, separate from warmth. Deterministic, zero tokens.
  *
@@ -290,4 +289,3 @@ export function dispositionCue(warmth: number, trust: number): string {
         : "";
   return `${care} ${rely}${note}`;
 }
-

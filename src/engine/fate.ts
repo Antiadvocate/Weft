@@ -1,4 +1,3 @@
-
 // FATE — the destination as a scheduled event.
 //
 // A destination is an ending plus a number of turns: "in 30 turns, he has built the shelter." The
@@ -141,4 +140,3 @@ export function fatePressureFloor(f: Fate): number {
 export function outcomeOf(f: Fate, playerDrove: boolean): "earned" | "forced" {
   return playerDrove ? "earned" : "forced";
 }
-

@@ -1,4 +1,3 @@
-
 import { absMinutes } from "./time";
 /**
  * Pressure controller — replaces the Threat Director LLM call. Zero tokens.
@@ -346,4 +345,3 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
   if (godMode) return "mythic";
   return "mortal";
 }
-

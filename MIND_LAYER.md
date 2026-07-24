@@ -1,4 +1,3 @@
-
 # The Mind Layer — information asymmetry for Weft
 
 ## What it is
@@ -35,4 +34,3 @@ A few scalars per tracked character, updated like the rest of the undertow — z
 
 ## Verified
 `updateMind` was unit-checked in isolation: no surprise on first sight; convergence + rising confidence on a stable bond; surprise spike + model lurch + narrator beat on a betrayal; epistemic-pull flag on high-stakes uncertainty. The `held_false` guard intentionally under-fires on a single clean betrayal (the model just updates) — it's reserved for genuinely sustained misunderstanding.
-

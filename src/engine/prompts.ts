@@ -1,4 +1,3 @@
-
 /**
  * Prompts — rewritten from scratch. Design rules:
  *  1. CACHE ALIGNMENT. Everything stable across turns (system + bible + cast
@@ -939,4 +938,3 @@ ${recentStr}${proseTail}`;
   }
   return assemble(0);
 }
-

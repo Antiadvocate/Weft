@@ -1,4 +1,3 @@
-
 /** Browser-side config. The OpenRouter key lives in localStorage on THIS device only. */
 const KEY_STORAGE = "weft-openrouter-key";
 
@@ -12,4 +11,3 @@ export function setApiKey(k: string): void {
 export function hasApiKey(): boolean {
   return !!getApiKey();
 }
-

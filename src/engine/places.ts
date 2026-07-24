@@ -1,4 +1,3 @@
-
 // Place-name topology. Kept free of engine imports so both turn.ts and prompts.ts can use it.
 
 /** The parent place of a sub-room name. Sub-rooms get written two ways in the wild:
@@ -15,4 +14,3 @@ export function localeOf(name: string): string {
 export function isSubRoom(name: string): boolean {
   return /\(/.test(name || "") || /\s+[-–—]\s+/.test(name || "");
 }
-

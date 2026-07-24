@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { api, type ClientSave } from "../lib/api";
@@ -481,4 +480,3 @@ function Title({ children }: { children: React.ReactNode }) {
 function Note({ children }: { children: React.ReactNode }) {
   return <div className="text-[11px] italic mt-2" style={{ color: "var(--text-lo)" }}>{children}</div>;
 }
-

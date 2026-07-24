@@ -1,4 +1,3 @@
-
 @import "tailwindcss";
 
 /* ───────── WEFT design tokens ─────────
@@ -499,4 +498,3 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--accent); opacity: .8; white-space: nowrap;
 }
-

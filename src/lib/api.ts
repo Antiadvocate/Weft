@@ -1,4 +1,3 @@
-
 /** The engine, in your browser. Mirrors the old server API exactly so the views
  *  are unchanged: every method returns the same shapes; streamTurn runs the turn
  *  loop locally with callbacks instead of Server-Sent Events. */
@@ -1049,4 +1048,3 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     ev.onError?.(e?.message ?? "turn failed");
   }
 }
-

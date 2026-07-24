@@ -1,4 +1,3 @@
-
 /**
  * MONTAGE RUNTIME — the planner call, the beat loop, and the write-path.
  *
@@ -556,4 +555,3 @@ function finalizeMontage(state: SaveState, plan: MontagePlan): void {
   // player arrives into an empty room they were supposed to be sharing.
   syncPresence(state);
 }
-

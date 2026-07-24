@@ -1,4 +1,3 @@
-
 /**
  * SIMULATOR DIFF SCHEMA — for provider-side constrained decoding (structured outputs).
  * Everything optional except scene_summary/elapsed_minutes, mirroring the optional-key
@@ -46,4 +45,3 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   new_places: A(S({ name: str, description_facts: str }, ["name"])),
   offscreen: strA,
 }, ["scene_summary", "elapsed_minutes"]);
-

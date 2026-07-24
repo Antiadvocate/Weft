@@ -1,4 +1,3 @@
-
 /**
  * WEFT — world-loom engine types.
  * The world model: a social fabric that reacts, remembers, and moves offscreen.
@@ -260,6 +259,10 @@ export interface Psyche {
   state_ages?: Record<string, number>;  // turn each active state was added — fuels the lifecycle: states dissolve on their own in a settled body, feed on themselves in a clenched one
   mood_set_turn?: number;      // when the current mood was set — stale moods fade (weather, not climate)
   open_run?: number;           // consecutive settled turns (mirror of consecutive_clenched) — long runs feed reflection: ease shapes belief the way clench does
+  prev_relaxation?: number;    // relaxation captured at the START of the current turn, before drift and deltas —
+                               // the discharge detector (emotions.ts) reads the turn's net movement against this baseline
+  discharge_lift?: number;     // temporary capacity bonus granted by a discharge (release from depth). Decays ×0.7
+                               // per turn in tickPsyche — an opening, not a personality change
 }
 
 export interface Condition {
@@ -567,4 +570,3 @@ export const DEFAULT_MODELS: ModelSettings = {
   token_budget: 0,
   tension: 5,
 };
-

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Hammer } from "lucide-react";
@@ -156,4 +155,3 @@ export default function Forge({ onBack, onCreated }: {
     </div>
   );
 }
-

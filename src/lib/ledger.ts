@@ -1,4 +1,3 @@
-
 // ledger — derive the measurable deltas of the latest turn by comparing the
 // last two telemetry frames. Nothing here calls a model; every number is
 // already in the save. The ledger card renders these, then collapses when the
@@ -91,4 +90,3 @@ export function turnDeltas(save: ClientSave): LedgerRow[] {
 
   return rows.slice(0, 6);
 }
-

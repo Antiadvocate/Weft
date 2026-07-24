@@ -1,4 +1,3 @@
-
 /**
  * NOVELTY — a trait's intensity persists; its NOVELTY decays.
  *
@@ -189,4 +188,3 @@ export function noveltyDigest(state: SaveState): string {
     .filter(Boolean);
   return lines.length ? lines.join("\n") : "";
 }
-

@@ -1,4 +1,3 @@
-
 /**
  * The turn loop. Per turn:
  *   0. pushSnapshot (rollback ring)
@@ -24,7 +23,7 @@ import { advance, heuristicMinutes, advanceWeather } from "./time";
 import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
 import { seedAttraction, orientationCap, tickDesire } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
-import { tickEmotions, tickCoRegulation } from "./emotions";
+import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
@@ -299,7 +298,7 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
   if (cjk >= 4 && !storyIsEastAsian && cjk / t.length > 0.15) return true;
   // Common refusal stems (English and a few localized), especially when the whole response is short.
   const low = t.toLowerCase();
-  const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|æˆ‘ä¸èƒ½|抱歉|对ä¸èµ·|ç”³ã—è¨³|죄송)/i.test(low);
+  const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
   if (refusalStem && t.length < 400) return true;
   // A full narrator turn is 120–350 words; a response under ~12 words is not narration (a refusal,
   // an error echo, or a stub). Guard against storing it.
@@ -432,7 +431,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (cond.psyche.relaxation > natural + 2) cond.psyche.relaxation = natural + 1; // nudge the inflated reading down now
     }
   }
-  for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche);
+  // capture the start-of-turn baseline BEFORE drift: the discharge detector (tail of the turn)
+  // reads the turn's net movement against it — held deep at the start, back above the fracturing
+  // line by the end = something let go.
+  for (const id of Object.keys(state.condition)) {
+    const psy = state.condition[id].psyche;
+    psy.prev_relaxation = psy.relaxation;
+    tickPsyche(psy);
+  }
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
 
@@ -1315,6 +1321,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // (what the body does with what it is carrying) reads the post-company relaxation.
   safeTick("co-regulation", () => tickCoRegulation(state));
   safeTick("emotions", () => tickEmotions(state));
+  // discharge LAST of the psyche ticks: it reads the fully settled relaxation after company and
+  // the lifecycle have had their say, against the start-of-turn baseline captured above.
+  safeTick("discharge", () => tickDischarge(state));
 
   // ── THEORY-OF-MIND UPDATE ── reconnect the mind layer that was orphaned when the undertow (which
   // used to call it, off the deleted QRE stance game) was removed. Without this, characters' models
@@ -2665,4 +2674,3 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   return shifts;
 }
-

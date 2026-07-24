@@ -1,4 +1,3 @@
-
 /**
  * CONTINUITY — the world does not need you.
  *
@@ -386,4 +385,3 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   (state.vessel_history ??= []).push({ turn, from_name: fromName, to_name: toName, time_label: state.world.current_time });
   return { ok: true };
 }
-

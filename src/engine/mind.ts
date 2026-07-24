@@ -1,4 +1,3 @@
-
 /**
  * THEORY OF MIND — the active-inference belief layer.
  *
@@ -284,4 +283,3 @@ export function epistemicGoal(state: SaveState, target: string): string {
   const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
   return `find out where ${tname} really stands — test them, probe, get a read`;
 }
-

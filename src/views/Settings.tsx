@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { ModelPicker } from "./ModelPicker";
 import { Braces, Check, Copy, Download } from "lucide-react";
@@ -517,4 +516,3 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     </div>
   );
 }
-

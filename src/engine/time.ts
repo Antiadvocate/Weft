@@ -1,4 +1,3 @@
-
 /** Time — "Day N, HH:MM" canonical, tolerant parser, heuristic elapse. */
 
 export interface ParsedTime { day: number; hour: number; minute: number }
@@ -99,4 +98,3 @@ export function advanceWeather(current: string, target: string, minutes: number)
   const near = WEATHER_SCALE.find((s) => s.level === nextLevel) ?? WEATHER_SCALE.reduce((a, b) => Math.abs(b.level - nextLevel) < Math.abs(a.level - nextLevel) ? b : a);
   return near.label;
 }
-

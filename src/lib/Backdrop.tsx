@@ -1,4 +1,3 @@
-
 /**
  * BACKDROP — a seeded, noise-driven color field under the prose.
  * Deterministic: seed = hash(locale + tone), so returning to a place reproduces its light.
@@ -127,4 +126,3 @@ export default function Backdrop({ tone, locale, level = "subtle" }: { tone: Sce
         filter: "saturate(1.1)", transform: "scale(1.06)" }} />
   );
 }
-

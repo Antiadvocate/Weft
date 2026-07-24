@@ -1,4 +1,3 @@
-
 /**
  * RETIRED LAYER — formerly the "undertow": Kuramoto phase-synchronization, Lyapunov
  * exponents, and a cusp-catastrophe psyche manifold. That apparatus was the wrong model
@@ -47,4 +46,3 @@ export function neutralUndertow(): UndertowReport {
 export function tickUndertow(_state: SaveState, _rng: () => number = Math.random): UndertowReport {
   return neutralUndertow();
 }
-

@@ -1,4 +1,3 @@
-
 /**
  * FACTS — the fidelity layer. Two jobs, both deterministic and zero-token:
  *
@@ -184,4 +183,3 @@ export function filterSuspectBeliefs<T extends Pick<Belief, "content">>(
   }
   return { kept, dropped };
 }
-

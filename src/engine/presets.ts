@@ -1,4 +1,3 @@
-
 /** Built-in worlds. Sump 9 ported from the original; Thaw Camp new. */
 import type { SaveState } from "./types";
 import { newSave, registerCharacter, uid } from "./state";
@@ -198,4 +197,3 @@ function thaw(): SaveState {
   s.memory[saiva].core = ["Her brother went through the ice hauling Brant's heavy traps.", "The count says nine days of fish at full mouths. She tells no one the true number."];
   return s;
 }
-

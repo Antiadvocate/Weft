@@ -1,4 +1,3 @@
-
 /** Humanizers + tiny time/weather glyphs. */
 import React from "react";
 import { Cloud, CloudFog, CloudLightning, CloudRain, CloudSnow, Moon, Snowflake, Sun, Wind } from "lucide-react";
@@ -64,4 +63,3 @@ export function WeatherIcon({ weather, size = 12 }: { weather?: string; size?: n
   const Icon = hit?.[1] ?? Cloud;
   return <Icon size={size} />;
 }
-

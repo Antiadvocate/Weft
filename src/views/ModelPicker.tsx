@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 
@@ -125,4 +124,3 @@ export function ModelPicker({
     </div>
   );
 }
-

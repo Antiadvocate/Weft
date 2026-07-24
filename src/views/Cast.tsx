@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
@@ -206,7 +205,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="font-display text-[14.5px] truncate">{ch.name}</div>
                     </div>
                     <div className="font-mono text-[10px] mt-1 truncate" style={{ color: "var(--text-lo)" }}>
-                      {ch.tracked && "â— "}{nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
+                      {ch.tracked && "● "}{nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
                     </div>
                     {p && (
                       <div className="font-mono text-[10px] mt-1.5" style={{ color: "var(--text-mid)" }}>
@@ -621,4 +620,3 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
-

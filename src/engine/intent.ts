@@ -1,4 +1,3 @@
-
 // ── INTENT PASS ──────────────────────────────────────────────────────────────
 // The layer that separates TRUTH from TELLING. Before the narrator renders a turn,
 // each present NPC who has something at stake privately commits to what they are
@@ -169,4 +168,3 @@ export function intentForBookkeeper(intents: NpcIntent[]): string {
   });
   return `\n\n=== GROUND TRUTH OF PRESENT CHARACTERS THIS TURN (authoritative — record memories/facts/traits from THIS, not from the prose, which deliberately hides it; e.g. a lie becomes a memory "lied to the player about X" for the liar, and may build a deceit trait) ===\n${lines.join("\n")}`;
 }
-

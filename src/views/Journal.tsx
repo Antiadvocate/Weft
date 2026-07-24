@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from "react";
 import { ScrollText, HandshakeIcon, CircleHelp, Users2 } from "lucide-react";
 import type { ClientSave } from "../lib/api";
@@ -161,4 +160,3 @@ export default function Journal({ save }: { save: ClientSave }) {
     </div>
   );
 }
-

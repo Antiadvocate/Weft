@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ClipboardPaste, Hammer, Sprout, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
@@ -138,4 +137,3 @@ export default function Library({ onOpen, onForge, onCreated }: {
     </div>
   );
 }
-

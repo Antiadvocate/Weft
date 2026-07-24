@@ -1,4 +1,3 @@
-
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
 import { getApiKey } from "./config";
@@ -328,4 +327,3 @@ export async function generateImage(prompt: string, model = "google/gemini-2.5-f
   if (!img) throw new Error("model returned no image — try google/gemini-2.5-flash-image");
   return img as string;
 }
-

@@ -1,4 +1,3 @@
-
 import { parseTime } from "./time";
 import { factGate, factOverlap } from "./facts";
 /**
@@ -423,4 +422,3 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   }
   return parts.join("\n");
 }
-

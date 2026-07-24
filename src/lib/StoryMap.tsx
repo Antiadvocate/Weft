@@ -1,4 +1,3 @@
-
 /**
  * STORY MAP — the world as the player has actually walked it.
  * Nodes are visited places (from the travel log the bookkeeper writes), edges are moves.
@@ -98,4 +97,3 @@ export default function StoryMap({ save }: { save: ClientSave }) {
     </svg>
   );
 }
-

@@ -1,4 +1,3 @@
-
 # Weft — a world that reacts (GitHub Pages build)
 
 A persistent, social world-simulation engine with an LLM narrator. **This build runs entirely in your browser** — no server, no backend. The engine, the saves, and everything else live on your device; it talks to language models through *your own* OpenRouter key.
@@ -77,4 +76,3 @@ The full engine ported to the browser:
 You can choose any OpenRouter image model for portraits and scene art in **Tuning → Images** (Gemini, FLUX, GPT-Image, etc.), and tap any portrait or scene illustration to view it full-screen.
 
 Built with React 19 + Vite + Tailwind 4 + Motion. `base: "./"` means it works from a user root *or* a project subpath with no per-repo configuration.
-

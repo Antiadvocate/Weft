@@ -1,4 +1,3 @@
-
 /**
  * Emotions — the lifecycle of feeling, and how bodies regulate each other. Deterministic, zero tokens.
  *
@@ -17,18 +16,32 @@
  *      the event, and the second one is optional and self-inflicted). It also colonizes the mood.
  *    - Moods themselves are weather: a mood the simulator set turns ago fades once the body settles.
  *
- * 2. CO-REGULATION (tickCoRegulation). Nervous systems are not closed. A settled person you trust,
- *    present in the room, pulls you toward settled — that is what a safe person is FOR. But HOW a
- *    body uses other people under threat differs (clinical attachment, stable per person):
- *    - secure: takes the comfort straight; settles near safe people, explores from there.
- *    - anxious: runs HOT toward people — soothed strongly by presence, but when scared with no safe
- *      person in the room, the alarm feeds itself (protest: escalate, cling, re-check).
- *    - avoidant: runs COLD — comfort barely lands, and when actually threatened, closeness itself
- *      is pressure: a warm person leaning in does nothing (they settle alone, later).
- *    - disorganized: wants the comfort and fears it in the same motion — presence helps some turns
- *      and stings on others.
- *    The player's interior is never authored: the player can BE someone's safe person, but the
- *    engine never moves the player's own relaxation here.
+ * 2. CO-REGULATION (tickCoRegulation). Nervous systems are not closed, and they couple at TWO
+ *    scales:
+ *    - PAIRWISE: a settled person you trust, present in the room, pulls you toward settled — that
+ *      is what a safe person is FOR. But HOW a body uses people under threat differs (clinical
+ *      attachment, stable per person): secure takes the comfort straight; anxious runs hot
+ *      (soothed strongly by presence, but scared and alone the alarm feeds itself); avoidant runs
+ *      cold (under real threat closeness is pressure, not comfort); disorganized reaches for the
+ *      comfort and flinches from it in the same motion.
+ *    - MEAN-FIELD: the weaker pull of the room's aggregate state. Rooms have weather, and bodies
+ *      lean toward it — the calm that holds a frightened stranger, the panic that takes a whole
+ *      crowd. The nudge strengthens when the room is lopsided (nearly everyone on the same side
+ *      of neutral); that asymmetry is where collective phase transitions live. Deliberately weak
+ *      (±0.3 max) and additive: it biases the kernel, never overwrites it — the deleted Kuramoto
+ *      layer died for overwriting, and this one is built to not repeat it.
+ *
+ * 3. DISCHARGE (tickDischarge). Contraction held past capacity does not taper off — it lets go.
+ *    A body that was deep-clenched at the turn's start and comes all the way back above the
+ *    fracturing line within the turn (the narrator's sob, laugh, shaking exhale, carried by the
+ *    simulator's deltas) completes the stress cycle: the oldest gripped emotion transmutes on the
+ *    spot with its residue, the colonized mood clears, and the body earns a temporary capacity
+ *    lift — for a while it can rest more open than its nature. This is the dramatic arc the
+ *    homeostat alone only performs silently.
+ *
+ *    The player's interior is never authored anywhere in this file: the player can BE someone's
+ *    safe person, but the engine never moves the player's own relaxation, and their release is
+ *    theirs to report through the tightness anchor.
  */
 import type { SaveState } from "./types";
 
@@ -151,6 +164,85 @@ export function tickCoRegulation(state: SaveState): string[] {
       p.relaxation = clamp(+(p.relaxation - 0.15).toFixed(2), -10, 10);
     }
   }
+
+  // ── MEAN-FIELD PASS — after every pairwise read, the room's aggregate leans on everyone. ──
+  // The field is the mean relaxation of the present cast (the player counts as steady company,
+  // same convention as pairwise). Applied to NPCs only; the player's body is theirs.
+  const roomIds = state.world.present.filter((pid) => state.characters[pid] && pid !== "char_player");
+  if (roomIds.length >= 2) {
+    const vals = roomIds.map((pid) => state.condition[pid]?.psyche.relaxation ?? 0);
+    // this tick only runs on player-present turns, and the player counts as steady company —
+    // the exact convention the pairwise pass above uses when it prepends char_player to the room
+    vals.push(3);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    // lopsidedness: when nearly the whole room sits on the same side of neutral, the weather is
+    // real and the pull strengthens — a unanimous calm holds people; a unanimous bracing sweeps them.
+    const sameSide = vals.filter((v) => (mean >= 0 ? v >= 0 : v < 0)).length / vals.length;
+    const boost = sameSide >= 0.75 ? 1.6 : 1.0;
+    let loudest: { name: string; pull: number } | null = null;
+    for (const id of roomIds) {
+      const c = state.characters[id];
+      const cond = state.condition[id];
+      if (!c || !cond || c.central === false) continue;
+      const p = cond.psyche;
+      if (Math.abs(mean - p.relaxation) <= 1) continue; // dead zone: no jitter when already near the weather
+      const pull = clamp((mean - p.relaxation) * 0.03 * boost, -0.3, 0.3);
+      if (pull === 0) continue;
+      p.relaxation = clamp(+(p.relaxation + pull).toFixed(2), -10, 10);
+      if (Math.abs(pull) >= 0.2 && (!loudest || Math.abs(pull) > Math.abs(loudest.pull))) loudest = { name: c.name, pull };
+    }
+    // at most one line, and only when the field meaningfully moved somebody — weather should be felt, not spammed
+    if (loudest) {
+      shifts.push(loudest.pull > 0
+        ? `the room's ease reaches ${loudest.name}.`
+        : `the room's bracing gets into ${loudest.name}.`);
+    }
+  }
   return shifts;
 }
 
+/** DISCHARGE — release from depth. Contraction held past capacity doesn't taper off; it lets go.
+ *
+ *  Detected against the start-of-turn baseline (psyche.prev_relaxation, captured in turn.ts before
+ *  any drift or deltas): the body was deep-clenched (≤ -7, with the clench counter or a fracture
+ *  state to prove it was HELD, not just visited) and within one turn it came all the way back
+ *  above the fracturing line with a rise of ≥ 2.5. Drift alone can't fire this — a body drifting
+ *  home overnight resets its clench counter at the start-of-turn tick, so only a genuine mid-turn
+ *  release (carried by the simulator's deltas) qualifies.
+ *
+ *  Completion has consequences:
+ *   - the OLDEST gripped emotional state transmutes immediately with its residue — felt fully at
+ *     last, the charge AND the story about the charge both go
+ *   - the colonized mood clears (the weather the grip made dissipates with it)
+ *   - a temporary capacity lift (+1.5, decaying ×0.7/turn in tickPsyche): for a while the body can
+ *     rest more open than its nature. An opening, not a personality change.
+ *
+ *  Player excluded: their release is theirs to report through the tightness anchor, never authored. */
+export function tickDischarge(state: SaveState): string[] {
+  const shifts: string[] = [];
+  const turn = state.world.current_turn;
+  for (const id of state.world.present) {
+    const c = state.characters[id];
+    const cond = state.condition[id];
+    if (!c || !cond || id === "char_player" || c.central === false) continue;
+    const p = cond.psyche;
+    const prev = p.prev_relaxation;
+    if (prev === undefined) continue;
+    const wasHeld = prev <= -7 && (p.consecutive_clenched >= 3 || p.state !== "intact");
+    const rose = p.relaxation - prev;
+    if (!wasHeld || p.relaxation <= -4 || rose < 2.5) continue;
+
+    const emotional = p.active_states.filter((st) => !STRUCTURAL.some((rx) => rx.test(st)));
+    const oldest = emotional.slice().sort((a, b) => (p.state_ages?.[a] ?? turn) - (p.state_ages?.[b] ?? turn))[0];
+    if (oldest) {
+      p.active_states = p.active_states.filter((x) => x !== oldest);
+      if (p.state_ages) delete p.state_ages[oldest];
+      shifts.push(`${c.name}'s held ${oldest} finally discharges — ${residueFor(oldest)}, and the story about it goes too.`);
+    } else {
+      shifts.push(`something held in ${c.name} finally lets go — the body shakes it off and settles.`);
+    }
+    if (p.mood && p.mood !== "even") { p.mood = "even"; p.mood_set_turn = turn; }
+    p.discharge_lift = 1.5;
+  }
+  return shifts;
+}

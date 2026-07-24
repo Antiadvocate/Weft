@@ -1,4 +1,3 @@
-
 /** IndexedDB save store. Plain JSON values; comfortably holds image data URLs. */
 import type { SaveState } from "./engine/types";
 import { sanitize } from "./engine/state";
@@ -71,4 +70,3 @@ export async function getSideRow(id: string, kind: "recovery" | "backup"): Promi
 export async function deleteSideRow(id: string, kind: "recovery" | "backup"): Promise<void> {
   await tx("readwrite", (store) => store.delete(`${id}::${kind}`));
 }
-

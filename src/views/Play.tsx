@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
@@ -1224,4 +1223,3 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     </div>
   );
 }
-

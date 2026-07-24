@@ -1,4 +1,3 @@
-
 # How people work in Weft
 
 One page, plain language. Every mechanic below is deterministic code unless marked (LLM).
@@ -38,17 +37,29 @@ Nervous systems are not closed. A settled person you trust, present in the room,
 
 When someone is clenched, the narrator gets their under-threat behavior as a line of law — so two scared people in the same scene do visibly different things.
 
+Beyond the pairwise, there is **the room itself**. Bodies lean toward the aggregate state of whoever is present — a weak pull, never an override — and the pull strengthens when the room is lopsided. A unanimous calm holds a frightened stranger; a unanimous bracing sweeps a crowd into panic. This is why a scene can "flip": not because anyone decided, but because the weather hit a threshold.
+
 ## Breaking
 
 Clenched long enough and deep enough, a person fractures, then breaks — into a break mode (dissociative, fawning, mirror, fractured) with its own rendering rules. Recovery restores them.
+
+## Release: the discharge
+
+Contraction held past capacity does not taper off — it lets go. When a body that was held deep comes all the way back within a turn (the sob, the laugh, the shaking exhale), the engine marks a **discharge**: the oldest gripped emotion completes on the spot, keeping its information and dropping its story; the mood it colonized clears; and for a while the body can rest more open than its nature — a temporary lift that decays over the following turns. An opening, not a personality change. What was held and released leaves a person briefly *more* themselves, not less.
 
 ## Becoming: how emotion builds a self
 
 Repeated states become traits (LLM, on the reflection cadence — never per-turn, so a single scene can't move the core). Reflection now also receives the body's recent record: a body that spent the period braced hardens protective, absolute convictions from the same events a settled body would read generously. Belief is shaped by the state it was formed in, not just the facts. Deep-integrated traits fold into core identity; unreinforced ones fade. Memory does the same: experience decays into gist, important gist becomes settled knowledge, and the life-defining residue is permanent.
 
+## News: the rumor field
+
+Rumors live on the social graph the way weather lives on land. News spreads between people in the same place, and the **aggregate body state of each room** sets how fast: dread travels through clenched crowds, warm news through settled ones. Stories sharpen in the telling when they ride matching weather — and they die of boredom when nobody is charged enough to repeat them. The field grows and it reduces; a panic can sweep a town and then be gone from it.
+
 ## The short version
 
-Events land as feeling. Grip turns feeling into story, story into suffering, suffering into disposition, disposition into self. Release lets feeling pass and keeps its information. Other bodies tilt yours toward grip or release, each in its own style. A few people see everything and grip nothing because nothing ever mattered to them but themselves — and they are calm.
+Events land as feeling. Grip turns feeling into story, story into suffering, suffering into disposition, disposition into self. Release lets feeling pass and keeps its information — and a deep enough release opens the body past its own nature for a while. Other bodies tilt yours toward grip or release, each in its own style, and whole rooms tilt together. A few people see everything and grip nothing because nothing ever mattered to them but themselves — and they are calm.
+
+*(The machine underneath all of this — the scalar, the thresholds, the pipeline, every decay term — is documented in KERNEL.md.)*
 
 ## Prose craft: where the narrator rules come from
 
@@ -109,4 +120,3 @@ Acts are proportions of the budget, so a five-turn story passes through all of t
 - **arrival** (turns spent) — the ending is written in this scene.
 
 Two things make this hold. Fate changes threads, clocks, and pressure rather than only instructing the narrator, because a directive leaves the machinery pulling elsewhere. And if the narrator writes around the ending when it is due, the engine records it anyway one turn later — a weak model's reluctance is not a veto. When that happens the ending is marked `forced` rather than `earned`, and the aftermath is told not to pretend the player made it happen.
-

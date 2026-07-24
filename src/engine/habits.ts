@@ -1,4 +1,3 @@
-
 // ─────────────────────────────── THE HABIT ENGINE ───────────────────────────────
 // Core traits as PHYSICS, not labels. A habit is an automaticity with a firing strength; the engine
 // owns whether it fires each beat. The narrator NEVER receives the numbers or the lexicon (groove,
@@ -272,4 +271,3 @@ export function habitVerdicts(fires: HabitFire[], state: SaveState): string {
   });
   return `\n\n=== WHAT THESE CHARACTERS DO WITHOUT DECIDING TO (law — already happening this beat) ===\n${lines.join("\n")}`;
 }
-

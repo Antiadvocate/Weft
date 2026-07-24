@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText } from "lucide-react";
@@ -180,4 +179,3 @@ export default function App() {
     </div>
   );
 }
-

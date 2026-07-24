@@ -1,4 +1,3 @@
-
 /**
  * PSYCHIC — two pure derivations off data the engine already keeps.
  *
@@ -118,4 +117,3 @@ export function dueLabel(hours: number): string {
   const days = Math.round(hours / 24);
   return days <= 1 ? "in ~a day" : `in ~${days} days`;
 }
-

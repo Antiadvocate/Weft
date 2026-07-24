@@ -1,4 +1,3 @@
-
 /**
  * EXTRACT — regex-first bookkeeping. Zero tokens.
  *
@@ -134,4 +133,3 @@ export function backfillDiff(diff: SimulatorDiff, h: HeuristicDiff): SimulatorDi
   d.facts = [...(d.facts ?? []), ...(h.facts ?? []).filter((f) => !seen.has(factKey(f)))];
   return d;
 }
-

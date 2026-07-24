@@ -1,4 +1,3 @@
-
 /**
  * ATMOSPHERE — a single canvas of a few dozen procedural particles behind the prose.
  * Tone picks the kind (motes / embers / ash / rain / snow / fog), density, speed, color.
@@ -156,4 +155,3 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
 
   return <canvas ref={canvasRef} aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }} />;
 }
-

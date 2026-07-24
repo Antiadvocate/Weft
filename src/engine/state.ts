@@ -1,4 +1,3 @@
-
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
@@ -421,4 +420,3 @@ export function healTraits(list: unknown): AcquiredTrait[] {
       ...(t.integrated !== undefined ? { integrated: !!t.integrated } : {}),
     })) as AcquiredTrait[];
 }
-

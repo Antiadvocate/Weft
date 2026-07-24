@@ -1,4 +1,3 @@
-
 /**
  * Social fabric — the world-reacting layer. All deterministic, zero tokens.
  *
@@ -82,6 +81,30 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
 }
 
 /** One diffusion step over the co-presence groups. Deterministic given rng. */
+/** RUMORS AS A CELLULAR FIELD on the social graph — the engine's one cellular-automaton rule.
+ *
+ *  Each co-located group is a NEIGHBORHOOD; each person's cell state is knower/naive plus their
+ *  relaxation scalar; the local rule spreads the rumor across the neighborhood with a threshold
+ *  set by the group's aggregate body state. Dread travels through clenched rooms (fear rides a
+ *  braced crowd), warm news through settled ones; neutral gossip rides either weather mildly.
+ *
+ *  Crucially, the field REDUCES — the thing a bare cellular automaton never does. Salience decays
+ *  every turn (a rumor nobody is charged enough to repeat dies of boredom, not old age), while a
+ *  transmission in matching weather feeds it (the story grows in the telling). Growth and decay on
+ *  the same rule, because the field rides the same dissipative kernel as everything else: tension
+ *  accrues, relaxation releases, structure cycles instead of only complexifying. */
+const DREAD_WORDS = /\b(kill|dead|death|die|dying|war|raid|attack|burn|fire|plague|sick|arrest|hang|execut|betray|monster|flood|storm|collapse|missing|blood|threat|danger|curse|riot|flee|invad|drown|starv)\b/i;
+const WARM_WORDS = /\b(wedding|married|birth|born|baby|festival|feast|harvest|peace|treaty|heal|cured|return|alive|saved|rescue|celebrat|gift|rain|spring)\b/i;
+
+/** The rumor's emotional charge, read lexically from its content — zero tokens, no save migration.
+ *  -1 dread / +1 warm / 0 neutral. */
+function rumorCharge(content: string): number {
+  const dread = DREAD_WORDS.test(content), warm = WARM_WORDS.test(content);
+  if (dread && !warm) return -1;
+  if (warm && !dread) return 1;
+  return 0;
+}
+
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
   const log: string[] = [];
   const groups: string[][] = [];
@@ -103,11 +126,27 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
   for (const group of byLocation.values()) {
     if (group.length > 1) groups.push(group); // only same-place offscreen characters mingle
   }
+  // each neighborhood's aggregate body state — the mean relaxation of its members. This is the
+  // local field the rule reads: one number per room, recomputed each turn.
+  const groupMood = new Map<string[], number>();
+  for (const group of groups) {
+    const vals = group.map((id) => state.condition[id]?.psyche.relaxation ?? 0);
+    groupMood.set(group, vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0);
+  }
   for (const rumor of state.world.rumors) {
     if (rumor.dead) continue;
     const age = state.world.current_turn - rumor.born_turn;
     if (age > 30 || rumor.knowers.length >= Object.keys(state.characters).length) { rumor.dead = true; continue; }
+    // DISSIPATION: salience leaks away every turn. What nobody is charged enough to repeat dies.
+    rumor.salience = Math.max(0, rumor.salience - 0.3);
+    if (rumor.salience < 1) { rumor.dead = true; continue; }
+    const charge = rumorCharge(rumor.content);
+    let fed = false; // a rumor grows at most once per turn, no matter how many rooms carry it
     for (const group of groups) {
+      const mood = groupMood.get(group) ?? 0;
+      // weather match: dread amplifies in clenched rooms, warmth in settled ones, neutral mildly in either
+      const match = charge < 0 ? Math.max(0, -mood) : charge > 0 ? Math.max(0, mood) : Math.abs(mood) / 2;
+      const spread = 1 + (Math.min(8, match) / 8) * 1.5; // up to ×2.5 when the room's weather fits the story
       const knowers = group.filter((id) => rumor.knowers.includes(id));
       const naive = group.filter((id) => !rumor.knowers.includes(id) && id !== "char_player");
       for (const k of knowers) {
@@ -115,10 +154,17 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
         for (const j of naive) {
           if (rumor.knowers.includes(j)) continue;
           const gj = state.characters[j]?.gregariousness ?? 0.5;
-          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2);
+          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread;
           if (rng() < p) {
             rumor.knowers.push(j);
             log.push(`${state.characters[j]?.name ?? j} hears: "${rumor.content}" (from ${state.characters[k]?.name ?? k})`);
+            // GROWTH: carried by matching weather, the story sharpens in the telling — the CA's
+            // accrual term, balanced against the decay above so the field can't only complexify.
+            if (!fed && match >= 3) {
+              rumor.salience = Math.min(10, rumor.salience + 0.6);
+              fed = true;
+              log.push(`the story grows in the telling — "${rumor.content}" sharpens as it spreads.`);
+            }
           }
         }
       }
@@ -134,16 +180,25 @@ export function tickPsyche(p: Psyche): void {
   // because scenes are pleasant. This is the fix for a low-capacity (tense, guarded, predatory)
   // character being pushed up to serene openness by repeated positive relaxation_deltas and staying
   // there: above capacity the pull-back is strong, so their natural tension reasserts.
-  const gap = p.capacity - p.relaxation;
-  const rate = p.relaxation > p.capacity ? Math.max(p.recovery, 0.5) : p.recovery; // above-capacity overshoot collapses fast
+  // A discharge (release from depth — see tickDischarge in emotions.ts) temporarily raises the
+  // resting point: for a while after letting something go, the body CAN sit more open than its
+  // nature. The lift decays below; capacity itself is untouched.
+  const effCapacity = p.capacity + (p.discharge_lift ?? 0);
+  const gap = effCapacity - p.relaxation;
+  const rate = p.relaxation > effCapacity ? Math.max(p.recovery, 0.5) : p.recovery; // above-capacity overshoot collapses fast
   p.relaxation = clamp(p.relaxation + gap * rate, -10, 10);
   if (p.relaxation <= -7) p.consecutive_clenched++;
   else p.consecutive_clenched = 0;
   // open_run tracks how long they've sat AT/ABOVE their own resting openness — a character whose
   // capacity is low (guarded by nature) shouldn't accrue a long "open run" just for being at rest.
   // Reset when relaxation falls meaningfully below their capacity OR below the neutral line.
-  const openFloor = Math.min(3, Math.max(0, p.capacity - 1));
+  const openFloor = Math.min(3, Math.max(0, effCapacity - 1));
   p.open_run = p.relaxation >= openFloor ? (p.open_run ?? 0) + 1 : 0;
+  // the discharge opening closes gradually — ×0.7 per turn, gone within about a week of turns
+  if (p.discharge_lift !== undefined) {
+    p.discharge_lift = +(p.discharge_lift * 0.7).toFixed(3);
+    if (p.discharge_lift < 0.2) p.discharge_lift = undefined;
+  }
   if (p.state === "intact" && p.consecutive_clenched >= 4) p.state = "fracturing";
   if (p.state === "fracturing" && p.relaxation > -4) { p.state = "intact"; p.break_mode = null; }
   if (p.state === "fracturing" && p.relaxation <= -9) { p.state = "broken"; p.break_mode = p.break_mode ?? "fractured"; }
@@ -453,4 +508,3 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
   return log;
 }
 function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
-

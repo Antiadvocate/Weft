@@ -1,4 +1,3 @@
-
 /** Tiny dependency-free SVG chart kit. All charts read CSS vars for theming. */
 import React from "react";
 
@@ -138,4 +137,3 @@ export function Stat({ label, value, sub }: { label: string; value: string; sub?
     </div>
   );
 }
-

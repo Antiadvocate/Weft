@@ -1,4 +1,3 @@
-
 import React from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
@@ -155,4 +154,3 @@ function Block({ title, delay, children }: { title: string; delay: number; child
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>{children}</div>;
 }
-

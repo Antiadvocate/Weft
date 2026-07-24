@@ -1,4 +1,3 @@
-
 /** SYSTEM TTS READER — reads narrator prose aloud through the device's own speech engine
  *  (window.speechSynthesis → the iPhone system voices on iOS Safari; free, offline, no API).
  *
@@ -112,4 +111,3 @@ export function speak(text: string, onDone?: () => void) {
   };
   next();
 }
-

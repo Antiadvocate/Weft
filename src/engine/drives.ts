@@ -1,4 +1,3 @@
-
 /** Drive regeneration — NPC autonomy without an author.
  *
  *  A tracked character who has finished their drive (or never had one) is never
@@ -170,4 +169,3 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
   }
   return log;
 }
-
