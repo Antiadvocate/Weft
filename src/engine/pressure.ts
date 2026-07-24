@@ -1,34 +1,35 @@
+
 import { absMinutes } from "./time";
 /**
- * Pressure controller — replaces the Threat Director LLM call. Zero tokens.
+ * Pressure controller â€” replaces the Threat Director LLM call. Zero tokens.
  *
- * Model: scene pressure P_t ∈ [0,10] drawn from a difficulty-defined target
+ * Model: scene pressure P_t âˆˆ [0,10] drawn from a difficulty-defined target
  * mixture, corrected by a proportional controller on the rolling empirical
- * mean (so long-run distribution converges to target — verified by Monte
+ * mean (so long-run distribution converges to target â€” verified by Monte
  * Carlo in verify/verify.ts), with hard constraints:
- *   C1 opening grace:        t ≤ 2 ⇒ P ≤ 2
- *   C2 breath rule:          mean(P_{t-2}, P_{t-1}) ≥ 7 ⇒ P ≤ 4
- *   C3 lethality ceiling:    lethality=low ⇒ P ≤ 9; medium ⇒ ≤ 10 with cause
- *   C4 earned danger:        P ≥ 8 requires max(thread tension, clock heat) ≥ 6
+ *   C1 opening grace:        t â‰¤ 2 â‡’ P â‰¤ 2
+ *   C2 breath rule:          mean(P_{t-2}, P_{t-1}) â‰¥ 7 â‡’ P â‰¤ 4
+ *   C3 lethality ceiling:    lethality=low â‡’ P â‰¤ 9; medium â‡’ â‰¤ 10 with cause
+ *   C4 earned danger:        P â‰¥ 8 requires max(thread tension, clock heat) â‰¥ 6
  *   C5 mundane default:      restful intents bias the draw down 2 bands
  *
  * The fiction-awareness the old LLM director provided is recovered from
  * state: thread tension (set by the Simulator), due consequences, and
- * faction clock heat feed an additive "fiction heat" term — so pressure is
+ * faction clock heat feed an additive "fiction heat" term â€” so pressure is
  * still earned by the story, just computed instead of asked for.
  */
 import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock } from "./types";
 
 export interface PressureInput {
   turn: number;
-  now?: string;                    // current in-world time ("Day N, HH:MM") — gates time-scheduled consequences
+  now?: string;                    // current in-world time ("Day N, HH:MM") â€” gates time-scheduled consequences
   trace: number[];                 // prior pressures
   difficulty: DifficultyProfile;
   threads: Thread[];
   consequences: ConsequenceEvent[];
   clocks: FactionClock[];
   action: string;                  // player's typed intent
-  instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
+  instability?: number;            // 0..1 from the Undertow â€” chaotic regimes run hotter
   focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
   focusLabel?: string | null;      // what we're converging on / in (for the directive text)
   tension?: number;                // 0-10 master dial; 0 = engine originates nothing new
@@ -77,7 +78,7 @@ export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequen
   for (const c of clocks) {
     if (c.status !== "running" || c.segments === 0) continue;
     const h = (c.filled / c.segments) * 8;
-    if (h > heat) { heat = h; source = `clock: ${c.faction} — ${c.objective}`; }
+    if (h > heat) { heat = h; source = `clock: ${c.faction} â€” ${c.objective}`; }
   }
   const due = consequences.find((c) => isDue(c, turn, now));
   if (due) {
@@ -94,10 +95,10 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   // proportional correction: shift band probabilities toward target mean
   const window = input.trace.slice(-12);
   const mean = window.length ? window.reduce((a, b) => a + b, 0) / window.length : bandMean(target);
-  let err = bandMean(target) - mean;                   // >0 ⇒ we've been too quiet
-  // PHASE: in a "build" phase the player is converging on an event — do not manufacture friction
+  let err = bandMean(target) - mean;                   // >0 â‡’ we've been too quiet
+  // PHASE: in a "build" phase the player is converging on an event â€” do not manufacture friction
   // to hit a quota (a quiet stretch is fine). In an "active" phase the event has arrived and the
-  // world runs hot — allow the upward correction (don't damp it).
+  // world runs hot â€” allow the upward correction (don't damp it).
   if (input.focusMode === "build" && err > 0) err = 0;
   const kP = 0.10;                                     // gentle gain (stability proven in verify)
   const tilt = Math.max(-0.3, Math.min(0.3, kP * err));
@@ -112,11 +113,11 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   let r = rng(), band = 0;
   for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) { band = i; break; } if (i === p.length - 1) band = i; }
 
-  // fiction heat: pressure ≥ 8 must be earned (C4); heat also pulls band up
+  // fiction heat: pressure â‰¥ 8 must be earned (C4); heat also pulls band up
   let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
-    if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
+    if (input.instability >= 1) source = source === "quiet â€” the world breathes" ? "the undertow â€” the world is primed" : source + " (amplified by the undertow)";
   }
   const due = input.consequences.find((c) => isDue(c, input.turn, input.now));
   if (due && due.severity !== "minor") band = Math.max(band, due.severity === "major" ? 3 : 2);
@@ -137,18 +138,18 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   // opening grace (C1)
   if (input.turn <= 2) band = 0;
 
-  // MASTER TENSION DIAL (0–10, default 5). Scales the whole band down as it drops; at 0 the world
-  // never escalates on its own — only a consequence the player themselves set in motion can raise it,
+  // MASTER TENSION DIAL (0â€“10, default 5). Scales the whole band down as it drops; at 0 the world
+  // never escalates on its own â€” only a consequence the player themselves set in motion can raise it,
   // and even then it stays an obstacle, not danger. This is the global "let me breathe" control.
   const tension = input.tension ?? 5;
   if (tension <= 0) {
     band = due ? Math.min(band, 2) : 0;          // nothing the engine originated; calm unless the player's own due event lands
   } else if (tension < 5) {
     // below midpoint: pull the band toward calm. A due consequence may still LAND, but the dial
-    // throttles how hard — it no longer gets a free pass to danger. This is what lets a player turn
+    // throttles how hard â€” it no longer gets a free pass to danger. This is what lets a player turn
     // tension down to escape a runaway plot whose consequence queue would otherwise keep firing
-    // high pressure regardless of the dial. tension 1–2 → cap friction, 3 → friction (due: obstacle),
-    // 4 → obstacle. The due event still happens; it just arrives proportionate to the calm setting.
+    // high pressure regardless of the dial. tension 1â€“2 â†’ cap friction, 3 â†’ friction (due: obstacle),
+    // 4 â†’ obstacle. The due event still happens; it just arrives proportionate to the calm setting.
     const baseCap = tension <= 3 ? 1 : 2;
     const dueCap = tension <= 2 ? 1 : 2;          // even a due event stays an obstacle at most when calm
     band = Math.min(band, due ? dueCap : baseCap);
@@ -166,7 +167,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   return {
     pressure: capped,
     band: BAND_NAMES[band],
-    source: band === 0 ? "quiet — the world breathes" : source,
+    source: band === 0 ? "quiet â€” the world breathes" : source,
     due_consequence: due,
     focus_event: input.focusLabel ?? null,
     focus_mode: input.focusMode ?? null,
@@ -174,13 +175,13 @@ export function decidePressure(input: PressureInput): PressureVerdict {
 }
 
 
-/** ── SOURCE-DRIVEN BEATS ──────────────────────────────────────────────────────────────────
+/** â”€â”€ SOURCE-DRIVEN BEATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * The Uncut Gems principle: tension is the WEIGHT of what's standing, not the FREQUENCY of
- * what arrives. Howard sleeps; nobody bothers him at night — because pressure lives in the
+ * what arrives. Howard sleeps; nobody bothers him at night â€” because pressure lives in the
  * debts that exist, the bet that's riding. So a pressure beat must NAME its source from
  * standing state (a due consequence, a maturing clock, a hot thread, an offscreen agent's
  * drive) or not fire at all. Silence is a legitimate output. The genuinely out-of-nowhere is
- * budgeted to rarity — and arrives witnessed, not targeted. Between discharges, REMINDER
+ * budgeted to rarity â€” and arrives witnessed, not targeted. Between discharges, REMINDER
  * beats keep the weight felt at zero mechanical cost: a message, a look, a rumor.
  */
 export interface AgentCandidate { name: string; goal: string; priority: number }
@@ -206,7 +207,7 @@ export type Beat =
   | { kind: "agent"; ref: string; goal: string }
   | { kind: "exogenous" };
 
-/** Refractory period between incident beats — the world does not stack. Tightens as clocks
+/** Refractory period between incident beats â€” the world does not stack. Tightens as clocks
  *  mature, which is where act structure comes from: quiet middles, converging ends. */
 export function beatCooldown(tension: number, clocks: FactionClock[]): number {
   const base = tension <= 2 ? 10 : tension <= 4 ? 7 : tension <= 6 ? 5 : tension <= 8 ? 3 : 2;
@@ -221,7 +222,7 @@ export function selectBeat(inp: BeatInput): Beat {
     const due0 = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
     return due0 ? { kind: "consequence", ref: due0.description.slice(0, 80), consequence: due0 } : { kind: "none" };
   }
-  // a DUE consequence always lands — the player (or the world) loaded it; the calendar fired it
+  // a DUE consequence always lands â€” the player (or the world) loaded it; the calendar fired it
   const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
   if (due) return { kind: "consequence", ref: due.description.slice(0, 80), consequence: due };
 
@@ -240,21 +241,21 @@ export function selectBeat(inp: BeatInput): Beat {
   for (const t of inp.threads) if (t.status === "active" && (t.tension ?? 0) >= 6)
     standing.push({ ref: t.title.slice(0, 90), mk: () => ({ kind: "thread", ref: t.title.slice(0, 90) }) });
   for (const a of inp.agents) if ((a.priority ?? 1) >= 6)
-    standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
+    standing.push({ ref: `${a.name} â€” ${a.goal}`.slice(0, 90), mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
 
   if (cooling || inp.restoration) {
-    // between discharges: reminder beats keep the weight felt — never during rest at low tension
+    // between discharges: reminder beats keep the weight felt â€” never during rest at low tension
     if (standing.length && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
       return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
     }
     return { kind: "none" };
   }
 
-  // discharge from standing state — probability scales with tension; silence is legitimate
+  // discharge from standing state â€” probability scales with tension; silence is legitimate
   const fireP = inp.tension <= 2 ? 0.25 : inp.tension <= 4 ? 0.45 : inp.tension <= 6 ? 0.6 : 0.8;
   if (standing.length && rng() < fireP) return standing[Math.floor(rng() * standing.length)].mk();
 
-  // exogenous: rationed rarity — witnessed, not targeted
+  // exogenous: rationed rarity â€” witnessed, not targeted
   if (inp.turn - inp.last_exo_turn >= EXO_INTERVAL(inp.tension) && rng() < 0.5) return { kind: "exogenous" };
 
   if (standing.length && rng() < 0.3) return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
@@ -263,45 +264,45 @@ export function selectBeat(inp: BeatInput): Beat {
 
 /** Compact directive injected into the narrator's volatile digest. */
 export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat): string {
-  const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
+  const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) â€” source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
-    lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate — if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
+    lines.push("TENSION 0 â€” THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does â€” let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate â€” if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
   } else if (beat) {
     // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
     switch (beat.kind) {
       case "none":
-        lines.push("NO EXTERNAL PUSH THIS TURN. Nothing new arrives, presses, or develops from outside. The scene runs on the present characters' own wants and reactions — which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure.");
+        lines.push("NO EXTERNAL PUSH THIS TURN. Nothing new arrives, presses, or develops from outside. The scene runs on the present characters' own wants and reactions â€” which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure.");
         break;
       case "reminder":
-        lines.push(`REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
+        lines.push(`REMINDER BEAT â€” NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
         break;
       case "consequence":
-        lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
+        lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established â€” never from thin air.`);
         break;
       case "clock":
-        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
+        lines.push(`PRESSURE BEAT from a maturing faction clock â€” "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned â€” and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
         break;
       case "thread":
-        lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);
+        lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves â€” a development in it reaches the player through established people or places. No new subplot; this one advances.`);
         break;
       case "agent":
-        lines.push(`PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, not plot convenience.`);
+        lines.push(`PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit â€” a visit, a message, a move made through others. Their action follows THEIR logic and state, not plot convenience.`);
         break;
       case "exogenous":
-        lines.push(`EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player — witnessed, not targeted at them. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you, not to you.`);
+        lines.push(`EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player â€” witnessed, not targeted at them. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you, not to you.`);
         break;
     }
   }
   if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
-  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
-  if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
+  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this â€” honor it.`);
+  if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived â€” this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
   // Tier nudge (NOT a behavior script): at high power, a martial/institutional threat against the
-  // protagonist is a category error. We don't prescribe how mortals act — that emerges from their
+  // protagonist is a category error. We don't prescribe how mortals act â€” that emerges from their
   // own state (terror pins relaxation low; a clenched person flatters, lies, schemes, capitulates
   // through the perception gate). We only steer the narrator off the wrong reflex.
   if ((tension ?? 5) > 0) {
     if (tier === "cosmic") {
-      lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist; let that reaction come from each character's state and relationship to the player, not from a script.`);
+      lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") â€” that is a category error. Pressure here is the mortals' own reaction to power they cannot resist; let that reaction come from each character's state and relationship to the player, not from a script.`);
     } else if (tier === "mythic") {
       lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel; otherwise pressure is consequence and reaction, drawn from each character's own state.`);
     } else if (palette?.length) {
@@ -315,7 +316,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
 
 export type PowerTier = "mortal" | "empowered" | "mythic" | "cosmic";
 
-/** How far past mortal the protagonist has scaled. A light gate on the tier nudge above — NOT a
+/** How far past mortal the protagonist has scaled. A light gate on the tier nudge above â€” NOT a
  *  behavior driver (behavior emerges from the relaxation kernel). god_mode lifts you above
  *  ordinary threat; visible reality-breaking acts read as cosmic. */
 export function detectPowerTier(godMode: boolean, recentText: string): PowerTier {
@@ -331,7 +332,7 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
     /leveled (a|the) (building|city|block)/,
     /no one could (stop|touch|harm) (him|her|them)/, /impervious|invulnerable|untouchable/,
     // casual reality-bending: teleporting, banishing, recalling, vanishing people/things at will.
-    // NOTE: patterns here must be UNAMBIGUOUS power — "with a wave of her hand" and "with his hand" and
+    // NOTE: patterns here must be UNAMBIGUOUS power â€” "with a wave of her hand" and "with his hand" and
     // a bare "teleport" occur in ordinary prose and used to false-stamp every NPC as awestruck and inject
     // the EARNED_RESPONSE block. Removed: /with a (thought|gesture|wave|word)/, /with (a|his|her|their)
     // (mind|hand|will)/, bare /teleport\w*/. Kept only phrasings that can't be innocent.
@@ -345,3 +346,4 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
   if (godMode) return "mythic";
   return "mortal";
 }
+

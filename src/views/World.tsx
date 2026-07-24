@@ -1,3 +1,4 @@
+
 import React from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
@@ -11,8 +12,8 @@ export default function World({ save }: { save: ClientSave }) {
   const activeThreads = w.threads.filter((t) => t.status === "active");
   const name = (id: string) => save.characters[id]?.name ?? id;
 
-  // Emotional weather: the REAL signal now — each present/tracked character's openness
-  // (relaxation) and state, the thing that actually drives the engine. No Kuramoto, no λ̂.
+  // Emotional weather: the REAL signal now â€” each present/tracked character's openness
+  // (relaxation) and state, the thing that actually drives the engine. No Kuramoto, no Î»Ì‚.
   const cond = (save as any).condition as Record<string, { psyche?: { relaxation: number; state: string; mood?: string; active_states?: string[] } }> | undefined;
   const weather = Object.entries(cond ?? {})
     .filter(([id]) => id !== "char_player" && save.characters[id] && (save.characters[id] as any).status !== "dead")
@@ -32,7 +33,7 @@ export default function World({ save }: { save: ClientSave }) {
                 <div className="flex justify-between items-baseline">
                   <span className="text-[13px]">{c.name}</span>
                   <span className="font-mono text-[10px]" style={{ color: openColor(c.r) }}>
-                    {openWord(c.r, c.state)}{c.mood ? ` · ${c.mood}` : ""}
+                    {openWord(c.r, c.state)}{c.mood ? ` Â· ${c.mood}` : ""}
                   </span>
                 </div>
                 {/* openness meter: -10 clenched (left) to +10 open (right), midpoint marked */}
@@ -46,7 +47,7 @@ export default function World({ save }: { save: ClientSave }) {
                   }} />
                 </div>
                 {c.states.length > 0 && (
-                  <div className="text-[10.5px] mt-1" style={{ color: "var(--text-lo)" }}>{c.states.join(" · ")}</div>
+                  <div className="text-[10.5px] mt-1" style={{ color: "var(--text-lo)" }}>{c.states.join(" Â· ")}</div>
                 )}
               </div>
             ))}
@@ -63,7 +64,7 @@ export default function World({ save }: { save: ClientSave }) {
       <Block title="The map" delay={0.035}>
         <StoryMap save={save} />
         <div className="text-[10.5px] italic pt-1" style={{ color: "var(--text-lo)" }}>
-          The world as you've walked it — every place you've stood, every path between.
+          The world as you've walked it â€” every place you've stood, every path between.
         </div>
       </Block>
 
@@ -111,7 +112,7 @@ export default function World({ save }: { save: ClientSave }) {
             <div className="text-[13px] leading-relaxed italic">"{r.content}"</div>
             <div className="font-mono text-[9.5px] mt-1 flex gap-2" style={{ color: "var(--text-lo)" }}>
               <span style={r.truth !== "true" ? { color: "var(--danger)" } : undefined}>{r.truth}</span>
-              <span>· {r.knowers.length} know · from {name(r.origin_char)}</span>
+              <span>Â· {r.knowers.length} know Â· from {name(r.origin_char)}</span>
             </div>
           </div>
         ))}
@@ -122,7 +123,7 @@ export default function World({ save }: { save: ClientSave }) {
         {w.norms.map((n) => (
           <div key={n.id} className="py-1.5 text-[13px]">
             <span style={{ color: "var(--text-hi)" }}>{n.rule}</span>
-            <span className="font-mono text-[9.5px] ml-2" style={{ color: "var(--text-lo)" }}>({n.enforcement} — {n.holders})</span>
+            <span className="font-mono text-[9.5px] ml-2" style={{ color: "var(--text-lo)" }}>({n.enforcement} â€” {n.holders})</span>
           </div>
         ))}
       </Block>
@@ -131,7 +132,7 @@ export default function World({ save }: { save: ClientSave }) {
         {Object.values(w.places).map((p) => (
           <div key={p.id} className="py-1.5">
             <span className="font-display text-[13.5px]">
-              {p.name}{w.player_location === p.id && <span style={{ color: "var(--accent)" }}> ◂ you</span>}
+              {p.name}{w.player_location === p.id && <span style={{ color: "var(--accent)" }}> â—‚ you</span>}
             </span>
             <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
           </div>
@@ -154,3 +155,4 @@ function Block({ title, delay, children }: { title: string; delay: number; child
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>{children}</div>;
 }
+

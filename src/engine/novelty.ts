@@ -1,5 +1,6 @@
+
 /**
- * NOVELTY — a trait's intensity persists; its NOVELTY decays.
+ * NOVELTY â€” a trait's intensity persists; its NOVELTY decays.
  *
  * The engine already models how automatic a behavior is (habits.ts: strength,
  * firing, seen/unseen). What it did not model is how much narrative ATTENTION a
@@ -7,7 +8,7 @@
  * a character who "loves basketball" delivers the same enthusiastic discovery on
  * the tenth court visit as on the first.
  *
- * How people actually work: the first expression is an event — it's about the
+ * How people actually work: the first expression is an event â€” it's about the
  * thing. Repetition turns it into ground. You still love basketball on the
  * hundredth game; you just don't announce it. You talk about your day while
  * playing. The trait moved from FIGURE to GROUND, and what surfaces instead is
@@ -15,12 +16,12 @@
  * to have a hard conversation).
  *
  * So: count expressions, derive a stage, and hand the narrator the stage as a
- * behavioral instruction — never the number. Same discipline as habits.ts: the
+ * behavioral instruction â€” never the number. Same discipline as habits.ts: the
  * narrator receives a verdict, not a mechanic it could perform.
  */
 import type { SaveState, CoreHabit } from "./types";
 
-/** Where a trait sits on the figure→ground curve. */
+/** Where a trait sits on the figureâ†’ground curve. */
 export type NoveltyStage = "fresh" | "familiar" | "ground";
 
 /** Expression counts at which a trait crosses into the next stage. */
@@ -35,7 +36,7 @@ const GROUND_AT = 5;     // by the 5th it is simply how this person lives
  * similarity, which is right for ranking memories against each other but wrong
  * here: it normalizes by document length, so an unmistakable expression inside a
  * normal paragraph scores ~0.19 and gets weaker the longer the prose runs. What
- * we want is containment — did this trait's actual subject matter show up — which
+ * we want is containment â€” did this trait's actual subject matter show up â€” which
  * is length-independent.
  */
 const EXPRESSION_COVERAGE = 1;
@@ -56,7 +57,7 @@ function distinctiveWords(trait: string): string[] {
 }
 
 /**
- * FALLBACK ONLY — string containment, used when the simulator did not report for
+ * FALLBACK ONLY â€” string containment, used when the simulator did not report for
  * this character (a failed or thin bookkeeping turn).
  *
  * This cannot see meaning. "Loves ice cream" will not match gelato, sorbet, or an
@@ -66,7 +67,7 @@ function distinctiveWords(trait: string): string[] {
  *
  * That is why `recordExpressions` prefers the simulator's semantic judgment and
  * only falls back to this. When it does fall back, a miss means the trait stays
- * fresh a while longer — the safe failure direction (an over-narrated habit) as
+ * fresh a while longer â€” the safe failure direction (an over-narrated habit) as
  * opposed to a trait silently grounding when it never appeared.
  *
  * Two notes on the implementation:
@@ -90,14 +91,14 @@ export function expressionCoverage(trait: string, prose: string): number {
   return 0;
 }
 
-/** Loose match between a reported trait string and a stored one — the simulator
+/** Loose match between a reported trait string and a stored one â€” the simulator
  *  is asked for verbatim but will sometimes paraphrase or re-case. */
 function sameTrait(a: string, b: string): boolean {
   const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   const A = norm(a), B = norm(b);
   if (!A || !B) return false;
   if (A === B || A.includes(B) || B.includes(A)) return true;
-  // tolerate collapsed spacing ("icecream" for "ice cream") — models do this
+  // tolerate collapsed spacing ("icecream" for "ice cream") â€” models do this
   const squash = (x: string) => x.replace(/\s+/g, "");
   const sa = squash(A), sb = squash(B);
   if (sa === sb || sa.includes(sb) || sb.includes(sa)) return true;
@@ -118,7 +119,7 @@ export function noveltyStage(h: CoreHabit): NoveltyStage {
 
 /**
  * Count expressions from a committed turn. Called after the prose exists, so it
- * measures what the scene actually did — not what the engine predicted.
+ * measures what the scene actually did â€” not what the engine predicted.
  *
  * Only counts once per trait per turn: a scene that mentions basketball six times
  * is still one expression of the trait.
@@ -148,7 +149,7 @@ export function recordExpressions(
 /**
  * The narrator-facing line for one character's grounded traits.
  *
- * Returns behavioral guidance, never counts or stage names — the narrator must
+ * Returns behavioral guidance, never counts or stage names â€” the narrator must
  * not be able to map this onto a mechanic and start performing "the ground
  * stage". It reads as ordinary direction about how a person carries a long
  * habit, because that is what it is.
@@ -167,16 +168,16 @@ export function noveltyNote(state: SaveState, id: string): string {
   if (ground.length)
     parts.push(
       `${c.name} has lived these a long time: ${ground.join("; ")}. ` +
-      `They are the floor, not the subject. ${c.name} does them the way people do old things — ` +
+      `They are the floor, not the subject. ${c.name} does them the way people do old things â€” ` +
       `without commentary, without selling them, without discovering them again. ` +
       `Do NOT write a scene ABOUT these; write a scene that HAPPENS during them: the talk over the activity ` +
       `is about something else entirely (the day, a worry, another person), and the habit is just where they are while it happens. ` +
-      `If someone else is new to it, their reaction can be fresh — ${c.name}'s is not.`,
+      `If someone else is new to it, their reaction can be fresh â€” ${c.name}'s is not.`,
     );
   if (familiar.length)
     parts.push(
       `Less worn but no longer new for ${c.name}: ${familiar.join("; ")}. ` +
-      `Some ease has set in — competence and comfort rather than enthusiasm. Half the airtime it got the first time.`,
+      `Some ease has set in â€” competence and comfort rather than enthusiasm. Half the airtime it got the first time.`,
     );
   return parts.join(" ");
 }
@@ -188,3 +189,4 @@ export function noveltyDigest(state: SaveState): string {
     .filter(Boolean);
   return lines.length ? lines.join("\n") : "";
 }
+

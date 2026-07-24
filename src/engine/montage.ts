@@ -1,5 +1,6 @@
+
 /**
- * MONTAGE — directed passage of time.
+ * MONTAGE â€” directed passage of time.
  *
  * The engine has two speeds: one turn, or a blind interlude. Neither can execute
  * an *intent* ("thirty days, we move in, the cats arrive, the taco argument
@@ -11,7 +12,7 @@
  * inside a per-beat envelope, so a beat can dip ("the first week was cold
  * silence") and still converge. The dips are the B and C the player is missing.
  *
- * This module is deliberately pure — no LLM calls, no state mutation. It is the
+ * This module is deliberately pure â€” no LLM calls, no state mutation. It is the
  * math the beat loop is held to, so it can be tested without spending a token.
  */
 import type { SaveState } from "./types";
@@ -48,7 +49,7 @@ export interface MontagePlan {
  *   s_i = 2(n - i + 1) / (n(n + 1))
  *
  * The weights sum to exactly 1 across all beats, so walking each beat by
- * s_i × (target − current) converges on the target without ever overshooting.
+ * s_i Ã— (target âˆ’ current) converges on the target without ever overshooting.
  * Front-loading matters: the decision lands early, the long tail is texture.
  */
 export function envelopeShare(i: number, n: number): number {
@@ -62,7 +63,7 @@ export function envelopeShare(i: number, n: number): number {
  * `origin` MUST be the value at the START OF THE MONTAGE, not the current value.
  * The shares sum to 1 across the whole run, so they are shares of the ORIGINAL
  * distance. Applying them to the *remaining* distance double-discounts and the
- * walk stalls short of target forever — a 34→78 arc lands at 63 and the
+ * walk stalls short of target forever â€” a 34â†’78 arc lands at 63 and the
  * relationship never actually arrives, which is the exact failure this feature
  * exists to fix. Capture origins once at plan time and pass them unchanged.
  */
@@ -124,7 +125,7 @@ export function planBeats(days: number, granularity: "quick" | "standard" | "ful
 }
 
 /**
- * Deterministic pre-flight. Zero tokens. Warns, never blocks — the player is
+ * Deterministic pre-flight. Zero tokens. Warns, never blocks â€” the player is
  * sovereign over their own story, but they should know when a direction is
  * fighting the physics rather than discover it thirty in-world days later.
  */
@@ -136,9 +137,9 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
     if (id === "char_player") continue;
     if (!c.name || !text.includes(c.name.toLowerCase())) continue;
     if (c.status === "dead")
-      warnings.push(`${c.name} is dead — a montage moves time forward, it can't bring her back.`);
+      warnings.push(`${c.name} is dead â€” a montage moves time forward, it can't bring her back.`);
     else if (c.status === "departed")
-      warnings.push(`${c.name} has left the story — she won't be present unless the montage brings her back deliberately.`);
+      warnings.push(`${c.name} has left the story â€” she won't be present unless the montage brings her back deliberately.`);
   }
 
   const romantic = /\b(love|lover|marry|married|move in|moving in|together|partner|romance|kiss|sleep with)\b/.test(text);
@@ -147,7 +148,7 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       ([id, c]) => id !== "char_player" && c.name && text.includes(c.name.toLowerCase()),
     );
     if (named.length === 0)
-      warnings.push("This reads as a romance but names nobody — the montage will pick whoever is closest, which may not be who you meant.");
+      warnings.push("This reads as a romance but names nobody â€” the montage will pick whoever is closest, which may not be who you meant.");
     // the desire model gates attraction by orientation; a montage that ignores it would
     // write an arc the engine then refuses to hold. Say so up front rather than 30 days in.
     const player = state.characters["char_player"];
@@ -155,11 +156,11 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       if (!player) continue;
       const cap = orientationCap(c, player);
       if (cap !== null && cap <= 5)
-        warnings.push(`${c.name} isn't oriented toward you by the engine's read — a romance arc here will fight the desire model. It'll still run if you mean it.`);
+        warnings.push(`${c.name} isn't oriented toward you by the engine's read â€” a romance arc here will fight the desire model. It'll still run if you mean it.`);
     }
   }
 
-  // heavy arcs the skip will refuse to settle — say so before tokens are spent, not after
+  // heavy arcs the skip will refuse to settle â€” say so before tokens are spent, not after
   if (typeof days === "number") {
     const ceiling = days <= 2 ? 2 : days <= 6 ? 3 : days <= 13 ? 4 : days <= 29 ? 5 : days <= 59 ? 6 : 7;
     const heavy = state.world.threads
@@ -167,12 +168,12 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       .map((t) => t.title);
     if (heavy.length)
       warnings.push(
-        `A ${days}-day skip won't settle the heavy threads — ${heavy.slice(0, 3).join("; ")}${heavy.length > 3 ? `, +${heavy.length - 3} more` : ""}. Those resolve in scenes you play.`,
+        `A ${days}-day skip won't settle the heavy threads â€” ${heavy.slice(0, 3).join("; ")}${heavy.length > 3 ? `, +${heavy.length - 3} more` : ""}. Those resolve in scenes you play.`,
       );
   }
 
   if (!/\d/.test(text) && direction.trim().length < 12)
-    warnings.push("Very short direction — the planner has little to work from. More specifics land more of the checklist.");
+    warnings.push("Very short direction â€” the planner has little to work from. More specifics land more of the checklist.");
 
   return warnings;
 }
@@ -189,3 +190,4 @@ export function scoreChecklist(checklist: string[], landed: string[]): { item: s
     landed: done.some((d) => d.includes(item.toLowerCase()) || item.toLowerCase().includes(d)),
   }));
 }
+

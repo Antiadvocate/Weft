@@ -1,4 +1,5 @@
-/** Time — "Day N, HH:MM" canonical, tolerant parser, heuristic elapse. */
+
+/** Time â€” "Day N, HH:MM" canonical, tolerant parser, heuristic elapse. */
 
 export interface ParsedTime { day: number; hour: number; minute: number }
 
@@ -26,13 +27,13 @@ export function absMinutes(s: string): number {
   const t = parseTime(s);
   return (t.day - 1) * 1440 + t.hour * 60 + t.minute;
 }
-/** Minutes from a → b (negative if b is before a). */
+/** Minutes from a â†’ b (negative if b is before a). */
 export function minutesBetween(a: string, b: string): number {
   return absMinutes(b) - absMinutes(a);
 }
 
 /** Fallback elapse heuristic when the Simulator omits elapsed_minutes. Reads BOTH the player's
- *  action and the narrator's prose — a scene's real duration is usually described in the narration
+ *  action and the narrator's prose â€” a scene's real duration is usually described in the narration
  *  (sleeping, hours passing, dawn breaking), not just the terse action line. Ordered from longest
  *  to shortest so the biggest applicable jump wins. */
 export function heuristicMinutes(action: string, prose = ""): number {
@@ -49,7 +50,7 @@ export function heuristicMinutes(action: string, prose = ""): number {
   return Math.min(30, 2 + Math.round(prose.length / 320) * 3);
 }
 
-/** CALENDAR — layered over the canonical "Day N, HH:MM" clock without changing the stored
+/** CALENDAR â€” layered over the canonical "Day N, HH:MM" clock without changing the stored
  *  format (every parser in the engine depends on it). Given the bible's start_date (Day 1),
  *  returns "Fri 12 Jun 2035" for any time string; empty when no start_date is set. */
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -64,10 +65,10 @@ export function dateLabel(timeStr: string, startDate?: string): string {
   return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-// ─────────────────────────── WEATHER CONTINUITY ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ WEATHER CONTINUITY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Weather is an ordered scale from fair to severe. The bookkeeper often jumps it wildly turn to turn;
-// this smooths it so it evolves at a believable rate — one step per short turn, more as time passes.
-// A big time skip (hours) lets it move freely; a two-minute beat can't go clear→blizzard.
+// this smooths it so it evolves at a believable rate â€” one step per short turn, more as time passes.
+// A big time skip (hours) lets it move freely; a two-minute beat can't go clearâ†’blizzard.
 const WEATHER_SCALE: { k: RegExp; level: number; label: string }[] = [
   { k: /\b(clear|sunny|bright|cloudless|fair|blue sky)\b/i, level: 0, label: "clear" },
   { k: /\b(hazy|humid|still|muggy|warm)\b/i, level: 1, label: "hazy and still" },
@@ -91,10 +92,11 @@ export function advanceWeather(current: string, target: string, minutes: number)
   const gap = Math.abs(tgt - cur);
   // how many steps are believable in this span: ~1 per 30 min, min 1, and a long skip (3h+) is free
   const allowed = minutes >= 180 ? 99 : Math.max(1, Math.round(minutes / 30));
-  if (gap <= allowed) return target; // plausible — accept the bookkeeper's weather verbatim
+  if (gap <= allowed) return target; // plausible â€” accept the bookkeeper's weather verbatim
   // too big a jump for the time: step one notch toward it, keeping the target's own phrasing if adjacent
   const dir = tgt > cur ? 1 : -1;
   const nextLevel = cur + dir * allowed;
   const near = WEATHER_SCALE.find((s) => s.level === nextLevel) ?? WEATHER_SCALE.reduce((a, b) => Math.abs(b.level - nextLevel) < Math.abs(a.level - nextLevel) ? b : a);
   return near.label;
 }
+

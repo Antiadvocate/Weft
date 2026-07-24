@@ -1,11 +1,12 @@
+
 /**
- * EXTRACT — regex-first bookkeeping. Zero tokens.
+ * EXTRACT â€” regex-first bookkeeping. Zero tokens.
  *
  * A large share of the Simulator's job is mechanical transcription of highly patterned
  * prose: movement, hand-offs, conditions subsiding, time cues. A deterministic extractor
  * catches these for free. It runs as BACKFILL: the LLM diff always wins on any key it
  * populated; heuristics only fill what the LLM missed (or everything, when the diff came
- * back unusable — turning the old "silent amnesia" turn into a "basics still recorded" turn).
+ * back unusable â€” turning the old "silent amnesia" turn into a "basics still recorded" turn).
  *
  * Conservatism is the design rule here: every pattern is second-person or names a known
  * character, and anything ambiguous is left for the LLM. A wrong deterministic write is
@@ -13,7 +14,7 @@
  */
 import type { SaveState, SimulatorDiff } from "./types";
 
-/** Names come from the simulator and can contain anything — "(unnamed taller woman)" is real
+/** Names come from the simulator and can contain anything â€” "(unnamed taller woman)" is real
  *  save data. Everything interpolated into a RegExp gets escaped, no exceptions. */
 const escRe = (x: string): string => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -38,7 +39,7 @@ export interface HeuristicDiff {
   memories: SimulatorDiff["memories"];
 }
 
-/** Map of lowercase first-names → char ids for the present cast (cheap named-entity resolution). */
+/** Map of lowercase first-names â†’ char ids for the present cast (cheap named-entity resolution). */
 function presentNameMap(state: SaveState): Map<string, string> {
   const m = new Map<string, string>();
   for (const id of state.world.present) {
@@ -64,23 +65,23 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
   const text = prose;
   const names = presentNameMap(state);
 
-  // ── elapsed time (largest cue wins; the LLM's estimate still overrides)
+  // â”€â”€ elapsed time (largest cue wins; the LLM's estimate still overrides)
   for (const [re, mins] of TIME_CUES) if (re.test(text)) out.elapsed_minutes = Math.max(out.elapsed_minutes ?? 0, mins);
 
-  // ── player movement: strictly second-person arrival phrasing with a capitalized destination
-  const mv = /\b[Yy]ou (?:walk|head|step|go|climb|descend|make your way|push|slip|arrive)\s+(?:back\s+)?(?:in|out|up|down)?\s*(?:in)?to\s+(?:the\s+)?([A-Z][\w'’-]+(?:\s+[A-Z][\w'’-]+){0,3})(?=[,.;:!?\s])/;
+  // â”€â”€ player movement: strictly second-person arrival phrasing with a capitalized destination
+  const mv = /\b[Yy]ou (?:walk|head|step|go|climb|descend|make your way|push|slip|arrive)\s+(?:back\s+)?(?:in|out|up|down)?\s*(?:in)?to\s+(?:the\s+)?([A-Z][\w'â€™-]+(?:\s+[A-Z][\w'â€™-]+){0,3})(?=[,.;:!?\s])/;
   const mvm = mv.exec(text);
   if (mvm) out.player_location = mvm[1].trim();
 
-  // ── inventory hand-offs (player side only — the unambiguous cases)
-  const takes = [...text.matchAll(/\byou (?:take|pick up|pocket|grab|accept|catch|lift|retrieve)\s+(?:the|a|an|his|her|their)\s+([\w'’ -]{3,32}?)(?=[,.;:!?])/gi)];
+  // â”€â”€ inventory hand-offs (player side only â€” the unambiguous cases)
+  const takes = [...text.matchAll(/\byou (?:take|pick up|pocket|grab|accept|catch|lift|retrieve)\s+(?:the|a|an|his|her|their)\s+([\w'â€™ -]{3,32}?)(?=[,.;:!?])/gi)];
   for (const t of takes) out.facts!.push({ char_id: "char_player", field: "inventory_add", value: t[1].trim() });
-  const gives = [...text.matchAll(/\b(?:hands?|passes|gives|tosses|offers)\s+you\s+(?:the|a|an|his|her|their)\s+([\w'’ -]{3,32}?)(?=[,.;:!?])/gi)];
+  const gives = [...text.matchAll(/\b(?:hands?|passes|gives|tosses|offers)\s+you\s+(?:the|a|an|his|her|their)\s+([\w'â€™ -]{3,32}?)(?=[,.;:!?])/gi)];
   for (const g of gives) out.facts!.push({ char_id: "char_player", field: "inventory_add", value: g[1].trim() });
-  const drops = [...text.matchAll(/\byou (?:drop|set down|put down|hand (?:over|back)|toss aside|discard|leave behind)\s+(?:the|a|an|your)\s+([\w'’ -]{3,32}?)(?=[,.;:!?])/gi)];
+  const drops = [...text.matchAll(/\byou (?:drop|set down|put down|hand (?:over|back)|toss aside|discard|leave behind)\s+(?:the|a|an|your)\s+([\w'â€™ -]{3,32}?)(?=[,.;:!?])/gi)];
   for (const d of drops) out.facts!.push({ char_id: "char_player", field: "inventory_remove", value: d[1].trim() });
 
-  // ── conditions subsiding: "the bleeding stops", "X catches her breath"
+  // â”€â”€ conditions subsiding: "the bleeding stops", "X catches her breath"
   if (/\b(the\s+)?bleeding (stops|slows|has stopped)\b/i.test(text)) {
     for (const id of ["char_player", ...state.world.present]) {
       const c = state.condition[id];
@@ -101,16 +102,16 @@ export function extractHeuristics(state: SaveState, action: string, prose: strin
   // quote checked against the prose before the move is applied. A regex has no business deciding
   // who is in the room.
 
-  // ── CLOTHING: this is the fix for "I put on my shirt and the sheet still says shirtless."
+  // â”€â”€ CLOTHING: this is the fix for "I put on my shirt and the sheet still says shirtless."
   // Models rarely emit wearing updates from casual phrasing, so the deterministic layer owns it.
   // First-person (the ACTION) and second-person (the prose) both count.
   const both = `${action}\n${prose}`;
-  const wearOn = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:put on|pull on|slip into|slips? on|shrug into|button up|dress in|throw on|tug on)\s+(?:the|my|your|a|an)\s+([\w'’ -]{3,32}?)(?=[,.;:!?\n])/g)];
+  const wearOn = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:put on|pull on|slip into|slips? on|shrug into|button up|dress in|throw on|tug on)\s+(?:the|my|your|a|an)\s+([\w'â€™ -]{3,32}?)(?=[,.;:!?\n])/g)];
   for (const w of wearOn) out.facts!.push({ char_id: "char_player", field: "wearing_add", value: w[1].trim() });
-  const wearOff = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:take off|pull off|strip off|shrug off|remove|peel off|unbutton and discard|step out of)\s+(?:the|my|your|a|an)\s+([\w'’ -]{3,32}?)(?=[,.;:!?\n])/g)];
+  const wearOff = [...both.matchAll(/\b(?:I|[Yy]ou)\s+(?:take off|pull off|strip off|shrug off|remove|peel off|unbutton and discard|step out of)\s+(?:the|my|your|a|an)\s+([\w'â€™ -]{3,32}?)(?=[,.;:!?\n])/g)];
   for (const w of wearOff) out.facts!.push({ char_id: "char_player", field: "wearing_remove", value: w[1].trim() });
 
-  // ── PHYSIOLOGY refills: eating, drinking, sleeping (player side; conservative phrasing)
+  // â”€â”€ PHYSIOLOGY refills: eating, drinking, sleeping (player side; conservative phrasing)
   if (/\b(?:I|[Yy]ou)\s+(?:eat|wolf(?: down)?|finish(?:es)? (?:the|a) (?:meal|plate|bowl)|devour)\b/.test(both) || /\b[Yy]ou (?:share|finish) (?:a|the) meal\b/.test(prose))
     out.facts!.push({ char_id: "char_player", field: "hunger", value: "fed" });
   if (/\b(?:I|[Yy]ou)\s+(?:drink|gulp|sip|drain (?:the|a) (?:cup|flask|glass|waterskin)|swallow (?:the )?water)\b/.test(both))
@@ -133,3 +134,4 @@ export function backfillDiff(diff: SimulatorDiff, h: HeuristicDiff): SimulatorDi
   d.facts = [...(d.facts ?? []), ...(h.facts ?? []).filter((f) => !seen.has(factKey(f)))];
   return d;
 }
+

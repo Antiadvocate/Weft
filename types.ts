@@ -1,5 +1,6 @@
+
 /**
- * WEFT — world-loom engine types.
+ * WEFT â€” world-loom engine types.
  * The world model: a social fabric that reacts, remembers, and moves offscreen.
  */
 
@@ -21,8 +22,8 @@ export interface ModelSettings {
   history_window: number;         // raw recent turns kept verbatim in context
   lean_mode?: boolean;            // compressed system prompts + present/tracked-only cast (lower tokens, slightly less rich)
   token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
-  tension?: number;               // 0–10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
-  max_central_characters?: number; // cap on CENTRAL (full-fidelity, tracked) characters. Default 6. Beyond this, new characters become "non-central" — minimal-footprint background figures (environment-like) with simple handling, unless promoted. Tunable.
+  tension?: number;               // 0â€“10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
+  max_central_characters?: number; // cap on CENTRAL (full-fidelity, tracked) characters. Default 6. Beyond this, new characters become "non-central" â€” minimal-footprint background figures (environment-like) with simple handling, unless promoted. Tunable.
 }
 
 export interface WorldBible {
@@ -45,16 +46,16 @@ export interface WorldBible {
   forbidden_as_primary?: string[];    // never the primary engine of a scene
 }
 
-// ───────────────────────────── social fabric ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ social fabric â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Directed edge a→b. Axes in [-100, 100]. */
+/** Directed edge aâ†’b. Axes in [-100, 100]. */
 export interface SocialEdge {
   from: string;
   to: string;
-  warmth: number;   // affection ↔ hostility
-  trust: number;    // reliance ↔ suspicion
+  warmth: number;   // affection â†” hostility
+  trust: number;    // reliance â†” suspicion
   power: number;    // a's perceived standing over b (deference if negative)
-  roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
+  roles?: string[]; // labeled relationship(s) A holds toward B â€” can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
   updated_turn: number;
 }
@@ -64,7 +65,7 @@ export interface Rumor {
   id: string;
   content: string;
   truth: "true" | "distorted" | "false";
-  salience: number;          // 1–10, drives spread probability
+  salience: number;          // 1â€“10, drives spread probability
   origin_char: string;
   knowers: string[];         // char_ids who currently hold it
   born_turn: number;
@@ -91,11 +92,11 @@ export interface Norm {
   holders: string;           // who cares ("the dock elders", "everyone")
 }
 
-// ───────────────────────────── characters ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ characters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface NPCDrive {
   goal: string;
-  progress: number;          // 0–100
+  progress: number;          // 0â€“100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
   updated_turn: number;
@@ -105,23 +106,23 @@ export interface Identity {
   character_id: string;
   name: string;
   age: number;
-  pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
+  pronouns?: string;          // "she/her", "he/him", "they/them" â€” pinned so the narrator never has to guess gender
   appearance_facts: string;
-  background: string;         // BEDROCK: the original forge identity — who they fundamentally are. Never trimmed or rewritten by the engine.
+  background: string;         // BEDROCK: the original forge identity â€” who they fundamentally are. Never trimmed or rewritten by the engine.
   life_history?: string;      // ACCRETED: defining moments that have happened in play, folded in over time. Compressed when it grows long; bedrock is never touched.
   core_traits: string[];
   values: string[];
   speech_pattern: string;
-  texture?: string[];         // a few standing interests/quirks/sensitivities — small enduring things that make them a person between plot beats ("loves trees on a quiet walk", "always cold", "knows too much about rocks"). Surfaced sparingly, never made central.
+  texture?: string[];         // a few standing interests/quirks/sensitivities â€” small enduring things that make them a person between plot beats ("loves trees on a quiet walk", "always cold", "knows too much about rocks"). Surfaced sparingly, never made central.
   skills: Record<string, string>;
   intelligence: "low" | "below-average" | "average" | "sharp" | "brilliant";
-  gregariousness: number;    // 0–1, drives rumor spread + social initiative
+  gregariousness: number;    // 0â€“1, drives rumor spread + social initiative
   current_goal?: string;
   current_activity?: string;
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
-  central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
+  central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" â€” a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
   exit_turn?: number;         // when they died/left
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
@@ -134,7 +135,7 @@ export interface AcquiredTrait {
   label: string;
   origin: string;
   behavioral_impact: string;
-  intensity: number;          // 1–10
+  intensity: number;          // 1â€“10
   self_weight: number;        // identity integration, grows with reinforcement
   last_reinforced_turn: number;
   reinforcement_count: number;
@@ -151,7 +152,7 @@ export interface Injury {
 export interface Psyche {
   relaxation: number;          // -10 (clenched) .. +10 (open); player never gets this rendered as numbers
   capacity: number;            // resting point relaxation drifts toward
-  recovery: number;            // 0.01–0.45 drift rate per turn
+  recovery: number;            // 0.01â€“0.45 drift rate per turn
   state: "intact" | "fracturing" | "broken" | "shattered";
   break_mode: "dissociative" | "fawning" | "mirror" | "fractured" | null;
   consecutive_clenched: number;
@@ -163,7 +164,7 @@ export interface Psyche {
 export interface Condition {
   injuries: Injury[];
   conditions: string[];
-  condition_age?: Record<string, number>; // turn each condition was added — fuels deterministic decay
+  condition_age?: Record<string, number>; // turn each condition was added â€” fuels deterministic decay
   fatigue: "fresh" | "tired" | "exhausted";
   hunger: "fed" | "peckish" | "hungry" | "starving";
   inventory: { id: string; name: string; notes?: string }[];
@@ -171,17 +172,17 @@ export interface Condition {
   psyche: Psyche;
 }
 
-// ───────────────────────────── memory (Park et al.) ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ memory (Park et al.) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface EpisodicMemory {
   turn: number;
-  content: string;             // the current (possibly degraded) recollection — rewritten as it fades
+  content: string;             // the current (possibly degraded) recollection â€” rewritten as it fades
   full_content?: string;       // the original vivid recollection, kept once so degradation has a source
-  importance: number;          // 1–10 (poignancy) — high importance decays slower
+  importance: number;          // 1â€“10 (poignancy) â€” high importance decays slower
   emotional_charge: string;
-  when_label?: string;         // in-world time it happened ("Day 5, 18:30") — gives memories real temporal distance
-  where?: string;              // place name where it happened — drops out as the memory fades (reconstructable from neighbors)
-  decay_stage?: 0 | 1 | 2 | 3; // 0 vivid (somatic detail) → 1 gist+person+place → 2 gist+person (place lost) → 3 person+bare gist
+  when_label?: string;         // in-world time it happened ("Day 5, 18:30") â€” gives memories real temporal distance
+  where?: string;              // place name where it happened â€” drops out as the memory fades (reconstructable from neighbors)
+  decay_stage?: 0 | 1 | 2 | 3; // 0 vivid (somatic detail) â†’ 1 gist+person+place â†’ 2 gist+person (place lost) â†’ 3 person+bare gist
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
   folded?: boolean;            // a high-salience memory already folded into the character's background (identity consolidation)
@@ -192,7 +193,7 @@ export interface Belief {
   content: string;             // reflection output: compressed conviction
   evidence_turns: number[];
   formed_turn: number;
-  confidence: number;          // 0–1
+  confidence: number;          // 0â€“1
 }
 
 export interface CharMemory {
@@ -203,29 +204,29 @@ export interface CharMemory {
   knows: string[];             // char_ids known
 }
 
-// ───────────────────────────── theory of mind (active-inference belief layer) ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ theory of mind (active-inference belief layer) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** What character A privately believes about character B — a model that can be WRONG.
+/** What character A privately believes about character B â€” a model that can be WRONG.
  *  Behavior is driven off this model, not ground truth; the GAP between prediction and
  *  what actually happens (prediction error) is the dramatic resource: it feeds the cusp
  *  load term, surfaces to the narrator, and biases idle drives toward finding out. */
 export interface BeliefAbout {
   target: string;              // char_id this is a model OF (often "char_player")
-  predicted_warmth: number;    // what A expects B feels toward A, [-100,100] — may diverge from the true edge
+  predicted_warmth: number;    // what A expects B feels toward A, [-100,100] â€” may diverge from the true edge
   predicted_stance: "ally" | "rival" | "unknown"; // A's read of where B stands
-  held_false?: string;         // ONE concrete thing A wrongly believes about B ("thinks I betrayed them") — the misunderstanding that can drive a scene
+  held_false?: string;         // ONE concrete thing A wrongly believes about B ("thinks I betrayed them") â€” the misunderstanding that can drive a scene
   surprise: number;            // 0..1 running prediction-error magnitude; decays in calm, spikes on violated expectation
-  confidence: number;          // 0..1 how sure A is of this model; low confidence + high stakes → epistemic drive
+  confidence: number;          // 0..1 how sure A is of this model; low confidence + high stakes â†’ epistemic drive
   updated_turn: number;
 }
 
-/** A's whole theory of mind: sparse — only the people A actually models (player + sharpest tie). */
+/** A's whole theory of mind: sparse â€” only the people A actually models (player + sharpest tie). */
 export interface MindModel {
   character_id: string;        // the BELIEVER
   about: BeliefAbout[];
 }
 
-// ───────────────────────────── world ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ world â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface Thread {
   id: string;
@@ -234,7 +235,7 @@ export interface Thread {
   description: string;
   turn_started: number;
   turn_resolved?: number;
-  tension: number;             // 0–10 how due it is; pressure controller reads this
+  tension: number;             // 0â€“10 how due it is; pressure controller reads this
   locale?: string;             // place id or region this thread is bound to; dims when the player is elsewhere. empty = follows the player / world-wide
 }
 
@@ -242,7 +243,7 @@ export interface ConsequenceEvent {
   id: string;
   description: string;
   fire_turn: number;          // earliest turn it may fire (kept as a floor)
-  fire_time?: string;         // in-world time it should fire ("Day 5, 14:00") — the real schedule
+  fire_time?: string;         // in-world time it should fire ("Day 5, 14:00") â€” the real schedule
   location_trigger?: string;
   severity: "minor" | "notable" | "major";
   source_char?: string;
@@ -269,7 +270,7 @@ export interface Place {
 }
 
 /** The convergence/phase system. A phase shapes the tension curve toward (or around) an event,
- *  and can auto-advance into a next phase when its linked consequence fires (e.g. build-up → the war).
+ *  and can auto-advance into a next phase when its linked consequence fires (e.g. build-up â†’ the war).
  *  Fully generic: "label"/"next_label" are whatever the story is about; the engine only reads the mode. */
 export interface FocusPhase {
   label: string;                       // what we're converging on / in ("prepare for war", "the siege")
@@ -280,7 +281,7 @@ export interface FocusPhase {
 }
 
 export interface WorldState {
-  canon: string[];             // world-altering facts EVERYONE knows, forever — never pruned, always in context
+  canon: string[];             // world-altering facts EVERYONE knows, forever â€” never pruned, always in context
   current_turn: number;
   current_time: string;        // "Day 2, 14:30"
   weather: string;
@@ -298,14 +299,14 @@ export interface WorldState {
   focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }
 
-// ───────────────────────────── telemetry & history ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ telemetry & history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface TurnTelemetry {
   turn: number;
   pressure: number;
   pressure_source: string;
   narrator_tokens_in: number;
-  cached_tokens?: number;      // input tokens served from prompt cache (billed ~0.25x) — measures cache effectiveness
+  cached_tokens?: number;      // input tokens served from prompt cache (billed ~0.25x) â€” measures cache effectiveness
   turn_cost?: number;          // actual $ cost of this turn from the provider, when reported
   narrator_tokens_out: number;
   simulator_tokens_in: number;
@@ -317,7 +318,7 @@ export interface TurnTelemetry {
   present: string[];
   time_label: string;
   edge_snapshot: { pair: string; warmth: number; trust: number }[]; // player edges
-  lyapunov?: number;           // λ̂ of the social map this turn
+  lyapunov?: number;           // Î»Ì‚ of the social map this turn
   coherence?: number;          // Kuramoto order parameter R
   regime?: "damped" | "critical" | "cascading";
   early_warning?: boolean;
@@ -336,7 +337,7 @@ export interface TurnHistoryEntry {
   player_action: string;
   action_mode?: ActionMode;
   shifts?: string[];           // humanized per-turn deltas ("Ettel will remember that")
-  directive?: string;          // the exact direction the narrator received — nothing hidden
+  directive?: string;          // the exact direction the narrator received â€” nothing hidden
   illustration_url?: string;
   narrator_prose: string;
   summary: string;             // simulator one-liner, used for context
@@ -360,20 +361,20 @@ export interface SaveState {
   minds?: Record<string, MindModel>;   // theory-of-mind: per-character private models of others (active-inference belief layer)
   history: TurnHistoryEntry[];
   vessel_history?: { turn: number; from_name: string; to_name: string; time_label: string }[]; // bodies the player has worn
-  undertow?: unknown;          // continuous substrate state (phases, tangent, cusps) — engine-internal
+  undertow?: unknown;          // continuous substrate state (phases, tangent, cusps) â€” engine-internal
   telemetry: TurnTelemetry[];
   pressure_trace: number[];    // controller history
   records: { id: string; type: string; title: string; contents: string; location: string }[];
   snapshots: { turn: number; blob: string }[]; // rollback ring (compressed JSON), max 6
 }
 
-// ───────────────────────────── simulator contract ─────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ simulator contract â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface SimulatorDiff {
   scene_summary: string;
   elapsed_minutes: number;
   weather?: string;
-  player_location?: string;       // a place id, OR a free-text place name (auto-created if new) — where the PLAYER now is
+  player_location?: string;       // a place id, OR a free-text place name (auto-created if new) â€” where the PLAYER now is
   locations?: { char_id: string; place: string }[]; // move characters between places; place is an id or a name (auto-created). Use when anyone moves, is teleported, arrives, or leaves.
   money?: string;
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
@@ -382,9 +383,9 @@ export interface SimulatorDiff {
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string }[];
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
-  canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
+  canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars â€” broadcast to every mind
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
-  appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change — replaces appearance_facts
+  appearance: { char_id: string; value: string }[];   // permanent bodily/appearance change â€” replaces appearance_facts
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number; locale?: string }[];
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
@@ -398,7 +399,7 @@ export interface SimulatorDiff {
    *  materially different from the last scene's setting (a new city, a different planet, a region
    *  with its own climate/culture/politics). Writes onto the current place, NOT the global world.
    *  Only include fields that actually differ from the global bible; leave the rest empty. This is
-   *  movement, not world-transformation — use this for "I moved", use bible_update for "the world
+   *  movement, not world-transformation â€” use this for "I moved", use bible_update for "the world
    *  itself permanently changed everywhere". */
   locale_update?: { climate_and_geography?: string; cultures_and_languages?: string; political_situation?: string; what_people_fear?: string };
   /** Deepen the world's currency/calendar the FIRST time a scene actually uses real denominations or
@@ -423,3 +424,4 @@ export const DEFAULT_MODELS: ModelSettings = {
   token_budget: 0,
   tension: 3,
 };
+

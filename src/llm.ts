@@ -1,3 +1,4 @@
+
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
 import { getApiKey } from "./config";
@@ -13,7 +14,7 @@ export interface LLMPrefs { routeByPrice?: boolean }
 let prefs: LLMPrefs = {};
 export function setLLMPrefs(p: LLMPrefs): void { prefs = { ...p }; }
 
-/** Ring buffer of recent LLM failures — the old `complete()` swallowed the primary error
+/** Ring buffer of recent LLM failures â€” the old `complete()` swallowed the primary error
  *  entirely, so a misbehaving narrator model looked identical to a healthy fallback. */
 export const llmErrors: { at: number; model: string; message: string }[] = [];
 function logErr(model: string, e: any): void {
@@ -24,7 +25,7 @@ function logErr(model: string, e: any): void {
 
 function key(): string {
   const k = getApiKey();
-  if (!k) throw new Error("No OpenRouter key set — open Tuning (or the welcome screen) and paste your key.");
+  if (!k) throw new Error("No OpenRouter key set â€” open Tuning (or the welcome screen) and paste your key.");
   return k;
 }
 
@@ -70,8 +71,8 @@ export function buildChatlogMessages(system: string, anchorDigest: string, pairs
   pairs.forEach((p, i) => {
     const lastPair = i === pairs.length - 1;
     msgs.push({ role: "user", content: p.user || "(continue)" });
-    if (anthropic && lastPair) msgs.push({ role: "assistant", content: [{ type: "text", text: p.assistant || "…", cache_control: { type: "ephemeral" } }] });
-    else msgs.push({ role: "assistant", content: p.assistant || "…" });
+    if (anthropic && lastPair) msgs.push({ role: "assistant", content: [{ type: "text", text: p.assistant || "â€¦", cache_control: { type: "ephemeral" } }] });
+    else msgs.push({ role: "assistant", content: p.assistant || "â€¦" });
   });
   msgs.push({ role: "user", content: currentUser });
   return msgs;
@@ -87,7 +88,7 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
         ? { response_format: { type: "json_schema", json_schema: { name: json.name ?? "diff", strict: false, schema: json.schema } } }
         : { response_format: { type: "json_object" } })
     : {};
-  // WEB GROUNDING (non-streaming) — same mechanism as completeStream: the web plugin has no
+  // WEB GROUNDING (non-streaming) â€” same mechanism as completeStream: the web plugin has no
   // query field, so to keep Exa on-topic we push a high-salience search line onto the tail user
   // message and restate it in search_prompt. Used by the Forge (world-building from real media/
   // places/history) instead of the fragile ":online" model-slug suffix.
@@ -119,7 +120,7 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
       // ROUTING: an explicit per-call sort (the bookkeeper routes for throughput) beats the
       // global price preference. Bookkeeping wants tokens/sec, not pennies.
       ...(opts?.providerSort ? { provider: { sort: opts.providerSort } } : prefs.routeByPrice ? { provider: { sort: "price" } } : {}),
-      // NO THINKING FOR BOOKKEEPING: structured-output calls carry reasoning disabled — a diff
+      // NO THINKING FOR BOOKKEEPING: structured-output calls carry reasoning disabled â€” a diff
       // needs transcription, not deliberation; hidden thinking tokens are pure latency on
       // reasoning-capable models. Dropped automatically if a provider rejects the parameter.
       ...(json && !opts?.omitReasoning ? { reasoning: { enabled: false } } : {}),
@@ -129,7 +130,7 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data: any = await res.json();
   const msg = data.choices?.[0]?.message ?? {};
-  // CONTENT RECOVERY — the #1 silent bookkeeping death. Reasoning-tier models (and some
+  // CONTENT RECOVERY â€” the #1 silent bookkeeping death. Reasoning-tier models (and some
   // providers under json_schema) return an empty `content` string and put the actual payload
   // in `reasoning`, or hand back `content` as an array of parts rather than a string. Treating
   // only string `content` as valid made every one of those turns a dead black hole: the sim
@@ -144,7 +145,7 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
     text = msg.reasoning; // constrained JSON that leaked into the reasoning channel
   }
   if (!text && typeof msg.refusal === "string" && msg.refusal.trim()) {
-    // a real refusal is not an empty completion — surface it so fallback/repair can react
+    // a real refusal is not an empty completion â€” surface it so fallback/repair can react
     throw new Error(`model refusal: ${msg.refusal.slice(0, 200)}`);
   }
   if (!text) throw new Error("empty completion");
@@ -160,15 +161,15 @@ export async function complete(messages: any[], model: string, fallback: string,
   catch (e1: any) {
     logErr(model, e1);
     const msg = String(e1?.message ?? "");
-    // the reasoning parameter itself rejected → same call without it
+    // the reasoning parameter itself rejected â†’ same call without it
     if (json && /reasoning/i.test(msg)) {
       try { return await once(messages, model, json, maxTokens, { ...opts, omitReasoning: true }); } catch (e0: any) { logErr(model, e0); }
     }
-    // a schema rejection is a capability gap, not a model failure — retry SAME model, plain JSON
+    // a schema rejection is a capability gap, not a model failure â€” retry SAME model, plain JSON
     if (typeof json === "object" && /response_format|json_schema|400/.test(msg)) {
       try { return await once(messages, model, true, maxTokens, opts); } catch (e2: any) { logErr(model, e2); }
     }
-    // EMPTY/REFUSAL ON A JSON CALL — before spending the fallback (which for the bookkeeper is
+    // EMPTY/REFUSAL ON A JSON CALL â€” before spending the fallback (which for the bookkeeper is
     // usually the SAME model), give the primary one more chance with the constraints relaxed:
     // drop json_schema down to plain json_object AND turn reasoning back on. An empty completion
     // is very often the constrained decoder + disabled reasoning starving a reasoning-tier model;
@@ -176,7 +177,7 @@ export async function complete(messages: any[], model: string, fallback: string,
     if (json && /empty completion|refusal/i.test(msg)) {
       try { return await once(messages, model, true, maxTokens, { ...opts, omitReasoning: true }); } catch (e2b: any) { logErr(model, e2b); }
     }
-    // FALLBACK — but only if it's genuinely a different model. Routing a dead call to an
+    // FALLBACK â€” but only if it's genuinely a different model. Routing a dead call to an
     // identical fallback just burns time and returns the same nothing; skip straight to the
     // throw so the caller's watchdog/heuristics take over this turn.
     if (fallback && fallback !== model) {
@@ -189,13 +190,13 @@ export async function complete(messages: any[], model: string, fallback: string,
 
 export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string): AsyncGenerator<string, LLMResult, unknown> {
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
-    // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
+    // WEB GROUNDING â€” the explicit plugins form, not the ":online" slug. Some provider routes
     // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
     // via the fallback: grounding failed silently and looked like it did nothing. The plugins
     // param is the documented path, works with streaming, and returns url_citation annotations
     // we surface to the player as proof the search actually happened.
     //
-    // TARGETED QUERY — the web plugin has NO query field: Exa auto-derives the search terms from
+    // TARGETED QUERY â€” the web plugin has NO query field: Exa auto-derives the search terms from
     // the message content, and against a 5000-token narrator prompt that auto-query grabs whatever
     // is most salient (hence a Warhammer scene pulling sports links). The fix is to steer Exa: we
     // (a) push a single high-salience search line onto the tail of the last user message so it
@@ -240,7 +241,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
           if (delta) { full += delta; yield delta; }
-          // hit the output cap mid-generation — the tail (scene footer) was cut. Flag it so the
+          // hit the output cap mid-generation â€” the tail (scene footer) was cut. Flag it so the
           // caller can recover rather than silently losing the footer.
           if (j.choices?.[0]?.finish_reason === "length") truncated = true;
           const ann = j.choices?.[0]?.delta?.annotations ?? j.choices?.[0]?.message?.annotations;
@@ -317,13 +318,14 @@ export async function generateImage(prompt: string, model = "google/gemini-2.5-f
     method: "POST", headers: headers(),
     body: JSON.stringify({
       model, messages: [{ role: "user", content }], modalities: ["image", "text"],
-      // generation hints — honored by routings that support image config, ignored otherwise
+      // generation hints â€” honored by routings that support image config, ignored otherwise
       image_config: { aspect_ratio: ratio },
     }),
   });
   if (!res.ok) throw new Error(`image gen HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j: any = await res.json();
   const img = j.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!img) throw new Error("model returned no image — try google/gemini-2.5-flash-image");
+  if (!img) throw new Error("model returned no image â€” try google/gemini-2.5-flash-image");
   return img as string;
 }
+

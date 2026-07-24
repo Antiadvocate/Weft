@@ -1,7 +1,8 @@
-// FATE — the destination as a scheduled event.
+
+// FATE â€” the destination as a scheduled event.
 //
 // A destination is an ending plus a number of turns: "in 30 turns, he has built the shelter." The
-// turn count is the only clock. Progress is turns elapsed over turns budgeted — a fact, not a
+// turn count is the only clock. Progress is turns elapsed over turns budgeted â€” a fact, not a
 // judgment. It cannot stall because a model failed to notice the story moved, and it has nothing to
 // do with the chapter cadence, which exists to summarize history and save context.
 //
@@ -62,7 +63,7 @@ export function fateDirective(f: Fate, missing?: string): string {
   const gap = missing?.trim() ? ` What still stands in the way: ${missing.trim()}` : "";
 
   if (f.forceArrival) {
-    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". The turns allotted for it are spent. That ending has to happen here, completely — not approach, not become imminent. If the player worked toward it, they get it and it means something. If they spent the story elsewhere, it still happens, but through someone else's choice or at a price they did not agree to. Do not stop short of it.`;
+    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". The turns allotted for it are spent. That ending has to happen here, completely â€” not approach, not become imminent. If the player worked toward it, they get it and it means something. If they spent the story elsewhere, it still happens, but through someone else's choice or at a price they did not agree to. Do not stop short of it.`;
   }
   if (f.act === "convergence") {
     return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Everything in this scene should shorten that distance. Whoever and whatever that ending needs is here now, or arrives this turn. Do not open a new subject. The player still chooses how it goes, and can still choose badly, but the scene should leave them nearer the ending than it found them.`;
@@ -73,7 +74,7 @@ export function fateDirective(f: Fate, missing?: string): string {
   if (f.act === "rising") {
     return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Let this scene bring it nearer, or make its cost clearer. Choose frictions that lie between here and there.`;
   }
-  return `\n\nThis story ends in ${turns} with: "${f.destination}". That is still far off; leave the player free. Plant what will matter later — a want, an obstacle, a fact.`;
+  return `\n\nThis story ends in ${turns} with: "${f.destination}". That is still far off; leave the player free. Plant what will matter later â€” a want, an obstacle, a fact.`;
 }
 
 /** What the world does as the ending nears. Threads and clocks are the machinery the story runs on;
@@ -101,7 +102,7 @@ export function enforceFate(state: SaveState, f: Fate): string[] {
     if (want > spine.tension) spine.tension = want;
   }
 
-  // From the closing act on, unrelated threads stop pressing. They still happened — they just stop
+  // From the closing act on, unrelated threads stop pressing. They still happened â€” they just stop
   // competing for the scene. At convergence they close.
   if (f.act !== "rising") {
     for (const t of threads) {
@@ -140,3 +141,4 @@ export function fatePressureFloor(f: Fate): number {
 export function outcomeOf(f: Fate, playerDrove: boolean): "earned" | "forced" {
   return playerDrove ? "earned" : "forced";
 }
+

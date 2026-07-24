@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
@@ -120,7 +121,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const c = sel ? save.characters[sel] : null;
   const cond = sel ? save.condition[sel] : null;
   const mem = sel ? save.memory[sel] : null;
-  // provenance → short human label for the GM "how do they know this?" view
+  // provenance â†’ short human label for the GM "how do they know this?" view
   const sourceLabel = (s: any): string => {
     if (!s) return "";
     if (s === "witnessed") return "saw it";
@@ -130,7 +131,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     return "";
   };
   const traits = sel ? save.traits[sel] ?? [] : [];
-  // GM VIEW — this character's recent PRIVATE intents (the lie/hidden want the prose concealed).
+  // GM VIEW â€” this character's recent PRIVATE intents (the lie/hidden want the prose concealed).
   // Pulled from turn history, newest first. This is how the player verifies the intent system:
   // what xe actually meant vs. what the prose let show. Only meaningful when it diverges.
   const gmIntents = useMemo(() => {
@@ -171,11 +172,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 {!isPlayer && ch.tracked && <Eye size={11} style={{ color: "var(--accent)" }} className="shrink-0" />}
               </div>
               <div className="font-mono text-[10px] mt-1 truncate" style={{ color: "var(--text-lo)" }}>
-                {isPlayer ? "you" : nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
+                {isPlayer ? "you" : nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "â€”")}
               </div>
               {p && (
                 <div className="font-mono text-[10px] mt-1.5" style={{ color: "var(--text-mid)" }}>
-                  {nice(p.mood)} · {isPlayer ? nice(p.state) : opennessLabel(p.relaxation)}
+                  {nice(p.mood)} Â· {isPlayer ? nice(p.state) : opennessLabel(p.relaxation)}
                 </div>
               )}
             </motion.button>
@@ -187,7 +188,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         <>
           <button className="font-mono text-[10px] uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5"
             style={{ color: "var(--text-lo)" }} onClick={() => setShowElsewhere((v) => !v)}>
-            <span style={{ display: "inline-block", transition: "transform .2s", transform: showElsewhere ? "rotate(90deg)" : "none" }}>▸</span>
+            <span style={{ display: "inline-block", transition: "transform .2s", transform: showElsewhere ? "rotate(90deg)" : "none" }}>â–¸</span>
             Elsewhere ({elsewhereIds.length})
           </button>
           {showElsewhere && (
@@ -205,11 +206,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="font-display text-[14.5px] truncate">{ch.name}</div>
                     </div>
                     <div className="font-mono text-[10px] mt-1 truncate" style={{ color: "var(--text-lo)" }}>
-                      {ch.tracked && "● "}{nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "—")}
+                      {ch.tracked && "â— "}{nice(ch.drive?.goal || ch.current_activity || ch.current_goal || "â€”")}
                     </div>
                     {p && (
                       <div className="font-mono text-[10px] mt-1.5" style={{ color: "var(--text-mid)" }}>
-                        {nice(p.mood)} · {opennessLabel(p.relaxation)}
+                        {nice(p.mood)} Â· {opennessLabel(p.relaxation)}
                       </div>
                     )}
                   </motion.button>
@@ -224,7 +225,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         <>
           <button className="font-mono text-[10px] uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5"
             style={{ color: "var(--text-lo)" }} onClick={() => setShowGone((v) => !v)}>
-            <span style={{ display: "inline-block", transition: "transform .2s", transform: showGone ? "rotate(90deg)" : "none" }}>▸</span>
+            <span style={{ display: "inline-block", transition: "transform .2s", transform: showGone ? "rotate(90deg)" : "none" }}>â–¸</span>
             Gone ({goneIds.length})
           </button>
           {showGone && (
@@ -238,7 +239,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="font-display text-[14.5px] truncate">{ch.name}</div>
                     </div>
                     <div className="font-mono text-[10px] mt-1" style={{ color: "var(--text-lo)" }}>
-                      {ch.status === "dead" ? "dead" : "gone"}{ch.exit_note ? ` · ${ch.exit_note}` : ""}
+                      {ch.status === "dead" ? "dead" : "gone"}{ch.exit_note ? ` Â· ${ch.exit_note}` : ""}
                     </div>
                   </button>
                 );
@@ -264,23 +265,23 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <div>
                     <div className="font-display text-[18px]">{c.name}</div>
                     <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
-                      {c.age} · {c.intelligence}
+                      {c.age} Â· {c.intelligence}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {sel !== "char_player" && (
-                    <button onClick={() => toggleFollow(sel!, !c.tracked)} title={c.tracked ? "following — tap to unfollow" : "follow in the long game"}>
+                    <button onClick={() => toggleFollow(sel!, !c.tracked)} title={c.tracked ? "following â€” tap to unfollow" : "follow in the long game"}>
                       {c.tracked ? <Eye size={16} style={{ color: "var(--accent)" }} /> : <EyeOff size={16} style={{ color: "var(--text-lo)" }} />}
                     </button>
                   )}
                   {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && c.central !== false && (
-                    <button onClick={() => changeStatus(sel!, "background")} title="background — demote to a minor figure (frees a central slot, the engine stops giving them full focus)">
+                    <button onClick={() => changeStatus(sel!, "background")} title="background â€” demote to a minor figure (frees a central slot, the engine stops giving them full focus)">
                       <ArrowDownToLine size={16} style={{ color: "var(--text-lo)" }} />
                     </button>
                   )}
                   {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && (
-                    <button onClick={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} title="send away — they leave the story permanently (reversible)">
+                    <button onClick={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} title="send away â€” they leave the story permanently (reversible)">
                       <DoorOpen size={16} style={{ color: "var(--text-lo)" }} />
                     </button>
                   )}
@@ -298,12 +299,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
                   <button onClick={paint} title="generate portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
-                  <button onClick={rescore} title={`re-score attractiveness${typeof c.beauty === "number" ? ` (now ${c.beauty})` : ""} — recomputes the on-sight read from current appearance`}><Heart size={16} style={{ color: scoring ? "var(--accent)" : "var(--text-lo)" }} /></button>
+                  <button onClick={rescore} title={`re-score attractiveness${typeof c.beauty === "number" ? ` (now ${c.beauty})` : ""} â€” recomputes the on-sight read from current appearance`}><Heart size={16} style={{ color: scoring ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={editing ? () => setEditing(false) : startEdit}><Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} /></button>
                   <button onClick={() => { setSel(null); setEditing(false); }}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
                 </div>
               </div>
-              {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portrait…</span></div>}
+              {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portraitâ€¦</span></div>}
               {imgErr && <div className="px-5 pb-1 font-mono text-[10px]" style={{ color: "var(--danger)" }}>{imgErr}</div>}
 
               <div className="scroll-y px-5 pb-6 space-y-4">
@@ -311,13 +312,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <div className="card p-4" style={{ borderColor: "var(--accent-glow)" }}>
                     <div className="font-display text-[15px] mb-1">Become {c.name}?</div>
                     <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
-                      You will inherit their memories, bonds, wounds, traits, and wants — all of it, as it stands.
+                      You will inherit their memories, bonds, wounds, traits, and wants â€” all of it, as it stands.
                       {" "}{save.characters["char_player"]?.name} remains in the world, a person the world remembers.
                       This can be unraveled like any turn.
                     </div>
                     <div className="flex gap-2 mt-3">
                       <button className="btn btn-accent flex-1" onClick={embody} disabled={embodying}>
-                        {embodying ? "switching…" : "Become them"}
+                        {embodying ? "switchingâ€¦" : "Become them"}
                       </button>
                       <button className="btn btn-ghost flex-1" onClick={() => setEmbodyConfirm(false)}>Stay</button>
                     </div>
@@ -327,23 +328,23 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <Section title="Edit">
                     <EditField label="Name" v={draft.name} set={(v) => setDraft((d) => ({ ...d, name: v }))} />
                     <EditField label="Age" v={draft.age} set={(v) => setDraft((d) => ({ ...d, age: v }))} />
-                    <EditField label="Appearance — baseline (face, eyes, hair, build; the engine can only append here, never rewrite)" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={3} />
+                    <EditField label="Appearance â€” baseline (face, eyes, hair, build; the engine can only append here, never rewrite)" v={draft.appearance_facts} set={(v) => setDraft((d) => ({ ...d, appearance_facts: v }))} rows={3} />
                     <button className="btn w-full -mt-1" disabled={blBusy}
                       onClick={async () => {
                         setBlBusy(true);
                         try { const { baseline } = await api.completeBaseline(save.id, sel!); setDraft((d) => ({ ...d, appearance_facts: baseline })); }
                         finally { setBlBusy(false); }
                       }}>
-                      {blBusy ? "completing…" : "complete baseline gaps (hair, eyes, face — one cheap call; review before weaving in)"}
+                      {blBusy ? "completingâ€¦" : "complete baseline gaps (hair, eyes, face â€” one cheap call; review before weaving in)"}
                     </button>
-                    <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
+                    <EditField label="Presenting now (clothes, grime, visible state â€” freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
                     <div className="flex gap-2">
                       <EditField label="Height (ft)" v={draft.height_ft} set={(v) => setDraft((d) => ({ ...d, height_ft: v }))} rows={1} />
                       <EditField label="(in)" v={draft.height_in} set={(v) => setDraft((d) => ({ ...d, height_in: v }))} rows={1} />
-                      <EditField label="Weight (lbs — scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
+                      <EditField label="Weight (lbs â€” scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
                     </div>
-                    <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
-                    <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
+                    <EditField label="Background â€” bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
+                    <EditField label="Story so far â€” whatâ€™s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (comma-sep)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} />
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
@@ -356,24 +357,24 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="flex items-center gap-3 pb-2">
                         <CuspGlyph a={cusp.a} b={cusp.b} x={cusp.x} />
                         <div className="text-[11px] leading-relaxed flex-1" style={{ color: "var(--text-lo)" }}>
-                          Composure homes to their natural set point. Only sustained battering opens the shaded wedge where snaps become possible — and calm closes it again.
+                          Composure homes to their natural set point. Only sustained battering opens the shaded wedge where snaps become possible â€” and calm closes it again.
                         </div>
                       </div>
                     ) : null;
                   })()}
                   <Row k="mood" v={`${nice(cond.psyche.mood)} (${opennessLabel(cond.psyche.relaxation)})`} />
                   {cond.psyche.active_states.length > 0 && <Row k="feeling" v={cond.psyche.active_states.map(nice).join(", ")} />}
-                  <Row k="body" v={`${nice(cond.fatigue)} · ${nice(cond.hunger)}`} />
+                  <Row k="body" v={`${nice(cond.fatigue)} Â· ${nice(cond.hunger)}`} />
                   {cond.conditions.length > 0 && <Row k="afflicted" v={cond.conditions.map(nice).join(", ")} />}
                   {cond.injuries.length > 0 && <Row k="injuries" v={cond.injuries.map((x) => nice(x.type)).join("; ")} />}
-                  {(c.texture ?? []).length > 0 && <Row k="texture" v={(c.texture ?? []).join(" · ")} />}
-                  {c.drive && <Row k="wants" v={`${c.drive.goal} — ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
-                  {(c.drive_queue ?? []).length > 0 && <Row k="then" v={(c.drive_queue ?? []).map((d) => d.goal).join(" · ")} />}
+                  {(c.texture ?? []).length > 0 && <Row k="texture" v={(c.texture ?? []).join(" Â· ")} />}
+                  {c.drive && <Row k="wants" v={`${c.drive.goal} â€” ${c.drive.progress}%${c.drive.blocker ? ` (blocked: ${nice(c.drive.blocker)})` : ""}`} />}
+                  {(c.drive_queue ?? []).length > 0 && <Row k="then" v={(c.drive_queue ?? []).map((d) => d.goal).join(" Â· ")} />}
                   {c.appearance_now?.trim() && <Row k="presenting" v={c.appearance_now} />}
                   {(cond.thirst_meter ?? 0) >= 6.5 && <Row k="thirst" v={(cond.thirst_meter ?? 0) >= 8 ? "parched" : "thirsty"} />}
                   {(cond.awake_minutes ?? 0) >= 17 * 60 && <Row k="sleep" v={`${Math.round((cond.awake_minutes ?? 0) / 60)}h awake`} />}
-                  <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
-                  {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
+                  <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "â€”")} />
+                  {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed â€” lives on in the world, always wanting something" : "not followed â€” fades into the background when offscreen"} />}
                 </Section>
 
                 {(c.background || c.life_history) && (
@@ -389,16 +390,16 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   </Section>
                 )}
 
-                <Section title="Knows — verified facts (the Truth panel)">
+                <Section title="Knows â€” verified facts (the Truth panel)">
                   <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
-                    Durable facts this character holds — verbatim-checked at write time, never decayed, never paraphrased again. Corrections here are law: the engine treats this list as ground truth in every future turn.
+                    Durable facts this character holds â€” verbatim-checked at write time, never decayed, never paraphrased again. Corrections here are law: the engine treats this list as ground truth in every future turn.
                   </div>
-                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>Nothing ledgered yet — facts land here as the story establishes them, or add one by hand.</div>}
+                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>Nothing ledgered yet â€” facts land here as the story establishes them, or add one by hand.</div>}
                   {(mem?.facts ?? []).map((f, i) => (
                     <div key={i} className="flex items-start justify-between gap-2 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                       <div className="flex-1">
                         <div className="text-[12.5px] leading-snug">{f.content}</div>
-                        {f.quote && <div className="text-[10.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>“{f.quote}”</div>}
+                        {f.quote && <div className="text-[10.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>â€œ{f.quote}â€</div>}
                         {sourceLabel((f as any).source) && <div className="text-[9.5px] mt-0.5 uppercase tracking-wide" style={{ color: "var(--text-lo)" }}>via {sourceLabel((f as any).source)}</div>}
                       </div>
                       <button disabled={factsBusy} onClick={() => commitFacts((mem?.facts ?? []).filter((_, j) => j !== i).map((x) => ({ content: x.content, quote: x.quote })))}>
@@ -417,7 +418,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {sel !== "char_player" && c.status !== "dead" && (
-                  <Section title="Interview — a quiet aside (leaves no trace)">
+                  <Section title="Interview â€” a quiet aside (leaves no trace)">
                     <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
                       Talk to {c.name} out of scene. They answer only from what they actually know and feel; nothing here enters the story, their memory, or the world. One cheap call per question.
                     </div>
@@ -429,9 +430,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     ))}
                     {ivErr && <div className="font-mono text-[10px]" style={{ color: "var(--danger)" }}>{ivErr}</div>}
                     <div className="flex gap-2 mt-1">
-                      <input className="field flex-1" placeholder={`ask ${c.name.split(" ")[0]} something…`} value={ivQ} onChange={(e) => setIvQ(e.target.value)}
+                      <input className="field flex-1" placeholder={`ask ${c.name.split(" ")[0]} somethingâ€¦`} value={ivQ} onChange={(e) => setIvQ(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") ask(); }} />
-                      <button className="btn" disabled={ivBusy || !ivQ.trim()} onClick={ask}>{ivBusy ? "…" : "ask"}</button>
+                      <button className="btn" disabled={ivBusy || !ivQ.trim()} onClick={ask}>{ivBusy ? "â€¦" : "ask"}</button>
                     </div>
                   </Section>
                 )}
@@ -449,7 +450,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div key={t.id} className="py-1.5">
                         <div className="flex justify-between items-baseline">
                           <span className="text-[13.5px]">{niceCap(t.label)}</span>
-                          <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>×{t.reinforcement_count}</span>
+                          <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>Ã—{t.reinforcement_count}</span>
                         </div>
                         <div className="meter mt-1.5"><div style={{ width: `${t.intensity * 10}%` }} /></div>
                       </div>
@@ -464,9 +465,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       return (
                         <div key={e.to} className="py-1.5">
                           <div className="flex justify-between text-[13.5px]">
-                            <span>→ {other}{e.roles?.length ? <span style={{ color: "var(--accent)" }}> · {e.roles.join(" & ")}</span> : null}</span>
+                            <span>â†’ {other}{e.roles?.length ? <span style={{ color: "var(--accent)" }}> Â· {e.roles.join(" & ")}</span> : null}</span>
                             <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
-                              {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} · trust {e.trust}{e.attraction !== undefined ? ` · ${attractionWord(e.attraction)}` : ""}
+                              {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} Â· trust {e.trust}{e.attraction !== undefined ? ` Â· ${attractionWord(e.attraction)}` : ""}
                             </span>
                           </div>
                           {e.notes && <div className="text-[11.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>{e.notes}</div>}
@@ -477,9 +478,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {gmIntents.length > 0 && (
-                  <Section title="GM · what they concealed">
+                  <Section title="GM Â· what they concealed">
                     <div className="text-[11px] mb-1.5" style={{ color: "var(--text-lo)" }}>
-                      Private intent behind the prose — the truth the narration deliberately hid. Newest first. This is your verification that {c?.name ?? "they"} act from their own hidden state, not the surface.
+                      Private intent behind the prose â€” the truth the narration deliberately hid. Newest first. This is your verification that {c?.name ?? "they"} act from their own hidden state, not the surface.
                     </div>
                     {gmIntents.map((g) => (
                       <div key={g.turn} className="py-1.5 border-t" style={{ borderColor: "var(--hairline)" }}>
@@ -502,19 +503,19 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         {(save.traits[sel!] ?? []).map((t, i) => (
                           <div key={`at${i}`} className="text-[12.5px] py-0.5 leading-relaxed">
                             <span style={{ color: "var(--accent)" }}>{t.label}</span>
-                            <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>i{(t.intensity ?? 0).toFixed(0)} · w{(t.self_weight ?? 0).toFixed(0)}</span>
-                            <span style={{ color: "var(--text-mid)" }}> — {t.behavioral_impact}</span>
+                            <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>i{(t.intensity ?? 0).toFixed(0)} Â· w{(t.self_weight ?? 0).toFixed(0)}</span>
+                            <span style={{ color: "var(--text-mid)" }}> â€” {t.behavioral_impact}</span>
                           </div>
                         ))}
                       </div>
                     )}
                     {mem.beliefs.map((b, i) => (
-                      <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</div>
+                      <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>â€» {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</div>
                     ))}
                     {[...mem.episodic].sort((a, b) => ((b.event_turn ?? b.turn) - (a.event_turn ?? a.turn))).slice(0, 7).map((m, i) => (
                       <div key={i} className="text-[12.5px] py-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
                         <span className="font-mono text-[9.5px] mr-1.5" style={{ color: "var(--text-lo)" }}>
-                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` · ${m.anchor_rel}` : ""}{m.where ? ` · ${m.where}` : ""}{sourceLabel((m as any).source) ? ` · ${sourceLabel((m as any).source)}` : ""}
+                          {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` Â· ${m.anchor_rel}` : ""}{m.where ? ` Â· ${m.where}` : ""}{sourceLabel((m as any).source) ? ` Â· ${sourceLabel((m as any).source)}` : ""}
                         </span>
                         {m.content}
                       </div>
@@ -541,7 +542,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         <div style={{ height: 4, borderRadius: 2, background: "var(--ink-2)", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, h.strength))}%`, background: h.dormant ? "var(--text-lo)" : h.strength > 70 ? "var(--text-mid)" : "var(--accent, #8a7a9e)", transition: "width .3s" }} />
                         </div>
-                        {h.seen_fires > 0 && <div className="text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>seen {h.seen_fires}×</div>}
+                        {h.seen_fires > 0 && <div className="text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>seen {h.seen_fires}Ã—</div>}
                       </div>
                     ))}
                   </Section>
@@ -557,7 +558,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
           <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
             <div className="font-display text-[16px]">Raw edit</div>
             <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
-              Full character record — identity, condition, acquired traits, memory. Edit the JSON and save. Add traits to the "traits" array, beliefs under "memory".
+              Full character record â€” identity, condition, acquired traits, memory. Edit the JSON and save. Add traits to the "traits" array, beliefs under "memory".
             </div>
             {rawErr && <div className="text-[12px] mt-1.5 px-2 py-1 rounded" style={{ color: "var(--danger)", background: "var(--danger-soft, rgba(200,60,60,.12))" }}>{rawErr}</div>}
             <div className="flex gap-2 mt-2.5">
@@ -566,7 +567,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   const parsed = JSON.parse(rawJson);
                   setSave(await api.rawEditCharacter(save.id, sel!, parsed));
                   setRawJson(null); setRawErr("");
-                } catch (e: any) { setRawErr(e?.message?.includes("JSON") ? "Invalid JSON — check your brackets and commas." : (e?.message ?? "save failed")); }
+                } catch (e: any) { setRawErr(e?.message?.includes("JSON") ? "Invalid JSON â€” check your brackets and commas." : (e?.message ?? "save failed")); }
               }}>Save changes</button>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setRawJson(null); setRawErr(""); }}>Cancel</button>
             </div>
@@ -620,3 +621,4 @@ function Row({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
+

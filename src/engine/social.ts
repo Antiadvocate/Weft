@@ -1,16 +1,17 @@
+
 /**
- * Social fabric — the world-reacting layer. All deterministic, zero tokens.
+ * Social fabric â€” the world-reacting layer. All deterministic, zero tokens.
  *
  * Rumor diffusion: independent-cascade on the co-presence graph
- * (Kempe–Kleinberg–Tardos 2003). Each turn, every knower k may transmit to
+ * (Kempeâ€“Kleinbergâ€“Tardos 2003). Each turn, every knower k may transmit to
  * each co-present non-knower j with
- *   p(k→j) = base · (salience/10) · ((greg_k + greg_j)/2)
+ *   p(kâ†’j) = base Â· (salience/10) Â· ((greg_k + greg_j)/2)
  * Expected coverage and hop counts verified by Monte Carlo in verify.ts.
  * Inspired by Park et al. information-diffusion findings and Social
  * Simulacra (Park et al. 2022): community texture emerges from cheap local
  * rules, not from asking an LLM to imagine it.
  *
- * Psyche: relaxation r drifts toward capacity at rate ρ, perturbed by
+ * Psyche: relaxation r drifts toward capacity at rate Ï, perturbed by
  * Simulator deltas; psyche state derived from thresholds and dwell time.
  */
 import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
@@ -44,7 +45,7 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
   if (d.roles_set) {
     let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean).slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
-    // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent — Marie's
+    // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent â€” Marie's
     // role toward Joe is daughter; father is Joe's role toward Marie. When a known reciprocal PAIR
     // appears together on one edge, keep only the side that fits THIS direction and stamp the inverse
     // on the reverse edge, so the narrator gets a correct, directional anchor (this is what prevents
@@ -84,7 +85,7 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
   const log: string[] = [];
   const groups: string[][] = [];
-  // group 1: everyone in the player's scene. Then: offscreen NPCs bucketed by their actual LOCATION —
+  // group 1: everyone in the player's scene. Then: offscreen NPCs bucketed by their actual LOCATION â€”
   // only characters in the SAME place exchange rumors. The old code dumped every offscreen character
   // into one "village-scale" group regardless of where they were, so a rumor hopped instantly from a
   // character fifty miles away to one in the next room, and an NPC who stepped offscreen for a day
@@ -128,7 +129,7 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
 
 /** Per-turn drift of relaxation toward capacity; derive psyche state. */
 export function tickPsyche(p: Psyche): void {
-  // Drift toward capacity. Overshoot ABOVE capacity decays FASTER than recovery from below —
+  // Drift toward capacity. Overshoot ABOVE capacity decays FASTER than recovery from below â€”
   // a person's nature sets a ceiling on how open they get, and they don't float far above it just
   // because scenes are pleasant. This is the fix for a low-capacity (tense, guarded, predatory)
   // character being pushed up to serene openness by repeated positive relaxation_deltas and staying
@@ -138,7 +139,7 @@ export function tickPsyche(p: Psyche): void {
   p.relaxation = clamp(p.relaxation + gap * rate, -10, 10);
   if (p.relaxation <= -7) p.consecutive_clenched++;
   else p.consecutive_clenched = 0;
-  // open_run tracks how long they've sat AT/ABOVE their own resting openness — a character whose
+  // open_run tracks how long they've sat AT/ABOVE their own resting openness â€” a character whose
   // capacity is low (guarded by nature) shouldn't accrue a long "open run" just for being at rest.
   // Reset when relaxation falls meaningfully below their capacity OR below the neutral line.
   const openFloor = Math.min(3, Math.max(0, p.capacity - 1));
@@ -151,10 +152,10 @@ export function tickPsyche(p: Psyche): void {
 }
 
 /** Trait reinforcement-or-decay. Unreinforced acquired traits fade; identity-integrated ones persist. */
-/** Consolidation — earned, slow identity change. An acquired trait reinforced into deep
+/** Consolidation â€” earned, slow identity change. An acquired trait reinforced into deep
  *  integration (high self_weight AND repeatedly reinforced) stops being a "learned" overlay
- *  and becomes WHO THEY ARE: folded into core_traits, and — if it bears on how they come
- *  across — into the stored speech_pattern, then retired from the acquired list. Never runs
+ *  and becomes WHO THEY ARE: folded into core_traits, and â€” if it bears on how they come
+ *  across â€” into the stored speech_pattern, then retired from the acquired list. Never runs
  *  per-turn (only on reflection / time skips), so a single scene can't move the core. */
 export function capMemory(episodic: EpisodicMemory[], cap = 60): EpisodicMemory[] {
   if (episodic.length <= cap) return episodic;
@@ -173,7 +174,7 @@ export function capMemory(episodic: EpisodicMemory[], cap = 60): EpisodicMemory[
 export function consolidateBackground(ident: Identity, mem: CharMemory): string[] {
   const log: string[] = [];
   // What counts as "defining" enough to accrete into the character's story-so-far. The old bar was
-  // importance >= 8, which — with a bookkeeper that under-scores — silently dropped genuinely
+  // importance >= 8, which â€” with a bookkeeper that under-scores â€” silently dropped genuinely
   // life-shaping beats (being abandoned, a betrayal, a rescue) that it happened to score a 6 or 7, so
   // life_history froze early and stopped reflecting what the character actually lived. Broaden it: a
   // core memory always counts; so does an importance>=6 beat carrying real emotional charge, or any
@@ -204,7 +205,7 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
 
 /** When life_history has grown past where deterministic trimming reads cleanly, an LLM should
  *  re-summarize it into tighter prose (preserve the shape, lose verbatim detail). The actual
- *  rewrite is async, done by the turn loop — rare and cheap. Bedrock background is never touched. */
+ *  rewrite is async, done by the turn loop â€” rare and cheap. Bedrock background is never touched. */
 export function needsHistoryCompaction(ident: Identity): boolean {
   return (ident.life_history?.length ?? 0) > 1400;
 }
@@ -226,7 +227,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
         ident.speech_pattern = `${ident.speech_pattern}; has become ${add}`.replace(/^;\s*/, "");
       }
     }
-    return false; // retire from acquired — it's core now
+    return false; // retire from acquired â€” it's core now
   });
   return { kept, log };
 }
@@ -302,7 +303,7 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
       c.drive.updated_turn = state.world.current_turn;
     }
     if (c.drive.progress >= 100) log.push(`${c.name} completes their aim offscreen: ${c.drive.goal}`);
-    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${c.drive.progress}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
+    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${c.drive.progress}%)${c.drive.blocker ? ` â€” blocked by ${c.drive.blocker}` : ""}`);
   }
   return log;
 }
@@ -314,16 +315,16 @@ export function playerEdgeSnapshot(state: SaveState): { pair: string; warmth: nu
     .map((e) => ({ pair: state.characters[e.from].name, warmth: e.warmth, trust: e.trust }));
 }
 
-// ─────────────────────────── PROMISE LEDGER ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ PROMISE LEDGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Who swore what to whom, and what it costs to keep or break it. The emotional swing scales with
-// TWO things, like real life: how BIG the promise was (weight 1–3), and the PATTERN of this person's
+// TWO things, like real life: how BIG the promise was (weight 1â€“3), and the PATTERN of this person's
 // track record with the one they promised (a first slip from someone reliable is forgivable; the
 // fifth broken vow is who they are now). Kept promises build trust faster than warmth (you can rely
 // on them); broken ones cost trust hardest, and warmth too when the promise was large.
 
 import type { Promise as PromiseRec } from "./types";
 
-/** How many promises `from` has already KEPT vs BROKEN toward `to` — the track record that bends
+/** How many promises `from` has already KEPT vs BROKEN toward `to` â€” the track record that bends
  *  how the next outcome lands. */
 function promiseHistory(state: SaveState, from: string, to: string): { kept: number; broken: number } {
   let kept = 0, broken = 0;
@@ -364,7 +365,7 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
 
   if (outcome === "kept") {
     // reliability compounds: keeping builds trust more than warmth, and a good track record makes
-    // each kept promise land a little softer (already expected) — but a big vow kept always matters.
+    // each kept promise land a little softer (already expected) â€” but a big vow kept always matters.
     const base = p.weight === 3 ? 10 : p.weight === 2 ? 6 : 3;
     const familiarity = Math.max(0.6, 1 - hist.kept * 0.08); // slight diminishing returns
     const trustGain = Math.round(base * familiarity);
@@ -378,27 +379,27 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
     return to === "char_player" ? `${fromName} kept their word: ${p.text}.` : `${fromName} kept a promise to ${toName}.`;
   } else {
     // breaking costs trust hardest, warmth too when the promise was large. A PATTERN of breaking
-    // (this isn't the first) deepens the wound sharply — that's when "unreliable" becomes identity.
+    // (this isn't the first) deepens the wound sharply â€” that's when "unreliable" becomes identity.
     const base = p.weight === 3 ? 14 : p.weight === 2 ? 9 : 5;
-    const patternMult = 1 + Math.min(1.0, hist.broken * 0.4); // 1st break ×1, 2nd ×1.4, 3rd ×1.8, capped ×2
-    // being genuinely trusted softens a FIRST, small break — benefit of the doubt, once
+    const patternMult = 1 + Math.min(1.0, hist.broken * 0.4); // 1st break Ã—1, 2nd Ã—1.4, 3rd Ã—1.8, capped Ã—2
+    // being genuinely trusted softens a FIRST, small break â€” benefit of the doubt, once
     const soften = (hist.broken === 0 && p.weight === 1 && (edge?.trust ?? 0) >= 40) ? 0.5 : 1;
     const trustLoss = -Math.round(base * patternMult * soften);
     const warmthLoss = -Math.round(base * patternMult * soften * (p.weight === 3 ? 0.8 : 0.45));
     applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthLoss, trust_delta: trustLoss, power_delta: 0, note: `broke a promise: ${p.text}` }, turn);
     if (state.memory[to]) state.memory[to].episodic.push({
-      turn, content: `${fromName} broke their promise to ${toName === "you" ? "me" : toName}: ${p.text}${hist.broken > 0 ? " — again" : ""}`,
+      turn, content: `${fromName} broke their promise to ${toName === "you" ? "me" : toName}: ${p.text}${hist.broken > 0 ? " â€” again" : ""}`,
       importance: Math.min(9, 4 + p.weight * 2 + hist.broken), emotional_charge: hist.broken > 0 ? "hurt, hardening, done giving chances" : "hurt, let down", last_accessed_turn: turn,
       source: state.world.present.includes(to) ? "witnessed" : "inferred",
     });
-    return to === "char_player" ? `${fromName} broke their word: ${p.text}.` : `${fromName} broke a promise to ${toName}${hist.broken > 0 ? " — not the first time" : ""}.`;
+    return to === "char_player" ? `${fromName} broke their word: ${p.text}.` : `${fromName} broke a promise to ${toName}${hist.broken > 0 ? " â€” not the first time" : ""}.`;
   }
 }
 
-// ─────────────────────────── OFF-SCREEN BOND DRIFT ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ OFF-SCREEN BOND DRIFT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // The world shouldn't freeze between scenes. Characters who share a place while the player is away
-// slowly warm to or cool from each other based on compatibility — how alike their consciences are
-// (do they both care, or both not?) and how much their values overlap. This is a gentle ±1/round
+// slowly warm to or cool from each other based on compatibility â€” how alike their consciences are
+// (do they both care, or both not?) and how much their values overlap. This is a gentle Â±1/round
 // nudge, so bonds evolve over days offscreen without lurching. Only same-locale, non-present,
 // living pairs; the player is never included (their edges are earned in play, not drifted).
 function compatibility(a: Identity, b: Identity): number {
@@ -411,11 +412,11 @@ function compatibility(a: Identity, b: Identity): number {
   const bv = (b.values ?? []).map((v) => v.toLowerCase());
   const shared = av.filter((v) => bv.some((w) => w === v || w.includes(v) || v.includes(w))).length;
   const valueScore = av.length && bv.length ? shared / Math.max(av.length, bv.length) : 0.3;
-  // combine → a target sign: compatible pairs drift warm, incompatible drift cool
+  // combine â†’ a target sign: compatible pairs drift warm, incompatible drift cool
   return (conscienceScore * 0.5 + valueScore * 0.5); // 0..1
 }
 
-/** Drift warmth ±1 between same-place offscreen pairs toward their compatibility. Returns occasional
+/** Drift warmth Â±1 between same-place offscreen pairs toward their compatibility. Returns occasional
  *  human lines for pairs that cross a threshold, so the player can hear a bond shifted while away. */
 export function tickBonds(state: SaveState, rng: () => number = Math.random): string[] {
   const log: string[] = [];
@@ -431,7 +432,7 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
         const a = group[i], b = group[j];
-        if (rng() > 0.5) continue; // not every pair every round — bonds move slowly
+        if (rng() > 0.5) continue; // not every pair every round â€” bonds move slowly
         const comp = compatibility(state.characters[a], state.characters[b]);
         const dir = comp >= 0.5 ? 1 : -1; // compatible warm up, incompatible cool
         const e1 = getEdge(state.world.edges, a, b), e2 = getEdge(state.world.edges, b, a);
@@ -452,3 +453,4 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
   return log;
 }
 function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
+

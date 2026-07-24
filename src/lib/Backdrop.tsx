@@ -1,8 +1,9 @@
+
 /**
- * BACKDROP — a seeded, noise-driven color field under the prose.
+ * BACKDROP â€” a seeded, noise-driven color field under the prose.
  * Deterministic: seed = hash(locale + tone), so returning to a place reproduces its light.
- * A tiny offscreen buffer (64×40) is filled from 3-octave value noise mapped through a
- * tone palette (nudged warm/cool by the place's own name), then drawn scaled — the upscale itself does the blurring, no CSS filter.
+ * A tiny offscreen buffer (64Ã—40) is filled from 3-octave value noise mapped through a
+ * tone palette (nudged warm/cool by the place's own name), then drawn scaled â€” the upscale itself does the blurring, no CSS filter.
  * Drifts very slowly; crossfades ~2s on scene change. Static under reduced motion.
  */
 import React, { useEffect, useRef } from "react";
@@ -11,7 +12,7 @@ import { hashSeed, makeNoise2D, mulberry32, reducedMotion, type AmbienceLevel, t
 type RGB = [number, number, number];
 const lerp3 = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-/** Palette stops per tone: [deep, mid, glow]. Kept dark — this sits UNDER ink, not over it. */
+/** Palette stops per tone: [deep, mid, glow]. Kept dark â€” this sits UNDER ink, not over it. */
 const PALETTES: Record<SceneTone["id"], [RGB, RGB, RGB]> = {
   calm:    [[13, 12, 10], [21, 19, 15], [30, 26, 19]],
   warm:    [[15, 11, 8],  [27, 18, 12], [44, 27, 15]],
@@ -126,3 +127,4 @@ export default function Backdrop({ tone, locale, level = "subtle" }: { tone: Sce
         filter: "saturate(1.1)", transform: "scale(1.06)" }} />
   );
 }
+

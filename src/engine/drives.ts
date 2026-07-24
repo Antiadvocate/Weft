@@ -1,15 +1,16 @@
-/** Drive regeneration — NPC autonomy without an author.
+
+/** Drive regeneration â€” NPC autonomy without an author.
  *
  *  A tracked character who has finished their drive (or never had one) is never
- *  left idle: seedDrive() reads their whole self — identity, traits, values, their
+ *  left idle: seedDrive() reads their whole self â€” identity, traits, values, their
  *  edges (warmth/trust toward the player and toward others), the live threads, and
- *  the world's pressure palette — and hands them a concrete new want. It's
+ *  the world's pressure palette â€” and hands them a concrete new want. It's
  *  deterministic and free, so nobody is ever stranded; the Simulator's
  *  `drives_update` then enriches it into something in-voice on the next tick.
  *
  *  Tracking is opt-in: the player follows a character in the Cast view, or the
  *  Simulator promotes one (diff.track) when a thread makes them matter. Untracked
- *  bit-players recede — no drive, no upkeep — until something elevates them. */
+ *  bit-players recede â€” no drive, no upkeep â€” until something elevates them. */
 import type { Identity, SaveState } from "./types";
 import { epistemicGoal } from "./mind";
 
@@ -37,7 +38,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
 
   const candidates: string[] = [];
 
-  // 1) relational pulls — the engine of most autonomous behavior
+  // 1) relational pulls â€” the engine of most autonomous behavior
   if (coldest && coldest.warmth <= -20) {
     if (has("protect", "guard", "loyal", "justice", "shield"))
       candidates.push(`keep ${nm(coldest.to)} from doing more harm`);
@@ -58,7 +59,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
     if (th.tension >= 4) candidates.push(`get to the bottom of ${th.title.toLowerCase()}`);
   }
 
-  // 3) clocks still running — ambient stakes to push or resist
+  // 3) clocks still running â€” ambient stakes to push or resist
   for (const k of state.world.clocks.filter((k) => k.status === "running")) {
     if (has("protect", "justice", "guard", "detective", "law"))
       candidates.push(`disrupt ${k.faction}'s plans before they finish`);
@@ -72,7 +73,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   if (has("chaos", "wild", "unpredict")) candidates.push("stir something up just to see what breaks");
   candidates.push(`pursue what matters most to ${c.name} right now`);
 
-  // SELF-INTEREST set — the antidote to the chorus. These pull a character toward their OWN
+  // SELF-INTEREST set â€” the antidote to the chorus. These pull a character toward their OWN
   // life instead of the group's shared object. Tagged so dispersion can prefer them.
   const selfStart = candidates.length;
   candidates.push(
@@ -100,7 +101,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
       : goalAt(Math.floor((rng() ** 1.7) * candidates.length));
   } else {
     goal = goalAt(Math.floor((rng() ** 1.7) * candidates.length));
-    // even at moderate dispersion, don't pile onto the magnet — re-roll up to twice
+    // even at moderate dispersion, don't pile onto the magnet â€” re-roll up to twice
     for (let tries = 0; tries < 2 && aimsAtMagnet(goal) && dispersion >= 0.4; tries++) {
       goal = candidates[selfStart + Math.floor(rng() * (candidates.length - selfStart))];
     }
@@ -110,7 +111,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
 
 /** Ensure every TRACKED, offscreen, idle character has a want. Returns world-motion lines.
  *  `epistemicPulls` (from the theory-of-mind layer) lets a character whose model of someone
- *  is uncertain-but-high-stakes seed a "find out" want instead of a generic one — active
+ *  is uncertain-but-high-stakes seed a "find out" want instead of a generic one â€” active
  *  inference's epistemic drive, executed by the same machinery. */
 export function regenerateDrives(state: SaveState, rng: () => number = Math.random, epistemicPulls: { id: string; target: string }[] = [], opts: { dispersion?: number; sharedTarget?: string | null } = {}): string[] {
   const log: string[] = [];
@@ -125,11 +126,11 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
     const active = c.drive;
     const queue = (c.drive_queue ??= []);
 
-    // PROMOTION — a person doesn't stay glued to one stalled aim. If the active drive
+    // PROMOTION â€” a person doesn't stay glued to one stalled aim. If the active drive
     // is complete, hard-blocked, or has sat without progress, and a higher- or equal-priority
     // backup exists, switch to it and shelve the current one. This runs for PRESENT characters too:
     // a character whose in-scene goal has stalled surfaces a backup want, which the narrator then
-    // sees and can act on (raise it, redirect to it, leave to pursue it) — so people in the room
+    // sees and can act on (raise it, redirect to it, leave to pursue it) â€” so people in the room
     // don't stay stuck on a dead aim, they move on to the next thing they want.
     if (active && queue.length) {
       const stalled = active.progress >= 100 || !!active.blocker || (state.world.current_turn - active.updated_turn) >= 4;
@@ -147,12 +148,12 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
       }
     }
 
-    // SEEDING a brand-new want is offscreen-only — for a present character with no goal, the
+    // SEEDING a brand-new want is offscreen-only â€” for a present character with no goal, the
     // narrator and simulator give them one from what's happening in the scene, not this background tick.
     if (present) continue;
 
     if (active && active.progress < 100) continue;          // still actively wanting something
-    // nothing active (or it just completed and queue empty) — seed a fresh want.
+    // nothing active (or it just completed and queue empty) â€” seed a fresh want.
     // a live epistemic pull (uncertain about someone who matters) takes the wheel.
     const pull = pullFor.get(id);
     const seeded = pull
@@ -160,7 +161,7 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
       : seedDrive(state, id, rng, dispersion, magnet);
     if (!seeded) continue;
     c.drive = seeded;
-    log.push(pull ? `${c.name} can't get a read on ${pull === "char_player" ? "the player" : state.characters[pull]?.name ?? "someone"} — and goes looking.` : `${c.name} turns to something new: ${seeded.goal}.`);
+    log.push(pull ? `${c.name} can't get a read on ${pull === "char_player" ? "the player" : state.characters[pull]?.name ?? "someone"} â€” and goes looking.` : `${c.name} turns to something new: ${seeded.goal}.`);
     // occasionally give them a second, lower-priority aim so they have somewhere to go next
     if (queue.length < 2 && rng() < 0.5) {
       const backup = seedDrive(state, id, rng);
@@ -169,3 +170,4 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
   }
   return log;
 }
+

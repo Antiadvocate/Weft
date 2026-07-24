@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ClipboardPaste, Hammer, Sprout, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
@@ -55,7 +56,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-[15px] truncate">{s.name}</div>
                   <div className="font-mono text-[10px] mt-0.5" style={{ color: "var(--text-lo)" }}>
-                    {s.world_name} · turn {s.turn} · {new Date(s.updated_at).toLocaleDateString()}
+                    {s.world_name} Â· turn {s.turn} Â· {new Date(s.updated_at).toLocaleDateString()}
                   </div>
                 </div>
                 <button className="p-2" style={{ color: "var(--text-lo)" }} title="start a new chapter from this save"
@@ -84,7 +85,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
             onClick={() => !busy && launch(p.id)}>
             <div className="flex items-center justify-between">
               <div className="font-display text-[15px]">{p.name}</div>
-              <span className="chip">{busy === p.id ? "creating…" : "new"}</span>
+              <span className="chip">{busy === p.id ? "creatingâ€¦" : "new"}</span>
             </div>
             <div className="text-[13px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{p.blurb}</div>
           </motion.div>
@@ -137,3 +138,4 @@ export default function Library({ onOpen, onForge, onCreated }: {
     </div>
   );
 }
+

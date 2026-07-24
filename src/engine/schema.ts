@@ -1,8 +1,9 @@
+
 /**
- * SIMULATOR DIFF SCHEMA — for provider-side constrained decoding (structured outputs).
+ * SIMULATOR DIFF SCHEMA â€” for provider-side constrained decoding (structured outputs).
  * Everything optional except scene_summary/elapsed_minutes, mirroring the optional-key
  * contract. Kept permissive (`additionalProperties: true` at the root) so a model that
- * emits an extra harmless key doesn't get its whole diff rejected — the engine ignores
+ * emits an extra harmless key doesn't get its whole diff rejected â€” the engine ignores
  * unknown keys anyway. Providers that don't support json_schema fall back to json_object
  * automatically inside `complete()`.
  */
@@ -45,3 +46,4 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   new_places: A(S({ name: str, description_facts: str }, ["name"])),
   offscreen: strA,
 }, ["scene_summary", "elapsed_minutes"]);
+

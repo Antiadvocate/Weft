@@ -1,8 +1,9 @@
+
 /**
- * ATMOSPHERE — a single canvas of a few dozen procedural particles behind the prose.
+ * ATMOSPHERE â€” a single canvas of a few dozen procedural particles behind the prose.
  * Tone picks the kind (motes / embers / ash / rain / snow / fog), density, speed, color.
  * Tone changes crossfade: the old population decays out while the new one fades in.
- * Cheap by construction: one rAF, ≤ ~80 particles, paused when the tab is hidden,
+ * Cheap by construction: one rAF, â‰¤ ~80 particles, paused when the tab is hidden,
  * static single frame under prefers-reduced-motion.
  */
 import React, { useEffect, useRef } from "react";
@@ -76,7 +77,7 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
     const ro = new ResizeObserver(resize);
     if (canvas.parentElement) ro.observe(canvas.parentElement);
 
-    // touch devices pay far more per particle (mobile Safari especially) — halve the field there.
+    // touch devices pay far more per particle (mobile Safari especially) â€” halve the field there.
     const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
     const targetCount = () => {
       const base = Math.round(Math.min(80, Math.max(8, (w * h) / 14000))
@@ -117,7 +118,7 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const t = toneRef.current;
 
-      // tone changed → old population decays, new kind takes the field
+      // tone changed â†’ old population decays, new kind takes the field
       if (t.particle !== curKind || t.color !== curColor) {
         for (const p of parts) if (p.kind !== t.particle) { p.dying = true; p.born = now; }
         curKind = t.particle; curColor = t.color;
@@ -141,7 +142,7 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
     };
 
     if (reducedMotion()) {
-      // one still frame — presence without motion
+      // one still frame â€” presence without motion
       const now = performance.now();
       for (let i = 0; i < targetCount(); i++) parts.push({ ...spawn(curKind, curColor, w, h, now), born: now - 2000 });
       ctx.clearRect(0, 0, w, h);
@@ -155,3 +156,4 @@ export default function Atmosphere({ tone, level = "subtle" }: { tone: SceneTone
 
   return <canvas ref={canvasRef} aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }} />;
 }
+

@@ -1,96 +1,137 @@
+
 @import "tailwindcss";
 
-/* ───────── WEFT design tokens ─────────
-   Dark ink base. Era palettes swap a single accent family.
-   Fraunces = display, Newsreader = prose, IBM Plex Mono = utility. */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ WEFT design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   A reading app at night. Flat surfaces, hairline borders, one accent family
+   per era. Fraunces = display, Newsreader = prose, IBM Plex Mono = utility. */
 
 :root {
-  --ink-0: #0d0b09;
-  --ink-1: #15120e;
-  --ink-2: #1e1a14;
-  --ink-3: #2a241c;
-  --line: rgba(235, 220, 195, 0.09);
-  --line-strong: rgba(235, 220, 195, 0.18);
-  --text-hi: #ece4d4;
-  --text-mid: #b3a78f;
-  --text-lo: #7d735f;
-  --accent: #d98e4a;          /* ember default */
-  --accent-soft: rgba(217, 142, 74, 0.16);
-  --accent-glow: rgba(217, 142, 74, 0.32);
-  --danger: #c75146;
-  --calm: #7da27f;
+  --ink-0: #0e0d0b;
+  --ink-1: #151310;
+  --ink-2: #1c1915;
+  --ink-3: #27221b;
+  --line: rgba(236, 228, 212, 0.08);
+  --line-strong: rgba(236, 228, 212, 0.16);
+  --text-hi: #efe9db;
+  --text-mid: #b8ad97;
+  --text-lo: #8d8471;
+  --accent: #e0955a;          /* ember default */
+  --accent-soft: rgba(224, 149, 90, 0.14);
+  --accent-glow: rgba(224, 149, 90, 0.30);
+  --danger: #cf5a4e;
+  --calm: #82a884;
+  --radius: 16px;
   --font-display: "Fraunces", serif;
   --font-prose: "Newsreader", serif;
   --font-mono: "IBM Plex Mono", monospace;
 }
 
-[data-theme="ember"]     { --accent: #d98e4a; --accent-soft: rgba(217,142,74,.16); --accent-glow: rgba(217,142,74,.32); }
-[data-theme="verdigris"] { --accent: #5fae9b; --accent-soft: rgba(95,174,155,.15); --accent-glow: rgba(95,174,155,.30); }
-[data-theme="rust"]      { --accent: #c96f4a; --accent-soft: rgba(201,111,74,.16); --accent-glow: rgba(201,111,74,.32); }
-[data-theme="frost"]     { --accent: #8fb6cc; --accent-soft: rgba(143,182,204,.14); --accent-glow: rgba(143,182,204,.30); }
+[data-theme="ember"]     { --accent: #e0955a; --accent-soft: rgba(224,149,90,.14); --accent-glow: rgba(224,149,90,.30); }
+[data-theme="verdigris"] { --accent: #64b3a1; --accent-soft: rgba(100,179,161,.13); --accent-glow: rgba(100,179,161,.28); }
+[data-theme="rust"]      { --accent: #cf7550; --accent-soft: rgba(207,117,80,.14); --accent-glow: rgba(207,117,80,.30); }
+[data-theme="frost"]     { --accent: #94b9ce; --accent-soft: rgba(148,185,206,.13); --accent-glow: rgba(148,185,206,.28); }
 
 html, body, #root { height: 100%; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  background:
-    radial-gradient(120% 90% at 50% -10%, var(--ink-2) 0%, var(--ink-0) 58%),
-    var(--ink-0);
+  background: var(--ink-0);
   color: var(--text-hi);
   font-family: var(--font-prose);
   font-optical-sizing: auto;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
 }
 
 .font-display { font-family: var(--font-display); }
 .font-prose   { font-family: var(--font-prose); }
 .font-mono    { font-family: var(--font-mono); }
 
-/* app shell */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ app shell â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   --app-h is set from visualViewport so the composer rides above the iOS
+   keyboard instead of disappearing under it. Falls back to dynamic vh. */
 .shell {
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
   display: flex;
   flex-direction: column;
 }
+
 .topbar {
   padding-top: env(safe-area-inset-top);
-  background: color-mix(in srgb, var(--ink-0) 72%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-  backdrop-filter: blur(18px) saturate(1.3);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  background: color-mix(in srgb, var(--ink-0) 82%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
   border-bottom: 1px solid var(--line);
 }
+
+/* icon-only tab bar: six destinations, one thumb's reach, no label row */
 .tabbar {
-  padding-bottom: max(env(safe-area-inset-bottom), 10px);
-  background: color-mix(in srgb, var(--ink-0) 78%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-  backdrop-filter: blur(18px) saturate(1.3);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  background: color-mix(in srgb, var(--ink-0) 86%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
   border-top: 1px solid var(--line);
 }
+.tab-btn {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; flex: 1;
+  color: var(--text-lo);
+  transition: color .18s;
+  user-select: none; -webkit-user-select: none;
+}
+.tab-btn.on { color: var(--accent); }
+.tab-dot {
+  position: absolute; bottom: 5px; left: 50%;
+  width: 4px; height: 4px; border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
 
-/* cards & chrome */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ cards & chrome â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .card {
-  background: linear-gradient(180deg, var(--ink-2), var(--ink-1));
+  background: var(--ink-1);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 .card-press { transition: transform .18s cubic-bezier(.2,.9,.3,1.2), border-color .18s; }
 .card-press:active { transform: scale(.985); border-color: var(--line-strong); }
 
 .chip {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em;
   text-transform: uppercase; color: var(--text-mid);
   border: 1px solid var(--line); border-radius: 999px;
-  padding: 3px 9px;
+  padding: 5px 11px; min-height: 30px;
+  user-select: none; -webkit-user-select: none;
 }
 .chip-accent { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
 
-/* prose stream */
+/* quiet round button â€” the only persistent button shape on the play surface */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-width: 34px; height: 34px; padding: 0 8px;
+  border-radius: 999px; border: 1px solid transparent;
+  color: var(--text-lo); background: transparent;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .05em;
+  transition: color .15s, background .15s, border-color .15s;
+  user-select: none; -webkit-user-select: none; flex-shrink: 0;
+}
+.icon-btn:active { background: var(--ink-2); }
+.icon-btn[disabled] { opacity: .35; pointer-events: none; }
+.icon-btn.lit { color: var(--accent); }
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ prose stream â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.prose-stream { max-width: 42rem; margin: 0 auto; }
 .prose-stream p {
   margin: 0 0 1.05em;
-  font-size: 17px;
-  line-height: 1.62;
+  font-size: 17.5px;
+  line-height: 1.66;
   color: var(--text-hi);
   animation: rise .5s cubic-bezier(.16,.84,.3,1) both;
 }
@@ -110,19 +151,19 @@ body {
 
 /* seismograph strip */
 .seismo {
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--ink-1);
+  border: 1px solid var(--line);
   overflow: hidden;
 }
 
-/* inputs */
-.field {
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ inputs â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.field, .composer-input {
   width: 100%;
   background: var(--ink-1);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   color: var(--text-hi);
   font-family: var(--font-prose);
   font-size: 16px;            /* prevents iOS zoom-on-focus */
@@ -130,13 +171,31 @@ body {
   outline: none;
   transition: border-color .15s;
 }
-.field:focus { border-color: var(--accent-glow); }
-textarea.field { resize: none; }
+.field:focus, .composer-input:focus { border-color: var(--accent-glow); }
+textarea.field, textarea.composer-input { resize: none; }
+
+/* iOS-native-feeling range slider (montage days) */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 28px; background: transparent; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px; border-radius: 999px; background: var(--ink-3);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 999px;
+  background: var(--text-hi); border: none;
+  margin-top: -9.5px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.5);
+}
+input[type="range"]::-moz-range-track { height: 3px; border-radius: 999px; background: var(--ink-3); }
+input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 999px; background: var(--text-hi); border: none; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font-family: var(--font-mono); font-size: 12px; letter-spacing: .05em; text-transform: uppercase;
-  border-radius: 12px; padding: 11px 16px;
+  border-radius: 14px; padding: 11px 16px;
   border: 1px solid var(--line-strong);
   color: var(--text-hi); background: var(--ink-3);
   transition: transform .15s cubic-bezier(.2,.9,.3,1.3), background .15s, opacity .15s;
@@ -146,26 +205,57 @@ textarea.field { resize: none; }
 .btn[disabled] { opacity: .4; pointer-events: none; }
 .btn-accent { background: var(--accent); color: var(--ink-0); border-color: transparent; font-weight: 600; }
 .btn-ghost  { background: transparent; border-color: var(--line); color: var(--text-mid); }
-.btn-danger { background: transparent; border-color: rgba(199,81,70,.45); color: var(--danger); }
+.btn-danger { background: transparent; border-color: rgba(207,90,78,.45); color: var(--danger); }
 
 /* meters */
 .meter { height: 5px; border-radius: 999px; background: var(--ink-3); overflow: hidden; }
 .meter > div { height: 100%; border-radius: 999px; background: var(--accent); transition: width .6s cubic-bezier(.2,.8,.2,1); }
 
 /* scrollbars away on mobile feel */
-.scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .scroll-y::-webkit-scrollbar { width: 0; height: 0; }
 
-/* drawer */
-.drawer-veil { background: rgba(8,6,4,.62); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ sheets & drawers â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.drawer-veil { background: rgba(6,5,3,.6); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .drawer {
-  background: linear-gradient(180deg, var(--ink-2), var(--ink-1));
+  background: var(--ink-1);
   border-top: 1px solid var(--line-strong);
-  border-radius: 20px 20px 0 0;
+  border-radius: 22px 22px 0 0;
+  padding-left: max(env(safe-area-inset-left), 0px);
+  padding-right: max(env(safe-area-inset-right), 0px);
   padding-bottom: max(env(safe-area-inset-bottom), 16px);
-  box-shadow: 0 -24px 60px rgba(0,0,0,.5);
+  box-shadow: 0 -18px 50px rgba(0,0,0,.5);
+  max-height: 82%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
-.grab { width: 38px; height: 4px; border-radius: 999px; background: var(--line-strong); margin: 10px auto 4px; }
+.grab { width: 36px; height: 4px; border-radius: 999px; background: var(--line-strong); margin: 10px auto 4px; }
+
+/* overflow-menu sheet rows â€” every rare action, one clean list */
+.sheet-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 12px 10px; min-height: 48px;
+  border-radius: 12px;
+  color: var(--text-hi);
+  transition: background .15s;
+  user-select: none; -webkit-user-select: none;
+}
+.sheet-item:active { background: var(--ink-2); }
+.sheet-item[disabled] { opacity: .4; pointer-events: none; }
+.sheet-item .sheet-ic {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  background: var(--ink-2); color: var(--text-mid);
+}
+.sheet-item .sheet-ic.lit { color: var(--accent); background: var(--accent-soft); }
+.sheet-label { font-size: 14.5px; line-height: 1.25; }
+.sheet-hint { font-size: 11.5px; color: var(--text-lo); line-height: 1.3; }
+.sheet-rule { height: 1px; background: var(--line); margin: 6px 4px; }
+.sheet-cap {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text-lo); padding: 8px 10px 2px;
+}
 
 /* thinking shimmer */
 .shimmer {
@@ -179,26 +269,21 @@ textarea.field { resize: none; }
 
 hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
-/* ───────── light mode ───────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ light mode â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 [data-mode="light"] {
-  --ink-0: #f2ecdf;
-  --ink-1: #eae2d2;
-  --ink-2: #e2d8c5;
-  --ink-3: #d4c8b0;
+  --ink-0: #f4efe5;
+  --ink-1: #ece6d8;
+  --ink-2: #e3dbc9;
+  --ink-3: #d6cbb4;
   --line: rgba(60, 45, 25, 0.12);
-  --line-strong: rgba(60, 45, 25, 0.24);
+  --line-strong: rgba(60, 45, 25, 0.22);
   --text-hi: #2b2317;
   --text-mid: #5d5240;
-  --text-lo: #8a7d66;
+  --text-lo: #877a63;
 }
-[data-mode="light"] body {
-  background:
-    radial-gradient(120% 90% at 50% -10%, var(--ink-1) 0%, var(--ink-0) 58%),
-    var(--ink-0);
-}
-[data-mode="light"] .drawer-veil { background: rgba(40,30,15,.35); }
+[data-mode="light"] .drawer-veil { background: rgba(40,30,15,.32); }
 
-/* ───────── prose inks (Disco-style readable registers) ───────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ prose inks (readable registers) â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .prose-stream .dlg {
   color: var(--accent);
   font-style: italic;
@@ -211,14 +296,14 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
   letter-spacing: .02em;
 }
 
-/* DE-style tooltip card */
+/* tooltip card */
 .tip-veil { position: fixed; inset: 0; z-index: 60; }
 .tip-card {
   position: fixed; z-index: 61;
   width: min(300px, calc(100vw - 32px));
-  background: linear-gradient(180deg, var(--ink-2), var(--ink-1));
+  background: var(--ink-1);
   border: 1px solid var(--accent-glow);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 14px;
   box-shadow: 0 18px 50px rgba(0,0,0,.55);
 }
@@ -227,12 +312,12 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
   text-transform: uppercase; color: var(--accent);
 }
 
-/* Telltale-style toast */
-.toast-stack { position: fixed; top: calc(env(safe-area-inset-top) + 54px); left: 0; right: 0; z-index: 55; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* toast */
+.toast-stack { position: fixed; top: calc(env(safe-area-inset-top) + 52px); left: 0; right: 0; z-index: 55; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .toast {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em;
   color: var(--text-hi);
-  background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+  background: color-mix(in srgb, var(--ink-1) 90%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   border: 1px solid var(--accent-glow);
   border-radius: 999px; padding: 7px 16px;
@@ -242,7 +327,7 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 /* segmented mode control */
 .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--ink-1); }
 .seg button {
-  flex: 1; padding: 7px 0;
+  flex: 1; padding: 8px 0; min-height: 34px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-lo);
 }
@@ -250,18 +335,18 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 
 /* shifts disclosure */
 .shift-line { display: flex; gap: 8px; align-items: baseline; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; color: var(--text-mid); }
-.shift-line::before { content: "◆"; color: var(--accent); font-size: 8px; }
+.shift-line::before { content: "â—†"; color: var(--accent); font-size: 8px; }
 
 details.shifts > summary { list-style: none; cursor: pointer; }
 details.shifts > summary::-webkit-details-marker { display: none; }
 
 .portrait {
   width: 100%; aspect-ratio: 1; object-fit: cover;
-  border-radius: 12px; border: 1px solid var(--line-strong);
+  border-radius: 14px; border: 1px solid var(--line-strong);
 }
-.scene-img { width: 100%; border-radius: 12px; border: 1px solid var(--line); margin: 8px 0 14px; }
+.scene-img { width: 100%; border-radius: 14px; border: 1px solid var(--line); margin: 8px 0 14px; }
 
-/* ───────── interludes: the world turned without you ───────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ interludes: the world turned without you â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .interlude { text-align: center; }
 .interlude-rule {
   display: flex; align-items: center; gap: 12px;
@@ -282,34 +367,34 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   margin: 0 0 1em;
 }
 
-/* ───────── ambient & state-driven motion ───────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€ ambient & state-driven motion â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* per-word prose reveal — cadence set inline from scene tone */
+/* per-word prose reveal â€” cadence set inline from scene tone */
 @keyframes wordIn {
   from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .w-in { display: inline-block; opacity: 0; animation: wordIn var(--w-dur, .42s) cubic-bezier(.2,.8,.3,1) both; }
 
-/* openness orb — the relaxation scalar, breathing. Period + depth set inline. */
+/* openness orb â€” the relaxation scalar, breathing. Period + depth set inline. */
 @keyframes breathe {
   0%, 100% { transform: scale(1); opacity: .8; }
   50%      { transform: scale(var(--breath-amp, 1.12)); opacity: 1; }
 }
 .breath-orb {
-  width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0;
+  width: 11px; height: 11px; border-radius: 999px; flex-shrink: 0;
   animation: breathe var(--breath-s, 4s) ease-in-out infinite;
 }
 
-/* strike — the veto lands as a red flash that decays */
+/* strike â€” the veto lands as a red flash that decays */
 @keyframes strikeFlash { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
 .fx-strike {
   position: fixed; inset: 0; z-index: 80; pointer-events: none;
-  background: radial-gradient(115% 100% at 50% 50%, transparent 42%, rgba(199, 81, 70, .38));
+  background: radial-gradient(115% 100% at 50% 50%, transparent 42%, rgba(207, 90, 78, .38));
   animation: strikeFlash .9s ease-out both;
 }
 
-/* canon — a world-altering fact ripples outward once */
+/* canon â€” a world-altering fact ripples outward once */
 @keyframes canonRipple {
   from { opacity: .85; transform: scale(.15); }
   to   { opacity: 0;   transform: scale(1.5); }
@@ -321,7 +406,7 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   animation: canonRipple 1.15s cubic-bezier(.2,.8,.3,1) both;
 }
 
-/* story map — "you are here" pulse and newest-edge draw-in */
+/* story map â€” "you are here" pulse and newest-edge draw-in */
 @keyframes youPulse { from { r: 5; opacity: .8; } to { r: 13; opacity: 0; } }
 .map-you { animation: youPulse 2.4s ease-out infinite; }
 @keyframes edgeDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -333,7 +418,7 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   .fx-strike, .fx-canon { display: none; }
 }
 
-/* ── ledger card — the measurable deltas of the latest turn, as marginalia ── */
+/* â”€â”€ ledger card â€” the measurable deltas of the latest turn, as marginalia â”€â”€ */
 .ledger-card {
   margin: 14px 0 18px; padding: 8px 0 8px 14px;
   border-left: 2px solid var(--line);
@@ -347,7 +432,7 @@ details.shifts > summary::-webkit-details-marker { display: none; }
 .ledger-delta { color: var(--text-lo); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ledger-arrow { color: var(--text-lo); opacity: .6; }
 
-/* ── tap-to-reveal per-turn actions — no permanent button rows ── */
+/* â”€â”€ tap-to-reveal per-turn actions â€” no permanent button rows â”€â”€ */
 .turn-actions {
   display: flex; align-items: center; gap: 6px; overflow: hidden;
   margin: 2px 0 6px;
@@ -356,37 +441,36 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--text-lo);
-  padding: 7px 11px; min-height: 34px; border-radius: 8px;
+  padding: 7px 11px; min-height: 36px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--ink-1);
   transition: color .2s, border-color .2s;
 }
 .turn-action:disabled { opacity: .5; }
 .turn-action:active { border-color: var(--text-lo); }
 
-/* ── offscreen turns stop rendering entirely — the scroll-weight fix on long histories.
-      The latest turn is exempt (see Play.tsx) so streaming prose and scroll anchoring stay exact. ── */
+/* â”€â”€ offscreen turns stop rendering entirely â€” the scroll-weight fix on long histories.
+      The latest turn is exempt (see Play.tsx) so streaming prose and scroll anchoring stay exact. â”€â”€ */
 .turn-block { content-visibility: auto; contain-intrinsic-size: auto 380px; }
 
-/* ── readability floor ──────────────────────────────────────────────────────
-   The ambient canvases (Backdrop, Atmosphere) sit at z-index 0 behind the prose,
-   but the prose column had no ground of its own — so fog banks and particles read
-   as sitting ON the words. Text legibility is a floor, not a tone choice: give the
-   reading column a soft scrim of the page's own paper colour so ambience always
-   stays behind the writing, in either theme. */
+/* â”€â”€ readability floor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   The ambient canvases sit behind the prose, but the prose column had no ground
+   of its own â€” fog and particles read as sitting ON the words. Legibility is a
+   floor, not a tone choice: a soft scrim of the page's own colour keeps ambience
+   behind the writing, in either theme. */
 .prose-scrim {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background: linear-gradient(
     to right,
     transparent 0%,
-    color-mix(in srgb, var(--ink-0) 78%, transparent) 6%,
-    color-mix(in srgb, var(--ink-0) 78%, transparent) 94%,
+    color-mix(in srgb, var(--ink-0) 80%, transparent) 6%,
+    color-mix(in srgb, var(--ink-0) 80%, transparent) 94%,
     transparent 100%);
 }
 @supports not (background: color-mix(in srgb, red 50%, transparent)) {
   .prose-scrim { background: none; }
 }
 
-/* ── previously, here — place-indexed recall on re-entry (not persistent chrome) ── */
+/* â”€â”€ previously, here â€” place-indexed recall on re-entry (not persistent chrome) â”€â”€ */
 .recall-card {
   margin: 0 0 16px; padding: 9px 0 9px 14px;
   border-left: 2px solid var(--accent-glow, var(--line));
@@ -400,7 +484,7 @@ details.shifts > summary::-webkit-details-marker { display: none; }
 .recall-line { font-size: 13px; line-height: 1.55; color: var(--text-mid); }
 .recall-when { font-family: var(--font-mono); font-size: 10px; color: var(--text-lo); }
 
-/* ── due soon — scheduled consequences at the door. Free dread, never invented. ── */
+/* â”€â”€ due soon â€” scheduled consequences at the door. Appears only when pending. â”€â”€ */
 .duesoon { padding: 0 16px 4px; display: flex; flex-direction: column; gap: 3px; }
 .duesoon-row {
   display: flex; align-items: baseline; gap: 8px;
@@ -415,3 +499,4 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--accent); opacity: .8; white-space: nowrap;
 }
+

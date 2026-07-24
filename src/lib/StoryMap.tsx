@@ -1,7 +1,8 @@
+
 /**
- * STORY MAP — the world as the player has actually walked it.
+ * STORY MAP â€” the world as the player has actually walked it.
  * Nodes are visited places (from the travel log the bookkeeper writes), edges are moves.
- * Layout is a tiny hand-rolled force relax over seeded initial positions — deterministic
+ * Layout is a tiny hand-rolled force relax over seeded initial positions â€” deterministic
  * per set of places, so the map doesn't reshuffle between opens. The newest edge draws
  * itself in; "you are here" breathes.
  */
@@ -89,7 +90,7 @@ export default function StoryMap({ save }: { save: ClientSave }) {
             <circle cx={n.x} cy={n.y} r={you ? 4.5 : 3} fill={you ? "var(--accent)" : "var(--ink-3)"} stroke={you ? "none" : "var(--line-strong)"} strokeWidth={0.75} />
             <text x={n.x} y={n.y - 8} textAnchor="middle"
               style={{ font: "8.5px var(--font-mono)", fill: you ? "var(--accent)" : "var(--text-lo)", letterSpacing: ".04em" }}>
-              {n.name.length > 22 ? `${n.name.slice(0, 21)}…` : n.name}
+              {n.name.length > 22 ? `${n.name.slice(0, 21)}â€¦` : n.name}
             </text>
           </g>
         );
@@ -97,3 +98,4 @@ export default function StoryMap({ save }: { save: ClientSave }) {
     </svg>
   );
 }
+

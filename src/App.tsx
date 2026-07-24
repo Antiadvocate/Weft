@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText } from "lucide-react";
 import { api, type ClientSave } from "./lib/api";
@@ -45,6 +46,27 @@ export default function App() {
 
   useEffect(() => { applyProseFont(localStorage.getItem("weft-prose-font") ?? "newsreader"); }, []);
 
+  /* iOS KEYBOARD â€” 100dvh ignores the software keyboard, so a focused composer
+     used to slide under it. Track the visual viewport and size the shell to what
+     is actually visible; the composer then docks just above the keys. */
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      document.documentElement.style.setProperty("--app-h", `${vv.height}px`);
+      // keep the focused field in view when the keyboard shoves the layout up
+      window.scrollTo(0, 0);
+    };
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      document.documentElement.style.removeProperty("--app-h");
+    };
+  }, []);
+
   const openSave = useCallback(async (id: string) => {
     const s = await api.save(id);
     setSave(s); setTab("play"); setMode("game");
@@ -53,7 +75,7 @@ export default function App() {
   const closeSave = useCallback(() => { setSave(null); setMode("library"); }, []);
 
   const title = mode === "game" && save ? save.world_bible.name : mode === "forge" ? "The Forge" : "Weft";
-  const subtitle = mode === "game" && save ? `${save.world.current_time} · turn ${save.world.current_turn}` : "a world that reacts";
+  const subtitle = mode === "game" && save ? `${save.world.current_time} Â· turn ${save.world.current_turn}` : "a world that reacts";
 
   if (needKey) {
     return (
@@ -62,7 +84,7 @@ export default function App() {
           <div className="card p-6 max-w-sm w-full">
             <div className="font-display text-[22px] mb-1" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>Weft</div>
             <div className="text-[13.5px] mb-4" style={{ color: "var(--text-mid)" }}>
-              A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key — paste it once to begin.
+              A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key â€” paste it once to begin.
             </div>
             <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
               placeholder="sk-or-..." value={keyInput} onChange={(e) => setKeyInput(e.target.value)} />
@@ -82,22 +104,22 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar z-30">
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <button className="text-left" onClick={mode === "game" ? closeSave : undefined}>
-            <div className="font-display text-[17px] leading-tight" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
+        <div className="flex items-center justify-between px-4 py-2">
+          <button className="text-left min-w-0" onClick={mode === "game" ? closeSave : undefined}>
+            <div className="font-display text-[16.5px] leading-tight truncate" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
               {title}
             </div>
-            <div className="font-mono text-[10px] tracking-wider uppercase" style={{ color: "var(--text-lo)" }}>
+            <div className="font-mono text-[9.5px] tracking-wider uppercase truncate" style={{ color: "var(--text-lo)" }}>
               {subtitle}
             </div>
           </button>
-          <div className="flex items-center gap-2">
-            <button className="chip" onClick={() => setLightMode((v) => !v)} aria-label="theme">
-              {lightMode ? <Moon size={11} /> : <Sun size={11} />}
+          <div className="flex items-center gap-1 shrink-0">
+            <button className="icon-btn" onClick={() => setLightMode((v) => !v)} aria-label="toggle light and dark" title="toggle light and dark">
+              {lightMode ? <Moon size={14} /> : <Sun size={14} />}
             </button>
             {mode === "game" && (
-              <button className="chip" onClick={closeSave}>
-                <BookOpen size={11} /> library
+              <button className="icon-btn" onClick={closeSave} aria-label="back to library" title="back to library">
+                <BookOpen size={14} />
               </button>
             )}
           </div>
@@ -137,20 +159,18 @@ export default function App() {
 
       {mode === "game" && save && (
         <nav className="tabbar z-30">
-          <div className="flex items-stretch justify-around px-2 pt-1.5">
+          <div className="flex items-stretch px-2">
             {TABS.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               return (
                 <button key={id} onClick={() => setTab(id)}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1 relative"
-                  style={{ color: active ? "var(--accent)" : "var(--text-lo)" }}>
+                  className={active ? "tab-btn on" : "tab-btn"}
+                  aria-label={label} aria-current={active ? "page" : undefined} title={label}>
+                  <Icon size={20} />
                   {active && (
-                    <motion.div layoutId="tab-glow" className="absolute -top-1.5 w-7 h-[2.5px] rounded-full"
-                      style={{ background: "var(--accent)" }}
-                      transition={{ type: "spring", stiffness: 480, damping: 36 }} />
+                    <motion.div layoutId="tab-dot" className="tab-dot"
+                      transition={{ type: "spring", stiffness: 500, damping: 38 }} />
                   )}
-                  <Icon size={19} />
-                  <span className="font-mono text-[9px] uppercase tracking-wider">{label}</span>
                 </button>
               );
             })}
@@ -160,3 +180,4 @@ export default function App() {
     </div>
   );
 }
+

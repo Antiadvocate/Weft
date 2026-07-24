@@ -1,15 +1,16 @@
+
 /**
- * CONTINUITY — the world does not need you.
+ * CONTINUITY â€” the world does not need you.
  *
- *   simulateForward(state, days)  — pure deterministic world-advance, no tokens:
+ *   simulateForward(state, days)  â€” pure deterministic world-advance, no tokens:
  *       drives tick (and complete), rumors cascade to saturation, psyche drifts
  *       home, traits fade, conditions heal, clocks fill and FIRE, due
  *       consequences come due. Returns a report of everything that moved.
  *
- *   runInterlude(...)             — ONE LLM call turns the report into 2–3
+ *   runInterlude(...)             â€” ONE LLM call turns the report into 2â€“3
  *       paragraphs of world-scale passage-of-time prose + grounded memories.
  *
- *   embodyCharacter(state, id)    — the player leaves their vessel and steps
+ *   embodyCharacter(state, id)    â€” the player leaves their vessel and steps
  *       into another. Full id-swap across every ledger: you inherit their
  *       memories, bonds, wounds, traits, wants. Your old self remains in the
  *       world as a person the world remembers.
@@ -44,7 +45,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   };
   const turn = state.world.current_turn;
 
-  // nobody stands in one room for a week — the scene disperses
+  // nobody stands in one room for a week â€” the scene disperses
   state.world.present = [];
 
   const rounds = Math.max(1, Math.round(days * 2)); // two world-rounds per day
@@ -125,14 +126,14 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   return report;
 }
 
-const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player stepped away; the world kept moving. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it — invent texture, never contradict it.
+const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player stepped away; the world kept moving. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it â€” invent texture, never contradict it.
 
-CRITICAL — MEMORIES ARE PERSONAL. Each character's memory is only what THAT character personally lived through or would plausibly have heard where they were during these days. A character does NOT remember a distant event (a faction's clock firing three towns over, a rumor spreading in a place they weren't) unless they were there or someone credibly carried the news to them. A companion who spent these days beside the player remembers the ordinary days beside the player — NOT a battle in a city they never visited. Do not hand a character a memory of something they have no way of knowing; when in doubt, give them the small, local, personal version (what they did, where they were, who they were with), not the world-scale event. World-scale events belong in the interlude prose (which is the omniscient narrator's view), not in any individual's memory.
+CRITICAL â€” MEMORIES ARE PERSONAL. Each character's memory is only what THAT character personally lived through or would plausibly have heard where they were during these days. A character does NOT remember a distant event (a faction's clock firing three towns over, a rumor spreading in a place they weren't) unless they were there or someone credibly carried the news to them. A companion who spent these days beside the player remembers the ordinary days beside the player â€” NOT a battle in a city they never visited. Do not hand a character a memory of something they have no way of knowing; when in doubt, give them the small, local, personal version (what they did, where they were, who they were with), not the world-scale event. World-scale events belong in the interlude prose (which is the omniscient narrator's view), not in any individual's memory.
 
 Output ONLY strict JSON:
-{"interlude":"2-3 paragraphs of world-scale prose. Days passing, seasons of small life, the report's events landing among real people. NO player interiority — they were absent. End on the player's return: where they are as the world comes back into focus.",
+{"interlude":"2-3 paragraphs of world-scale prose. Days passing, seasons of small life, the report's events landing among real people. NO player interiority â€” they were absent. End on the player's return: where they are as the world comes back into focus.",
 "events":["3-6 one-line happenings drawn from the report, plain statements"],
-"memories":[{"char_id":"","content":"what THIS character personally lived these days — local and first-hand, never a distant event they couldn't know","importance":4}],
+"memories":[{"char_id":"","content":"what THIS character personally lived these days â€” local and first-hand, never a distant event they couldn't know","importance":4}],
 "character_updates":[{"char_id":"","line":"one plain sentence: what this character has been doing / where their head is after these days (first-hand, local)","new_location":"OPTIONAL place name if they moved","drive_nudge":"OPTIONAL short new want that grew from these days"}],
 "present_on_return":["names of 0-3 characters plausibly near the player when play resumes"],
 "weather":"the weather on the day of return"}`;
@@ -173,7 +174,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
       || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world kept its own books.`;
   }
 
-  // apply grounded memories — with a deterministic guard against the model handing a character a
+  // apply grounded memories â€” with a deterministic guard against the model handing a character a
   // memory of a distant event they couldn't know (a companion who was beside the player "remembering"
   // a faction battle three towns over). If the memory names a faction, clock, or thread the character
   // has no recorded connection to, and they weren't co-located with that event, drop it. World-scale
@@ -190,7 +191,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
       || threadTitles.some((t) => t && t.length > 6 && content.includes(t));
     if (namesDistantEvent) {
       // allow it only if this character has a prior recorded source for that subject (already has a
-      // memory/fact mentioning it) — otherwise they have no way to know it happened.
+      // memory/fact mentioning it) â€” otherwise they have no way to know it happened.
       const mem = state.memory[id];
       const hasSource = !!mem && [...(mem.episodic ?? []), ...(mem.facts ?? [])].some((e) => {
         const txt = String((e as any).content ?? (e as any).fact ?? "").toLowerCase();
@@ -209,7 +210,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
     });
   }
   // per-character vignettes: a line of what they were up to, an optional move, an optional new want.
-  // Applied under the same "first-hand / local" spirit as memories — these are things the character
+  // Applied under the same "first-hand / local" spirit as memories â€” these are things the character
   // themselves lived, so they're always self-sourced (inferred = offscreen but personally experienced).
   for (const cu of parsed.character_updates ?? []) {
     const id = state.characters[cu.char_id] ? cu.char_id
@@ -220,11 +221,11 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
       const pid = Object.entries(state.world.places).find(([, p]) => p.name.toLowerCase() === String(cu.new_location).toLowerCase())?.[0];
       if (pid) state.characters[id].location = pid;
     }
-    // a new want that grew over the days — only if they don't already have a live drive
+    // a new want that grew over the days â€” only if they don't already have a live drive
     if (cu.drive_nudge && !state.characters[id].drive?.goal) {
       state.characters[id].drive = { goal: String(cu.drive_nudge).slice(0, 160), progress: 0, updated_turn: turn } as any;
     }
-    // a first-hand memory of their own days (self-sourced, personally lived → inferred/offscreen)
+    // a first-hand memory of their own days (self-sourced, personally lived â†’ inferred/offscreen)
     if (cu.line && state.memory[id]) {
       state.memory[id].episodic.push({
         turn, content: String(cu.line).slice(0, 240), importance: 3,
@@ -249,7 +250,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
 
   state.history.push({
     turn, kind: "interlude", span_label: spanLabel,
-    player_action: `— ${spanLabel} —`, action_mode: "story",
+    player_action: `â€” ${spanLabel} â€”`, action_mode: "story",
     narrator_prose: interlude,
     summary: `Interlude: ${spanLabel}.`,
     shifts,
@@ -259,7 +260,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   });
 
   const tel: TurnTelemetry = {
-    turn, pressure: 1, pressure_source: `interlude — ${spanLabel}`,
+    turn, pressure: 1, pressure_source: `interlude â€” ${spanLabel}`,
     narrator_tokens_in: 0, narrator_tokens_out: 0,
     simulator_tokens_in: usage.prompt_tokens, simulator_tokens_out: usage.completion_tokens,
     reflection_tokens: 0, duration_ms: Date.now() - t0,
@@ -276,23 +277,23 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
 }
 
 /**
- * NEW-CHAPTER CONDENSATION — carry who a character BECAME into the next chapter.
+ * NEW-CHAPTER CONDENSATION â€” carry who a character BECAME into the next chapter.
  *
  * The new-chapter flow used to drop acquired traits entirely and replace each character's
  * whole memory with a single line of background. This distills the real thing: a character's
  * traits, the heaviest episodic memories, their formed beliefs, and any accreted life_history
  * are folded into (a) a compact durable BACKGROUND paragraph and (b) a small set of preserved
- * high-self-weight traits — the parts of identity that are load-bearing enough to persist a
+ * high-self-weight traits â€” the parts of identity that are load-bearing enough to persist a
  * time-skip. Deterministic, zero tokens; the prose recap stays the player-facing layer, this is
  * the mechanical inheritance underneath it.
  */
 export function condenseForNewChapter(ident: Identity, mem: CharMemory | undefined, traits: AcquiredTrait[] | undefined): {
-  carried_memory: CharMemory;      // the COMPLETE memory, carried intact — nothing dropped, nothing sanitized
+  carried_memory: CharMemory;      // the COMPLETE memory, carried intact â€” nothing dropped, nothing sanitized
   carried_traits: AcquiredTrait[]; // the COMPLETE trait list, carried intact
 } {
-  // A new chapter is a time-skip, not a personality wipe. Who a character BECAME — every memory,
+  // A new chapter is a time-skip, not a personality wipe. Who a character BECAME â€” every memory,
   // every acquired trait, including the violent, the carnal, the dark, the appetites they developed
-  // — is exactly what should persist. We carry the full memory and full traits forward UNCHANGED.
+  // â€” is exactly what should persist. We carry the full memory and full traits forward UNCHANGED.
   // The only adjustment is resetting the trait reinforcement clock so decay measures from the new
   // chapter's start rather than instantly aging everything across the skip.
   const carried_traits = (traits ?? []).map((t) => ({ ...t, last_reinforced_turn: 1 }));
@@ -327,9 +328,9 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   state.characters["char_player"].character_id = "char_player";
   if (state.memory[oldId]) state.memory[oldId].character_id = oldId;
   if (state.memory["char_player"]) state.memory["char_player"].character_id = "char_player";
-  // knows lists reference character ids — remap them
+  // knows lists reference character ids â€” remap them
   for (const mem of Object.values(state.memory)) mem.knows = [...new Set((mem.knows ?? []).map(swap))];
-  // theory-of-mind models are keyed by believer id and reference target ids — remap both.
+  // theory-of-mind models are keyed by believer id and reference target ids â€” remap both.
   // Left stale, the new player body kept its old model of "the player" (now itself) and
   // every other mind kept modeling the wrong person.
   if (state.minds) {
@@ -357,7 +358,7 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   // collapse any duplicate edges created by the swap (keep latest)
   const seen = new Set<string>();
   state.world.edges = state.world.edges.filter((e) => {
-    const k = `${e.from}→${e.to}`;
+    const k = `${e.from}â†’${e.to}`;
     if (seen.has(k)) return false;
     seen.add(k); return true;
   });
@@ -367,12 +368,12 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
     r.knowers = [...new Set(r.knowers.map(swap))];
   }
   for (const cq of state.world.consequences) if (cq.source_char) cq.source_char = swap(cq.source_char);
-  // the player now inhabits the target's body → the world's player_location is wherever that body is
+  // the player now inhabits the target's body â†’ the world's player_location is wherever that body is
   state.world.player_location = state.characters["char_player"].location ?? state.world.player_location;
-  // rebuild room occupancy + scene from locations (shared derivation — filters the dead, honors sub-rooms)
+  // rebuild room occupancy + scene from locations (shared derivation â€” filters the dead, honors sub-rooms)
   syncPresence(state);
 
-  // both souls keep the moment — written neutrally; the fiction is yours to define
+  // both souls keep the moment â€” written neutrally; the fiction is yours to define
   state.memory["char_player"]?.episodic.push({
     turn, content: `A change of perspective: I now live as ${toName}. ${fromName} continues elsewhere as their own person.`,
     importance: 7, emotional_charge: "vertigo", last_accessed_turn: turn,
@@ -385,3 +386,4 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   (state.vessel_history ??= []).push({ turn, from_name: fromName, to_name: toName, time_label: state.world.current_time });
   return { ok: true };
 }
+
