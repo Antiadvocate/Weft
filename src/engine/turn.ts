@@ -387,7 +387,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   action = cleanedAction;
   const framedAction = MODE_FRAME[mode](action);
   const turn = state.world.current_turn;
-  setLLMPrefs({ routeByPrice: !!state.model_settings.route_by_price });
+  setLLMPrefs({
+    routeByPrice: !!state.model_settings.route_by_price,
+    narratorReasoning: !!state.model_settings.narrator_reasoning,              // undefined = off (the cheap default)
+    preferDeepSeek: state.model_settings.prefer_deepseek_provider !== false,   // undefined = on (the cheap default)
+  });
   // ECO (cost governor): a transient posture, never a persisted setting — lean prompts and a
   // tightened context ceiling for this turn only.
   const eco = !!opts?.eco;

@@ -26,6 +26,13 @@ export interface ModelSettings {
   context_mode?: "digest" | "chatlog"; // chatlog = append-only conversation context (I-frame anchor + per-turn deltas) so providers cache nearly the whole input; digest = classic rebuilt-each-turn context
   iframe_cadence?: number;        // chatlog mode: turns between full state re-anchors (default 6)
   route_by_price?: boolean;       // OpenRouter provider sort: price — route each call to the cheapest healthy provider
+  narrator_reasoning?: boolean;   // let the narrator THINK (visible reasoning tokens billed as output). DeepSeek V4
+                                  // defaults thinking ON; prose rarely needs it, and hidden thinking is a pure
+                                  // per-turn tax. Default false = reasoning off for the narrator stream.
+  prefer_deepseek_provider?: boolean; // for deepseek/* models, try the first-party DeepSeek provider first —
+                                  // it carries the 0.8–2% cache-hit rate that makes long context cheap; other
+                                  // providers of the same weights charge up to 4x input with weaker cache discounts.
+                                  // Falls back to the rest of the provider pool when first-party is unhealthy.
   sim_route_speed?: boolean;      // route BOOKKEEPER calls for throughput instead of price — default true; bookkeeping latency is the felt latency
   habit_engine?: boolean;         // EXPERIMENTAL: core traits become probabilistic firing habits that loosen when seen (dzogchen self-liberation) and deepen when unseen. Inert unless true.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
@@ -569,4 +576,10 @@ export const DEFAULT_MODELS: ModelSettings = {
   lean_mode: false,
   token_budget: 0,
   tension: 5,
+  // COST DEFAULTS (new games): the configuration that makes a long campaign cheap. Existing saves
+  // keep whatever they already have — flip these in Tuning to get the same economics there.
+  route_by_price: true,             // every call rides the cheapest healthy provider
+  context_mode: "chatlog",          // append-only context: between anchors nearly all input bills at cache-hit rates
+  narrator_reasoning: false,        // narrator thinking is billed as output; prose doesn't need it
+  prefer_deepseek_provider: true,   // first-party DeepSeek carries the 0.8–2% cache-hit rate
 };

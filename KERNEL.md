@@ -159,6 +159,29 @@ Every accrual in the system has a decay. This list is the proof that the engine 
 - physical conditions expire (`CONDITION_LIFESPAN`)
 - drives complete; promises resolve; clocks fire and are spent
 
+## 7b. Token economy (what a turn costs and why)
+
+Per turn the engine makes 2–5 model calls: the narrator stream, the simulator JSON, one intent
+call per staked NPC, plus cadenced reflections (every 10 turns) and chapters (every 25). The
+defaults for new games are tuned for the cheapest healthy version of that:
+
+- `route_by_price: true` — every call rides the cheapest healthy OpenRouter provider.
+- `prefer_deepseek_provider: true` (llm.ts `providerParam`) — deepseek/* models try first-party
+  DeepSeek first, whose cache-hit rate is ~0.8–2% of input price; the provider pool is the
+  fallback (`allow_fallbacks`), governed by the price sort.
+- `context_mode: "chatlog"` — append-only context; between anchors nearly all input bills at
+  cache-hit rates instead of re-paying miss price for a volatile digest every turn.
+- `narrator_reasoning: false` — reasoning-tier models default to thinking, and thinking bills as
+  output; the narrator stream carries `reasoning: {enabled:false}`. Prose rarely needs it. The
+  bookkeeper has always run with reasoning off.
+- `lean_mode` (manual or eco-governor automatic) swaps the full prompts for the *_LEAN variants:
+  same rules, ~67% smaller narrator prompt, ~53% smaller simulator prompt.
+
+Savings compound: chatlog makes most input hit-priced, routing makes hit price the lowest
+available, reasoning-off removes invisible output, lean shrinks what remains. A healthy
+250-turn campaign on DeepSeek-class pricing lands around a dollar, roughly 5–13x under the
+untuned defaults. Existing saves keep their old settings; flip the same toggles in Tuning.
+
 ## 7. Tuning rules (how to change this safely)
 
 1. **Never overwrite the scalar.** Couplings add small clamped nudges; the kernel integrates them.

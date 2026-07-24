@@ -9,9 +9,25 @@ export interface LLMResult { text: string; usage: Usage; model: string; annotati
 
 /** Per-save LLM preferences, set by the turn loop each call batch (module-level because the
  *  llm layer deliberately knows nothing about SaveState). */
-export interface LLMPrefs { routeByPrice?: boolean }
+export interface LLMPrefs {
+  routeByPrice?: boolean;
+  narratorReasoning?: boolean;   // default OFF: prose rarely needs visible thinking, and reasoning tokens bill as output
+  preferDeepSeek?: boolean;      // first-party DeepSeek first for deepseek/* models — the 0.8–2% cache-hit rate lives there
+}
 let prefs: LLMPrefs = {};
 export function setLLMPrefs(p: LLMPrefs): void { prefs = { ...p }; }
+
+/** The provider object for a call, if any routing preferences apply. First-party DeepSeek gets
+ *  priority for deepseek/* models (its cache-hit pricing is the cheapest long-context input on
+ *  the platform by an order of magnitude); allow_fallbacks keeps the pool when it's unhealthy,
+ *  and the sort governs that fallback pool — an explicit per-call sort (bookkeeper: throughput)
+ *  beats the global price preference. */
+function providerParam(model: string, sortOverride?: "price" | "throughput" | "latency"): Record<string, unknown> {
+  const sort = sortOverride ?? (prefs.routeByPrice ? "price" : undefined);
+  const deep = !!prefs.preferDeepSeek && model.startsWith("deepseek/");
+  if (!sort && !deep) return {};
+  return { provider: { ...(deep ? { order: ["DeepSeek"], allow_fallbacks: true } : {}), ...(sort ? { sort } : {}) } };
+}
 
 /** Ring buffer of recent LLM failures — the old `complete()` swallowed the primary error
  *  entirely, so a misbehaving narrator model looked identical to a healthy fallback. */
@@ -117,8 +133,8 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
       temperature: json ? 0.2 : 0.85,
       ...rf,
       // ROUTING: an explicit per-call sort (the bookkeeper routes for throughput) beats the
-      // global price preference. Bookkeeping wants tokens/sec, not pennies.
-      ...(opts?.providerSort ? { provider: { sort: opts.providerSort } } : prefs.routeByPrice ? { provider: { sort: "price" } } : {}),
+      // global price preference; first-party DeepSeek priority rides on top for deepseek models.
+      ...providerParam(model, opts?.providerSort),
       // NO THINKING FOR BOOKKEEPING: structured-output calls carry reasoning disabled — a diff
       // needs transcription, not deliberation; hidden thinking tokens are pure latency on
       // reasoning-capable models. Dropped automatically if a provider rejects the parameter.
@@ -212,7 +228,13 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         }
       }
     }
-    const body: Record<string, unknown> = { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true } };
+    const body: Record<string, unknown> = { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
+      // routing rides the narrator stream too — it's the biggest call of the turn
+      ...providerParam(m),
+      // NO THINKING FOR PROSE: reasoning-tier models default to thinking, and those tokens bill
+      // as output. A scene doesn't need deliberation; the directive already carries the design.
+      ...(prefs.narratorReasoning ? {} : { reasoning: { enabled: false } }),
+    };
     if (online && !m.endsWith(":online")) {
       const web: Record<string, unknown> = { id: "web", max_results: 3 };
       if (q) web.search_prompt = `Web results for "${q}". Incorporate the factual detail into the prose; do not cite sources or break fiction.`;
