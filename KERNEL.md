@@ -78,9 +78,13 @@ Per turn in `src/engine/turn.ts`:
    circumstance against a difficulty from pressure and the verb class. The verdict is appended
    to the narrator directive as law (§8).
 4. **Narrator + simulator (LLM).** The simulator's `relaxation_delta` per character is the main
-   event-driven shove. The player's tightness anchor caps after this.
+   event-driven shove. The player's tightness anchor caps after this. Promises filed this turn run
+   `completeDrivesForPromises` — an accepted commitment matching a character's drive closes that
+   want deterministically (§5, answered-want closure).
 5. **Tail ticks, each fault-isolated** (a failure degrades one system for one turn, never the turn):
    - `tickDesire` — warmth earns attraction under its conditioned ceiling; fixation taxes relaxation.
+   - `tickRivalry` — two present characters wanting the same person: the one watching the rival's
+     pursuit land takes the jealousy dip and state (§5, rivalry).
    - `tickCoRegulation` — **pairwise** safe-person pull (attachment-styled, clamp ±0.5), then the
      **mean-field** pass (§5): the room's aggregate leans on everyone, clamp ±0.3.
    - `tickEmotions` — the lifecycle: self-liberation with residue, or the second hit and its drain.
@@ -124,6 +128,33 @@ up to ×2.5 faster in a clenched room, warm news in a settled one. And the field
 boredom, not old age), while transmission in matching weather feeds `+0.6` once per turn ("the
 story grows in the telling"). Growth and decay on the same rule — the destruction phase is
 inherited from the kernel the field rides.
+
+**Rivalry** (`tickRivalry`, desire.ts). Jealousy, modeled as the same energy as fixation: desire
+is directional, so when two present characters want the SAME person and one watches the other's
+pursuit LAND, the watcher's nervous system registers the threat. "Wanting" is attraction ≥ 25 or
+a romantic role on the edge (the bookkeeper's label for desire the numbers haven't caught up
+with); "landing" is the target warming back (NPC targets) or the rival warmly pursuing (player
+target — the player's own response is theirs, never authored). The hit: a capped relaxation dip
+(−0.2 to −0.6/turn) plus a `jealous of X` active state that the emotion lifecycle and narrator
+carry like any other. Attachment shapes both magnitude and grip threshold: anxious grips hardest
+and holds even from relative calm (the pattern is pre-loaded), secure feels the pang and lets it
+move unless already clenched, avoidant armors over it. The state releases when the rival leaves
+or the watcher settles past their threshold. Deterministic, zero tokens: the cause is computed;
+the narrator renders the effect. (This exists because a love triangle was playing as universal
+agreeableness — the fiction said jealousy, the state said calm, and nothing deterministic was
+reading the geometry.)
+
+**Answered-want closure** (`completeDrivesForPromises`, social.ts + two prompt laws). The fix for
+the broken-record failure: a character whose want was answered kept re-asking, because the answer
+never reached state. Three layers now close the loop. (1) Narrator law: a want voiced and answered
+becomes action or silence, never a restatement — an already-answered question is never put to the
+player again (TURN STRUCTURE + FINAL CHECK 12, both prompt tiers). (2) Bookkeeper mandate: an
+accepted proposal is a commitment and MUST reach state as promises_new; an answered want MUST
+rotate via drives_update to the next concrete goal ("plan the evening"). (3) The deterministic
+safety net: when a filed promise's text matches the recipient's active drive (token relevance ≥
+0.2), the drive completes exactly the way offscreen drives do — it becomes a memory, the slot
+clears, and the next goal arrives by the normal drives_update path. Even if the bookkeeper forgets,
+the promise reaching the ledger IS the answer reaching state.
 
 ## 5b. The attempt frame (`attempt.ts`)
 

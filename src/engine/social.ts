@@ -363,6 +363,36 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
   return log;
 }
 
+/**
+ * ANSWERED-WANT CLOSURE (deterministic safety net). When a promise lands on the ledger whose
+ * text matches a character's active drive — the player agreed to the date, swore to the favor —
+ * that want is ANSWERED even though the event hasn't happened yet: the character got their yes,
+ * and pressing the same ask next turn is a broken record, not a person. We complete the drive
+ * exactly the way tickDrives completes offscreen ones (it becomes a memory, the slot clears) so
+ * the Simulator's drives_update assigns the NEXT concrete goal ("plan the evening"). This closes
+ * the loop even when the bookkeeper forgets to rotate: the promise reaching the ledger IS the
+ * answer reaching state. Only the promise RECIPIENT's drive can match — they asked; the "yes"
+ * was given to them.
+ */
+export function completeDrivesForPromises(state: SaveState, promises: { from: string; to: string; text: string }[]): string[] {
+  const log: string[] = [];
+  for (const p of promises) {
+    const c = state.characters[p.to];
+    if (!c || p.to === "char_player" || !c.drive) continue;
+    if (relevance(p.text, c.drive.goal) < 0.2) continue;
+    state.memory[p.to]?.episodic.push({
+      turn: state.world.current_turn,
+      content: `${state.characters[p.from]?.name ?? p.from} agreed: ${p.text}.`,
+      importance: 7, emotional_charge: "satisfaction",
+      last_accessed_turn: state.world.current_turn,
+    });
+    if (c.current_goal === c.drive.goal) c.current_goal = undefined;
+    log.push(`${c.name} got their answer ("${c.drive.goal}") — moving to what comes next.`);
+    c.drive = undefined;
+  }
+  return log;
+}
+
 /** Player-facing edges for telemetry snapshots. */
 export function playerEdgeSnapshot(state: SaveState): { pair: string; warmth: number; trust: number }[] {
   return state.world.edges

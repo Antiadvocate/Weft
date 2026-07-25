@@ -20,8 +20,8 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise } from "./social";
-import { seedAttraction, orientationCap, tickDesire } from "./desire";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises } from "./social";
+import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -1335,6 +1335,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // desire drift + grasping: warmth slowly earns attraction (under its conditioned ceiling);
   // strong pull in a clenched body becomes fixation, which taxes relaxation until it settles.
   safeTick("desire", () => tickDesire(state));
+  // rivalry next: two present characters wanting the same person, one watching the other's pursuit
+  // land — a deterministic jealousy dip and state, which co-regulation and the lifecycle then carry.
+  safeTick("rivalry", () => tickRivalry(state));
   // co-regulation first (who is in the room moves the body), then the emotion lifecycle
   // (what the body does with what it is carrying) reads the post-company relaxation.
   safeTick("co-regulation", () => tickCoRegulation(state));
@@ -2608,10 +2611,15 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   // ── PROMISES ── new promises land on the ledger; resolved ones apply their weight-and-pattern
   // scaled relationship change. The player's own kept/broken word is the biggest driver here.
+  const filedPromises: { from: string; to: string; text: string }[] = [];
   for (const pn of diff.promises_new ?? []) {
     const from = resolveId(state, pn.from), to = resolveId(state, pn.to);
-    if (from && to) addPromise(state, from, to, pn.text, pn.weight, pn.due_time);
+    if (from && to) { addPromise(state, from, to, pn.text, pn.weight, pn.due_time); filedPromises.push({ from, to, text: pn.text }); }
   }
+  // ANSWERED-WANT CLOSURE: a filed promise that matches the recipient's active drive IS the answer
+  // to that want — complete the drive deterministically so the want is never re-voiced, and let the
+  // Simulator's drives_update assign the next concrete goal ("plan the evening").
+  for (const line of completeDrivesForPromises(state, filedPromises)) shifts.push(line);
   for (const pr of diff.promises_resolved ?? []) {
     let target = pr.id ? (state.world.promises ?? []).find((p) => p.id === pr.id && p.status === "open") : undefined;
     if (!target) {

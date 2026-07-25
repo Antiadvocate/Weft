@@ -289,3 +289,86 @@ export function dispositionCue(warmth: number, trust: number): string {
         : "";
   return `${care} ${rely}${note}`;
 }
+
+// ─────────────────────────── RIVALRY ───────────────────────────
+// Jealousy, modeled as the same energy as fixation: desire is directional (A wants B), so when two
+// present characters want the SAME person and one watches the other's pursuit LAND, the loser's
+// nervous system registers the threat. This is the cause half of cause-and-effect — a deterministic
+// relaxation dip plus an active_state the emotion lifecycle and narrator then carry. Attachment
+// shapes both the size of the hit and how easily it GRIPS: anxious attaches fastest and holds
+// longest (the state sticks even from relative calm, because the pattern is pre-loaded); secure
+// feels the pang and lets it move unless already clenched; avoidant armors over it — small dip, and
+// what it can't feel it shows sideways. Deterministic, zero tokens; the narrator renders it.
+
+const ROMANTIC_ROLE = /date|lover|girlfriend|boyfriend|partner|crush|spouse|wife|husband|fianc|romanc|in love|woo|courting|beloved|fling|mistress|affair/i;
+const JEALOUS_PREFIX = "jealous of ";
+
+/** Does `fromId` hold desire toward `targetId`? Attraction past the "drawn" floor, OR a romantic
+ *  role on their edge — the bookkeeper's label for desire the numbers may not have caught up with. */
+function holdsDesire(state: SaveState, fromId: string, targetId: string): boolean {
+  const e = state.world.edges.find((x) => x.from === fromId && x.to === targetId);
+  if (!e) return false;
+  if ((e.attraction ?? 0) >= 25) return true;
+  return (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
+}
+
+/**
+ * Per-turn rivalry pass for present central characters. Finds the sharpest rival in the room —
+ * someone who wants the same target AND whose pursuit is visibly landing — and charges the watcher
+ * for it. "Landing" for an NPC target means the target is warm back; for the PLAYER it means the
+ * rival is warmly pursuing, because the player's own response is theirs and never authored here.
+ */
+export function tickRivalry(state: SaveState): string[] {
+  const shifts: string[] = [];
+  const present = state.world.present.filter((id) => id !== "char_player" && state.characters[id] && state.characters[id].status !== "dead");
+  for (const watcherId of present) {
+    const watcher = state.characters[watcherId];
+    const cond = state.condition[watcherId];
+    if (!watcher || !cond || watcher.central === false) continue;
+
+    // everyone in the room the watcher wants (the player counts as in the room)
+    const targets = state.world.present.filter((t) => t !== watcherId && holdsDesire(state, watcherId, t));
+    let sharpest: { rivalId: string; heat: number } | undefined;
+    for (const targetId of targets) {
+      for (const rivalId of present) {
+        if (rivalId === watcherId || rivalId === targetId) continue;
+        if (!holdsDesire(state, rivalId, targetId)) continue;
+        const pursuit = state.world.edges.find((x) => x.from === rivalId && x.to === targetId);
+        const landing = targetId === "char_player"
+          ? (pursuit?.warmth ?? 0) >= 40   // warm, visible pursuit of the player: threatening on its own
+          : (state.world.edges.find((x) => x.from === targetId && x.to === rivalId)?.warmth ?? 0) >= 30; // the target warms back
+        if (!landing) continue;
+        const heat = (pursuit?.attraction ?? 0) + (pursuit?.warmth ?? 0);
+        if (!sharpest || heat > sharpest.heat) sharpest = { rivalId, heat };
+      }
+    }
+
+    const held = cond.psyche.active_states.filter((s) => s.startsWith(JEALOUS_PREFIX));
+    if (sharpest) {
+      const style = watcher.attachment?.style ?? "secure";
+      // magnitude: anxious grips hardest; grip threshold: how settled they must be to NOT hold it
+      const mult = style === "anxious" ? 1.5 : style === "disorganized" ? 1.25 : style === "avoidant" ? 0.5 : 0.75;
+      const gripBelow = style === "anxious" ? 7 : style === "disorganized" ? 6 : style === "avoidant" ? 3 : 4;
+      const dip = Math.min(0.6, 0.4 * mult); // capped: a slow drag, never a shove
+      cond.psyche.relaxation = clamp(cond.psyche.relaxation - dip, -10, 10);
+      const label = JEALOUS_PREFIX + (state.characters[sharpest.rivalId]?.name ?? sharpest.rivalId);
+      if (cond.psyche.relaxation < gripBelow) {
+        if (!cond.psyche.active_states.includes(label)) {
+          cond.psyche.active_states.push(label);
+          shifts.push(`${watcher.name} registers the competition — watching ${state.characters[sharpest.rivalId]?.name} close in costs them.`);
+        }
+        // stale labels for rivals no longer sharpest fall away
+        for (const s of held) if (s !== label) cond.psyche.active_states = cond.psyche.active_states.filter((x) => x !== s);
+      } else if (held.length) {
+        // settled past their grip threshold: felt the pang (the dip), let it move — no state held
+        cond.psyche.active_states = cond.psyche.active_states.filter((s) => !s.startsWith(JEALOUS_PREFIX));
+        shifts.push(`${watcher.name} feels the pang and lets it go — settled enough not to grip it.`);
+      }
+    } else if (held.length) {
+      // no rival landing in the room: the state has nothing to push against and releases
+      cond.psyche.active_states = cond.psyche.active_states.filter((s) => !s.startsWith(JEALOUS_PREFIX));
+      shifts.push(`${watcher.name}'s jealousy loosens — nothing to push against right now.`);
+    }
+  }
+  return shifts;
+}
