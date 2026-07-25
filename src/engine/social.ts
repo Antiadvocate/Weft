@@ -37,7 +37,14 @@ export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: strin
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
   // absolute value, which gave wrong results at the clamp ceiling).
-  const trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 : d.trust_delta;
+  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 : d.trust_delta;
+  // RUPTURE-REPAIR: trust that grows within five turns of a real disagreement on this edge is
+  // REPAIR, and repair is how trust is actually built — it earns half again. Then the flag clears;
+  // the next growth has to be earned on its own terms.
+  if (d.trust_delta > 0 && e.last_rupture_turn !== undefined && turn - e.last_rupture_turn <= 5) {
+    trustDelta *= 1.5;
+    delete e.last_rupture_turn;
+  }
   e.trust = clamp(e.trust + clamp(trustDelta, -20, 20), -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
   if (d.note) e.notes = d.note.slice(0, 140);
@@ -359,6 +366,61 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
     }
     if (c.drive.progress >= 100) log.push(`${c.name} completes their aim offscreen: ${c.drive.goal}`);
     else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${c.drive.progress}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
+  }
+  return log;
+}
+
+/**
+ * SELF-BETRAYAL CLENCH (deterministic). Yielding under pressure AGAINST an active want of one's
+ * own is a clench, whatever its social shape — agreement-from-fixation is still fixation. Each
+ * self-betrayal dips relaxation and increments a counter; at 3+ the strain shows as a
+ * "swallowing resentment" state the narrator and lifecycle carry. Standing your ground (a
+ * refusal or counteroffer) is free and repairs a point of the count; the count also drains
+ * slowly on its own. A willing yes (no active want crossed) costs nothing — compliance is only
+ * taxed when it contradicts something the character actually wants. Refusals and counters also
+ * mark the pair's edge as ruptured, so trust grown within five turns earns the repair bonus.
+ */
+export function applyStances(
+  state: SaveState,
+  stances: { charId: string; towardId: string; stance: "yielded" | "refused" | "countered"; about: string }[],
+  turn: number,
+): string[] {
+  const log: string[] = [];
+  const handledIds = new Set<string>(); // anyone with a stance this turn skips the passive drain
+  for (const st of stances) {
+    const c = state.characters[st.charId];
+    const cond = state.condition[st.charId];
+    if (!c || !cond || st.charId === "char_player" || c.central === false) continue;
+    handledIds.add(st.charId);
+    if (st.stance === "yielded") {
+      const opposing =
+        (c.drive && relevance(st.about, c.drive.goal) >= 0.2) ||
+        (c.current_goal && relevance(st.about, c.current_goal) >= 0.2);
+      if (!opposing) continue; // nothing of their own was crossed: a willing yes is free
+      const style = c.attachment?.style ?? "secure";
+      const mult = style === "anxious" ? 1.25 : style === "disorganized" ? 1.1 : style === "avoidant" ? 0.9 : 0.75;
+      cond.psyche.relaxation = clamp(cond.psyche.relaxation - 0.4 * mult, -10, 10);
+      cond.psyche.betrayals = (cond.psyche.betrayals ?? 0) + 1;
+      if (cond.psyche.betrayals >= 3 && !cond.psyche.active_states.includes("swallowing resentment")) {
+        cond.psyche.active_states.push("swallowing resentment");
+        log.push(`${c.name} keeps giving in against what they want — the strain of it is becoming visible.`);
+      } else {
+        log.push(`${c.name} gave in against their own want — a small clench.`);
+      }
+    } else {
+      // refused or countered: standing your ground is free, and it hands a point of self back
+      if ((cond.psyche.betrayals ?? 0) > 0) cond.psyche.betrayals = Math.max(0, (cond.psyche.betrayals ?? 0) - 1);
+      getEdge(state.world.edges, st.charId, st.towardId).last_rupture_turn = turn;
+    }
+  }
+  // the count drains for everyone with no stance this turn; resentment lifts when it empties
+  for (const [cid, cond] of Object.entries(state.condition)) {
+    if (handledIds.has(cid)) continue;
+    const b = cond.psyche.betrayals ?? 0;
+    if (b > 0) {
+      cond.psyche.betrayals = Math.max(0, b - 0.34);
+      if (cond.psyche.betrayals === 0) cond.psyche.active_states = cond.psyche.active_states.filter((s) => s !== "swallowing resentment");
+    }
   }
   return log;
 }

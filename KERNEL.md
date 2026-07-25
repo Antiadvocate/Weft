@@ -161,6 +161,40 @@ affirms a rule the narrator broke as supreme truth and canonizes it, rolling bac
 nothing. Vetoes render as STRUCK FROM THE STORY; corrections render as THE PLAYER'S CORRECTIONS,
 to the narrator and the bookkeeper both.
 
+**Friction: warmth is not agreement** (desire.ts, social.ts, prompts.ts). The agreeableness bug had
+three layers. (1) Rendering: disposition cues described only what affection looks like, so warmth
+compiled to compliance. Every warmth band now also says how the person disagrees — devotion is not
+obedience, trust is reliance not deference, and a neutral stranger is polite, measuring, and
+noncommittal — plus a narrator law: warmth lowers ceremony, not independence, and an instant
+uncomplicated yes from a character with an agenda is a rendering failure. (2) Stranger phase: a
+deterministic cue (few shared memories plus warmth under 40) marks young relationships as
+"still measuring you", so first meetings get small questions and hedging instead of instant ease.
+(3) The self-betrayal clench, the Dzogchen mechanic that was missing: the bookkeeper records a
+`stances` entry when a character answers real pressure (yielded / refused / countered), and
+`applyStances` taxes yielding against an active want — a relaxation dip scaled by attachment
+(anxious yields dearest) plus a `betrayals` counter that shows as "swallowing resentment" at 3+.
+Standing your ground is free and hands a point back; the counter drains over quiet turns. A willing
+yes costs nothing. (4) Rupture-repair: refusals and counters stamp the pair's edge, and trust grown
+within five turns of a rupture earns half again (applyEdgeDelta), because repaired conflict, not
+smoothness, is how trust is actually built. The bookkeeper's edge rule now says the same in words.
+
+**Dialogue law, the scene clock, and clock discharge** (prompts.ts, pressure.ts, turn.ts). Three
+holes shared one symptom — characters who read as wisdom-dispensing robots while the world's own
+clocks went unfelt. (1) The DIALOGUE law is rewritten around "people, not counselors": answer the
+feeling not the thesis ("I'm an ugly duckling" earns "aww, why would you say that?", never a
+reframe); no clinician mode (Socratic leading questions, validating reframes, spoken diagnosis of
+another's pattern are banned shapes; insight shows in action); state degrades speech (arousal,
+fear, and bodily urgency make people dumber, not wiser — no measured paragraphs mid-emergency);
+people listen through themselves; emotional literacy is a trait, not the water supply. (2) The
+digest now prints a scene timer beside the location (`scene running ~N min`, tracked in
+`world.scene_started_time`, reset on location change, big jumps, and time skips) so timed world
+laws have something to be measured against — the law directive and corrections block both state
+that a timed threshold is a running clock that conversation does not pause. (3) Fired faction
+clocks no longer die silently: `dischargeFiredClocks` converts a full clock into a due
+consequence, which the beat picker discharges first, before cooldowns and grace — a clock's
+promise now lands at full scale instead of evaporating at 6/6. (4) Per-character pronouns printed
+in the digest are binding law (FINAL CHECK 13), closing the card-vs-narration pronoun drift.
+
 **Answered-want closure** (`completeDrivesForPromises`, social.ts + two prompt laws). The fix for
 the broken-record failure: a character whose want was answered kept re-asking, because the answer
 never reached state. Three layers now close the loop. (1) Narrator law: a want voiced and answered

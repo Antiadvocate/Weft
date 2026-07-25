@@ -306,7 +306,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     if (!what?.trim()) return;
     const before = save.world.current_turn;
     try {
-      setSave(await api.strike(save.id, what.trim(), turn - 1));
+      // Snapshot N is taken BEFORE turn N runs, so striking turn N means restoring snapshot N —
+      // passing turn-1 here used to erase turn N-1 along with it (the "past 2 turns" bug).
+      setSave(await api.strike(save.id, what.trim(), turn));
       setUndoTurn(before); setRolledTo(turn - 1);
       flash("strike");
       pushToasts([`struck — rolled back to turn ${turn - 1}`, "the narrator will never write it again"]);
@@ -1248,14 +1250,16 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   </button>
                 )}
                 {[...save.snapshot_turns].reverse().filter((t) => t !== 1).map((t) => (
+                  // Snapshot t holds the state BEFORE turn t ran, so restoring it lands at the end
+                  // of turn t-1 — the label shows the landing point, not the snapshot's own number.
                   <button key={t} className="card card-press w-full p-3.5 text-left flex justify-between items-center"
                     style={armedRollback === t ? { borderColor: "var(--danger)" } : undefined}
                     onClick={() => doRollback(t)}>
                     <span className="font-display text-[14px]" style={armedRollback === t ? { color: "var(--danger)" } : undefined}>
-                      {armedRollback === t ? `Erases ${save.world.current_turn - t} turns — tap again` : `Turn ${t}`}
+                      {armedRollback === t ? `Erases ${save.world.current_turn - t} turns — tap again` : `Turn ${t - 1}`}
                     </span>
                     <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>
-                      {save.history.find((h) => h.turn === t)?.time_label ?? ""}
+                      {save.history.find((h) => h.turn === t - 1)?.time_label ?? ""}
                     </span>
                   </button>
                 ))}

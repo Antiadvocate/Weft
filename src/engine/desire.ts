@@ -263,18 +263,20 @@ export function tickDesire(state: SaveState): string[] {
  *  warmth WITH guardedness, never as coldness. The key failure this fixes is a narrator fixating on
  *  low trust and writing a loyal, warming companion as a hostile stranger. */
 export function dispositionCue(warmth: number, trust: number): string {
-  // warmth band on the full scale, with what it looks like in behavior
+  // warmth band on the full scale, with what it looks like in behavior. Every band says what the
+  // person DOES, including how they disagree — warmth lowers ceremony, not independence, and a
+  // band that only describes affection renders as a compliance machine.
   const care =
-    warmth >= 70 ? "loves you / devoted (warmth very high) — open affection, protectiveness, seeks your closeness" :
-    warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses" :
-    warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, drawn to you, glad you're near" :
-    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, no hostility" :
-    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline, neither warm nor cold" :
-    warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged" :
+    warmth >= 70 ? "loves you / devoted (warmth very high) — open affection, protectiveness, seeks your closeness; devotion is not obedience: they refuse freely, tease you, argue when they think you are wrong, and keep their own plans" :
+    warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses; comfortable teasing you, disagreeing, and saying no" :
+    warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, glad you're near; talks freely, including disagreement" :
+    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, pleasant; agrees to nothing yet" :
+    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal; asks small questions and watches before volunteering anything" :
+    warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged, polite brush-offs" :
     warmth > -45 ? "dislikes you (warmth negative) — sharp, unwelcoming" :
     "resents or hates you (warmth very negative) — openly cold or antagonistic";
   const rely =
-    trust >= 50 ? "and trusts you (relies on your word, lowers their guard)" :
+    trust >= 50 ? "and trusts you (relies on your word, lowers their guard — reliance, not deference: they still judge for themselves)" :
     trust >= 20 ? "and is starting to trust you (testing, hopeful)" :
     trust >= 0 ? "but doesn't fully trust you yet (still cautious, watching)" :
     trust > -25 ? "and is wary of trusting you (guarded, keeps a little distance)" :

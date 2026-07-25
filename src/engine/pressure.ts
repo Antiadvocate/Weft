@@ -17,7 +17,7 @@ import { absMinutes } from "./time";
  * faction clock heat feed an additive "fiction heat" term — so pressure is
  * still earned by the story, just computed instead of asked for.
  */
-import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock } from "./types";
+import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock, SaveState } from "./types";
 
 export interface PressureInput {
   turn: number;
@@ -344,4 +344,35 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
   if (mythic) return godMode ? "cosmic" : "mythic";
   if (godMode) return "mythic";
   return "mortal";
+}
+
+/**
+ * FIRED-CLOCK DISCHARGE. A full clock is a PROMISE: its consequence must land, not evaporate.
+ * Clocks used to just flip status to "fired" and their promised crisis never reached the scene —
+ * the beat picker only considers RUNNING clocks, so a clock that filled mid-scene died silently.
+ * Convert each fresh firing into a due consequence; next turn's beat selection checks due
+ * consequences first (before cooldowns and grace), so the crisis lands at full scale, on schedule.
+ */
+export function dischargeFiredClocks(state: SaveState, turn: number): string[] {
+  const shifts: string[] = [];
+  for (const c of state.world.clocks) {
+    if (c.status === "running" && c.filled >= c.segments) {
+      c.status = "fired";
+      if (c.consequence?.trim()) {
+        // idempotent: never queue the same clock's consequence twice (e.g. repaired saves)
+        const desc = `${c.faction}'s clock has run out: ${c.consequence.trim()}`;
+        if (!state.world.consequences.some((x) => x.status === "pending" && (x.id === `clockfire_${c.id}` || x.description === desc))) {
+          state.world.consequences.push({
+            id: `clockfire_${c.id}`,
+            description: desc,
+            fire_turn: turn + 1,
+            severity: "major",
+            status: "pending",
+          });
+        }
+        shifts.push(`${c.faction}'s clock has run out — what it promised is coming.`);
+      }
+    }
+  }
+  return shifts;
 }

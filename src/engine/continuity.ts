@@ -122,6 +122,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   }
 
   state.world.current_time = newTime;
+  state.world.scene_started_time = newTime; // a skip always starts a fresh scene on the scene clock
   return report;
 }
 

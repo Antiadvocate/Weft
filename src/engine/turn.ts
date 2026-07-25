@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
@@ -20,7 +20,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises } from "./social";
+import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -776,7 +776,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // exact Velora failure. Player sovereignty over law runs through explicit direction, never through
   // simply acting as if the law weren't there.
   const forbiddenGate = (!god && state.world_bible.forbidden?.trim())
-    ? `\nFORBIDDEN IN THIS WORLD — these are LAWS of this world, not themes to avoid: ${state.world_bible.forbidden.trim()}. Two bindings. (1) Your plotting: never introduce, escalate toward, or build a thread around any of these; if momentum heads that way, steer away. (2) The fiction's physics: an entry that states how bodies, biology, culture, or society work here is as real as gravity — it binds EVENTS, including events the player's own action sets in motion. The player's declared action happens as declared, but the world answers it BY the law: a body that the law says cannot do a thing does not do it; a culture with no concept of a thing does not produce it; a stated consequence (pain, need, risk) arrives on schedule. Desire, tenderness, and scene momentum never suspend a law. Never invent an exception, a workaround, or a "maybe this time" explanation for one, and never have a character explain a law away. The player overrides a law only through explicit direction, never by acting as if it were not there.`
+    ? `\nFORBIDDEN IN THIS WORLD — these are laws of this world, not themes to avoid: ${state.world_bible.forbidden.trim()}. Two things follow. (1) Your plotting: never introduce, escalate toward, or build a thread around any of these; if the scene drifts that way, steer away. (2) The fiction obeys them: an entry that states how bodies, biology, culture, or society work here binds what happens, including when the player's own action sets it off. The player's declared action happens as declared, but the world answers it according to the law — a body that the law says cannot do a thing does not do it; a culture with no concept of a thing does not produce it; a stated consequence (pain, need, risk) arrives on schedule. The mood of a scene does not suspend a law, no matter how tender or important the moment. Do not invent exceptions or special-case explanations, and do not have a character argue a law away. The player overrides a law only through explicit direction, not by acting as if it were not there.`
     : "";
   // LAW ENGAGEMENT (deterministic): when the player's action or words touch a law entry — crossing it
   // with an act, or INVOKING it by reminding the world it exists — the narrator gets the matched law
@@ -785,7 +785,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // explaining the rule away ("maybe because you're not Wym") is forbidden in advance, by name.
   const lawHit = !god ? engagedLaw(state, action) : undefined;
   const lawDirective = lawHit
-    ? `\nWORLD LAW ENGAGED — the player's action or words this turn touch a law of this world: "${lawHit}". This law is real and has always been real, and the player is RIGHT about it. If their action CROSSED the law, it asserts itself now — the body or culture does exactly what the law says (pain where pain is written, need where need is written, impossibility where impossibility is written), and characters who should have known react honestly. If the player INVOKED the law — reminded anyone it exists, asked whether it still holds — the fiction CONFIRMS it: characters realize what they should have known, and consequences the law implies begin to apply. Under no circumstances do you invent an exception, explain the law away, or frame respecting it as anyone's mistake.`
+    ? `\nWORLD LAW ENGAGED — the player's action or words this turn touch a law of this world: "${lawHit}". This law is real and has always been real, and the player is right about it. If their action crossed the law, it applies now — the body or culture behaves exactly as the law describes, the stated pain, need, or impossibility happens as written, and characters who should have known react honestly. If the player invoked the law — reminded anyone it exists, asked whether it still holds — the fiction confirms it: characters realize what they should have known, and consequences the law states begin to apply. If the law states a time threshold, treat it as a timer measured against the scene minutes shown in the NOW block: once the timed activity began it does not pause for conversation, and the consequence arrives on schedule. Do not invent an exception, argue the law away, or treat respecting it as anyone's mistake.`
     : "";
   // NAMED-ENTITY FABRICATION GUARD — a recurring catastrophic failure: a stray name or passing mention
   // ("David Attenborough" in a joke, an offhand "my ex") gets reconstructed under pressure into a
@@ -841,7 +841,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const worldPro = detectWorldPronoun(state.world.canon);
   const playerPro = (state.characters["char_player"]?.pronouns ?? "").trim();
   const pronounLock = worldPro
-    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even as a one-off marked moment, not even in their head. There is no slip, no teasing echo, no deliberate exception: the words are not theirs to use.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
+    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
   const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + povFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
@@ -1254,6 +1254,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
+  const prevLocation = state.world.player_location; // for the scene clock below
   const shifts = applyDiff(state, diff, action, prose);
   for (const s of habitShifts) shifts.push(s);
   if (attemptShift) shifts.push(attemptShift); // the frame's verdict, legible in "what shifted"
@@ -1442,12 +1443,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       }
     }
   }
-  // fired clocks
-  for (const c of state.world.clocks) if (c.status === "running" && c.filled >= c.segments) c.status = "fired";
+  // fired clocks: a full clock is a PROMISE — its consequence must land, not evaporate. Convert the
+  // firing into a due consequence so next turn's beat selection (which checks due consequences first,
+  // before cooldowns and grace) discharges it into the scene at full scale. Without this, a clock
+  // that filled mid-scene just flipped status and its promised crisis never arrived.
+  for (const line of dischargeFiredClocks(state, turn)) shifts.push(line);
 
   // history + time
   const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
   state.world.current_time = advance(state.world.current_time, minutes);
+  // SCENE CLOCK: the narrator sees the world clock every turn but cannot tell how long the current
+  // scene has been running — which is exactly what timed world laws ("pain after ten minutes") are
+  // measured against. Track when the current scene began: a location change or a big time jump
+  // starts a new scene; the digest prints the elapsed minutes beside the location.
+  if (!state.world.scene_started_time || prevLocation !== state.world.player_location || minutes >= 120) {
+    state.world.scene_started_time = state.world.current_time;
+  }
 
   // ── PHYSIOLOGY: the clock feeds the body. Player + present cast accrue hunger/thirst/sleep
   // pressure from elapsed time (offscreen people are assumed to feed themselves); then the
@@ -2631,6 +2642,15 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   // to that want — complete the drive deterministically so the want is never re-voiced, and let the
   // Simulator's drives_update assign the next concrete goal ("plan the evening").
   for (const line of completeDrivesForPromises(state, filedPromises)) shifts.push(line);
+  // ── STANCES ── how characters answered real pressure this turn. Yielding against an active want
+  // is a self-betrayal clench (taxed, counted, visible at 3+); refusals and counters are free,
+  // restore the count, and mark the pair ruptured so repaired trust earns its bonus.
+  const resolvedStances = (diff.stances ?? []).map((st) => {
+    const charId = resolveId(state, st.character);
+    const towardId = (st.toward ? resolveId(state, st.toward) : null) ?? "char_player";
+    return charId ? { charId, towardId, stance: st.stance, about: st.about ?? "" } : null;
+  }).filter((x): x is NonNullable<typeof x> => !!x && !!x.about);
+  for (const line of applyStances(state, resolvedStances, turn)) shifts.push(line);
   for (const pr of diff.promises_resolved ?? []) {
     let target = pr.id ? (state.world.promises ?? []).find((p) => p.id === pr.id && p.status === "open") : undefined;
     if (!target) {
