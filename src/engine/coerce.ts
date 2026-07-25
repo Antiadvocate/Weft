@@ -56,17 +56,28 @@ export function asNum(v: unknown, lo: number, hi: number): number | undefined {
 export function detectWorldPronoun(canon: string[] | undefined): string | undefined {
   const text = (canon ?? []).join(" ").toLowerCase();
   if (!text) return undefined;
+  // only treat anything as world-wide if canon frames it as the norm, not a single character's preference
+  const framed = /\b(use|uses|only|all|every|no (?:men|man|women|woman|gender)|no concept)\b/.test(text);
+  if (!framed) return undefined;
   // a pronoun set the premise explicitly names, e.g. "xe/xem/xer", "ze/zir", "they/them"
   const m = text.match(/\b(xe\s*\/\s*x[ei]m(?:\s*\/\s*x[ei]r)?|ze\s*\/\s*zir|ey\s*\/\s*em|they\s*\/\s*them)\b/);
-  if (!m) return undefined;
-  // only treat it as world-wide if canon frames it as the norm, not a single character's preference
-  if (!/\b(use|uses|only|all|every|no (?:men|man|women|woman|gender)|no concept)\b/.test(text)) return undefined;
-  const set = m[1].replace(/\s+/g, "");
-  // normalize the common trio
-  if (/^xe\/x[ei]m/.test(set)) return "xe/xem/xer";
-  if (set.startsWith("ze/zir")) return "ze/zir/zir";
-  if (set.startsWith("they/them")) return "they/them";
-  return set;
+  if (m) {
+    const set = m[1].replace(/\s+/g, "");
+    // normalize the common trio
+    if (/^xe\/x[ei]m/.test(set)) return "xe/xem/xer";
+    if (set.startsWith("ze/zir")) return "ze/zir/zir";
+    if (set.startsWith("they/them")) return "they/them";
+    return set;
+  }
+  // the same sets written out in words, any order: "the pronouns are xe, xer, and xem".
+  // Word form needs a stronger frame than the slash form: the bare word "pronouns" also appears in
+  // personal preferences ("John prefers xe/xem pronouns for himself"), which are not world law.
+  const strongFrame = /\b(use|uses|only|all|every|no (?:men|man|women|woman|gender)|no concept)\b/.test(text) || /\bpronouns?\s+(are|is|:)/.test(text);
+  if (!strongFrame) return undefined;
+  if (/\bxe\b/.test(text) && /\bxe[rm]\b/.test(text)) return "xe/xem/xer";
+  if (/\bze\b/.test(text) && /\bzir\b/.test(text)) return "ze/zir/zir";
+  if (/\bey\b/.test(text) && /\bem\b/.test(text)) return "ey/em/em";
+  return undefined;
 }
 
 /** When the world uses one pronoun set, natives cannot speak "he/him/his/she/her/hers" — those words

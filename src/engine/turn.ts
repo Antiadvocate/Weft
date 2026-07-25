@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
-import { detectWorldPronoun } from "./coerce";
+import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
@@ -956,6 +956,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   if (!prose.trim()) {
     ev.onMeta?.({ shifts: ["no narration this turn — both models declined. The scene is unchanged; try rephrasing your action."] });
     return;
+  }
+  // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
+  // inside dialogue are rewritten to the world set — most often for mentioned people with no card
+  // and no printed pronouns (a child, a coworker), where the model defaults to "she". Conservative:
+  // dialogue spans only, never narration, and never within a breath of the player's name.
+  {
+    const pr = repairNativePronouns(prose, worldPro, state.characters.char_player?.name ?? "");
+    if (pr.fixed > 0) {
+      prose = pr.prose;
+      ev.onMeta?.({ shifts: [`pronoun repair: ${pr.fixed} gendered pronoun${pr.fixed > 1 ? "s" : ""} in dialogue rewritten to the world's set`] });
+    }
   }
   // TELEMETRY BACKSTOP — some streaming routes omit the usage block on the final chunk, so
   // narratorUsage can come back all-zeros even though the narrator clearly ran (we have prose).

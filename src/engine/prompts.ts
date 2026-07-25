@@ -997,12 +997,24 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     const clocksBlock = "";
     const offBlock = offscreenCast ? `=== NOT IN THIS SCENE (do not speak for them, do not let anyone present report their doings — you do not know where they are or what they're doing) ===\n${offscreenCast}\n` : "";
 
+    // HOST FRAME. A named place ("Rabi's Apartment", "Liora's Rooftop Garden") has an owner, and
+    // ownership sets the social frame: guests do not act like hosts. Without this anchor a visiting
+    // character slips into their own home-turf register and talks about the player's apartment as
+    // if it were her bar.
+    const ownerMatch = loc?.name.match(/^(.+?)'s\s/i);
+    const ownerName = ownerMatch?.[1]?.trim().toLowerCase();
+    const playerNm = (state.characters.char_player?.name ?? "").trim().toLowerCase();
+    const hostFrame = !ownerName ? "" :
+      playerNm && (ownerName === playerNm || ownerName.split(/\s+/)[0] === playerNm.split(/\s+/)[0])
+        ? ` | YOUR home: you are the host here; everyone else present is your guest and knows it`
+        : ` | ${ownerMatch![1].trim()}'s place: they are the host here; you and everyone else are guests`;
+
     // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
     // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
     // guaranteed to change every turn — goes as late as possible.
     return `${canonBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time}${dateLabel(state.world.current_time, state.world_bible.start_date) ? ` — ${dateLabel(state.world.current_time, state.world_bible.start_date)}` : ""} | Weather: ${state.world.weather}
-Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""} | scene running ~${Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time))} min
+Scene: ${loc ? `${loc.name} — ${loc.description_facts}` : state.world.player_location}${hostFrame}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""} | scene running ~${Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time))} min
 Player carries: ${state.world.money || "—"}${(() => {
   const b = state.world_bible;
   if (!b.destination?.trim()) return "";
