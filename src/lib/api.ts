@@ -5,7 +5,8 @@ import type {
   SaveState, ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
-import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits } from "../engine/state";
+import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon } from "../engine/state";
+import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
@@ -336,9 +337,11 @@ export const api = {
       if (!restored) throw new Error("no snapshot covers that turn");
       t = restored;
     }
-    t.retcons = [...(t.retcons ?? []), { text: note, turn: t.world.current_turn }].slice(-12);
+    t.retcons = [...(t.retcons ?? []), { text: note, turn: t.world.current_turn, kind: "veto" as const }].slice(-12);
     // purge state the struck material left behind: non-central characters whose names the player named,
-    // and any canon line that quotes the struck text.
+    // and any canon line that substantially RESTATES the struck text. (This used to drop a canon line
+    // for sharing any single 6+ letter word — "pleasure" deleted the player's own biology law, which
+    // is how a veto misfired as a correction erased the rule from the world. Now it takes real overlap.)
     const words = note.toLowerCase().match(/[a-z']{4,}/g) ?? [];
     for (const [cid, c] of Object.entries(t.characters)) {
       if (cid === "char_player" || c.central) continue;
@@ -350,7 +353,7 @@ export const api = {
         for (const p of Object.values(t.world.places)) p.contains = p.contains.filter((x) => x !== cid);
       }
     }
-    if (words.length) t.world.canon = t.world.canon.filter((line) => !words.some((w) => line.toLowerCase().includes(w) && w.length > 5));
+    if (words.length) t.world.canon = t.world.canon.filter((line) => relevance(line, note) < 0.5);
     // PURGE POISONED MEMORIES — the struck material's real damage is the episodic/core/belief/fact
     // memories the bookkeeper canonized from it (an invented death recorded across the whole cast).
     // Leaving those in place lets the narrator keep reading the struck event as true and regenerating
@@ -386,6 +389,21 @@ export const api = {
   unstrike: async (id: string, idx: number): Promise<ClientSave> => {
     const s = await need(id);
     s.retcons = (s.retcons ?? []).filter((_, i) => i !== idx);
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** THE CORRECTION. The mirror of strike, for the opposite failure: the narrator BROKE a rule that
+   *  is true (a law of body, culture, or physics it ignored or explained away). The text is affirmed
+   *  as world law — recorded as a correction (rendered to the narrator as supreme truth, never to be
+   *  litigated) and canonized so it rides the digest like any other world fact. Nothing is rolled
+   *  back, nothing is purged: the fiction so far stands; the law simply binds from here on. */
+  correct: async (id: string, text: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const note = String(text || "").trim().slice(0, 240);
+    if (!note) throw new Error("say what is true");
+    s.retcons = [...(s.retcons ?? []), { text: note, turn: s.world.current_turn, kind: "correction" as const }].slice(-12);
+    addCanon(s, note);
     await putSave(s);
     return clientView(s);
   },

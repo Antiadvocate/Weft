@@ -770,14 +770,23 @@ There is no deadline. The player can refuse, detour, fail, or walk away, and the
 
 `
     : "";
-  const retcons = (state.retcons ?? []).length
+  const vetoes = (state.retcons ?? []).filter((r) => r.kind !== "correction");
+  const corrections = (state.retcons ?? []).filter((r) => r.kind === "correction");
+  const retcons = vetoes.length
     ? `=== STRUCK FROM THE STORY (the player's veto — ABSOLUTE) ===
 The following never happened and never existed. The player has struck them. Treat them as though the words were never written: do not mention them, do not refer back to them, do not have any character remember, allude to, or account for them. Do not "explain" or "resolve" them — there is nothing to resolve. If a recent turn's prose depends on one of these, that prose is void; continue from what came before it.
-${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}
+${vetoes.map((r) => `- ${r.text}`).join("\n")}
 
 `
     : "";
-  return `${supreme}${genre}${retcons}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
+  const correctBlock = corrections.length
+    ? `=== THE PLAYER'S CORRECTIONS (supreme truth — outranks your momentum, your defaults, and any earlier prose) ===
+The player has corrected the record: each of the following IS true and has ALWAYS been true, however the recent turns read. Any prose that contradicted one was wrong, not the correction. The fiction adapts to the truth from here on: characters realize what they should have known, and consequences the correction implies assert themselves on schedule. You never litigate a correction, never invent an exception or workaround, never have a character explain it away, and never frame respecting it as anyone's mistake.
+${corrections.map((r) => `- ${r.text}`).join("\n")}
+
+`
+    : "";
+  return `${supreme}${genre}${retcons}${correctBlock}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}
@@ -813,7 +822,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     return `• ${c} — FRESH (turn ${meta.turn}): known so far only to ${names || "its witnesses"}; everyone else learns it as news reaches them`;
   };
   const canonBlock = state.world.canon?.length
-    ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\nCANON OVERRIDES YOUR DEFAULTS — this is the deepest rule of rendering. Your training carries a default meaning for every word, object, gesture, relationship, body, and social act. Where a canon line REDEFINES any of these — what a thing means, what a word refers to, how bodies or sex or society work, what pronouns or forms of address people use, what an ordinary act signifies — you write the CANON version, never the default your training reaches for first. A term that names one thing in the ordinary world may name something entirely different here; render what canon says it is, not what it usually is. If canon establishes a pronoun set or language rule, every native character obeys it in every sentence, with no drift back to the familiar form even when a character reads to you as a type that would normally take it — a single lapse is a canon violation. Whatever canon redefines, the prose treats as ordinary and matter-of-fact, because to the people living there it IS ordinary. When your instinct renders something the familiar way and canon says otherwise, canon wins every time; catch the default before it lands. CANON IS ALSO A CONSTRAINT ON WHAT MAY EXIST: before any person, creature, or thing enters a scene — even in one throwaway line, even offstage, even as a sound through a wall — check it against every line above. If canon says a kind of being does not exist here, one does not knock at the door, shout from the street, or turn out to have been living two blocks over all along. You may not introduce an exception and then explain it; the explanation is the violation. If the player challenges something you wrote as impossible or as wrongly defaulted, they are almost certainly right: do not defend it, do not build lore to justify it. Drop it, and continue as though it was never said.\n\n`
+    ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\nCANON OVERRIDES YOUR DEFAULTS — this is the deepest rule of rendering. Your training carries a default meaning for every word, object, gesture, relationship, body, and social act. Where a canon line REDEFINES any of these — what a thing means, what a word refers to, how bodies or sex or society work, what pronouns or forms of address people use, what an ordinary act signifies — you write the CANON version, never the default your training reaches for first. A term that names one thing in the ordinary world may name something entirely different here; render what canon says it is, not what it usually is. If canon establishes a pronoun set or language rule, every native character obeys it in every sentence, with no drift back to the familiar form even when a character reads to you as a type that would normally take it — a single lapse is a canon violation. Whatever canon redefines, the prose treats as ordinary and matter-of-fact, because to the people living there it IS ordinary. When your instinct renders something the familiar way and canon says otherwise, canon wins every time; catch the default before it lands. CANON IS ALSO A CONSTRAINT ON WHAT MAY EXIST: before any person, creature, or thing enters a scene — even in one throwaway line, even offstage, even as a sound through a wall — check it against every line above. If canon says a kind of being does not exist here, one does not knock at the door, shout from the street, or turn out to have been living two blocks over all along. You may not introduce an exception and then explain it; the explanation is the violation. If the player challenges something you wrote as impossible or as wrongly defaulted, they are almost certainly right: do not defend it, do not build lore to justify it. Drop it, and continue as though it was never said. The mirror case is a LAW INVOKED: when the player reminds the world of a rule that should hold — "isn't X supposed to hurt", "that's not how bodies work here", "this world has no Y" — they are right about that too, and the law IS true. Do not drop it: CONFIRM it. The narration and its characters recognize the law as real (someone should have known; someone reacts honestly), consequences the law states assert themselves, and no one invents an exception, explains the law away, or frames respecting it as the mistake. A world that argues its player out of its own rules is the one failure worse than breaking them.\n\n`
     : "";
   const chaptersBlock = state.chapters?.length
     ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`

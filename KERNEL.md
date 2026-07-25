@@ -144,6 +144,23 @@ the narrator renders the effect. (This exists because a love triangle was playin
 agreeableness — the fiction said jealousy, the state said calm, and nothing deterministic was
 reading the geometry.)
 
+**World law vs. content bans, and the correction channel** (`engagedLaw`, facts.ts; `strike`/`correct`,
+api.ts). The bible's `forbidden` list is WORLD LAW, not a content filter: entries that state how
+bodies, biology, culture, or society work bind EVENTS like physics, even when the player's own
+action crosses them — the old wording ("does not punish something the player chose") licensed the
+narrator to suspend a biological law mid-scene, which is exactly how an hour-long foot massage
+played tender in a world whose law says pain at ten minutes. `engagedLaw` detects the contact
+deterministically (token relevance, or strong-word prefix matching against forbidden entries,
+magic rules, and canon) and quotes the matched law to the narrator as binding truth with the
+anti-litigation clause: never invent an exception, never explain it away, never frame respecting
+it as the mistake. The player override layer is split in two after the gaslight failure: **strike**
+(the veto) voids an INVENTION — rolls back, purges traces, canon lines survive unless they
+substantially restate the struck text (relevance ≥ 0.5; the old any-6-letter-word filter deleted
+the player's own biology law when they misfired a correction as a veto); **correct** (the mirror)
+affirms a rule the narrator broke as supreme truth and canonizes it, rolling back and purging
+nothing. Vetoes render as STRUCK FROM THE STORY; corrections render as THE PLAYER'S CORRECTIONS,
+to the narrator and the bookkeeper both.
+
 **Answered-want closure** (`completeDrivesForPromises`, social.ts + two prompt laws). The fix for
 the broken-record failure: a character whose want was answered kept re-asking, because the answer
 never reached state. Three layers now close the loop. (1) Narrator law: a want voiced and answered

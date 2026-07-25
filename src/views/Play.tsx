@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, ChevronDown, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -301,7 +301,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   /** THE VETO. Strike what the narrator invented — roll back past it and forbid it forever. */
   const doStrike = async (turn: number) => {
     const what = prompt(
-      `Strike from the story — what did the narrator get wrong?\n\nEverything from turn ${turn} on is rolled back, and this becomes a standing rule the narrator cannot break.\n\ne.g. "There is no boy named Leo. No males exist in the Dominion except Rabi."`
+      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing, not the rule it broke — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`
     );
     if (!what?.trim()) return;
     const before = save.world.current_turn;
@@ -311,6 +311,19 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       flash("strike");
       pushToasts([`struck — rolled back to turn ${turn - 1}`, "the narrator will never write it again"]);
     } catch (e: any) { setError(e.message ?? "strike failed"); }
+  };
+
+  /** THE CORRECTION. The narrator ignored or explained away a rule that IS true — affirm the rule
+   *  as world law. Nothing rolls back, nothing is purged; the law simply binds from here on. */
+  const doCorrect = async () => {
+    const what = prompt(
+      `Correct the record — what is TRUE that the narrator got wrong?\n\nState the rule as law. It is affirmed as supreme truth and canonized immediately: the fiction adapts to it, consequences assert themselves, and the narrator can never explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
+    );
+    if (!what?.trim()) return;
+    try {
+      setSave(await api.correct(save.id, what.trim()));
+      pushToasts(["correction recorded as world law", "the narrator must confirm it, never litigate it"]);
+    } catch (e: any) { setError(e.message ?? "correction failed"); }
   };
 
   const doSkip = async (days: number) => {
@@ -643,8 +656,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     transition={{ duration: 0.22 }}>
                     <button className="turn-action"
                       onClick={() => doStrike(h.turn)}
-                      title="strike this from the story — roll back past it and forbid it forever">
+                      title="strike an invention from the story — roll back past it and void it forever">
                       <Ban size={12} /> strike
+                    </button>
+                    <button className="turn-action"
+                      onClick={doCorrect}
+                      title="correct the record — affirm a rule the narrator ignored as world law; nothing is rolled back">
+                      <Scale size={12} /> law
                     </button>
                     <button className="turn-action" disabled={rerunning !== null}
                       onClick={() => doRerun(h.turn)}

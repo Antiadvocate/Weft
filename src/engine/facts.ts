@@ -183,3 +183,64 @@ export function filterSuspectBeliefs<T extends Pick<Belief, "content">>(
   }
   return { kept, dropped };
 }
+
+// ─────────────────────────── LAW ENGAGEMENT ───────────────────────────
+// The bible's forbidden list, magic rules, and canon are WORLD LAW. The narrator sees them every
+// turn and still drifts when a scene's emotional momentum pulls the other way — the Velora failure:
+// an hour-long foot massage written tender while the biology law said pain at ten minutes, and when
+// the player invoked the law the model invented an exception ("maybe because you're not Wym"). This
+// pass detects the contact deterministically so the narrator gets the matched law quoted as binding
+// truth at the moment it matters, instead of relying on the model to recall a list mid-tenderness.
+
+const LAW_STOP = new Set(["should", "would", "could", "about", "there", "their", "which", "being", "without", "because", "really", "think", "know", "just", "that", "this", "with", "from", "have", "what", "when", "your", "youre"]);
+
+function lawWords(text: string): string[] {
+  return (text.toLowerCase().match(/[a-z']{6,}/g) ?? []).filter((w) => !LAW_STOP.has(w));
+}
+
+function commonPrefix(a: string, b: string): number {
+  let n = 0;
+  while (n < a.length && n < b.length && a[n] === b[n]) n++;
+  return n;
+}
+
+/** All the world's stated law: forbidden entries (semicolon-split), magic rules, canon lines. */
+export function lawEntries(state: SaveState): string[] {
+  const out: string[] = [];
+  const forbidden = state.world_bible?.forbidden?.trim() ?? "";
+  for (const piece of forbidden.split(/[;.]+/).map((s) => s.trim()).filter((s) => s.length >= 12)) out.push(piece);
+  const magic = state.world_bible?.magic_rules?.trim() ?? "";
+  if (magic.length >= 12 && !/^none\b/i.test(magic)) out.push(magic);
+  for (const c of state.world?.canon ?? []) if (c.trim().length >= 12) out.push(c.trim());
+  return out;
+}
+
+/**
+ * The law the player's action touches this turn, if any. Three deterministic signals, any one fires:
+ *   - token relevance >= 0.3 (exact shared content words)
+ *   - one strong word (6+ letters) sharing a 7+ letter prefix with a law word ("massaging"/"massages")
+ *   - two strong words sharing a 6+ letter prefix with law words
+ * Returns the single best-matching law entry, or undefined. Cheap: a few dozen words per side.
+ */
+export function engagedLaw(state: SaveState, action: string): string | undefined {
+  const entries = lawEntries(state);
+  if (!entries.length || !action.trim()) return undefined;
+  const aStrong = lawWords(action);
+  let best: { entry: string; score: number } | undefined;
+  for (const entry of entries) {
+    const rel = relevance(action, entry);
+    const eStrong = lawWords(entry);
+    let seven = 0, six = 0;
+    for (const w of aStrong) {
+      let p = 0;
+      for (const e of eStrong) p = Math.max(p, commonPrefix(w, e));
+      if (p >= 7) seven++;
+      else if (p >= 6) six++;
+    }
+    const engaged = rel >= 0.3 || seven >= 1 || six >= 2;
+    if (!engaged) continue;
+    const score = rel + seven * 0.4 + six * 0.15;
+    if (!best || score > best.score) best = { entry, score };
+  }
+  return best?.entry;
+}

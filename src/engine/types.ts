@@ -519,7 +519,12 @@ export interface SaveState {
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
   // standing correction injected into every subsequent turn: this did not happen, never refer to it.
   // Unlike canon (what IS true) a retcon states what is NOT and never was.
-  retcons?: { text: string; turn: number }[];
+  // The player's two kinds of override. "veto" (default): the narrator invented this — it never
+  // happened, never mention it, purge its traces. "correction": the narrator broke a rule that IS
+  // true — the text is world law, affirmed not voided; nothing is rolled back or purged. The Velora
+  // failure was a correction misfired as a veto: the engine broadcast the law as struck and deleted
+  // the canon lines that carried it, so the narrator was ordered to deny the rule the player wanted.
+  retcons?: { text: string; turn: number; kind?: "veto" | "correction" }[];
   // DESTINATION TRACKING: only when world_bible.destination is set. The chapter auditor scores how
   // close the story has come to its stated ending and names the next concrete thing standing in the
   // way; the narrator receives both. `reached` freezes scoring once the ending has actually landed.

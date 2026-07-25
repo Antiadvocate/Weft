@@ -201,12 +201,15 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
         {!!save.retcons?.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Struck from the story — the narrator cannot write these</div>
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Player overrides — vetoes void an invention; corrections affirm world law</div>
             <div className="space-y-1.5">
               {save.retcons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
+                  <span className="font-mono text-[9px] uppercase tracking-wider mt-0.5 shrink-0" style={{ color: r.kind === "correction" ? "var(--accent)" : "var(--danger, var(--text-lo))" }}>
+                    {r.kind === "correction" ? "law" : "veto"}
+                  </span>
                   <div className="flex-1 text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{r.text}</div>
-                  <button className="chip shrink-0" onClick={async () => setSave(await api.unstrike(save.id, i))}>allow</button>
+                  <button className="chip shrink-0" onClick={async () => setSave(await api.unstrike(save.id, i))}>{r.kind === "correction" ? "drop" : "allow"}</button>
                 </div>
               ))}
             </div>

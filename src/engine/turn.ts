@@ -27,7 +27,7 @@ import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
-import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap } from "./facts";
+import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
@@ -768,13 +768,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const forbid = (!god && state.world_bible.forbidden_as_primary?.length)
     ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This restrains your own unprompted plotting; it does not override an action the player explicitly declares.)`
     : "";
-  // HARD FORBIDDEN GATE: the bible's `forbidden` list is banned content for this world, and unlike
-  // forbidden_as_primary it isn't merely "not the focus" — it must not be INTRODUCED by you at all.
-  // This was previously only a passive line at the top of the prompt with no enforcement, so the
-  // thread/tension system could spin up forbidden plot (e.g. a stalker/violence thread in a world
-  // whose bible says "no violence as plot driver"). Enforce it per-turn at the high-compliance spot.
+  // HARD FORBIDDEN GATE: the bible's `forbidden` list is WORLD LAW, not a content filter. Two jobs:
+  // (1) the narrator never plots toward these; (2) the fiction itself obeys them — entries that state
+  // how bodies, biology, culture, or society work here bind EVENTS the way physics does, even when the
+  // player's own action crosses them. The earlier wording ("does not punish something the player chose")
+  // licensed the narrator to suspend a biological law whenever the player's action tripped it — the
+  // exact Velora failure. Player sovereignty over law runs through explicit direction, never through
+  // simply acting as if the law weren't there.
   const forbiddenGate = (!god && state.world_bible.forbidden?.trim())
-    ? `\nFORBIDDEN IN THIS WORLD — do NOT introduce, escalate toward, or build a thread around any of these, even if a tension or thread seems to point that way: ${state.world_bible.forbidden.trim()}. If an existing thread or the current momentum is heading into forbidden territory, steer the scene away from it rather than into it. This restrains YOUR plotting; it does not punish something the player themselves explicitly chose to make happen.`
+    ? `\nFORBIDDEN IN THIS WORLD — these are LAWS of this world, not themes to avoid: ${state.world_bible.forbidden.trim()}. Two bindings. (1) Your plotting: never introduce, escalate toward, or build a thread around any of these; if momentum heads that way, steer away. (2) The fiction's physics: an entry that states how bodies, biology, culture, or society work here is as real as gravity — it binds EVENTS, including events the player's own action sets in motion. The player's declared action happens as declared, but the world answers it BY the law: a body that the law says cannot do a thing does not do it; a culture with no concept of a thing does not produce it; a stated consequence (pain, need, risk) arrives on schedule. Desire, tenderness, and scene momentum never suspend a law. Never invent an exception, a workaround, or a "maybe this time" explanation for one, and never have a character explain a law away. The player overrides a law only through explicit direction, never by acting as if it were not there.`
+    : "";
+  // LAW ENGAGEMENT (deterministic): when the player's action or words touch a law entry — crossing it
+  // with an act, or INVOKING it by reminding the world it exists — the narrator gets the matched law
+  // quoted as binding truth at the high-compliance spot, with the anti-litigation clause. This is the
+  // direct counter to the double-down failure: the model's instinct to preserve a tender scene by
+  // explaining the rule away ("maybe because you're not Wym") is forbidden in advance, by name.
+  const lawHit = !god ? engagedLaw(state, action) : undefined;
+  const lawDirective = lawHit
+    ? `\nWORLD LAW ENGAGED — the player's action or words this turn touch a law of this world: "${lawHit}". This law is real and has always been real, and the player is RIGHT about it. If their action CROSSED the law, it asserts itself now — the body or culture does exactly what the law says (pain where pain is written, need where need is written, impossibility where impossibility is written), and characters who should have known react honestly. If the player INVOKED the law — reminded anyone it exists, asked whether it still holds — the fiction CONFIRMS it: characters realize what they should have known, and consequences the law implies begin to apply. Under no circumstances do you invent an exception, explain the law away, or frame respecting it as anyone's mistake.`
     : "";
   // NAMED-ENTITY FABRICATION GUARD — a recurring catastrophic failure: a stray name or passing mention
   // ("David Attenborough" in a joke, an offhand "my ex") gets reconstructed under pressure into a
@@ -830,9 +841,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const worldPro = detectWorldPronoun(state.world.canon);
   const playerPro = (state.characters["char_player"]?.pronouns ?? "").trim();
   const pronounLock = worldPro
-    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro}, and the player may use those words about himself — but a native hearing them finds them alien and does not adopt them. If a native repeats the player's odd word, that is a deliberate, marked moment (curiosity, mockery, testing), never a casual slip.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
+    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even as a one-off marked moment, not even in their head. There is no slip, no teasing echo, no deliberate exception: the words are not theirs to use.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + earnedResponse + stallDirective + ditherDirective + povFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + povFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1022,7 +1033,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
-    `${(state.retcons ?? []).length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (not in a tracked place)\n\n=== PLAYER ACTION ===\n${bookkeeperAction}${intentForBookkeeper(intents)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
+    `${(state.retcons ?? []).filter((r) => r.kind !== "correction").length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).filter((r) => r.kind !== "correction").map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}${(state.retcons ?? []).filter((r) => r.kind === "correction").length ? `=== THE PLAYER'S CORRECTIONS (supreme truth — each of these IS true and has always been true; record the world consistently with them, and when prose contradicts one, the CORRECTION is authoritative for what to record) ===\n${(state.retcons ?? []).filter((r) => r.kind === "correction").map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}`).join("\n")}\n- elsewhere (not in a tracked place)\n\n=== PLAYER ACTION ===\n${bookkeeperAction}${intentForBookkeeper(intents)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
