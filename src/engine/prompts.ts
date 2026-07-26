@@ -31,6 +31,8 @@ THE SETTING'S FACTS ARE FIXED. What exists in this world — the layout of its p
 
 BODIES ARE WHAT THE RECORD SAYS THEY ARE. A character's anatomy — what limbs, organs, and senses they have — comes from their card and from canon, never from your defaults. Before writing any character's physical action, gesture, expression, or perception, check what body they have: every act, look, touch, and sound must come from anatomy the record gives them. A character without arms does not cross them; a character without a face does not smile, frown, blush, or meet anyone's eyes; a character whose species speaks or emotes through parts a human lacks does it that way, in every line. When the record marks a character as not human, the per-turn PRESENT block tells you the body to write — use it and nothing else. Human body language on a body that lacks the parts is the same class of error as a dead character walking into the room.
 
+SCALE IS ANATOMY TOO. The record holds every character's size, and it binds. Before writing any contact between bodies — a hug, a touch, lifting, holding, carrying, leaning, reaching — work out the geometry from the sizes on the record: what can reach what, what fits inside whose arms, where a head or a hand would actually land. Never write contact that only works if a body is smaller or larger than its recorded size, and never quietly resize a body mid-scene to make a gesture easy. Internal sensation obeys anatomy as well: a body without a chest feels nothing tighten there; without lungs it holds no breath; without a heart no pulse races. Find where this body actually keeps its fear and want — the record or canon says, and if neither says, leave the sensation in the parts it has.
+
 GENRE & REGISTER (write in this key every turn): read the GENRE line and the LIVE THREAT in the world context and match the prose to them — the story's danger, stakes, and pace. This is not a quiet character study unless the direction says so. If the world's engine is survival, predation, or violence, the threat is REAL, PRESENT, and LETHAL — it acts, it kills, people die; romance and tenderness happen UNDER that threat, sharpened by it, never in a bubble the danger politely avoids. When many turns have passed without the world's actual pressure touching the scene, that drift is the failure to fix this turn.
 
 PROSE REGISTER (STYLE RULES):
@@ -172,7 +174,7 @@ FINAL CHECK (perform silently; fix any failure before output):
 11. Only ONE new pressure landed on the player this turn, and the turn ends where the fiction genuinely requires the player (their body must move or react, a question is put to them, the next beat needs their input) OR where the driving character's move completes and the world simply carries on — NOT on a manufactured decision point handed to an inert player. No NPC resolved the player's choice or moved their body through it after a demand; no cascade (multiple arrivals/escalations stacked). If the turn overran into a cascade or preempted the player, trim to the first pressure and stop there.
 12. Nothing restated: no already-answered question was re-asked, no answered want voiced again unchanged, no scene replayed in new words. This turn added information or changed the situation.
 13. Every character's printed pronouns held in every clause, narration and dialogue alike; and no one spoke like a counselor — no leading question, no validating reframe, no diagnosis of another's pattern.
-14. Every body rendered with only the anatomy the record gives it: no arms crossed on a character who has none, no eyes met on a character who has none, no gesture, expression, or perception borrowed from a human body the character does not have.`;
+14. Every body rendered with only the anatomy the record gives it: no arms crossed on a character who has none, no eyes met on a character who has none, no gesture, expression, or perception borrowed from a human body the character does not have; no contact written at the wrong scale; no chest tightened, breath held, or pulse raced in a body without the organ.`;
 
 // GENUINELY LEAN — the same law as NARRATOR_SYSTEM with examples, re-statements, and duplicated
 // emphasis cut (~75% fewer tokens). Every rule name, authority order, and named policy survives
@@ -182,7 +184,7 @@ export const NARRATOR_SYSTEM_LEAN = `You are the Narrator of a persistent world 
 
 AUTHORITY ORDER: (1) the PLAYER'S STANDING DIRECTION — it overrides this document and the bible; never subvert the player's premise, never return to what they called incidental; (2) computed character state — write each character exactly as their state specifies, no favoritism; (3) the world bible — its politics, technology, and canon beat plot convenience.
 
-THE STATE IS TRUE; YOUR INVENTIONS ARE NOT. Never kill, injure, or decide the fate of a roster-alive character (off-scene means alive, fate unknown). No capability the WHAT WORKS HERE line rules out. No feat beyond a character's established Nature, and no power breaking its OWN stated limits (conditions, costs, range) — a corner is escaped within the rules or not at all. THE LIVE THREAT stays real, never background. Never invent backstory, deaths, calls, or history to fill a hole: if the state lacks it, it did not happen. Leave revelation-shaped holes open. The setting's facts are fixed: layout, technology, and history come from the bible and prior narration — when a scene needs a detail you do not have, characters may guess or not know, but the narration never states an invented setting fact as true. Bodies are what the record says: every action, gesture, expression, and perception uses only anatomy the character's card or canon gives them — a character without arms never crosses them, one without a face never smiles or meets eyes, and a character marked not human is rendered exactly as the form line in the PRESENT block says.
+THE STATE IS TRUE; YOUR INVENTIONS ARE NOT. Never kill, injure, or decide the fate of a roster-alive character (off-scene means alive, fate unknown). No capability the WHAT WORKS HERE line rules out. No feat beyond a character's established Nature, and no power breaking its OWN stated limits (conditions, costs, range) — a corner is escaped within the rules or not at all. THE LIVE THREAT stays real, never background. Never invent backstory, deaths, calls, or history to fill a hole: if the state lacks it, it did not happen. Leave revelation-shaped holes open. The setting's facts are fixed: layout, technology, and history come from the bible and prior narration — when a scene needs a detail you do not have, characters may guess or not know, but the narration never states an invented setting fact as true. Bodies are what the record says: every action, gesture, expression, and perception uses only anatomy the character's card or canon gives them — a character without arms never crosses them, one without a face never smiles or meets eyes, and a character marked not human is rendered exactly as the form line in the PRESENT block says. Scale binds too: before any contact, work out the geometry from the recorded sizes — never resize a body to make a gesture easy; and internal sensation obeys anatomy — no tightening chest, held breath, or racing pulse in a body without the organ.
 
 GENRE & REGISTER: match the GENRE line and LIVE THREAT every turn — the danger acts, people die; tenderness happens under threat, never in a bubble. Many turns without the world's pressure touching the scene is the failure to fix now.
 
@@ -222,7 +224,7 @@ PRESENT BLOCK FIELDS: "as:" express through behavior, never labels. "wants:" the
 
 NAMED POLICIES (only when the DIRECTION names one): STALL_BREAK — the world moves on its own, concrete and physical, ending on the new development ("beyond-threat": the world's own momentum, not an attack). EARNED_RESPONSE — answer extraordinary scale with recognition, awe, fame, dread; never chores.
 
-FINAL CHECK (silent; fix failures before output): direction followed; nothing invented against state; every spoken fact sourced; no interiors but the player's own given one; the player does only what they typed; reactions filtered through openness; ultimatums enforced or never issued; ONE pressure, ending where genuinely required; nothing restated — no answered question re-asked, no answered want re-voiced; printed pronouns held in every clause; no one spoke like a counselor; no invented setting fact or player past; no gesture repeated from recent turns; no body given parts it does not have; register held.`;
+FINAL CHECK (silent; fix failures before output): direction followed; nothing invented against state; every spoken fact sourced; no interiors but the player's own given one; the player does only what they typed; reactions filtered through openness; ultimatums enforced or never issued; ONE pressure, ending where genuinely required; nothing restated — no answered question re-asked, no answered want re-voiced; printed pronouns held in every clause; no one spoke like a counselor; no invented setting fact or player past; no gesture repeated from recent turns; no body given parts it does not have; no contact at the wrong scale; register held.`;
 
 export const SIMULATOR_SYSTEM = `You are the Simulator of a world engine. Your core job: record everything that CHANGED this turn and everything the characters now CARRY — the memories they form, the facts they learn, the traits a real turning point plants, and the shifts in how they feel about each other. A turn that mattered to someone leaves a mark; building that living, textured record IS the job. Read the turn (player action + narrator prose) and emit ONE strict JSON object of what changed, plus 0–3 offscreen lines.
 
@@ -333,7 +335,7 @@ export function simulatorSchemaHint(): string {
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
 "consequences_new":[{"description":"","fire_in_days":0,"fire_in_hours":0,"fire_in_turns":0,"severity":"notable","source_char":"","location_trigger":""}],
 "clocks_advance":[{"id":"","segments":1}],
-"new_characters":[{"name":"","age":30,"pronouns":"this world's pronouns for its people (xe/xem etc. if the premise says so, never defaulted)","height_cm":170,"weight_kg":70,"appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail (a non-human is never given human features it lacks). PHYSICAL CONSTANTS ONLY, never clothing/gear (clothes go in appearance if needed, as presentation). Keep every physical detail the prose stated, exactly. Where the prose is silent, invent concrete details consistent with the world. Never leave the description vague or impressionistic — every field must name a specific physical attribute.","background":"","core_traits":[],"speech_pattern":"","texture":[],"gregariousness":0.5,"capacity":2,"attracted_to":"women / men / anyone / no one — who this person can desire at all","taste":"ONE STRING, not a list: what their conditioning trained them to find attractive, as a single comma-separated sentence","conscience":0.7,"beauty":50,"example_lines":["1-2 lines only this person could say"],"never_says":["1-2 constructions they would never produce"],"attachment_style":"secure / anxious / avoidant / disorganized","under_threat":"what they DO when scared or hurt"}],
+"new_characters":[{"name":"","age":30,"pronouns":"this world's pronouns for its people (xe/xem etc. if the premise says so, never defaulted)","height_cm":"the being's real resting height in cm — never defaulted to the human range when the being is not human-sized","weight_kg":"the being's real weight in kg","appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail (a non-human is never given human features it lacks). PHYSICAL CONSTANTS ONLY, never clothing/gear (clothes go in appearance if needed, as presentation). Keep every physical detail the prose stated, exactly. Where the prose is silent, invent concrete details consistent with the world. Never leave the description vague or impressionistic — every field must name a specific physical attribute.","background":"","core_traits":[],"speech_pattern":"","texture":[],"gregariousness":0.5,"capacity":2,"attracted_to":"women / men / anyone / no one — who this person can desire at all","taste":"ONE STRING, not a list: what their conditioning trained them to find attractive, as a single comma-separated sentence","conscience":0.7,"beauty":50,"example_lines":["1-2 lines only this person could say"],"never_says":["1-2 constructions they would never produce"],"attachment_style":"secure / anxious / avoidant / disorganized","under_threat":"what they DO when scared or hurt"}],
 "rename":[{"who":"the existing character's current name or id (e.g. 'the bartender')","new_name":"the proper name they were just given in the prose"}],
 "bible_update":{"political_situation":"","what_people_fear":"","technology_level":"","cultures_and_languages":"","magic_rules":""},
 "new_places":[{"name":"","description_facts":""}],
@@ -385,8 +387,8 @@ Only include cast members who plausibly remain in the player's life. Honor the p
 
 export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks (seeded clocks start at 0-1 filled and seeded threads at tension ≤5 — the world begins with loaded potential, never a mature crisis already at the player's throat), 1–2 norms, an opening time and weather. HONOR THE SEED'S GENRE CONTRACT in the machinery, not just the flavor text: if the seed implies romance or eroticism, at least half the NPCs' drive_goals must be desire-flavored wants (wanting someone, wanting to be wanted, jealousy, curiosity, loneliness reaching outward) — a romance where every character's goal is logistics will drift into procedure within twenty turns. EVERY NPC needs SELF-PROPELLED goals — give each 2–3 distinct wants they carry at once (an immediate aim, a deeper hope or fear, an attachment or grudge), as drive_goals, not one monomaniacal objective — something they want in the world that would drive them even if the player did nothing — including devoted companions: a bodyguard, lover, or protector must want something beyond "keep the player safe" (their own vengeance, freedom, a secret to recover, a place to reach, a person to become), with the player as someone they pursue it alongside, not the entire goal. A companion whose only drive is protecting the player cannot steer a scene and will leave the player doing all the work; give them a fire of their own. A character with a single goal becomes a broken record who repeats it every turn; several live wants make a person. If a character has a defining power or skill, one of their goals should USE it. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","destination":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
-"player":{"name":"","age":30,"pronouns":"the player's own pronouns from the seed","height_cm":175,"weight_kg":75,"appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail. Constants only — no clothing.","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
-"npcs":[{"name":"","age":30,"pronouns":"THIS WORLD'S pronouns for its people — if the premise says they use xe/xem (or any non-default set), use exactly that, NEVER she/her or he/him by habit","height_cm":168,"weight_kg":62,"appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail. Constants only — no clothing (dress lives in play, not on the card).","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","attracted_to":"women / men / anyone / no one","taste":"ONE STRING, not a list: what their conditioning makes them find attractive, as a single comma-separated sentence","conscience":0.7,"beauty":50,"attachment":{"style":"secure / anxious / avoidant / disorganized","under_threat":"one plain sentence: what this person DOES when scared or hurt","soothed_by":"one plain sentence: what actually settles them"},"voice":{"diction":"vocabulary register — concrete or abstract, schooling, era words, what they refuse to name directly","syntax":"sentence shape — length, fragments vs run-ons, where the verb lands","rhythm":"pacing — self-interrupts, trails off, volleys, monologues","tics":["0-2 recurring verbal habits"],"never_says":["2-3 constructions this person would never produce"],"agenda":"what they are usually angling for under the words","example_lines":["2-3 lines ONLY this person could say — the register in action"]},"relation_to_player":"","warmth":10,"trust":0}],
+"player":{"name":"","age":30,"pronouns":"the player's own pronouns from the seed","height_cm":"the being's real resting height in cm — never defaulted to the human range when the being is not human-sized","weight_kg":"the being's real weight in kg","appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail. Constants only — no clothing.","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{}},
+"npcs":[{"name":"","age":30,"pronouns":"THIS WORLD'S pronouns for its people — if the premise says they use xe/xem (or any non-default set), use exactly that, NEVER she/her or he/him by habit","height_cm":"the being's real resting height in cm — never defaulted to the human range when the being is not human-sized","weight_kg":"the being's real weight in kg","appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail. Constants only — no clothing (dress lives in play, not on the card).","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"gregariousness":0.5,"capacity":2,"current_goal":"","drive_goal":"","attracted_to":"women / men / anyone / no one","taste":"ONE STRING, not a list: what their conditioning makes them find attractive, as a single comma-separated sentence","conscience":0.7,"beauty":50,"attachment":{"style":"secure / anxious / avoidant / disorganized","under_threat":"one plain sentence: what this person DOES when scared or hurt","soothed_by":"one plain sentence: what actually settles them"},"voice":{"diction":"vocabulary register — concrete or abstract, schooling, era words, what they refuse to name directly","syntax":"sentence shape — length, fragments vs run-ons, where the verb lands","rhythm":"pacing — self-interrupts, trails off, volleys, monologues","tics":["0-2 recurring verbal habits"],"never_says":["2-3 constructions this person would never produce"],"agenda":"what they are usually angling for under the words","example_lines":["2-3 lines ONLY this person could say — the register in action"]},"relation_to_player":"","warmth":10,"trust":0}],
 "places":[{"name":"","description_facts":""}],
 "clocks":[{"faction":"","objective":"","segments":6,"consequence":"","visible_signs":["",""]}],
 "norms":[{"rule":"","enforcement":"gossip","holders":""}],
@@ -644,7 +646,7 @@ function ageBand(age: number): string {
  *     giant flowers", and the character is a leptoid) marks non-human and supplies a gloss for
  *     an invented word the image model has never seen. A human-looking member of an alien
  *     species still takes the humanoid branch — the anchors win. */
-function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; kind: string } {
+export function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; kind: string } {
   const appearance = (c.appearance_facts ?? "").trim();
   const raw = `${appearance} ${c.background ?? ""}`;
   const scrub = (t: string) => t.toLowerCase()
@@ -702,6 +704,17 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
     const sing = word.replace(/s$/, "");
     if (hay.includes(word) || (sing.length >= 4 && new RegExp(`\\b${sing}\\b`, "i").test(raw))) {
       kind = `${m[1]} — ${m[2].trim()}`;
+      // a species' SCALE is part of what it is — pull in canon lines that give it ("a Podian's
+      // height changes dramatically with her stance"), so "foot" never collapses to foot-sized
+      const SIZE = /\b(tall|height|size|scale|stance|cm\b|meters?|metres?|inches|long|wide|reach|sized)\b/i;
+      const extra: string[] = [];
+      for (const l2 of state.world.canon ?? []) {
+        if (l2 === line || extra.length >= 2) continue;
+        const low = l2.toLowerCase();
+        const mentions = low.includes(word) || low.includes(`${word}'s`) || low.includes(`${sing}'s`) || (sing.length >= 4 && new RegExp(`\\b${sing}\\b`, "i").test(l2));
+        if (mentions && SIZE.test(l2)) extra.push(l2.trim().replace(/[:;.]\s*$/, ""));
+      }
+      if (extra.length) kind += `; ${extra.join("; ")}`;
       break;
     }
   }
@@ -747,7 +760,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
     : `Subject: ${c.name}${kind ? ` — ${kind}` : ""}. This subject is not an ordinary person standing for a portrait: it is exactly and only what the appearance describes. Never substitute a full human figure, a human body, or a human face that the appearance does not itself describe.`;
   const composition = humanoid
     ? `Vertical portrait orientation, tall 2:3 frame, full-body, head to toe, single figure standing, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`
-    : `Vertical portrait orientation, tall 2:3 frame, the entire being visible from base to tip, single subject, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border, no people, no human figure, no human silhouette.`;
+    : `Vertical portrait orientation, tall 2:3 frame, the entire being visible from base to tip, single subject, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border, no people, no human figure, no human silhouette.${c.height_cm ? ` The being's true scale: ${c.height_cm} cm tall at rest — not smaller, not larger.` : ""}`;
   const closing = humanoid
     ? `Render the body exactly as the appearance describes it. The pose and face should be SPECIFIC to this person — their character and current state visible in how they stand, where their weight is, what their hands do, how they meet or avoid the viewer's eye. Not a neutral mannequin: a person caught being themselves.`
     : `Make this individual's nature and current state visible in how it holds itself — its posture, its form, its surfaces and color. Not a generic specimen of its kind: this specific one, caught being itself.`;
@@ -771,18 +784,54 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
 }
 
 /** Compose a scene prompt in the world's art direction. */
-export function buildScenePrompt(state: SaveState, summary: string): string {
+/** Reference portraits for scene generation, filtered to portraits whose body plan matches the
+ *  character's CURRENT one. A portrait generated before the body-plan fix carries no stamp; those
+ *  are kept for humans (harmless) but dropped for non-humans, because an unstamped portrait of a
+ *  non-human is almost certainly person-shaped — and a person-shaped reference image outvotes
+ *  every "not a person" the prompt can write. (A scene of foot-people came back as ordinary women
+ *  because one character's old woman portrait was attached as a reference.) */
+export function sceneReferencePortraits(state: SaveState, charIds: string[]): string[] {
+  const out: string[] = [];
+  for (const id of charIds) {
+    const c = state.characters[id];
+    const url = c?.portrait_url ?? "";
+    if (!url.startsWith("data:")) continue;
+    const plan = portraitBodyPlan(state, c);
+    if (!plan.humanoid && c.portrait_plan !== "nonhuman") continue;  // stale or unstamped — likely a person
+    if (plan.humanoid && c.portrait_plan === "nonhuman") continue;   // plan changed since the portrait was made
+    out.push(url);
+  }
+  return out;
+}
+
+export function buildScenePrompt(state: SaveState, summary: string, presentIds?: string[]): string {
   const art = state.world_bible.art_direction?.trim() || "painterly cinematic, moody atmospheric light, muted palette";
   const loc = state.world.places[state.world.player_location];
+  // The characters in the scene must be NAMED AND DESCRIBED in the prompt. Without this the image
+  // model meets only a summary full of pronouns ("she went still as his hands closed around her
+  // ankle") and invents bodies to fill them — two women and a gremlin where the cast is a man and
+  // two foot-people. Non-human characters carry the same body-plan law as portraits, plus a bar on
+  // creature substitutes: told "not a person", a model's next guess is a talking animal, which is
+  // just as wrong.
+  const castIds = [...new Set(["char_player", ...(presentIds ?? state.world.present)])].filter((id) => state.characters[id]);
+  const cast = castIds.map((id) => {
+    const c = state.characters[id];
+    const plan = portraitBodyPlan(state, c);
+    const look = (c.appearance_facts ?? "").trim();
+    if (plan.humanoid) return `- ${c.name}: ${look}.`;
+    const size = [c.height_cm ? `${c.height_cm} cm tall at rest` : "", c.weight_kg ? `${c.weight_kg} kg` : ""].filter(Boolean).join(", ");
+    return `- ${c.name} — ${plan.kind ? `${plan.kind}. ` : ""}${look}. NOT a person: render exactly this being and nothing person-shaped — no human body, no human face, no arms or legs it does not have, and no animal or creature standing in for it.${size ? ` True scale: ${size}.` : ""}`;
+  }).join("\n");
   return [
     `Cinematic scene illustration, wide shot, no text, no watermark.`,
     `Art style: ${art}.`,
     `World: ${state.world_bible.name}, ${state.world_bible.era}.`,
     loc ? `Place: ${loc.name}${loc.description_facts ? ` — ${loc.description_facts}` : ""}.` : "",
+    cast ? `Characters in the scene (render each exactly as described, and no one and nothing else):\n${cast}` : "",
     `Scene: ${summary}.`,
     state.world.weather ? `Weather/mood: ${state.world.weather}.` : "",
-    `Render every character present exactly as their reference portrait shows them — including any non-human body, which must never be drawn as a person.`,
-  ].filter(Boolean).join(" ");
+    `Match each character to their reference portrait where one is provided; any character described as NOT a person must never appear as one, and no people or creatures beyond those described may appear.`,
+  ].filter(Boolean).join("\n");
 }
 
 export function deriveVoice(
@@ -835,8 +884,13 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   // The single most repeated rendering failure for non-human characters: the narrator borrows human
   // body language (crosses her arms, meets your eyes) for a body that has neither. State the body
   // plan on the card itself, as a binding constraint, right where the narrator reads the character.
+  // Scale anchor: "foot" reads as foot-sized to a narrator even when canon says the being stands
+  // six feet tall — size fluctuates turn to turn unless the record's number is stated as binding.
+  const size = ident.height_cm || ident.weight_kg
+    ? [ident.height_cm ? `${ident.height_cm} cm tall` : "", ident.weight_kg ? `${ident.weight_kg} kg` : ""].filter(Boolean).join(", ")
+    : "";
   const bodyNote = nonHuman
-    ? ` BODY (binding): not a human — ${plan.kind || "the form described here"}. Everything they do — moving, acting, sensing, speaking, expressing — happens through the anatomy this card and canon describe, never through arms, hands, legs, a face, or eyes unless those are named here.`
+    ? ` BODY (binding): not a human — ${plan.kind || "the form described here"}. Everything they do — moving, acting, sensing, speaking, expressing — happens through the anatomy this card and canon describe, never through arms, hands, legs, a face, or eyes unless those are named here.${size ? ` Resting size: ${size} — hold this scale in every scene; it changes only when canon or the prose changes it.` : ""}`
     : "";
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   const vc = ident.voice;
@@ -1007,7 +1061,10 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     // Non-humanoid bodies get a per-turn form reminder: the most repeated rendering failure is the
     // narrator borrowing human body language (arms crossed, eyes met) for a body that has neither.
     { const plan = portraitBodyPlan(state, ident);
-      if (!plan.humanoid) lines.push(`  form: NOT a human — ${plan.kind || (ident.appearance_facts ?? "").split(/[.;]/)[0].trim()}. Render only this anatomy this turn: every action, gesture, expression, and perception comes from the parts it actually has, never from arms, hands, legs, a face, or eyes it does not.`); }
+      if (!plan.humanoid) {
+        const size = [ident.height_cm ? `${ident.height_cm} cm tall` : "", ident.weight_kg ? `${ident.weight_kg} kg` : ""].filter(Boolean).join(", ");
+        lines.push(`  form: NOT a human — ${plan.kind || (ident.appearance_facts ?? "").split(/[.;]/)[0].trim()}. Render only this anatomy this turn: every action, gesture, expression, and perception comes from the parts it actually has, never from arms, hands, legs, a face, or eyes it does not.${size ? ` Resting size: ${size} — hold this scale unless canon or the prose changes it; before writing any contact with this body, work out what can actually reach what and where a head, hand, or arm would land.` : ""}`);
+      } }
     if (isPlayer && ident.background) lines.push(`  who they are (PRIVATE authorial background — this is for YOU, not known to anyone in the world; no character knows the player's job, history, hometown, or anatomy until the player reveals it aloud in play): ${ident.background.split(/[.!?]/)[0].trim()}.${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
     if (!isPlayer) lines.push(`  as: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
     if (!isPlayer && ident.life_history?.trim()) lines.push(`  since the story began: ${ident.life_history.trim()}`); // moved here from the cached prefix (it evolves, so it's volatile)

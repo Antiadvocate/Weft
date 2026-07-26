@@ -15,7 +15,7 @@ import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
-import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, stablePrefix, volatileDigest } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
@@ -823,6 +823,9 @@ export const api = {
     if (!c) throw new Error("unknown character");
     const img = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
     c.portrait_url = img.url;
+    // stamp the body plan this portrait was made under, so scene illustrations never attach a
+    // stale person-shaped portrait as a reference for a non-human character (see prompts.ts)
+    c.portrait_plan = portraitBodyPlan(s, c).humanoid ? "humanoid" : "nonhuman";
     trackImageSpend(s, img.cost);
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
@@ -832,11 +835,14 @@ export const api = {
     const s = await need(id);
     const entry = [...s.history].reverse().find((h) => h.turn === turn) ?? s.history[s.history.length - 1];
     if (!entry) throw new Error("no turn to illustrate");
-    // feed the portraits of characters in this scene so they stay visually consistent
-    const refs = ["char_player", ...s.world.present]
-      .map((cid) => s.characters[cid]?.portrait_url)
-      .filter((u): u is string => !!u && u.startsWith("data:"));
-    const img = await generateImage(buildScenePrompt(s, entry.summary), s.model_settings.image_model, refs, "landscape");
+    // feed the portraits of characters in this scene so they stay visually consistent —
+    // but only portraits whose body plan still matches (a stale woman-portrait attached for a
+    // foot-person outvotes the whole prompt; see sceneReferencePortraits).
+    // The cast is the paragraph's OWN present list when it has one — illustrating an old turn
+    // after the scene ended must render that scene's cast, not whoever is around today.
+    const castIds = [...new Set(["char_player", ...(entry.present ?? s.world.present)])];
+    const refs = sceneReferencePortraits(s, castIds);
+    const img = await generateImage(buildScenePrompt(s, entry.summary, entry.present), s.model_settings.image_model, refs, "landscape");
     entry.illustration_url = img.url;
     trackImageSpend(s, img.cost);
     await putSave(s);

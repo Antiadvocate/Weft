@@ -3,7 +3,7 @@
  * assert personhood for a character whose body isn't a whole person — whether that's a
  * flower, an insect, a tree, an orb, or literally just a hand. */
 import { newSave, registerCharacter, blankCondition } from "../src/engine/state";
-import { buildPortraitPrompt } from "../src/engine/prompts";
+import { buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, charCard, volatileDigest, NARRATOR_SYSTEM, NARRATOR_SYSTEM_LEAN } from "../src/engine/prompts";
 import type { SaveState } from "../src/engine/types";
 
 function makeState(): SaveState {
@@ -259,6 +259,86 @@ const PERSON = "a person caught being themselves";
   } as any);
   const p = buildPortraitPrompt(s, id);
   check("negative guard: no people, no human figure", p.includes("no people") && p.includes("no human figure"), p.slice(0, 400));
+}
+
+/* 19. scene illustrations: the cast is NAMED AND DESCRIBED, non-humans carry the body law,
+ *     and creature substitutes are barred (the gremlin clause) */
+{
+  const s = makeState();
+  s.world.canon.push("Leptoids are giant flowers with silver petals.");
+  registerCharacter(s, { name: "Rabi", character_id: "char_player", appearance_facts: "a broad man with a broken nose and kind eyes" } as any);
+  const vel = registerCharacter(s, {
+    name: "Vel", age: 30,
+    appearance_facts: "A giant flower: silver petals in a tight spiral, a thick ribbed stem.",
+    background: "a leptoid botanist",
+  } as any);
+  s.world.present = [vel];
+  const p = buildScenePrompt(s, "She went very still when his hands closed around her stem.");
+  check("scene: player named and described", p.includes("Rabi") && p.includes("broken nose"), p.slice(0, 600));
+  check("scene: non-human named with gloss and law", p.includes("Vel") && p.includes("Leptoids — giant flowers") && p.includes("NOT a person"), p.slice(0, 900));
+  check("scene: gremlin clause bars creature substitutes", p.includes("no animal or creature standing in for it"));
+  check("scene: no undescribed people allowed", p.includes("no people or creatures beyond those described"));
+  check("scene: human cast member gets no NOT-a-person line", !/- Rabi[^\n]*NOT a person/.test(p), p.slice(0, 600));
+}
+
+/* 20. scene reference portraits: a stale or unstamped portrait of a non-human is never attached */
+{
+  const s = makeState();
+  const human = registerCharacter(s, {
+    name: "Mara2", age: 40, appearance_facts: "a lean woman with grey eyes and short hair", background: "a guard",
+  } as any);
+  const plant = registerCharacter(s, {
+    name: "Vel2", age: 12, appearance_facts: "A giant flower: silver petals in a tight spiral.", background: "a speaker",
+  } as any);
+  s.characters[human].portrait_url = "data:image/png;base64,HUMAN";
+  s.characters[plant].portrait_url = "data:image/png;base64,PLANT";
+  // unstamped (pre-fix) portraits: human kept, non-human dropped
+  let refs = sceneReferencePortraits(s, [human, plant]);
+  check("refs: unstamped human portrait kept", refs.includes("data:image/png;base64,HUMAN"));
+  check("refs: unstamped non-human portrait dropped", !refs.includes("data:image/png;base64,PLANT"));
+  // stamped portraits: matching plan kept
+  s.characters[plant].portrait_plan = "nonhuman";
+  refs = sceneReferencePortraits(s, [human, plant]);
+  check("refs: stamped non-human portrait kept", refs.includes("data:image/png;base64,PLANT"));
+  // plan flip: portrait stamped nonhuman but character now reads human → dropped
+  s.characters[human].portrait_plan = "nonhuman";
+  refs = sceneReferencePortraits(s, [human]);
+  check("refs: mismatched stamp dropped", refs.length === 0);
+}
+
+/* 21. scale anchoring: a non-human's resting size rides every surface, and size-canon joins
+ *     the gloss without swallowing unrelated species lines */
+{
+  const s = makeState();
+  s.world.canon.push("Every Podian is a single consciousness inhabiting two feet—a Left and a Right—that move together in perfect sync.");
+  s.world.canon.push("New Podians are not born but bloomed—they grow as paired feet inside pods on the Mother Trees.");
+  s.world.canon.push("A Podian's height changes dramatically depending on her physical posture.");
+  const id = registerCharacter(s, {
+    name: "Lissa2", age: 34, height_cm: 183, weight_kg: 68,
+    appearance_facts: "not a human or person. A podian. Pale ivory skin; high, elegant instep; toes long and expressive.",
+    background: "a bathhouse keeper",
+  } as any);
+  s.world.present = [id];
+  const pp = buildPortraitPrompt(s, id);
+  check("scale: portrait carries true scale", pp.includes("true scale: 183 cm tall at rest"), pp.slice(0, 500));
+  const sp = buildScenePrompt(s, "test");
+  check("scale: scene cast carries true scale", sp.includes("True scale: 183 cm tall at rest"), sp.slice(0, 900));
+  check("scale: gloss has the size line", sp.includes("height changes dramatically"));
+  check("scale: gloss skips non-size species lines", !sp.includes("Mother Trees"), sp.slice(0, 1200));
+  // narrator surfaces
+  const card = charCard(id, s.characters[id], blankCondition(), [], true, { humanoid: false, kind: "Podian — two feet" });
+  check("scale: card body note holds scale", card.includes("Resting size: 183 cm tall, 68 kg"), card.slice(0, 700));
+  const vd = volatileDigest(s, "I look");
+  check("scale: present form line holds scale", vd.includes("Resting size: 183 cm tall, 68 kg"), vd.match(/form: NOT a human[^\n]*/)?.[0]?.slice(0, 500));
+  check("scale: form line demands contact geometry", vd.includes("work out what can actually reach what"));
+}
+
+/* 22. the narrator law carries the scale-geometry and internal-sensation clauses */
+{
+  check("law: scale is anatomy (full tier)", NARRATOR_SYSTEM.includes("SCALE IS ANATOMY TOO") && NARRATOR_SYSTEM.includes("work out the geometry from the sizes on the record"));
+  check("law: internal sensation obeys anatomy", NARRATOR_SYSTEM.includes("without a chest feels nothing tighten there"));
+  check("law: lean tier carries scale + sensation", NARRATOR_SYSTEM_LEAN.includes("Scale binds too") && NARRATOR_SYSTEM_LEAN.includes("no tightening chest, held breath, or racing pulse"));
+  check("law: final check audits scale", NARRATOR_SYSTEM.includes("no contact written at the wrong scale"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

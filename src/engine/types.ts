@@ -233,6 +233,10 @@ export interface Identity {
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
+  /** Body plan the portrait was generated under. Scene illustrations attach portraits as reference
+   *  images only when this matches the character's CURRENT plan — a stale person-shaped portrait
+   *  attached as a reference outvotes every "not a person" the prompt can write. */
+  portrait_plan?: "humanoid" | "nonhuman";
 }
 
 export interface AcquiredTrait {
@@ -474,6 +478,7 @@ export interface TurnHistoryEntry {
   action_mode?: ActionMode;
   shifts?: string[];           // humanized per-turn deltas ("Ettel will remember that")
   directive?: string;          // the exact direction the narrator received — nothing hidden
+  present?: string[];          // who was in the scene THIS turn — illustrations render the paragraph's own cast, not today's
   illustration_url?: string;
   narrator_prose: string;
   /** Bookkeeping health for this turn. "thin" = the diff parsed but recorded nothing that changed the

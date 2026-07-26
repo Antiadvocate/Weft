@@ -1266,6 +1266,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 4 ── apply diff + deterministic systems
   ev.onPhase("apply");
   const prevLocation = state.world.player_location; // for the scene clock below
+  // capture the cast BEFORE the diff runs — applyDiff may move people, and the history entry
+  // must record who was actually in this scene (scene illustrations of old paragraphs use it)
+  const presentDuringTurn = [...state.world.present];
   const shifts = applyDiff(state, diff, action, prose);
   for (const s of habitShifts) shifts.push(s);
   if (attemptShift) shifts.push(attemptShift); // the frame's verdict, legible in "what shifted"
@@ -1521,6 +1524,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     summary: diff.scene_summary || prose.slice(0, 120),
+    present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
