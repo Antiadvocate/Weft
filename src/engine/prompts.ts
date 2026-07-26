@@ -656,6 +656,9 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
   const METONYMY = new Set(["handshake", "smile", "voice", "laugh", "presence", "gaze", "touch", "figure", "beard", "moustache"]);
   const SIGNAL = /\b(disembodied|bodiless|formless|floating|severed|spectral|headless)\b/;
   const NO_GLOSS = new Set(["pair", "set", "bunch", "group", "cluster", "one", "two", "three", "thing"]);
+  // positive evidence of a non-person body: anatomy no human character sheet leads with.
+  // Checked only when strong person-words are absent, so "a mane of red hair" still reads human.
+  const PARTS = /\b(toes?|insteps?|heels?|soles?|arches?|hooves|hoofs?|paws?|claws?|wings?|beaks?|snouts?|muzzles?|fur|scales|chitin|antennae?|tentacles?|petals?|stems?|bark|roots?|fronds?|leaves|gills?|fins?|tails?|feathers?|horns?|shells?|tusks?|fangs?|toenails?|mane)\b/;
 
   // EXPLICIT STATEMENT WINS. "not a human", "not human", "non-human", "not a person" anywhere in
   // the identity is the author stating the body plan outright — honor it over every heuristic
@@ -689,7 +692,8 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
   let kind = "";
   const hay = raw.toLowerCase();
   for (const line of state.world.canon ?? []) {
-    const m = line.match(/^\s*([A-Za-z][\w'-]{2,})\s+(?:are|is)\s+(.+?)\.?\s*$/);
+    // species definitions come in many shapes: "Leptoids are…", "Every Podian is…", "The Drakh are…"
+    const m = line.match(/^\s*(?:(?:every|all|the|new|most|some|any)\s+)?([A-Za-z][\w'-]{2,})\s+(?:are|is)\s+(.+?)\.?\s*$/i);
     if (!m) continue;
     const word = m[1].toLowerCase();
     const sing = word.replace(/s$/, "");
@@ -700,10 +704,12 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
   }
 
   if (humanoid === null) {
-    if (STRONG.test(scrubbed) || WEAK.test(scrubbed)) humanoid = true;
-    else if (kind) humanoid = false;
-    else if (appearance) humanoid = false;  // a described thing with no human features at all
-    else humanoid = true;                   // nothing to go on — most characters are people
+    if (STRONG.test(scrubbed)) humanoid = true;
+    else if (kind) humanoid = false;          // species membership beats shared anatomy words
+    else if (PARTS.test(scrubbed)) humanoid = false;  // the description itself is of a non-person body
+    else if (WEAK.test(scrubbed)) humanoid = true;
+    else if (appearance) humanoid = false;    // a described thing with no human features at all
+    else humanoid = true;                     // nothing to go on — most characters are people
   }
   if (humanoid) kind = "";
   else if (!kind) kind = declaredKind;
@@ -738,7 +744,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
     : `Subject: ${c.name}${kind ? ` — ${kind}` : ""}. This subject is not an ordinary person standing for a portrait: it is exactly and only what the appearance describes. Never substitute a full human figure, a human body, or a human face that the appearance does not itself describe.`;
   const composition = humanoid
     ? `Vertical portrait orientation, tall 2:3 frame, full-body, head to toe, single figure standing, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`
-    : `Vertical portrait orientation, tall 2:3 frame, the entire being visible from base to tip, single subject, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`;
+    : `Vertical portrait orientation, tall 2:3 frame, the entire being visible from base to tip, single subject, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border, no people, no human figure, no human silhouette.`;
   const closing = humanoid
     ? `Render the body exactly as the appearance describes it. The pose and face should be SPECIFIC to this person — their character and current state visible in how they stand, where their weight is, what their hands do, how they meet or avoid the viewer's eye. Not a neutral mannequin: a person caught being themselves.`
     : `Make this individual's nature and current state visible in how it holds itself — its posture, its form, its surfaces and color. Not a generic specimen of its kind: this specific one, caught being itself.`;

@@ -223,5 +223,43 @@ const PERSON = "a person caught being themselves";
   check("'not a human' in background: not-a-person directive", p.includes(NOT_PERSON), p.slice(0, 400));
 }
 
+/* 16. Podia regression: feature-only foot anatomy ("skin" present, no declaration, no species
+ *     word in the identity) must still read as a non-person body */
+{
+  const s = makeState();
+  s.world.canon.push("Every Podian is a single consciousness inhabiting two feet—a Left and a Right—that move together in perfect sync.");
+  const id = registerCharacter(s, {
+    name: "Tessa", age: 34,
+    appearance_facts: "Pale ivory skin with a cooler, bluish undertone; toes shorter and more muscular; a bold geometric arch tattoo in black ink; always wears a polished brass ankle cuff",
+    background: "A sitting representative on the Council of High Arches, elected on a reformist platform.",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("feature-only foot: not-a-person directive", p.includes(NOT_PERSON), p.slice(0, 400));
+  check("feature-only foot: no full-person composition", !p.includes("head to toe"));
+}
+
+/* 17. "Every X is…" canon pattern supplies the gloss when the identity names the species */
+{
+  const s = makeState();
+  s.world.canon.push("Every Podian is a single consciousness inhabiting two feet—a Left and a Right—that move together in perfect sync.");
+  const id = registerCharacter(s, {
+    name: "Oren", age: 27,
+    appearance_facts: "Pale ivory skin; smaller and more compact than most Podians; toes short and neat",
+    background: "An apprentice silt-chef.",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("'Every X is' gloss supplied", p.includes("Podian — a single consciousness inhabiting two feet"), p.slice(0, 400));
+}
+
+/* 18. non-person composition carries the negative guard */
+{
+  const s = makeState();
+  const id = registerCharacter(s, {
+    name: "Bloom2", age: 3, appearance_facts: "a spray of white petals on a mossy stem", background: "a garden speaker",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("negative guard: no people, no human figure", p.includes("no people") && p.includes("no human figure"), p.slice(0, 400));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
