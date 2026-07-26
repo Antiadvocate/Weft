@@ -657,9 +657,18 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
   const SIGNAL = /\b(disembodied|bodiless|formless|floating|severed|spectral|headless)\b/;
   const NO_GLOSS = new Set(["pair", "set", "bunch", "group", "cluster", "one", "two", "three", "thing"]);
 
+  // EXPLICIT STATEMENT WINS. "not a human", "not human", "non-human", "not a person" anywhere in
+  // the identity is the author stating the body plan outright — honor it over every heuristic
+  // below. (This used to fail twice: a leading "Not a human" broke the declaration match, and the
+  // negation scrubber then deleted the words entirely, so the one sentence meant to settle the
+  // question did nothing while an incidental "skin" or "eyes" forced the person branch.)
+  const explicit = /\b(?:not\s+(?:a\s+)?human|non[-\s]human|not\s+a\s+person)\b/i.test(raw);
+
   let humanoid: boolean | null = null;
   let declaredKind = "";
-  const dm = appearance.match(/^\s*(?:a|an|the)\s+(.+?)(?:\s*[:,;.!?]|\s+(?:with|of|whose|that|which|who|whom|in|at|from|for|and)\b|$)/i);
+  // a leading "not a human" clause is stripped so the declaration can still be read for the gloss
+  const declText = appearance.replace(/^\s*(?:not\s+(?:a\s+)?human|not\s+a\s+person|non[-\s]human)\b\s*[.,;:!?—–-]*\s*/i, "");
+  const dm = declText.match(/^\s*(?:a|an|the)\s+(.+?)(?:\s*[:,;.!?]|\s+(?:with|of|whose|that|which|who|whom|in|at|from|for|and)\b|$)/i);
   if (dm) {
     const phrase = dm[1].toLowerCase().trim();
     const head = (phrase.split(/\s+/).pop() ?? "").replace(/[^a-z'-]/g, "");
@@ -668,11 +677,13 @@ function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; k
       humanoid = true;
     } else if (force || head.length >= 3) {
       // a declared non-person kind — unless the rest of the identity insists on a person
-      const outside = scrub(appearance.slice(dm[0].length) + " " + (c.background ?? ""));
+      const outside = scrub(declText.slice(dm[0].length) + " " + (c.background ?? ""));
       humanoid = STRONG.test(outside);
       if (!humanoid && phrase.length >= 3 && !NO_GLOSS.has(head)) declaredKind = phrase;
     }
   }
+  // the author's own words outrank every heuristic above
+  if (explicit) humanoid = false;
 
   // canon gloss: an invented species word is meaningless to the image model without it
   let kind = "";

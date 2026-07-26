@@ -186,5 +186,42 @@ const PERSON = "a person caught being themselves";
   check("empty appearance: human default", p.includes(PERSON));
 }
 
+/* 13. explicit "Not a human" LEADING the description — the reported failure */
+{
+  const s = makeState();
+  const id = registerCharacter(s, {
+    name: "Lefty", age: 40,
+    appearance_facts: "Not a human. A severed foot, pale, with crooked toes.",
+    background: "a helpful companion",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("leading 'not a human': not-a-person directive present", p.includes(NOT_PERSON), p.slice(0, 400));
+  check("leading 'not a human': declaration gloss harvested", p.includes("severed foot"), p.slice(0, 400));
+}
+
+/* 14. explicit statement ANYWHERE, even with anatomy words that would otherwise force a person */
+{
+  const s = makeState();
+  const id = registerCharacter(s, {
+    name: "Stepper", age: 12,
+    appearance_facts: "rough skin, crooked toes, a thick sole — not a human",
+    background: "a companion",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("trailing 'not a human' beats 'skin': not-a-person directive", p.includes(NOT_PERSON), p.slice(0, 400));
+}
+
+/* 15. explicit statement in the BACKGROUND also counts */
+{
+  const s = makeState();
+  const id = registerCharacter(s, {
+    name: "Padfoot", age: 5,
+    appearance_facts: "a leathery foot with flat toes",
+    background: "not a human",
+  } as any);
+  const p = buildPortraitPrompt(s, id);
+  check("'not a human' in background: not-a-person directive", p.includes(NOT_PERSON), p.slice(0, 400));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
