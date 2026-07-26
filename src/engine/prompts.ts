@@ -620,9 +620,90 @@ function ageBand(age: number): string {
   if (age >= 55) return "an older adult's settled, unhurried cadence";
   return "";
 }
+/** The body a portrait must render. Image models default to people, and every human word in the
+ *  prompt ("figure", "face", "hands") drags a non-human character back into one — a character
+ *  whose appearance describes a flower gets painted as a person because the prompt said "person"
+ *  five times.
+ *
+ *  Detection, in order:
+ *  1. DECLARATION. When the appearance opens by saying what the subject IS ("a giant flower:",
+ *     "a disembodied human hand", "a mantis-like insect with…"), the head noun of that opening
+ *     phrase decides. A human head (man, woman, a role, a poetic metonym like "a firm
+ *     handshake") is a person; anything else is not — unless the rest of the identity carries
+ *     strong human evidence (a soldier described by his grey eyes). Signal words
+ *     (disembodied, floating, severed, spectral…) force non-human even for human-derived
+ *     subjects — a severed hand is human, but it is not a person and must not be painted as
+ *     one. Words like "eyes" and "hands" are deliberately NOT strong evidence: insects have
+ *     eyes, and one character may be nothing BUT hands.
+ *  2. ANCHORS. With no declaration (a feature-list appearance), the full anatomy scan decides —
+ *     such lists overwhelmingly describe human character sheets.
+ *  3. CANON GLOSS. A canon species line whose subject appears in the identity ("Leptoids are
+ *     giant flowers", and the character is a leptoid) marks non-human and supplies a gloss for
+ *     an invented word the image model has never seen. A human-looking member of an alien
+ *     species still takes the humanoid branch — the anchors win. */
+function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boolean; kind: string } {
+  const appearance = (c.appearance_facts ?? "").trim();
+  const raw = `${appearance} ${c.background ?? ""}`;
+  const scrub = (t: string) => t.toLowerCase()
+    .replace(/non[-\s]human/g, " ")
+    .replace(/\b(?:no|not|without|lacks?|lacking|neither|nor)\s+(?:[a-z-]+\s+){0,2}[a-z-]+/g, " ");
+  const scrubbed = scrub(raw);
+  // strong: near-unambiguous person words. weak: anatomy that animals, insects, and parts share.
+  const STRONG = /\b(humans?|man|woman|men|women|boy|girl|person|people|male|female|lad|lass|guy|gal|gentleman|lady|beard|moustache|stubble|freckles|complexion|hair)\b/;
+  const WEAK = /\b(face|eyes?|skin|build|hands?|fingers?|cheekbones?|jaw|nose|lips|brows?|shoulders?|smile|grin|chin|forehead|mouth|teeth|stature)\b/;
+  const HUMAN_HEADS = new Set(["man", "woman", "boy", "girl", "human", "humans", "person", "people", "male", "female", "lad", "lass", "guy", "gal", "gentleman", "lady", "child", "children", "kid", "kids", "baby", "babies", "teenager", "teen", "youth", "twin", "twins", "couple", "humanoid"]);
+  const ROLE_HEADS = new Set(["soldier", "doctor", "medic", "nurse", "farmer", "merchant", "smith", "blacksmith", "guard", "hunter", "priest", "monk", "nun", "king", "queen", "prince", "princess", "knight", "witch", "wizard", "mage", "scholar", "teacher", "sailor", "captain", "officer", "worker", "servant", "master", "apprentice", "bard", "thief", "assassin", "warrior", "ranger", "clerk", "pilot", "driver", "chef", "cook", "baker", "tailor", "carpenter", "mason", "miner", "fisher", "shepherd", "chief", "leader", "innkeeper", "botanist", "cartographer", "dockworker"]);
+  const METONYMY = new Set(["handshake", "smile", "voice", "laugh", "presence", "gaze", "touch", "figure", "beard", "moustache"]);
+  const SIGNAL = /\b(disembodied|bodiless|formless|floating|severed|spectral|headless)\b/;
+  const NO_GLOSS = new Set(["pair", "set", "bunch", "group", "cluster", "one", "two", "three", "thing"]);
+
+  let humanoid: boolean | null = null;
+  let declaredKind = "";
+  const dm = appearance.match(/^\s*(?:a|an|the)\s+(.+?)(?:\s*[:,;.!?]|\s+(?:with|of|whose|that|which|who|whom|in|at|from|for|and)\b|$)/i);
+  if (dm) {
+    const phrase = dm[1].toLowerCase().trim();
+    const head = (phrase.split(/\s+/).pop() ?? "").replace(/[^a-z'-]/g, "");
+    const force = SIGNAL.test(phrase);
+    if (!force && (HUMAN_HEADS.has(head) || ROLE_HEADS.has(head) || METONYMY.has(head))) {
+      humanoid = true;
+    } else if (force || head.length >= 3) {
+      // a declared non-person kind — unless the rest of the identity insists on a person
+      const outside = scrub(appearance.slice(dm[0].length) + " " + (c.background ?? ""));
+      humanoid = STRONG.test(outside);
+      if (!humanoid && phrase.length >= 3 && !NO_GLOSS.has(head)) declaredKind = phrase;
+    }
+  }
+
+  // canon gloss: an invented species word is meaningless to the image model without it
+  let kind = "";
+  const hay = raw.toLowerCase();
+  for (const line of state.world.canon ?? []) {
+    const m = line.match(/^\s*([A-Za-z][\w'-]{2,})\s+(?:are|is)\s+(.+?)\.?\s*$/);
+    if (!m) continue;
+    const word = m[1].toLowerCase();
+    const sing = word.replace(/s$/, "");
+    if (hay.includes(word) || (sing.length >= 4 && new RegExp(`\\b${sing}\\b`, "i").test(raw))) {
+      kind = `${m[1]} — ${m[2].trim()}`;
+      break;
+    }
+  }
+
+  if (humanoid === null) {
+    if (STRONG.test(scrubbed) || WEAK.test(scrubbed)) humanoid = true;
+    else if (kind) humanoid = false;
+    else if (appearance) humanoid = false;  // a described thing with no human features at all
+    else humanoid = true;                   // nothing to go on — most characters are people
+  }
+  if (humanoid) kind = "";
+  else if (!kind) kind = declaredKind;
+  return { humanoid, kind };
+}
+
 /** Compose a portrait prompt that reflects WHO the character is — not just their face.
  *  Full body, head to toe, on a white studio background, in the world's art direction.
- *  Reads appearance, core + acquired traits, values, current bearing, and recent belief. */
+ *  Reads appearance, core + acquired traits, values, current bearing, and recent belief.
+ *  Non-human characters (see portraitBodyPlan) get a non-human frame: the appearance leads,
+ *  no human body part is ever requested, and the model is forbidden to humanize the subject. */
 export function buildPortraitPrompt(state: SaveState, id: string): string {
   const c = state.characters[id];
   const cond = state.condition[id];
@@ -631,19 +712,33 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
   // acquired traits carry a BEHAVIORAL impact — that's what should show in pose and expression
   // (a character who became "a dick" stands and smirks like one; a wounded arm is favored).
   const acquired = (state.traits[id] ?? []).filter((t) => t.intensity >= 4).slice(0, 4);
+  const { humanoid, kind } = portraitBodyPlan(state, c);
   const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense, guarded, braced" : cond.psyche.relaxation >= 6 ? "at ease, open, relaxed" : "composed") : "";
   const wear = cond?.wearing?.length ? `Wearing: ${cond.wearing.join(", ")}.` : "";
   const injuries = cond?.injuries?.length ? `Visibly carries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join(", ")} — let it show in how they hold the body.` : "";
   const belief = state.memory[id]?.beliefs?.slice(-1)[0]?.content;
-  const moodFace = cond ? (cond.psyche.mood ? `Expression carries: ${cond.psyche.mood}.` : "") : "";
+  const moodFace = cond?.psyche.mood
+    ? humanoid
+      ? `Expression carries: ${cond.psyche.mood}.`
+      : `Current state: ${cond.psyche.mood} — let it show in the being's form, posture, and color.`
+    : "";
+  const subject = humanoid
+    ? `Subject: ${c.name}, age ${c.age}.`
+    : `Subject: ${c.name}${kind ? ` — ${kind}` : ""}. This subject is not an ordinary person standing for a portrait: it is exactly and only what the appearance describes. Never substitute a full human figure, a human body, or a human face that the appearance does not itself describe.`;
+  const composition = humanoid
+    ? `Vertical portrait orientation, tall 2:3 frame, full-body, head to toe, single figure standing, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`
+    : `Vertical portrait orientation, tall 2:3 frame, the entire being visible from base to tip, single subject, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`;
+  const closing = humanoid
+    ? `Render the body exactly as the appearance describes it. The pose and face should be SPECIFIC to this person — their character and current state visible in how they stand, where their weight is, what their hands do, how they meet or avoid the viewer's eye. Not a neutral mannequin: a person caught being themselves.`
+    : `Make this individual's nature and current state visible in how it holds itself — its posture, its form, its surfaces and color. Not a generic specimen of its kind: this specific one, caught being itself.`;
   return [
-    `Vertical portrait orientation, tall 2:3 frame, full-body, head to toe, single figure standing, plain seamless white studio background, even studio lighting, no text, no watermark, no props, no border.`,
     `Art style: ${art}.`,
     `Setting context: ${state.world_bible.era}.`,
-    `Subject: ${c.name}, age ${c.age}.`,
-    c.height_cm || c.weight_kg ? `Frame: ${[ftIn(c.height_cm) ? `${ftIn(c.height_cm)} tall` : "", lbs(c.weight_kg) ? `${lbs(c.weight_kg)} lbs` : ""].filter(Boolean).join(", ")}.` : "",
+    subject,
     c.appearance_facts ? `Appearance: ${c.appearance_facts}.` : "",
     c.appearance_now ? `Currently presenting: ${c.appearance_now}.` : "",
+    composition,
+    humanoid && (c.height_cm || c.weight_kg) ? `Frame: ${[ftIn(c.height_cm) ? `${ftIn(c.height_cm)} tall` : "", lbs(c.weight_kg) ? `${lbs(c.weight_kg)} lbs` : ""].filter(Boolean).join(", ")}.` : "",
     coreTraits.length ? `Core nature: ${coreTraits.slice(0, 5).join(", ")}.` : "",
     acquired.length ? `Who they have BECOME — make this read in their pose, stance, and expression: ${acquired.map((t) => `${t.label} (${t.behavioral_impact})`).join("; ")}.` : "",
     bearing ? `Bearing: ${bearing}.` : "",
@@ -651,7 +746,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
     injuries,
     wear,
     belief ? `Inner note (let it subtly shape expression, not literal): ${belief}.` : "",
-    `The pose and face should be SPECIFIC to this person — their character and current state visible in how they stand, where their weight is, what their hands do, how they meet or avoid the viewer's eye. Not a neutral mannequin: a person caught being themselves.`,
+    closing,
   ].filter(Boolean).join(" ");
 }
 
@@ -666,7 +761,7 @@ export function buildScenePrompt(state: SaveState, summary: string): string {
     loc ? `Place: ${loc.name}${loc.description_facts ? ` — ${loc.description_facts}` : ""}.` : "",
     `Scene: ${summary}.`,
     state.world.weather ? `Weather/mood: ${state.world.weather}.` : "",
-    `Render the people present consistent with their reference portraits if provided.`,
+    `Render every character present exactly as their reference portrait shows them — including any non-human body, which must never be drawn as a person.`,
   ].filter(Boolean).join(" ");
 }
 
