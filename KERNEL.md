@@ -129,6 +129,23 @@ boredom, not old age), while transmission in matching weather feeds `+0.6` once 
 story grows in the telling"). Growth and decay on the same rule — the destruction phase is
 inherited from the kernel the field rides.
 
+**Departure evidence guard** (applyDiff, LOCATION pass). `diff.locations` is the bookkeeper's
+claim about where everyone is, and `world.present` is derived from it — so a bad claim dumps a
+speaking character offscene and the next turn's narrator faithfully renders an empty room. The
+schema already asked for evidence (a `said` quote); the engine now checks it. A character who was
+in `world.present` when the turn began cannot be moved unless the turn's prose shows the
+departure: either the `said` quote (≥ 8 chars, normalized) appears verbatim in the prose, or a
+departure verb (left, exits, headed off, took the lift, dismissed, withdrew, …) appears within
+±160 chars of their name. Name probes use the full name plus each word of it, skipping titles and
+ranks (the prose says "Hale left", never "Mr. Hale left"). A move without evidence is discarded
+with a `bookkeeping correction: X stays — the prose never showed them leave` shift. Offscreen
+characters move freely — the world goes on offstage; the guard only protects the scene the player
+is standing in. (Seen in play: a scene's whole speaking cast was moved to "elsewhere" while the
+prose had them talking to and holding the player, and the next turn opened on an empty room.) The bookkeeper prompt (both tiers) now states the rule from its side: a character
+who spoke or acted in the turn's prose is recorded at the player's location, never elsewhere;
+missing, dead, captured, or stranded characters are never placed somewhere the fiction ruled out
+until the prose shows them found, freed, or returned.
+
 **Rivalry** (`tickRivalry`, desire.ts). Jealousy, modeled as the same energy as fixation: desire
 is directional, so when two present characters want the SAME person and one watches the other's
 pursuit LAND, the watcher's nervous system registers the threat. "Wanting" is attraction ≥ 25 or

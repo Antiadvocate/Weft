@@ -1984,6 +1984,9 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   const turn = state.world.current_turn;
   const shifts: string[] = [];
   const nameOf = (id: string) => state.characters[id]?.name ?? id;
+  // Who was in the scene when this turn began — captured before anything mutates locations, and
+  // used by the departure evidence guard in the LOCATION block below.
+  const presentAtStart = new Set(state.world.present);
 
   // MASTER TENSION DIAL — origination clamp. At tension 0 the engine introduces NOTHING new on its
   // own: no new consequences, no brand-new threads, no new faction clocks. The world still RESPONDS
@@ -2106,7 +2109,10 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   // ── LOCATION: the bookkeeper records where everyone is. Places auto-resolve by
   //    id or name and are created on first mention (incl. "in-between" places like
-  //    "walking outside the dome"). present is DERIVED from co-location, never authored. ──
+  //    "walking outside the dome"). present is DERIVED from co-location, never authored.
+  //    DEPARTURE EVIDENCE GUARD (below): a character present when this turn began cannot be
+  //    moved unless the turn's prose shows them leave — the bookkeeper is told to quote the
+  //    departure in `said`; the engine verifies it. Offscreen moves are untouched. ──
   if (diff.player_location) {
     // the player never lands in `elsewhere`: an unrecognized name means they stayed put
     state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
@@ -2118,6 +2124,40 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     const fromPid = state.characters[cid].location;
     const pid = resolvePlace(state, mv.place);
     if (pid !== fromPid) {
+      // DEPARTURE EVIDENCE GUARD. A character who was in the scene when this turn began cannot be
+      // moved unless the turn's prose actually shows them leave. The bookkeeper is told to quote the
+      // departure in `said`; the engine verifies it instead of trusting it. This is the bug that
+      // emptied a scene in play: the ledger moved the entire speaking cast offscene while the prose
+      // had them talking to the player, and the next turn the narrator faithfully rendered an empty
+      // room. Offscreen moves (characters not present this turn) are untouched — the world moves
+      // freely offstage.
+      if (presentAtStart.has(cid)) {
+        const c = state.characters[cid];
+        const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
+        const saidRaw = String((mv as { said?: string }).said ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+        const quoted = saidRaw.length >= 8 && proseLow.includes(saidRaw);
+        const nameLow = (c.name ?? "").toLowerCase();
+        // probe tokens: the full name plus each usable word of it. Titles and ranks are skipped —
+        // prose almost never repeats them ("Hale left", not "Mr. Hale left"), and a bare rank
+        // ("the captain") is too common a noun to be evidence about anyone in particular.
+        const HONORIFICS = new Set(["mr", "mrs", "ms", "miss", "dr", "doctor", "captain", "lt", "lieutenant", "commander", "sir", "madam", "professor", "officer", "ensign", "sergeant", "major", "colonel", "general", "lord", "lady", "father", "sister", "brother", "elder", "master"]);
+        const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3 && !HONORIFICS.has(t));
+        const probes = [...new Set([nameLow, ...tokens])].filter((s) => s.length >= 3);
+        let nearDeparture = false;
+        for (const probe of probes) {
+          let idx = proseLow.indexOf(probe);
+          while (idx !== -1) {
+            const w = proseLow.slice(Math.max(0, idx - 160), idx + probe.length + 160);
+            if (/\b(left|leaves|leaving|exits?|exiting|departs?|departing|walks? out|walking out|strode out|hurried off|heads? off|headed off|dismissed|called away|slipped out|steps? out|stepping out|took the lift|made (his|her|xer|their) way out|was summoned|retreated|withdrew|withdrawn)\b/i.test(w)) { nearDeparture = true; break; }
+            idx = proseLow.indexOf(probe, idx + 1);
+          }
+          if (nearDeparture) break;
+        }
+        if (!quoted && !nearDeparture) {
+          shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
+          continue;
+        }
+      }
       // a move is an event the character remembers: where from, where to, when
       const fromName = (fromPid && state.world.places[fromPid]?.name) || "elsewhere";
       const toName = state.world.places[pid]?.name ?? mv.place;
