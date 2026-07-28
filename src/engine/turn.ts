@@ -762,6 +762,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     ? `\nPOV — mostly surface (player relaxation ${Math.round(pcRelax)}): Render other characters from the OUTSIDE — what shows in face, voice, and act. You may imply feeling through behavior but do NOT hand the player a character's exact unspoken thought or sealed interior as narrator-fact. If someone is withholding something, let it stay withheld and visible only as a pressure under their surface; the player has to read it, and may read it wrong.`
     : `\nPOV — clear-eyed (player relaxation ${Math.round(pcRelax)}): The player is open and reads people well right now, so their INFERENCES about others tend to be ACCURATE — but they are still inferences, made from the outside, never omniscient fact. You may let the player's read land close to the truth (a correct sense of what's under someone's surface), framed as the player perceiving/sensing it, NOT as the narrator declaring another mind's sealed contents. Still never write "xe doesn't say what xe really means, which is X" — instead "something in how xe says it makes him think X," leaving the player the one reading, and leaving room to be wrong.`;
 
+  // ── FOCUS GATE (interiority has a source) ── povFilter above bounds HOW MUCH interior the narrator
+  // may report; this bounds WHOSE. A first-person scene reads the person the player is actually
+  // engaged with — everyone else is furniture until looked at. Without this, a turn spent holding one
+  // character still returns a full interior read of every other body in the room, which is both the
+  // omniscience leak and the bulk of the word count. Focus = any present NPC the player named,
+  // addressed, or acted on this turn (plus, when the player named no one, the character driving the
+  // scene). Unfocused present characters get exterior only: one line, seen and heard, no motive.
+  const focusNames = state.world.present
+    .filter((id) => id !== "char_player" && state.characters[id])
+    .map((id) => ({ id, name: state.characters[id].name }));
+  const actionLc = action.toLowerCase();
+  const focused = focusNames.filter(({ name }) =>
+    name.toLowerCase().split(/[\s'"]+/).filter((w) => w.length >= 3).some((w) => actionLc.includes(w)));
+  const unfocused = focusNames.filter((f) => !focused.some((g) => g.id === f.id));
+  const focusFilter = (focused.length && unfocused.length)
+    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, or bracing for, and no paragraph of their own. A character the player is not attending to does not get an inner life on the page this turn — they get a gesture, a line, or silence. Do not compensate by giving them extra dialogue.`
+    : "";
+
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
   // plot-solver. In god mode it is suppressed entirely (the player is sovereign). Outside god
   // mode it restrains the narrator's own plotting only — never an action the player declares.
@@ -843,7 +861,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + povFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + povFilter + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1005,6 +1023,41 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         prose = paras.slice(0, -1).join("\n\n");
         console.warn(`[turn] ending guard: trimmed a ${bodyMoved ? "preempt" : "cascade"} tail paragraph so the turn ends on the first pressure`);
       }
+    }
+  }
+
+  // ── TIC GUARD ── Deterministic backstop for two failures the DIALOGUE rules ban in the prompt and
+  // the model produces anyway, because both are what a model reaches for when it has nothing to add:
+  // (1) reflecting the player's own words back with an intensifier ("you really just <verbatim>",
+  // "no one has ever <verbatim>"), and (2) the canned affirmations ("that's not nothing", "it's a
+  // lot", "you're not wrong"). Prompt bans don't hold; a regex does. We excise the offending SENTENCE
+  // rather than regenerate — free, and the surrounding paragraph survives. Guards: never empty a
+  // paragraph, never cut a long sentence (it's carrying real content), never cut more than two.
+  {
+    const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
+    // 4+ consecutive words lifted from the player's action, ignoring very common words.
+    const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    const runs: string[] = [];
+    for (let i = 0; i + 4 <= actWords.length; i++) runs.push(actWords.slice(i, i + 4).join(" "));
+    const echoes = (sent: string) => {
+      const norm = sent.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ");
+      return runs.some((r) => norm.includes(r));
+    };
+    let cuts = 0;
+    const cleaned = prose.split(/\n\n+/).map((para) => {
+      const sents = para.match(/[^.!?]+[.!?]*/g) ?? [para];
+      if (sents.length < 2) return para;
+      const kept = sents.filter((sent) => {
+        const t = sent.trim();
+        if (cuts >= 2 || t.length > 160) return true;
+        if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
+        return true;
+      });
+      return kept.join("").trim() || para;
+    }).join("\n\n");
+    if (cuts) {
+      prose = cleaned;
+      console.warn(`[turn] tic guard: cut ${cuts} echo/canned sentence(s)`);
     }
   }
   let footer = parsedScene.footer;
