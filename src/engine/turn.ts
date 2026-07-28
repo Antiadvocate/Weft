@@ -20,7 +20,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
-import { applyEdgeDelta, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -2452,6 +2452,9 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
   }
 
+  // Idle edges ease toward neutral before this turn's deltas land, so a relationship nobody has
+  // tended for a while is no longer held up by a number set long ago.
+  decayEdges(state.world.edges, turn);
   const explicitEdges = new Set((diff.edges ?? []).map((e) => `${resolveId(state, e.from)}|${resolveId(state, e.to)}`));
   for (const e of diff.edges ?? []) {
     const from = resolveId(state, e.from), to = resolveId(state, e.to);

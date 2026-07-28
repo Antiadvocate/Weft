@@ -31,13 +31,37 @@ export function getEdge(edges: SocialEdge[], from: string, to: string): SocialEd
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+// ── RATCHET BRAKE ── Step sizes are symmetric but OPPORTUNITY is not: almost every turn contains
+// something kind, brave, or grateful, and almost none contain betrayal. So up-moves fire constantly
+// and down-moves rarely, and any symmetric rule drifts upward until it pins at the ceiling and never
+// comes back. High feeling then reads charitably, suppressing the down-moves further — it feeds
+// itself. Fix the SHAPE, not the step: gains shrink as the value climbs, losses always land full.
+// Below 50 nothing changes (early closeness should still move fast); past 50 each further point
+// costs more, so 90 is reachable only by sustained, repeated evidence and never by one warm scene.
+const gainScale = (current: number) => (current <= 50 ? 1 : clamp((100 - current) / 50, 0.12, 1));
+
+// ── DRIFT ── Feeling toward someone is a claim that needs renewing, not a stored quantity. Without
+// this, a character parked at 95 stays there forever on the strength of one good week forty turns
+// ago, and estrangement is impossible except by explicit betrayal. Any edge untouched for a while
+// eases back toward neutral, slowly, and only from the outer bands — close relationships don't
+// evaporate, they just stop being free. Call once per turn, before the turn's deltas land.
+export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, step = 0.5) {
+  for (const e of edges) {
+    if (turn - (e.updated_turn ?? turn) < idleTurns) continue;
+    const ease = (v: number) => (Math.abs(v) <= 20 ? v : v > 0 ? v - step : v + step);
+    e.warmth = clamp(ease(e.warmth), -100, 100);
+    e.trust = clamp(ease(e.trust), -100, 100);
+  }
+}
+
 export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }, turn: number) {
   const e = getEdge(edges, d.from, d.to);
-  e.warmth = clamp(e.warmth + clamp(d.warmth_delta, -15, 15), -100, 100);
+  const warmthDelta = d.warmth_delta > 0 ? d.warmth_delta * gainScale(e.warmth) : d.warmth_delta;
+  e.warmth = clamp(e.warmth + clamp(warmthDelta, -15, 15), -100, 100);
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
   // absolute value, which gave wrong results at the clamp ceiling).
-  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 : d.trust_delta;
+  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 * gainScale(e.trust) : d.trust_delta;
   // RUPTURE-REPAIR: trust that grows within five turns of a real disagreement on this edge is
   // REPAIR, and repair is how trust is actually built — it earns half again. Then the flag clears;
   // the next growth has to be earned on its own terms.
