@@ -760,7 +760,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     ? `\nPOV — READ, DON'T REPORT (player is clenched, relaxation ${Math.round(pcRelax)}): The player is dysregulated and is therefore a BAD reader of other people right now. Do NOT state any other character's inner feelings, motives, or unspoken meaning as fact. Forbidden absolutely: narrator lines that reveal what someone "really" means, "doesn't say," "actually feels," or is thinking behind their words — especially a character's withheld or sealed interior. Render only what the player can SEE and HEAR: face, posture, tone, motion, the words actually spoken, the body. Where feeling colors the scene at all, it is the PLAYER'S projection onto them — and a clenched read is often WRONG: it may misattribute (see coldness where there's fear, rejection where there's confusion), fixate on the wrong signal, or miss what the other person is plainly feeling. You MAY let the player misread. You may omit an emotion the other character is actually having if the player wouldn't catch it. Leave the others' interiors OPAQUE — a surface the player has to interpret, and can get wrong.`
     : pcRelax < 3
     ? `\nPOV — mostly surface (player relaxation ${Math.round(pcRelax)}): Render other characters from the OUTSIDE — what shows in face, voice, and act. You may imply feeling through behavior but do NOT hand the player a character's exact unspoken thought or sealed interior as narrator-fact. If someone is withholding something, let it stay withheld and visible only as a pressure under their surface; the player has to read it, and may read it wrong.`
-    : `\nPOV — clear-eyed (player relaxation ${Math.round(pcRelax)}): The player is open and reads people well right now, so their INFERENCES about others tend to be ACCURATE — but they are still inferences, made from the outside, never omniscient fact. You may let the player's read land close to the truth (a correct sense of what's under someone's surface), framed as the player perceiving/sensing it, NOT as the narrator declaring another mind's sealed contents. Still never write "xe doesn't say what xe really means, which is X" — instead "something in how xe says it makes him think X," leaving the player the one reading, and leaving room to be wrong.`;
+    : `\nPOV — clear-eyed (player relaxation ${Math.round(pcRelax)}): The player is open and reads people well right now, so their INFERENCES about others tend to be ACCURATE — but they are still inferences, made from the outside, never omniscient fact. You may let the player's read land close to the truth (a correct sense of what's under someone's surface), framed as the player perceiving/sensing it, NOT as the narrator declaring another mind's sealed contents. Still never write "xe doesn't say what xe really means, which is X" — instead "something in how xe says it makes him think X," leaving the player the one reading, and leaving room to be wrong. The same applies to PURPOSE: never state as narrator-fact why a character did or asked something ("the question was not a trap — it was the kind xe built to teach"). If that read belongs in the scene at all, it is the player arriving at it, hedged and possibly wrong.`;
 
   // ── FOCUS GATE (interiority has a source) ── povFilter above bounds HOW MUCH interior the narrator
   // may report; this bounds WHOSE. A first-person scene reads the person the player is actually
@@ -773,11 +773,30 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     .filter((id) => id !== "char_player" && state.characters[id])
     .map((id) => ({ id, name: state.characters[id].name }));
   const actionLc = action.toLowerCase();
-  const focused = focusNames.filter(({ name }) =>
-    name.toLowerCase().split(/[\s'"]+/).filter((w) => w.length >= 3).some((w) => actionLc.includes(w)));
+  const nameHit = (name: string) =>
+    name.toLowerCase().split(/[\s'"]+/).filter((w) => w.length >= 3).some((w) => actionLc.includes(w));
+  let focused = focusNames.filter((f) => nameHit(f.name));
+  // ADDRESSEE FALLBACK — the common case is speaking to someone WITHOUT naming them ("should we
+  // raise shields?"). Naming is rare in real dialogue, so a gate that needs a name is off almost
+  // always. When the player named no one, the person they are talking to is whoever last held the
+  // floor: scan the previous turn's prose and take the present character mentioned LAST.
+  if (!focused.length) {
+    const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
+    if (prev) {
+      const lastAt = focusNames
+        .map((f) => ({ f, at: prev.toLowerCase().lastIndexOf(f.name.toLowerCase().split(/\s+/).slice(-1)[0]) }))
+        .filter((x) => x.at >= 0)
+        .sort((a, b) => b.at - a.at)[0];
+      if (lastAt) focused = [lastAt.f];
+    }
+  }
   const unfocused = focusNames.filter((f) => !focused.some((g) => g.id === f.id));
   const focusFilter = (focused.length && unfocused.length)
-    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, or bracing for, and no paragraph of their own. A character the player is not attending to does not get an inner life on the page this turn — they get a gesture, a line, or silence. Do not compensate by giving them extra dialogue.`
+    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, bracing for, or signalling — and NO interpretation of a look, glance, or expression ("that look said", "as if to tell him"). They get a gesture, a line, or silence, never a paragraph of their own. Do not compensate by giving them extra dialogue.`
+    : (focusNames.length >= 2)
+    // LAST-RESORT CAP — no name, no prior floor-holder (scene opening). Still never let every body
+    // in the room get read: one interior per turn, the rest exterior.
+    ? `\nFOCUS — ONE INTERIOR ONLY: At most ONE present character may be read from the inside this turn — pick the one the player is actually engaged with. Every other present character is exterior only: at most one line each of what they say or visibly do, no motive, no unspoken thought, no interpreted glance, no paragraph of their own.`
     : "";
 
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
