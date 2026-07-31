@@ -4,8 +4,9 @@ import type { ClientSave } from "../lib/api";
 import { RelationshipWeb } from "./RelationshipWeb";
 import StoryMap from "../lib/StoryMap";
 import { nice } from "../lib/format";
+import { api } from "../lib/api";
 
-export default function World({ save }: { save: ClientSave }) {
+export default function World({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
   const w = save.world;
   const liveRumors = w.rumors.filter((r) => !r.dead);
   const activeThreads = w.threads.filter((t) => t.status === "active");
@@ -128,14 +129,7 @@ export default function World({ save }: { save: ClientSave }) {
       </Block>
 
       <Block title="Places" delay={0.2}>
-        {Object.values(w.places).map((p) => (
-          <div key={p.id} className="py-1.5">
-            <span className="font-display text-[13.5px]">
-              {p.name}{w.player_location === p.id && <span style={{ color: "var(--accent)" }}> ◂ you</span>}
-            </span>
-            <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
-          </div>
-        ))}
+        <Places save={save} onSave={onSave} />
       </Block>
     </div>
   );
@@ -153,4 +147,99 @@ function Block({ title, delay, children }: { title: string; delay: number; child
 }
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>{children}</div>;
+}
+
+
+/** PLACE MANAGER — build a location by hand, and put anyone anywhere.
+ *
+ *  Why this exists: the Forge names ten places and the resolver only mints more from narrator
+ *  prose. Anything the PLAYER makes — a house, a camp, a walled compound — is described, lived
+ *  in, changed, and then belongs to no location at all, so it cannot be returned to and nobody
+ *  can be in it. And when the bookkeeper strands someone (a companion who walked you somewhere
+ *  and stayed behind in the ledger), this is where you put them back without editing raw JSON. */
+function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
+  const w = save.world;
+  const [name, setName] = React.useState("");
+  const [desc, setDesc] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+
+  const run = async (fn: () => Promise<ClientSave>) => {
+    setBusy(true); setErr("");
+    try { const next = await fn(); onSave?.(next); }
+    catch (e: any) { setErr(e?.message ?? String(e)); }
+    finally { setBusy(false); }
+  };
+
+  const people = Object.entries(save.characters)
+    .filter(([, c]: any) => c.status !== "dead" && c.status !== "departed");
+
+  return (
+    <div className="space-y-2">
+      {Object.values(w.places).filter((p) => p.id !== "loc_offscene").map((p) => {
+        const here = people.filter(([id, c]: any) => (id === "char_player" ? w.player_location : c.location) === p.id);
+        return (
+          <div key={p.id} className="py-1.5 border-b" style={{ borderColor: "var(--ink-3)" }}>
+            <div className="flex justify-between items-baseline gap-2">
+              <span className="font-display text-[13.5px]">
+                {p.name}
+                {w.player_location === p.id && <span style={{ color: "var(--accent)" }}> ◂ you</span>}
+                {p.founding && <span className="font-mono text-[9px] ml-1.5" style={{ color: "var(--text-lo)" }}>kept</span>}
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                {w.player_location !== p.id && (
+                  <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
+                    style={{ color: "var(--accent)" }}
+                    onClick={() => run(() => api.setLocation(save.id, "char_player", p.id))}>go</button>
+                )}
+                <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
+                  style={{ color: "var(--text-lo)" }}
+                  onClick={() => run(() => api.deletePlace(save.id, p.id))}>del</button>
+              </div>
+            </div>
+            {p.description_facts && (
+              <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
+            )}
+            <div className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
+              {here.length ? here.map(([, c]: any) => c.name).join(", ") : "empty"}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="pt-1 space-y-1.5">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New place — name it as someone would say it"
+          className="w-full bg-transparent text-[13px] outline-none border-b py-1"
+          style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
+        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What's physically there (optional)"
+          className="w-full bg-transparent text-[12px] outline-none border-b py-1"
+          style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)" }} />
+        <button disabled={busy || !name.trim()} className="font-mono text-[10px] uppercase tracking-widest py-1"
+          style={{ color: name.trim() ? "var(--accent)" : "var(--text-lo)" }}
+          onClick={() => run(async () => { const n = await api.addPlace(save.id, name, desc); setName(""); setDesc(""); return n; })}>
+          + create place
+        </button>
+      </div>
+
+      <div className="pt-2 space-y-1">
+        <div className="font-mono text-[9.5px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>Put someone somewhere</div>
+        {people.map(([id, c]: any) => (
+          <div key={id} className="flex justify-between items-center gap-2">
+            <span className="text-[12.5px]">{c.name}</span>
+            <select disabled={busy}
+              value={(id === "char_player" ? w.player_location : c.location) ?? ""}
+              onChange={(e) => run(() => api.setLocation(save.id, id, e.target.value))}
+              className="bg-transparent text-[11.5px] outline-none py-0.5"
+              style={{ color: "var(--text-mid)" }}>
+              {Object.values(w.places).map((p) => (
+                <option key={p.id} value={p.id} style={{ background: "var(--ink-1)" }}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      {err && <div className="text-[11.5px]" style={{ color: "var(--danger)" }}>{err}</div>}
+    </div>
+  );
 }
