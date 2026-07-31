@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Mic, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -44,6 +44,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [revoicing, setRevoicing] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -294,6 +295,16 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <Sparkles size={16} style={{ color: embodyConfirm ? "var(--accent)" : "var(--text-lo)" }} />
                     </button>
                   )}
+                  {/* FRESH READER — re-derive this person's voice from their card alone. The refresher
+                      never sees narrator prose, so it can't inherit the drift that made everyone sound
+                      wise. Their example_lines are replaced, not added to. */}
+                  <button disabled={revoicing} onClick={async () => {
+                    setRevoicing(true);
+                    try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave the old voice */ }
+                    finally { setRevoicing(false); }
+                  }} title="re-read their script cold — regenerate how they talk from the character card, ignoring how they've been written lately">
+                    <Mic size={16} style={{ color: revoicing ? "var(--accent)" : "var(--text-lo)" }} />
+                  </button>
                   <button onClick={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} title="raw edit (full JSON)">
                     <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
