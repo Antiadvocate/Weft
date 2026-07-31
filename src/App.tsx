@@ -147,7 +147,7 @@ export default function App() {
               transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}>
               {tab === "play" && <Play save={save} setSave={setSave} />}
               {tab === "cast" && <Cast save={save} setSave={setSave} />}
-              {tab === "world" && <World save={save} />}
+              {tab === "world" && <World save={save} onSave={setSave} />}
               {tab === "chronicle" && <Chronicle save={save} />}
               {tab === "journal" && <Journal save={save} />}
               {tab === "settings" && <Settings save={save} setSave={setSave} />}
