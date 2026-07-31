@@ -95,6 +95,17 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
               </span>
             </div>
             <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>{c.objective}</div>
+            {/* HOW THEY KNOW — the route, hop by hop. A clock with no chain has learned nothing
+                and is not advancing, which is the answer to "how does this guy even know?" */}
+            {(c as any).knowledge_chain?.length ? (
+              <div className="font-mono text-[9.5px] mt-1 leading-relaxed" style={{ color: "var(--text-lo)" }}>
+                {(c as any).knowledge_chain.join("  →  ")}
+              </div>
+            ) : (
+              <div className="font-mono text-[9.5px] mt-1" style={{ color: "var(--text-lo)" }}>
+                {c.status === "fired" ? "—" : "knows nothing yet · held"}
+              </div>
+            )}
             <div className="flex gap-1 mt-2">
               {Array.from({ length: c.segments }).map((_, i) => (
                 <div key={i} className="h-2 flex-1 rounded-sm"
@@ -114,6 +125,14 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
               <span style={r.truth !== "true" ? { color: "var(--danger)" } : undefined}>{r.truth}</span>
               <span>· {r.knowers.length} know · from {name(r.origin_char)}</span>
             </div>
+            {(r as any).path?.length > 1 && (
+              <div className="font-mono text-[9px] mt-0.5 leading-relaxed" style={{ color: "var(--text-lo)" }}>
+                {(r as any).path.map((h: any, i: number) =>
+                  h.how === "witnessed"
+                    ? `${name(h.to)} saw it${h.where ? ` @ ${h.where}` : ""}`
+                    : `${name(h.from)} → ${name(h.to)}`).join("  ·  ")}
+              </div>
+            )}
           </div>
         ))}
       </Block>
