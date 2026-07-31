@@ -17,6 +17,7 @@ import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, Epi
 import { asText } from "./coerce";
 import { relevance } from "./memory";
 import { uid } from "./state";
+import { obduracyIn } from "./obduracy";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -38,7 +39,31 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 // itself. Fix the SHAPE, not the step: gains shrink as the value climbs, losses always land full.
 // Below 50 nothing changes (early closeness should still move fast); past 50 each further point
 // costs more, so 90 is reachable only by sustained, repeated evidence and never by one warm scene.
-const gainScale = (current: number) => (current <= 50 ? 1 : clamp((100 - current) / 50, 0.12, 1));
+// OBDURACY bends this curve per person. The old shape was flat 1 below 50, which meant the
+// entire lower half of the range had no brake at all: a stranger at 0 reached 45 in three
+// deltas without the ratchet engaging once, and 45 already reads as familiar and comfortable.
+// That is the "she softened over one conversation" bug, and it lived here, not in the prompt.
+//
+// knee = where diminishing returns start. An open person keeps the old knee at 50 and the old
+// numbers exactly. A guarded person's knee slides toward 0, so their gains shrink from the
+// first point — and `below` damps even the easy early movement, because the whole point is
+// that the first fifteen points of warmth are the ones they don't give away.
+//
+// TUNING. These two are the whole feel of the system, so they're named rather than buried.
+//   OPEN_KNEE  — where an obduracy-0 person starts hitting diminishing returns. 50 = old behavior.
+//   MAX_DAMP   — how much a fully obdurate person's gains are cut even in the easy early range.
+//                0.6 → a +8 kindness lands as +3.2. Raise toward 0.8 if the cast still thaws too
+//                fast; a fully closed character then needs ~22 turns of steady warmth to reach 50.
+export const OPEN_KNEE = 50;
+export const MAX_DAMP = 0.6;
+
+const gainScale = (current: number, obduracy = 0) => {
+  const o = Math.max(0, Math.min(1, obduracy));
+  const knee = OPEN_KNEE * (1 - o);
+  const below = 1 - o * MAX_DAMP;
+  if (current <= knee) return below;
+  return clamp((100 - current) / Math.max(1, 100 - knee), 0.12, 1) * below;
+};
 
 // ── DRIFT ── Feeling toward someone is a claim that needs renewing, not a stored quantity. Without
 // this, a character parked at 95 stays there forever on the strength of one good week forty turns
@@ -54,14 +79,23 @@ export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, ste
   }
 }
 
-export function applyEdgeDelta(edges: SocialEdge[], d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] }, turn: number) {
+export function applyEdgeDelta(
+  edges: SocialEdge[],
+  d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] },
+  turn: number,
+  ctx?: { chars?: Record<string, Identity>; traits?: Record<string, AcquiredTrait[]> },
+) {
   const e = getEdge(edges, d.from, d.to);
-  const warmthDelta = d.warmth_delta > 0 ? d.warmth_delta * gainScale(e.warmth) : d.warmth_delta;
+  // The edge is d.from's feeling TOWARD d.to, so the relevant constitution is the feeler's.
+  // Omit ctx and obduracy is 0, which reproduces the old arithmetic exactly — every existing
+  // save and every call site that hasn't been updated behaves identically.
+  const obd = ctx ? obduracyIn(ctx.chars, ctx.traits, d.from) : 0;
+  const warmthDelta = d.warmth_delta > 0 ? d.warmth_delta * gainScale(e.warmth, obd) : d.warmth_delta;
   e.warmth = clamp(e.warmth + clamp(warmthDelta, -15, 15), -100, 100);
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
   // absolute value, which gave wrong results at the clamp ceiling).
-  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 * gainScale(e.trust) : d.trust_delta;
+  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 * gainScale(e.trust, obd) : d.trust_delta;
   // RUPTURE-REPAIR: trust that grows within five turns of a real disagreement on this edge is
   // REPAIR, and repair is how trust is actually built — it earns half again. Then the flag clears;
   // the next growth has to be earned on its own terms.
@@ -541,7 +575,7 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
     const familiarity = Math.max(0.6, 1 - hist.kept * 0.08); // slight diminishing returns
     const trustGain = Math.round(base * familiarity);
     const warmthGain = Math.round(trustGain * 0.6);
-    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthGain, trust_delta: trustGain, power_delta: 0, note: `kept a promise: ${p.text}` }, turn);
+    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthGain, trust_delta: trustGain, power_delta: 0, note: `kept a promise: ${p.text}` }, turn, { chars: state.characters, traits: state.traits });
     if (state.memory[to]) state.memory[to].episodic.push({
       turn, content: `${fromName} kept their promise to ${toName === "you" ? "me" : toName}: ${p.text}`,
       importance: Math.min(8, 3 + p.weight * 2), emotional_charge: "trust, relief", last_accessed_turn: turn,
@@ -557,7 +591,7 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
     const soften = (hist.broken === 0 && p.weight === 1 && (edge?.trust ?? 0) >= 40) ? 0.5 : 1;
     const trustLoss = -Math.round(base * patternMult * soften);
     const warmthLoss = -Math.round(base * patternMult * soften * (p.weight === 3 ? 0.8 : 0.45));
-    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthLoss, trust_delta: trustLoss, power_delta: 0, note: `broke a promise: ${p.text}` }, turn);
+    applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: warmthLoss, trust_delta: trustLoss, power_delta: 0, note: `broke a promise: ${p.text}` }, turn, { chars: state.characters, traits: state.traits });
     if (state.memory[to]) state.memory[to].episodic.push({
       turn, content: `${fromName} broke their promise to ${toName === "you" ? "me" : toName}: ${p.text}${hist.broken > 0 ? " — again" : ""}`,
       importance: Math.min(9, 4 + p.weight * 2 + hist.broken), emotional_charge: hist.broken > 0 ? "hurt, hardening, done giving chances" : "hurt, let down", last_accessed_turn: turn,

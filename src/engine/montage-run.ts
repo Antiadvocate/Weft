@@ -323,7 +323,7 @@ function applyBeat(
       power_delta: clamp(Number(d.power_delta) || 0, -limit("power"), limit("power")),
       note: d.note ? String(d.note) : undefined,
       roles_set: Array.isArray(d.roles_set) && d.roles_set.length ? d.roles_set.map(String) : undefined,
-    }, turn);
+    }, turn, { chars: state.characters, traits: state.traits });
   }
 
   for (const l of beat?.landed ?? []) if (typeof l === "string") landed.push(l);

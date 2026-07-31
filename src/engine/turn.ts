@@ -21,6 +21,7 @@ import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolv
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
+import { obduracyIn, isObdurate } from "./obduracy";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -321,9 +322,13 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
 const SOFTENING_PATTERN = /\b(soften(ed|ing|s)?|realized? (that )?(kindness|caring|warmth|mercy|being (kind|good|gentle))|began to (care|feel|soften)|learned to (care|love|trust|feel)|guilt|remorse|redemption|redeem\w*|touched by|melted|warmed to|opened (his|her|their) heart|found (his|her|their) humanity|no longer (so )?(cold|cruel|hard|ruthless)|a better (man|woman|person)|change of heart|conscience (stirred|awoke|pricked))\b/i;
 const NORM_REVERSAL_PATTERN = /\b(was (strange|odd|wrong|pointless)|felt (right|nice|good|freeing)|kinda nice|no longer (made sense|needed)|stopped doing|why do we even|questioned (the|their|whether)|doubted (the|their)|began to wonder if)\b/i;
 
-function isColdNatured(state: SaveState, id: string): boolean {
-  const c = state.characters[id];
-  return !!c && typeof c.conscience === "number" && c.conscience <= 0.35;
+/** The veto's old grain test was conscience <= 0.35 OR a core trait matching a seven-word
+ *  cruelty list — which the Forge produces for exactly one character per cast. Everyone
+ *  forged guarded, wary, bitter, proud, or closed-off failed it and had every softening
+ *  write pass straight into the ledger. Graded obduracy replaces both tests: the cruel
+ *  still clear it, and so does the merely closed. */
+function resistsSoftening(state: SaveState, id: string): boolean {
+  return isObdurate(obduracyIn(state.characters, state.traits, id));
 }
 
 /** Returns a rejection reason if this content would illegitimately drift the character, else null. */
@@ -331,15 +336,11 @@ function driftVeto(state: SaveState, id: string, content: string, opts?: { isRef
   if (opts?.isReflection) return null; // the earned door: reflection may move identity against the grain
   if (id === "char_player") return null; // the player is who the player plays
   const text = content.toLowerCase();
-  // a constitutionally cold character (rudra-type) being written as softening/redeeming
-  if (isColdNatured(state, id) && SOFTENING_PATTERN.test(text)) {
-    return `${nameOf2(state, id)} is cold by nature; a softening/redemption write was refused (no earned turning point this turn)`;
-  }
-  // anyone's core trait being flatly reversed by a memory that narrates the reversal as fact
-  const core = (state.characters[id]?.core_traits ?? []) as string[];
-  const HARD = /\b(cruel|ruthless|cold|merciless|brutal|vicious|callous)\b/i;
-  if (core.some((t) => HARD.test(t)) && SOFTENING_PATTERN.test(text)) {
-    return `${nameOf2(state, id)}'s hard nature was reversed by an unearned softening write — refused`;
+  // Anyone whose constitution resists closeness — cruel by nature OR simply closed — having a
+  // softening written into the ledger as fact. Reflection remains the earned door above.
+  if (SOFTENING_PATTERN.test(text) && resistsSoftening(state, id)) {
+    const o = obduracyIn(state.characters, state.traits, id).toFixed(2);
+    return `${nameOf2(state, id)} does not open on this timescale (obduracy ${o}); an unearned softening write was refused`;
   }
   return null;
 }
@@ -2459,7 +2460,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
   for (const e of diff.edges ?? []) {
     const from = resolveId(state, e.from), to = resolveId(state, e.to);
     if (!from || !to || from === to) continue;
-    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn);
+    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
     // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
     // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
     // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.
@@ -2486,7 +2487,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     // rule 5). Power echoes inverted: standing gained over someone is standing they ceded.
     const w = e.warmth_delta ?? 0, tr = e.trust_delta ?? 0, pw = e.power_delta ?? 0;
     if (to !== "char_player" && !explicitEdges.has(`${to}|${from}`) && (Math.abs(w) >= 4 || Math.abs(tr) >= 4 || Math.abs(pw) >= 4)) {
-      applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: Math.round(w * 0.3), trust_delta: Math.round(tr * 0.25), power_delta: Math.round(-pw * 0.5) }, turn);
+      applyEdgeDelta(state.world.edges, { from: to, to: from, warmth_delta: Math.round(w * 0.3), trust_delta: Math.round(tr * 0.25), power_delta: Math.round(-pw * 0.5) }, turn, { chars: state.characters, traits: state.traits });
     }
     if (to === "char_player") {
       const w = e.warmth_delta ?? 0, tr = e.trust_delta ?? 0;
