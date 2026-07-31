@@ -23,6 +23,7 @@ import { advance, heuristicMinutes, advanceWeather, minutesBetween } from "./tim
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
+import { runOffstage } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -1512,6 +1513,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // SEED BEFORE SPREAD. The diffusion engine was correct and permanently empty because nothing
   // created rumors — the simulator's optional rumors_new was the only writer and it rarely fires.
   // A witnessed memory big enough to be worth repeating IS the seed, and it costs no tokens.
+  // THE WORLD MOVES ON ITS OWN. Runs before seeding so this interval's offstage events become
+  // witness memories in time to be picked up as rumors on the same turn.
+  try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
+  catch { /* the world simply didn't move this interval */ }
   offscreenLog.push(...seedWitnessRumors(state, state.world.current_turn));
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {

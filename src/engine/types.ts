@@ -442,6 +442,10 @@ export interface WorldState {
   threads: Thread[];
   consequences: ConsequenceEvent[];
   clocks: FactionClock[];
+  /** The world's own motion, offstage. Events not aimed at the player, reported every
+   *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
+  offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
+  offstage_last_time?: string;
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];
