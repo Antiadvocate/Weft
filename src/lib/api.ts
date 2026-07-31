@@ -22,6 +22,7 @@ import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
+import { forgeCastVoices } from "../engine/voiceforge";
 
 export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
 export type {
