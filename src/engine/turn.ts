@@ -179,6 +179,11 @@ export function updatePaging(state: SaveState, action: string): void {
  *  back, and decides — that is hours, not "however many times the player pressed enter". */
 export const MINUTES_PER_SEGMENT = 180;
 
+/** In-world minutes a thread must wait between rises in tension. Turns are cheap — fifty of them
+ *  fit in a morning — so escalation has to cost time or the story sprints while the world stands
+ *  still. Lowering tension is never gated. */
+export const MINUTES_PER_ESCALATION = 90;
+
 export const PLACE_CAP = 16;
 
 /** PLACE GC — resolvePlace creates a record for every unmatched name and nothing ever cleaned
@@ -2844,7 +2849,27 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if (existing) {
       existing.status = tu.status;
       if (tu.description) existing.description = tu.description;
-      if (typeof tu.tension === "number") existing.tension = clamp(Math.min(tu.tension, (existing.tension ?? 3) + 2), 0, 10); // escalation is earned: +2/turn max
+      // ESCALATION COSTS TIME, NOT TURNS. The +2/turn cap was the only brake, and turns are cheap —
+      // fifty-five of them fit in one day, so a thread climbed to 8 over a single morning while the
+      // faction clocks (which ARE time-gated) hadn't moved at all. A thread is a situation tightening
+      // in the world; situations tighten over hours. Same gate as the clocks: at most +1 per
+      // MINUTES_PER_ESCALATION of in-world time. Falling tension is never gated — things can calm
+      // down as fast as the fiction says they do.
+      if (typeof tu.tension === "number") {
+        const cur = existing.tension ?? 3;
+        if (tu.tension <= cur) {
+          existing.tension = clamp(tu.tension, 0, 10);
+        } else {
+          const lastEsc = (existing as { last_escalated_time?: string }).last_escalated_time;
+          const waited = lastEsc ? minutesBetween(lastEsc, state.world.current_time) : MINUTES_PER_ESCALATION;
+          if (waited >= MINUTES_PER_ESCALATION) {
+            existing.tension = clamp(Math.min(tu.tension, cur + 1), 0, 10);
+            (existing as { last_escalated_time?: string }).last_escalated_time = state.world.current_time;
+          } else {
+            console.info(`[threads] "${existing.title}" held at ${cur} — ${Math.round(waited)}min since last escalation, needs ${MINUTES_PER_ESCALATION}`);
+          }
+        }
+      }
       if (tu.status === "resolved") existing.turn_resolved = turn;
     } else if (tu.status === "active") {
       // BIRTH CALIBRATION: a thread is born as POTENTIAL, not a mature crisis. New threads cap

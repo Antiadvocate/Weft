@@ -389,6 +389,8 @@ export interface MindModel {
 // ───────────────────────────── world ─────────────────────────────
 
 export interface Thread {
+  /** In-world timestamp of the last RISE in tension — gates the next one (MINUTES_PER_ESCALATION). */
+  last_escalated_time?: string;
   id: string;
   title: string;
   status: "active" | "resolved" | "abandoned";

@@ -19,28 +19,33 @@ import { buildMessages, complete, safeJson } from "../llm";
 
 const TRAIT_SYSTEM = `You re-express one existing character's core traits. You are NOT redesigning them.
 
-The traits you are given are adjectives — summaries of how this person BEHAVES. Your job is to name what they ARE underneath, such that the old adjectives would be the natural consequence. Same person, same nature, described one level deeper.
+The traits you are given are adjectives — summaries of how this person BEHAVES. Name what they DO underneath, such that the old adjectives are the obvious consequence. Same person, same nature, one level more concrete.
 
-A core trait in the required form is a disposition the person did not choose, cannot explain, would not list about themselves, and had before they had reasons for anything. Not a mood, not an opinion, not a current situation, not a moral verdict. Kinds that qualify:
-- DEFAULT SETTING OF THE NERVOUS SYSTEM — resting temperament, reaction speed, present since childhood ("slow to anger and slower to let it go", "goes quiet and practical the instant a voice rises").
-- AN AVERSION OR PULL WITH NO CAUSE — an intense dislike or draw with no incident behind it ("cannot sleep with a door at her back and has never known why").
-- AN UNEARNED APTITUDE — something they were good at before anyone taught them ("reads a room's mood before anyone speaks, and is never wrong").
-- A PHYSICAL OR BEHAVIOURAL SIGNATURE — a mannerism recurring under every mood ("holds everything, cup or knife or child, in the same careful two-handed grip").
-- AN INSTINCTIVE AFFINITY — recognition arriving faster than thought ("knows within a breath whether a man is lying, and cannot say how").
+THE TEST, applied to every line you write: COULD YOU FILM IT? Each trait must name at least one concrete thing — an object, an animal, a food, a place, a part of the body, a specific action — and say what the person observably does. If a camera pointed at them for a week could not capture it, it is wrong.
+
+THREE BANNED FORMS. These are the failure, not the goal:
+ (a) ADJECTIVES — "proud", "gentle and patient". What you were given. Do not hand them back rephrased.
+ (b) ABSTRACTIONS — "cannot let a false name for a thing stand uncorrected", "feels every slight to her rank as a wound to the whole line". These sound weighty and name nothing. What thing? What name? Empty.
+ (c) PERCEPTION-MYSTICISM AND METAPHOR — "reads the weakness in a room before a word is spoken", "knows within a breath whether a man is lying", "spends another's hurt as coin". Nobody does these. Cut the metaphor and say the plain thing.
+
+Right form, by kind:
+- TEMPERAMENT AS CONDUCT: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before saying anything at all, even to say yes."
+- AVERSION OR PULL, naming the thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather."
+- UNEARNED APTITUDE, naming the skill: "Could untangle any knot before she could read; still does it while thinking."
+- PHYSICAL SIGNATURE, naming body and object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath while waiting: steps, coins, sheep."
+- AFFINITY, naming the place: "Goes to the water when anything goes wrong, and only then."
 
 HARD CONSTRAINTS:
-1. ACCOUNT FOR EVERY ORIGINAL TRAIT. Each one must be visible in your output as the disposition that produces it. State which in the "from" field. Do not drop a trait because you found it dull.
-2. INVENT NO NEW NATURE. You may only re-describe what the background, values, attachment and existing traits already establish. If the original says nothing about how they handle fear, do not decide.
-3. A MOOD IS NOT A TRAIT. If an original is a current state rather than a constitution ("homesick and lonely", "exhausted"), find the standing disposition that makes them prone to it and name that instead — the mood is what their nature is doing right now, not the nature.
-4. NO MORAL VERDICTS. "Honorable", "kind", "loyal", "cruel" are judgements. Write the disposition; let the reader judge.
-5. Written in the period's own terms — plain concrete language, nothing clinical, no modern psychology vocabulary.
+1. RETURN EXACTLY AS MANY TRAITS AS YOU WERE GIVEN. Not more. If you were given three, return three. Each must account for one original — say which in "from". Do not split one adjective into several traits.
+2. INVENT NO NEW NATURE. Re-describe only what the background, values, attachment and existing traits already establish. If the original says nothing about how they handle fear, do not decide.
+3. A MOOD IS NOT A TRAIT. If an original is a current state ("homesick and lonely", "exhausted"), name the standing habit that makes them prone to it — again as something filmable.
+4. NO MORAL VERDICTS. "Honorable", "kind", "cruel" are judgements. Write the conduct; let the reader judge.
+5. Plain period language. Nothing clinical, no modern psychology, no poetry. A person who knew them would recognise it instantly and would not call it clever.
 
-Each trait: one short concrete phrase, under about 14 words. Give the same number you were given, or one more if two originals genuinely collapse into one disposition and a separate one is needed to cover the rest.
-
-At least one should be INCONVENIENT — something that costs them, or is tiring to be near. If the originals are all flattering, the honest translation still is not: find what the flattering version costs.
+Each trait: one short concrete phrase, under about 14 words. At least one must be INCONVENIENT — something that costs them or is tiring to be near. If the originals are all flattering, the honest version still is not.
 
 Output ONLY this JSON:
-{"traits":[{"trait":"","from":"which original adjective(s) this expresses"}]}`;
+{"traits":[{"trait":"","from":"which original adjective this expresses"}]}`;
 
 export interface RetraitResult {
   name: string;
@@ -94,7 +99,12 @@ export async function retraitCharacter(
     return null;
   }
 
-  const after = traits.map((t) => String(t?.trait ?? "").trim()).filter((t) => t.length > 3);
+  // HARD CAP. The prompt asks for one-per-original; a model that ignores that produced seven traits
+  // from three and buried the person in noise. Truncate rather than trust.
+  const after = traits
+    .map((t) => String(t?.trait ?? "").trim())
+    .filter((t) => t.length > 3)
+    .slice(0, Math.max(2, Math.min(4, before.length)));
   // A translation that loses most of the person is a failed call, not a result worth keeping.
   if (after.length < Math.max(2, before.length - 1)) return null;
 
