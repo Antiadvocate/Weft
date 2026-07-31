@@ -28,6 +28,44 @@ const GUARDED = /\b(guarded|wary|warily|suspicious|distrustful|mistrustful|paran
  *  a single sour adjective sitting next to five generous ones. */
 const OPEN = /\b(warm|open|generous|trusting|kind|gentle|affectionate|guileless|earnest|gregarious|sunny|tender|forgiving|loyal|devoted)\b/i;
 
+// ── DISPOSITIONAL PHRASES ────────────────────────────────────────────────────
+// The forge now writes core traits as standing dispositions ("cannot sleep with a door at her
+// back", "goes quiet the instant anyone raises a voice") rather than adjectives, which is a much
+// better character sheet and completely invisible to the word lists above — none of those phrases
+// contains "guarded". Without this layer every character would score obduracy 0 and the softening
+// brake would silently stop existing. Match the BEHAVIOR instead of the label.
+
+/** Vigilance, withdrawal, grudge-keeping, refusal of closeness — closedness described as conduct. */
+const CLOSED_PHRASE = [
+  /\b(cannot|can't|won't|never) (sleep|sit|stand|turn|rest)\b.*\b(back|door|window|wall|exit)\b/i,
+  /\b(counts?|checks?|watches?) the (exits?|doors?|room)\b/i,
+  /\bgoes? (quiet|flat|cold|still|blank)\b/i,
+  /\b(stops? (talking|speaking)|says nothing|leaves the room|walks out)\b/i,
+  /\b(does not|doesn't|never) (forget|forgive|let (it|them) go|apolog)/i,
+  /\bkeeps? (score|count|a tally|a ledger)\b/i,
+  /\bslow(er)? to (trust|warm|forgive|let)\b/i,
+  /\b(flinch|recoil|stiffen|pull(s)? away|steps? back)\b/i,
+  /\b(assumes?|expects?) (the worst|to be (lied to|used|left))\b/i,
+  /\b(tests?|makes? (people|them) prove)\b/i,
+];
+
+/** Fast, unguarded closeness described as conduct. */
+const OPEN_PHRASE = [
+  /\btrusts? (anyone|people|them)\b.*\b(on sight|at (their|his|her) word|immediately)\b/i,
+  /\b(settles?|relaxes?|eases?) (near|around|the moment)\b/i,
+  /\btakes? (people|everyone|them) at (their|his|her) word\b/i,
+  /\b(gives?|hands?) (it|everything|themselves) away\b/i,
+];
+
+function phrasePressure(traits: string[]): number {
+  let p = 0;
+  for (const t of traits) {
+    if (CLOSED_PHRASE.some((re) => re.test(t))) p += 0.26;
+    else if (OPEN_PHRASE.some((re) => re.test(t))) p -= 0.14;
+  }
+  return p;
+}
+
 function traitPressure(words: string[]): number {
   let up = 0, down = 0;
   for (const w of words) {
@@ -53,7 +91,10 @@ export function obduracyOf(c: Identity | undefined, acquired: AcquiredTrait[] = 
   if (!c) return 0;
   let o = 0;
 
-  o += Math.max(0, traitPressure(c.core_traits ?? []));
+  // Adjective-form traits (older saves, and the simulator's mid-game additions) and
+  // dispositional-phrase traits (the forge's current output) are both counted.
+  const traits = c.core_traits ?? [];
+  o += Math.max(0, traitPressure(traits) + phrasePressure(traits));
 
   switch (c.attachment?.style) {
     case "avoidant":     o += 0.30; break;  // distance IS the regulation strategy
