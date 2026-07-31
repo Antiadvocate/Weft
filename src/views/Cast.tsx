@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Heart, Mic, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -45,6 +45,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
   const [revoicing, setRevoicing] = useState(false);
+  const [retraiting, setRetraiting] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -295,6 +296,16 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <Sparkles size={16} style={{ color: embodyConfirm ? "var(--accent)" : "var(--text-lo)" }} />
                     </button>
                   )}
+                  {/* RE-EXPRESS CORE TRAITS — translate this person's adjective traits into the
+                      constitutional dispositions underneath them. Same person, one level deeper;
+                      originals kept in core_traits_legacy. */}
+                  <button disabled={retraiting} onClick={async () => {
+                    setRetraiting(true);
+                    try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits as they are */ }
+                    finally { setRetraiting(false); }
+                  }} title="re-express core traits as dispositions — same person, described one level deeper">
+                    <Fingerprint size={16} style={{ color: retraiting ? "var(--accent)" : "var(--text-lo)" }} />
+                  </button>
                   {/* FRESH READER — re-derive this person's voice from their card alone. The refresher
                       never sees narrator prose, so it can't inherit the drift that made everyone sound
                       wise. Their example_lines are replaced, not added to. */}
