@@ -517,6 +517,61 @@ export const api = {
   },
 
   /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
+  // ── PLACES, BY HAND ──────────────────────────────────────────────────────────
+  // The Forge names ten places and the resolver only ever mints more from narrator prose,
+  // so anything the PLAYER builds — a house, a camp, a compound — has no way to become a
+  // location. It gets described, lived in, changed, and then quietly isn't anywhere, because
+  // presence is derived from co-location and there is no location to be co-located at.
+  // Hand-made places are marked `founding` so the place-cap GC can never evict them: a
+  // location the player deliberately created is by definition not junk.
+
+  addPlace: async (id: string, name: string, description = ""): Promise<ClientSave> => {
+    const s = await need(id);
+    const clean = name.trim().slice(0, 60);
+    if (!clean) throw new Error("A place needs a name.");
+    const existing = Object.values(s.world.places).find((p) => p.name.toLowerCase() === clean.toLowerCase());
+    if (existing) throw new Error(`"${existing.name}" already exists.`);
+    const pid = uid("loc");
+    s.world.places[pid] = { id: pid, name: clean, description_facts: description.trim(), contains: [], founding: true };
+    await putSave(s);
+    return clientView(s);
+  },
+
+  editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    const p = s.world.places[place_id];
+    if (!p) throw new Error("No such place.");
+    if (patch.name !== undefined && patch.name.trim()) p.name = patch.name.trim().slice(0, 60);
+    if (patch.description_facts !== undefined) p.description_facts = patch.description_facts.trim();
+    p.founding = true;                       // touched by hand = protected from the cap
+    await putSave(s);
+    return clientView(s);
+  },
+
+  deletePlace: async (id: string, place_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    if (place_id === s.world.player_location) throw new Error("You're standing there.");
+    const occupied = Object.values(s.characters).filter((c: any) => c.location === place_id).map((c: any) => c.name);
+    if (occupied.length) throw new Error(`${occupied.join(", ")} ${occupied.length === 1 ? "is" : "are"} there — move them first.`);
+    delete s.world.places[place_id];
+    await putSave(s);
+    return clientView(s);
+  },
+
+  // Force a character (or the player) into a place, overriding whatever the bookkeeper inferred.
+  // This is the manual counterpart to the travelling-companion rule: when the engine strands
+  // someone, you put them back yourself instead of editing raw JSON.
+  setLocation: async (id: string, char_id: string, place_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!s.world.places[place_id]) throw new Error("No such place.");
+    if (char_id === "char_player") s.world.player_location = place_id;
+    const c = s.characters[char_id];
+    if (c) (c as any).location = place_id;
+    syncPresence(s);                          // presence is derived, so recompute it now
+    await putSave(s);
+    return clientView(s);
+  },
+
   montagePreflight: async (id: string, direction: string, days?: number): Promise<string[]> => {
     const s = await need(id);
     return preflightDirection(s, direction, days);
