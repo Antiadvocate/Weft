@@ -153,6 +153,10 @@ export interface Rumor {
   born_turn: number;
   about_char?: string;
   dead?: boolean;            // fully diffused or decayed out
+  /** PROVENANCE — every hop, oldest first. Answers "how does this person know?" with a route
+   *  rather than an assumption. A rumor with no path is pre-provenance (old save) and is treated
+   *  as origin-only. */
+  path?: { to: string; from: string | null; turn: number; how: "witnessed" | "told"; where?: string | null }[];
 }
 
 export interface FactionClock {
@@ -164,6 +168,8 @@ export interface FactionClock {
   consequence: string;       // what fires at completion
   visible_signs: string[];   // what leaks into scenes as it advances
   last_advanced_time?: string; // in-world timestamp of the last segment — gates the next one (see MINUTES_PER_SEGMENT)
+  stalled_since?: number;      // turn this clock first found itself with nothing to act on
+  knowledge_chain?: string[];  // how this faction came to know — printed in the World tab, oldest hop first
   status: "running" | "fired" | "stalled";
 }
 

@@ -18,6 +18,7 @@ import { asText } from "./coerce";
 import { relevance } from "./memory";
 import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
+import { recordHop } from "./knowledge";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -222,6 +223,10 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
           const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread;
           if (rng() < p) {
             rumor.knowers.push(j);
+            // PROVENANCE: record who told whom, where, and when. Without this the knowers list is
+            // a set of people who somehow know, with no route — and "how does he know?" has no
+            // answer the engine can give.
+            recordHop(rumor, k, j, state.world.current_turn, state.world.places[state.characters[j]?.location ?? ""]?.name);
             log.push(`${state.characters[j]?.name ?? j} hears: "${rumor.content}" (from ${state.characters[k]?.name ?? k})`);
             // GROWTH: carried by matching weather, the story sharpens in the telling — the CA's
             // accrual term, balanced against the decay above so the field can't only complexify.

@@ -22,6 +22,7 @@ import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
+import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -1508,6 +1509,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
 
   if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [], { dispersion: undertow.dispersion, sharedTarget: undertow.shared_target })); // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; dispersion spreads the cast off any shared magnet; suppressed entirely at tension 0
+  // SEED BEFORE SPREAD. The diffusion engine was correct and permanently empty because nothing
+  // created rumors — the simulator's optional rumors_new was the only writer and it rarely fires.
+  // A witnessed memory big enough to be worth repeating IS the seed, and it costs no tokens.
+  offscreenLog.push(...seedWitnessRumors(state, state.world.current_turn));
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence
@@ -2888,6 +2893,29 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if ((state.model_settings.tension ?? 5) <= 0) break;   // tension 0: faction clocks freeze, no background escalation
     const clock = state.world.clocks.find((c) => c.id === ca.id || c.faction.toLowerCase() === String(ca.id).toLowerCase());
     if (clock && clock.status === "running") {
+      // ── KNOWLEDGE GATE ── a clock is a faction closing on an objective, and a faction cannot
+      // close on an objective it knows nothing about. Pressure is how TENSE the scene is; it is
+      // not information, and it used to be the only thing driving this. So: before a segment
+      // fills, some living member of this faction must have witnessed the relevant thing or been
+      // told it by someone who did, with the whole route recorded. Kill the witnesses and the
+      // route genuinely does not exist — which is the correct outcome, not a bug to route around.
+      const verdict = factionKnows(state, clock.faction, clock.objective);
+      if (!verdict.knows) {
+        console.warn(`[clocks] ${clock.faction} held at ${clock.filled}/${clock.segments} — ${verdict.gap}`);
+        // A faction with no knowledge is not frozen, it's just doing something else. Rewriting the
+        // objective is honest; firing the old one on a fiction is what produced armed men who
+        // somehow knew about a stranger nobody had reported.
+        if (clock.filled === 0 && state.world.current_turn - (clock.stalled_since ?? state.world.current_turn) > 12) {
+          clock.objective = mundaneObjective(clock.faction);
+          clock.status = "stalled";
+          shifts.push(`${clock.faction} has nothing to act on and turns to its own business.`);
+        }
+        clock.stalled_since ??= state.world.current_turn;
+        continue;
+      }
+      delete clock.stalled_since;
+      clock.knowledge_chain = verdict.chain;   // inspectable: how this faction came to know
+
       // ── TIME GATE ── segments used to cost one TURN, not one hour, so eight quick exchanges in a
       // kitchen matured a warband's investigation to completion inside a single morning. Scheduled
       // events were already fixed to fire on the in-world calendar; clocks never were. A faction
@@ -2902,6 +2930,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       }
       clock.filled = clamp(clock.filled + Math.min(1, ca.segments ?? 1), 0, clock.segments); // a clock ADVANCES — one segment per turn; a clock that leaps is a jump scare, not a clock
       (clock as { last_advanced_time?: string }).last_advanced_time = now;
+      console.info(`[clocks] ${clock.faction} → ${clock.filled}/${clock.segments} via: ${verdict.chain.join(" → ")}`);
       // ── VISIBLE SIGNS ── the Forge writes these, the save stores them, and until now NOTHING read
       // them: a clock filled in total silence and then detonated its consequence with no foreshadow,
       // which is exactly why an arriving warband reads as invented rather than built. Surface one as
