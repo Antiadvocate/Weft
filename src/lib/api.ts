@@ -23,6 +23,7 @@ import { detectWorldPronoun } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
+import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
 
 export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
 export type {
@@ -517,6 +518,24 @@ export const api = {
   },
 
   /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
+  // MIGRATE CORE TRAITS. Re-expresses adjective-form traits ("Proud and honorable") as the
+  // constitutional dispositions underneath them. A translation, not a re-roll: the same person,
+  // described one level deeper, with the originals preserved in core_traits_legacy.
+  retraitCast: async (id: string, force = false): Promise<{ save: ClientSave; changed: RetraitResult[] }> => {
+    const s = await need(id);
+    const changed = await retraitCast(s, s.model_settings.forge_model, force);
+    if (changed.length) await putSave(s);
+    return { save: clientView(s), changed };
+  },
+
+  retraitOne: async (id: string, char_id: string, force = true): Promise<ClientSave> => {
+    const s = await need(id);
+    const r = await retraitCharacter(s, char_id, s.model_settings.forge_model, force);
+    if (!r) throw new Error("Couldn't re-express those traits — try again.");
+    await putSave(s);
+    return clientView(s);
+  },
+
   // Re-read one character's script cold. The refresher sees the card as it stands now — core traits
   // plus what play has made them — and never sees a line of prose, so it cannot inherit the drift.
   // example_lines are REPLACED: keeping the old ones would feed the drifted voice back in as an
