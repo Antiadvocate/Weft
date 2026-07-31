@@ -163,6 +163,7 @@ export interface FactionClock {
   filled: number;            // progress
   consequence: string;       // what fires at completion
   visible_signs: string[];   // what leaks into scenes as it advances
+  last_advanced_time?: string; // in-world timestamp of the last segment — gates the next one (see MINUTES_PER_SEGMENT)
   status: "running" | "fired" | "stalled";
 }
 

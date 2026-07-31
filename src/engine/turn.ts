@@ -19,7 +19,7 @@ import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
-import { advance, heuristicMinutes, advanceWeather } from "./time";
+import { advance, heuristicMinutes, advanceWeather, minutesBetween } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
@@ -173,6 +173,10 @@ export function updatePaging(state: SaveState, action: string): void {
 
 /** The world may grow, but not without limit. Above this, the oldest unused, non-founding place is
  *  forgotten — the Forge's own locations are the spine and are never taken. */
+/** In-world minutes a faction clock must wait between segments. A warband sends a rider, hears
+ *  back, and decides — that is hours, not "however many times the player pressed enter". */
+export const MINUTES_PER_SEGMENT = 180;
+
 export const PLACE_CAP = 16;
 
 /** PLACE GC — resolvePlace creates a record for every unmatched name and nothing ever cleaned
@@ -1219,6 +1223,35 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const spoken = new Set(rebuilt.map((r) => r.char_id));
     for (const l of diff.locations ?? []) if (!spoken.has(l.char_id) && l.char_id !== "char_player") rebuilt.push(l);
     diff.locations = rebuilt;
+  }
+
+  // ── TRAVELLING COMPANIONS ── the player's move is applied unconditionally from the footer, but
+  // everyone else's needs either a footer `entered` line or a quoted simulator move. Nobody
+  // "enters" when they were already walking beside you, so a companion who guides the player
+  // somewhere gets left standing in the last location while the camera goes on without them.
+  // Presence is derived from co-location, so they then vanish from a scene they are visibly IN —
+  // speaking, named, addressed by other characters — which is how Muirenn walked Anki to the
+  // village and ceased to exist on arrival.
+  //
+  // Deliberately narrow. Only someone who (a) was present last turn, (b) has no other movement
+  // recorded this turn, and (c) is still named in this turn's prose comes along. A companion who
+  // was written as staying behind won't be in the prose and won't be dragged.
+  {
+    const destName = diff.player_location;
+    const destPid = destName ? resolvePlace(state, destName, { keepIfUnknown: true, noCreate: true }) : state.world.player_location;
+    if (destName && destPid !== state.world.player_location) {
+      const moved = new Set((diff.locations ?? []).map((l) => l.char_id));
+      const hay = prose.toLowerCase();
+      for (const cid of state.world.present) {
+        if (cid === "char_player" || moved.has(cid)) continue;
+        const c = state.characters[cid];
+        if (!c || c.status === "dead" || c.status === "departed") continue;
+        const first = c.name.split(/\s+/)[0]?.toLowerCase() ?? "";
+        if (first.length < 3 || !hay.includes(first)) continue;
+        (diff.locations ??= []).push({ char_id: cid, place: destName, said: "narrator: travelled with the player" });
+        console.info(`[places] ${c.name} was still in the scene on arrival — brought along to "${destName}"`);
+      }
+    }
   }
 
   // ── MOVEMENT NEEDS EVIDENCE ── every location change must quote the prose that describes it. The
@@ -2855,7 +2888,30 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     if ((state.model_settings.tension ?? 5) <= 0) break;   // tension 0: faction clocks freeze, no background escalation
     const clock = state.world.clocks.find((c) => c.id === ca.id || c.faction.toLowerCase() === String(ca.id).toLowerCase());
     if (clock && clock.status === "running") {
+      // ── TIME GATE ── segments used to cost one TURN, not one hour, so eight quick exchanges in a
+      // kitchen matured a warband's investigation to completion inside a single morning. Scheduled
+      // events were already fixed to fire on the in-world calendar; clocks never were. A faction
+      // needs real hours to send a rider, hear the answer and decide, so a segment now costs
+      // MINUTES_PER_SEGMENT of in-world time since that clock last moved.
+      const now = state.world.current_time;
+      const last = (clock as { last_advanced_time?: string }).last_advanced_time;
+      const waited = last ? minutesBetween(last, now) : MINUTES_PER_SEGMENT;
+      if (waited < MINUTES_PER_SEGMENT) {
+        console.info(`[clocks] ${clock.faction} held — ${Math.round(waited)}min since last segment, needs ${MINUTES_PER_SEGMENT}`);
+        continue;
+      }
       clock.filled = clamp(clock.filled + Math.min(1, ca.segments ?? 1), 0, clock.segments); // a clock ADVANCES — one segment per turn; a clock that leaps is a jump scare, not a clock
+      (clock as { last_advanced_time?: string }).last_advanced_time = now;
+      // ── VISIBLE SIGNS ── the Forge writes these, the save stores them, and until now NOTHING read
+      // them: a clock filled in total silence and then detonated its consequence with no foreshadow,
+      // which is exactly why an arriving warband reads as invented rather than built. Surface one as
+      // the clock crosses the halfway mark and again near the end.
+      const frac = clock.filled / Math.max(1, clock.segments);
+      const signs = clock.visible_signs ?? [];
+      if (signs.length && (frac >= 0.5)) {
+        const idx = Math.min(signs.length - 1, frac >= 0.85 ? signs.length - 1 : 0);
+        shifts.push(`SIGN (${clock.faction}): ${signs[idx]}`);
+      }
       shifts.push(clock.filled >= clock.segments ? `${clock.faction}'s clock has run out.` : `${clock.faction} moved closer to their objective.`);
     }
   }
