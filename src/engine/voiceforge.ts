@@ -114,3 +114,74 @@ export async function forgeCastVoices(
     }
   }
 }
+
+// ── THE FRESH READER ─────────────────────────────────────────────────────────
+//
+// Voice drift is self-conditioning: the narrator sees its own last paragraph and matches it, so
+// every turn is a copy of a copy and the whole cast slides toward the model's default register —
+// smooth, knowing, closing each speech on a portable maxim. Instructions can't stop it, because
+// the thing being imitated is right there in the context and an instruction is not.
+//
+// So this pass never sees the prose. It reads the character card as it stands NOW — including
+// who play has made them — and re-derives the voice from scratch, tail-sampled. It is the
+// equivalent of handing the script to an actor who hasn't heard the previous takes. The old
+// example_lines are OVERWRITTEN, not appended: keeping them would reintroduce the drifted voice
+// as an exemplar, which is the exact loop this exists to break.
+
+/** Turns between automatic refreshes for a character who is actually in scenes. */
+export const VOICE_REFRESH_INTERVAL = 12;
+
+export async function refreshVoice(
+  state: any,
+  charId: string,
+  model: string,
+): Promise<boolean> {
+  const c = state.characters?.[charId];
+  if (!c) return false;
+
+  // Who play has made them — a woman who acquired "openly bitter about the raid" should sound like
+  // it. The refresh reads the CURRENT card, so voices move with the character instead of resetting.
+  const acquired = (state.traits?.[charId] ?? [])
+    .filter((t: any) => (t.intensity ?? 0) >= 5)
+    .slice(0, 4)
+    .map((t: any) => `${t.label} (${t.behavioral_impact})`);
+
+  const npcView = {
+    ...c,
+    core_traits: [...(c.core_traits ?? []), ...acquired],
+  };
+
+  const worldNote = `${state.world_bible?.name ?? ""} — ${state.world_bible?.era ?? ""}`;
+
+  // Anti-set: what everyone ELSE currently sounds like, so a refresh can't converge the cast.
+  const avoid: string[] = [];
+  for (const [id, other] of Object.entries<any>(state.characters ?? {})) {
+    if (id === charId || id === "char_player") continue;
+    for (const l of other?.voice?.example_lines ?? []) avoid.push(l);
+  }
+
+  const voice = await forgeVoice(npcView, worldNote, model, avoid.slice(0, 8));
+  if (!voice) return false;
+
+  c.voice = { ...(c.voice ?? {}), ...voice };      // example_lines REPLACED, deliberately
+  if (voice.example_lines?.length) {
+    c.speech_pattern = `${voice.diction}. ${voice.syntax}. ${voice.rhythm}.`;
+  }
+  c.voice_refreshed_turn = state.world?.current_turn ?? 0;
+  return true;
+}
+
+/** Refresh anyone in the scene who is overdue. Cheap: one small call per stale character. */
+export async function refreshStaleVoices(state: any, model: string): Promise<string[]> {
+  const turn = state.world?.current_turn ?? 0;
+  const done: string[] = [];
+  for (const id of state.world?.present ?? []) {
+    if (id === "char_player") continue;
+    const c = state.characters?.[id];
+    if (!c) continue;
+    const last = c.voice_refreshed_turn ?? 0;
+    if (turn - last < VOICE_REFRESH_INTERVAL) continue;
+    if (await refreshVoice(state, id, model)) done.push(c.name);
+  }
+  return done;
+}

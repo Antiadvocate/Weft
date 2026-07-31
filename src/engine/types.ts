@@ -221,6 +221,10 @@ export interface Identity {
     agenda?: string;          // subtext: what they're usually angling for under the words — people speak from agenda, not to inform
     example_lines?: string[]; // 2-4 lines ONLY this person could say — the register in action, never reused verbatim
   };
+  /** Turn the voice was last re-derived by the fresh-reader pass. Voice drifts because the narrator
+   *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
+   *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
+  voice_refreshed_turn?: number;
   aliases?: string[];         // other handles the fiction uses for this person — nicknames, titles, epithets ("the captain", "Sor"). Feeds name resolution and memory retrieval so a reference by title still finds the person.
   attracted_to?: string;      // orientation — who this person can desire at all ("women", "men", "anyone", "no one"). A hard gate, not a preference.
   beauty?: number;            // 0..100 intrinsic attractiveness — the millisecond snap-read a stranger gets before any relationship. Species-agnostic: a disembodied voice, a machine, a beast can all be beautiful. Set at creation from appearance (symmetry, youth/vitality, presence, striking features), NOT from who's looking — personal taste is applied on top per-observer at seeding. ~50 = ordinary; 75+ = turns heads; <30 = plain/off-putting. The engine derives a fallback from age when unset; never overwrites a set value.

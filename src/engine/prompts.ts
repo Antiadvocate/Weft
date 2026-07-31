@@ -895,7 +895,11 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   const vc = ident.voice;
   const vFinger = vc ? [vc.diction, vc.syntax, vc.rhythm].filter(Boolean).join("; ") : "";
-  const vLines = vc?.example_lines?.length ? ` In their own words (register only — never reuse): ${vc.example_lines.slice(0, 2).map((l) => `“${l}”`).join(" · ")}.` : "";
+  // EXEMPLARS ARE THE AUTHORITY. This used to read "register only — never reuse", which told the model
+  // to extract the gist and write its own smoother version — i.e. to discard the one concrete sample of
+  // this person's voice in favor of its default. Don't quote them verbatim into the scene, but the
+  // diction, sentence length, and refusals are binding.
+  const vLines = vc?.example_lines?.length ? ` THIS IS HOW THEY TALK — match this diction, sentence length and roughness exactly; write new lines, not these lines: ${vc.example_lines.slice(0, 3).map((l) => `“${l}”`).join(" · ")}. If what you are about to write for them is smoother, wiser, or more quotable than these, it is wrong.` : "";
   const vNever = vc?.never_says?.length ? ` Never says: ${vc.never_says.slice(0, 3).join(" | ")}.` : "";
   const consc = typeof ident.conscience === "number" && ident.conscience <= 0.55
     ? ` Conscience: ${ident.conscience <= 0.35
@@ -1184,7 +1188,12 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     const recentStr = (lvl >= 2 ? recent : recent.slice(-1))
       .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}`)
       .join("\n") || "This is the opening.";
-    const proseTail = lastProse ? `\n\n=== THE MOMENT JUST BEFORE THIS (most recent prose — continue from here, keep voices and facts consistent with it) ===\n${lastProse.narrator_prose.slice(lvl >= 3 ? -900 : -500)}` : "";
+    // CONTINUITY, NOT STYLE. This block used to say "keep voices consistent with it", which made every
+    // turn imitate the turn before it — turn 36 copying 35's copy of 34. Voice drift compounded one hop
+    // at a time and always in the same direction, because the model's default register is what it falls
+    // toward when it imitates itself. The character cards are the voice authority; this is the camera
+    // position. Facts, posture, who is mid-sentence — not how anyone sounds.
+    const proseTail = lastProse ? `\n\n=== THE MOMENT JUST BEFORE THIS (most recent prose) ===\n${lastProse.narrator_prose.slice(lvl >= 3 ? -900 : -500)}\n\nUse this ONLY for continuity — where people are standing, what was just asked, what is unfinished, what physically happened. It has NO authority over how anyone sounds. Do NOT match its cadence, its sentence shapes, or its habits of closing a paragraph; if its phrasing has drifted toward a smooth, knowing register, that drift is a fault to correct, not a voice to continue. Each character's own lines below are the register.` : "";
 
     const focusBlock = state.world.focus ? `=== FOCUS — ${state.world.focus.mode === "active" ? "now inside this event" : "building toward this; do not sideline it"} ===\n${state.world.focus.label}\n` : "";
     // Threads/clocks: the narrator does NOT get the full descriptions, objectives, and visible signs —
