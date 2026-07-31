@@ -22,7 +22,7 @@ import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
-import { forgeCastVoices } from "../engine/voiceforge";
+import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
 
 export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
 export type {
@@ -517,6 +517,18 @@ export const api = {
   },
 
   /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
+  // Re-read one character's script cold. The refresher sees the card as it stands now — core traits
+  // plus what play has made them — and never sees a line of prose, so it cannot inherit the drift.
+  // example_lines are REPLACED: keeping the old ones would feed the drifted voice back in as an
+  // exemplar, which is the loop this exists to break.
+  refreshVoice: async (id: string, char_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const ok = await refreshVoice(s, char_id, s.model_settings.forge_model);
+    if (!ok) throw new Error("Couldn't re-derive that voice — try again.");
+    await putSave(s);
+    return clientView(s);
+  },
+
   // ── PLACES, BY HAND ──────────────────────────────────────────────────────────
   // The Forge names ten places and the resolver only ever mints more from narrator prose,
   // so anything the PLAYER builds — a house, a camp, a compound — has no way to become a
@@ -1127,6 +1139,14 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       onDelta: (t) => { proseAcc += t; ev.onDelta?.(t); },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco });
+    // FRESH READER. After the turn, re-derive the voice of anyone in the scene whose card hasn't
+    // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of
+    // narrator prose — so it can't inherit the drift it exists to undo. Best-effort and silent:
+    // a failed refresh just leaves the existing voice in place.
+    try {
+      const refreshed = await refreshStaleVoices(s, s.model_settings.forge_model);
+      if (refreshed.length) console.info(`[voice] re-read from the card: ${refreshed.join(", ")}`);
+    } catch { /* voice refresh is never allowed to fail a turn */ }
     await putSave(s);
     // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
     // bounded to <25 turns even with no export anywhere
