@@ -182,6 +182,10 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
   const [desc, setDesc] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
+  // which place is open for editing, and the draft being typed into it
+  const [editing, setEditing] = React.useState<string | null>(null);
+  const [draftName, setDraftName] = React.useState("");
+  const [draftDesc, setDraftDesc] = React.useState("");
 
   const run = async (fn: () => Promise<ClientSave>) => {
     setBusy(true); setErr("");
@@ -213,11 +217,42 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                 )}
                 <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
                   style={{ color: "var(--text-lo)" }}
+                  onClick={() => {
+                    if (editing === p.id) { setEditing(null); return; }
+                    setEditing(p.id); setDraftName(p.name); setDraftDesc(p.description_facts ?? ""); setErr("");
+                  }}>{editing === p.id ? "close" : "edit"}</button>
+                <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
+                  style={{ color: "var(--text-lo)" }}
                   onClick={() => run(() => api.deletePlace(save.id, p.id))}>del</button>
               </div>
             </div>
-            {p.description_facts && (
-              <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
+
+            {editing === p.id ? (
+              // EDITOR — the description is what the narrator actually reads about this place, so it
+              // needs room. A house you keep adding rooms to is a paragraph, not a caption.
+              <div className="space-y-1.5 mt-1.5">
+                <input value={draftName} onChange={(e) => setDraftName(e.target.value)}
+                  className="w-full bg-transparent text-[13px] outline-none border-b py-1"
+                  style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
+                <textarea value={draftDesc} onChange={(e) => setDraftDesc(e.target.value)} rows={7}
+                  placeholder="What is physically here — rooms, contents, who's usually around. The narrator reads this."
+                  className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
+                  style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 120 }} />
+                <div className="flex gap-3">
+                  <button disabled={busy || !draftName.trim()} className="font-mono text-[10px] uppercase tracking-widest py-1"
+                    style={{ color: "var(--accent)" }}
+                    onClick={() => run(async () => {
+                      const n = await api.editPlace(save.id, p.id, { name: draftName, description_facts: draftDesc });
+                      setEditing(null); return n;
+                    })}>save</button>
+                  <button disabled={busy} className="font-mono text-[10px] uppercase tracking-widest py-1"
+                    style={{ color: "var(--text-lo)" }} onClick={() => setEditing(null)}>cancel</button>
+                </div>
+              </div>
+            ) : (
+              p.description_facts && (
+                <div className="text-[12px] whitespace-pre-wrap" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
+              )
             )}
             <div className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
               {here.length ? here.map(([, c]: any) => c.name).join(", ") : "empty"}
@@ -230,9 +265,10 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New place — name it as someone would say it"
           className="w-full bg-transparent text-[13px] outline-none border-b py-1"
           style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What's physically there (optional)"
-          className="w-full bg-transparent text-[12px] outline-none border-b py-1"
-          style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)" }} />
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={5}
+          placeholder="What's physically there — rooms, contents, who's usually around (optional, but the narrator reads it)"
+          className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
+          style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 90 }} />
         <button disabled={busy || !name.trim()} className="font-mono text-[10px] uppercase tracking-widest py-1"
           style={{ color: name.trim() ? "var(--accent)" : "var(--text-lo)" }}
           onClick={() => run(async () => { const n = await api.addPlace(save.id, name, desc); setName(""); setDesc(""); return n; })}>
