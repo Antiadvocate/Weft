@@ -881,7 +881,7 @@ export const api = {
       } catch (e: any) { lastErr = `${m}: ${e.message}`; g = null; }
     }
     if (!g) throw new Error(`The forge failed after 3 attempts — ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
-
+await forgeCastVoices(g.npcs ?? [], g.world_bible?.name + " — " + g.world_bible?.era, model);
     const bible: WorldBible = {
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
