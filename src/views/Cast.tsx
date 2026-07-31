@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
@@ -46,6 +46,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [imgErr, setImgErr] = useState<string | null>(null);
   const [revoicing, setRevoicing] = useState(false);
   const [retraiting, setRetraiting] = useState(false);
+  const [menu, setMenu] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -55,7 +56,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
   const [ivErr, setIvErr] = useState("");
 
-  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); }, [sel]);
+  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setMenu(false); }, [sel]);
 
   const commitFacts = async (facts: { content: string; quote?: string }[]) => {
     if (!sel) return;
@@ -270,59 +271,85 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 relative">
+                  {/* Only the three controls used constantly stay on the strip. Everything else moved
+                      into the overflow below — ten unlabeled glyphs in a row is not a toolbar, it's a
+                      guessing game, and the destructive ones sat next to the harmless ones. */}
                   {sel !== "char_player" && (
                     <button onClick={() => toggleFollow(sel!, !c.tracked)} title={c.tracked ? "following — tap to unfollow" : "follow in the long game"}>
                       {c.tracked ? <Eye size={16} style={{ color: "var(--accent)" }} /> : <EyeOff size={16} style={{ color: "var(--text-lo)" }} />}
                     </button>
                   )}
-                  {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && c.central !== false && (
-                    <button onClick={() => changeStatus(sel!, "background")} title="background — demote to a minor figure (frees a central slot, the engine stops giving them full focus)">
-                      <ArrowDownToLine size={16} style={{ color: "var(--text-lo)" }} />
-                    </button>
-                  )}
-                  {sel !== "char_player" && c.status !== "departed" && c.status !== "dead" && (
-                    <button onClick={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} title="send away — they leave the story permanently (reversible)">
-                      <DoorOpen size={16} style={{ color: "var(--text-lo)" }} />
-                    </button>
-                  )}
-                  {sel !== "char_player" && c.status === "departed" && (
-                    <button onClick={() => changeStatus(sel!, "restore")} title="bring back into the story">
-                      <RotateCcw size={16} style={{ color: "var(--accent)" }} />
-                    </button>
-                  )}
-                  {sel !== "char_player" && (
-                    <button onClick={() => setEmbodyConfirm(true)} title="embody">
-                      <Sparkles size={16} style={{ color: embodyConfirm ? "var(--accent)" : "var(--text-lo)" }} />
-                    </button>
-                  )}
-                  {/* RE-EXPRESS CORE TRAITS — translate this person's adjective traits into the
-                      constitutional dispositions underneath them. Same person, one level deeper;
-                      originals kept in core_traits_legacy. */}
-                  <button disabled={retraiting} onClick={async () => {
-                    setRetraiting(true);
-                    try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits as they are */ }
-                    finally { setRetraiting(false); }
-                  }} title="re-express core traits as dispositions — same person, described one level deeper">
-                    <Fingerprint size={16} style={{ color: retraiting ? "var(--accent)" : "var(--text-lo)" }} />
+                  <button onClick={editing ? () => setEditing(false) : startEdit} title="edit">
+                    <Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
-                  {/* FRESH READER — re-derive this person's voice from their card alone. The refresher
-                      never sees narrator prose, so it can't inherit the drift that made everyone sound
-                      wise. Their example_lines are replaced, not added to. */}
-                  <button disabled={revoicing} onClick={async () => {
-                    setRevoicing(true);
-                    try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave the old voice */ }
-                    finally { setRevoicing(false); }
-                  }} title="re-read their script cold — regenerate how they talk from the character card, ignoring how they've been written lately">
-                    <Mic size={16} style={{ color: revoicing ? "var(--accent)" : "var(--text-lo)" }} />
+                  <button onClick={() => setMenu((m) => !m)} title="more">
+                    <MoreHorizontal size={18} style={{ color: menu ? "var(--accent)" : "var(--text-lo)" }} />
                   </button>
-                  <button onClick={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} title="raw edit (full JSON)">
-                    <Braces size={16} style={{ color: rawJson !== null ? "var(--accent)" : "var(--text-lo)" }} />
+                  <button onClick={() => { setSel(null); setEditing(false); setMenu(false); }} title="close">
+                    <X size={18} style={{ color: "var(--text-lo)" }} />
                   </button>
-                  <button onClick={paint} title="generate portrait"><Brush size={16} style={{ color: painting ? "var(--accent)" : "var(--text-lo)" }} /></button>
-                  <button onClick={rescore} title={`re-score attractiveness${typeof c.beauty === "number" ? ` (now ${c.beauty})` : ""} — recomputes the on-sight read from current appearance`}><Heart size={16} style={{ color: scoring ? "var(--accent)" : "var(--text-lo)" }} /></button>
-                  <button onClick={editing ? () => setEditing(false) : startEdit}><Pencil size={16} style={{ color: editing ? "var(--accent)" : "var(--text-lo)" }} /></button>
-                  <button onClick={() => { setSel(null); setEditing(false); }}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
+
+                  {menu && (
+                    <>
+                      {/* click-anywhere-else to dismiss */}
+                      <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} />
+                      <div className="absolute right-0 top-8 z-50 rounded-xl overflow-hidden"
+                        style={{ background: "var(--ink-1)", border: "1px solid var(--line-strong)", minWidth: 232, boxShadow: "0 8px 28px rgba(0,0,0,0.28)" }}>
+                        {(() => {
+                          const npc = sel !== "char_player";
+                          const alive = c.status !== "departed" && c.status !== "dead";
+                          const Item = ({ icon, label, note, on, busy, danger }: any) => (
+                            <button disabled={busy} onClick={() => { setMenu(false); on(); }}
+                              className="w-full flex items-start gap-2.5 px-3 py-2 text-left"
+                              style={{ borderBottom: "1px solid var(--ink-3)" }}>
+                              <span className="mt-0.5 shrink-0">{icon}</span>
+                              <span className="min-w-0">
+                                <span className="block text-[13px]" style={{ color: danger ? "var(--danger)" : "var(--text-hi)" }}>
+                                  {busy ? "working…" : label}
+                                </span>
+                                {note && <span className="block text-[10.5px] leading-snug" style={{ color: "var(--text-lo)" }}>{note}</span>}
+                              </span>
+                            </button>
+                          );
+                          const grey = { color: "var(--text-lo)" };
+                          return (
+                            <>
+                              <Item icon={<Brush size={15} style={grey} />} label="Generate portrait" busy={painting} on={paint} />
+                              <Item icon={<Braces size={15} style={grey} />} label="Raw edit" note="the full character JSON"
+                                on={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} />
+                              <Item icon={<Fingerprint size={15} style={grey} />} label="Re-express core traits"
+                                note="same person, described one level deeper — originals kept"
+                                busy={retraiting}
+                                on={async () => { setRetraiting(true); try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits */ } finally { setRetraiting(false); } }} />
+                              <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
+                                note="regenerate how they talk from the card, ignoring recent drift"
+                                busy={revoicing}
+                                on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />
+                              <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
+                                note={typeof c.beauty === "number" ? `currently ${c.beauty} — recomputes from appearance` : "recomputes from appearance"}
+                                busy={scoring} on={rescore} />
+                              {npc && <Item icon={<Sparkles size={15} style={grey} />} label="Embody" on={() => setEmbodyConfirm(true)} />}
+                              {npc && alive && c.central !== false && (
+                                <Item icon={<ArrowDownToLine size={15} style={grey} />} label="Move to background"
+                                  note="frees a central slot; the engine stops giving them full focus"
+                                  on={() => changeStatus(sel!, "background")} />
+                              )}
+                              {npc && c.status === "departed" && (
+                                <Item icon={<RotateCcw size={15} style={{ color: "var(--accent)" }} />} label="Bring back into the story"
+                                  on={() => changeStatus(sel!, "restore")} />
+                              )}
+                              {npc && alive && (
+                                <Item icon={<DoorOpen size={15} style={{ color: "var(--danger)" }} />} label="Send away" danger
+                                  note="they leave the story and this scene — reversible from the Gone list"
+                                  on={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} />
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portrait…</span></div>}
