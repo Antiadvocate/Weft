@@ -29,17 +29,37 @@ export interface VoiceCard {
 
 interface Candidate { probability: number; voice: VoiceCard }
 
+
+/** The period brief. `name — era` was never enough: a voice pass that only knows the era STRING
+ *  will happily write a 7th-century widow talking like someone in 2026, because nothing told it
+ *  what her world does and doesn't contain. Technology and culture are what actually constrain
+ *  vocabulary, so they go in. */
+export function worldBriefOf(bible: any): string {
+  return [
+    bible?.name ? `Setting: ${bible.name}` : "",
+    bible?.era ? `Period: ${bible.era}` : "",
+    bible?.technology_level ? `Material world (nothing beyond this exists to be named): ${bible.technology_level}` : "",
+    bible?.cultures_and_languages ? `Culture and speech: ${bible.cultures_and_languages}` : "",
+    bible?.what_people_fear ? `What people here fear, and therefore talk around: ${bible.what_people_fear}` : "",
+    bible?.tone ? `Register of the story: ${bible.tone}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 /** Tail threshold. Candidates at or below this are the usable pool. */
 const TAIL = 0.10;
 
 const VOICE_SYSTEM = `You produce candidate VOICE CARDS for one character in a story.
 
-Output FIVE candidates. Each carries a numeric "probability": your honest estimate of how likely that voice is to be the one a writer would reach for first for this character. Sample from the TAILS of the distribution — every candidate you emit should sit below 0.10. Do NOT emit a safe centre-of-distribution voice and label it improbable; if a candidate is the obvious read, it does not belong in the list.
+THE SETTING IS A HARD FLOOR. Everything below happens INSIDE the period described in the WORLD block. A voice is not made distinctive by importing a later century's vocabulary, and a candidate that sounds like a modern person is not an unusual voice — it is a mistake, and the most common one. Before you write any line, ask what this person could possibly have a word for. They cannot name a feeling their culture has no concept of. They cannot reach for an idiom from a technology that does not exist. Concepts as well as words: no therapy register (processing, boundaries, holding space, unpacking, valid), no management register (handle, manage, deal with it, sort out the logistics), no modern psychology of the self. Their metaphors come from the work, weather, animals, food, faith, kin and violence of THEIR world and nowhere else.
+
+Output FIVE candidates. Each carries a numeric "probability": your honest estimate of how likely that voice is to be the one a writer would reach for first for this character. Sample from the TAILS — every candidate should sit below 0.10.
+
+BUT the unusualness must live on the RIGHT AXIS. Vary: what they refuse to say, what they are angling for under the words, sentence length, whether they answer the question asked, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the century. A voice that is improbable because it is anachronistic scores zero.
 
 A voice is diction, syntax, rhythm, and what the person refuses to say. It is NOT their mood and NOT their personality restated. Two characters with identical traits should still speak nothing alike.
 
 example_lines are the proof and the only part that matters. Rules for them:
-- Plain speech from a specific mouth. No aphorisms, no summaries of the character's own psychology, no line that would work as a chapter epigraph.
+- Plain speech from a specific mouth, in the period's register. No aphorisms, no summaries of the character's own psychology, no line that would work as a chapter epigraph.
 - A line must be UNSAYABLE by anyone else in the cast. If it would fit a generic sympathetic stranger, it is wrong.
 - Nobody is a therapist. No reflecting feelings back, no "that sounds hard", no gently leading questions.
 - These are BANNED outright, in any inflection: "that's not nothing", "it's a lot", "you're not wrong", "you do so much", "are you really doing this", "I'm not going to pretend", "let me be clear", echo-questions that repeat the last thing said back as a question, and any sentence whose job is to land as a closing beat.
@@ -74,7 +94,7 @@ export async function forgeVoice(
     `CONSCIENCE (0..1, how much others' pain registers): ${npc.conscience ?? 0.7}`,
     `UNDER THREAT: ${npc.attachment?.under_threat ?? ""}`,
     `WANTS: ${(npc.drive_goals ?? [npc.drive_goal]).filter(Boolean).join(" / ")}`,
-    `WORLD: ${worldNote}`,
+    `WORLD — this is the floor, not decoration:\n${worldNote}`,
   ].join("\n");
 
   // Concrete exclusion, not an abstract instruction to "be different" — the model can
@@ -100,9 +120,10 @@ export async function forgeVoice(
  */
 export async function forgeCastVoices(
   npcs: any[],
-  worldNote: string,
+  bible: any,
   model: string,
 ): Promise<void> {
+  const worldNote = typeof bible === "string" ? bible : worldBriefOf(bible);
   const spoken: string[] = [];
   for (const npc of npcs) {
     const voice = await forgeVoice(npc, worldNote, model, spoken);
@@ -151,7 +172,7 @@ export async function refreshVoice(
     core_traits: [...(c.core_traits ?? []), ...acquired],
   };
 
-  const worldNote = `${state.world_bible?.name ?? ""} — ${state.world_bible?.era ?? ""}`;
+  const worldNote = worldBriefOf(state.world_bible);
 
   // Anti-set: what everyone ELSE currently sounds like, so a refresh can't converge the cast.
   const avoid: string[] = [];
