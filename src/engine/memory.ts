@@ -167,6 +167,13 @@ function semanticGist(m: EpisodicMemory): string {
  *  soft when it is still days out (a dinner next week shouldn't crowd out today). */
 function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""): number {
   if (m.commitment_status !== "pending" || !m.scheduled_time) return 0;
+  // UNCLOCKED OPEN LOOP: most unfinished business has no due time — an answer owed, a message
+  // interrupted, a question left hanging. It used to be unrepresentable, since the boost required a
+  // parseable timestamp, so the only open loops that survived mood-gating were the ones that
+  // happened to have a calendar entry. An open loop with no clock is not less live than one with
+  // one; it sits at the "within a day" weight, which is enough to clear a run of same-toned
+  // memories crowding the top-k.
+  if (/^unresolved$/i.test(m.scheduled_time.trim())) return 0.8;
   if (!nowLabel) return 0.8;
   const a = parseTime(nowLabel), b = parseTime(m.scheduled_time);
   const mins = (b.day - a.day) * 1440 + (b.hour - a.hour) * 60 + (b.minute - a.minute);
@@ -386,6 +393,23 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   }
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "…" : b.content)).join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
+  // ── RECENCY FLOOR ──────────────────────────────────────────────────────────
+  // Retrieval is relevance-ranked, and word-overlap relevance is nearly flat across a long
+  // memory (in practice every candidate scores ~0.10), so with k=2 the two surfaced memories are
+  // effectively arbitrary. When they happen to miss the last few turns, the character has no
+  // record of what just happened to them and re-opens a scene they already played — asking again
+  // for a message that was already delivered. Recency is not one signal among many for events
+  // this fresh: a person always knows what they did an hour ago. Force the most recent memories
+  // in regardless of how they score.
+  const RECENT_FLOOR = 3;
+  const already = new Set(top.map((x) => x.m));
+  const recent = [...mem.episodic]
+    .filter((m) => !already.has(m) && currentTurn - m.turn <= 12)
+    .sort((a, b) => b.turn - a.turn)
+    .slice(0, RECENT_FLOOR)
+    .map((m) => ({ m, rel: 0.35 }));
+  top.push(...recent);
+  top.sort((a, b) => b.m.turn - a.m.turn);   // most recent last-seen first: the scene's own history reads in order
   if (top.length) {
     // FULL RECALL: decay governs the default (gist), but the scene can reach into a memory and
     // bring it back whole. Restore full fidelity for at most 2 memories per character — the ones
