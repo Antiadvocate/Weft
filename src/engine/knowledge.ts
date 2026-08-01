@@ -20,6 +20,7 @@
 
 import type { SaveState, Rumor, Identity } from "./types";
 import { uid } from "./state";
+import { minutesBetween } from "./time";
 
 /** Importance at which a witnessed memory is worth repeating to someone else. */
 export const GOSSIP_THRESHOLD = 7;
@@ -159,6 +160,46 @@ export function factionKnows(state: SaveState, faction: string, objective: strin
  * that has learned nothing. A surprising event should come from a chain the player can trace
  * backwards, not from the engine needing something to happen.
  */
+// ── DISTANCE ────────────────────────────────────────────────────────────────
+// Word does not teleport. Three separate times this engine has had a distant person hear about the
+// player and reply inside a single day, and the last time it wrote a paragraph JUSTIFYING it —
+// naming the distance as three days' ride in the same breath as explaining how the answer beat
+// them home. A prompt line cannot fix that, because the narrator will always find a gallop and a
+// change of horses. So the world records how far away a place is, and the engine answers the
+// question instead.
+
+/** Travel time in in-world minutes between two named places, when the world knows it. */
+export function travelMinutes(state: SaveState, fromName: string, toName: string): number | null {
+  const norm = (x: string) => (x || "").trim().toLowerCase();
+  const table = (state.world as { distances?: { from: string; to: string; minutes: number }[] }).distances ?? [];
+  const a = norm(fromName), b = norm(toName);
+  for (const d of table) {
+    if ((norm(d.from) === a && norm(d.to) === b) || (norm(d.from) === b && norm(d.to) === a)) return d.minutes;
+  }
+  return null;
+}
+
+/**
+ * Could word have physically travelled from `fromName` to `toName` by now, given it started at
+ * `sinceTime`? A round trip (they heard AND answered) needs twice the one-way time.
+ *
+ * Returns null when the world has no distance on record — unknown is not the same as false, and
+ * the engine should not invent a constraint it has no basis for.
+ */
+export function wordCouldReach(
+  state: SaveState,
+  fromName: string,
+  toName: string,
+  sinceTime: string,
+  roundTrip = false,
+): { possible: boolean; needed: number; elapsed: number } | null {
+  const one = travelMinutes(state, fromName, toName);
+  if (one == null) return null;
+  const needed = roundTrip ? one * 2 : one;
+  const elapsed = minutesBetween(sinceTime, state.world.current_time);
+  return { possible: elapsed >= needed, needed, elapsed };
+}
+
 export function mundaneObjective(faction: string): string {
   return `${faction} goes about its ordinary business — collections, patrols, disputes, and its standing quarrels — with no knowledge of the player to act on.`;
 }

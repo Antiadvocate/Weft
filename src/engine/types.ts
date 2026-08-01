@@ -454,6 +454,10 @@ export interface WorldState {
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
   offstage_last_time?: string;
+  /** How far apart places are, in in-world minutes of ordinary travel. The engine uses this to
+   *  answer "could word have got there and back by now?" instead of leaving it to the narrator,
+   *  which reliably answers yes and writes a hard gallop to justify it. */
+  distances?: { from: string; to: string; minutes: number }[];
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];

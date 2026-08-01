@@ -30,6 +30,7 @@ export interface OffstageEvent {
   what: string;         // one plain sentence, past tense
   witnesses: string[];  // names of tracked characters who saw or heard it firsthand; may be empty
   new_place?: string;   // a place this event brought into being, if any
+  advances?: string;    // exact faction name whose clock this event moved a step, if any
 }
 
 const OFFSTAGE_SYSTEM = `You are the world's own motion. You report what happened ELSEWHERE, to people who were not thinking about the protagonist.
@@ -42,10 +43,12 @@ Each event must be CAUSED by something already in the world state: a named perso
 
 WITNESSES matter more than the event. List, by exact name, only tracked characters from the CAST who would plausibly have seen or heard this firsthand, given where they are. Most events have no tracked witness at all, and an empty list is the correct and common answer. Do not place a witness somewhere convenient. Do not invent names.
 
+FACTION CLOCKS ADVANCE HERE, OR NOWHERE. A faction pursuing an objective the player never sees is doing that work offstage, in ordinary steps: a testimony taken, a boundary walked, a payment made, a page finished, a rider sent. When one of your events IS such a step for one of the listed factions, set "advances" to that faction's exact name. This is the ONLY way their clocks move — a clock the player never walks into otherwise sits frozen forever, which is not the world being patient, it is the world being dead. Do not attribute an event to a faction it has nothing to do with, and do not invent activity for a faction whose objective the state gives you no way to progress.
+
 Write 1–3 events. Fewer is right when the world state gives you little. An interval where almost nothing happened is a valid report.
 
 Output ONLY this JSON:
-{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":""}]}`;
+{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":""}]}`;
 
 function worldDigest(state: any): string {
   const places = Object.values<any>(state.world?.places ?? {})
@@ -157,6 +160,25 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
         emotional_charge: 0,
         decay: 0,
       });
+    }
+
+    // A step taken offstage by a faction the player never sees. This is the missing half of the
+    // knowledge gate: gating advancement on demonstrated action was right, but the only place the
+    // simulator could demonstrate it was a scene the player was IN — and forge clocks are now
+    // deliberately NOT pointed at the player, so their factions never appeared and both clocks in a
+    // 108-turn game sat at 0/6, never advancing once. The world's own motion is where they move.
+    if (ev.advances) {
+      const clock = state.world.clocks.find(
+        (c: any) => c.status === "running" && c.faction.toLowerCase() === String(ev.advances).toLowerCase().trim(),
+      );
+      if (clock && clock.filled < clock.segments) {
+        clock.filled += 1;
+        clock.last_advanced_time = state.world.current_time;
+        const signs = clock.visible_signs ?? [];
+        const frac = clock.filled / Math.max(1, clock.segments);
+        if (signs.length && frac >= 0.5) log.push(`SIGN (${clock.faction}): ${signs[Math.min(signs.length - 1, frac >= 0.85 ? signs.length - 1 : 0)]}`);
+        log.push(clock.filled >= clock.segments ? `${clock.faction}'s clock has run out.` : `${clock.faction} moved closer to their objective.`);
+      }
     }
 
     log.push(`Elsewhere: ${ev.what}`);
