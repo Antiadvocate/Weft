@@ -195,6 +195,11 @@ export interface BeatInput {
   last_beat_turn: number;
   last_exo_turn: number;
   restoration?: boolean;           // rest turns never receive incident beats (protection handled upstream too)
+  /** What has already fired, and how often. Without this, `standing` is a flat bag sampled
+   *  uniformly every turn, so the loudest source keeps being re-picked — which is how the same
+   *  raiders came back and died to the player three times. A source that has just discharged is
+   *  not a source; it is a thing that already happened. */
+  recent?: { ref: string; turn: number; count: number }[];
   rng?: () => number;
 }
 export type Beat =
@@ -242,22 +247,59 @@ export function selectBeat(inp: BeatInput): Beat {
   for (const a of inp.agents) if ((a.priority ?? 1) >= 6)
     standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
 
+  // ── PER-SOURCE FATIGUE ──────────────────────────────────────────────────────
+  // Every source in `standing` used to be equally eligible on every turn, chosen by a flat random
+  // index. A thread at tension 8 therefore stayed pickable forever, and the narrator instantiated
+  // it the same way each time: raiders arrive, raiders lose, thread still at 8, raiders arrive.
+  // The world state said "this is a live threat" and never learned the player had answered it.
+  //
+  // A source that just discharged now goes quiet, and the more often it has discharged the longer
+  // it stays quiet — a threat that keeps losing is a threat that stops coming. Four discharges and
+  // it is retired outright until something changes its underlying tension, which is the world
+  // admitting the approach failed rather than running it a fifth time.
+  const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
+  const RETIRE_AT = 4;
+  const quietFor = (count: number) => 6 + count * 10;   // 1st repeat waits 16 turns, 2nd 26, 3rd 36
+  const eligible = standing.filter((sd) => {
+    const h = hist.get(sd.ref);
+    if (!h) return true;
+    if (h.count >= RETIRE_AT) return false;
+    return inp.turn - h.turn >= quietFor(h.count);
+  });
+  // Prefer the source that has been silent longest, rather than sampling uniformly. Uniform choice
+  // over a small set re-picks the same thing constantly; least-recently-used rotates the world.
+  const pickStanding = () => {
+    if (!eligible.length) return null;
+    let best = eligible[0], bestAge = -1;
+    for (const sd of eligible) {
+      const h = hist.get(sd.ref);
+      const age = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
+      if (age > bestAge) { best = sd; bestAge = age; }
+    }
+    return best;
+  };
+
   if (cooling || inp.restoration) {
     // between discharges: reminder beats keep the weight felt — never during rest at low tension
-    if (standing.length && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
-      return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
+    // Reminders may reference a fatigued source — being reminded of a standing threat is not the
+    // same as it acting again — but never a retired one.
+    const remind = pickStanding() ?? standing.find((sd) => (hist.get(sd.ref)?.count ?? 0) < RETIRE_AT);
+    if (remind && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
+      return { kind: "reminder", ref: remind.ref };
     }
     return { kind: "none" };
   }
 
   // discharge from standing state — probability scales with tension; silence is legitimate
   const fireP = inp.tension <= 2 ? 0.25 : inp.tension <= 4 ? 0.45 : inp.tension <= 6 ? 0.6 : 0.8;
-  if (standing.length && rng() < fireP) return standing[Math.floor(rng() * standing.length)].mk();
+  const chosen = pickStanding();
+  if (chosen && rng() < fireP) return chosen.mk();
 
   // exogenous: rationed rarity — witnessed, not targeted
   if (inp.turn - inp.last_exo_turn >= EXO_INTERVAL(inp.tension) && rng() < 0.5) return { kind: "exogenous" };
 
-  if (standing.length && rng() < 0.3) return { kind: "reminder", ref: standing[Math.floor(rng() * standing.length)].ref };
+  const tail = pickStanding();
+  if (tail && rng() < 0.3) return { kind: "reminder", ref: tail.ref };
   return { kind: "none" };
 }
 
@@ -308,7 +350,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
     if (tier === "cosmic") {
       lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist; let that reaction come from each character's state and relationship to the player, not from a script.`);
     } else if (tier === "mythic") {
-      lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel; otherwise pressure is consequence and reaction, drawn from each character's own state.`);
+      lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel — and a KIND of attacker the player has already beaten does not get to try again the same way. Men who watched their fellows lose to this person do not charge him; they hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating a losing attack is not tension, it is the world failing to learn. Otherwise pressure is consequence and reaction, drawn from each character's own state.`);
     } else if (palette?.length) {
       lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
     }
@@ -323,6 +365,28 @@ export type PowerTier = "mortal" | "empowered" | "mythic" | "cosmic";
 /** How far past mortal the protagonist has scaled. A light gate on the tier nudge above — NOT a
  *  behavior driver (behavior emerges from the relaxation kernel). god_mode lifts you above
  *  ordinary threat; visible reality-breaking acts read as cosmic. */
+/**
+ * Tier from what the WORLD HAS SEEN THE PLAYER DO, not from prose adjectives.
+ *
+ * detectPowerTier reads the last few turns of text for phrases like "godlike" or "levitated the".
+ * That misses the case that actually matters: a player who has already beaten this exact threat,
+ * repeatedly, in plain unremarkable prose. Nothing in the recent text says "impervious", so the
+ * tier stays mortal, so the directive keeps allowing martial challenges, so raiders keep charging
+ * a man they have already lost to three times. The ledger knows better than the adjectives —
+ * count what he has actually survived and won.
+ */
+export function tierFromRecord(
+  base: PowerTier,
+  recent: { ref: string; turn: number; count: number }[] = [],
+): PowerTier {
+  const order: PowerTier[] = ["mortal", "empowered", "mythic", "cosmic"];
+  // A source the player has faced down 2+ times is no longer a credible threat FROM THIS WORLD.
+  const beaten = recent.filter((r) => r.count >= 2).length;
+  if (!beaten) return base;
+  const bumped = Math.min(order.indexOf("mythic"), order.indexOf(base) + (beaten >= 2 ? 2 : 1));
+  return order[Math.max(order.indexOf(base), bumped)];
+}
+
 export function detectPowerTier(godMode: boolean, recentText: string): PowerTier {
   const t = recentText.toLowerCase();
   const cosmic = [

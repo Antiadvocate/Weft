@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
@@ -523,14 +523,28 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       return orbitNames.some((n) => g.includes(n)) || (hereName.length >= 4 && g.includes(hereName));
     });
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
+  state.pressure_state.recent ??= [];
   const beat: Beat = selectBeat({
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
     agents, last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
+    recent: state.pressure_state.recent,
     restoration: RESTORE_INTENT.test(action),
   });
   if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) state.pressure_state.last_beat_turn = turn;
   if (beat.kind === "exogenous") state.pressure_state.last_exo_turn = turn;
+  // RECORD THE DISCHARGE. A source that fires goes on the fatigue list; firing again costs it a
+  // longer silence each time. Reminders don't count — being reminded is not the threat acting.
+  {
+    const ref = (beat as { ref?: string }).ref;
+    if (ref && ["clock", "thread", "agent", "consequence"].includes(beat.kind)) {
+      const rec = state.pressure_state.recent!;
+      const prior = rec.find((r) => r.ref === ref);
+      if (prior) { prior.turn = turn; prior.count += 1; }
+      else rec.push({ ref, turn, count: 1 });
+      if (rec.length > 24) state.pressure_state.recent = rec.slice(-24);
+    }
+  }
   ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source, beat: beat.kind });
 
   // 2 ── narrator (streamed)
@@ -578,7 +592,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     ...state.history.slice(-3).map((h) => h.narrator_prose ?? ""),
     state.history.slice(-1)[0]?.player_action ?? "",
   ].join(" ");
-  const tier = detectPowerTier(god, recentText);
+  // Prose adjectives miss the player who quietly beat the same threat three times in plain
+  // language; the discharge record doesn't.
+  const tier = tierFromRecord(detectPowerTier(god, recentText), state.pressure_state?.recent);
   // WITNESS STAMP — when the player wields genuinely impossible power in front of others, that
   // witnessing durably rewrites how each present character relates to them. Stamp an active_state so
   // the reorientation PERSISTS across later turns (not just the turn of the act): a character who saw
