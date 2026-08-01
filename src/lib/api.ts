@@ -1022,6 +1022,14 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
       if (!t.title?.trim()) continue;
       s.world.threads.push({ id: uid("thr"), title: t.title.trim(), status: "active", description: t.description?.trim() ?? "", turn_started: 1, tension: clampNum(t.tension ?? 3, 1, 10) });
     }
+    // DISTANCES: what the engine uses to answer "could word have got there and back by now?"
+    // Without a table the check has no basis and silently passes, which is how a mother three days'
+    // ride west heard about the player and answered inside one afternoon.
+    for (const dd of (g as any).distances ?? []) {
+      if (!dd?.from || !dd?.to) continue;
+      const mins = clampNum(Number(dd.minutes) || 0, 0, 60 * 24 * 90);
+      if (mins > 0) (s.world.distances ??= []).push({ from: String(dd.from).trim(), to: String(dd.to).trim(), minutes: mins });
+    }
     const op = g.opening ?? {};
     s.world.current_time = op.time?.match(/day/i) ? `${op.time}` : "Day 1, 09:00 (Morning)";
     s.world.weather = op.weather ?? "";
