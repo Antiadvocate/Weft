@@ -333,7 +333,25 @@ export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn:
   // formed_turn and defaulted to 0/-1, which made a late-invented conviction ("her father is in
   // trouble") look like origin backstory that predated events it actually came after — and the
   // narrator then treated it as long-established truth.
-  mem.beliefs.push(...beliefs.map((b) => ({ ...b, formed_turn: currentTurn, content: compactGist(b.content, 130) })));
+  // ── SUPERSEDE, DON'T ACCUMULATE ─────────────────────────────────────────────
+  // Facts have deduped since they were written; beliefs never did — they were pushed blind and
+  // trimmed to the last 14. Reflection runs every few turns and re-derives the SAME conviction
+  // from the same standing situation, so one belief became three near-identical entries ("her
+  // father's ship is coming in three days…" ×3, measured at 1.00 overlap), each rephrased, each
+  // occupying a slot, all shown to the narrator at once. A person holds ONE conviction about a
+  // thing and updates it; they don't hold three drafts of it. Merge in place, keeping the newer
+  // wording and the higher confidence.
+  for (const nb of beliefs) {
+    const content = compactGist(nb.content, 130);
+    const prior = mem.beliefs.find((x) => relevance(x.content, content) >= 0.5 || relevance(content, x.content) >= 0.5);
+    if (prior) {
+      prior.content = content;                                   // the newer phrasing is the current belief
+      prior.confidence = Math.max(prior.confidence ?? 0.7, nb.confidence ?? 0.7);
+      prior.formed_turn = currentTurn;                           // reaffirmed now
+      continue;
+    }
+    mem.beliefs.push({ ...nb, formed_turn: currentTurn, content });
+  }
   if (mem.beliefs.length > 14) mem.beliefs = mem.beliefs.slice(-14);
   // keep the most recent + the few highest-importance episodics; drop the rest (now represented as beliefs)
   const recent = mem.episodic.filter((m) => currentTurn - m.turn <= keepRecent);

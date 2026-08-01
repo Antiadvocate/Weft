@@ -19,7 +19,7 @@ import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
-import { advance, heuristicMinutes, advanceWeather, minutesBetween } from "./time";
+import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
@@ -183,6 +183,25 @@ export const MINUTES_PER_SEGMENT = 180;
  *  fit in a morning — so escalation has to cost time or the story sprints while the world stands
  *  still. Lowering tension is never gated. */
 export const MINUTES_PER_ESCALATION = 90;
+
+/** How long this character has actually known the player, in plain words. Reflection was writing
+ *  settled convictions about someone's whole nature after a day and a half — "he can be turned
+ *  toward something better if she stands with him" is a conclusion a person reaches over months.
+ *  The model can't calibrate what it isn't told, so tell it. */
+function acquaintanceLabel(state: SaveState, id: string): string {
+  const first = state.memory[id]?.episodic?.[0];
+  if (!first) return "they have only just met";
+  const now = parseTime(state.world.current_time);
+  const then = parseTime(first.when_label || state.world.current_time);
+  const days = Math.max(0, now.day - then.day);
+  const hours = days * 24 + (now.hour - then.hour);
+  if (hours < 12) return "a matter of hours — they are strangers to each other";
+  if (days <= 1) return "about a day — still strangers, however intense it has been";
+  if (days <= 3) return `${days} days — new acquaintances; nothing about this person is settled yet`;
+  if (days <= 14) return `${days} days — they are becoming familiar, but convictions about who someone IS are still premature`;
+  if (days <= 60) return `${days} days — long enough for real judgments about character`;
+  return "months or longer — long enough to know someone";
+}
 
 export const PLACE_CAP = 16;
 
@@ -1664,7 +1683,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const recent = mem.episodic.slice(-20).map((m) => `[T${m.turn}, imp ${m.importance}] ${m.content}`).join("\n");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
