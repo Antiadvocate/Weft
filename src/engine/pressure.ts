@@ -266,11 +266,16 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
     lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate — if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
-  } else if (beat) {
+  } else if (!beat) {
+    // A missing beat used to emit NO LINE AT ALL, which the narrator reads as permission rather
+    // than as silence — and with the genre paragraph telling it that a quiet stretch is a failure
+    // to fix, it fills the vacuum with raiders. Absence of a source is a constraint, not a gap.
+    lines.push("NO SOURCE FOR THIS TURN. Nothing new arrives or develops from outside; the scene runs on the people already in it.");
+  } else {
     // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
     switch (beat.kind) {
       case "none":
-        lines.push("NO EXTERNAL PUSH THIS TURN. Nothing new arrives, presses, or develops from outside. The scene runs on the present characters' own wants and reactions — which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure.");
+        lines.push("NO EXTERNAL PUSH THIS TURN — this outranks the genre paragraph, the pressure reading, and your own sense of pace. Nothing new arrives, presses, or develops from outside: no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions — which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure, and however many turns it has been, the answer is still nothing.");
         break;
       case "reminder":
         lines.push(`REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
