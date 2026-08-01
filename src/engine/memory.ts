@@ -403,11 +403,22 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
   // the fact ledger: verified declarative knowledge, never decayed — most query-relevant few + newest
   if (mem.facts?.length) {
-    const ranked = [...mem.facts].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
+    // Superseded facts are never offered as current knowledge — that is what let a character hold
+    // "my father sent his champion" and "my father sent no one" at the same time and reach for
+    // whichever the sentence wanted. They are still shown, but marked as what she USED to believe,
+    // because knowing you were wrong is itself something a person carries.
+    const live = mem.facts.filter((f) => !f.superseded_by);
+    const ranked = [...live].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
     const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
-    chosen.add(mem.facts[mem.facts.length - 1]);
+    if (live.length) chosen.add(live[live.length - 1]);
     const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "…" : t);
-    parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
+    if (chosen.size) parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
+    const corrected = mem.facts
+      .filter((f) => f.superseded_by && relevance(f.content, query) >= 0.25)
+      .slice(-2);
+    if (corrected.length) {
+      parts.push(`ONCE BELIEVED, NOW KNOWS BETTER (never state the old version as true): ${corrected.map((f) => `"${clipF(f.content)}" → ${clipF(f.superseded_by!)}`).join(" | ")}`);
+    }
   }
   if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "…" : b.content)).join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);

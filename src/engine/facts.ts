@@ -138,6 +138,34 @@ export function factOverlap(a: string, b: string): number {
   return inter / Math.min(A.size, B.size);
 }
 
+/**
+ * Mark whatever the character previously believed about `subject` as overturned by `replacement`.
+ *
+ * Word-overlap merging can't do this job: it collapses near-identical restatements, but a
+ * CORRECTION is topically similar and semantically opposite — "my father intends to send a
+ * champion" and "Domnall is dead; my father did not send him" overlap 0.43, well under the merge
+ * bar, so both sat in the ledger as current knowledge and the narrator could reach for either.
+ * Only the simulator knows which one replaces which, because only it saw the scene where the
+ * correction landed. So it names the superseded belief and this resolves it against the store.
+ *
+ * The old fact is kept. Under a reconstructive memory model, being wrong is part of the record.
+ */
+export function supersedeFact(mem: CharMemory, subject: string, replacement: string, turn: number): string | null {
+  const s = subject.trim();
+  if (!s) return null;
+  const live = (mem.facts ?? []).filter((f) => !f.superseded_by);
+  let best: { f: typeof live[number]; score: number } | null = null;
+  for (const f of live) {
+    if (f.content === replacement) continue;                   // never supersede the new fact itself
+    const score = Math.max(relevance(f.content, s), factOverlap(f.content, s));
+    if (score >= 0.34 && (!best || score > best.score)) best = { f, score };
+  }
+  if (!best) return null;
+  best.f.superseded_by = replacement;
+  best.f.superseded_turn = turn;
+  return best.f.content;
+}
+
 export function addFact(mem: CharMemory, fact: string, turn: number, quote?: string, source?: import("./types").MemorySource): boolean {
   mem.facts ??= [];
   const f = fact.trim();
@@ -145,7 +173,7 @@ export function addFact(mem: CharMemory, fact: string, turn: number, quote?: str
   const gate = factGate(f);
   if (!gate.ok) { console.warn(`[facts] rejected: "${f.slice(0, 60)}" — ${gate.why}`); return false; }
   // fuzzy near-duplicate: keep ONE entry, the more detailed version (Nadi's network once, not four times)
-  const near = mem.facts.find((x) => relevance(x.content, f) >= 0.6 || factOverlap(x.content, f) >= 0.6);
+  const near = mem.facts.find((x) => !x.superseded_by && (relevance(x.content, f) >= 0.6 || factOverlap(x.content, f) >= 0.6));
   if (near) {
     if (f.length > near.content.length + 12) near.content = compactGist(f, 140); // upgrade in place
     near.turn = turn; if (quote && !near.quote) near.quote = quote;

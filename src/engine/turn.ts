@@ -30,7 +30,7 @@ import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
-import { knownNameWhitelist, groundMemoryContent, addFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
+import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
@@ -2601,7 +2601,13 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       console.warn(`[facts] unverifiable fact for ${nameOf(id)} (suspects: ${g.suspects.join(", ")}) — not ledgered`);
       continue;
     }
-    if (addFact(mem, g.content, turn, quoteOk ? fl.quote : undefined, state.world.present.includes(id) ? "witnessed" : "inferred") && id !== "char_player") shifts.push(`${nameOf(id)} now knows: ${g.content}`);
+    const stored = addFact(mem, g.content, turn, quoteOk ? fl.quote : undefined, state.world.present.includes(id) ? "witnessed" : "inferred");
+    // CORRECTION: the simulator names what this overturns; the old belief is marked, not deleted.
+    if (fl.corrects) {
+      const gone = supersedeFact(mem, fl.corrects, g.content, turn);
+      if (gone && id !== "char_player") shifts.push(`${nameOf(id)} was wrong about: ${gone}`);
+    }
+    if (stored && id !== "char_player") shifts.push(`${nameOf(id)} now knows: ${g.content}`);
   }
   for (const m of diff.memories ?? []) {
     const id = resolveId(state, m.char_id); if (!id || !m.content) continue;

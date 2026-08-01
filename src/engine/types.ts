@@ -353,6 +353,12 @@ export interface DurableFact {
   turn: number;
   quote?: string;              // the verbatim source span that grounded it
   source?: MemorySource;       // provenance — how the character learned this fact
+  /** SUPERSESSION. When a character learns they were wrong, the old fact is not deleted — people
+   *  remember having believed the wrong thing, and the correction is often the more important
+   *  event. It is marked instead: kept in the ledger, rendered as a former belief, and never
+   *  offered to the narrator as current knowledge alongside the truth that replaced it. */
+  superseded_by?: string;      // the content of the fact that overturned this one
+  superseded_turn?: number;
 }
 
 export interface CharMemory {
@@ -581,7 +587,7 @@ export interface SimulatorDiff {
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; note?: string; roles_set?: string[] }[];
   aliases_add?: { id: string; alias: string }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact
-  facts_learned?: { char_id: string; fact: string; quote?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
+  facts_learned?: { char_id: string; fact: string; quote?: string; corrects?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
