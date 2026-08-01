@@ -2189,6 +2189,63 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
 
   const maxCentral = state.model_settings.max_central_characters ?? 6;
   const centralCount = () => Object.values(state.characters).filter((c) => c.character_id !== "char_player" && c.central && c.status !== "dead" && c.status !== "departed").length;
+/**
+ * Named people who SPOKE this turn but exist nowhere in state.
+ *
+ * This is the hole every "why does she sound like she's from 2026" complaint comes through. A
+ * tracked character is constrained by a voice card, core traits, memories, and the knowledge gate.
+ * A person the narrator simply started writing has NONE of that — no card, no register, no history
+ * — so they speak in the model's default voice, which is contemporary literary fiction. It is also
+ * how an offstage mother acquired opinions, and how a harper arrived carrying plot: an unregistered
+ * speaker is an unconstrained oracle.
+ *
+ * Detection is deliberately conservative — a capitalised name adjacent to a speech verb. False
+ * positives cost one background character record; false negatives cost another 2026 voice.
+ */
+function unregisteredSpeakers(state: SaveState, prose: string): string[] {
+  const known = new Set<string>();
+  for (const c of Object.values(state.characters)) for (const w of c.name.split(/\s+/)) known.add(w.toLowerCase());
+  for (const p of Object.values(state.world.places)) for (const w of p.name.split(/\s+/)) known.add(w.toLowerCase());
+  for (const w of (state.world_bible?.name ?? "").split(/\s+/)) known.add(w.toLowerCase());
+
+  // Sentence-openers, titles and interjections that are capitalised without being names.
+  const NOT_A_NAME = new Set(["the","she","he","they","you","it","and","but","then","when","what","who","that","this","there","here","one","two","three","god","lord","father","mother","sister","brother","aye","yes","no","outside","behind","before","after","still","again","his","her","their","a","an","if","so","now","not","i","we","from","for","with","at","on","in","to","of","by","up","down","out","over","under","across","beyond","inside","above","below","first","second","third","last","next","some","most","many","few","every","each","both","neither","either","because","though","while","until","since","unless","whether","how","why","where","which","whose","whom","let","come","go","look","listen","stop","wait","tell","give","take","put","get","keep","hold","leave","stay","the"]);
+
+  // Two passes, deliberately different in kind.
+  //   1. SPEECH VERBS — "Áed said", "said Áed". Catches directly-attributed dialogue.
+  //   2. REPETITION — a capitalised unknown word appearing THREE OR MORE times in one turn's prose.
+  //      This is what actually catches the common case: a person introduced by name once and then
+  //      referred to as "she" for every line thereafter ("Fíne raised one hand. 'Three messages,'
+  //      she said."). Speech-verb adjacency never sees them, and they are the ones who go on to
+  //      speak at length in a 2026 register because nothing in state constrains them.
+  const found = new Map<string, string>();
+  const NAME = "[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü'-]{2,}";
+
+  for (const re of [
+    new RegExp(`\\b(${NAME})\\s+(?:said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|called|calls|shouted|snapped|added|continued)\\b`, "g"),
+    new RegExp(`\\b(?:said|asked|replied|answered|murmured|muttered|called|shouted)\\s+(${NAME})\\b`, "g"),
+  ]) {
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(prose))) {
+      const key = m[1].toLowerCase();
+      if (!known.has(key) && !NOT_A_NAME.has(key)) found.set(key, m[1]);
+    }
+  }
+
+  const counts = new Map<string, { n: number; raw: string }>();
+  const all = new RegExp(`\\b(${NAME})\\b`, "g");
+  let m2: RegExpExecArray | null;
+  while ((m2 = all.exec(prose))) {
+    const key = m2[1].toLowerCase();
+    if (known.has(key) || NOT_A_NAME.has(key)) continue;
+    const e = counts.get(key) ?? { n: 0, raw: m2[1] };
+    e.n++; counts.set(key, e);
+  }
+  for (const [key, e] of counts) if (e.n >= 3) found.set(key, e.raw);
+
+  return [...found.values()].slice(0, 3);   // a turn does not introduce four new people
+}
+
   for (const nc of diff.new_characters ?? []) {
     if (!nc?.name || findCharByName(state, nc.name)) continue;
     // CENTRAL-CHARACTER CAP: a new character joins as central (full fidelity) only if there's room
@@ -2234,6 +2291,26 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     }
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
   }
+  // AUTO-REGISTER SPEAKERS. The simulator is supposed to declare anyone new via new_characters and
+  // often doesn't — a mother, a harper, a rider walks into the prose, speaks at length, and never
+  // enters state. Registering them here doesn't make them important; it makes them CONSTRAINED, so
+  // the voice pass can give them a period register and the knowledge gate can apply to what they
+  // claim to know. They join non-central with no memories: a walk-on, but a real one.
+  for (const nm of unregisteredSpeakers(state, prose)) {
+    if (findCharByName(state, nm)) continue;
+    const id = registerCharacter(state, {
+      name: nm,
+      central: false,
+      location: state.world.player_location,
+      background: `Appeared in the story at ${state.world.current_time}; nothing else is established about them.`,
+    } as any);
+    if (id) {
+      state.world.present.push(id);
+      shifts.push(`${nm} entered the story unannounced and has been registered as a background figure.`);
+      console.warn(`[cast] auto-registered unannounced speaker "${nm}" — the simulator did not declare them`);
+    }
+  }
+
   for (const np of diff.new_places ?? []) {
     if (!np?.name) continue;
     const exists = Object.values(state.world.places).some((p) => p.name.toLowerCase() === np.name.toLowerCase());
