@@ -23,7 +23,8 @@ import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } 
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
-import { runOffstage } from "./offstage";
+import { runOffstage, returnFromOffscene } from "./offstage";
+import { isDependentGoal } from "./driveforge";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
@@ -524,15 +525,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     });
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   state.pressure_state.recent ??= [];
+  // Pacing runs on the in-world clock, not the turn counter — a turn is ~10 minutes, so turn-based
+  // cooldowns produced a fresh crisis every half hour of the character's life.
+  const nowT = state.world.current_time;
+  const minutesSinceBeat = state.pressure_state.last_beat_time ? minutesBetween(state.pressure_state.last_beat_time, nowT) : undefined;
+  const minutesSinceExo = state.pressure_state.last_exo_time ? minutesBetween(state.pressure_state.last_exo_time, nowT) : undefined;
   const beat: Beat = selectBeat({
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
     agents, last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
-    recent: state.pressure_state.recent,
+    recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     restoration: RESTORE_INTENT.test(action),
   });
-  if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) state.pressure_state.last_beat_turn = turn;
-  if (beat.kind === "exogenous") state.pressure_state.last_exo_turn = turn;
+  if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) {
+    state.pressure_state.last_beat_turn = turn;
+    state.pressure_state.last_beat_time = nowT;
+  }
+  if (beat.kind === "exogenous") { state.pressure_state.last_exo_turn = turn; state.pressure_state.last_exo_time = nowT; }
   // RECORD THE DISCHARGE. A source that fires goes on the fatigue list; firing again costs it a
   // longer silence each time. Reminders don't count — being reminded is not the threat acting.
   {
@@ -540,8 +549,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (ref && ["clock", "thread", "agent", "consequence"].includes(beat.kind)) {
       const rec = state.pressure_state.recent!;
       const prior = rec.find((r) => r.ref === ref);
-      if (prior) { prior.turn = turn; prior.count += 1; }
-      else rec.push({ ref, turn, count: 1 });
+      if (prior) { prior.turn = turn; prior.time = nowT; prior.count += 1; }
+      else rec.push({ ref, turn, time: nowT, count: 1 });
       if (rec.length > 24) state.pressure_state.recent = rec.slice(-24);
     }
   }
@@ -1555,6 +1564,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // A witnessed memory big enough to be worth repeating IS the seed, and it costs no tokens.
   // THE WORLD MOVES ON ITS OWN. Runs before seeding so this interval's offstage events become
   // witness memories in time to be picked up as rumors on the same turn.
+  // Nobody stays in the holding pen. A character with no resolvable location is not a character who
+  // has left the story — the engine just lost track of them for a turn.
+  offscreenLog.push(...returnFromOffscene(state));
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }
   offscreenLog.push(...seedWitnessRumors(state, state.world.current_turn));
@@ -2224,56 +2236,35 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   for (const p of Object.values(state.world.places)) for (const w of p.name.split(/\s+/)) known.add(w.toLowerCase());
   for (const w of (state.world_bible?.name ?? "").split(/\s+/)) known.add(w.toLowerCase());
 
-  // Sentence-openers, titles and interjections that are capitalised without being names.
-  const NOT_A_NAME = new Set(["the","she","he","they","you","it","and","but","then","when","what","who","that","this","there","here","one","two","three","god","lord","father","mother","sister","brother","aye","yes","no","outside","behind","before","after","still","again","his","her","their","a","an","if","so","now","not","i","we","from","for","with","at","on","in","to","of","by","up","down","out","over","under","across","beyond","inside","above","below","first","second","third","last","next","some","most","many","few","every","each","both","neither","either","because","though","while","until","since","unless","whether","how","why","where","which","whose","whom","let","come","go","look","listen","stop","wait","tell","give","take","put","get","keep","hold","leave","stay","the"]);
-
-  // Two passes, deliberately different in kind.
-  //   1. SPEECH VERBS — "Áed said", "said Áed". Catches directly-attributed dialogue.
-  //   2. REPETITION — a capitalised unknown word appearing THREE OR MORE times in one turn's prose.
-  //      This is what actually catches the common case: a person introduced by name once and then
-  //      referred to as "she" for every line thereafter ("Fíne raised one hand. 'Three messages,'
-  //      she said."). Speech-verb adjacency never sees them, and they are the ones who go on to
-  //      speak at length in a 2026 register because nothing in state constrains them.
+  // ── DIRECT SPEECH ATTRIBUTION ONLY ──────────────────────────────────────────
+  // The frequency heuristic is GONE. "Capitalised word appearing 3+ times, at least once
+  // mid-sentence" registered Somewhere, Pictish, Past, Rule, Even, Rome and He'll as members of the
+  // cast — because adjectives of nationality, book titles, cities and contractions all satisfy it,
+  // and each junk record then drew a voice card. No refinement of a frequency rule fixes that: it
+  // is counting the wrong thing. Only one signal actually means "this is a person": the text says
+  // they SPOKE. That misses people introduced by name and thereafter referred to as "she" — an
+  // acceptable loss, since a miss costs one uncredited walk-on and a false positive costs a
+  // permanent fictional person with opinions.
+  const NAME = "[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü-]{2,}";
+  const VERBS = "said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|whispered|called|calls|shouted|snapped|added|continued";
   const found = new Map<string, string>();
-  const NAME = "[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü'-]{2,}";
-
   for (const re of [
-    new RegExp(`\\b(${NAME})\\s+(?:said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|called|calls|shouted|snapped|added|continued)\\b`, "g"),
-    new RegExp(`\\b(?:said|asked|replied|answered|murmured|muttered|called|shouted)\\s+(${NAME})\\b`, "g"),
+    new RegExp(`\\b(${NAME})\\s+(?:${VERBS})\\b`, "g"),
+    new RegExp(`\\b(?:${VERBS})\\s+(${NAME})\\b`, "g"),
   ]) {
     let m: RegExpExecArray | null;
     while ((m = re.exec(prose))) {
-      const key = m[1].toLowerCase();
-      if (!known.has(key) && !NOT_A_NAME.has(key)) found.set(key, m[1]);
+      const raw = m[1], key = raw.toLowerCase();
+      if (known.has(key)) continue;
+      if (raw.includes("'")) continue;                       // "He'll", "That's" — never a name
+      // Must also appear mid-sentence somewhere: a real person gets referred to, not just used to
+      // open a sentence before a verb that happens to be in the list.
+      const mid = new RegExp(`[a-z,;:]\\s+${raw}\\b`).test(prose);
+      if (!mid) continue;
+      found.set(key, raw);
     }
   }
-
-  // MID-SENTENCE CAPITALISATION is the actual test for a proper noun in English prose, and no
-  // blacklist substitutes for it: "Somewhere the dogs started up" reads as a name to a frequency
-  // counter, and so would Outside, Behind, Three, Torchlight, and every other word a narrator likes
-  // to open sentences with. A real name appears mid-sentence at least once — "she looked at Fíne",
-  // "Fíne's riders" — because people get referred to, not just used as sentence openers.
-  const counts = new Map<string, { n: number; mid: number; raw: string }>();
-  const all = new RegExp(`(^|[.!?"'\u201c\u2019]\\s+|\\n)?\\b(${NAME})\\b`, "gm");
-  let m2: RegExpExecArray | null;
-  while ((m2 = all.exec(prose))) {
-    const opener = !!m2[1] || m2.index === 0;
-    const key = m2[2].toLowerCase();
-    if (known.has(key) || NOT_A_NAME.has(key)) continue;
-    const e = counts.get(key) ?? { n: 0, mid: 0, raw: m2[2] };
-    e.n++; if (!opener) e.mid++;
-    counts.set(key, e);
-  }
-  for (const [key, e] of counts) if (e.n >= 3 && e.mid >= 1) found.set(key, e.raw);
-
-  // Same test applied to the speech-verb hits: "Somewhere said" won't occur, but "Outside called"
-  // can, and a candidate that never once appears mid-sentence is not a person.
-  for (const key of [...found.keys()]) {
-    const e = counts.get(key);
-    if (e && e.mid === 0) found.delete(key);
-  }
-
-  return [...found.values()].slice(0, 3);   // a turn does not introduce four new people
+  return [...found.values()].slice(0, 2);
 }
 
   for (const nc of diff.new_characters ?? []) {
@@ -2328,11 +2319,26 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // claim to know. They join non-central with no memories: a walk-on, but a real one.
   for (const nm of unregisteredSpeakers(state, prose)) {
     if (findCharByName(state, nm)) continue;
+    // KEEP WHAT THE PROSE SAID ABOUT THEM. The stub background ("nothing else is established")
+    // was actively harmful: it produced a record that LOOKS complete, so nothing ever filled it in,
+    // and a character the player had established as a machine ended up with empty traits, no
+    // conscience, and a voice card that made her sound like any other person in the room. Carry
+    // the sentences she actually appeared in, and mark the record provisional so the simulator
+    // knows it is a sketch to be completed rather than a finished person.
+    const around = prose
+      .split(/(?<=[.!?])\s+/)
+      .filter((sent) => new RegExp(`\\b${nm}\\b`).test(sent))
+      .slice(0, 4)
+      .join(" ")
+      .slice(0, 400);
     const id = registerCharacter(state, {
       name: nm,
       central: false,
       location: state.world.player_location,
-      background: `Appeared in the story at ${state.world.current_time}; nothing else is established about them.`,
+      provisional: true,
+      background: around
+        ? `INCOMPLETE RECORD — entered the story at ${state.world.current_time} without being declared. What the text established: ${around}`
+        : `INCOMPLETE RECORD — entered the story at ${state.world.current_time}.`,
     } as any);
     if (id) {
       state.world.present.push(id);
@@ -2883,7 +2889,15 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
 
   // group drives_update by character; highest priority becomes active, rest become the queue (max 2)
   const drivesByChar = new Map<string, typeof diff.drives_update>();
+  const playerName = state.characters.char_player?.name ?? "";
   for (const du of diff.drives_update ?? []) {
+    // The simulator writes drives while looking at a transcript the player dominates, so it hands
+    // back "decide whether to accept his offer" no matter what the prompt says. Reject at the
+    // boundary; driveforge will supply a real want on the next pass.
+    if (du?.goal && isDependentGoal(String(du.goal), playerName)) {
+      console.info(`[drives] blocked player-contingent goal for ${state.characters[du.char_id]?.name ?? du.char_id}: "${du.goal}"`);
+      continue;
+    }
     const id = resolveId(state, du.char_id); if (!id || id === "char_player" || !du.goal) continue;
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
   }
