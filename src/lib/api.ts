@@ -24,6 +24,7 @@ import { buildMessages, complete, generateImage, safeJson } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
+import { refreshDrives } from "../engine/driveforge";
 
 export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
 export type {
@@ -1170,6 +1171,12 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of
     // narrator prose — so it can't inherit the drift it exists to undo. Best-effort and silent:
     // a failed refresh just leaves the existing voice in place.
+    // Anyone with no want, or a want that only exists in relation to the player, gets a real one —
+    // derived from their own life, in a pass that never sees the player or the transcript.
+    try {
+      const gained = await refreshDrives(s, s.model_settings.forge_model);
+      if (gained.length) console.info(`[drives] ${gained.join(" | ")}`);
+    } catch { /* they keep whatever they had */ }
     try {
       const refreshed = await refreshStaleVoices(s, s.model_settings.forge_model);
       if (refreshed.length) console.info(`[voice] re-read from the card: ${refreshed.join(", ")}`);
