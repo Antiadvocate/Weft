@@ -225,6 +225,10 @@ export interface Identity {
    *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
    *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
   voice_refreshed_turn?: number;
+  /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
+   *  no traits, no conscience, background copied from the sentences they appeared in. The simulator
+   *  is asked to complete it; until it does, nothing should treat this as a finished person. */
+  provisional?: boolean;
   aliases?: string[];         // other handles the fiction uses for this person — nicknames, titles, epithets ("the captain", "Sor"). Feeds name resolution and memory retrieval so a reference by title still finds the person.
   attracted_to?: string;      // orientation — who this person can desire at all ("women", "men", "anyone", "no one"). A hard gate, not a preference.
   beauty?: number;            // 0..100 intrinsic attractiveness — the millisecond snap-read a stranger gets before any relationship. Species-agnostic: a disembodied voice, a machine, a beast can all be beautiful. Set at creation from appearance (symmetry, youth/vitality, presence, striking features), NOT from who's looking — personal taste is applied on top per-observer at seeding. ~50 = ordinary; 75+ = turns heads; <30 = plain/off-putting. The engine derives a fallback from age when unset; never overwrites a set value.
@@ -570,7 +574,7 @@ export interface SaveState {
   // auditor's description of the remaining gap, refreshed when the act changes. `act` records which
   // act the last audit ran in, so the next act change triggers exactly one more.
   destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean; act?: string } | null;
-  pressure_state?: { last_beat_turn: number; last_exo_turn: number; recent?: { ref: string; turn: number; count: number }[] }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
+  pressure_state?: { last_beat_turn: number; last_exo_turn: number; last_beat_time?: string; last_exo_time?: string; recent?: { ref: string; turn: number; count: number; time?: string }[] }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
   travel_log?: { turn: number; place: string }[]; // player's path through places, in visit order — feeds the story map

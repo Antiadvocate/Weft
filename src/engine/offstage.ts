@@ -105,6 +105,47 @@ export function offstageDue(state: any): boolean {
  * is the point — a world with events the player never learns about is a world, and one where
  * every event finds its way to the protagonist is a story pretending to be one.
  */
+/**
+ * Bring people back from "elsewhere".
+ *
+ * OFFSCENE is a holding pen the engine puts characters in when their location can't be resolved —
+ * and nothing has ever taken them out of it. A character who drifted in stays in permanently: no
+ * scene can include them (presence derives from co-location), no beat can reference them, and the
+ * narrator has no reason to think of them. Muirenn — the story's central relationship for two
+ * hundred turns — sat in it while the cast reduced to whoever happened to be standing nearby.
+ *
+ * People do not vanish from a settlement. Someone offscene with a live want, or a strong tie to
+ * where the player is, walks back into the world on their own. Deterministic, cheap, no model call.
+ */
+export function returnFromOffscene(state: any): string[] {
+  const OFF = "loc_offscene";
+  const log: string[] = [];
+  const real = Object.values<any>(state.world.places).filter((p) => p.id !== OFF);
+  if (!real.length) return log;
+
+  for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
+    if (id === "char_player" || c.location !== OFF) continue;
+    if (c.status === "dead" || c.status === "departed") continue;
+
+    // How long have they been nowhere? Give it a little time before hauling them back — someone
+    // can plausibly be out of sight for a few hours.
+    c.offscene_since ??= state.world.current_turn;
+    if (state.world.current_turn - c.offscene_since < 8) continue;
+
+    // Where would they actually go? A live drive names a place; otherwise the place they have the
+    // strongest reason to be — where the player is, if they have any tie to the player at all.
+    const edge = (state.world.edges ?? []).find(
+      (e: any) => e.from === id && e.to === "char_player" && (Math.abs(e.warmth) >= 25 || Math.abs(e.trust) >= 25),
+    );
+    const target = edge ? state.world.player_location : real[Math.floor(Math.random() * real.length)].id;
+
+    c.location = target;
+    delete c.offscene_since;
+    log.push(`${c.name} is back in the world, at ${state.world.places[target]?.name ?? "somewhere"}.`);
+  }
+  return log;
+}
+
 export async function runOffstage(state: any, model: string): Promise<string[]> {
   if (!offstageDue(state)) return [];
   state.world.offstage_last_time = state.world.current_time;
