@@ -61,7 +61,7 @@ function stakesFor(state: SaveState, id: string): string | null {
 const INTENT_SYSTEM = `You author the PRIVATE, TRUE intent of a single character for one beat of a story — what they are ACTUALLY doing beneath what they let show. This is the character's own truth, drawn ONLY from who they are and their situation, NEVER from the player's private thoughts (you are not given those, and the character cannot know them).
 
 Return ONE strict JSON object, nothing else:
-{"surface":"what this character lets others SEE and HEAR this beat — their outward behavior, words, manner (this is what gets dramatized)","truth":"what is ACTUALLY true underneath — the real want, the lie and what it conceals, the feeling being withheld. If the surface is honest, truth restates the genuine state plainly. If they lie, truth names the lie AND the fact being hidden.","tell":"OPTIONAL — a small, deniable behavioral leak of the truth (a flicker, a too-quick reply, a hand that stills). Something an observer COULD read, or could miss/misread. Omit if they mask cleanly.","lying":true or false}
+{"surface":"HOW they carry themselves this beat — posture, manner, degree of openness, what they are willing to raise and what they hold back. A brief, in a few words. NEVER a line of dialogue and NEVER quoted speech: you are authoring intent BEFORE the scene is written, so any words you put in their mouth are words they did not say. The narrator writes what is actually spoken; you describe only the stance they bring to it.","truth":"what is ACTUALLY true underneath — the real want, the lie and what it conceals, the feeling being withheld. If the surface is honest, truth restates the genuine state plainly. If they lie, truth names the lie AND the fact being hidden.","tell":"OPTIONAL — a small, deniable behavioral leak of the truth (a flicker, a too-quick reply, a hand that stills). Something an observer COULD read, or could miss/misread. Omit if they mask cleanly.","lying":true or false}
 
 Rules:
 - The character acts from THEIR nature, agenda, and feelings — sovereign, not in service of the player. They pursue their own want this beat.
@@ -69,6 +69,7 @@ Rules:
 - CALIBRATE TO THE STATE — the truth must be PROPORTIONAL to the character's actual disposition (given as warmth/trust with their plain-language meaning). Mild negatives are mild: warmth slightly below zero is "a little hurt, a little guarded", NOT terror; low trust is "cautious, watching", NOT conviction that the player is a monster. Do NOT escalate a wary or resigned character into someone secretly certain the player is a manipulator, a monster, a hollow shell, or a danger — that is invention, and it poisons how the character is played. Only write fear, hatred, or a dark verdict when the warmth/trust and history genuinely support that intensity. If the numbers say "mildly hurt but still cares," the truth is mildly hurt, full stop.
 - The character reacts to what the player actually SAID and DID this beat and to their real history — never to a sinister interpretation the state doesn't justify. If nothing hostile has actually happened, the character is not secretly seething about it.
 - Keep each field to one or two tight sentences. Concrete, not literary.
+- NO QUOTATION MARKS ANYWHERE IN YOUR OUTPUT. Not in surface, not in truth, not in tell. A quoted line here becomes a sentence the player is later shown as something the character said, when it was never spoken in the story at all — the surest way to make the whole system look like it is fabricating.
 - NEVER reference the player's unspoken thoughts or feelings. The character reacts only to what the player audibly said and visibly did.`;
 
 /** Run the intent pass for all present NPCs with stakes. Returns their private intents.
@@ -88,7 +89,8 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
   const perceptibleAction = playerAction
     .replace(/\*[^*]*\*/g, "")
     .replace(/\([^)]*\)/g, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[:;,]\s*$/, "")
+         .replace(/\s{2,}/g, " ")
     .trim() || "(the player did nothing others could perceive this beat)";
 
   const results = await Promise.all(staked.map(async ({ id, reason }) => {
@@ -115,11 +117,22 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       );
       const j = safeJson<Partial<NpcIntent> | null>(out.text, null);
       if (!j || !j.surface) return null;
+      // STRIP INVENTED SPEECH. The intent pass runs BEFORE the narrator writes, so any dialogue it
+      // drafts is dialogue that was never spoken — and the GM view renders `surface` to the player
+      // as what the character said. A model that ignores the no-quotes rule would otherwise put
+      // fabricated lines on screen attributed to a real character. Cheaper to remove them than to
+      // trust the instruction.
+      const deQuote = (t: string) =>
+        t.replace(/\s*[,:]?\s*(?:and\s+)?(?:she|he|they)?\s*says?,?\s*['"\u2018\u201c][^'"\u2019\u201d]*['"\u2019\u201d]/gi, "")
+         .replace(/['"\u2018\u201c][^'"\u2019\u201d]{4,}['"\u2019\u201d]/g, "")
+         .replace(/\s{2,}/g, " ")
+         .replace(/\s+([.,])/g, "$1")
+         .trim();
       return {
         char_id: id, name: c.name,
-        surface: String(j.surface).slice(0, 300),
-        truth: String(j.truth ?? j.surface).slice(0, 300),
-        tell: j.tell ? String(j.tell).slice(0, 200) : undefined,
+        surface: deQuote(String(j.surface)).slice(0, 300),
+        truth: deQuote(String(j.truth ?? j.surface)).slice(0, 300),
+        tell: j.tell ? deQuote(String(j.tell)).slice(0, 200) : undefined,
         lying: !!j.lying,
       } as NpcIntent;
     } catch {
