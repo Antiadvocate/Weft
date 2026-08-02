@@ -405,6 +405,34 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
 /** Offscreen NPC drives advance stochastically; produces world-motion lines without an LLM. */
 export function tickDrives(state: SaveState, rng: () => number = Math.random): string[] {
   const log: string[] = [];
+
+  // ── STALLED WANTS ───────────────────────────────────────────────────────────
+  // A drive only progresses when the simulator says it did, and a drive phrased as a QUESTION FOR
+  // THE PLAYER can never progress on its own — "get a clear answer from Anki about whether he wants
+  // her to stay" is not something she can do, it is something she can only ask for. So she asks.
+  // Then asks again. Then asks a third time, because the want is still at the same percentage and
+  // the engine keeps handing it back as her active goal. That is not characterisation, it is a
+  // loop with no exit.
+  //
+  // People do not ask the same question indefinitely. They conclude, they give up, they act on the
+  // answer they already have. A want that has not moved in a long stretch of in-world time is
+  // abandoned — and abandoning it is itself something that happened to them.
+  for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
+    if (id === "char_player" || !c.drive) continue;
+    const since = state.world.current_turn - (c.drive.updated_turn ?? state.world.current_turn);
+    if (since >= 40 && (c.drive.progress ?? 0) < 60) {
+      log.push(`${c.name} stopped waiting on: ${c.drive.goal}`);
+      state.memory[id]?.episodic.push({
+        turn: state.world.current_turn,
+        content: `Stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")} — no answer was coming, so it stopped being a question.`,
+        importance: 6, emotional_charge: "resignation",
+        last_accessed_turn: state.world.current_turn,
+      } as never);
+      if (c.current_goal === c.drive.goal) c.current_goal = undefined;
+      c.drive = undefined;   // the simulator assigns the next want; she is not stuck on this one
+    }
+  }
+
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || state.world.present.includes(id) || !c.drive) continue;
     if (c.drive.progress >= 100) {

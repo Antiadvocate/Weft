@@ -173,7 +173,19 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""):
   // happened to have a calendar entry. An open loop with no clock is not less live than one with
   // one; it sits at the "within a day" weight, which is enough to clear a run of same-toned
   // memories crowding the top-k.
-  if (/^unresolved$/i.test(m.scheduled_time.trim())) return 0.8;
+  // SATURATION GUARD. "Set scheduled_time whenever something is left unfinished" turned out to mean
+  // EVERYTHING to the simulator — measured at 98-100% of episodic memories marked open in a live
+  // save. A boost every memory receives is not a boost; it flattens retrieval back to noise, and
+  // worse, nothing ever closes, so the character keeps re-opening business she already settled and
+  // asks the same question a third time. An unclocked loop therefore DECAYS: live for a day of
+  // in-world time, fading after, gone after three. Real unfinished business gets re-touched by events;
+  // the rest quietly stops nagging, which is what actually happens to people.
+  if (/^unresolved$/i.test(m.scheduled_time.trim())) {
+    const age = currentTurn - m.turn;
+    if (age <= 12) return 0.8;
+    if (age <= 40) return 0.35;
+    return 0;
+  }
   if (!nowLabel) return 0.8;
   const a = parseTime(nowLabel), b = parseTime(m.scheduled_time);
   const mins = (b.day - a.day) * 1440 + (b.hour - a.hour) * 60 + (b.minute - a.minute);
