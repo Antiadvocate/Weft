@@ -536,7 +536,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                           <span style={{ color: "var(--text-lo)" }}>turn {g.turn}</span>
                           {g.lying && <span className="font-mono text-[10px]" style={{ color: "var(--danger)" }}>LIED</span>}
                         </div>
-                        <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>showed:</span> {g.surface}</div>
+                        {/* "showed" read as a transcript of what the character said. It isn't: intents are authored
+                            BEFORE the narrator writes the scene, so this is the stance they brought to the beat,
+                            not their spoken words. Labelling it as speech made the system look like it was
+                            inventing dialogue that never appeared in the prose. */}
+                        <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>intended to show:</span> {g.surface}</div>
                         <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
                       </div>
                     ))}
