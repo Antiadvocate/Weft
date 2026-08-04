@@ -83,7 +83,7 @@ function sovereignty(state: SaveState): string {
  *  and can't corrupt anything. If a paragraph would lose most of itself the scrub backs off —
  *  a pattern that greedy is misfiring, and a thin replay is worse than a flawed one. */
 const MOTIVE_LEAK = new RegExp([
-  "\\bas (?:if|though) (?:he|she|they|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might)\\b",
+  "\\bas (?:if|though) (?:he|she|they|it|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might|could)\\b",
   "\\bas if to \\b", "\\bwith the air of\\b",
   "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
   "\\bpretend(?:s|ing|ed)?\\b", "\\bto (?:hide|conceal|mask|cover)\\b", "\\bmask(?:ing)? (?:still |firmly )?in place\\b",
@@ -94,7 +94,9 @@ const MOTIVE_LEAK = new RegExp([
   "\\bshowing (?:his|her|their|xyr) (?:\\w+ )?(?:curiosity|doubt|fear|anger|interest|surprise)\\b",
   "\\breveal(?:s|ing|ed) (?:his|her|their|nothing|something)\\b",
   "—\\s*(?:weighing|calculating|measuring|deciding|wondering|trying|reading)\\b",
-  "\\bsomething (?:quieter|softer|harder|colder|unspoken)\\b",
+  "\\bsomething (?:quieter|softer|harder|colder|warmer|sharper|unspoken)\\b",
+  "\\bsomething \\w+er than\\b", "\\b(?:held|carried|contained) something \\w+\\b",
+  "\\bgone from \\w+ to something\\b", "\\ba look that had gone\\b",
 ].join("|"), "i");
 
 export function scrubForReplay(prose: string): string {
