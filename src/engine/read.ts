@@ -136,6 +136,23 @@ ACCURACY IS SET BY THE BODY. You are told the player's relaxation.
 
 Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
 
+EXAMPLES. These are the register — never reuse the wording.
+
+GOOD (first person or direct address, flat, no figure of speech, a verdict this player could be wrong about):
+  "She's already decided. This is the part where she tells me."
+  "He wants me to ask. I'm not going to ask."
+  "That was the soft version. That's the part to be frightened of."
+  "His hand is the size of my head and he hasn't put it down."
+  "She's counting how many times I've lied to her tonight."
+
+BAD, and why:
+  "She is a machine built of facts, clicking through her internal gears." — figurative mush; the whole line is a metaphor doing the work a plain sentence should do.
+  "He is a giant container for secrets that hum." — same, and it says nothing a person could act on.
+  "She watches him the way she reads a difficult passage." — comparison to an ACTIVITY, which smuggles the verdict into the vehicle.
+  "Something in the way she says it makes me think she's angry." — hedged; a read is stated, not attributed.
+  "She seems uncertain, though it's hard to tell." — hedged twice; this is the mush this channel exists to replace.
+  "He is calculating what my sorting means for him." — this is narration of his interior, not the player's read. Say what the PLAYER concludes: "He's already worked out what I'm worth to him."
+
 Output ONLY JSON: {"reads":[{"faculty":"EXACT NAME GIVEN","line":""}]}`;
 
 /** How many faculties fire, and which. Deterministic — the body decides.

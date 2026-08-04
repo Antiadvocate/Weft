@@ -54,9 +54,58 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  *  Exists because mid-tier narrator models resolve scene momentum by moving the player's body
  *  (an NPC says "shower first," the player replies with words, the model writes them showering).
  *  The rulebook says never; recency makes it stick. */
+/** The last thing the model reads, after the action, after everything. povFilter states the rule
+ *  in full up in DIRECTION; this is the two-line version at the only position that reliably wins
+ *  against the model's own replayed prose. pronounLock earned the tail slot the same way. */
+const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
+
 function sovereignty(state: SaveState): string {
   const n = state.characters["char_player"]?.name ?? "the player";
   return `\n[${n} does ONLY what the input above states — no added actions, words, feelings, or decisions. Dialogue-only input means ${n} spoke and did nothing else. If the scene is waiting on ${n} (an instruction, a question, an invitation), the world WAITS: end at the waiting point. Never resolve it for them.]`;
+}
+
+/** CHATLOG PROSE SCRUB — the loop that made the POV rule unenforceable.
+ *
+ *  In chatlog mode the narrator's own prior prose is replayed as ASSISTANT messages. That is
+ *  the strongest style signal in the whole request: it is not a rule about how to write, it is
+ *  an example of how this narrator already writes, authored by the role the model is playing.
+ *  So a single escape on turn 1 ("the polite mask still in place, his eyes calculating") becomes
+ *  the house style by turn 4 — the violation rate RISES with turn count, which is the tell.
+ *  The same failure the fresh-reader voice pass exists to break: the narrator imitates its own
+ *  last paragraph. Voice got a fix; prose never did.
+ *
+ *  This scrubs the REPLAY COPY only — state.history keeps every word, the Chronicle is untouched,
+ *  nothing is rewritten after the fact. It is input hygiene, not post-hoc correction: the model
+ *  never sees the bad sentence, so it has nothing to copy.
+ *
+ *  Sentences are the unit deliberately. Excising a clause leaves mangled grammar in context,
+ *  which is its own kind of style signal; dropping a whole sentence costs a little continuity
+ *  and can't corrupt anything. If a paragraph would lose most of itself the scrub backs off —
+ *  a pattern that greedy is misfiring, and a thin replay is worse than a flawed one. */
+const MOTIVE_LEAK = new RegExp([
+  "\\bas (?:if|though) (?:he|she|they|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might)\\b",
+  "\\bas if to \\b", "\\bwith the air of\\b",
+  "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
+  "\\bpretend(?:s|ing|ed)?\\b", "\\bto (?:hide|conceal|mask|cover)\\b", "\\bmask(?:ing)? (?:still |firmly )?in place\\b",
+  "\\b(?:polite|careful|practised|practiced) mask\\b", "\\bcarefully (?:blank|neutral|still|empty)\\b",
+  "\\bwhich meant\\b", "\\bwhat (?:he|she|they|xe) really\\b", "\\bdoes ?n[o']t say what\\b", "\\bdid ?n[o']t say what\\b",
+  "\\btrying to (?:parse|read|work out|decide|figure|understand|place|reconcile)\\b",
+  "\\b(?:weighing|calculating|measuring|gauging|deciding) (?:what|which|whether|how|him|her|them)\\b",
+  "\\bshowing (?:his|her|their|xyr) (?:\\w+ )?(?:curiosity|doubt|fear|anger|interest|surprise)\\b",
+  "\\breveal(?:s|ing|ed) (?:his|her|their|nothing|something)\\b",
+  "—\\s*(?:weighing|calculating|measuring|deciding|wondering|trying|reading)\\b",
+  "\\bsomething (?:quieter|softer|harder|colder|unspoken)\\b",
+].join("|"), "i");
+
+export function scrubForReplay(prose: string): string {
+  if (!prose) return prose;
+  return prose.split(/\n\n+/).map((para) => {
+    const sents = para.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [para];
+    const kept = sents.filter((x) => !MOTIVE_LEAK.test(x));
+    if (!kept.length) return "";
+    if (kept.length < sents.length * 0.5 && sents.length > 2) return para; // too greedy — leave it
+    return kept.join("").trim();
+  }).filter(Boolean).join("\n\n");
 }
 
 /** Does a trait label describe ACQUIRED EXPERTISE (skill built over years) rather than temperament?
@@ -852,11 +901,31 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   if (!focused.length) {
     const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
     if (prev) {
-      const lastAt = focusNames
-        .map((f) => ({ f, at: prev.toLowerCase().lastIndexOf(f.name.toLowerCase().split(/\s+/).slice(-1)[0]) }))
-        .filter((x) => x.at >= 0)
-        .sort((a, b) => b.at - a.at)[0];
-      if (lastAt) focused = [lastAt.f];
+      // ADDRESSEE = whoever last SPOKE, not whoever was last mentioned. The old rule took the
+      // final name in the paragraph, and narrator paragraphs habitually close on a bystander
+      // reaction — so a turn spent in conversation with one person resolved focus (and the read
+      // channel) onto someone across the room who happened to be described last. Scan paragraphs
+      // from the end for one that contains BOTH a quotation and a present character's name; that
+      // is the person holding the floor. Fall back to last-mentioned only if nobody spoke.
+      const paras = prev.split(/\n\n+/);
+      const surname = (n: string) => n.toLowerCase().split(/\s+/).slice(-1)[0];
+      let speaker: typeof focusNames[number] | undefined;
+      for (let i = paras.length - 1; i >= 0 && !speaker; i--) {
+        if (!/["“”]/.test(paras[i])) continue;
+        const lc = paras[i].toLowerCase();
+        speaker = focusNames
+          .map((f) => ({ f, at: lc.lastIndexOf(surname(f.name)) }))
+          .filter((x) => x.at >= 0)
+          .sort((a, b) => a.at - b.at)[0]?.f;   // earliest name in a spoken paragraph = the attributor
+      }
+      if (speaker) focused = [speaker];
+      else {
+        const lastAt = focusNames
+          .map((f) => ({ f, at: prev.toLowerCase().lastIndexOf(surname(f.name)) }))
+          .filter((x) => x.at >= 0)
+          .sort((a, b) => b.at - a.at)[0];
+        if (lastAt) focused = [lastAt.f];
+      }
     }
   }
   const unfocused = focusNames.filter((f) => !focused.some((g) => g.id === f.id));
@@ -949,7 +1018,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + povFilter + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -983,16 +1052,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = state.history
       .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= a.turn)
       .slice(-cad)
-      .map((h) => ({ user: h.player_action, assistant: h.narrator_prose }));
+      .map((h) => ({ user: h.player_action, assistant: scrubForReplay(h.narrator_prose) }));
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
