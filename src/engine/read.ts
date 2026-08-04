@@ -129,10 +129,12 @@ WRITE EACH READ LIKE THIS:
 - Read the PERSON, not the plot. Never predict events, never name what will happen next in the story, never advise the player.
 - Faculties may CONTRADICT each other outright. Two reads of the same gesture reaching opposite conclusions is correct and desirable — do not reconcile them, do not have the second one defer to the first.
 
-ACCURACY IS SET BY THE BODY. You are told the player's relaxation.
-- CLENCHED (relaxation at or below -3): the reads are confident and WRONG, in the specific directions each faculty's distortion names. Coldness where there is fear. Rejection where there is confusion. A verdict where the other person had not decided anything. Fixate on the wrong signal. Do NOT signal to the player that the read is unreliable — the whole point is that it feels like knowledge.
-- UNSETTLED (between -3 and 3): mixed. One read lands near the truth, another misses. Neither announces which is which.
-- SETTLED (3 and above): the reads are good. Still inferences made from outside, still stated as the player's own conclusion, but they tend to land.
+THE BODY SETS HOW MUCH A READ CAN HOLD. This is the primary axis, and it is not about being nice or being right. A clenched body collapses a person down to ONE attribute, and it is the attribute that matters to the threat. An eased body can hold a person as two things at once that do not resolve into a verdict.
+- CLENCHED (relaxation at or below -3): each read names exactly ONE thing about the person and admits nothing else. No "and". No qualifier, no partial credit, no second hand. Whatever else is true of them is not available. The read is confident and, in the direction that faculty's distortion names, WRONG — coldness where there is fear, rejection where there is confusion, a verdict where the other person had not decided anything. Never signal that it is unreliable; it has to feel like knowledge.
+- UNSETTLED (between -3 and 3): mostly singular, but one read this turn may carry a second thing it can't reconcile.
+- SETTLED (3 and above): a read may hold two things that sit side by side without resolving — she is cold, and she kept the food for me. Do not reconcile them, do not let the second one soften or cancel the first, and do not draw a conclusion from the pair. Holding the contradiction IS the settled state; a settled read that arrives at one tidy verdict has collapsed the same way a clenched one does.
+
+READS ARISE, THEY ARE NOT REACHED. They come already finished, mixed in with the feeling that is already there, and nobody deliberated. Forbidden: "I wonder", "I realize", "I notice", "it occurs to me", "part of me thinks", and every other verb of arriving at a thought. No sentence describes the player thinking. The thought is simply the sentence.
 
 Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
 
