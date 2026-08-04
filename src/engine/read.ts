@@ -1,0 +1,241 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// THE READ CHANNEL
+//
+// Weft's oldest prose failure is the narrator adjudicating other people: motive
+// stated as fact ("Pell has put his shuttle down to listen and is pretending he
+// hasn't"), gestures captioned with their meaning, similes whose vehicle imports
+// the emotional verdict ("the way a physician takes a pulse"). Every version of
+// the fix so far has been a PROHIBITION in the narrator prompt, and prohibitions
+// do not survive generation: a model asked to write a person and forbidden to say
+// anything about their interior writes camera-script, notices the flatness, and
+// smuggles the interpretation back in through a subordinate clause.
+//
+// The failure is structural, not stylistic. The narrator holds every character's
+// true inner state (it needs it to decide behavior) AND writes the page. Asking it
+// to filter its own omniscience every sentence is asking it to hold two contexts
+// and drop one, forever, under length pressure.
+//
+// So: split the job. The narrator writes ONLY the observable surface, at every
+// relaxation level, with no graded license. Interpretation moves here — to a
+// separate call that is never handed the NPC's psyche, drive, mind model, or
+// intent, and therefore CANNOT leak them. It sees what the player saw and who the
+// player is. Its output is attributed to a named faculty of the player's own
+// perception, in first person, and is frequently wrong.
+//
+// This is the Disco Elysium arrangement, and worth being precise about why it
+// works: DE's narrator is far MORE interpretive than Weft's, not less. It never
+// reads as adjudication because every interpretation has an owner who can be
+// discredited, and the owners contradict each other. Interpretation isn't the
+// problem. UNOWNED interpretation is.
+//
+// The relaxation scalar changes jobs here too. It used to govern how much truth
+// the narrator handed over — an invisible prose modulation the player could only
+// perceive as tonal mush. Now it governs how ACCURATE the player's own faculties
+// are, and how much they fight each other. Same number, visible mechanic.
+//
+// PROMPTS LIVE IN THIS FILE, deliberately, and not in prompts.ts: the sealed
+// context is the whole guarantee, and keeping this prompt physically apart from
+// the narrator's module removes the class of accident where a refactor folds a
+// read prompt into narrator context and hands it the ground truth back.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { SaveState } from "./types";
+import { buildMessages, complete, safeJson } from "../llm";
+
+/** One faculty of the player's perception — derived from their card, not a fixed skill list.
+ *  Stable across a playthrough so the player learns to distrust specific ones by name. */
+export interface Faculty {
+  name: string;      // 1–3 words, the player's own idiom. Not an RPG stat.
+  notices: string;   // what this faculty actually picks up on
+  distorts: string;  // the specific direction it lies in when the body is clenched
+}
+
+/** One read of the focused character, this turn. Owned, first-person, possibly wrong. */
+export interface Read {
+  faculty: string;
+  line: string;
+}
+
+// ── faculty derivation ───────────────────────────────────────────────────────
+
+const FACULTY_SYSTEM = `You derive a person's PERCEPTUAL APPARATUS from their character card — the specific, biased ways THIS person reads other people. Not a skill list, not stats: the four to six habits of attention this particular nervous system actually has, given who they are and what happened to them.
+
+Each faculty gets:
+- name: 1–3 words in the PLAYER'S OWN IDIOM — drawn from their history, work, upbringing, or body. "OLD ARITHMETIC", "THE FLINCH", "COUNTING THE EXITS", "SHOPKEEPER'S EYE". Never a generic RPG stat name (no "Empathy", "Perception", "Insight", "Logic", "Intuition"). Never abstract virtue words.
+- notices: one plain sentence — the concrete class of signal it catches. Faces, hands, money, distance, who eats first, whose voice drops. Filmable inputs.
+- distorts: one plain sentence — the SPECIFIC wrong conclusion it reaches under pressure. Not "it can be inaccurate": name the error. "Reads any pause as contempt." "Turns confusion into rejection." "Credits kindness it hasn't been shown yet."
+
+HARD BANS. Nobody has mystical perception: no "reads the weakness in a room before a word is spoken", no "knows within a breath whether a man is lying", no "sees through people". Cut every metaphor and say the plain thing. THE TEST: could a camera capture what this faculty attends to? If not, rewrite it.
+
+The set should DISAGREE with itself. A person whose faculties all point the same way has one faculty. At least one should be generous, at least one should be suspicious, and they should be able to look at the same gesture and reach opposite conclusions.
+
+Derive from the card given — traits, values, attachment, history, work, body. A person who grew up hungry has a faculty about food and who is served first. A person trained to close deals has one about the moment someone stops arguing. Do not invent history the card does not contain.
+
+Output ONLY JSON: {"faculties":[{"name":"","notices":"","distorts":""}]}`;
+
+/** Faculties are re-derived rarely — they are the player's apparatus, not their mood.
+ *  Trigger: never derived, or the card has materially changed (traits acquired, vessel swapped). */
+export function needsFaculties(state: SaveState): boolean {
+  const f = state.faculties;
+  if (!f || !f.list?.length) return true;
+  const traitCount = (state.traits["char_player"] ?? []).length;
+  return traitCount !== (f.trait_count ?? -1);
+}
+
+export async function deriveFaculties(state: SaveState): Promise<Faculty[]> {
+  const pc = state.characters["char_player"];
+  if (!pc) return [];
+  const traits = (state.traits["char_player"] ?? [])
+    .map((t) => `${t.label} (${t.behavioral_impact})`).join("; ");
+  const card = [
+    `NAME: ${pc.name}, age ${pc.age}`,
+    `BACKGROUND: ${pc.background}`,
+    pc.life_history ? `SINCE THEN: ${pc.life_history}` : "",
+    `CORE TRAITS: ${(pc.core_traits ?? []).join("; ")}`,
+    `VALUES: ${(pc.values ?? []).join("; ")}`,
+    pc.texture?.length ? `TEXTURE: ${pc.texture.join("; ")}` : "",
+    Object.keys(pc.skills ?? {}).length ? `SKILLS: ${Object.entries(pc.skills).map(([k, v]) => `${k} (${v})`).join("; ")}` : "",
+    pc.attachment ? `ATTACHMENT: ${pc.attachment.style}${pc.attachment.under_threat ? ` — under threat: ${pc.attachment.under_threat}` : ""}` : "",
+    typeof pc.conscience === "number" ? `CONSCIENCE: ${pc.conscience.toFixed(2)} (how much others' experience registers as mattering)` : "",
+    `INTELLIGENCE: ${pc.intelligence}`,
+    traits ? `ACQUIRED IN PLAY: ${traits}` : "",
+    `WORLD: ${state.world_bible.name} — ${state.world_bible.era}. ${state.world_bible.tone ?? ""}`,
+  ].filter(Boolean).join("\n");
+
+  const msgs = buildMessages(FACULTY_SYSTEM, "", card, state.model_settings.simulator_model);
+  const res = await complete(
+    msgs, state.model_settings.simulator_model, state.model_settings.fallback_model,
+    true, 1200, { providerSort: "throughput" },
+  );
+  const out = safeJson<{ faculties?: Faculty[] }>(res.text, {});
+  return (out.faculties ?? [])
+    .filter((f) => f?.name && f?.notices)
+    .slice(0, 6)
+    .map((f) => ({ name: f.name.toUpperCase(), notices: f.notices, distorts: f.distorts ?? "" }));
+}
+
+// ── per-turn reads ───────────────────────────────────────────────────────────
+
+const READ_SYSTEM = `You are ONE PERSON'S read of another person, in the moment, spoken by named faculties of their own perception. You are not a narrator. You have no access to the other person's mind and you are not pretending to have any — everything you produce is this player's conclusion, drawn from a surface, and it can be wrong.
+
+You are given: who the player is, what state their body is in, what they already believe about this person, and the OBSERVABLE SURFACE of the scene — what was said and done, nothing else. That is all you get, because that is all they got.
+
+WRITE EACH READ LIKE THIS:
+- First person, present tense, the player's own voice. "She's already decided." "He wants me to ask."
+- FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". A read is a verdict; verdicts are stated. Wrongness comes from BEING wrong, never from hedging — a hedged read is mush and it is the exact failure this channel exists to replace.
+- Under 20 words. Usually well under. A read is a thought, not a paragraph.
+- NO NEW FACTS. You may not invent a gesture, an object, a line of dialogue, or anything the surface did not already contain. You interpret what is there. If the surface is thin, the read is thin.
+- COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION — "the way a physician takes a pulse", "like a man apologizing", "as though sealing a bargain" all import the verdict inside the comparison and are forbidden. Default to no simile at all.
+- Read the PERSON, not the plot. Never predict events, never name what will happen next in the story, never advise the player.
+- Faculties may CONTRADICT each other outright. Two reads of the same gesture reaching opposite conclusions is correct and desirable — do not reconcile them, do not have the second one defer to the first.
+
+ACCURACY IS SET BY THE BODY. You are told the player's relaxation.
+- CLENCHED (relaxation at or below -3): the reads are confident and WRONG, in the specific directions each faculty's distortion names. Coldness where there is fear. Rejection where there is confusion. A verdict where the other person had not decided anything. Fixate on the wrong signal. Do NOT signal to the player that the read is unreliable — the whole point is that it feels like knowledge.
+- UNSETTLED (between -3 and 3): mixed. One read lands near the truth, another misses. Neither announces which is which.
+- SETTLED (3 and above): the reads are good. Still inferences made from outside, still stated as the player's own conclusion, but they tend to land.
+
+Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
+
+Output ONLY JSON: {"reads":[{"faculty":"EXACT NAME GIVEN","line":""}]}`;
+
+/** How many faculties fire, and which. Deterministic — the body decides.
+ *  Clenched: three, arguing. Settled: one or two, agreeing. Rotates by turn so a
+ *  long playthrough doesn't hear the same two voices every scene. */
+export function pickFaculties(list: Faculty[], relax: number, turn: number): Faculty[] {
+  if (!list.length) return [];
+  const count = Math.min(list.length, relax <= -3 ? 3 : relax < 3 ? 2 : (turn % 3 === 0 ? 2 : 1));
+  const start = turn % list.length;
+  const out: Faculty[] = [];
+  for (let i = 0; i < count; i++) out.push(list[(start + i) % list.length]);
+  return out;
+}
+
+/** The SEALED context. Everything here is player-side.
+ *
+ *  What this function must never touch, in any future edit:
+ *    state.condition[targetId]        — the target's psyche/relaxation/mood
+ *    state.characters[targetId].drive — what they actually want
+ *    state.minds[targetId]            — their model of the player
+ *    gm_intents / the turn's authored surface-vs-truth split
+ *
+ *  The channel is safe because the data is absent, not because the prompt says
+ *  not to use it. Keep it that way. */
+function lens(state: SaveState, targetId: string, surface: string, relax: number): string {
+  const pc = state.characters["char_player"];
+  const target = state.characters[targetId];
+  const psy = state.condition["char_player"]?.psyche;
+  const mem = state.memory["char_player"];
+  const about = state.minds?.["char_player"]?.about?.find((b) => b.target === targetId);
+
+  // The player's own memories that name this person — their history with them, as
+  // THEY hold it (already decayed, already reconstructed). Not the true record.
+  const name0 = (target?.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+  const recalled = (mem?.episodic ?? [])
+    .filter((m) => name0 && m.content.toLowerCase().includes(name0))
+    .sort((a, b) => (b.importance - a.importance) || (b.turn - a.turn))
+    .slice(0, 4)
+    .map((m) => `- ${m.content}${m.emotional_charge ? ` [${m.emotional_charge}]` : ""}`)
+    .join("\n");
+  const beliefs = (mem?.beliefs ?? [])
+    .filter((b) => name0 && b.content.toLowerCase().includes(name0))
+    .slice(0, 2).map((b) => `- ${b.content}`).join("\n");
+
+  return [
+    `=== WHO IS READING ===`,
+    `${pc?.name ?? "the player"}, ${pc?.age ?? "?"}. ${pc?.background ?? ""}`,
+    (pc?.core_traits ?? []).length ? `Traits: ${pc!.core_traits.join("; ")}` : "",
+    (pc?.values ?? []).length ? `Values: ${pc!.values.join("; ")}` : "",
+    pc?.attachment ? `Attachment: ${pc.attachment.style}${pc.attachment.under_threat ? ` — under threat, ${pc.attachment.under_threat}` : ""}` : "",
+    ``,
+    `=== THE BODY DOING THE READING ===`,
+    `Relaxation: ${Math.round(relax)} (-10 clenched .. +10 open). Mood: ${psy?.mood ?? "—"}.`,
+    psy?.active_states?.length ? `Carrying: ${psy.active_states.join(", ")}.` : "",
+    (psy?.betrayals ?? 0) >= 2 ? `Has swallowed ${psy!.betrayals} things lately without saying them.` : "",
+    ``,
+    `=== WHO IS BEING READ (surface only — this is everything the player knows) ===`,
+    `${target?.name ?? "them"}${target?.pronouns ? ` (${target.pronouns})` : ""}. ${target?.appearance_now || target?.appearance_facts || ""}`,
+    about ? `The player expects them to feel ${about.predicted_warmth > 20 ? "warmly" : about.predicted_warmth < -20 ? "coldly" : "neutrally"} toward them, and reads them as ${about.predicted_stance}. Confidence ${about.confidence.toFixed(2)}.` : "",
+    about?.held_false ? `The player wrongly believes: ${about.held_false}. This belief is LOAD-BEARING — let it shape the reads without ever being examined.` : "",
+    (about?.surprise ?? 0) > 0.4 ? `This person has recently done things the player did not predict.` : "",
+    recalled ? `\nWhat the player carries about them:\n${recalled}` : "",
+    beliefs ? `${beliefs}` : "",
+    ``,
+    `=== THE SURFACE (what just happened, as seen and heard) ===`,
+    surface,
+  ].filter((l) => l !== "").join("\n");
+}
+
+/** Fire the read channel. Runs CONCURRENTLY with the narrator stream — this is the
+ *  work that fills the wait, and it is the player's own head, which is where a
+ *  CRPG puts you while the world takes its turn.
+ *
+ *  Never throws: a failed read is a quiet turn, not a broken one. */
+export async function runReads(
+  state: SaveState, targetId: string, surface: string, turn: number,
+): Promise<Read[]> {
+  try {
+    const list = state.faculties?.list ?? [];
+    const relax = state.condition["char_player"]?.psyche?.relaxation ?? 0;
+    const firing = pickFaculties(list, relax, turn);
+    if (!firing.length || !state.characters[targetId]) return [];
+
+    const roster = firing
+      .map((f) => `${f.name} — notices: ${f.notices}${f.distorts ? ` | under pressure: ${f.distorts}` : ""}`)
+      .join("\n");
+    const user = `${lens(state, targetId, surface, relax)}\n\n=== FACULTIES SPEAKING THIS TURN (exactly these, in this order, one line each) ===\n${roster}`;
+
+    const msgs = buildMessages(READ_SYSTEM, "", user, state.model_settings.simulator_model);
+    const res = await complete(
+      msgs, state.model_settings.simulator_model, state.model_settings.fallback_model,
+      true, 600, { providerSort: "throughput", omitReasoning: true },
+    );
+    const out = safeJson<{ reads?: Read[] }>(res.text, {});
+    const valid = new Set(firing.map((f) => f.name));
+    return (out.reads ?? [])
+      .filter((r) => r?.line && valid.has((r.faculty ?? "").toUpperCase()))
+      .slice(0, 3)
+      .map((r) => ({ faculty: r.faculty.toUpperCase(), line: r.line.trim() }));
+  } catch {
+    return [];
+  }
+}

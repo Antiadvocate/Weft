@@ -16,6 +16,7 @@ import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
+import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
@@ -40,6 +41,11 @@ export interface TurnEvents {
   onPhase: (phase: string) => void;
   onDelta: (text: string) => void;
   onMeta: (meta: object) => void;
+  /** The player's own faculties, landing while the narrator is still writing. This is what the
+   *  wait is FOR: the sealed read channel returns in a second or two on a throughput-routed small
+   *  model, so the gap between action and prose is spent inside the player's head instead of on a
+   *  spinner. Optional — a caller that ignores it loses nothing but the texture. */
+  onRead?: (reads: Read[]) => void;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -811,11 +817,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const interiorGuard = interiorHeavy
     ? `\nINTERIOR IS INERT THIS TURN — the player's action is mostly private thought/planning (musing about what they might do, where they might go, what they could become). This interior is NOT a story input: it shapes only the player's own experience and what their body does, and the world CANNOT see, answer, or be built around it. Do NOT have any character raise, offer, or respond to the subject of the player's private thoughts (a job they mused about, a plan they turned over, a wish). Render only the physical action the player actually took, and let the world proceed from its OWN standing state — the present character's own want and the live threads — indifferent to what the player was thinking. If the only physical act was small (finishing food, walking over), the scene stays small; do not manufacture a development to match the player's rumination.`
     : "";
-  const povFilter = pcRelax <= -3
-    ? `\nPOV — READ, DON'T REPORT (player is clenched, relaxation ${Math.round(pcRelax)}): The player is dysregulated and is therefore a BAD reader of other people right now. Do NOT state any other character's inner feelings, motives, or unspoken meaning as fact. Forbidden absolutely: narrator lines that reveal what someone "really" means, "doesn't say," "actually feels," or is thinking behind their words — especially a character's withheld or sealed interior. Render only what the player can SEE and HEAR: face, posture, tone, motion, the words actually spoken, the body. Where feeling colors the scene at all, it is the PLAYER'S projection onto them — and a clenched read is often WRONG: it may misattribute (see coldness where there's fear, rejection where there's confusion), fixate on the wrong signal, or miss what the other person is plainly feeling. You MAY let the player misread. You may omit an emotion the other character is actually having if the player wouldn't catch it. Leave the others' interiors OPAQUE — a surface the player has to interpret, and can get wrong.`
-    : pcRelax < 3
-    ? `\nPOV — mostly surface (player relaxation ${Math.round(pcRelax)}): Render other characters from the OUTSIDE — what shows in face, voice, and act. You may imply feeling through behavior but do NOT hand the player a character's exact unspoken thought or sealed interior as narrator-fact. If someone is withholding something, let it stay withheld and visible only as a pressure under their surface; the player has to read it, and may read it wrong.`
-    : `\nPOV — clear-eyed (player relaxation ${Math.round(pcRelax)}): The player is open and reads people well right now, so their INFERENCES about others tend to be ACCURATE — but they are still inferences, made from the outside, never omniscient fact. You may let the player's read land close to the truth (a correct sense of what's under someone's surface), framed as the player perceiving/sensing it, NOT as the narrator declaring another mind's sealed contents. Still never write "xe doesn't say what xe really means, which is X" — instead "something in how xe says it makes him think X," leaving the player the one reading, and leaving room to be wrong. The same applies to PURPOSE: never state as narrator-fact why a character did or asked something ("the question was not a trap — it was the kind xe built to teach"). If that read belongs in the scene at all, it is the player arriving at it, hedged and possibly wrong.`;
+  // ── POV (single branch, always on) ──────────────────────────────────────────
+  // This used to be three branches keyed to relaxation, and the top branch was the leak:
+  // at relaxation >= 3 it LICENSED the narrator to hand over a read, asking only that it be
+  // routed through a filter verb ("something in how xe says it makes him think X"). That is
+  // still the narrator adjudicating — the verdict just moved into a subordinate clause, and
+  // filter verbs are the first thing a model prunes as clunky. The graded license is gone.
+  // The narrator now writes the surface at every relaxation level, and every read of another
+  // person is generated in the sealed channel (engine/read.ts) where it belongs to the player
+  // and can be wrong. Relaxation still governs interpretation — it governs it THERE, where it
+  // is visible to the player as their own faculties failing, instead of here as tonal mush.
+  const povFilter = `\nPOV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive ("puts the shuttle down to listen"), naming a concealment ("pretending he hasn't", "doesn't say what xe means"), captioning a gesture with its significance, following an act with a clause explaining the feeling under it, or routing any of these through a filter verb to make them deniable — "seems", "as if", "something in the way", "makes him think", "you can tell" are not licenses, they are the same violation with a hedge on it. If the player has a thought about someone, that thought does not appear here; another channel carries it.
+COMPARISONS: a simile or metaphor may touch ONLY physical form, motion, texture, sound, or scale. Never compare a person, act, or gesture to a ROLE, PROFESSION, RITUAL, RELATIONSHIP, or INTENTION — "the way a physician takes a pulse", "like someone apologizing", "as though closing a bargain" smuggle the emotional verdict inside the vehicle, which is the same failure as stating it outright. When in doubt write no comparison: the gesture, plainly, is stronger. If a gesture needs a caption to land, the gesture is wrong — fix the gesture.
+JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by side without a connective. Never join them with a verb of perception or cause. Not "her brow furrows, showing irritation" and not "her brow furrows, which makes you think she is angry" — "her brow furrows." Then the next thing that happens.`;
 
   // ── FOCUS GATE (interiority has a source) ── povFilter above bounds HOW MUCH interior the narrator
   // may report; this bounds WHOSE. A first-person scene reads the person the player is actually
@@ -982,6 +996,28 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       state.model_settings.narrator_model,
     );
   }
+  // ── READ CHANNEL (concurrent with the narrator) ────────────────────────────
+  // The narrator writes the surface; the player's faculties read it. Fired here, not awaited,
+  // so it overlaps the whole stream. Target is whoever the focus gate already resolved — the
+  // person the player is actually engaged with — because that is who a person in a room is
+  // reading. The surface handed over is the PREVIOUS turn's prose plus this turn's action:
+  // exactly what the player has in front of them at the moment they form an impression, and
+  // nothing from the state that they could not have perceived.
+  const readTarget = focused[0]?.id ?? focusNames[0]?.id;
+  const readsPromise: Promise<Read[]> = (async () => {
+    if (!readTarget || opts?.proseOverride) return [];
+    if (needsFaculties(state)) {
+      const list = await deriveFaculties(state);
+      if (list.length) state.faculties = { turn, trait_count: (state.traits["char_player"] ?? []).length, list };
+      else return [];
+    }
+    const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
+    const surface = `${prev ? prev + "\n\n" : ""}[the player now:] ${action}`;
+    const rs = await runReads(state, readTarget, surface, turn);
+    if (rs.length) ev.onRead?.(rs);
+    return rs;
+  })();
+
   let prose = "";
   let narratorUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
   let narratorTruncated = false;
@@ -1151,6 +1187,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   }
 
   // 3 ── simulator (one JSON call: bookkeeper + world tick + memory writes)
+  // Collect the reads before bookkeeping. They almost always landed long ago (small model,
+  // throughput-routed, ~600 tokens); this await is a formality that also guarantees the promise
+  // is settled before the entry is written. Never blocks meaningfully, never throws.
+  const turnReads: Read[] = await readsPromise;
+
   ev.onPhase("simulator");
   // The bookkeeper gets its OWN minimal context (roster, ledgers, open bookkeeping objects) —
   // not the narrator's prefix+digest. This cuts its input by more than half AND removes the
@@ -1690,6 +1731,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
+    reads: turnReads.length ? turnReads : undefined,
     summary: diff.scene_summary || prose.slice(0, 120),
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),

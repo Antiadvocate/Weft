@@ -1079,6 +1079,7 @@ export interface TurnEvents {
   onPhase?: (phase: string) => void;
   onDelta?: (text: string) => void;
   onMeta?: (meta: Record<string, unknown>) => void;
+  onRead?: (reads: { faculty: string; line: string }[]) => void;
   onDone?: (save: ClientSave) => void;
   onError?: (message: string) => void;
 }
@@ -1166,6 +1167,7 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       },
       onDelta: (t) => { proseAcc += t; ev.onDelta?.(t); },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
+      onRead: (rs) => ev.onRead?.(rs),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco });
     // FRESH READER. After the turn, re-derive the voice of anyone in the scene whose card hasn't
     // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of

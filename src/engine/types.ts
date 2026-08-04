@@ -518,6 +518,11 @@ export interface TurnHistoryEntry {
   bookkeeping?: "ok" | "thin" | "failed";
   summary: string;             // simulator one-liner, used for context
   offscreen: string[];         // world-motion log lines
+  /** What the player's own faculties made of the focused character this turn — owned, first-person,
+   *  frequently wrong. Generated in a SEALED context that never sees the target's true state, which
+   *  is why it cannot leak one. Kept on the entry so the Chronicle can replay a scene as it was
+   *  actually experienced rather than as it actually was. */
+  reads?: { faculty: string; line: string }[];
   gm_intents?: { char_id: string; name: string; surface: string; truth: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
   weather?: string;
   time_label: string;
@@ -575,6 +580,10 @@ export interface SaveState {
   // act the last audit ran in, so the next act change triggers exactly one more.
   destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean; act?: string } | null;
   pressure_state?: { last_beat_turn: number; last_exo_turn: number; last_beat_time?: string; last_exo_time?: string; recent?: { ref: string; turn: number; count: number; time?: string }[] }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
+  /** THE PLAYER'S PERCEPTUAL APPARATUS — named, biased faculties derived once from their card
+   *  (see engine/read.ts). The read channel speaks through these while the narrator writes the
+   *  surface. Re-derived only when the card materially changes; trait_count is the trigger. */
+  faculties?: { turn: number; trait_count: number; list: { name: string; notices: string; distorts: string }[] };
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
   travel_log?: { turn: number; place: string }[]; // player's path through places, in visit order — feeds the story map

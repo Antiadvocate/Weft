@@ -48,6 +48,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [baseline, setBaseline] = useState(false);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<string | null>(null);
+  // The player's own faculties reading the scene while the narrator writes it. Lands seconds
+  // into the wait and stays up until the prose starts arriving — the gap is the read.
+  const [reads, setReads] = useState<{ faculty: string; line: string }[]>([]);
   const [liveProse, setLiveProse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [rollbackOpen, setRollbackOpen] = useState(false);
@@ -204,15 +207,16 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const runAction = async (a: string) => {
     if (!a) return;
-    setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setPhase("pressure");
+    setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setReads([]); setPhase("pressure");
     setLiveAction(a); // your words go up as a bubble immediately — they anchor the reading while the world works
     let failed = false;
     try {
       await streamTurn(save.id, a, mode, {
         onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
+        onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); sessionStorage.removeItem(draftKey); void flushBeautyRescore(s); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); void flushBeautyRescore(s); },
         onError: (msg) => { setError(msg); failed = true; },
       }, { ground, tightness });
     } catch (e: any) {
@@ -363,13 +367,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const runObserve = async () => {
     if (running || observingRef.current) return;
     observingRef.current = true; setObserving(true); setError(null);
-    setRunning(true); runningRef.current = true; setLiveProse(""); setPhase("pressure");
+    setRunning(true); runningRef.current = true; setLiveProse(""); setReads([]); setPhase("pressure");
     await new Promise<void>((resolve) => {
       streamTurn(save.id, "", "story", {
         onPhase: setPhase,
+        onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setPhase(null); void flushBeautyRescore(s); resolve(); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); void flushBeautyRescore(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
       }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });
@@ -758,6 +763,23 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             )}
           </AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {reads.length > 0 && !liveProse && (
+            <motion.div key="reads" className="py-2 space-y-2"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: .25 } }}>
+              {reads.map((r, i) => (
+                <motion.div key={r.faculty + i} className="flex gap-2 items-baseline"
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.55, duration: .4 }}>
+                  <span className="font-mono text-[10px] uppercase tracking-widest shrink-0 pt-[2px]"
+                    style={{ color: "var(--accent)" }}>{r.faculty}</span>
+                  <span className="text-[14px] leading-snug" style={{ color: "var(--muted)" }}>{r.line}</span>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {phase && (
