@@ -23,7 +23,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -798,19 +798,41 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ].join(" ");
   // Prose adjectives miss the player who quietly beat the same threat three times in plain
   // language; the discharge record doesn't.
-  const tier = tierFromRecord(detectPowerTier(god, recentText), state.pressure_state?.recent);
+  // NOTE: god mode deliberately does NOT feed the tier — the tier describes what the world has
+  // WITNESSED, and the setting is not a witness. See detectPowerTier.
+  const tier = tierFromRecord(detectPowerTier(recentText), state.pressure_state?.recent);
   // WITNESS STAMP — when the player wields genuinely impossible power in front of others, that
   // witnessing durably rewrites how each present character relates to them. Stamp an active_state so
   // the reorientation PERSISTS across later turns (not just the turn of the act): a character who saw
   // a planet-scale teleport keeps reacting as someone who saw it, even turns afterward, until it
   // decays. This is what stops the incoherent "wounded peer scolds the god" beat — their standing
-  // state now says otherwise. Only non-god-mode: in god mode the whole world already knows the frame.
-  if ((tier === "mythic" || tier === "cosmic") && !god) {
-    const witnessState = tier === "cosmic" ? "awestruck by the player's impossible power" : "shaken by the player's impossible power";
+  // state now says otherwise.
+  //
+  // Runs in god mode too, now. It used to be skipped there ("the whole world already knows the
+  // frame") because god mode pinned the tier high on every turn, which would have stamped every
+  // present character as shaken on every turn forever. The tier is earned again, so the stamp only
+  // fires on turns where something impossible was actually seen — which is exactly when a god-mode
+  // player wants their witnesses to remember it.
+  //
+  // The stamp is also no longer fear-only. What witnessing overwhelming power rewrites is the
+  // SCALE of the relationship, not its sign: someone who loves the player and watches them unmake
+  // a wall is exalted, not shaken, and writing them as shaken is how a devoted companion drifts
+  // into terror over a few turns. The stamp reads their standing edge and records what they
+  // actually felt. All variants keep the "impossible power" substring so the filter below still
+  // replaces a stale stamp rather than stacking a second one.
+  if (tier === "mythic" || tier === "cosmic") {
     for (const wid of state.world.present) {
       if (wid === "char_player") continue;
       const wc = state.condition[wid];
       if (!wc) continue;
+      const we = state.world.edges.find((x) => x.from === wid && x.to === "char_player");
+      const bond = ((we?.warmth ?? 0) + (we?.trust ?? 0)) / 2;
+      const witnessState =
+        bond >= 35
+          ? (tier === "cosmic" ? "exalted by the player's impossible power, and theirs" : "moved and unsettled by the player's impossible power")
+          : bond <= -15
+          ? (tier === "cosmic" ? "terrified by the player's impossible power" : "shaken by the player's impossible power")
+          : (tier === "cosmic" ? "awestruck by the player's impossible power" : "shaken by the player's impossible power");
       // replace any prior witness-stamp so the freshest reading holds, and re-age it
       wc.psyche.active_states = wc.psyche.active_states.filter((s) => !/impossible power/.test(s));
       wc.psyche.active_states.push(witnessState);
@@ -1125,8 +1147,29 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   }
 
   // (dialogue + agenda duties now live in the cached system prompt as every-turn rules)
+  //
+  // EARNED_RESPONSE names the witnesses by their standing. The block used to offer exactly one
+  // family of reactions — "fear, awe, flight, careful submission, stunned silence, frantic
+  // appeasement, worship" — and then instruct the narrator to pick whichever the character's NATURE
+  // produced. Every option was a variant of submission, so nature had nowhere to go: a wife, a
+  // sworn brother, and a bounty hunter all came out afraid. Awe is real and it is not one-signed —
+  // people who love someone with terrible power feel pride, relief, possessive delight, protective
+  // worry FOR them, and the ordinary desire to still be treated as themselves. Splitting the
+  // present cast by their actual edge lets the model use the ledger it already has.
+  const bondedWitnesses: string[] = [];
+  const waryWitnesses: string[] = [];
+  for (const id of presentNpcs) {
+    const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
+    const bond = ((e?.warmth ?? 0) + (e?.trust ?? 0)) / 2;
+    if (bond >= 35) bondedWitnesses.push(state.characters[id].name);
+    else if (bond <= -15) waryWitnesses.push(state.characters[id].name);
+  }
+  const witnessRoster = [
+    bondedWitnesses.length ? `BONDED WITNESSES (their bond with the player is established in the ledger — their awe runs THROUGH that bond, it does not delete it): ${bondedWitnesses.join(", ")}.` : "",
+    waryWitnesses.length ? `WARY OR HOSTILE WITNESSES: ${waryWitnesses.join(", ")}.` : "",
+  ].filter(Boolean).join(" ");
   const earnedResponse = (tier === "mythic" || tier === "cosmic")
-    ? `\nAPPLY POLICY EARNED_RESPONSE — the player operates at extraordinary scale; the world responds at that scale.\nCONTINUITY UNDER THE IMPOSSIBLE: the player just did something reality-bending (moved someone, undid a thing, bent space). Render that act cleanly and literally — but the REST of the world stays COHERENT. Every character keeps their established identity, name, role, and relationships exactly as the ledger has them; do not let anyone's status silently flip (an apprentice does not become a master, a stranger does not become a friend) unless the player's act explicitly caused it. Track WHO IS PRESENT precisely: if the player removed someone from the scene, they are GONE until brought back; if the player returned them, they are present again, unchanged. One impossible thing happened; everything else obeys normal continuity. Do not spawn random events, reassign lines between characters, or let the scene dissolve — anchor hard to the established cast and their standing state.\nWITNESS REACTION MUST FLOW FROM WHAT THEY SAW — this is the crucial one. Any character who just WITNESSED the player do the impossible has their entire relationship to the player REWRITTEN by it in that instant. They are no longer dealing with a peer, a rival, or someone they can scold, bargain with as an equal, or lecture. A person who watched someone get snapped off the planet with a gesture does NOT plant their feet and argue with the one who did it — that is a scripted "someone challenges the protagonist" beat imported regardless of the facts, and it is FORBIDDEN here. Instead the witness reacts as a real person confronted with overwhelming power: fear, awe, flight, careful submission, stunned silence, frantic appeasement, worship, or a very cautious approach — whichever their NATURE produces under the genuinely impossible. Wounded pride, indignation, and moral confrontation are only available to someone who has NOT grasped what they just saw, or whose nature is recklessly defiant to the point of self-destruction — and even then it reads as terror or denial underneath, never casual equality. Do NOT manufacture a confrontation or a moral challenge against a being the character has just seen wield godlike power. Their behavior bends around the fact of that power, always.`
+    ? `\nAPPLY POLICY EARNED_RESPONSE — the player operates at extraordinary scale; the world responds at that scale.\nCONTINUITY UNDER THE IMPOSSIBLE: the player has just been seen doing something reality-bending (moved someone, undid a thing, bent space). Render that act cleanly and literally — but the REST of the world stays COHERENT. Every character keeps their established identity, name, role, and relationships exactly as the ledger has them; do not let anyone's status silently flip (an apprentice does not become a master, a stranger does not become a friend) unless the player's act explicitly caused it. Track WHO IS PRESENT precisely: if the player removed someone from the scene, they are GONE until brought back; if the player returned them, they are present again, unchanged. One impossible thing happened; everything else obeys normal continuity. Do not spawn random events, reassign lines between characters, or let the scene dissolve — anchor hard to the established cast and their standing state.\nWITNESS REACTION MUST FLOW FROM WHAT THEY SAW — AND FROM WHO THEY ARE TO THE PLAYER. Any character who just witnessed the player do the impossible has their relationship to the player rewritten in SCALE by it: they are no longer dealing with a peer they can scold, lecture, or bargain with as an equal. What is NOT rewritten is the SIGN of that relationship. Witnessing overwhelming power makes a person feel it enormously — in the direction they already faced.\n${witnessRoster}\nSo: someone bonded to the player feels awe as EXALTATION — pride, fierce joy, relief that this power is on their side, worship that is also love, possessive delight, protectiveness toward the player themselves, or the very human wish to still be treated as a person by them. They may be frightened FOR the player, or of what this will cost them, or of the distance it opens between them — that is grief and love, not terror, and it is often the truest note available. A wary or hostile witness feels it as fear, flight, careful submission, stunned silence, frantic appeasement, or a calculating decision to get close to power and use it. Someone with no history with the player at all reacts from their own nature: fear, awe, opportunism, curiosity, or the impulse to kneel — a stranger is genuinely open.\nTwo things stay forbidden. (1) Do NOT manufacture a confrontation or a moral challenge against a being the character has just seen wield godlike power: wounded pride and indignation are available only to someone who has not grasped what they saw, or whose nature is recklessly defiant to the point of self-destruction, and even then it reads as terror or denial underneath, never casual equality. (2) Do NOT flatten everyone into terror. A room where the player's lover, their sworn friend, and a man who hates them all react the same way is a failure of this policy, not a fulfilment of it. Their behavior bends around the fact of that power, always — each in the direction they were already facing.`
     : "";
   // CONTRACT GOVERNOR: when the last chapter audit found the story drifting from its standing
   // direction, every turn carries a course-correction until the next audit passes. This is the
@@ -1135,6 +1178,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const contractFix = state.contract_drift
     ? `\nCOURSE-CORRECTION (the story has drifted from its contract): ${state.contract_drift} Steer back through present characters' wants and the standing direction — not with a lurch, but starting THIS turn.`
     : "";
+  // PUBLIC STANDING — the crowd's counterpart to the edge ledger. Without this the narrator had no
+  // state at all for "the wider community" and improvised it from whatever the nearest directive
+  // implied, which at high tier meant fear every time. Reads the standing built by prior turns'
+  // public acts; this turn's act updates it after the prose exists (see updatePublicStanding below).
+  const publicNote = publicStandingDirective(state, tier);
   // ── REST PROTECTION, scaled by tension. Low tension: rest is sacred, the world holds its
   // breath. Mid tension: one soft knock at most, and whatever interrupts must let them finish —
   // the meal gets eaten, the night gets slept, THIS turn. High tension (7+): the world is
@@ -1159,7 +1207,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1903,6 +1951,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }
   offscreenLog.push(...seedWitnessRumors(state, state.world.current_turn));
+  // STANDING BEFORE SPREAD. What the player just did in public moves their reputation, and the
+  // updated reputation is what decides how this turn's rumors about them travel — a deed done by
+  // someone the town already loves does not spread as dread. Runs after seeding (so the deed is
+  // already a rumor) and before diffusion (so the charge is read against the fresh standing).
+  {
+    const standingLine = updatePublicStanding(state, action, prose, tier);
+    if (standingLine) { offscreenLog.push(standingLine); shifts.push(standingLine); }
+  }
   offscreenLog.push(...diffuseRumors(state));
   for (const id of Object.keys(state.characters)) {
     // conditions decay for EVERYONE incl. the player — a nosebleed is not a life sentence

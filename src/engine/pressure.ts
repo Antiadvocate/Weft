@@ -366,9 +366,9 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
   // through the perception gate). We only steer the narrator off the wrong reflex.
   if ((tension ?? 5) > 0) {
     if (tier === "cosmic") {
-      lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist; let that reaction come from each character's state and relationship to the player, not from a script.`);
+      lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist. That reaction is NOT automatically fear or opposition: people who cannot resist a power also court it, claim it, follow it, sell access to it, ask it for things, or build a life in its shadow, and what any given person does comes from their own state, their standing with the player, and what they want — never from a script that assumes the powerful are resented.`);
     } else if (tier === "mythic") {
-      lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel — and a KIND of attacker the player has already beaten does not get to try again the same way. Men who watched their fellows lose to this person do not charge him; they hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating a losing attack is not tension, it is the world failing to learn. Otherwise pressure is consequence and reaction, drawn from each character's own state.`);
+      lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel — and a KIND of attacker the player has already beaten does not get to try again the same way. Men who watched their fellows lose to this person do not charge him; they hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating a losing attack is not tension, it is the world failing to learn. That list is how HOSTILE parties adapt — it is not the whole world's posture: people with no quarrel with the player, or who have been helped by them, respond by seeking them out, asking, petitioning, following, or trading on the connection. Otherwise pressure is consequence and reaction, drawn from each character's own state.`);
     } else if (palette?.length) {
       lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
     }
@@ -381,10 +381,10 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
 export type PowerTier = "mortal" | "empowered" | "mythic" | "cosmic";
 
 /** How far past mortal the protagonist has scaled. A light gate on the tier nudge above — NOT a
- *  behavior driver (behavior emerges from the relaxation kernel). god_mode lifts you above
- *  ordinary threat; visible reality-breaking acts read as cosmic. */
+ *  behavior driver (behavior emerges from the relaxation kernel). Visible reality-breaking acts
+ *  read as cosmic. The god_mode SETTING no longer contributes: see detectPowerTier. */
 /**
- * Tier from what the WORLD HAS SEEN THE PLAYER DO, not from prose adjectives.
+ * Tier from what the WORLD HAS SEEN THE PLAYER DO, not from prose adjectives and not from a setting.
  *
  * detectPowerTier reads the last few turns of text for phrases like "godlike" or "levitated the".
  * That misses the case that actually matters: a player who has already beaten this exact threat,
@@ -405,7 +405,24 @@ export function tierFromRecord(
   return order[Math.max(order.indexOf(base), bumped)];
 }
 
-export function detectPowerTier(godMode: boolean, recentText: string): PowerTier {
+/**
+ * GOD MODE DOES NOT SET THE TIER. It used to: the setting alone floored this at "mythic" and
+ * promoted any visible feat to "cosmic". That turned a sovereignty toggle into a permanent
+ * world-state — every turn of a god-mode game, including the ones spent drinking tea in a kitchen,
+ * carried the mythic tier, which fires BOTH the tier nudge above AND the EARNED_RESPONSE block in
+ * turn.ts. Between them the narrator was told every single turn that the onlookers were dealing
+ * with overwhelming power, and the only witness reactions on offer were fear-family ones. That is
+ * why enabling god mode made the wider community permanently afraid of a player who had not yet
+ * done anything: it was the setting talking, not the fiction.
+ *
+ * The sovereignty god mode promises is delivered in full by the GOD MODE directive in turn.ts,
+ * which overrides everything on its own and needs no help from the tier. The tier's job is to
+ * describe what bystanders have actually WITNESSED — so it is now earned identically in god mode
+ * and out of it: by visible acts (here) and by a record of threats actually beaten (tierFromRecord).
+ * A god-mode player who unmakes a city in the street still reads cosmic on the next turn, because
+ * the prose says so.
+ */
+export function detectPowerTier(recentText: string): PowerTier {
   const t = recentText.toLowerCase();
   const cosmic = [
     /transcend\w* (its|their|the)? ?(own )?universe/, /\bxeelee\b/, /unm?ade? (a|the) (sun|star|world|planet|galaxy)/,
@@ -428,8 +445,7 @@ export function detectPowerTier(godMode: boolean, recentText: string): PowerTier
     /out of (existence|the world|reality)/, /with (a|his|her|their) (mind|will) alone/,
   ].some((re) => re.test(t));
   if (cosmic) return "cosmic";
-  if (mythic) return godMode ? "cosmic" : "mythic";
-  if (godMode) return "mythic";
+  if (mythic) return "mythic";
   return "mortal";
 }
 

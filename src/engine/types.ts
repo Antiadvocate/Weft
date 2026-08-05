@@ -469,6 +469,13 @@ export interface WorldState {
   norms: Norm[];
   rumors: Rumor[];
   edges: SocialEdge[];
+  /** HOW THE WIDER COMMUNITY HOLDS THE PLAYER: -10 (feared) … 0 (no fixed reputation) … +10
+   *  (beloved), decaying toward 0. The crowd's counterpart to `edges` — named characters have
+   *  histories with the player, the community only has what it has seen and heard. Moved by public
+   *  acts (updatePublicStanding in social.ts), read by the narrator via publicStandingDirective,
+   *  and used to break the tie on how a rumor about the player travels. Undefined on old saves =
+   *  neutral. */
+  public_standing?: number;
   promises?: Promise[];         // the promise ledger: who swore what to whom, and whether it was kept
   focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }

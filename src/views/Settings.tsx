@@ -162,7 +162,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
         <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
           style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
-          {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to a god
+          {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to what it has seen you do
         </button>
 
         <TextField label="Name" value={bible.name} onChange={setB("name")} />

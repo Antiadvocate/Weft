@@ -19,6 +19,7 @@ import { relevance } from "./memory";
 import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
 import { recordHop } from "./knowledge";
+import type { PowerTier } from "./pressure";
 
 export const RUMOR_BASE_P = 0.45;
 
@@ -160,15 +161,129 @@ export function applyEdgeDelta(
  *  the same rule, because the field rides the same dissipative kernel as everything else: tension
  *  accrues, relaxation releases, structure cycles instead of only complexifying. */
 const DREAD_WORDS = /\b(kill|dead|death|die|dying|war|raid|attack|burn|fire|plague|sick|arrest|hang|execut|betray|monster|flood|storm|collapse|missing|blood|threat|danger|curse|riot|flee|invad|drown|starv)\b/i;
-const WARM_WORDS = /\b(wedding|married|birth|born|baby|festival|feast|harvest|peace|treaty|heal|cured|return|alive|saved|rescue|celebrat|gift|rain|spring)\b/i;
+// WARM_WORDS was a purely pastoral list (weddings, harvests, rain) — the vocabulary of a village
+// with nothing remarkable in it. Nothing a protagonist actually DOES was in here, so every deed
+// that reached the rumor field arrived as dread. Added: the vocabulary of protection, deliverance,
+// repair, and awe, so that "he held the gate" and "the raiders never reached us" can travel as
+// good news the way they would in a real town.
+const WARM_WORDS = /\b(wedding|married|birth|born|baby|festival|feast|harvest|peace|treaty|heal|cured|return|alive|saved|rescue|celebrat|gift|rain|spring|protect\w*|defend\w*|spared|mercy|freed|liberat\w+|restor\w+|rebuil\w+|mend\w+|shelter\w*|fed|generous|kind|miracle|wonder|blessing|blessed|hero|champion|guardian|held the (gate|line|bridge)|never reached us|drove (them|it) off|stood between)\b/i;
 
 /** The rumor's emotional charge, read lexically from its content — zero tokens, no save migration.
- *  -1 dread / +1 warm / 0 neutral. */
-function rumorCharge(content: string): number {
+ *  -1 dread / +1 warm / 0 neutral.
+ *
+ *  ABOUT THE PLAYER, STANDING BREAKS THE TIE. The lexicons above are asymmetric by construction:
+ *  DREAD_WORDS is broad and owns every verb of force, while WARM_WORDS is a short pastoral list. So
+ *  "he killed the raiders before they reached the mill" scored as pure dread and then spread FASTER
+ *  through frightened rooms (dread rides a braced crowd) — a protective act propagating as terror,
+ *  which is exactly how a well-liked protagonist ends up with a frightened countryside. When a
+ *  rumor is ABOUT the player and the town's standing toward them is settled, that standing decides
+ *  the charge: a beloved figure's violence travels as a deed, not a warning. Mixed and unknown
+ *  cases still fall through to neutral, as before. */
+function rumorCharge(content: string, standing = 0): number {
   const dread = DREAD_WORDS.test(content), warm = WARM_WORDS.test(content);
-  if (dread && !warm) return -1;
+  if (dread && !warm) return standing >= 3 ? 0 : -1;   // violence read through a good name is news, not dread
   if (warm && !dread) return 1;
+  if (dread && warm) return standing <= -3 ? -1 : standing >= 3 ? 1 : 0; // "saved them by burning it"
   return 0;
+}
+
+// ── PUBLIC STANDING ──────────────────────────────────────────────────────────────────────────
+/**
+ * HOW THE WIDER COMMUNITY HOLDS THE PLAYER: one scalar, -10 (feared) … +10 (beloved), decaying
+ * toward 0 (no fixed reputation).
+ *
+ * The engine models named characters richly — edges, psyche, drives, memory — and modeled the
+ * crowd not at all. So whenever a directive described how "the people" regard the player, the
+ * narrator had no state to consult and fell back on whatever the directive's example reactions
+ * were. At mythic/cosmic tier those examples were all fear-family, which meant a player could
+ * spend fifty turns defending a town and still be written as its terror. This gives the crowd the
+ * one thing it was missing: a memory of whether the player's public acts have helped or hurt.
+ *
+ * Deterministic and lexical, in the style of the rumor field — zero tokens, no save migration.
+ */
+// Deliberately NARROW. An earlier draft of these lists included ordinary words — "gave", "fed",
+// "people", "kind" — and the standing drifted every turn on prose that meant nothing ("she gave him
+// a look" in a room with people in it). A reputation that moves on everything measures nothing, so
+// these only match acts that a town would actually retell.
+const PUBLIC_BOON = /\b(sav(ed|es|ing)|rescu\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered|rebuil\w+|restored|freed|liberat\w+|carried \w+ to safety|pulled \w+ (out|free|clear)|put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between)\b/i;
+const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing)|burn\w+ (the|their|a) (village|town|city|home|house|farm|field|quarter)|razed?|destroy\w+ (the|their) (village|town|city|home|quarter)|tortur\w+|maim\w+|enslav\w+|terroriz\w+|made an example of|left \w+ to die|killed (a|the) (child|children|innocent)|cut \w+ down where (he|she|they|it) stood)\b/i;
+/** Was this turn even public? A boon nobody saw moves no reputation. Crowd nouns only — "people"
+ *  and "road" were in here once and matched nearly every paragraph ever written. */
+const PUBLIC_EYES = /\b(crowd|crowds|onlookers?|bystanders?|villagers?|townsfolk|townspeople|the street|the market|marketplace|the square|tavern|congregation|caravan|watchers|a dozen \w+|half the (town|village|city))\b/i;
+
+/**
+ * Move the player's public standing from what this turn's act did in front of whoever could see it.
+ * Returns a log line when the needle actually moved, else null.
+ */
+export function updatePublicStanding(
+  state: SaveState,
+  action: string,
+  prose: string,
+  tier: PowerTier = "mortal",
+): string | null {
+  const before = state.world.public_standing ?? 0;
+  // DISSIPATION, same as everything else here: a reputation nobody is refreshing fades toward the
+  // neutral read. Fear and love both wear off; this is what lets a story recover from one bad turn.
+  let v = before > 0 ? Math.max(0, before - 0.2) : Math.min(0, before + 0.2);
+
+  // WHOSE DEED? Scoring the whole prose blob would credit the player with everything anyone did in
+  // it — a raider burning a farm would move the PLAYER's reputation. Score the player's own
+  // declared action, plus only those prose sentences that actually have the player in them.
+  const who = state.characters.char_player?.name ?? "";
+  const playerRe = new RegExp(`\\byou\\b|\\byour\\b${who ? `|\\b${who.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b` : ""}`, "i");
+  const playerProse = prose.split(/(?<=[.!?])\s+/).filter((s) => playerRe.test(s)).join(" ");
+  const text = `${action} ${playerProse}`;
+  // Public means SEEN. A private room with one confidant is not the community, no matter what
+  // happened in it — that is what edges are for. Three or more people present is a small audience;
+  // two is a conversation.
+  const seen = PUBLIC_EYES.test(prose) || state.world.present.filter((id) => id !== "char_player").length >= 3;
+  if (seen) {
+    const boon = PUBLIC_BOON.test(text), harm = PUBLIC_HARM.test(text);
+    // Scale by what the crowd is reacting to: an impossible act is talked about for longer.
+    const scale = tier === "cosmic" ? 2 : tier === "mythic" ? 1.5 : 1;
+    // Harm outweighs boon when both are present — a rescue that razed the quarter is remembered
+    // for the quarter. Asymmetric on purpose: this is the one place a ratchet is correct.
+    if (harm) v -= 1.2 * scale;
+    else if (boon) v += 0.9 * scale;
+  }
+  v = clamp(v, -10, 10);
+  state.world.public_standing = v;
+
+  if (Math.abs(v - before) < 0.5) return null;
+  return `word about ${who || "the player"} spreads — the town's read on them turns ${standingBand(v).adjective}.`;
+}
+
+function standingBand(v: number): { adjective: string; directive: string } {
+  if (v >= 6) return {
+    adjective: "reverent",
+    directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The friction available here is the friction of being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
+  };
+  if (v >= 2) return {
+    adjective: "warmer",
+    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a lean, not worship: individuals still have their own reasons.`,
+  };
+  if (v <= -6) return {
+    adjective: "fearful",
+    directive: `FEARED — the wider community's default posture toward the player is dread. Streets clear, conversation stops, people comply too fast and mean none of it, and someone somewhere is organizing. This is earned by what they have done in public, and it can be unearned the same way.`,
+  };
+  if (v <= -2) return {
+    adjective: "colder",
+    directive: `UNEASY — the wider community is wary of the player. Not terror: a stiffness, shorter answers, a look held a beat too long, business done quickly. Individuals may still be perfectly warm.`,
+  };
+  return {
+    adjective: "quieter",
+    directive: `NO FIXED REPUTATION — the wider community has no settled read on the player. Strangers treat them as a stranger: neither afraid nor impressed, occupied with their own lives. Do not have crowds react to the player as a known quantity; they are not one yet.`,
+  };
+}
+
+/** The standing line handed to the narrator. Empty at a neutral standing in an unremarkable scene —
+ *  the crowd only needs describing once it actually holds an opinion. */
+export function publicStandingDirective(state: SaveState, tier: PowerTier = "mortal"): string {
+  const v = state.world.public_standing ?? 0;
+  // At mortal tier with no reputation there is nothing to say; silence is cheaper than a paragraph
+  // telling the narrator that nothing in particular is true.
+  if (Math.abs(v) < 2 && tier !== "mythic" && tier !== "cosmic") return "";
+  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v).directive}`;
 }
 
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
@@ -206,7 +321,9 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
     // DISSIPATION: salience leaks away every turn. What nobody is charged enough to repeat dies.
     rumor.salience = Math.max(0, rumor.salience - 0.3);
     if (rumor.salience < 1) { rumor.dead = true; continue; }
-    const charge = rumorCharge(rumor.content);
+    // A rumor about the player is read through the standing they have actually built (see
+    // rumorCharge); a rumor about anyone else is read on its words alone.
+    const charge = rumorCharge(rumor.content, rumor.about_char === "char_player" ? (state.world.public_standing ?? 0) : 0);
     let fed = false; // a rumor grows at most once per turn, no matter how many rooms carry it
     for (const group of groups) {
       const mood = groupMood.get(group) ?? 0;
