@@ -2359,11 +2359,16 @@ export function namedInAction(state: SaveState, action: string): string[] {
   for (const w of `${state.world_bible?.name ?? ""} ${state.world_bible?.era ?? ""}`.split(/\s+/)) known.add(w.toLowerCase());
 
   const out = new Set<string>();
-  const re = /[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü'-]{2,}/g;
+  const re = /[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ](?:'?[A-Za-záéíóúàèìòùâêîôûäëïöü-]){2,}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(action))) {
     const name = m[0];
     if (known.has(name.toLowerCase()) || NOT_A_PERSON.has(name.toLowerCase())) continue;
+    // CONTRACTIONS. "I'd", "He'll", "That's", "Don't" all satisfy capital-plus-two-characters and
+    // one of them became a permanent member of the cast. Reject an apostrophe followed by a
+    // contraction suffix, rather than rejecting apostrophes outright — that would also lose
+    // O'Brien and D'Arcy, which are names people actually use.
+    if (/'(?:s|t|d|ll|re|ve|m)$/i.test(name)) continue;
     const before = action.slice(0, m.index);
     const after = action.slice(m.index + name.length);
     // "the Northgate" is a place; nobody is "the Marek". The definite article is the cheapest
