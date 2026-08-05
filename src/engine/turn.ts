@@ -59,6 +59,34 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /** The last thing the model reads, after the action, after everything. povFilter states the rule
  *  in full up in DIRECTION; this is the two-line version at the only position that reliably wins
  *  against the model's own replayed prose. pronounLock earned the tail slot the same way. */
+/** ECHO BAN.
+ *
+ *  Characters kept answering the player by describing the player back to him, seconds after the
+ *  fact: "you didn't even look at it, you just knew", "you don't just imagine knowing a castle",
+ *  "most people, they'd run — they'd scream". Nobody talks like that. A person who has just seen
+ *  something startling asks about themselves, changes the subject, gets on with what they were
+ *  doing, or says the wrong thing entirely — what they almost never do is narrate your last action
+ *  to you in the form of a marvel.
+ *
+ *  Two causes feed it. The narrator is handed the player's action as the salient event of the turn
+ *  and nothing else with comparable weight, so an NPC with no live want of their own has only that
+ *  to speak from. And the witness-reaction guidance for high-power play asks explicitly for awe,
+ *  which resolves into commentary. Lowering the agent-priority bar in pressure.ts gives characters
+ *  their own material; this stops the reflex directly.
+ *
+ *  Also carries the do-not-repeat list. In chatlog mode, a minimal player turn ("Yeah..." quietly)
+ *  leaves the narrator with no new material and it restages the previous beat — turn 17 in one save
+ *  reopens with turn 16's closing line word for word. Naming the lines is cheap and specific in a
+ *  way "don't repeat yourself" is not. */
+function echoBan(state: SaveState): string {
+  const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
+  const spoken = (prev.match(/"[^"]{8,160}"/g) ?? []).slice(-4).map((q) => q.trim());
+  const norepeat = spoken.length
+    ? `\nALREADY SPOKEN LAST TURN — these lines have been said and cannot be said again, in whole or in near-paraphrase, by anyone: ${spoken.join(" / ")}. If a character's question went unanswered, they do not re-ask it in the same words; they press differently, drop it, or let the silence sit.`
+    : "";
+  return `\nDIALOGUE COMES FROM THE SPEAKER, NOT FROM THE PLAYER'S LAST MOVE: no character restates, describes, recaps, or marvels at what the player just did. Forbidden shapes — "you didn't even —", "you just —", "most people would —", "nobody does that", "that's not how anyone —", and any line whose content is the player's own action handed back to them. Astonishment is real and shows in what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.${norepeat}`;
+}
+
 const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
 
 function sovereignty(state: SaveState): string {
@@ -87,6 +115,11 @@ function sovereignty(state: SaveState): string {
 const MOTIVE_LEAK = new RegExp([
   "\\bas (?:if|though) (?:he|she|they|it|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might|could)\\b",
   "\\bas if to \\b", "\\bwith the air of\\b",
+  // DELIVERY SIMILE: "she said it like an accusation and a question folded together" — the narrator
+  // decoding a tone and telling you what it meant. And the INTENT GAP: "the word came out smaller
+  // than she'd meant it to" states what she intended, which is the interior in one clause.
+  "\\bsaid it (?:like|as though|as if)\\b", "\\bcame out \\w+er than\\b",
+  "\\bthan (?:he|she|they|xe)'?d? (?:meant|intended|wanted|planned)\\b",
   // ── families found in a 58-turn save, all of which walked through the first pass ──
   // ROLE COMPARISON via a person-noun: "the stillness of a man who has just heard...",
   // "the way a man watches a cliff edge". The earlier rule only caught "the way SHE watched";
@@ -1048,7 +1081,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
