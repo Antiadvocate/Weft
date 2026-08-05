@@ -15,6 +15,7 @@ import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
+import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
@@ -1061,14 +1062,25 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     // snapshots are device-local rollback state (and the biggest payload — full copies × image data).
     // They don't belong in a portable backup; strip them so exports stay small and share/copy reliably.
     const { snapshots, ...portable } = s;
-    return { name: s.name.replace(/[^a-z0-9 _-]/gi, ""), json: JSON.stringify(portable, null, 1) };
+    // PROVENANCE. An export used to carry no build identity, so a save attached to a bug report was
+    // undatable — no way to tell a live bug from one already fixed two builds ago except by reading
+    // the shape of the data and guessing. `_weft` goes first in the object so it is the first thing
+    // visible when the file is opened.
+    const stamped = { _weft: stampFor(s.world?.current_turn ?? 0), ...portable };
+    return { name: s.name.replace(/[^a-z0-9 _-]/gi, ""), json: JSON.stringify(stamped, null, 1) };
   },
+
+  /** What produced a save file, read back from its stamp. Safe on unstamped (pre-provenance) saves. */
+  describeSave: (data: any): string => describeStamp(data?._weft),
 
   importSave: async (data: any): Promise<ClientSave> => {
     if (!data?.world_bible || !data?.world || !data?.characters) throw new Error("not a Weft save file");
-    const s = sanitize(data as SaveState);
+    console.info(`[import] ${describeStamp(data?._weft)}`);
+    const { _weft, ...rest } = data;
+    const s = sanitize(rest as SaveState);
     s.id = uid("save");
     s.updated_at = new Date().toISOString();
+    s.imported_from = _weft;   // keep the provenance of what was imported, for bug reports
     s.snapshots ??= []; s.telemetry ??= []; s.pressure_trace ??= []; s.history ??= [];
     await putSave(s);
     return clientView(s);

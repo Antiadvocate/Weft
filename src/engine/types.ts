@@ -607,6 +607,12 @@ export interface SaveState {
    *  three-turn prose window, so how the world orients to a known power outlives the last sentence
    *  that happened to describe it. */
   power_witnessed?: { tier: "mortal" | "empowered" | "mythic" | "cosmic"; turn: number };
+  /** Provenance of the file this save was imported from (see engine/version.ts). Absent for saves
+   *  created in this build, and for imports of exports made before stamping existed. */
+  imported_from?: { schema: number; app: string; exported_at: string; turn: number; engine?: string };
+  /** Who drove the last scene. A tiebreak only: when two present characters want things equally,
+   *  the one who steered last turn yields, so a single NPC cannot hold the wheel indefinitely. */
+  last_scene_lead?: string;
 }
 
 // ───────────────────────────── simulator contract ─────────────────────────────

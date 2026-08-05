@@ -108,6 +108,49 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   return { goal, progress: 0, priority: 1, updated_turn: turn };
 }
 
+/**
+ * THE CHORUS MAGNET, MEASURED FROM STATE.
+ *
+ * seedDrive already carries a full antidote to the cast piling every want onto one person: a
+ * self-interest tail, a magnet to avoid, re-rolls. All of it is gated on `dispersion`, and the
+ * only thing that ever supplied dispersion was the undertow — which was retired and replaced by
+ * `neutralUndertow()`, hardcoding `dispersion: 0, shared_target: null`. So the antidote has been
+ * unreachable ever since, and nothing has been counting how far the cast has collapsed onto the
+ * protagonist. In one 154-turn save every single tracked character's active goal named the player.
+ *
+ * This computes it directly: what fraction of tracked characters' live goals name the same person.
+ * Deterministic, no tokens, and it re-arms machinery that was already written and already right.
+ */
+export function magnetPull(state: SaveState): { dispersion: number; sharedTarget: string | null } {
+  const names = new Map<string, string>();   // first name → char_id
+  for (const [id, c] of Object.entries(state.characters)) {
+    const first = c.name?.split(/\s+/)[0]?.toLowerCase();
+    if (first && first.length >= 3) names.set(first, id);
+  }
+  const tracked = Object.entries(state.characters).filter(
+    ([id, c]) => id !== "char_player" && c.tracked && c.status !== "dead" && c.status !== "departed" && c.drive?.goal,
+  );
+  if (tracked.length < 2) return { dispersion: 0, sharedTarget: null };
+
+  const tally = new Map<string, number>();
+  for (const [id, c] of tracked) {
+    const goal = `${c.drive!.goal} ${(c.drive_queue ?? []).map((d) => d?.goal).join(" ")}`.toLowerCase();
+    const hit = new Set<string>();
+    for (const [first, tid] of names) if (tid !== id && goal.includes(first)) hit.add(tid);
+    if (/\bthe player\b/.test(goal)) hit.add("char_player");
+    for (const tid of hit) tally.set(tid, (tally.get(tid) ?? 0) + 1);
+  }
+  let sharedTarget: string | null = null, best = 0;
+  for (const [tid, n] of tally) if (n > best) { best = n; sharedTarget = tid; }
+  // A quarter of the cast sharing an interest in one person is an ensemble with something in
+  // common. Half is a chorus forming — and half was exactly the state of the save this was written
+  // against: three of six tracked characters, which happened to be every character who actually
+  // dealt with the player, all of them blocked on finding him. So the pivot sits at a quarter and
+  // half reads as 0.40, the point where seedDrive starts steering new wants off the magnet.
+  const frac = best / tracked.length;
+  return { dispersion: Math.max(0, Math.min(1, (frac - 0.25) * 1.6)), sharedTarget: best >= 2 ? sharedTarget : null };
+}
+
 /** Ensure every TRACKED, offscreen, idle character has a want. Returns world-motion lines.
  *  `epistemicPulls` (from the theory-of-mind layer) lets a character whose model of someone
  *  is uncertain-but-high-stakes seed a "find out" want instead of a generic one — active
