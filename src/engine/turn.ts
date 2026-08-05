@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
@@ -23,11 +23,11 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
-import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
+import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -803,7 +803,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // language; the discharge record doesn't.
   // NOTE: god mode deliberately does NOT feed the tier — the tier describes what the world has
   // WITNESSED, and the setting is not a witness. See detectPowerTier.
+  // LIVE tier: what the people in this room have just seen. Drives the witness stamp and
+  // EARNED_RESPONSE, which are about the moment of witnessing and must not fire every turn.
   const tier = tierFromRecord(detectPowerTier(recentText), state.pressure_state?.recent);
+  // STANDING tier: what this world knows the player to be. Same evidence, longer memory — see
+  // rememberPowerTier. Drives how the world ORIENTS to them (the pressure nudge, public standing),
+  // which should not reset to "unremarkable stranger" three turns after they unmade a city.
+  const remembered = rememberPowerTier(tier, state.power_witnessed, state.world.current_turn);
+  state.power_witnessed = remembered.memory;
+  const standingTier = remembered.tier;
   // WITNESS STAMP — when the player wields genuinely impossible power in front of others, that
   // witnessing durably rewrites how each present character relates to them. Stamp an active_state so
   // the reorientation PERSISTS across later turns (not just the turn of the act): a character who saw
@@ -829,9 +837,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const wc = state.condition[wid];
       if (!wc) continue;
       const we = state.world.edges.find((x) => x.from === wid && x.to === "char_player");
-      const bond = ((we?.warmth ?? 0) + (we?.trust ?? 0)) / 2;
+      const bond = bondStrength(we);
       const witnessState =
-        bond >= 35
+        bond >= 25
           ? (tier === "cosmic" ? "exalted by the player's impossible power, and theirs" : "moved and unsettled by the player's impossible power")
           : bond <= -15
           ? (tier === "cosmic" ? "terrified by the player's impossible power" : "shaken by the player's impossible power")
@@ -843,7 +851,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (wc.psyche.active_states.length > 5) wc.psyche.active_states = wc.psyche.active_states.slice(-5);
     }
   }
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier, beat);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, standingTier, beat);
   // CROSS-TALK NUDGE — when two or more NPCs share the scene, the narrator tends to line them all up
   // facing the player. Remind it they have each other: with 2+ present NPCs, at least one exchange this
   // turn should run NPC↔NPC (they address, answer, needle, or side-deal with each other), not everyone
@@ -1163,8 +1171,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const waryWitnesses: string[] = [];
   for (const id of presentNpcs) {
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
-    const bond = ((e?.warmth ?? 0) + (e?.trust ?? 0)) / 2;
-    if (bond >= 35) bondedWitnesses.push(state.characters[id].name);
+    const bond = bondStrength(e);
+    if (bond >= 25) bondedWitnesses.push(state.characters[id].name);
     else if (bond <= -15) waryWitnesses.push(state.characters[id].name);
   }
   const witnessRoster = [
@@ -1185,7 +1193,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // state at all for "the wider community" and improvised it from whatever the nearest directive
   // implied, which at high tier meant fear every time. Reads the standing built by prior turns'
   // public acts; this turn's act updates it after the prose exists (see updatePublicStanding below).
-  const publicNote = publicStandingDirective(state, tier);
+  const publicNote = publicStandingDirective(state, standingTier);
   // ── REST PROTECTION, scaled by tension. Low tension: rest is sacred, the world holds its
   // breath. Mid tension: one soft knock at most, and whatever interrupts must let them finish —
   // the meal gets eaten, the night gets slept, THIS turn. High tension (7+): the world is
@@ -1959,7 +1967,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // someone the town already loves does not spread as dread. Runs after seeding (so the deed is
   // already a rumor) and before diffusion (so the charge is read against the fresh standing).
   {
-    const standingLine = updatePublicStanding(state, action, prose, tier);
+    const standingLine = updatePublicStanding(state, action, prose, tier, standingTier);
     if (standingLine) { offscreenLog.push(standingLine); shifts.push(standingLine); }
   }
   offscreenLog.push(...diffuseRumors(state));
@@ -3012,6 +3020,11 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     seedAttraction(state, a, "char_player");
     for (const b of state.world.present) if (a !== b && state.characters[b]?.central !== false) seedAttraction(state, a, b);
   }
+  // AUTHORSHIP OUTRANKS THE FIRST READ. A card that already states the relationship — a spouse, a
+  // lover, someone written as obsessed with this person — was authored with the bond in place, and
+  // a stranger's beauty-and-taste read has no business overwriting it. Catches edges seeded before
+  // this existed and edges whose person was authored into a partner long after they met.
+  shifts.push(...repairAuthoredBonds(state));
 
   // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
   // or alive on a later turn (it sees them lingering in a scene and writes them acting), which

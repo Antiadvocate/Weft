@@ -135,6 +135,7 @@ export interface SocialEdge {
   power: number;    // a's perceived standing over b (deference if negative)
   attraction?: number;      // desire, NOT warmth: wanting someone vs liking them (-100..100; negative = averse). Seeded from conditioning at first co-presence; moves slowly.
   attraction_base?: number; // the conditioned first read — caps how far warmth alone can lift attraction (flat first read → companionate plateau, a different relationship)
+  authored_seed?: boolean;  // the authored-bond repair has already run on this edge (see repairAuthoredBonds); one-way and once, so a real falling-out is never re-inflated
   desire_admissibility?: number; // 0..1 — how much of the attraction can reach clean self-report vs. discharging as grasping/possession. Stamped at first sight from the perceiver's clench (clenched→grasp-born, open→awe-born), then drifts toward current relaxation each turn: slowly UP under calm (the flower learned to be seen not picked), faster DOWN under clench (re-roughened). Low = possessive/sideways/collector texture; high = flirtation/letting-stand. Same magnitude of wanting, opposite texture.
   roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
@@ -600,6 +601,11 @@ export interface SaveState {
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
   travel_log?: { turn: number; place: string }[]; // player's path through places, in visit order — feeds the story map
+  /** The highest power tier this world has actually WITNESSED, and when. A reputation, not a
+   *  setting: it decays a rung at a time (see rememberPowerTier) instead of expiring with the
+   *  three-turn prose window, so how the world orients to a known power outlives the last sentence
+   *  that happened to describe it. */
+  power_witnessed?: { tier: "mortal" | "empowered" | "mythic" | "cosmic"; turn: number };
 }
 
 // ───────────────────────────── simulator contract ─────────────────────────────

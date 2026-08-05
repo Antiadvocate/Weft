@@ -76,6 +76,88 @@ function beautyPull(beauty: number): number {
 }
 
 /**
+ * Vocabulary that marks a card's mention of another person as DESIRE or PARTNERSHIP rather than
+ * mere acquaintance. Deliberately excludes manufacture verbs ("created by", "made for") on their
+ * own: a guard captain conjured into existence is created by the player too, and she is not in
+ * love with him. The devotion has to be stated as devotion.
+ */
+const DEVOTION = /\b(wife|husband|spouse|bride|groom|partner|lover|beloved|consort|paramour|mistress|betrothed|fianc\w*|marriage|married|obsess\w*|infatuat\w*|besotted|smitten|devoted|devotion|adores?|adoring|worships?|in love|loves? (him|her|them)|belongs? to|his better half|her better half)\b/i;
+
+/**
+ * AUTHORED BONDS ARE NOT STRANGERS' FIRST READS.
+ *
+ * The seed below models a stranger's nervous system at contact: beauty, then personal taste. That
+ * is the right model for a stranger and the wrong model for someone whose CARD already says who
+ * they are to this person — a wife, a lover, someone written as obsessed with them. Those
+ * characters were authored (by the forge, by the simulator, or by a player who built them on
+ * purpose) with the relationship already in place, and running them through a stranger's first
+ * read overwrites the authorship with a beauty score.
+ *
+ * That is exactly how a character created as the player's partner comes out at zero desire and
+ * then behaves, correctly and permanently, like someone who feels nothing: the ledger says she
+ * doesn't want him, so the narrator is told not to invent that she does.
+ *
+ * So: read the observer's OWN card for the target's name, and return a floor the conditioned read
+ * cannot undercut. `taste` naming them is the strongest signal available — taste IS the desire
+ * channel, and a taste that names a specific person is a card saying "this one." A name appearing
+ * elsewhere (background, traits, values, drives) counts only alongside devotion vocabulary;
+ * otherwise it is a colleague, a rival, or a parent, and desire would be an invention.
+ *
+ * Returns 0 when nothing is authored — the overwhelming majority of pairs, which keep the
+ * stranger's read untouched.
+ */
+export function authoredPull(from: Identity, to: Identity): number {
+  const { inTaste, clauses } = namedClauses(from, to);
+  if (!clauses.length) return 0;
+  // Only the clauses that actually name them get a vote; a devotion word three sentences away
+  // belongs to somebody else.
+  const devoted = clauses.some((c) => DEVOTION.test(c));
+  if (inTaste) return devoted ? 65 : 50;
+  return devoted ? 55 : 0;
+}
+
+/** Relationship nouns worth writing onto the edge as a structured role. */
+const RELATION_NOUN = /\b(wife|husband|spouse|bride|groom|partner|lover|beloved|consort|betrothed|fianc\w+|mistress|paramour)\b/i;
+
+/**
+ * The relationship a card STATES, for stamping onto the edge as a role. `roles` is the structured
+ * half of the ledger and everything downstream reads it — the desire line, rivalry, whether a
+ * driving character carries the player along — but nothing ever wrote it from the card, so a
+ * character whose own background calls her the player's wife had an empty `roles` array and was
+ * treated by every one of those systems as an acquaintance.
+ */
+export function authoredRole(from: Identity, to: Identity): string | null {
+  const { clauses } = namedClauses(from, to);
+  for (const c of clauses) {
+    const m = c.match(RELATION_NOUN);
+    if (m) return m[0].toLowerCase();
+  }
+  return null;
+}
+
+/** Clauses of the observer's OWN card that name the target, plus whether `taste` was one of them. */
+function namedClauses(from: Identity, to: Identity): { inTaste: boolean; clauses: string[] } {
+  const empty = { inTaste: false, clauses: [] as string[] };
+  const name = asText(to.name).trim();
+  if (name.length < 2) return empty;
+  const nameRe = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+  const taste = asText(from.taste);
+  const self = [
+    asText(from.background, " "),
+    asList(from.core_traits).join(". "),
+    asList(from.values).join(". "),
+    asText(from.drive?.goal),
+    ...(from.drive_queue ?? []).map((d) => asText(d?.goal)),
+  ].join(". ");
+  const inTaste = nameRe.test(taste);
+  if (!inTaste && !nameRe.test(self)) return empty;
+  const clauses = `${taste}. ${self}`
+    .split(/(?<=[.!?;])\s+|\n+|\s—\s/)
+    .filter((c) => nameRe.test(c));
+  return { inTaste, clauses };
+}
+
+/**
  * Orientation gate. Returns null when no cap applies, otherwise the maximum attraction
  * this pairing can hold. "no one" caps at 0; a stated orientation that excludes the target
  * caps at 5 (aesthetic appreciation without desire). Permissive when data is missing —
@@ -125,11 +207,17 @@ export function seedAttraction(state: SaveState, fromId: string, toId: string): 
     // PERSONAL DEVIATION — this observer's conditioning (taste) matched against what the target IS.
     // A taste match makes them extra compelling on top of the shared read; a flat/mismatched taste
     // leaves only the baseline. asText/asList (not `?? ""`): pre-coercion saves hold arrays/strings.
-    const targetBlob = [asText(to.appearance_facts, " "), asList(to.core_traits).join(" "), asText(to.background, " ")].join(" ");
+    // The target's NAME is part of the blob: a taste written as "Rabi's qualities — power, vision"
+    // is a card naming a person, and matching it against a blob that never contains their name
+    // scored zero and threw the authorship away.
+    const targetBlob = [asText(to.name), asText(to.appearance_facts, " "), asList(to.core_traits).join(" "), asText(to.background, " ")].join(" ");
     const taste = asText(from.taste);
     const match = taste ? relevance(targetBlob, taste) : 0; // 0..1 token overlap
     const tasteBonus = match * 40; // taste deviates UP from the shared baseline, doesn't replace it
     a = Math.round(clamp(base + tasteBonus + pairNoise(fromId, toId) + (e.warmth > 0 ? e.warmth * 0.1 : 0), -25, 80));
+    // A relationship the card already states outranks the stranger's read of a face. Never
+    // lowers — an authored partner who is also beautiful keeps the higher number.
+    a = Math.max(a, authoredPull(from, to));
   }
   e.attraction = a;
   e.attraction_base = a;
@@ -143,6 +231,42 @@ export function seedAttraction(state: SaveState, fromId: string, toId: string): 
     const r = state.condition[fromId]?.psyche.relaxation ?? 0; // -10..+10
     e.desire_admissibility = +clamp(0.5 + r * 0.05, 0, 1).toFixed(2); // clenched entrance ~0, open ~1
   }
+}
+
+/**
+ * REPAIR PASS for edges seeded before authorship was consulted — and for edges whose person was
+ * authored AFTER the first read (a companion the story turned into a spouse fifty turns in).
+ *
+ * Idempotent and one-way: it only ever RAISES an edge to its authored floor, and only once per
+ * edge (`authored_seed`), so a couple who genuinely fall out can fall out and stay fallen. Runs
+ * every turn because the card can change at any time; costs one regex per present pair.
+ */
+export function repairAuthoredBonds(state: SaveState): string[] {
+  const shifts: string[] = [];
+  for (const e of state.world.edges) {
+    if (e.from === "char_player" || e.authored_seed) continue;
+    const from = state.characters[e.from], to = state.characters[e.to];
+    if (!from || !to || from.status === "dead") continue;
+    const floor = authoredPull(from, to);
+    if (!floor) continue;
+    const cap = orientationCap(from, to);
+    if (cap !== null && cap <= 5) { e.authored_seed = true; continue; } // authorship cannot override orientation
+    e.authored_seed = true;
+    // The stated relationship becomes a real role on the edge, so the systems that read `roles`
+    // (desire line, rivalry, whether a driver carries the player) stop seeing an acquaintance.
+    const role = authoredRole(from, to);
+    if (role && !(e.roles ?? []).some((r) => r.toLowerCase() === role)) e.roles = [...(e.roles ?? []), role];
+    if ((e.attraction ?? -100) >= floor && (e.attraction_base ?? -100) >= floor) continue;
+    e.attraction = Math.max(e.attraction ?? 0, floor);
+    e.attraction_base = Math.max(e.attraction_base ?? 0, floor);
+    e.updated_turn = state.world.current_turn;
+    if (e.desire_admissibility === undefined) {
+      const r = state.condition[e.from]?.psyche.relaxation ?? 0;
+      e.desire_admissibility = +clamp(0.5 + r * 0.05, 0, 1).toFixed(2);
+    }
+    shifts.push(`${from.name}'s written bond with ${to.name} is restored to the ledger — the card said it all along.`);
+  }
+  return shifts;
 }
 
 /**
@@ -194,6 +318,17 @@ export function desireLine(state: SaveState, id: string): string {
   const r = state.condition[id]?.psyche.relaxation ?? 0;
   const cold = typeof state.characters[id]?.conscience === "number" && state.characters[id].conscience! <= 0.35;
   if (a <= -15) return "desire toward you: none, actively repelled — SHOW: subtle withdrawal, stiffening at closeness; never narrate the aversion as a stated feeling";
+  // A LOW NUMBER IS NOT AN ABSENT BOND. The "none" line below is written for a stranger, and
+  // handing it to the narrator about the player's own partner is how a devoted character gets
+  // rendered as a wall every turn: told the desire is absent AND told not to invent it, the only
+  // consistent performance left is indifference. When the ledger holds a real attachment — a
+  // stated romantic role, or warmth well past cordial — say what IS there instead of denying what
+  // isn't. This still never manufactures heat: it licenses the attachment, not passion.
+  const romantic = (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
+  if (a < 15 && (romantic || e.warmth >= 25)) {
+    const named = romantic ? `${e.roles!.filter((r) => ROMANTIC_ROLE.test(r)).join("/")}` : "close";
+    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the heat is banked, not absent. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment reads as ease and claim, not as a wall.`;
+  }
   if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
@@ -223,9 +358,19 @@ export function tickDesire(state: SaveState): string[] {
     if (!e || e.attraction === undefined) continue;
     // "made up for it": sustained warmth lifts attraction, capped by the conditioned first read.
     const base = e.attraction_base ?? e.attraction;
-    const ceiling = base >= 15 ? 100 : 40; // flat first read → companionate plateau
-    if (e.warmth >= 35 && e.attraction >= 0 && e.attraction < ceiling && player && orientationCap(c, player) === null) {
-      e.attraction = Math.min(ceiling, +(e.attraction + 0.2).toFixed(2));
+    // A flat first read plateaus at companionate — unless the bond ITSELF has become the cause.
+    // A stated romantic role, or warmth past the point where "we are close" understates it, is the
+    // story saying this is not a friendship, and a ceiling derived from a stranger's first glance
+    // has no standing to contradict it.
+    const romantic = (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
+    const ceiling = base >= 15 || romantic ? 100 : Math.max(40, Math.round(e.warmth));
+    // A RAMP, NOT A CLIFF. The old gate opened at exactly warmth 35 and moved 0.2/turn or nothing,
+    // which left a devoted companion sitting at warmth 33 frozen forever — indistinguishable, in
+    // the state and therefore on the page, from a stranger. Closeness starts earning desire where
+    // closeness starts, and earns it faster the closer it gets.
+    if (e.warmth >= 20 && e.attraction >= 0 && e.attraction < ceiling && player && orientationCap(c, player) === null) {
+      const rate = 0.1 + clamp((e.warmth - 20) / 40, 0, 1) * 0.2; // 0.1/turn at warmth 20 → 0.3 at 60+
+      e.attraction = Math.min(ceiling, +(e.attraction + rate).toFixed(2));
     }
     const cond = state.condition[id];
     if (!cond) continue;
