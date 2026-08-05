@@ -120,8 +120,13 @@ const PULL_TEXT: Record<string, string> = {
 
 /** The per-turn framing directive. Deterministic; no model call. */
 export function frameDirective(state: SaveState, presentIds: string[], engaged: string[] = []): string {
+  // world.present only contains ROSTERED characters standing in the player's exact location. A
+  // scene can be full of people who are none of those — a captain, twenty riders, a watchman,
+  // all real to the reader and all absent from state.characters. Returning "" there switched the
+  // whole frame off silently in exactly the scenes with the least other constraint, which is
+  // where the prose went worst. The per-person lines need a roster; aperture, ordering, and the
+  // bare-acts rule do not, and those still apply to a courtyard of strangers.
   const ids = presentIds.filter((id) => id !== "char_player" && state.characters[id]);
-  if (!ids.length) return "";
 
   const pc = state.characters["char_player"];
   const relax = state.condition["char_player"]?.psyche?.relaxation ?? 0;
@@ -136,9 +141,9 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
   const effective = relax + Math.max(0, capacity) * 0.45;
   const atts = attentionOf(state, ids, engaged).sort((a, b) => (b.scan + b.pull) - (a.scan + a.pull));
 
-  const lines = atts.map((a) =>
-    `- ${a.name}: ${SCAN_TEXT[band(a.scan)]} ${PULL_TEXT[band(a.pull)]}`,
-  ).join("\n");
+  const lines = atts.length
+    ? atts.map((a) => `- ${a.name}: ${SCAN_TEXT[band(a.scan)]} ${PULL_TEXT[band(a.pull)]}`).join("\n")
+    : `- Nobody in this scene is someone the player has a settled model of. ${SCAN_TEXT.high} Strangers are the most scanned people there are; resolution is high and stays on whoever is doing something.`;
 
   // APERTURE. Clench narrows the world to the social business; ease lets the
   // irrelevant in. What gets in is the player's own conditioning, not scenery.
@@ -156,7 +161,7 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
   // ORDER. The most under-attended constraint and the cheapest: the first thing
   // in a paragraph is the thing that caught the eye, and nothing else says so.
   const first = atts[0];
-  const order = `\nORDER IS ATTENTION: whatever appears first in a paragraph is what caught the player first. Sequence the turn so the ordering is true — this turn the pull is toward ${first.name}. Never explain or justify the ordering, and never write a sentence about the player noticing, attending, or being drawn to anything; the selection does that work silently and naming it destroys it.`;
+  const order = `\nORDER IS ATTENTION: whatever appears first in a paragraph is what caught the player first. Sequence the turn so the ordering is true — this turn the pull is toward ${first?.name ?? "whoever is acting"}. Never explain or justify the ordering, and never write a sentence about the player noticing, attending, or being drawn to anything; the selection does that work silently and naming it destroys it.`;
 
   const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received — not to the other characters and not to the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
 

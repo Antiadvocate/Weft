@@ -179,9 +179,9 @@ export function pickFaculties(list: Faculty[], relax: number, turn: number): Fac
  *
  *  The channel is safe because the data is absent, not because the prompt says
  *  not to use it. Keep it that way. */
-function lens(state: SaveState, targetId: string, surface: string, relax: number): string {
+function lens(state: SaveState, targetId: string | null, surface: string, relax: number): string {
   const pc = state.characters["char_player"];
-  const target = state.characters[targetId];
+  const target = targetId ? state.characters[targetId] : undefined;
   const psy = state.condition["char_player"]?.psyche;
   const mem = state.memory["char_player"];
   const about = state.minds?.["char_player"]?.about?.find((b) => b.target === targetId);
@@ -212,7 +212,9 @@ function lens(state: SaveState, targetId: string, surface: string, relax: number
     (psy?.betrayals ?? 0) >= 2 ? `Has swallowed ${psy!.betrayals} things lately without saying them.` : "",
     ``,
     `=== WHO IS BEING READ (surface only — this is everything the player knows) ===`,
-    `${target?.name ?? "them"}${target?.pronouns ? ` (${target.pronouns})` : ""}. ${target?.appearance_now || target?.appearance_facts || ""}`,
+    target
+      ? `${target.name}${target.pronouns ? ` (${target.pronouns})` : ""}. ${target.appearance_now || target.appearance_facts || ""}`
+      : `Nobody here is someone the player has a history with. Read whoever the surface puts in front of them — the one doing something, the one who spoke. Strangers get read hardest, because nothing about them can be predicted.`,
     about ? `The player expects them to feel ${about.predicted_warmth > 20 ? "warmly" : about.predicted_warmth < -20 ? "coldly" : "neutrally"} toward them, and reads them as ${about.predicted_stance}. Confidence ${about.confidence.toFixed(2)}.` : "",
     about?.held_false ? `The player wrongly believes: ${about.held_false}. This belief is LOAD-BEARING — let it shape the reads without ever being examined.` : "",
     (about?.surprise ?? 0) > 0.4 ? `This person has recently done things the player did not predict.` : "",
@@ -230,13 +232,13 @@ function lens(state: SaveState, targetId: string, surface: string, relax: number
  *
  *  Never throws: a failed read is a quiet turn, not a broken one. */
 export async function runReads(
-  state: SaveState, targetId: string, surface: string, turn: number,
+  state: SaveState, targetId: string | null, surface: string, turn: number,
 ): Promise<Read[]> {
   try {
     const list = state.faculties?.list ?? [];
     const relax = state.condition["char_player"]?.psyche?.relaxation ?? 0;
     const firing = pickFaculties(list, relax, turn);
-    if (!firing.length || !state.characters[targetId]) return [];
+    if (!firing.length) return [];
 
     const roster = firing
       .map((f) => `${f.name} — notices: ${f.notices}${f.distorts ? ` | under pressure: ${f.distorts}` : ""}`)

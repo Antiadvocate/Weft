@@ -86,6 +86,24 @@ function sovereignty(state: SaveState): string {
 const MOTIVE_LEAK = new RegExp([
   "\\bas (?:if|though) (?:he|she|they|it|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might|could)\\b",
   "\\bas if to \\b", "\\bwith the air of\\b",
+  // ── families found in a 58-turn save, all of which walked through the first pass ──
+  // ROLE COMPARISON via a person-noun: "the stillness of a man who has just heard...",
+  // "the way a man watches a cliff edge". The earlier rule only caught "the way SHE watched";
+  // swapping the pronoun for an indefinite person was enough to slip it, and it is the same move.
+  "\\bthe (?:way|look|stillness|silence|patience|calm|care|expression|voice|smile) of (?:a|an|someone|somebody)\\b",
+  "\\bthe way (?:a|an) (?:man|woman|boy|girl|person|child|someone)\\b",
+  "\\blike (?:a|an) (?:man|woman|boy|girl|person|someone) who\\b",
+  // THE UNIVERSALIZING SENTENCE: "men who have watched the impossible learn quickly that...".
+  // A claim true of everyone everywhere, in the eternal present, dropped into a scene. It is the
+  // single loudest marker of the narrator adjudicating, and it generalizes past the moment, which
+  // narration is never allowed to do.
+  "\\b(?:men|women|people|those|anyone|everyone|no ?one|a man|a woman) who \\w+(?:\\s+\\w+){0,4}\\s+(?:learn|learns|know|knows|understand|understands|never|always|tend|tends)\\b",
+  // NEGATIVE DEFINITION: "not the stillness of X, but the stillness of Y" — the narrator ruling out
+  // one interior reading in order to install another.
+  "\\bnot the \\w+ of (?:a|an|someone)\\b", "\\bnot because (?:he|she|they|it) \\w+, but\\b",
+  // UNSPOKEN SPEECH: "He did not say we didn't know you'd be here." Reporting the sentence someone
+  // withheld is interior access with a negation in front of it.
+  "\\b(?:he|she|they|xe) did not say\\b", "\\bwhatever (?:he|she|they) had been about to say\\b",
   "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
   "\\bpretend(?:s|ing|ed)?\\b", "\\bto (?:hide|conceal|mask|cover)\\b", "\\bmask(?:ing)? (?:still |firmly )?in place\\b",
   "\\b(?:polite|careful|practised|practiced) mask\\b", "\\bcarefully (?:blank|neutral|still|empty)\\b",
@@ -615,6 +633,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 2 ── narrator (streamed)
   ev.onPhase("narrator");
+  const arrivalShifts: string[] = [];
+  const arrivals = opts?.proseOverride ? "" : spawnNamed(state, action, arrivalShifts);
   // INTENT PASS — before the narrator writes, each present NPC with something at stake privately
   // commits to their true intent this beat (the lie, the hidden want, the withheld feeling),
   // authored from their OWN state, never from the player's thoughts. Split downstream: the narrator
@@ -1021,7 +1041,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1075,9 +1095,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // reading. The surface handed over is the PREVIOUS turn's prose plus this turn's action:
   // exactly what the player has in front of them at the moment they form an impression, and
   // nothing from the state that they could not have perceived.
-  const readTarget = focused[0]?.id ?? focusNames[0]?.id;
+  const readTarget = focused[0]?.id ?? focusNames[0]?.id ?? null;
   const readsPromise: Promise<Read[]> = (async () => {
-    if (!readTarget || opts?.proseOverride) return [];
+    if (opts?.proseOverride) return [];
     if (needsFaculties(state)) {
       const list = await deriveFaculties(state);
       if (list.length) state.faculties = { turn, trait_count: (state.traits["char_player"] ?? []).length, list };
@@ -1539,6 +1559,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // must record who was actually in this scene (scene illustrations of old paragraphs use it)
   const presentDuringTurn = [...state.world.present];
   const shifts = applyDiff(state, diff, action, prose);
+  for (const s of arrivalShifts) shifts.push(s);
   for (const s of habitShifts) shifts.push(s);
   if (attemptShift) shifts.push(attemptShift); // the frame's verdict, legible in "what shifted"
   if (truncationNote) shifts.push(truncationNote);
@@ -2264,6 +2285,72 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     .map(([id]) => id);
 }
 
+
+/** NAMES THE PLAYER USED FOR SOMEONE WHO DOES NOT EXIST YET.
+ *
+ *  The cast could only ever grow from PROSE — the bookkeeper declaring new_characters, or the
+ *  speaker auto-register below. Nothing looked at the player's own action, so typing "I go find
+ *  Marek" produced a narrator improvising a Marek who never entered state, never got an edge,
+ *  never accumulated memory, and arrived a stranger again every scene.
+ *
+ *  Person-context is required, not just capitalisation: a capitalised word at the head of a
+ *  sentence is usually grammar, and the old frequency heuristic in unregisteredSpeakers is a
+ *  standing lesson in what happens when you guess. A name must either sit mid-sentence or follow
+ *  a word that can only precede a person. */
+const NOT_A_PERSON = new Set(["i","the","a","an","and","but","then","so","if","when","my","his","her","their","its","this","that","these","those","it","he","she","they","we","you","there","here","what","who","why","how","ok","okay","yes","no","god","lord","sir","lady","hey","alright","well","now","after","before","while"]);
+const PERSON_LEAD = /\b(?:to|with|for|at|about|and|find|see|call|summon|conjure|ask|tell|meet|greet|visit|bring|invite|toward|towards|beside|near|from)\s+$/i;
+
+export function namedInAction(state: SaveState, action: string): string[] {
+  const known = new Set<string>();
+  for (const c of Object.values(state.characters)) {
+    for (const w of c.name.split(/\s+/)) known.add(w.toLowerCase());
+    for (const al of c.aliases ?? []) for (const w of al.split(/\s+/)) known.add(w.toLowerCase());
+  }
+  for (const pl of Object.values(state.world.places)) for (const w of pl.name.split(/\s+/)) known.add(w.toLowerCase());
+  for (const w of `${state.world_bible?.name ?? ""} ${state.world_bible?.era ?? ""}`.split(/\s+/)) known.add(w.toLowerCase());
+
+  const out = new Set<string>();
+  const re = /[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü'-]{2,}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(action))) {
+    const name = m[0];
+    if (known.has(name.toLowerCase()) || NOT_A_PERSON.has(name.toLowerCase())) continue;
+    const before = action.slice(0, m.index);
+    const after = action.slice(m.index + name.length);
+    // "the Northgate" is a place; nobody is "the Marek". The definite article is the cheapest
+    // and most reliable person/place discriminator available in an unparsed sentence.
+    if (/\bthe\s+$/i.test(before)) continue;
+    const sentenceStart = /(?:^|[.!?]\s+|["'“]\s*)$/.test(before);
+    // A name can legitimately open a sentence — "Marek is waiting for me" is the most natural way
+    // to write it. Allow that when what follows behaves like a person: a verb, or an appositive comma.
+    const actsLikePerson = /^\s*(?:,|is|was|are|were|says|said|asks|asked|stands|sits|looks|nods|turns|waits|walks|comes|arrives|answers|tells|smiles|laughs|and)\b/i.test(after);
+    if (sentenceStart && !PERSON_LEAD.test(before) && !actsLikePerson) continue;
+    out.add(name);
+  }
+  return [...out].slice(0, 3);   // a turn that names four new people is a typo, not a scene
+}
+
+/** Register anyone the player just named, synchronously and with no model call, then tell the
+ *  narrator to author them properly on the page this turn. The record enters provisional, which
+ *  the simulator already treats as a sketch to complete and the hollow-character floor already
+ *  backfills — so the person gets built by the machinery that builds everyone else, and the turn
+ *  takes no extra latency. */
+function spawnNamed(state: SaveState, action: string, shifts: string[]): string {
+  const names = namedInAction(state, action).filter((n) => !findCharByName(state, n));
+  if (!names.length) return "";
+  for (const nm of names) {
+    const id = registerCharacter(state, {
+      name: nm, central: false, provisional: true,
+      location: state.world.player_location,
+      background: `INCOMPLETE RECORD — named by the player at ${state.world.current_time} and entering the story now. Nothing else is established; author them fully.`,
+    } as any);
+    if (id) {
+      state.world.present.push(id);
+      shifts.push(`${nm} entered the story because the player named them.`);
+    }
+  }
+  return `\nNEWLY NAMED — the player just referred to ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a WHOLE PERSON on the page: a specific body, a way of speaking that is theirs, wants that predate this moment and have nothing to do with the player. Not a function, not a role in a costume, not someone who exists to answer. They were living a life before this turn and will be after it. Do not explain who they are to the player, and do not have them announce themselves — write them as though they have always been in this story.`;
+}
 
 export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string): string[] {
   const turn = state.world.current_turn;
