@@ -59,6 +59,57 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /** The last thing the model reads, after the action, after everything. povFilter states the rule
  *  in full up in DIRECTION; this is the two-line version at the only position that reliably wins
  *  against the model's own replayed prose. pronounLock earned the tail slot the same way. */
+/** PRESENCE RECONSTRUCTED FROM THE PROSE.
+ *
+ *  Presence has been maintained as STATE that drifts: entered/left are deltas, one missed delta is
+ *  permanent, and nothing ever reconciles. Three separate saves have now run whole scenes with an
+ *  empty roster — a captain and twenty riders in one, a conversation partner speaking from
+ *  loc_offscene in another, and a library scene where the player walked in, found the person he
+ *  came to find, talked to her for two turns, and the engine believed the room was empty. The
+ *  player had to open the character screen and place her by hand.
+ *
+ *  The `here=` footer attribute is the right declaration, but it is still a declaration: it works
+ *  when the narrator remembers to emit it, and a presence system that depends on a model
+ *  remembering something is a presence system that will be empty again.
+ *
+ *  So this runs every turn as a FLOOR, underneath the footer. If a rostered character is the
+ *  subject of a speech or physical verb in this turn's prose, they were in the scene — that is not
+ *  an inference about the fiction, it is what the sentence says. Subject position is required, so
+ *  that "Dumbledore would want to know about this" does not teleport Dumbledore into the room.
+ *  It only ever ADDS presence; removal stays with the footer, because absence of evidence in one
+ *  paragraph is not evidence someone left. */
+function presenceFromProse(state: SaveState, prose: string): string[] {
+  if (!prose) return [];
+  // Three signals, any one of which means the sentence is ABOUT this person doing something here:
+  // subject position at the start of a sentence, a possessive ("Hermione's head jerked up"), or the
+  // name followed closely by an act. Deliberately broad on the verb, because a false positive only
+  // places someone in a room they were already being written about, while a miss empties the roster
+  // and silently disables focus, frame and reads.
+  const ACT = "said|says|asked|asks|replied|answered|murmured|muttered|whispered|called|shouted|snapped|added|nodded|shrugged|laughed|smiled|frowned|grinned|winced|sighed|hesitated|paused|stopped|turned|looked|glanced|watched|leaned|stood|rose|sat|stepped|walked|moved|reached|held|took|put|set|pulled|pushed|opened|closed|shut|pointed|shook|jerked|lifted|dropped|tightened|flinched|blinked|breathed|straightened|crossed|folded|tapped|wrote|read|pressed|slid|handed|offered|waited|came|went|left|entered|arrived|followed|stared|studied";
+  // A modal after the name means the sentence is hypothetical — "Dumbledore would want to know
+  // about this" is a thought about an absent man, not a man in the room.
+  const MODAL = /^\s*(?:would|could|should|might|will|won't|wouldn't|shouldn't|must|may|never|always|had been|used to)\b/i;
+  const out: string[] = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player") continue;
+    const handles = [c.name, c.name.split(/\s+/)[0], ...(c.aliases ?? [])]
+      .filter((h) => h && h.length >= 3)
+      .map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (!handles.length) continue;
+    const alt = handles.join("|");
+    const re = new RegExp(`(^|[.!?\u201d"]\\s+|\\n)\\s*(?:${alt})\\b('s)?([^.!?\\n]{0,60})`, "gi");
+    const near = new RegExp(`\\b(?:${alt})\\b(?:'s)?\\s+(?:[a-z]+\\s+){0,2}(?:${ACT})\\b`, "i");
+    let hit = false;
+    let m: RegExpExecArray | null;
+    while (!hit && (m = re.exec(prose))) {
+      if (MODAL.test(m[3] ?? "")) continue;      // hypothetical mention
+      hit = true;                                 // sentence-initial or possessive subject
+    }
+    if (hit || near.test(prose)) out.push(id);
+  }
+  return out;
+}
+
 /** ECHO BAN.
  *
  *  Characters kept answering the player by describing the player back to him, seconds after the
@@ -199,6 +250,12 @@ function expertiseFloor(label: string): number {
  *  would hand the scene back to the simulator to guess). */
 export interface SceneFooter {
   place?: string; entered: string[]; left: string[];
+  /** EVERYONE in the scene as it ends — not a delta. entered/left are deltas and deltas drift:
+   *  a character already in the room is correctly absent from `entered`, so nothing ever placed
+   *  her, and she spoke for a dozen turns from loc_offscene while world.present sat empty and
+   *  every presence-keyed system (focus, frame, reads) silently did nothing. A full roster is
+   *  idempotent and self-healing — one good footer repairs however many bad ones preceded it. */
+  here: string[];
   /** People who did NOT exist before this turn, declared by the narrator with a clause on who
    *  they are. Replaces regex guessing: the writer knows whether a name is a person, and the
    *  regexes never did — they made a cast member out of "I'd" and out of a contraction before it. */
@@ -228,7 +285,7 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
   // tolerant grab: closing quote optional (truncation may have eaten it), value runs to the next
   // attribute keyword, a closing `>`, or end-of-string.
   const grab = (k: string): string => {
-    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left|new|alias)\\s*=)|>|$)`, "i").exec(attrs);
+    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left|here|new|alias)\\s*=)|>|$)`, "i").exec(attrs);
     return r ? r[1].trim() : "";
   };
   const names = (v: string) => v.split(/[,;]/).map((x) => x.trim()).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
@@ -244,7 +301,7 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
   }).filter(Boolean) as { alias: string; of: string }[];
   return {
     prose: text.slice(0, at).trimEnd(),
-    footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")), created, aliases },
+    footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")), here: names(grab("here")), created, aliases },
   };
 }
 
@@ -1333,7 +1390,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   let truncationNote = "";
   if (narratorTruncated && !footer) {
     const hereName = state.world.places[state.world.player_location]?.name;
-    footer = { place: hereName, entered: [], left: [], created: [], aliases: [] };
+    footer = { place: hereName, entered: [], left: [], here: [], created: [], aliases: [] };
     truncationNote = "(the narrator's reply ran long and was cut off — the scene was held in place; if someone should have entered or left, say so next turn)";
   } else if (narratorTruncated) {
     truncationNote = "(the narrator's reply ran long and may have been cut short)";
@@ -1442,9 +1499,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // into `elsewhere` by accident.
   if (footer) {
     const findChar = (nm: string) => {
-      const first = nm.split(/\s+/)[0].toLowerCase();
-      return Object.entries(state.characters).find(([id, c]) =>
-        id !== "char_player" && (c.name.toLowerCase() === nm.toLowerCase() || c.name.toLowerCase().split(/\s+/)[0] === first))?.[0];
+      const want = nm.toLowerCase().replace(/^the\s+/, "");
+      const first = want.split(/\s+/)[0];
+      return Object.entries(state.characters).find(([id, c]) => {
+        if (id === "char_player") return false;
+        const n = c.name.toLowerCase();
+        if (n === want || n.split(/\s+/)[0] === first) return true;
+        return (c.aliases ?? []).some((a) => a.toLowerCase() === want);   // "Headmaster", "the old man"
+      })?.[0];
     };
     if (footer.place) {
       const pid = resolvePlace(state, footer.place, { keepIfUnknown: true });
@@ -1496,10 +1558,45 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const id = findChar(nm);
       if (id) rebuilt.push({ char_id: id, place: "elsewhere", said: "narrator: left" });
     }
+    // `here` outranks everything: it is the scene as the writer left it. Anyone named is placed at
+    // the scene's location whatever the ledger thought, and any roster character NOT named who the
+    // ledger believes is here is moved out — otherwise a stale presence lingers forever.
+    if (footer.here.length) {
+      const hereIds = new Set<string>();
+      for (const nm of footer.here) { const id = findChar(nm); if (id) hereIds.add(id); }
+      for (const id of hereIds) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: in scene" });
+      for (const [id, c] of Object.entries(state.characters)) {
+        if (id === "char_player" || hereIds.has(id)) continue;
+        if (c.location && c.location === state.world.player_location) {
+          rebuilt.push({ char_id: id, place: "elsewhere", said: "narrator: not in scene" });
+        }
+      }
+    }
+    // FLOOR: anyone the prose shows acting or speaking is in the scene, footer or no footer. Adds
+    // only — the footer alone decides who leaves. Skips anyone the footer explicitly moved out this
+    // turn, so a departure written as "she stood and left" is not undone by the verb that carried it.
+    {
+      const movedOut = new Set(rebuilt.filter((r) => r.place === "elsewhere").map((r) => r.char_id));
+      const already = new Set(rebuilt.map((r) => r.char_id));
+      for (const id of presenceFromProse(state, prose)) {
+        if (movedOut.has(id) || already.has(id)) continue;
+        rebuilt.push({ char_id: id, place: footer.place || hereName, said: "prose: acted in scene" });
+      }
+    }
     // keep any simulator move for a character the footer said nothing about (offscreen world motion)
     const spoken = new Set(rebuilt.map((r) => r.char_id));
     for (const l of diff.locations ?? []) if (!spoken.has(l.char_id) && l.char_id !== "char_player") rebuilt.push(l);
     diff.locations = rebuilt;
+  } else {
+    // NO FOOTER AT ALL (truncation, or a model that ignored the spec). The floor still applies —
+    // this is the case where presence would otherwise be whatever the simulator happened to say,
+    // which historically was nothing.
+    const hereName2 = state.world.places[state.world.player_location]?.name ?? "";
+    const have = new Set((diff.locations ?? []).map((l) => l.char_id));
+    const add = presenceFromProse(state, prose)
+      .filter((id) => !have.has(id))
+      .map((id) => ({ char_id: id, place: hereName2, said: "prose: acted in scene" }));
+    if (add.length) diff.locations = [...(diff.locations ?? []), ...add];
   }
 
   // ── TRAVELLING COMPANIONS ── the player's move is applied unconditionally from the footer, but
