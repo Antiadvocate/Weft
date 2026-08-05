@@ -197,7 +197,16 @@ function expertiseFloor(label: string): number {
  *  thing emitted, so it's the first thing lost to an output-cap cut — a footer missing its closing
  *  `>`s or even its final quote is still parsed for whatever survived, rather than dropped (which
  *  would hand the scene back to the simulator to guess). */
-export interface SceneFooter { place?: string; entered: string[]; left: string[] }
+export interface SceneFooter {
+  place?: string; entered: string[]; left: string[];
+  /** People who did NOT exist before this turn, declared by the narrator with a clause on who
+   *  they are. Replaces regex guessing: the writer knows whether a name is a person, and the
+   *  regexes never did — they made a cast member out of "I'd" and out of a contraction before it. */
+  created: { name: string; gist: string }[];
+  /** "Headmaster = Professor Albus Dumbledore". A title or nickname is not a new person, and the
+   *  only reliable way to know that is to ask the thing that chose the word. */
+  aliases: { alias: string; of: string }[];
+}
 
 export function parseSceneFooter(text: string): { prose: string; footer: SceneFooter | null } {
   // Find the LAST `<<<SCENE` marker — the real footer is always at the very end, and if a model
@@ -219,13 +228,23 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
   // tolerant grab: closing quote optional (truncation may have eaten it), value runs to the next
   // attribute keyword, a closing `>`, or end-of-string.
   const grab = (k: string): string => {
-    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left)\\s*=)|>|$)`, "i").exec(attrs);
+    const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left|new|alias)\\s*=)|>|$)`, "i").exec(attrs);
     return r ? r[1].trim() : "";
   };
   const names = (v: string) => v.split(/[,;]/).map((x) => x.trim()).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
+  // new="Pell (a weaver, mends nets on the quay)" — name outside the parens, gist inside.
+  const created = names(grab("new")).map((entry) => {
+    const m = /^([^(]+?)\s*(?:\(([^)]*)\))?$/.exec(entry);
+    return { name: (m?.[1] ?? entry).trim().slice(0, 60), gist: (m?.[2] ?? "").trim().slice(0, 200) };
+  }).filter((c) => c.name.length >= 2);
+  // alias="Headmaster = Professor Albus Dumbledore"
+  const aliases = names(grab("alias")).map((entry) => {
+    const m = /^(.+?)\s*=\s*(.+)$/.exec(entry);
+    return m ? { alias: m[1].trim().slice(0, 60), of: m[2].trim().slice(0, 60) } : null;
+  }).filter(Boolean) as { alias: string; of: string }[];
   return {
     prose: text.slice(0, at).trimEnd(),
-    footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")) },
+    footer: { place: grab("place") || undefined, entered: names(grab("entered")), left: names(grab("left")), created, aliases },
   };
 }
 
@@ -674,7 +693,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // 2 ── narrator (streamed)
   ev.onPhase("narrator");
   const arrivalShifts: string[] = [];
-  const arrivals = opts?.proseOverride ? "" : spawnNamed(state, action, arrivalShifts);
+  // spawnNamed is now a FALLBACK only — see the footer block below. It runs when the narrator
+  // emitted no footer (output truncation), because no registration at all is worse than a guess.
+  const arrivals = "";
   // INTENT PASS — before the narrator writes, each present NPC with something at stake privately
   // commits to their true intent this beat (the lie, the hidden want, the withheld feeling),
   // authored from their OWN state, never from the player's thoughts. Split downstream: the narrator
@@ -1312,7 +1333,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   let truncationNote = "";
   if (narratorTruncated && !footer) {
     const hereName = state.world.places[state.world.player_location]?.name;
-    footer = { place: hereName, entered: [], left: [] };
+    footer = { place: hereName, entered: [], left: [], created: [], aliases: [] };
     truncationNote = "(the narrator's reply ran long and was cut off — the scene was held in place; if someone should have entered or left, say so next turn)";
   } else if (narratorTruncated) {
     truncationNote = "(the narrator's reply ran long and may have been cut short)";
@@ -1432,6 +1453,39 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         console.info(`[places] narrator set the scene at "${state.world.places[pid].name}"`);
       }
     }
+    // ── CAST CREATION IS DECLARED, NOT INFERRED ────────────────────────────
+    // Every regex path into the cast has now produced a false person: a frequency rule enrolled
+    // Somewhere and Pictish, an apostrophe rule enrolled "I'd", a speech-adjacency rule enrolled
+    // "Hat" for the Sorting Hat, and a title in dialogue turns the same character into a second
+    // one. No refinement fixes the category: a regex is guessing at something the writer already
+    // knows. So the narrator declares it. `new=` creates, `alias=` says a title or nickname
+    // belongs to someone who already exists — which is the specific case regex can never get
+    // right, because "Headmaster" and "Professor Dumbledore" look nothing alike.
+    for (const a of footer.aliases) {
+      const id = findChar(a.of) ?? findChar(a.alias);
+      if (!id) continue;
+      const c = state.characters[id];
+      const have = new Set((c.aliases ?? []).map((x) => x.toLowerCase()));
+      if (!have.has(a.alias.toLowerCase()) && a.alias.toLowerCase() !== c.name.toLowerCase()) {
+        c.aliases = [...(c.aliases ?? []), a.alias].slice(0, 8);
+      }
+    }
+    for (const c of footer.created) {
+      if (findChar(c.name)) continue;
+      if (/^(i'?d|he'?ll|she'?ll|that'?s|don'?t|it'?s)$/i.test(c.name)) continue;
+      const id = registerCharacter(state, {
+        name: c.name, central: false, provisional: true,
+        location: state.world.player_location,
+        background: c.gist
+          ? `INCOMPLETE RECORD — the narrator brought them into the story at ${state.world.current_time}. What was established: ${c.gist}`
+          : `INCOMPLETE RECORD — the narrator brought them into the story at ${state.world.current_time}.`,
+      } as any);
+      if (id) {
+        state.world.present.push(id);
+        arrivalShifts.push(`${c.name} entered the story.`);
+      }
+    }
+
     const rebuilt: { char_id: string; place: string; said?: string }[] = [];
     const hereName = state.world.places[state.world.player_location]?.name ?? "";
     for (const nm of footer.entered) {
@@ -1598,7 +1652,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // capture the cast BEFORE the diff runs — applyDiff may move people, and the history entry
   // must record who was actually in this scene (scene illustrations of old paragraphs use it)
   const presentDuringTurn = [...state.world.present];
-  const shifts = applyDiff(state, diff, action, prose);
+  const shifts = applyDiff(state, diff, action, prose, !!footer);
   for (const s of arrivalShifts) shifts.push(s);
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
@@ -2406,7 +2460,7 @@ function spawnNamed(state: SaveState, action: string, shifts: string[]): string 
   return `\nNEWLY NAMED — the player just referred to ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a WHOLE PERSON on the page: a specific body, a way of speaking that is theirs, wants that predate this moment and have nothing to do with the player. Not a function, not a role in a costume, not someone who exists to answer. They were living a life before this turn and will be after it. Do not explain who they are to the player, and do not have them announce themselves — write them as though they have always been in this story.`;
 }
 
-export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string): string[] {
+export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string, footerSeen = false): string[] {
   const turn = state.world.current_turn;
   const shifts: string[] = [];
   const nameOf = (id: string) => state.characters[id]?.name ?? id;
@@ -2590,7 +2644,10 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // enters state. Registering them here doesn't make them important; it makes them CONSTRAINED, so
   // the voice pass can give them a period register and the knowledge gate can apply to what they
   // claim to know. They join non-central with no memories: a walk-on, but a real one.
-  for (const nm of unregisteredSpeakers(state, prose)) {
+  // FALLBACK ONLY. With a footer present the narrator has already declared the cast; running the
+  // regex too means a title, a nickname, or a contraction can still slip in behind it. This now
+  // fires only when the footer is missing entirely — truncation, or a model that ignored the spec.
+  for (const nm of (footerSeen ? [] : unregisteredSpeakers(state, prose))) {
     if (findCharByName(state, nm)) continue;
     // KEEP WHAT THE PROSE SAID ABOUT THEM. The stub background ("nothing else is established")
     // was actively harmful: it produced a record that LOOKS complete, so nothing ever filled it in,
