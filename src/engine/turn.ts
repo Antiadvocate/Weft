@@ -2447,7 +2447,26 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // permanent fictional person with opinions.
   const NAME = "[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü-]{2,}";
   const VERBS = "said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|whispered|called|calls|shouted|snapped|added|continued";
+  // SELF-INTRODUCTION. The two rules above look for a name ADJACENT to a speech verb, and the most
+  // common way a person enters a story defeats both: the player asks a name, and the answer comes
+  // back as `"Tomas," he said.` — the verb attaches to the pronoun, the name sits inside the quote.
+  // A whole conversation partner then lived eight turns of prose with no record, no voice card, no
+  // memory bank and no edge, reconstructed from the chatlog each turn and forgetting everything
+  // that scrolled out of it; meanwhile the bookkeeper, having no id to write to, filed his
+  // relationship onto an unrelated knight. A quotation whose entire contents are one capitalised
+  // word, followed by an attribution, is essentially never anything but a name — provided the
+  // bare interjections are excluded, since "Yes," he said has the identical shape.
+  const NOT_A_NAME = new Set(["yes","no","okay","ok","please","thanks","thank","sorry","what","why","who","how","where","when","stop","wait","enough","maybe","perhaps","nothing","everything","never","always","indeed","certainly","right","fine","good","well","hello","goodbye","sir","madam","lord","lady","majesty","father","mother","captain","aye","nay","now","here","there","again","both","none","done","gods","god"]);
   const found = new Map<string, string>();
+  {
+    const intro = new RegExp(`["“]\\s*(${NAME})[,.!?]?\\s*["”]\\s*(?:[a-z']+\\s+){0,3}(?:${VERBS})\\b`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = intro.exec(prose))) {
+      const raw = m[1], key = raw.toLowerCase();
+      if (known.has(key) || NOT_A_NAME.has(key) || raw.includes("'")) continue;
+      found.set(key, raw);
+    }
+  }
   for (const re of [
     new RegExp(`\\b(${NAME})\\s+(?:${VERBS})\\b`, "g"),
     new RegExp(`\\b(?:${VERBS})\\s+(${NAME})\\b`, "g"),
@@ -2464,7 +2483,7 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
       found.set(key, raw);
     }
   }
-  return [...found.values()].slice(0, 2);
+  return [...found.values()].slice(0, 3);
 }
 
   for (const nc of diff.new_characters ?? []) {
