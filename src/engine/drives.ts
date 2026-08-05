@@ -132,11 +132,23 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
     // sees and can act on (raise it, redirect to it, leave to pursue it) — so people in the room
     // don't stay stuck on a dead aim, they move on to the next thing they want.
     if (active && queue.length) {
-      const stalled = active.progress >= 100 || !!active.blocker || (state.world.current_turn - active.updated_turn) >= 4;
+      // A BLOCKER IS A REASON, NOT A VERDICT. This counted any blocker as an instant stall, so a
+      // blocked drive was shelved every single turn — and because the backup was usually blocked
+      // too ("must find Rabi first", on both), the pair ping-ponged forever: swap, swap back, swap
+      // again, a hundred turns of a character trading one goal she can't act on for another. It
+      // progressed nothing and it filled the offscreen feed with seventy lines of "X sets aside A
+      // and turns to B", which is what the player got instead of a world moving.
+      const idle = state.world.current_turn - active.updated_turn;
+      const stalled = active.progress >= 100 || idle >= (active.blocker ? 3 : 4);
       if (stalled) {
         // pick the best backup by priority then freshness
         queue.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1) || (b.updated_turn - a.updated_turn));
-        const next = queue.shift()!;
+        // Never trade a blocked goal for another blocked goal — that swap is the ping-pong itself.
+        // Someone with nothing unblocked to turn to stays on what they wanted; being stuck is a
+        // real state, and the offstage pass is where it gets to bite.
+        const idx = active.progress >= 100 ? 0 : queue.findIndex((q) => !q.blocker);
+        if (idx < 0) { active.updated_turn = state.world.current_turn; continue; }
+        const next = queue.splice(idx, 1)[0];
         if (active.progress < 100) { // keep the unfinished one as a backup, lowered
           active.priority = Math.max(0, (active.priority ?? 1) - 1);
           queue.push(active);

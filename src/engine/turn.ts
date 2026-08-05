@@ -2095,7 +2095,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     summary: diff.scene_summary || prose.slice(0, 120),
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
-    offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
+    offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
@@ -2293,7 +2293,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   if (state.telemetry.length > TEL_WINDOW) state.telemetry = state.telemetry.slice(-TEL_WINDOW);
   if (state.pressure_trace.length > TEL_WINDOW) state.pressure_trace = state.pressure_trace.slice(-TEL_WINDOW);
   state.world.current_turn++;
-  ev.onMeta({ telemetry: tel, offscreen: offscreenLog.slice(0, 6), shifts: shifts.slice(0, 8), weather: state.world.weather, time: state.world.current_time });
+  ev.onMeta({ telemetry: tel, offscreen: rankOffscreen(offscreenLog).slice(0, 6), shifts: shifts.slice(0, 8), weather: state.world.weather, time: state.world.current_time });
 }
 
 const TRANSIENT_RE = /\b(currently|right now|at the moment|for now|bleeding|blood(y|ied)?|nosebleed|fatigued?|exhausted|tears?|crying|sweat(ing)?|panting|trembling|shaking|wincing|sedat\w*|bandag\w*|restrained)\b/i;
@@ -2622,6 +2622,29 @@ function spawnNamed(state: SaveState, action: string, shifts: string[]): string 
     }
   }
   return `\nNEWLY NAMED — the player just referred to ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a WHOLE PERSON on the page: a specific body, a way of speaking that is theirs, wants that predate this moment and have nothing to do with the player. Not a function, not a role in a costume, not someone who exists to answer. They were living a life before this turn and will be after it. Do not explain who they are to the player, and do not have them announce themselves — write them as though they have always been in this story.`;
+}
+
+/**
+ * The offscreen feed shows six lines, and it was showing the wrong six.
+ *
+ * Everything the engine does between turns pushes into one flat list, then the first six survive.
+ * Drive bookkeeping fires for every tracked character every turn and lands at the front, so a
+ * hundred-and-twenty-turn game showed seventy lines of "Lady Marchess sets aside A and turns to B"
+ * and exactly ONE line reporting something that happened in the world. Rank by what a player is
+ * actually being told: the world moved, a faction closed on something, a person got what they
+ * wanted — and only then the engine's own goal-shuffling.
+ */
+export function rankOffscreen(lines: string[]): string[] {
+  const weight = (l: string) =>
+    /^Elsewhere:/.test(l) ? 0 :
+    /^SIGN \(|clock has run out|moved closer to their objective|has nothing to act on/.test(l) ? 1 :
+    /got what they wanted|stopped waiting on|is back in the world|word about|written bond/.test(l) ? 2 :
+    /sets aside|turns to something new|works toward|can't get a read/.test(l) ? 4 :
+    3;
+  return lines
+    .map((l, i) => ({ l, i }))
+    .sort((a, b) => weight(a.l) - weight(b.l) || a.i - b.i)
+    .map((x) => x.l);
 }
 
 export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string, footerSeen = false): string[] {
