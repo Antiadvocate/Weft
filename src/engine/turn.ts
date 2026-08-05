@@ -18,6 +18,7 @@ import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
 import { frameDirective } from "./frame";
+import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
@@ -623,9 +624,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const ref = (beat as { ref?: string }).ref;
     if (ref && ["clock", "thread", "agent", "consequence"].includes(beat.kind)) {
       const rec = state.pressure_state.recent!;
+      // Record WHAT KIND fired, so the selector can spread across kinds rather than only across
+      // individual sources — four fresh threats in a row is four fresh sources and one flavour.
+      const srcKind = beat.kind === "clock" ? "threat"
+        : beat.kind === "agent" ? "relationship"
+        : beat.kind === "thread" ? (state.world.threads.find((t) => t.title.slice(0, 90) === ref)?.kind ?? "threat")
+        : "obligation";
       const prior = rec.find((r) => r.ref === ref);
-      if (prior) { prior.turn = turn; prior.time = nowT; prior.count += 1; }
-      else rec.push({ ref, turn, time: nowT, count: 1 });
+      if (prior) { prior.turn = turn; prior.time = nowT; prior.count += 1; prior.kind = srcKind; }
+      else rec.push({ ref, turn, time: nowT, count: 1, kind: srcKind });
       if (rec.length > 24) state.pressure_state.recent = rec.slice(-24);
     }
   }
@@ -1560,6 +1567,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const presentDuringTurn = [...state.world.present];
   const shifts = applyDiff(state, diff, action, prose);
   for (const s of arrivalShifts) shifts.push(s);
+
+  // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
+  // rather than what the prose gestured at. Rationed inside the module; a no-op on most turns.
+  const grown = await threadsFromSuccess(state, diff, action, prose);
+  if (grown.length) {
+    state.world.threads.push(...grown);
+    state.last_establish_turn = turn;
+    for (const t of grown) shifts.push(`Something now rests on what you built: ${t.title}`);
+  }
   for (const s of habitShifts) shifts.push(s);
   if (attemptShift) shifts.push(attemptShift); // the frame's verdict, legible in "what shifted"
   if (truncationNote) shifts.push(truncationNote);

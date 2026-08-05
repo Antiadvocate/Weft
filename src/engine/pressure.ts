@@ -199,7 +199,7 @@ export interface BeatInput {
    *  uniformly every turn, so the loudest source keeps being re-picked — which is how the same
    *  raiders came back and died to the player three times. A source that has just discharged is
    *  not a source; it is a thing that already happened. */
-  recent?: { ref: string; turn: number; count: number }[];
+  recent?: { ref: string; turn: number; count: number; kind?: string }[];
   rng?: () => number;
 }
 export type Beat =
@@ -239,13 +239,25 @@ export function selectBeat(inp: BeatInput): Beat {
 
   const sinceBeat = inp.turn - inp.last_beat_turn;
   const cooling = sinceBeat < beatCooldown(inp.tension, inp.clocks);
-  const standing: { ref: string; mk: () => Beat }[] = [];
+  const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.75)
-    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), mk: () => ({ kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90) }) });
-  for (const t of inp.threads) if (t.status === "active" && (t.tension ?? 0) >= 6)
-    standing.push({ ref: t.title.slice(0, 90), mk: () => ({ kind: "thread", ref: t.title.slice(0, 90) }) });
-  for (const a of inp.agents) if ((a.priority ?? 1) >= 6)
-    standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
+    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({ kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90) }) });
+  // A thread had to reach tension 6 to be pickable, which is a CRISIS threshold. Everything that is
+  // merely the world's ordinary business — an upkeep dispute, an office that must be told, a
+  // neighbour who now wants the same engineers — opens low and matures slowly, so under the old
+  // rule it could sit in state forever and never once reach the page. Non-threat threads qualify
+  // at 2. That is the whole point of authoring them.
+  for (const t of inp.threads) {
+    if (t.status !== "active") continue;
+    const kind = t.kind ?? "threat";
+    const bar = kind === "threat" ? 6 : 2;
+    if ((t.tension ?? 0) >= bar)
+      standing.push({ ref: t.title.slice(0, 90), kind, mk: () => ({ kind: "thread", ref: t.title.slice(0, 90) }) });
+  }
+  // Agents gated at priority 6 meant a person only pressed the world when they were in crisis.
+  // People acting on ordinary wants IS how a world turns; 3 lets them.
+  for (const a of inp.agents) if ((a.priority ?? 1) >= 3)
+    standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), kind: "relationship", mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
 
   // ── PER-SOURCE FATIGUE ──────────────────────────────────────────────────────
   // Every source in `standing` used to be equally eligible on every turn, chosen by a flat random
@@ -268,12 +280,18 @@ export function selectBeat(inp: BeatInput): Beat {
   });
   // Prefer the source that has been silent longest, rather than sampling uniformly. Uniform choice
   // over a small set re-picks the same thing constantly; least-recently-used rotates the world.
+  // SPREAD. Least-recently-used rotates individual sources but says nothing about VARIETY: a world
+  // holding four threats and one obligation will run threat, threat, threat, threat, obligation, and
+  // read as unrelenting even though every source is fresh. A kind absent from the last several beats
+  // gets a bonus that puts it ahead of a slightly staler source of a kind we just used.
+  const recentKinds = new Set((inp.recent ?? []).filter((r) => inp.turn - r.turn <= 6).map((r) => r.kind ?? "threat"));
   const pickStanding = () => {
     if (!eligible.length) return null;
     let best = eligible[0], bestAge = -1;
     for (const sd of eligible) {
       const h = hist.get(sd.ref);
-      const age = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
+      const raw = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
+      const age = raw === Number.MAX_SAFE_INTEGER ? raw : raw + (recentKinds.has(sd.kind) ? 0 : 12);
       if (age > bestAge) { best = sd; bestAge = age; }
     }
     return best;
@@ -377,7 +395,7 @@ export type PowerTier = "mortal" | "empowered" | "mythic" | "cosmic";
  */
 export function tierFromRecord(
   base: PowerTier,
-  recent: { ref: string; turn: number; count: number }[] = [],
+  recent: { ref: string; turn: number; count: number; kind?: string }[] = [],
 ): PowerTier {
   const order: PowerTier[] = ["mortal", "empowered", "mythic", "cosmic"];
   // A source the player has faced down 2+ times is no longer a credible threat FROM THIS WORLD.

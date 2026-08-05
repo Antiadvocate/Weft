@@ -408,6 +408,10 @@ export interface Thread {
   turn_started: number;
   turn_resolved?: number;
   tension: number;             // 0–10 how due it is; pressure controller reads this
+  /** What KIND of standing source this is. threat is one flavour of demand on the player, not the
+   *  axis itself — a world whose threads are all threats can only ever press by endangering them.
+   *  Absent on threads authored before this existed; treated as "threat" for weighting. */
+  kind?: "obligation" | "opportunity" | "relationship" | "institution" | "threat";
 }
 
 export interface ConsequenceEvent {
@@ -579,11 +583,13 @@ export interface SaveState {
   // auditor's description of the remaining gap, refreshed when the act changes. `act` records which
   // act the last audit ran in, so the next act change triggers exactly one more.
   destination_progress?: { pct: number; gained: string; missing: string; turn: number; reached?: boolean; act?: string } | null;
-  pressure_state?: { last_beat_turn: number; last_exo_turn: number; last_beat_time?: string; last_exo_time?: string; recent?: { ref: string; turn: number; count: number; time?: string }[] }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
+  pressure_state?: { last_beat_turn: number; last_exo_turn: number; last_beat_time?: string; last_exo_time?: string; recent?: { ref: string; turn: number; count: number; time?: string; kind?: string }[] }; // source-driven beat cooldowns (see pressure.ts selectBeat) // CONTRACT GOVERNOR: set when the chapter check finds the story drifting from the standing direction; injects a course-correction directive until the next check passes
   /** THE PLAYER'S PERCEPTUAL APPARATUS — named, biased faculties derived once from their card
    *  (see engine/read.ts). The read channel speaks through these while the narrator writes the
    *  surface. Re-derived only when the card materially changes; trait_count is the trigger. */
   faculties?: { turn: number; trait_count: number; list: { name: string; notices: string; distorts: string }[] };
+  /** Last turn the success-consequence pass ran; rations it (see engine/consequence.ts). */
+  last_establish_turn?: number;
   persona_reading?: { turn: number; mbti: string; read: string; traits: string[]; arc: string }; // on-demand full-history read of the player as played
   snapshots: { turn: number; blob: string; z?: boolean }[]; // rollback ring, max 7; z = gzip+base64 compressed
   travel_log?: { turn: number; place: string }[]; // player's path through places, in visit order — feeds the story map
