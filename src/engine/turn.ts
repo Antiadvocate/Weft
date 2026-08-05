@@ -713,8 +713,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // Pacing runs on the in-world clock, not the turn counter — a turn is ~10 minutes, so turn-based
   // cooldowns produced a fresh crisis every half hour of the character's life.
   const nowT = state.world.current_time;
-  const minutesSinceBeat = state.pressure_state.last_beat_time ? minutesBetween(state.pressure_state.last_beat_time, nowT) : undefined;
-  const minutesSinceExo = state.pressure_state.last_exo_time ? minutesBetween(state.pressure_state.last_exo_time, nowT) : undefined;
+  // clamped at 0: a repaired save or a rewound clock must read as "no time has passed", never as a
+  // negative gap that would sail through every cooldown.
+  const sinceStamp = (stamp?: string) => (stamp ? Math.max(0, minutesBetween(stamp, nowT)) : undefined);
+  const minutesSinceBeat = sinceStamp(state.pressure_state.last_beat_time);
+  const minutesSinceExo = sinceStamp(state.pressure_state.last_exo_time);
   const beat: Beat = selectBeat({
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,

@@ -194,6 +194,11 @@ export interface BeatInput {
   agents: AgentCandidate[];        // offscreen central chars whose drive intersects the player's orbit
   last_beat_turn: number;
   last_exo_turn: number;
+  /** In-world minutes elapsed since the last discharge / the last exogenous event (never negative).
+   *  Supplied from pressure_state.last_beat_time / last_exo_time; undefined before the first beat
+   *  and on saves written before the clock was tracked, in which case the turn ladders are used. */
+  minutesSinceBeat?: number;
+  minutesSinceExo?: number;
   restoration?: boolean;           // rest turns never receive incident beats (protection handled upstream too)
   /** What has already fired, and how often. Without this, `standing` is a flat bag sampled
    *  uniformly every turn, so the loudest source keeps being re-picked — which is how the same
@@ -215,10 +220,31 @@ export type Beat =
  *  mature, which is where act structure comes from: quiet middles, converging ends. */
 export function beatCooldown(tension: number, clocks: FactionClock[]): number {
   const base = tension <= 2 ? 10 : tension <= 4 ? 7 : tension <= 6 ? 5 : tension <= 8 ? 3 : 2;
-  const maturing = clocks.some((c) => c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.85);
-  return maturing ? Math.max(1, Math.ceil(base * 0.6)) : base;
+  return clocksMaturing(clocks) ? Math.max(1, Math.ceil(base * 0.6)) : base;
 }
+const clocksMaturing = (clocks: FactionClock[]): boolean =>
+  clocks.some((c) => c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.85);
+
+/** The same refractory period, spent on the IN-WORLD CLOCK rather than the turn counter — this is
+ *  the real gate whenever the caller knows the time (see minutesSinceBeat).
+ *
+ *  A turn is not a unit of time. The Simulator reports elapsed_minutes per turn, and a brief
+ *  exchange is 2–10 minutes where a night is 480. Spacing incidents by turn count therefore paced
+ *  the world by conversation volume: six quick exchanges in a doorway "earned" a fresh crisis
+ *  inside half an hour of the character's life, while a scene that skipped an afternoon was held to
+ *  the same wait as one that skipped five minutes. Hours are what a person feels between blows. */
+export function beatCooldownMinutes(tension: number, clocks: FactionClock[]): number {
+  const base = tension <= 2 ? 600 : tension <= 4 ? 300 : tension <= 6 ? 150 : tension <= 8 ? 75 : 40;
+  return clocksMaturing(clocks) ? Math.max(15, Math.round(base * 0.6)) : base;
+}
+/** However much fiction-time one turn swallowed, the world does not discharge twice on consecutive
+ *  pages — a night's sleep clears the clock gate, not the reader's need for a beat of ordinary
+ *  scene between two incidents. */
+const MIN_GAP_TURNS = 2;
 const EXO_INTERVAL = (tension: number): number => (tension <= 3 ? 40 : tension <= 6 ? 25 : 15);
+/** Exogenous rarity on the clock: roughly one every couple of days when the world is quiet, one a
+ *  day at middling tension, one every twelve hours when it runs hot. */
+const EXO_MINUTES = (tension: number): number => (tension <= 3 ? 2880 : tension <= 6 ? 1440 : 720);
 
 export function selectBeat(inp: BeatInput): Beat {
   const rng = inp.rng ?? Math.random;
@@ -238,7 +264,12 @@ export function selectBeat(inp: BeatInput): Beat {
   }
 
   const sinceBeat = inp.turn - inp.last_beat_turn;
-  const cooling = sinceBeat < beatCooldown(inp.tension, inp.clocks);
+  // COOLDOWN. When the caller knows how long it has actually been, the in-world clock is the gate
+  // and the turn count is only the floor that keeps two discharges off consecutive pages. Without
+  // it (old save, or nothing has fired yet) fall back to the turn ladder as before.
+  const cooling = inp.minutesSinceBeat === undefined
+    ? sinceBeat < beatCooldown(inp.tension, inp.clocks)
+    : inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) || sinceBeat < MIN_GAP_TURNS;
   const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.75)
     standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({ kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90) }) });
@@ -302,6 +333,9 @@ export function selectBeat(inp: BeatInput): Beat {
     // Reminders may reference a fatigued source — being reminded of a standing threat is not the
     // same as it acting again — but never a retired one.
     const remind = pickStanding() ?? standing.find((sd) => (hist.get(sd.ref)?.count ?? 0) < RETIRE_AT);
+    // Deliberately still counted in TURNS: an incident is an event in the world and is spaced by the
+    // world's clock, but a reminder is texture on the page — the rule it obeys is "don't echo the
+    // thing we just did", which is measured in scenes read, not hours lived.
     if (remind && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
       return { kind: "reminder", ref: remind.ref };
     }
@@ -313,8 +347,13 @@ export function selectBeat(inp: BeatInput): Beat {
   const chosen = pickStanding();
   if (chosen && rng() < fireP) return chosen.mk();
 
-  // exogenous: rationed rarity — witnessed, not targeted
-  if (inp.turn - inp.last_exo_turn >= EXO_INTERVAL(inp.tension) && rng() < 0.5) return { kind: "exogenous" };
+  // exogenous: rationed rarity — witnessed, not targeted. Rationed on the same clock as the beats:
+  // "rare" means rare in the character's life, not rare per page.
+  const sinceExo = inp.turn - inp.last_exo_turn;
+  const exoReady = inp.minutesSinceExo === undefined
+    ? sinceExo >= EXO_INTERVAL(inp.tension)
+    : inp.minutesSinceExo >= EXO_MINUTES(inp.tension) && sinceExo >= MIN_GAP_TURNS;
+  if (exoReady && rng() < 0.5) return { kind: "exogenous" };
 
   const tail = pickStanding();
   if (tail && rng() < 0.3) return { kind: "reminder", ref: tail.ref };
