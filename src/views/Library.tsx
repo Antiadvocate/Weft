@@ -28,9 +28,16 @@ export default function Library({ onOpen, onForge, onCreated }: {
     try { onCreated(await api.newFromPreset(presetId)); } finally { setBusy(null); }
   };
   const [forking, setForking] = React.useState<string | null>(null);
-  const forkSeason = async (id: string) => {
+  // WHICH SAVE IS HAVING ITS NEXT CHAPTER WRITTEN, and what the player wants it to be. Branching
+  // used to fire the moment the sprout was clicked, with the forge deciding on its own what came
+  // next — which for a protagonist nothing can threaten reliably produces a chapter about that
+  // protagonist's boredom, because their interior is the only antagonist left. This is the steering.
+  const [composing, setComposing] = React.useState<string | null>(null);
+  const [brief, setBrief] = React.useState("");
+  const forkSeason = async (id: string, direction: string) => {
+    setComposing(null);
     setForking(id);
-    try { onCreated(await api.forkNewSeason(id)); }
+    try { onCreated(await api.forkNewSeason(id, direction)); }
     catch (e: any) { alert(`New chapter failed: ${e.message}`); }
     finally { setForking(null); }
   };
@@ -48,7 +55,8 @@ export default function Library({ onOpen, onForge, onCreated }: {
           </div>
           <div className="space-y-2.5 mb-7">
             {saves.map((s, i) => (
-              <motion.div key={s.id} className="card card-press p-4 flex items-center gap-3"
+              <React.Fragment key={s.id}>
+              <motion.div className="card card-press p-4 flex items-center gap-3"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
                 onClick={() => onOpen(s.id)}>
@@ -59,8 +67,8 @@ export default function Library({ onOpen, onForge, onCreated }: {
                   </div>
                 </div>
                 <button className="p-2" style={{ color: "var(--text-lo)" }} title="start a new chapter from this save"
-                  onClick={(e) => { e.stopPropagation(); forkSeason(s.id); }}>
-                  <Sprout size={15} style={{ color: forking === s.id ? "var(--accent)" : "var(--text-lo)" }} />
+                  onClick={(e) => { e.stopPropagation(); setBrief(""); setComposing(composing === s.id ? null : s.id); }}>
+                  <Sprout size={15} style={{ color: forking === s.id || composing === s.id ? "var(--accent)" : "var(--text-lo)" }} />
                 </button>
                 <button className="p-2" style={{ color: "var(--text-lo)" }}
                   onClick={(e) => { e.stopPropagation(); remove(s.id); }}>
@@ -68,6 +76,33 @@ export default function Library({ onOpen, onForge, onCreated }: {
                 </button>
                 <PlayIcon size={16} style={{ color: "var(--accent)" }} />
               </motion.div>
+              {composing === s.id && (
+                <motion.div className="card p-4 space-y-2"
+                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
+                  <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
+                    What is the next chapter about?
+                  </div>
+                  <textarea
+                    className="w-full bg-transparent outline-none text-[13px] leading-relaxed resize-none"
+                    style={{ color: "var(--text-hi)", borderBottom: "1px solid var(--line)" }}
+                    rows={4}
+                    autoFocus
+                    placeholder={"Tell it what kind of trouble you want, who it comes from, and what it costs you. \n\ne.g. \"A rival power has been building in the south while I sat still \u2014 someone I can't simply kill, with an army and a claim. I want a war I can lose ground in, not a mood piece about how lonely I am.\""}
+                    value={brief}
+                    onChange={(e) => setBrief(e.target.value)}
+                  />
+                  <div className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
+                    Binding on the threads, the opening and the time skip. Leave it blank and the forge decides on its own.
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button className="chip chip-accent" onClick={() => forkSeason(s.id, brief)}>
+                      <Sprout size={11} /> begin chapter
+                    </button>
+                    <button className="chip" onClick={() => setComposing(null)}>cancel</button>
+                  </div>
+                </motion.div>
+              )}
+              </React.Fragment>
             ))}
           </div>
         </>

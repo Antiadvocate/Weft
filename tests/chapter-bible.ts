@@ -15,6 +15,7 @@
  * deal of behavior that had been reported as broken: the world being uniformly cold, and an
  * innkeeper who would not sell a drink without making it a negotiation. */
 import type { WorldBible } from "../src/engine/types";
+import { NEWSEASON_SYSTEM } from "../src/engine/prompts";
 
 /** The merge api.newSeason performs. Mirrored here so the whitelist is pinned. */
 const CHAPTER_FIELDS = ["name", "political_situation", "start_date"] as const;
@@ -134,6 +135,44 @@ const base = {
     mergeChapterBible(base, { political_situation: "The barons move against your holdings." }).political_situation === "strained");
   check("a word merely containing 'you' is not a false positive",
     /young/.test(mergeChapterBible(base, { political_situation: "The young king is dying of fever." }).political_situation));
+}
+
+/* 7. THE CHAPTER PROMPT'S CONTRACT.
+ *
+ * Everything that decides what a new chapter is ABOUT lives in this one string, so the clauses
+ * that were added because a real chapter came out wrong are pinned here. Six threads came back
+ * from one branch and five of them were the protagonist's interior — a god with nothing to do, a
+ * wife waiting to be named, a congregation wanting something he hasn't got, a tithe ledger. The
+ * threads spec at the time was `{"title":"","description":"","tension":3}` and nothing else: the
+ * Forge has three paragraphs on what makes a thread and the chapter forge had none, so it summarised
+ * the save's mood. With a protagonist nothing can threaten, that mood is emptiness. */
+{
+  const P = NEWSEASON_SYSTEM;
+  check("a thread has to have somebody acting in it", /WHO IS ACTING/.test(P));
+  check("a thread has to move without the player", /WHAT HAPPENS IF THE PLAYER NEVER TOUCHES IT/.test(P));
+  check("a thread has to be actionable this week", /COULD THE PLAYER ACT ON IT THIS WEEK/.test(P));
+  check("the interior-as-antagonist failure is named outright",
+    /FORBIDDEN as threads: the player's boredom, emptiness/.test(P));
+  check("and it says the pull is strongest exactly when the player is untouchable",
+    /THE MORE POWERFUL THE PLAYER, THE STRONGER THE PULL TOWARD THIS FAILURE/.test(P));
+  check("it says what to write instead", /A god has plenty to fight, and none of it is his feelings/.test(P));
+  check("a chapter does not open as an epilogue", /opens as an epilogue/.test(P));
+
+  check("the player's brief is declared binding", /THE PLAYER MAY DIRECT THIS CHAPTER/.test(P));
+  check("the brief outranks the model's own reading", /it outranks your reading of the material/.test(P));
+  check("the forbidden list still outranks the brief", /everything in this prompt except the forbidden list/.test(P));
+
+  check("unsanitized is still demanded", /DO NOT SANITIZE/.test(P));
+  check("and judging the player is refused separately", /EQUALLY CRITICAL — DO NOT JUDGE/.test(P));
+  check("the settings the player owns are named as off-limits", /THE PLAYER'S OWN SETTINGS ARE NOT YOURS TO WRITE/.test(P));
+  check("the forbidden list binds the recap too", /THE FORBIDDEN LIST BINDS THE NEW CHAPTER AND THE RECAP/.test(P));
+
+  // the schema and the whitelist have to agree, or the model spends tokens on a field that is dropped
+  check("the schema no longer asks for narrator_direction", !/"narrator_direction":/.test(P));
+  check("the schema no longer asks for what_people_fear", !/"what_people_fear":/.test(P));
+  for (const f of CHAPTER_FIELDS) {
+    check(`the schema still asks for ${f}`, new RegExp(`"${f}"\\s*:`).test(P));
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

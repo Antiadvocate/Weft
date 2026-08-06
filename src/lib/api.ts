@@ -109,7 +109,7 @@ export const api = {
 
   /** Fork a long save into a NEW chapter: distill current world-state to a fresh start,
    *  carry forward evolved cast + relationships as background, open with a RECAP after a time skip. */
-  forkNewSeason: async (id: string): Promise<ClientSave> => {
+  forkNewSeason: async (id: string, direction?: string): Promise<ClientSave> => {
     const s = await need(id);
     // build a compact digest of the story so far for the model
     const cast = Object.entries(s.characters).filter(([cid, c]) => cid !== "char_player" && c.status !== "dead" && c.status !== "departed").map(([cid, c]) => {
@@ -148,7 +148,16 @@ export const api = {
     // banned material, faithfully carried forward from the canon and threads the forge WAS shown.
     // The ban is the most load-bearing instruction in the bible and it was the one thing omitted.
     const bans = [s.world_bible.forbidden, ...(s.world_bible.forbidden_as_primary ?? [])].map((x) => String(x ?? "").trim()).filter(Boolean);
+    // ── THE PLAYER DIRECTS THE CHAPTER ───────────────────────────────────────────────────────
+    // Branching had no steering at all: the forge read the save and decided by itself what came
+    // next. For an ordinary protagonist that lands somewhere reasonable. For a protagonist who has
+    // become untouchable it reliably lands on the one antagonist left standing — the player's own
+    // interior — and the chapter becomes six threads about emptiness, boredom, and whether anyone
+    // really loves him. A player who can see that happening needs to be able to say "no, this
+    // chapter is a war" and have it be a war.
+    const brief = String(direction ?? "").trim().slice(0, 1200);
     const digest = [
+      brief ? `DIRECTION FOR THE NEW CHAPTER — the player's brief, binding, outranking everything but the forbidden list:\n${brief}` : "",
       `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
       bans.length ? `FORBIDDEN IN THIS WORLD — BINDING ON EVERYTHING YOU WRITE, and on what you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is material the player has since banned. It does not go in the recap, the opening, the threads or the bible. The time skip is where it ends; write the chapter as being about something else.` : "",
       s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION — obey it, never rewrite or restate it: ${s.world_bible.narrator_direction}` : "",
