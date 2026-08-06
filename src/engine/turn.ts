@@ -28,6 +28,7 @@ import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
+import { fadesOnItsOwn, bodyDirective, bodySeverity } from "./body";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -1254,6 +1255,17 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // implied, which at high tier meant fear every time. Reads the standing built by prior turns'
   // public acts; this turn's act updates it after the prose exists (see updatePublicStanding below).
   const publicNote = publicStandingDirective(state, standingTier);
+  // ── BODY STATE ── A wrecked body reached the narrator as a noun in a comma-joined list
+  // ("conditions: eviscerated and exposed") with no weight and no instruction, while the contract
+  // told it that conditions not caused this turn are background. So a man could be opened up and
+  // go on producing composed argument, in cadence, arms crossed. Severity is graded now, and
+  // anything from moderate up arrives as a directive naming what the body has taken away. Covers
+  // the player too — the state is the state.
+  const bodyNote = [...state.world.present, "char_player"]
+    .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
+    .map((id) => bodyDirective(state.condition[id], id === "char_player" ? "The player" : state.characters[id].name))
+    .filter(Boolean)
+    .join("");
   // ── REST PROTECTION, scaled by tension. Low tension: rest is sacred, the world holds its
   // breath. Mid tension: one soft knock at most, and whatever interrupts must let them finish —
   // the meal gets eaten, the night gets slept, THIS turn. High tension (7+): the world is
@@ -1278,7 +1290,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2044,7 +2056,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const cc = state.condition[id];
     if (!cc) continue; // defensive: imported saves can lack a condition record
     cc.condition_age ??= {};
-    const expired = cc.conditions.filter((x) => turn - (cc.condition_age![x] ?? turn) >= CONDITION_LIFESPAN);
+    // ...but only the kind of thing that decays. The timer applied to every string equally, so
+    // "eviscerated and exposed" was scheduled to quietly vanish ten turns after a man's insides
+    // came out, and he would have been well again with nothing in the prose healing him. Anything
+    // severe or worse waits for the story to remove it (condition_remove), not the clock.
+    const expired = cc.conditions.filter((x) => fadesOnItsOwn(x) && turn - (cc.condition_age![x] ?? turn) >= CONDITION_LIFESPAN);
     if (expired.length) {
       cc.conditions = cc.conditions.filter((x) => !expired.includes(x));
       for (const x of expired) delete cc.condition_age![x];

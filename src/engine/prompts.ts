@@ -14,6 +14,7 @@
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue } from "./desire";
+import { bodySeverity } from "./body";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
@@ -126,7 +127,7 @@ PROSE RULES:
 - Long-standing routines are unremarkable to those living them; do not narrate them as novel. Small quirks from "texture:" appear briefly in quiet scenes only.
 - Render blood, sex, bodies, and fear directly and without sanitizing.
 - A scene may be quiet. Harm requires a cause already present in the state. Do not invent omens or retroactive metaphysics; a grim mood is texture, not a plot direction.
-- Apply only the costs the world bible specifies, at fair scale, once, when first earned. Bodies recover by default; conditions not caused this turn are background, not the subject.
+- Apply only the costs the world bible specifies, at fair scale, once, when first earned. Bodies recover by default; MINOR conditions not caused this turn are background, not the subject. This does NOT extend to severe damage: a body that has been opened, broken, burned, or taken apart stays the foreground of everything that person does for as long as the state records it, on the tenth turn as much as the first, and it does not quietly heal because the scene moved on to conversation.
 - Do not repeat yourself across turns. A gesture, a touch, an image, or a sentence opening used in the recent turns is used up — write something else this turn. People vary what they do; the same character reaching for the same motion two turns running is a writing failure, not a habit.
 - THE CAMERA DOES NOT INTERPRET. Report what a person standing in the room could see and hear. Never report what it MEANT. Do not annotate a gesture with its significance, do not say what an expression revealed, and do not follow an action with a clause that explains the feeling underneath it. Specifically banned constructions: "in a way that/she had not been all evening"; "as if she were"; "the pride still there, but the wariness banked like a fire someone meant to keep" — a simile whose second half interprets rather than describes; "something quieter", "something softer", "something like"; delivery adverbs that restate what the line already does ("almost reluctantly", "gently", "carefully") when the words themselves carry it. If the gesture is written well the meaning arrives on its own; if it is not, fix the gesture, do not caption it.
 - A THING THAT HAS HAPPENED HAS HAPPENED. Before writing a character seeking something out — a person, a message, an answer, a confrontation — check whether the record already shows them getting it. A message already delivered is not delivered twice. A question already answered is not asked again as though it were open. If a character revisits someone they have already dealt with, the scene must proceed from what passed between them the first time: they follow up, they press on what was unsatisfying, they demand the part that was withheld. They do NOT arrive fresh. Re-running a resolved beat is the most disorienting failure available to you, because the player remembers even when the record surfaced to you is incomplete — when their action implies a history you cannot see, believe them and write from it.
@@ -606,7 +607,7 @@ export function simulatorContext(state: SaveState): string {
     const edgeBit = pe ? `toward player: warmth ${pe.warmth}, trust ${pe.trust}${pe.attraction !== undefined ? `, desire ${pe.attraction}` : ""}${pe.roles?.length ? `, roles ${pe.roles.join("/")}` : ""}` : "";
     const bits = [
       `fatigue ${c.fatigue}, hunger ${c.hunger}`,
-      c.conditions.length ? `conditions: ${c.conditions.join(", ")}` : "",
+      c.conditions.length ? `conditions: ${c.conditions.join(", ")}${bodySeverity(c) >= 3 ? " [BODY WRECKED — dominates everything they do]" : ""}` : "",
       c.injuries.length ? `injuries: ${c.injuries.map((i) => i.type).join(", ")}` : "",
       c.inventory.length ? `carrying: ${c.inventory.slice(-8).map((i) => i.name).join(", ")}` : "",
       c.wearing.length ? `wearing: ${c.wearing.join(", ")}` : "",
@@ -1132,7 +1133,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     if (!isPlayer) lines.push(`  as: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
     if (!isPlayer && ident.life_history?.trim()) lines.push(`  since the story began: ${ident.life_history.trim()}`); // moved here from the cached prefix (it evolves, so it's volatile)
     { const ph = physioLabel(cond);
-    lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${ph ? `, ${ph}` : ""}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}`); }
+    lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${ph ? `, ${ph}` : ""}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}${bodySeverity(cond) >= 3 ? " — BODY WRECKED" : ""}`); }
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond, ident.conscience)}`);
       if (cond.psyche.relaxation <= -3 && ident.attachment?.under_threat) lines.push(`  under stress this person: ${ident.attachment.under_threat}`);
