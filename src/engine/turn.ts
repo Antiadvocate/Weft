@@ -782,6 +782,30 @@ export function giftDirective(action: string): string {
   return `\nTHE PLAYER IS GIVING, NOT BUYING. Whatever the player just provided, made, mended or handed over moves TOWARD the people in this scene. NOBODY CHARGES THEM FOR IT. No price, no fee, no invoice, no "and what do you want in return", no haggling over the thing they were just handed — that is not friction, it is the exchange read backwards, and it has happened often enough that the player has noticed it as a tic. If someone here is cold, afraid, proud or suspicious, render THAT instead: they refuse it, they will not touch it, they ask what it will cost them LATER in obligation rather than in coin, they resent needing it, they wonder aloud what taking it makes them. Those are answers. A bill is not. And at least one person's reaction must be proportionate to the size of what was given — a village handed something it badly needed does not answer with a shrug and a complaint.`;
 }
 
+/**
+ * ASKED ALREADY — and the half of it that matters more: THE GOALPOST DOES NOT MOVE ON DELIVERY.
+ *
+ * A want that only the player can satisfy never advances on its own, so the engine hands it back as
+ * the character's active goal every turn and they put the same question again. That is the first
+ * failure and the paragraph below has always addressed it. The second one is worse and took a
+ * player saying "I feel slightly insane about it" to surface:
+ *
+ *   t126  She asks what she is to him. He answers about somebody else.
+ *         "I didn't ask about Andrea. I asked about me. That's an answer too." She leaves.
+ *   t127  He gives her the answer, exactly the one she asked for: wife, co-ruler.
+ *         "Co-ruler. You say it walking away, like it's a thing you're leaving on the table."
+ *
+ * The condition for success was revealed only after it had been failed. There was no action
+ * available on turn 127 that would have counted, because the requirement was never the words — it
+ * was a manner of delivery that went unstated until it could be used to refuse. Do that twice and
+ * the player cannot tell what is real any more, which is what they said.
+ */
+export function nagDirective(names: string[]): string {
+  if (!names.length) return "";
+  return `\nASKED ALREADY — ${names.join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN. Not rephrased, not sharpened, not "I asked you what X and you gave me Y". A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
+      + `\nAND IF THE PLAYER GIVES IT, THEY HAVE GIVEN IT. The goalpost does not move on delivery. A character who asked for something specific and then receives it may absolutely be hurt by HOW it came — offhand, late, walking away, in front of others — and may say so, once. What they may not do is treat the manner as a reason the thing was never given, keep the want open, and go on being owed it. That exchange has happened in this story and it is the single most maddening thing a written person can do: it makes the player unable to succeed by any action available to them, because the condition for success is revealed only after they have failed it. If the want is genuinely still open after this turn, something CONCRETE must still be missing and you must be able to name it in one clause. "It wasn't said the right way" is not a concrete thing missing. Take the yes.`
+}
+
 /** Default in-world minutes to cross from one named place to another when the world records no
  *  distance for the pair, nothing connects their names, and the player has never walked it. A day:
  *  far too long for a walk across a town, far too short to matter for a genuine journey, which is
@@ -1322,9 +1346,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const nagging = presentNpcs
     .map((id) => ({ id, c: state.characters[id] }))
     .filter(({ c }) => c.drive?.goal && (state.world.current_turn - (c.drive.progress_turn ?? state.world.current_turn)) >= 2 && (c.drive.progress ?? 0) < 100);
-  const nagNote = nagging.length
-    ? `\nASKED ALREADY — ${nagging.map((n) => n.c.name).join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN. Not rephrased, not sharpened, not "I asked you what X and you gave me Y". A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
-    : "";
+  const nagNote = nagDirective(nagging.map((n) => n.c.name));
 
   if (drivers.length) {
     const lead = drivers[0];

@@ -139,6 +139,13 @@ export interface SocialEdge {
   desire_admissibility?: number; // 0..1 — how much of the attraction can reach clean self-report vs. discharging as grasping/possession. Stamped at first sight from the perceiver's clench (clenched→grasp-born, open→awe-born), then drifts toward current relaxation each turn: slowly UP under calm (the flower learned to be seen not picked), faster DOWN under clench (re-roughened). Low = possessive/sideways/collector texture; high = flirtation/letting-stand. Same magnitude of wanting, opposite texture.
   roles?: string[]; // labeled relationship(s) A holds toward B — can be multiple at once ("boss", "girlfriend"); structured facts, not just temperature
   notes: string;    // qualitative texture ("owes him for the winter", "old rivals")
+  /** WHEN the note was written. It is one 140-char slot holding the last thing the bookkeeper said
+   *  about this relationship, and the bookkeeper writes at moments of friction, because friction is
+   *  what it notices. Unstamped, that line was rendered to the narrator every turn as the CURRENT
+   *  state of the bond, forever: one save had a character at warmth 59 — plainly fond — reading as
+   *  cold in every scene because a grievance written on turn 127 was still being served on turn 164
+   *  as though it had just happened. A feeling needs a date on it or it is not a feeling, it is law. */
+  notes_turn?: number;
   updated_turn: number;
   last_rupture_turn?: number; // a real disagreement happened on this edge (someone said no or set terms); trust that grows within 5 turns of it is repair, and repair grows trust faster than smoothness does
 }

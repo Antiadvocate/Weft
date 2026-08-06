@@ -16,7 +16,8 @@
  * anyway. The escape hatch was disarmed by the loop it exists to break — the same shape as the
  * arrival timer measured against a field stamped every turn. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { tickDrives, STALLED_WANT_TURNS } from "../src/engine/social";
+import { tickDrives, edgeNote, applyEdgeDelta, getEdge, STALLED_WANT_TURNS, NOTE_FRESH_TURNS, NOTE_STALE_TURNS } from "../src/engine/social";
+import { nagDirective } from "../src/engine/turn";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -102,6 +103,96 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
   tickDrives(s, () => 0.5);
   check("an unseeded drive is not instantly abandoned", !!s.characters[id].drive, s.characters[id].drive);
   check("and it now carries a progress clock", s.characters[id].drive!.progress_turn === 50, s.characters[id].drive);
+}
+
+/* A FEELING NEEDS A DATE ON IT OR IT IS NOT A FEELING, IT IS LAW.
+ *
+ * `notes` is one 140-char slot holding the last thing the bookkeeper said about a relationship, and
+ * the bookkeeper writes at moments of friction, because friction is what it notices. It was served
+ * to the narrator every turn with no date, sitting right beside the current warmth and trust — and
+ * it is far the more vivid of the two, so it won.
+ *
+ * The save that exposed it: Mable at warmth 59.2, trust 19.7. The cue for those numbers says in as
+ * many words "the warmth is real and shows... do not write a caring character as a distant
+ * stranger". Beside it sat, undated, "The offer was made while walking away, which deepens her
+ * sense of being offered a role rather than chosen as a person" — written on turn 127. On turn 164
+ * she was still being played from it: thirty-seven turns of scenes derived from one bad evening,
+ * with the ledger calling her fond the whole way. From the chair that is a person who cannot be
+ * reached and will not say why. */
+{
+  const edges: any[] = [];
+  const mable = () => {
+    const e = getEdge(edges, "char_mable", "char_player");
+    e.warmth = 59.2; e.trust = 19.7;
+    e.notes = "The offer was made while walking away, which deepens her sense of being offered a role rather than chosen as a person.";
+    e.notes_turn = 127;
+    return e;
+  };
+
+  const e = mable();
+  check("a note written this turn is served as it is", edgeNote(e, 127) === e.notes);
+  check("and still is while it is fresh", edgeNote(e, 127 + NOTE_FRESH_TURNS) === e.notes);
+
+  const dated = edgeNote(e, 140);
+  check("past the fresh window it is dated", /13 turns ago/.test(dated), dated);
+  check("and the numbers are said to outrank it", /warmth and trust above are current and outrank it/.test(dated), dated);
+  check("the note itself is still there", dated.startsWith("The offer was made"), dated);
+
+  check("the exact case: at turn 164 it is gone", edgeNote(e, 164) === "", edgeNote(e, 164));
+  check("it survives right up to the staleness line", edgeNote(e, 127 + NOTE_STALE_TURNS) !== "");
+
+  // a cold edge keeps its note forever — there "old rivals" is simply true, not a stale mood
+  const cold = getEdge(edges, "char_doren", "char_player");
+  cold.warmth = -30; cold.trust = -20;
+  cold.notes = "Old rivals; he has never forgiven the business with the mill.";
+  cold.notes_turn = 10;
+  check("a note on a cold edge is never dropped", edgeNote(cold, 400) !== "", edgeNote(cold, 400));
+  check("it is dated all the same", /390 turns ago/.test(edgeNote(cold, 400)));
+
+  // an unstamped note from a save made before this existed reads as fresh rather than ancient
+  const legacy = getEdge(edges, "char_x", "char_player");
+  legacy.warmth = 50; legacy.notes = "She is waiting for him to say it plainly.";
+  check("a legacy note is not treated as infinitely old", edgeNote(legacy, 900) === legacy.notes);
+
+  // and an empty note is nothing
+  const blank = getEdge(edges, "char_y", "char_player");
+  blank.warmth = 10; blank.notes = "";
+  check("no note, nothing rendered", edgeNote(blank, 50) === "");
+
+  // writing a note now stamps it, so the clock starts
+  const fresh = getEdge(edges, "char_z", "char_player");
+  applyEdgeDelta(edges, { from: "char_z", to: "char_player", warmth_delta: -4, trust_delta: 0, power_delta: 0, note: "He said it walking away." }, 200);
+  check("writing a note stamps the turn", fresh.notes_turn === 200, fresh.notes_turn);
+  check("and a delta with no note leaves the old stamp alone", (() => {
+    applyEdgeDelta(edges, { from: "char_z", to: "char_player", warmth_delta: 2, trust_delta: 0, power_delta: 0 }, 240);
+    return fresh.notes_turn === 200;
+  })(), fresh.notes_turn);
+}
+
+/* THE GOALPOST DOES NOT MOVE ON DELIVERY.
+ *
+ *   t126  She asks what she is to him. He answers about somebody else.
+ *         "I didn't ask about Andrea. I asked about me. That's an answer too." She leaves.
+ *   t127  He gives her the answer, exactly the one she asked for: wife, co-ruler.
+ *         "Co-ruler. You say it walking away, like it's a thing you're leaving on the table."
+ *
+ * The condition for success was revealed only after it had been failed. No action available on
+ * turn 127 could have counted, because the requirement was never the words. */
+{
+  check("no outstanding asks, no directive", nagDirective([]) === "");
+
+  const d = nagDirective(["Mable", "Andrea"]);
+  check("it names who is waiting", /Mable, Andrea/.test(d), d.slice(0, 80));
+  check("the question does not get asked a third time", /DO NOT ASK IT AGAIN/.test(d));
+  check("taking the answer given is one of the ways out", /they take the answer they were given and act on it/.test(d));
+
+  check("and a delivered yes is a delivered yes", /THE PLAYER GIVES IT, THEY HAVE GIVEN IT/.test(d), d);
+  check("being hurt by HOW it came stays available", /may absolutely be hurt by HOW it came/.test(d));
+  check("what is refused is keeping the want open on that ground", /keep the want open, and go on being owed it/.test(d));
+  check("an unwinnable condition is named as the harm",
+    /the condition for success is revealed only after they have failed it/.test(d), d);
+  check("a still-open want has to name what is concretely missing", /name it in one clause/.test(d));
+  check("and the manner is explicitly not that thing", /"It wasn't said the right way" is not a concrete thing missing/.test(d));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

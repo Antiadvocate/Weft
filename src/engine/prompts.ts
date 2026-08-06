@@ -19,6 +19,7 @@ import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
+import { edgeNote } from "./social";
 
 export const NARRATOR_SYSTEM = `You are the Narrator of a persistent world engine. Render the world one turn at a time. Do not generate quests; respond to what the player does.
 
@@ -1202,10 +1203,10 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
         if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
         const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15 || e.roles?.length));
-        if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${e.notes ? ` (${e.notes})` : ""}`).join("; ")}`);
+        if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${n ? ` (${n})` : ""}`; }).join("; ")}`);
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
-      if (pedge) lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pedge.notes && detail >= 2 ? ` — ${pedge.notes}` : ""}`);
+      if (pedge) { const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : ""; lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pn ? ` — ${pn}` : ""}`); }
       // desire is rendered EVERY turn for present central characters — its absence is exactly how
       // a model defaults to "warm = available". One short line, gated by openness.
       { const dl = desireLine(state, id); if (dl) lines.push(`  ${dl}`); }

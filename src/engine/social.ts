@@ -95,6 +95,40 @@ const gainScale = (current: number, obduracy = 0) => {
   return clamp((100 - current) / Math.max(1, 100 - knee), 0.12, 1) * below;
 };
 
+/** Past this, a relationship note stops being what just happened and starts being history. */
+export const NOTE_FRESH_TURNS = 8;
+/** Past this, a note about a grievance is no longer describing a bond the numbers call fond. */
+export const NOTE_STALE_TURNS = 30;
+
+/**
+ * HOW A RELATIONSHIP NOTE SHOULD BE READ, given how old it is.
+ *
+ * `notes` is one 140-char slot holding the last thing the bookkeeper said about this bond, and the
+ * bookkeeper writes at moments of friction because friction is what it notices. It was rendered to
+ * the narrator every turn with no date, sitting immediately beside the current warmth and trust,
+ * and it is by far the more vivid of the two — so it won.
+ *
+ * The case that exposed it: a character at warmth 59 (the cue for which says outright "the warmth
+ * is real and shows... do not write a caring character as a distant stranger") carrying the note
+ * "the offer was made while walking away, which deepens her sense of being offered a role rather
+ * than chosen as a person", written on turn 127. On turn 164 she was still being played from it.
+ * Thirty-seven turns of scenes derived from one bad evening, with the ledger saying she was fond
+ * the whole time. From the chair that reads as a person who cannot be reached and will not say why.
+ *
+ * So: fresh notes stand as they are. Older ones are dated, because a narrator told when something
+ * happened can put it in the past. And a grievance that has gone stale while the numbers climbed
+ * into open fondness is dropped — the note is describing a bond that no longer exists. Notes on
+ * edges that are still cold are never dropped, because there "old rivals" is simply true.
+ */
+export function edgeNote(e: SocialEdge, turn: number): string {
+  const note = (e.notes ?? "").trim();
+  if (!note) return "";
+  const age = turn - (e.notes_turn ?? turn);
+  if (age <= NOTE_FRESH_TURNS) return note;
+  if (age > NOTE_STALE_TURNS && e.warmth >= 45) return "";
+  return `${note} — but that was ${age} turns ago; the warmth and trust above are current and outrank it`;
+}
+
 // ── DRIFT ── Feeling toward someone is a claim that needs renewing, not a stored quantity. Without
 // this, a character parked at 95 stays there forever on the strength of one good week forty turns
 // ago, and estrangement is impossible except by explicit betrayal. Any edge untouched for a while
@@ -135,7 +169,7 @@ export function applyEdgeDelta(
   }
   e.trust = clamp(e.trust + clamp(trustDelta, -20, 20), -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
-  if (d.note) e.notes = d.note.slice(0, 140);
+  if (d.note) { e.notes = d.note.slice(0, 140); e.notes_turn = turn; }
   if (d.roles_set) {
     let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean).slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
