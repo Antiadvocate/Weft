@@ -189,6 +189,10 @@ export interface NPCDrive {
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
   updated_turn: number;
+  /** Turn this drive first became a pursuit of an absent target ("must find X first"). Separate
+   *  from updated_turn on purpose: tickDrives stamps updated_turn EVERY turn as offscreen progress
+   *  accrues, so anything measuring "how long have they been looking" against it always reads 1. */
+  pursuit_since?: number;
 }
 
 export interface Identity {
@@ -433,6 +437,13 @@ export interface Place {
   changed_turn?: number;   // last turn this place's description was rewritten by play, not by hand
   contains: string[];
   founding?: boolean;   // named at the Forge. Never evicted by the place cap; the world's spine.
+  /** THE PEOPLE WHO ARE NOT CHARACTERS. `contains` holds carded cast only, and the cast is capped
+   *  on purpose — full-fidelity people are expensive. Nothing held the other tier: the ordinary
+   *  human traffic of a market, a dock, a town. So a place with no cast member standing in it was
+   *  rendered as literally deserted, and a player who built a town of thousands walked through it
+   *  alone. `scale` is roughly how many people are about at a normal hour; `who` is one line on
+   *  what kind. Both are texture for the narrator — these people are never carded. */
+  population?: { scale: number; who: string };
 }
 
 /** The convergence/phase system. A phase shapes the tension curve toward (or around) an event,
@@ -649,7 +660,7 @@ export interface SimulatorDiff {
   clocks_advance: { id: string; segments: number }[];
   new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];
   new_places: { name: string; description_facts: string }[];
-  places_update?: { place: string; description_facts: string; note?: string }[]; // a place the prose materially CHANGED — rewritten description_facts (see applyDiff)
+  places_update?: { place: string; description_facts: string; note?: string; population?: { scale: number; who: string } }[]; // a place the prose materially CHANGED — rewritten description_facts (see applyDiff)
   offscreen: string[];          // world-motion lines (the merged world tick)
 }
 

@@ -570,12 +570,16 @@ export const api = {
     return clientView(s);
   },
 
-  editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string }): Promise<ClientSave> => {
+  editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string; population?: { scale: number; who: string } }): Promise<ClientSave> => {
     const s = await need(id);
     const p = s.world.places[place_id];
     if (!p) throw new Error("No such place.");
     if (patch.name !== undefined && patch.name.trim()) p.name = patch.name.trim().slice(0, 60);
     if (patch.description_facts !== undefined) p.description_facts = patch.description_facts.trim();
+    // Explicit population beats inference, including an explicit 0 for "this really is deserted".
+    if (patch.population !== undefined) {
+      p.population = { scale: Math.max(0, Math.round(patch.population.scale || 0)), who: String(patch.population.who ?? "").slice(0, 200) };
+    }
     p.founding = true;                       // touched by hand = protected from the cap
     await putSave(s);
     return clientView(s);
@@ -995,7 +999,7 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     const nameToId: Record<string, string> = {};
     for (const p of g.places ?? []) {
       const lid = uid("loc");
-      s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [], founding: true };
+      s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [], founding: true, population: p.population && typeof p.population.scale === "number" ? { scale: Math.max(0, Math.round(p.population.scale)), who: String(p.population.who ?? "").slice(0, 200) } : undefined };
       nameToId[p.name?.toLowerCase?.() ?? ""] = lid;
     }
     // PRONOUN BACKSTOP. If canon declares this world's people use a non-default pronoun set (a

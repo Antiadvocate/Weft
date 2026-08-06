@@ -186,6 +186,10 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
   const [editing, setEditing] = React.useState<string | null>(null);
   const [draftName, setDraftName] = React.useState("");
   const [draftDesc, setDraftDesc] = React.useState("");
+  // Who is ordinarily about here. The engine infers this from a place's name when unset, but the
+  // inference is deliberately conservative — a town you built and named yourself needs telling.
+  const [draftPop, setDraftPop] = React.useState("");
+  const [draftWho, setDraftWho] = React.useState("");
 
   const run = async (fn: () => Promise<ClientSave>) => {
     setBusy(true); setErr("");
@@ -219,7 +223,8 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                   style={{ color: "var(--text-lo)" }}
                   onClick={() => {
                     if (editing === p.id) { setEditing(null); return; }
-                    setEditing(p.id); setDraftName(p.name); setDraftDesc(p.description_facts ?? ""); setErr("");
+                    setEditing(p.id); setDraftName(p.name); setDraftDesc(p.description_facts ?? "");
+                    setDraftPop(p.population ? String(p.population.scale) : ""); setDraftWho(p.population?.who ?? ""); setErr("");
                   }}>{editing === p.id ? "close" : "edit"}</button>
                 <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
                   style={{ color: "var(--text-lo)" }}
@@ -238,11 +243,27 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                   placeholder="What is physically here — rooms, contents, who's usually around. The narrator reads this."
                   className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
                   style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 120 }} />
+                <div className="flex gap-2 items-center">
+                  <input value={draftPop} onChange={(e) => setDraftPop(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="how many"
+                    className="w-24 bg-transparent text-[12.5px] outline-none border-b py-1"
+                    style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
+                  <input value={draftWho} onChange={(e) => setDraftWho(e.target.value)}
+                    placeholder="who is ordinarily about — trades and roles, no names"
+                    className="flex-1 bg-transparent text-[12.5px] outline-none border-b py-1"
+                    style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)" }} />
+                </div>
+                <div className="text-[10.5px]" style={{ color: "var(--text-lo)" }}>
+                  People who are not cast — the ordinary traffic of the place. Leave blank to infer from the name; set 0 for genuinely deserted.
+                </div>
                 <div className="flex gap-3">
                   <button disabled={busy || !draftName.trim()} className="font-mono text-[10px] uppercase tracking-widest py-1"
                     style={{ color: "var(--accent)" }}
                     onClick={() => run(async () => {
-                      const n = await api.editPlace(save.id, p.id, { name: draftName, description_facts: draftDesc });
+                      const n = await api.editPlace(save.id, p.id, {
+                        name: draftName, description_facts: draftDesc,
+                        ...(draftPop.trim() ? { population: { scale: Number(draftPop), who: draftWho.trim() } } : {}),
+                      });
                       setEditing(null); return n;
                     })}>save</button>
                   <button disabled={busy} className="font-mono text-[10px] uppercase tracking-widest py-1"

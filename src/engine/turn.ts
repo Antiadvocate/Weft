@@ -29,6 +29,7 @@ import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity } from "./body";
+import { crowdDirective } from "./population";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -560,7 +561,14 @@ export function replanDrives(state: SaveState): void {
     if (!together && seenGap >= 12 && targetId === "char_player") {
       const pursuit = `must find ${target.name} first — they are elsewhere`;
       if (d.blocker !== pursuit) { d.blocker = pursuit; d.updated_turn = turn; }
-      pursuers.push({ id, since: d.updated_turn });
+      // pursuit_since, NOT updated_turn. tickDrives stamps updated_turn every single turn as
+      // offscreen progress accrues, so "how long have they been looking" always evaluated to 1 and
+      // the walk below could never fire — the prose said Andrea rushed to the estate while the
+      // ledger left her standing at the gate for good.
+      d.pursuit_since ??= turn;
+      pursuers.push({ id, since: d.pursuit_since });
+    } else if (d.pursuit_since !== undefined) {
+      delete d.pursuit_since;   // they found them, or the goal stopped being about finding them
     }
   }
 
@@ -580,7 +588,7 @@ export function replanDrives(state: SaveState): void {
       const c = state.characters[arriving.id];
       c.location = dest;
       c.paged = false;                         // they are in the room; the narrator has to be able to see them
-      if (c.drive) c.drive.updated_turn = turn;
+      if (c.drive) { c.drive.updated_turn = turn; delete c.drive.pursuit_since; }
       console.info(`[drives] ${c.name} reaches ${state.characters["char_player"]?.name} after ${turn - arriving.since} turns of looking`);
     }
   }
@@ -1336,6 +1344,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // go on producing composed argument, in cadence, arms crossed. Severity is graded now, and
   // anything from moderate up arrives as a directive naming what the body has taken away. Covers
   // the player too — the state is the state.
+  // ── THE ROOM IS NOT EMPTY ── PRESENT lists cast members only, so a populated place with nobody
+  // carded standing in it read to the narrator as deserted. See engine/population.ts.
+  const crowdNote = crowdDirective(state);
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
     .map((id) => bodyDirective(state.condition[id], id === "char_player" ? "The player" : state.characters[id].name))
@@ -1365,7 +1376,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3048,6 +3059,9 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     const next = pu.description_facts.trim().slice(0, 1200);
     if (next === before) continue;
     place.description_facts = next;
+    if (pu.population && typeof pu.population.scale === "number") {
+      place.population = { scale: Math.max(0, Math.round(pu.population.scale)), who: String(pu.population.who ?? "").slice(0, 200) };
+    }
     place.changed_turn = turn;
     shifts.push(`${place.name} is not what it was${pu.note?.trim() ? ` — ${pu.note.trim()}` : ""}.`);
     console.info(`[places] ${place.name} rewritten at turn ${turn}${pu.note ? `: ${pu.note}` : ""}`);
@@ -3057,18 +3071,28 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // did not revise it, the description must at least stop asserting the old truth. One dated line
   // appended is not a rewrite — it is the ledger declining to lie until the next pass rewrites it.
   {
-    const here = state.world.places[state.world.player_location];
-    const TRANSFORM = /\b(destroy\w*|raze\w*|level(ed|led)?|flatten\w*|burn(ed|t)? (it|this|the|down)|unmake|unmade|erase\w*|obliterat\w*|annihilat\w*|demolish\w*|rebuil\w*|remake|remade|reshape\w*|rebuild\w*|drown\w*|flood\w*|freeze|froze|wipe(d)? out)\b/i;
-    const touchedHere = here && TRANSFORM.test(action) && !(diff.places_update ?? []).some((p) => {
-      const k = String(p?.place ?? "").toLowerCase().trim();
-      return k === here.id.toLowerCase() || k === here.name.toLowerCase().trim();
-    });
-    if (touchedHere && here.changed_turn !== turn) {
-      const note = `[Day-${turn} change] The player ${action.trim().slice(0, 140)} — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`;
-      if (!here.description_facts.includes(`[Day-${turn} change]`)) {
-        here.description_facts = `${here.description_facts}\n${note}`.trim().slice(0, 1600);
-        here.changed_turn = turn;
-        shifts.push(`${here.name} has been changed by what you did; its record is flagged as out of date.`);
+    const TRANSFORM = /\b(destroy\w*|raze\w*|level(ed|led)?|flatten\w*|burn(ed|t)? (it|this|the|down)|unmake|unmade|erase\w*|obliterat\w*|annihilat\w*|demolish\w*|rebuil\w*|remake|remade|reshape\w*|rebuild\w*|drown\w*|flood\w*|freeze|froze|wipe(d)? out|revert\w*)\b/i;
+    if (TRANSFORM.test(action)) {
+      const act = action.toLowerCase();
+      const here = state.world.places[state.world.player_location];
+      // WHICH GROUND. Scoping this to the player's own location missed the ordinary case: a player
+      // standing on the riverbank who unmakes the town he built is not standing in the town. So
+      // take every place the action NAMES, and fall back to where they are when it names none —
+      // "I destroy the town" while inside it still has to land somewhere.
+      const named = Object.values(state.world.places).filter(
+        (p) => p.id !== "loc_offscene" && p.name.length >= 3 && act.includes(p.name.toLowerCase()),
+      );
+      const targets = named.length ? named : here ? [here] : [];
+      const covered = new Set((diff.places_update ?? []).map((p) => String(p?.place ?? "").toLowerCase().trim()));
+      for (const place of targets) {
+        if (covered.has(place.id.toLowerCase()) || covered.has(place.name.toLowerCase().trim())) continue;
+        if (place.changed_turn === turn) continue;
+        const stamp = `[turn-${turn} change]`;
+        if (place.description_facts.includes(stamp)) continue;
+        const note = `${stamp} The player: "${action.trim().slice(0, 140)}" — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`;
+        place.description_facts = `${place.description_facts}\n${note}`.trim().slice(0, 1600);
+        place.changed_turn = turn;
+        shifts.push(`${place.name} has been changed by what you did; its record is flagged as out of date.`);
       }
     }
   }
