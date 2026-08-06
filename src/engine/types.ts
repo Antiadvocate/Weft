@@ -189,6 +189,13 @@ export interface NPCDrive {
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
   updated_turn: number;
+  /** Turn this drive's PROGRESS last actually moved, and the value it moved to. Separate from
+   *  updated_turn because the bookkeeper restamps that every turn it rewrites the blocker — which
+   *  it does constantly while a question is on the table, disarming any staleness check built on
+   *  it. This is what tells the difference between a want being worked on and a want being asked
+   *  again. */
+  progress_turn?: number;
+  last_progress?: number;
   /** Turn this drive first became a pursuit of an absent target ("must find X first"). Separate
    *  from updated_turn on purpose: tickDrives stamps updated_turn EVERY turn as offscreen progress
    *  accrues, so anything measuring "how long have they been looking" against it always reads 1. */

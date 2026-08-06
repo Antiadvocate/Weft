@@ -24,6 +24,12 @@ import type { PowerTier } from "./pressure";
 
 export const RUMOR_BASE_P = 0.45;
 
+/** Turns a want may sit without its PROGRESS moving before the person gives up on it. A want that
+ *  can only be satisfied by the player answering — "get him to give me a place in his life" — never
+ *  progresses on its own, so this is the only thing that ends the loop. Small on purpose: the
+ *  player feels a repeated question on the second time it is asked, not the fortieth. */
+export const STALLED_WANT_TURNS = 6;
+
 export function getEdge(edges: SocialEdge[], from: string, to: string): SocialEdge {
   let e = edges.find((x) => x.from === from && x.to === to);
   if (!e) {
@@ -578,10 +584,25 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
   // People do not ask the same question indefinitely. They conclude, they give up, they act on the
   // answer they already have. A want that has not moved in a long stretch of in-world time is
   // abandoned — and abandoning it is itself something that happened to them.
+  //
+  // THE ESCAPE HATCH WAS DISARMED BY THE LOOP IT EXISTS TO BREAK. This measured staleness against
+  // `updated_turn`, and the bookkeeper rewrites the blocker every single turn the question is on
+  // the table ("his answer was warm but vague", "the horn interrupted before he could answer") —
+  // which stamps updated_turn. So the counter read 1 or 2 forever and the abandonment could never
+  // fire, no matter how many times she asked. Staleness has to be measured against the last time
+  // PROGRESS actually moved, which is the thing that is not moving.
+  //
+  // And forty turns was never the right number. A player feels the loop on the second repetition.
   for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
     if (id === "char_player" || !c.drive) continue;
-    const since = state.world.current_turn - (c.drive.updated_turn ?? state.world.current_turn);
-    if (since >= 40 && (c.drive.progress ?? 0) < 60) {
+    const d = c.drive;
+    // seed the progress clock for saves that predate it, and re-stamp whenever progress moves
+    if (d.progress_turn === undefined || (d.last_progress ?? -1) !== d.progress) {
+      d.progress_turn = state.world.current_turn;
+      d.last_progress = d.progress;
+    }
+    const since = state.world.current_turn - d.progress_turn;
+    if (since >= STALLED_WANT_TURNS && (c.drive.progress ?? 0) < 60) {
       log.push(`${c.name} stopped waiting on: ${c.drive.goal}`);
       state.memory[id]?.episodic.push({
         turn: state.world.current_turn,

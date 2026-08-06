@@ -1152,6 +1152,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       (aboutPlayerOnly(a.c.drive!.goal) ? 1 : 0) - (aboutPlayerOnly(b.c.drive!.goal) ? 1 : 0) ||
       (a.id === lastLead ? 1 : 0) - (b.id === lastLead ? 1 : 0));
 
+  // ASKED AND NOT ANSWERED. A want that can only be satisfied by the PLAYER answering never
+  // progresses on its own, so the engine hands it back as the character's active goal every turn
+  // and they put the same question again — three turns running, in the same words. The drive
+  // system abandons such a want eventually; this is what happens in the meantime, because a player
+  // feels the repetition on the second time, not the sixth.
+  const nagging = presentNpcs
+    .map((id) => ({ id, c: state.characters[id] }))
+    .filter(({ c }) => c.drive?.goal && (state.world.current_turn - (c.drive.progress_turn ?? state.world.current_turn)) >= 2 && (c.drive.progress ?? 0) < 100);
+  const nagNote = nagging.length
+    ? `\nASKED ALREADY — ${nagging.map((n) => n.c.name).join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN. Not rephrased, not sharpened, not "I asked you what X and you gave me Y". A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
+    : "";
+
   if (drivers.length) {
     const lead = drivers[0];
     state.last_scene_lead = lead.id;   // so the next turn can let someone else steer
@@ -1501,7 +1513,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + nagNote + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
