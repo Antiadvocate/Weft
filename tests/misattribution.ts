@@ -14,7 +14,7 @@
  *
  * Also pinned: low warmth must not mean a publican refuses to sell a drink. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, travelMinutesBetween, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
+import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -276,6 +276,176 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   check("a real name answered to a question still registers",
     Object.values(s3.characters).some((c: any) => c.name === "Tomasa"),
     Object.values(s3.characters).map((c: any) => c.name));
+}
+
+/* 13. A ONE-WORD ANSWER IS NOT A NAME UNLESS SOMEBODY ASKED FOR ONE.
+ *
+ * `"Hiding," it said.` — the answer to "what are you doing in there" — put a person called Hiding
+ * in the cast. The self-introduction rule matches one capitalised word in quotes followed by an
+ * attribution, which is the shape of EVERY terse answer in English, not just an introduction.
+ * Waiting, Everlasting, Leaving and Listening all arrive the same way and no blocklist ends. */
+{
+  const bare = (action: string, prose: string) => {
+    const s = newSave("bare", { name: "V" } as any);
+    s.world.places["loc_x"] = { id: "loc_x", name: "X", description_facts: "", contains: [] };
+    s.world.player_location = "loc_x";
+    registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+    applyDiff(s, {} as unknown as SimulatorDiff, action, prose);
+    return Object.values(s.characters).map((c: any) => c.name).filter((n) => n !== "Rabi");
+  };
+
+  check("an answer to 'what are you doing' is not a person",
+    bare(`"Alright. What are you doing in there"`, `The thing did not move. "Hiding," it said.`).length === 0,
+    bare(`"Alright. What are you doing in there"`, `The thing did not move. "Hiding," it said.`));
+  check("a gerund answer is not a person",
+    bare(`I ask what they want`, `"Waiting," she said. "That is all any of us do here."`).length === 0);
+  check("an abstraction answered back is not a person",
+    bare(`"What is on the other side"`, `"Everlasting," he answered, and would say nothing more.`).length === 0);
+  check("a thing does not introduce itself even when a name IS asked",
+    bare(`"Who are you"`, `"Hiding," it said.`).length === 0,
+    bare(`"Who are you"`, `"Hiding," it said.`));
+
+  // the rule still does the job it exists for
+  check("a name given in answer to a name question still registers",
+    bare(`I ask her name`, `The woman wiped her hands. "Tomasa," she said, and went back to the pot.`).includes("Tomasa"));
+  check("'who are you' works as the question too",
+    bare(`"Who are you?"`, `He put the crate down. "Corwin," he said.`).includes("Corwin"));
+  check("the narrator asking counts as asking",
+    bare(`I wait`, `"Does the boy have a name?" the smith said. "Tomas," he said, barely audible.`).includes("Tomas"));
+}
+
+/* 14. TRAVEL THAT IS ACTUALLY WALKABLE.
+ *
+ * The arrival walk needs a distance, and the distance was guessed from names: a shared first word
+ * meant a stroll, anything else meant a full day. Mable stood on "Mable's floor" for the rest of a
+ * save because the player was in "Andrea's workroom" — one staircase away, sharing no words — so
+ * the engine quoted her twenty-four hours and her arrival could never fire. */
+{
+  const s = newSave("travel", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  const P: [string, string][] = [
+    ["loc_mable", "Mable's floor"], ["loc_work", "Andrea's workroom"],
+    ["loc_gate", "Thornwood Gate"], ["loc_mkt", "Thornwood Market"],
+    ["loc_pietro", "San Pietro"], ["loc_far", "Vismara"],
+  ];
+  for (const [id, name] of P) s.world.places[id] = { id, name, description_facts: "", contains: [] };
+  const t = (a: string, b: string) => travelMinutesBetween(s, a, b);
+
+  check("the same place is no distance at all", t("San Pietro", "San Pietro") === 0);
+  check("a shared settlement name is a stroll", t("Thornwood Gate", "Thornwood Market") === 0);
+  check("two unrelated places still cost a day", t("San Pietro", "Vismara") === DEFAULT_TRAVEL_MIN, t("San Pietro", "Vismara"));
+  check("two rooms are not a day apart", t("Mable's floor", "Andrea's workroom") < 60, t("Mable's floor", "Andrea's workroom"));
+  check("a room and a city still are", t("Mable's floor", "Vismara") === DEFAULT_TRAVEL_MIN);
+
+  // an authored distance beats every heuristic, in both directions
+  s.world.distances = [{ from: "Mable's floor", to: "Andrea's workroom", minutes: 600 }];
+  check("an authored distance wins", t("Mable's floor", "Andrea's workroom") === 600);
+  check("and it is symmetric", t("Andrea's workroom", "Mable's floor") === 600);
+  delete s.world.distances;
+
+  // the player's own path is a measurement — better than any name heuristic
+  s.travel_log = [{ turn: 10, place: "loc_pietro" }, { turn: 11, place: "loc_far" }];
+  s.world.time_at_turn = { 10: "Day 3, 08:00", 11: "Day 3, 11:00" };
+  check("a walk the player made is measured, not guessed", t("San Pietro", "Vismara") === 180, t("San Pietro", "Vismara"));
+  check("measured in the other direction too", t("Vismara", "San Pietro") === 180);
+
+  // ...and the shortest crossing wins, because the player may have dawdled once
+  s.travel_log = [
+    { turn: 10, place: "loc_pietro" }, { turn: 11, place: "loc_far" },
+    { turn: 20, place: "loc_pietro" }, { turn: 21, place: "loc_far" },
+  ];
+  s.world.time_at_turn = { 10: "Day 3, 08:00", 11: "Day 3, 11:00", 20: "Day 4, 08:00", 21: "Day 4, 09:00" };
+  check("the fastest recorded crossing is the distance", t("San Pietro", "Vismara") === 60, t("San Pietro", "Vismara"));
+
+  // an old trip whose clock stamps have scrolled out still proves adjacency
+  s.world.time_at_turn = {};
+  check("adjacency outlives the clock window", t("San Pietro", "Vismara") === NEIGHBOUR_TRAVEL_MIN, t("San Pietro", "Vismara"));
+
+  // and Mable can finally cross the floor she is standing on
+  const m = newSave("mable", { name: "V" } as any);
+  registerCharacter(m, { name: "Rabi", character_id: "char_player" } as any);
+  m.world.places["loc_work"] = { id: "loc_work", name: "Andrea's workroom", description_facts: "", contains: [] };
+  m.world.places["loc_mable"] = { id: "loc_mable", name: "Mable's floor", description_facts: "", contains: [] };
+  m.world.player_location = "loc_work";
+  m.characters["char_player"].location = "loc_work";
+  const mable = registerCharacter(m, { name: "Mable" } as any);
+  m.characters[mable].location = "loc_mable";
+  m.characters[mable].tracked = true;
+  m.characters[mable].drive = { goal: "Reach Rabi and show him what she made", progress: 10, priority: 3, updated_turn: 1 };
+  m.telemetry = [{ turn: 1, present: [mable] }] as any;
+  m.world.current_time = "Day 1, 09:00";
+  m.world.time_at_turn = {};
+  for (let turn = 20; turn <= 20 + ARRIVAL_PATIENCE; turn++) {
+    m.world.current_turn = turn;
+    m.world.time_at_turn[turn] = `Day ${1 + Math.floor(turn / 24)}, ${String(turn % 24).padStart(2, "0")}:00`;
+    m.world.current_time = m.world.time_at_turn[turn];
+    replanDrives(m);
+  }
+  check("Mable gets down one floor inside a save", m.characters[mable].location === "loc_work", m.characters[mable].location);
+}
+
+/* 15. THE GONE DO NOT WALK BACK IN.
+ *
+ * A woman who had departed the story was carried back into the room by the ledger on the strength
+ * of the scene TALKING ABOUT her — the arrival guard accepts a name in the prose as evidence of an
+ * arrival, and a name in the prose is what happens to somebody right after they leave. */
+{
+  const s = newSave("gone", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  s.world.places["loc_work"] = { id: "loc_work", name: "Andrea's workroom", description_facts: "", contains: [] };
+  s.world.places["loc_away"] = { id: "loc_away", name: "Vismara", description_facts: "", contains: [] };
+  s.world.player_location = "loc_work";
+  s.characters["char_player"].location = "loc_work";
+  const lady = registerCharacter(s, { name: "Lady Marchess" } as any);
+  s.characters[lady].location = "loc_away";
+  s.characters[lady].status = "departed";
+  const wife = registerCharacter(s, { name: "Andrea" } as any);
+  s.characters[wife].location = "loc_work";
+  syncPresence(s);
+  check("a departed character is not in the scene to begin with", !s.world.present.includes(lady), s.world.present);
+
+  const shifts = applyDiff(s, { locations: [{ char_id: lady, place: "Andrea's workroom" }] } as unknown as SimulatorDiff,
+    "I ask Andrea what happened to her", `Andrea did not look up. "Lady Marchess is not coming back," she said. "Marchess made that clear."`);
+  check("she is not moved into the room", s.characters[lady].location === "loc_away", s.characters[lady].location);
+  check("and she is not in the scene", !s.world.present.includes(lady), s.world.present);
+  check("the correction is reported", shifts.some((x: string) => /departed/.test(x)), shifts);
+  check("the person actually here is untouched", s.world.present.includes(wife), s.world.present);
+
+  // the lock holds even if something else puts her back after the rebuild
+  s.world.present.push(lady);
+  s.world.places["loc_work"].contains.push(lady);
+  applyDiff(s, {} as unknown as SimulatorDiff, "I wait", "The room was quiet.");
+  check("the departure lock strips her out again", !s.world.present.includes(lady), s.world.present);
+  check("and out of the room", !s.world.places["loc_work"].contains.includes(lady), s.world.places["loc_work"].contains);
+
+  // coming back is a real event: clear the status and she is a person in a room again
+  s.characters[lady].status = "active";
+  s.characters[lady].location = "loc_work";
+  syncPresence(s);
+  check("a returning character is not permanently barred", s.world.present.includes(lady), s.world.present);
+}
+
+/* 16. A GIFT IS NOT AN INVOICE.
+ *
+ * "I made something for the people and again they fucking decry me and ask me for payment?" The
+ * narrator reads a cold edge as "be an obstacle" and reaches for the only friction it knows —
+ * money — without checking which direction the goods just moved. */
+{
+  const gift = (action: string) => giftDirective(action);
+  check("building something for a town is giving", /GIVING, NOT BUYING/.test(gift("I build a well for the village")));
+  check("handing food to people is giving", /GIVING, NOT BUYING/.test(gift("I give the food to the children")));
+  check("healing someone is giving", /GIVING, NOT BUYING/.test(gift("I heal the wounded for them")));
+  check("making a thing for a named person is giving", /GIVING, NOT BUYING/.test(gift("I made a coat for Mable")));
+
+  check("buying something is not giving", gift("I buy bread from the baker") === "");
+  check("asking for something is not giving", gift("I ask the smith to make a blade for me") === "");
+  check("giving someone a look is not a benefaction", gift("I give her a long look") === "");
+  check("an empty action is not a gift", gift("") === "");
+
+  const d = gift("I build a well for the village");
+  check("it forbids the invoice specifically", /No price, no fee, no invoice/.test(d));
+  check("it leaves refusal and suspicion available", /they refuse it/.test(d) && /suspicious/.test(d), d);
+  check("it asks for a proportionate reaction", /proportionate to the size of what was given/.test(d), d);
 }
 
 /* 12. and the pruner can now clear the ones already in a save */

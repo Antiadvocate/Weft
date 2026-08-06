@@ -711,24 +711,101 @@ export function replanDrives(state: SaveState): void {
   }
 }
 
+/**
+ * A GIFT IS NOT AN INVOICE.
+ *
+ * The player builds a well for a village, heals someone, hands over food, makes a thing and gives
+ * it away — and the scene answers by demanding payment for it. Every time. It is the same reflex
+ * the TRANSACTIONS-ARE-NOT-FAVORS clause fixes at the other end of the exchange: the narrator reads
+ * a low-warmth edge as "be an obstacle" and reaches for the only friction it knows, which is money,
+ * without checking which direction the goods just moved. The result is a world where generosity is
+ * indistinguishable from asking for a loan, and a player who stops giving anyone anything.
+ *
+ * Suspicion, fear, refusal and a debt of OBLIGATION are all legitimate answers to a gift, and are
+ * left explicitly available. Billing the giver is not an answer, it is a category error.
+ */
+const GIVING = /\b(?:i|we)\s+(?:just\s+|then\s+|now\s+)?(?:give|gave|gift(?:ed)?|hand(?:ed)?|offer(?:ed)?|grant(?:ed)?|bestow(?:ed)?|donate[d]?|leave|left|provide[d]?|bring|brought|deliver(?:ed)?|share[d]?|feed|fed|heal(?:ed)?|cure[d]?|fix(?:ed)?|mend(?:ed)?|repair(?:ed)?|restore[d]?|rebuild|rebuilt|build|built|make|made|create[d]?|conjure[d]?|raise[d]?|summon(?:ed)?)\b/i;
+/** Somebody the giving is FOR. Without this, "I give her a long look" is a benefaction. */
+const BENEFICIARY = /\b(?:for|to)\s+(?:the\s+|his\s+|her\s+|their\s+)?(?:them|him|us|everyone|everybody|people|villagers?|townsfolk|town|village|city|poor|children|kids|family|crowd|workers?|farmers?|refugees?|sick|wounded|hungry|[A-Z]\w+)\b/;
+/** The player acquiring, not providing — the exact case where a price IS the right answer. */
+const ASKING = /\b(?:i|we)\s+(?:ask|asked|want|need|demand|buy|buys|bought|purchase[d]?|take|took|steal|stole|borrow(?:ed)?|request(?:ed)?|hire[d]?|pay|paid|trade[d]?|sell|sold|barter(?:ed)?)\b/i;
+
+export function giftDirective(action: string): string {
+  const a = String(action ?? "");
+  if (!GIVING.test(a) || !BENEFICIARY.test(a) || ASKING.test(a)) return "";
+  return `\nTHE PLAYER IS GIVING, NOT BUYING. Whatever the player just provided, made, mended or handed over moves TOWARD the people in this scene. NOBODY CHARGES THEM FOR IT. No price, no fee, no invoice, no "and what do you want in return", no haggling over the thing they were just handed — that is not friction, it is the exchange read backwards, and it has happened often enough that the player has noticed it as a tic. If someone here is cold, afraid, proud or suspicious, render THAT instead: they refuse it, they will not touch it, they ask what it will cost them LATER in obligation rather than in coin, they resent needing it, they wonder aloud what taking it makes them. Those are answers. A bill is not. And at least one person's reaction must be proportionate to the size of what was given — a village handed something it badly needed does not answer with a shrug and a complaint.`;
+}
+
 /** Default in-world minutes to cross from one named place to another when the world records no
- *  distance for the pair. A day: far too long for a walk across a town (which the same-place and
- *  same-name-prefix cases below let through), and far too short to matter for a genuine journey,
- *  which is the point — it stops an accidental teleport without pretending to a map. */
+ *  distance for the pair, nothing connects their names, and the player has never walked it. A day:
+ *  far too long for a walk across a town, far too short to matter for a genuine journey, which is
+ *  the point — it stops an accidental teleport without pretending to a map. */
 export const DEFAULT_TRAVEL_MIN = 24 * 60;
 
-/** How long it takes to get from `from` to `to`, in in-world minutes. 0 when they are the same
- *  place or share a settlement prefix ("Thornwood Gate" → "Thornwood Market"). */
+/** Two places the player is known to have walked between directly, when the clock stamps for the
+ *  trip have already scrolled out of the window. Adjacency is the fact worth keeping; the exact
+ *  duration is not. */
+export const NEIGHBOUR_TRAVEL_MIN = 30;
+
+/** Words that make a place-name a piece of a building rather than a building. */
+const INTERIOR = /\b(floor|room|workroom|workshop|study|hall|landing|stair(?:s|case|well)?|attic|cellar|basement|kitchen|bedroom|chamber|corridor|passage|gallery|loft|parlou?r|office|quarters|wing|annexe?|vault|closet|nursery|library|solar|scullery|pantry|forge|lab(?:oratory)?)\b/i;
+
+/** Name tokens that carry no identity — everything is "the" something, and matching on them would
+ *  put every hall in the world in the same building. */
+const NAME_STOP = new Set(["the","a","an","of","at","on","in","and","old","new","great","little","upper","lower","north","south","east","west","inner","outer","first","second","third","main","house","place","room","hall","floor"]);
+
+/**
+ * How long it takes to get from `from` to `to`, in in-world minutes.
+ *
+ * This started as a name-prefix heuristic and a day's default, and the default is where it went
+ * wrong: it is the answer for every pair whose names do not happen to rhyme. Mable stood on
+ * "Mable's floor" for the rest of a save because the player was in "Andrea's workroom" — one
+ * staircase away, inside the same house, and the two names share nothing, so the engine quoted her
+ * twenty-four hours of travel and her arrival could never fire. "She has decided never to show up
+ * again" is what that looks like from the chair.
+ *
+ * The fix is to stop guessing from names alone and read what the world already knows. The player's
+ * own path through the map is a measured record of how far apart places are: if they walked it,
+ * the clock says how long it took, and no heuristic beats that.
+ */
 export function travelMinutesBetween(state: SaveState, from: string, to: string): number {
   const a = from.trim().toLowerCase(), b = to.trim().toLowerCase();
   if (!a || !b || a === b) return 0;
+  // 1. an authored distance is the truth
   for (const d of state.world.distances ?? []) {
     const f = String(d.from).trim().toLowerCase(), t = String(d.to).trim().toLowerCase();
     if ((f === a && t === b) || (f === b && t === a)) return Math.max(0, d.minutes);
   }
-  // same settlement: "Thornwood Gate" and "Thornwood Market" are a stroll apart
-  const head = (x: string) => x.split(/[\s,]+/)[0];
-  if (head(a).length >= 4 && head(a) === head(b)) return 0;
+  // 2. OBSERVED TRAVEL. The player has been walking this map for the whole game and every step is
+  //    logged with the turn it happened on; the clock is stamped per turn. A direct A→B step in
+  //    that log is a measurement of the distance, so take the shortest one ever recorded — the
+  //    player may have dawdled once and gone straight there another time.
+  const log = state.travel_log ?? [];
+  const idFor = (n: string) => Object.values(state.world.places).find((p) => p.name.trim().toLowerCase() === n)?.id;
+  const ida = idFor(a), idb = idFor(b);
+  if (ida && idb) {
+    let best = Infinity;
+    for (let i = 1; i < log.length; i++) {
+      const pair = [log[i - 1].place, log[i].place];
+      if (!(pair.includes(ida) && pair.includes(idb)) || pair[0] === pair[1]) continue;
+      const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+      // Stamps are kept to a short window, so an old trip has no clock — but the adjacency it
+      // proves does not expire. Fall back to a neighbour's walk rather than throwing it away.
+      const mins = t0 && t1 ? Math.max(0, minutesBetween(t0, t1)) : NEIGHBOUR_TRAVEL_MIN;
+      best = Math.min(best, mins);
+    }
+    if (best < Infinity) return best;
+  }
+  // 3. a shared identifying word means one settlement or one building: "Thornwood Gate" and
+  //    "Thornwood Market"; "Marchess Estate — East Wing" and "Marchess Estate, the kitchens".
+  const tokens = (x: string) => new Set(x.split(/[^a-z0-9']+/).map((w) => w.replace(/'s$/, "")).filter((w) => w.length >= 4 && !NAME_STOP.has(w)));
+  const ta = tokens(a);
+  for (const w of tokens(b)) if (ta.has(w)) return 0;
+  // 4. TWO ROOMS ARE NOT A JOURNEY. A place called someone's workroom or the third floor is a part
+  //    of a building, and a story is almost never running two separate buildings' interiors as
+  //    live locations at once. Quoting a day between them is the failure above; quoting a walk is
+  //    wrong only in the rare case, and wrong by minutes rather than by a whole character.
+  if (INTERIOR.test(a) && INTERIOR.test(b)) return NEIGHBOUR_TRAVEL_MIN;
   return DEFAULT_TRAVEL_MIN;
 }
 
@@ -1523,6 +1600,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")} — they have been travelling to reach the player and get here THIS turn. WRITE THEM ARRIVING, on the page, in the door, off the road: where they came from, what the journey cost, why they came. They do not simply be here; nobody may already be mid-conversation with them. This is their entrance.`
     : "";
   const crowdNote = crowdDirective(state);
+  const giftNote = giftDirective(action);
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
     .map((id) => bodyDirective(state.condition[id], id === "char_player" ? "The player" : state.characters[id].name))
@@ -1552,7 +1630,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + nagNote + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3150,9 +3228,20 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // word, followed by an attribution, is essentially never anything but a name — provided the
   // bare interjections are excluded, since "Yes," he said has the identical shape.
   const NOT_A_NAME = new Set(["yes","no","okay","ok","please","thanks","thank","sorry","what","why","who","how","where","when","stop","wait","enough","maybe","perhaps","nothing","everything","never","always","indeed","certainly","right","fine","good","well","hello","goodbye","sir","madam","lord","lady","majesty","father","mother","captain","aye","nay","now","here","there","again","both","none","done","gods","god"]);
+  // A ONE-WORD ANSWER IS ONLY A NAME IF SOMEBODY ASKED FOR A NAME. The shape the rule below matches
+  // — one capitalised word in quotes, then an attribution — is the shape of EVERY terse answer, not
+  // just an introduction. The player asked `"What are you doing in her"` and got back
+  // `"Hiding," it said.`, and the cast gained a person called Hiding. There is no blocklist that
+  // ends: Waiting, Everlasting, Leaving, Listening all arrive the same way. So gate the rule on its
+  // own premise. It exists for the exchange where a name was requested; require the request.
+  const nameWasAsked = /\b(your name|his name|her name|their name|a name|the name|name\?|who are you|who is (?:he|she|it|that|this)|what (?:are|is) you called|what do (?:they|i|we) call you|call yourself|calls? (?:him|her|them)self|introduce (?:yourself|himself|herself|themselves)|do you have a name|got a name)\b/i
+    .test(`${prose}\n${action}`);
   const found = new Map<string, string>();
-  {
-    const intro = new RegExp(`["“]\\s*(${NAME})[,.!?]?\\s*["”]\\s*(?:[a-z']+\\s+){0,3}(?:${VERBS})\\b`, "g");
+  if (nameWasAsked) {
+    // ...and the answer has to come out of a person. `"Hiding," it said` is a thing answering, not
+    // somebody giving their name; nothing that reads as "it" ever introduces itself.
+    const SPEAKER = "(?:he|she|they|the (?:man|woman|boy|girl|child|figure|other|stranger|older|younger)\\w*|[A-Z][a-z]+)";
+    const intro = new RegExp(`["“]\\s*(${NAME})[,.!?]?\\s*["”]\\s*${SPEAKER}\\s*(?:[a-z']+\\s+){0,3}(?:${VERBS})\\b`, "g");
     let m: RegExpExecArray | null;
     while ((m = intro.exec(prose))) {
       const raw = m[1], key = raw.toLowerCase();
@@ -3440,6 +3529,17 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // the start of the turn only enters it if the prose actually shows them here.
       if (!presentAtStart.has(cid) && pid === state.world.player_location) {
         const c = state.characters[cid];
+        // THE GONE DO NOT WALK BACK IN. The guard below accepts a character's name appearing in the
+        // prose as evidence they arrived, and a name in the prose is far more often somebody being
+        // TALKED ABOUT — which is exactly what happens to a character right after they leave. So a
+        // woman who had departed the story was carried back into the room by the ledger, on the
+        // strength of the scene discussing her, and stood there teleported into a conversation she
+        // was no longer part of. Coming back is a real event; it is `status`, not a stray mention.
+        if (c.status === "dead" || c.status === "departed") {
+          shifts.push(`bookkeeping correction: ${c.name} is ${c.status} and does not re-enter the scene`);
+          console.warn(`[cast] blocked ${c.status} ${c.name} being moved back into the player's scene`);
+          continue;
+        }
         const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
         const nameLow = (c.name ?? "").toLowerCase();
         const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3);
@@ -3579,6 +3679,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     state.world.present = state.world.present.filter((p) => p !== cid);
     for (const p of Object.values(state.world.places)) p.contains = p.contains.filter((x) => x !== cid);
     if (c.tracked || c.drive || (c.drive_queue?.length ?? 0)) { c.tracked = false; c.drive = undefined; c.drive_queue = []; }
+  }
+
+  // ── DEPARTURE LOCK ── the same floor for people who left rather than died. Every rebuild of the
+  // scene already filters them, which is precisely why the failure is invisible: any writer that
+  // touches `present` or `contains` after the last rebuild leaves a departed character standing in
+  // the room, and the narrator reads PRESENT as law. Cheaper to enforce the invariant once, last,
+  // than to audit every future writer. Unlike death this is reversible — a character who comes back
+  // has their status set back to active, and then this does nothing to them.
+  for (const [cid, c] of Object.entries(state.characters)) {
+    if (c.status !== "departed") continue;
+    state.world.present = state.world.present.filter((p) => p !== cid);
+    for (const p of Object.values(state.world.places)) p.contains = p.contains.filter((x) => x !== cid);
   }
 
   // a new standing quirk/interest the story earned (kept small; capped so it never becomes a list)
