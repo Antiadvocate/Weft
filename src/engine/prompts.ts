@@ -402,14 +402,18 @@ Produce ONE JSON object that frames the time skip and a new opening that flows F
  "time_skip": "how much in-world time has passed before the new chapter (e.g. 'Three months later')",
  "world_bible": { "name":"", "political_situation":"", "what_people_fear":"", "narrator_direction":"","start_date":"YYYY-MM-DD — the real calendar date of Day 1, era-appropriate (unlocks weekdays/months/years in the game clock)" },
  "player": { "background_addition":"one sentence on who they now are — true to who they became, unsanitized" },
- "cast": [ { "name":"", "still_present": true, "background_addition":"one sentence on where they ended up / how they changed — keep their edge, appetites, and darkness intact", "warmth_to_player": 0, "trust_to_player": 0, "new_drive":"" } ],
- "opening_scene": "the new chapter's opening prose, 120-220 words, second person, beginning after the time skip, carrying the weight of what came before without re-explaining it, in the story's real register. End on a beat inviting action.",
- "starting_location_name": "",
+ "cast": [ { "name":"", "still_present": true, "background_addition":"one sentence on where they ended up / how they changed — keep their edge, appetites, and darkness intact", "warmth_to_player": 0, "trust_to_player": 0, "new_drive":"", "where":"the place this person is at the moment the chapter opens, by name from the world's places. MOST OF THE CAST IS NOT IN THE ROOM. A time skip scatters people: they went home, took a post, left the city, are asleep across town. Name the starting location ONLY for the one or two who are genuinely with the player in the opening prose. If they are somewhere the chapter does not name, write \"elsewhere\"." } ],
+ "opening_scene": "the new chapter's opening prose, 120-220 words, second person, beginning after the time skip, carrying the weight of what came before without re-explaining it, in the story's real register. Write ONLY the people whose 'where' is the starting location — an opening with the entire cast standing in one room is wrong. End on a beat inviting action.",
+ "starting_location_name": "where the player is when the chapter opens — prefer an EXISTING place from the world by exact name; invent one only if the time skip genuinely moved them somewhere new",
  "threads": [ { "title":"", "description":"", "tension": 3 } ],
  "distances": [ { "from":"place or region name", "to":"place or region name", "minutes": 0 } ]
 }
 
-Only include cast members who plausibly remain in the player's life. Honor the player's standing direction. Output ONLY the JSON.`;
+Only include cast members who plausibly remain in the player's life. Honor the player's standing direction.
+
+THE WORLD KEEPS ITS GEOGRAPHY. The places the story already has continue to exist and are carried forward for you — do not try to list them, replace them, or reduce the world to the one room the chapter opens in. Your "starting_location_name" picks where the player stands; everything else stays on the map.
+
+Output ONLY the JSON.`;
 
 
 
@@ -511,6 +515,14 @@ export function deltaNote(state: SaveState, query: string): string {
     `=== STATE NOW (deltas since the anchored snapshot; this is law) ===`,
     `Turn ${turn} | ${state.world.current_time}${dateLabel(state.world.current_time, state.world_bible.start_date) ? ` — ${dateLabel(state.world.current_time, state.world_bible.start_date)}` : ""} | Weather: ${state.world.weather} | Scene: ${loc?.name ?? state.world.player_location}`,
   ];
+  // WHO IS NO LONGER HERE. This block listed only who IS present, and the anchored snapshot it is a
+  // delta against holds a full PRESENT block. A model reading "these five are in the room (law)"
+  // followed by a list naming two has no statement that the other three left — so it kept writing
+  // them. Absence has to be said out loud, not implied by omission.
+  const gone = (state.world.present_prev ?? []).filter((id) => id !== "char_player" && !state.world.present.includes(id) && state.characters[id]);
+  if (gone.length) {
+    lines.push(`— GONE FROM THE SCENE since the snapshot: ${gone.map((id) => state.characters[id].name).join(", ")}. They are NOT here. Do not give them dialogue, gestures, reactions, or presence of any kind — they cannot see or hear this scene. If one of them is to come back, you must write them arriving.`);
+  }
   for (const id of ["char_player", ...state.world.present]) {
     const c = state.characters[id]; const cond = state.condition[id];
     if (!c || !cond) continue;

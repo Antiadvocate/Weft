@@ -173,9 +173,50 @@ export const api = {
     ns.memory["char_player"] = { ...playerCarry.carried_memory, character_id: "char_player" }; // full memory intact
     ns.traits["char_player"] = playerCarry.carried_traits;                                       // full traits intact
 
-    // place
-    const lid = uid("loc");
-    ns.world.places[lid] = { id: lid, name: g.starting_location_name || "a new place", description_facts: "", contains: [] };
+    // ── THE WORLD KEEPS ITS GEOGRAPHY ──────────────────────────────────────────
+    // This used to mint ONE place and drop the entire gazetteer. The Forge refuses to build a world
+    // with fewer than six locations — "a world with three places is a world where the narrator has
+    // nowhere legal to move anyone, so it invents 'the kitchen doorway' and the resolver strands
+    // whoever went there" — and then a new chapter reduced that world to a single room. Every place
+    // the story had built, every founding location, gone in one call.
+    //
+    // Carry them: the Forge's own spine first, then anywhere a surviving cast member was standing,
+    // then whatever else the world had, newest first. Names and descriptions come across intact, so
+    // the map, the distances and every "go there" the player already knows still work.
+    const survivorNames = new Set((g.cast ?? []).filter((c: any) => c?.still_present !== false && c?.name).map((c: any) => String(c.name).toLowerCase()));
+    const heldBySurvivor = new Set<string>();
+    for (const c of Object.values(s.characters)) {
+      if (survivorNames.has(c.name.toLowerCase()) && c.location) heldBySurvivor.add(c.location);
+    }
+    const oldPlaces = Object.values(s.world.places).filter((p) => p.id !== "loc_offscene");
+    const ranked = [
+      ...oldPlaces.filter((p) => p.founding),
+      ...oldPlaces.filter((p) => !p.founding && heldBySurvivor.has(p.id)),
+      ...oldPlaces.filter((p) => !p.founding && !heldBySurvivor.has(p.id)).reverse(),
+    ];
+    // The holding pen has to exist before anyone can be put in it — newSave() starts with no places
+    // at all, and a character pointed at a location that isn't there is a character nothing can find.
+    ns.world.places["loc_offscene"] ??= { id: "loc_offscene", name: "elsewhere", description_facts: "", contains: [] };
+    const carriedByOldId = new Map<string, string>();   // old place id → new place id
+    for (const p of ranked.slice(0, 14)) {
+      const nid = uid("loc");
+      ns.world.places[nid] = {
+        id: nid, name: p.name, description_facts: p.description_facts ?? "",
+        contains: [], founding: true, population: p.population,
+      };
+      carriedByOldId.set(p.id, nid);
+    }
+    const findByName = (name: string | undefined): string | undefined => {
+      const k = String(name ?? "").toLowerCase().trim();
+      if (!k) return undefined;
+      return Object.values(ns.world.places).find((p) => p.name.toLowerCase().trim() === k)?.id;
+    };
+    // The opening's location: an existing place by name when the model named one, otherwise new.
+    let lid = findByName(g.starting_location_name);
+    if (!lid) {
+      lid = uid("loc");
+      ns.world.places[lid] = { id: lid, name: g.starting_location_name || "a new place", description_facts: "", contains: [], founding: true };
+    }
     ns.world.player_location = lid;
     ns.characters["char_player"].location = lid;
 
@@ -203,7 +244,15 @@ export const api = {
         attachment: prev?.attachment,
         portrait_url: prev?.portrait_url,
         tracked: true,
-        location: lid,
+        // WHERE THEY ARE. Every carried character used to be placed at `lid` — the player's own
+        // opening location — so syncPresence put the ENTIRE surviving cast in the room on turn 1,
+        // five people standing in a hall the chapter had just introduced. A time skip scatters
+        // people; it does not assemble them. Take the model's `where` when it names a real place,
+        // else the place they were standing in last chapter if it carried over, else elsewhere.
+        // The player's room is never the fallback — being with the player has to be stated.
+        location: findByName(c.where)
+          ?? (prev?.location ? carriedByOldId.get(prev.location) : undefined)
+          ?? "loc_offscene",
         drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
       });
       const prevEdge = prev ? s.world.edges.find((e) => e.from === prev.character_id && e.to === "char_player") : undefined;

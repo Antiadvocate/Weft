@@ -1400,9 +1400,19 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   let narratorMsgs: any[];
   if (chatlog) {
     const cad = Math.max(2, state.model_settings.iframe_cadence ?? 6);
-    const castSig = Object.entries(state.characters)
-      .filter(([, c]) => c.status !== "dead" && c.status !== "departed" && c.central !== false && !c.paged)
-      .map(([id]) => id).sort().join(",");
+    // THE ANCHOR PINS THE SCENE, SO THE SCENE HAS TO INVALIDATE IT. The anchored digest contains
+    // the PRESENT block — which the prompt calls law — and the signature was built from character
+    // IDENTITY alone: who exists, is central, and is unpaged. Nobody leaving the room changed it,
+    // so a scene that opened with five people in a hall kept re-serving "these five are here" for
+    // the whole cadence, and the narrator went on writing lines for people who had walked out
+    // three turns earlier. Who is in the room, and where the room is, belong in the signature.
+    const castSig = [
+      Object.entries(state.characters)
+        .filter(([, c]) => c.status !== "dead" && c.status !== "departed" && c.central !== false && !c.paged)
+        .map(([id]) => id).sort().join(","),
+      `@${state.world.player_location}`,
+      `present:${[...state.world.present].sort().join(",")}`,
+    ].join("|");
     const anchor = state.context_anchor;
     const stale = !anchor || (turn - anchor.turn) >= cad || anchor.cast_sig !== castSig;
     if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig, ledger: ledgerSnapshot(state) };
@@ -2709,6 +2719,10 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     }
   }
   state.characters["char_player"].location = ploc;
+  // Remember who was here before this rebuild. The narrator's delta needs to SAY that someone left
+  // — omission from a list is not a statement of absence, and the anchored snapshot it reads
+  // against still asserts the old room. See deltaNote.
+  const before = [...(state.world.present ?? [])];
   // rebuild contains[] from the source of truth (each character's location); the gone don't occupy rooms
   for (const p of Object.values(state.world.places)) p.contains = [];
   for (const [id, c] of Object.entries(state.characters)) {
@@ -2720,6 +2734,7 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
   state.world.present = Object.entries(state.characters)
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === ploc)
     .map(([id]) => id);
+  state.world.present_prev = before;
 }
 
 

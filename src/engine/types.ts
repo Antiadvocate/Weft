@@ -475,6 +475,7 @@ export interface WorldState {
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
   offstage_last_time?: string;
+  present_prev?: string[];      // who was in the scene before the last presence rebuild — so the narrator delta can SAY who left, rather than leaving it to be inferred from a shorter list
   offstage_last_turn?: number;  // turn of the last offstage pass — the turn-based floor on the interval, so a story told in conversation doesn't freeze the world for forty turns
   /** How far apart places are, in in-world minutes of ordinary travel. The engine uses this to
    *  answer "could word have got there and back by now?" instead of leaving it to the narrator,
