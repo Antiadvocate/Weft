@@ -488,6 +488,40 @@ export function detectPowerTier(recentText: string): PowerTier {
   return "mortal";
 }
 
+const TIER_ORDER: PowerTier[] = ["mortal", "empowered", "mythic", "cosmic"];
+/** Turns a witnessed tier stays at full strength before it steps down one rung. */
+const TIER_HALFLIFE = 40;
+
+/**
+ * THE WORLD REMEMBERS WHAT IT SAW. detectPowerTier reads the last three turns of prose, which is
+ * the right window for "something impossible just happened in front of these people" and the wrong
+ * one for "what is this person to this world." Those are different questions and were sharing an
+ * answer, with a consequence the ledger makes obvious: the harm a player does is written into
+ * edges and lasts forever, while their STANDING as a power evaporates three turns after the last
+ * time the prose happened to say something godlike.
+ *
+ * So the world's opinion of a man who unmade a city block reverts to "unremarkable stranger" while
+ * every person he frightened stays frightened — and the directive that tells the narrator people
+ * court power, sell access to it, and build lives in its shadow (the cosmic nudge, the one thing
+ * in the engine that produces a court instead of a crowd of accusers) essentially never fires.
+ *
+ * This is the memory. The high-water mark holds for TIER_HALFLIFE turns, then decays one rung at a
+ * time — a reputation, not a permanent setting, and still earned only by what was witnessed.
+ */
+export function rememberPowerTier(
+  seen: PowerTier,
+  memory: { tier: PowerTier; turn: number } | undefined,
+  turn: number,
+): { tier: PowerTier; memory: { tier: PowerTier; turn: number } | undefined } {
+  const next = memory && TIER_ORDER.indexOf(memory.tier) >= TIER_ORDER.indexOf(seen) ? memory : { tier: seen, turn };
+  const steps = Math.floor(Math.max(0, turn - next.turn) / TIER_HALFLIFE);
+  const decayed = TIER_ORDER[Math.max(0, TIER_ORDER.indexOf(next.tier) - steps)];
+  return {
+    tier: TIER_ORDER[Math.max(TIER_ORDER.indexOf(decayed), TIER_ORDER.indexOf(seen))],
+    memory: next.tier === "mortal" ? undefined : next,
+  };
+}
+
 /**
  * FIRED-CLOCK DISCHARGE. A full clock is a PROMISE: its consequence must land, not evaporate.
  * Clocks used to just flip status to "fired" and their promised crisis never reached the scene —

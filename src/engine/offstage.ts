@@ -20,6 +20,7 @@
 import { buildMessages, complete, safeJson } from "../llm";
 import { uid } from "./state";
 import { minutesBetween } from "./time";
+import { mundaneObjective } from "./knowledge";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 export const OFFSTAGE_INTERVAL_MIN = 360;
@@ -41,31 +42,73 @@ What you SHOULD write: the ordinary consequential business of this place. A debt
 
 Each event must be CAUSED by something already in the world state: a named person acting on a want they already have, a faction pursuing the objective already written for it, a season, an animal, an illness, a grudge already recorded. Do not introduce a new faction or a new named power. You may bring a small new PLACE into being if the event requires one (a burned steading, a camp, a new weir) — name it as a person would say it aloud.
 
-WITNESSES matter more than the event. List, by exact name, only tracked characters from the CAST who would plausibly have seen or heard this firsthand, given where they are. Most events have no tracked witness at all, and an empty list is the correct and common answer. Do not place a witness somewhere convenient. Do not invent names.
+START WITH THE CAST. The CAST list gives you named people and the exact things they are trying to do. AT LEAST ONE of your events must be a named cast member taking a concrete step on a want listed there — not a feeling about it, not a plan to begin: the step itself, done, with a result. A smith finishing and hiding the crates. An investigator reaching the estate gate and being turned away. An organizer getting his numbers. If someone's want is marked stuck, the step can be the stuckness biting: the shipment missed, the door closed, the ally saying no. Invented walk-ons — a bargeman, a factor, a widow — are the SEASONING of this report, never the substance. A pass where the entire cast's stated wants went untouched while three strangers had a busy afternoon is a failed pass.
 
-FACTION CLOCKS ADVANCE HERE, OR NOWHERE. A faction pursuing an objective the player never sees is doing that work offstage, in ordinary steps: a testimony taken, a boundary walked, a payment made, a page finished, a rider sent. When one of your events IS such a step for one of the listed factions, set "advances" to that faction's exact name. This is the ONLY way their clocks move — a clock the player never walks into otherwise sits frozen forever, which is not the world being patient, it is the world being dead. Do not attribute an event to a faction it has nothing to do with, and do not invent activity for a faction whose objective the state gives you no way to progress.
+WITNESSES ARE HOW ANY OF THIS REACHES THE STORY. An event nobody in the cast saw or heard is real, but it is invisible forever — it can never become gossip, never surface in a scene, never matter. So: list by exact name every cast member the WHO IS STANDING WHERE list places at the event's location, plus anyone else who would plainly have heard it firsthand (their own work, their own faction, their own household, the room next door). Only real names from the CAST, never invented ones, and never someone the state puts somewhere else — but do not leave this empty out of caution. If an event has no plausible witness at all, prefer to write an event that does.
 
-Write 1–3 events. Fewer is right when the world state gives you little. An interval where almost nothing happened is a valid report.
+FACTION CLOCKS ADVANCE HERE, OR NOWHERE. A faction pursuing an objective the player never sees is doing that work offstage, in ordinary steps: a testimony taken, a boundary walked, a payment made, a page finished, a rider sent. When one of your events IS such a step for one of the listed factions, set "advances" to that faction's name. This is the ONLY way their clocks move — a clock the player never walks into otherwise sits frozen forever, which is not the world being patient, it is the world being dead. A faction marked HAS NOT MOVED ONCE is not a faction with nothing to do; it is one whose first ordinary step nobody has written yet. Write it. Do not attribute an event to a faction it has nothing to do with.
+
+Write 1–3 events. Fewer is right when the world state gives you little — but "the cast wanted things and none of them moved" is not little, it is the report you were asked for and did not write.
 
 Output ONLY this JSON:
 {"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":""}]}`;
 
-function worldDigest(state: any): string {
+/** Loose tie between a character and a faction clock: their own wants, background, or the faction's
+ *  name and objective share ground. Cheap and forgiving — this only decides whether to SUGGEST
+ *  someone as able to take the next step, never whether the step counts. */
+function relatedToFaction(c: any, clock: any): boolean {
+  const words = `${clock.faction} ${clock.objective}`.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  const blob = `${c.name} ${c.background ?? ""} ${(c.core_traits ?? []).join(" ")} ${c.drive?.goal ?? ""} ${(c.drive_queue ?? []).map((d: any) => d?.goal).join(" ")}`.toLowerCase();
+  const STOP = new Set(["their", "them", "from", "with", "that", "this", "into", "over", "before", "after", "against", "there", "these", "would", "could", "about"]);
+  return words.some((w) => !STOP.has(w) && blob.includes(w));
+}
+
+export function worldDigest(state: any): string {
   const places = Object.values<any>(state.world?.places ?? {})
     .filter((p) => p.id !== "loc_offscene")
     .map((p) => `- ${p.name}: ${p.description_facts ?? ""}`).join("\n");
 
+  // WANTS. This read `c.drive_goals ?? [c.drive_goal]` — two field names that exist only on the
+  // FORGE's input payload, never on a live character. On any real save both were undefined, so
+  // every single cast member was reported to the world-sim as "Wants: nothing pressing," and the
+  // one model whose job is to move the background was told the background wants nothing. It then
+  // did the only thing left: invent unnamed walk-ons (a bargeman, a warehouse factor) and write
+  // their small business instead, while the actual cast's stated goals — a secret weapons order, a
+  // missing-girls investigation, a protest being organized — sat untouched for a hundred turns.
+  // The live fields are `drive` and `drive_queue`.
+  const wantsOf = (c: any): string =>
+    [c.drive?.goal, ...(c.drive_queue ?? []).map((d: any) => d?.goal)].filter(Boolean).join("; ");
+
   const cast = Object.entries<any>(state.characters ?? {})
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed")
-    .map(([id, c]) => {
+    .map(([, c]) => {
       const where = state.world.places[c.location]?.name ?? "unknown";
-      const wants = (c.drive_goals ?? [c.drive_goal]).filter(Boolean).join("; ");
-      return `- ${c.name}, at ${where}. Wants: ${wants || "nothing pressing"}.`;
+      const wants = wantsOf(c);
+      const blocked = c.drive?.blocker ? ` Stuck on: ${c.drive.blocker}.` : "";
+      return `- ${c.name}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
     }).join("\n");
+
+  // Which cast members are standing where, so witnesses can be named rather than guessed at.
+  const byPlace = new Map<string, string[]>();
+  for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
+    if (id === "char_player" || c.status === "dead" || c.status === "departed") continue;
+    const where = state.world.places[c.location]?.name;
+    if (!where) continue;
+    byPlace.set(where, [...(byPlace.get(where) ?? []), c.name]);
+  }
+  const whoIsWhere = [...byPlace.entries()].map(([p, names]) => `- ${p}: ${names.join(", ")}`).join("\n");
 
   const clocks = (state.world?.clocks ?? [])
     .filter((c: any) => c.status === "running")
-    .map((c: any) => `- ${c.faction}: ${c.objective} (${c.filled}/${c.segments})`).join("\n");
+    .map((c: any) => {
+      // Name the people who could actually take the next step, so "no way to progress" stops being
+      // the default answer for a faction whose own members are standing right there wanting it.
+      const movers = Object.values<any>(state.characters ?? {})
+        .filter((ch) => ch.status !== "dead" && ch.status !== "departed" && wantsOf(ch) && relatedToFaction(ch, c))
+        .map((ch) => ch.name);
+      const stalled = c.filled === 0 ? " — HAS NOT MOVED ONCE; find its next ordinary step" : "";
+      return `- ${c.faction}: ${c.objective} (${c.filled}/${c.segments})${stalled}${movers.length ? `. In a position to move it: ${movers.join(", ")}` : ""}`;
+    }).join("\n");
 
   const threads = (state.world?.threads ?? [])
     .filter((t: any) => t.status === "active")
@@ -82,18 +125,32 @@ function worldDigest(state: any): string {
     `WHAT PEOPLE HERE FEAR: ${b.what_people_fear ?? ""}`,
     `POLITICS: ${b.political_situation ?? ""}`,
     `\nPLACES:\n${places}`,
-    `\nCAST (the only names you may use as witnesses):\n${cast}`,
+    `\nCAST — THE PEOPLE WHOSE WANTS ARE YOUR PRIMARY MATERIAL (and the only names you may use as witnesses):\n${cast}`,
+    whoIsWhere ? `\nWHO IS STANDING WHERE (name everyone here as a witness when your event happens at their place):\n${whoIsWhere}` : "",
     clocks ? `\nFACTIONS AND WHAT THEY ARE ALREADY PURSUING:\n${clocks}` : "",
     threads ? `\nOPEN QUESTIONS IN THE WORLD:\n${threads}` : "",
     recent ? `\nALREADY REPORTED — do not repeat or continue these:\n${recent}` : "",
   ].filter(Boolean).join("\n");
 }
 
-/** True when enough in-world time has passed since the last offstage pass. */
+/** Turns after which the world moves regardless of the in-world clock. */
+export const OFFSTAGE_INTERVAL_TURNS = 25;
+
+/**
+ * True when enough in-world time has passed since the last offstage pass — OR enough turns have.
+ *
+ * The clock alone is not enough. A story told mostly in conversation burns very little in-world
+ * time per turn, so a six-hour interval can mean the world moves five times in a hundred and
+ * twenty turns: forty-three real turns of play between one report and the next, during which the
+ * background is genuinely frozen. Time is the right unit for how much CAN have happened; turns are
+ * the right unit for how long the player has been waiting to see it.
+ */
 export function offstageDue(state: any): boolean {
   const last = state.world?.offstage_last_time;
   if (!last) return true;
-  return minutesBetween(last, state.world.current_time) >= OFFSTAGE_INTERVAL_MIN;
+  if (minutesBetween(last, state.world.current_time) >= OFFSTAGE_INTERVAL_MIN) return true;
+  const lastTurn = state.world?.offstage_last_turn ?? 0;
+  return (state.world?.current_turn ?? 0) - lastTurn >= OFFSTAGE_INTERVAL_TURNS;
 }
 
 /**
@@ -146,9 +203,43 @@ export function returnFromOffscene(state: any): string[] {
   return log;
 }
 
+/**
+ * A clock whose objective is no longer reachable is not suspense, it is a dead field in the save.
+ *
+ * The knowledge gate can convert an unreachable objective into ordinary business, but it only runs
+ * when the SIMULATOR names the clock in a scene — and a faction the player never meets is never
+ * named, so the conversion never fires. Result: a rebel clock whose whole objective was "receive a
+ * shipment of weapons from Elara" sat at 0/6 for a hundred and twenty turns after Elara left the
+ * story, invisibly, with no sign to the player that the thread was over.
+ *
+ * The offstage pass is where a faction the player never meets lives, so it is where this belongs.
+ * Only ever converts a clock that has NEVER moved and whose objective names someone gone.
+ */
+export function retireUnreachableClocks(state: any): string[] {
+  const log: string[] = [];
+  const gone = Object.values<any>(state.characters ?? {})
+    .filter((c) => c.status === "dead" || c.status === "departed")
+    .map((c) => String(c.name ?? "").toLowerCase())
+    .filter((n) => n.length >= 3);
+  if (!gone.length) return log;
+  for (const clock of state.world?.clocks ?? []) {
+    if (clock.status !== "running" || clock.filled > 0) continue;
+    const obj = String(clock.objective ?? "").toLowerCase();
+    const missing = gone.find((n) => obj.includes(n));
+    if (!missing) continue;
+    clock.objective = mundaneObjective(clock.faction);
+    clock.status = "stalled";
+    delete clock.stalled_since;
+    log.push(`${clock.faction} has lost what they were waiting on and turns to its own business.`);
+  }
+  return log;
+}
+
 export async function runOffstage(state: any, model: string): Promise<string[]> {
   if (!offstageDue(state)) return [];
   state.world.offstage_last_time = state.world.current_time;
+  state.world.offstage_last_turn = state.world.current_turn ?? 0;
+  const retired = retireUnreachableClocks(state);
 
   let events: OffstageEvent[] = [];
   try {
@@ -164,7 +255,7 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
     if (id !== "char_player") byName.set(c.name.toLowerCase(), id);
   }
 
-  const log: string[] = [];
+  const log: string[] = [...retired];
   const turn = state.world.current_turn ?? 0;
 
   for (const ev of events.slice(0, 3)) {
@@ -185,9 +276,26 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
 
     // Witnesses get a real memory. This is the ONLY channel by which an offstage event can ever
     // reach the player — through a person who was there, then through whoever they talk to.
-    // No witnesses means the world changed and nobody in play knows it yet. That is allowed.
-    for (const w of ev.witnesses ?? []) {
-      const id = byName.get(String(w).toLowerCase().trim());
+    //
+    // CO-LOCATION FALLBACK. In practice the model returned an empty witness list every single time,
+    // which made the whole subsystem write-only: a hundred turns of coherent, causally linked world
+    // motion that no one in the story could ever learn about. Who was standing at a place is not a
+    // judgement call the model needs to make — the state knows. So when it names nobody, we look up
+    // who is actually there and let them see it. Anyone the model DID name still wins; this only
+    // fills a vacuum.
+    let witnessNames = (ev.witnesses ?? []).map((w) => String(w).toLowerCase().trim()).filter((w) => byName.has(w));
+    if (!witnessNames.length && ev.place?.trim()) {
+      const here = Object.values<any>(state.world.places ?? {}).find(
+        (p: any) => p.name?.toLowerCase().trim() === ev.place.toLowerCase().trim(),
+      );
+      if (here) {
+        witnessNames = Object.entries<any>(state.characters ?? {})
+          .filter(([id, c]) => id !== "char_player" && c.location === here.id && c.status !== "dead" && c.status !== "departed")
+          .map(([, c]) => c.name.toLowerCase());
+      }
+    }
+    for (const w of witnessNames) {
+      const id = byName.get(w);
       if (!id) continue;                        // never invent a witness the cast doesn't contain
       const mem = (state.memory[id] ??= { character_id: id, core: [], episodic: [], beliefs: [], facts: [], knows: [] });
       mem.episodic.push({
@@ -209,9 +317,15 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
     // deliberately NOT pointed at the player, so their factions never appeared and both clocks in a
     // 108-turn game sat at 0/6, never advancing once. The world's own motion is where they move.
     if (ev.advances) {
-      const clock = state.world.clocks.find(
-        (c: any) => c.status === "running" && c.faction.toLowerCase() === String(ev.advances).toLowerCase().trim(),
-      );
+      // Match on the faction NAME, forgivingly. An exact-string compare meant "Caelus's Followers"
+      // missed "Father Caelus's Followers" and the step was silently dropped — the clock stayed
+      // frozen and the event that should have moved it read as scenery.
+      const want = String(ev.advances).toLowerCase().trim().replace(/^the\s+/, "");
+      const clock = state.world.clocks.find((c: any) => {
+        if (c.status !== "running") return false;
+        const have = c.faction.toLowerCase().trim().replace(/^the\s+/, "");
+        return have === want || have.includes(want) || want.includes(have);
+      });
       if (clock && clock.filled < clock.segments) {
         clock.filled += 1;
         clock.last_advanced_time = state.world.current_time;

@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
@@ -23,15 +23,16 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
-import { seedAttraction, orientationCap, tickDesire, tickRivalry } from "./desire";
+import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
+import { fadesOnItsOwn, bodyDirective, bodySeverity } from "./body";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
-import { regenerateDrives } from "./drives";
+import { regenerateDrives, magnetPull } from "./drives";
 import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
@@ -340,7 +341,7 @@ function reflectSalt(id: string): number {
  *  pages only the identity card's place in context, not the character's mind. */
 export function updatePaging(state: SaveState, action: string): void {
   if (state.model_settings.paging === false) return;
-  const AWAY_TURNS = 12, BOND_FLOOR = 40;
+  const AWAY_TURNS = 12, BOND_FLOOR = 25;   // floor is on bondStrength's scale (~0.75·warmth + 0.25·trust), not the old |w|+|t| sum
   const turn = state.world.current_turn;
   const recentText = (state.history.slice(-3).map((h) => h.narrator_prose).join(" ") + " " + action).toLowerCase();
   const lastSeen = new Map<string, number>();
@@ -350,12 +351,23 @@ export function updatePaging(state: SaveState, action: string): void {
     const first = c.name.split(/\s+/)[0]?.toLowerCase() ?? "";
     const named = first.length >= 3 && recentText.includes(first);
     const present = state.world.present.includes(id);
-    if (present || named) { if (c.paged) c.paged = false; continue; }
-    if (c.paged) continue; // stays paged until presence/mention wakes them
+    // STANDING IN THE ROOM IS NOT SOMETHING YOU CAN BE PAGED OUT OF. A paged character is invisible
+    // to the narrator, so pruning someone the state puts at the player's own location is how a room
+    // full of people renders as empty — and why the one character who happened to be present when
+    // the pruning landed became the only person who could ever be in a scene again.
+    const together = !!c.location && c.location === state.world.player_location;
+    if (present || named || together) { if (c.paged) c.paged = false; continue; }
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
-    const bond = e ? Math.abs(e.warmth) + Math.abs(e.trust) : 0;
+    // bondStrength, not |warmth| + |trust|: the old sum weighted suspicion the same as love AND
+    // ignored stated relationships entirely, so the player's wife (warmth 22, trust 14, roles
+    // ["wife"]) scored 36 against a floor of 40 and was paged out of her own marriage for 39 turns.
+    const bond = Math.abs(bondStrength(e));
     const away = turn - (lastSeen.get(id) ?? 0);
-    if (away >= AWAY_TURNS && bond < BOND_FLOOR) c.paged = true;
+    // RE-EVALUATED, NOT LATCHED. This used to `continue` on anyone already paged, so paging was a
+    // one-way door: a character whose bond had since grown past the floor stayed dormant forever,
+    // and the only key was the player happening to type their name. Recompute both sides every
+    // turn — page when cold and long gone, wake the moment that stops being true.
+    c.paged = away >= AWAY_TURNS && bond < BOND_FLOOR;
   }
 }
 
@@ -430,8 +442,12 @@ const RESTORE_INTENT = /\b(sleep|nap|doze|rest|bed down|turn in|lie down|go to b
  *   • progress ≥ 100 → complete: rotate the queue.
  *  The LLM layer (reflection) handles what determinism can't: judging completion from events
  *  and inventing genuinely NEW goals when the queue runs dry. */
+/** Turns a character must spend blocked on "find the player" before the walk actually happens. */
+export const ARRIVAL_PATIENCE = 8;
+
 export function replanDrives(state: SaveState): void {
   const turn = state.world.current_turn;
+  const pursuers: { id: string; since: number }[] = [];
   const lastSeen = new Map<string, number>();
   for (const t of state.telemetry) for (const pid of t.present) lastSeen.set(pid, t.turn);
   const nameToId = new Map<string, string>();
@@ -469,6 +485,28 @@ export function replanDrives(state: SaveState): void {
     if (!together && seenGap >= 12 && targetId === "char_player") {
       const pursuit = `must find ${target.name} first — they are elsewhere`;
       if (d.blocker !== pursuit) { d.blocker = pursuit; d.updated_turn = turn; }
+      pursuers.push({ id, since: d.updated_turn });
+    }
+  }
+
+  // AND THEN THEY ACTUALLY GO. The blocker above says "must find Rabi first" and nothing has ever
+  // acted on it: an offscreen character only moves when the SIMULATOR moves them, and the simulator
+  // cannot move someone it never sees. So the whole tracked cast accumulated a stated intention to
+  // reach the player and stood perfectly still holding it, for a hundred turns, while whoever
+  // happened to already be in the room stayed the only person in the story.
+  //
+  // One arrival at a time, and only for someone who has been trying long enough that the walk is
+  // plausible — a trickle, not a swarm. Longest-waiting goes first.
+  if (pursuers.length) {
+    pursuers.sort((a, b) => a.since - b.since);
+    const arriving = pursuers.find((p) => turn - p.since >= ARRIVAL_PATIENCE);
+    const dest = state.world.player_location;
+    if (arriving && dest && state.characters[arriving.id]) {
+      const c = state.characters[arriving.id];
+      c.location = dest;
+      c.paged = false;                         // they are in the room; the narrator has to be able to see them
+      if (c.drive) c.drive.updated_turn = turn;
+      console.info(`[drives] ${c.name} reaches ${state.characters["char_player"]?.name} after ${turn - arriving.since} turns of looking`);
     }
   }
 }
@@ -803,7 +841,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // language; the discharge record doesn't.
   // NOTE: god mode deliberately does NOT feed the tier — the tier describes what the world has
   // WITNESSED, and the setting is not a witness. See detectPowerTier.
+  // LIVE tier: what the people in this room have just seen. Drives the witness stamp and
+  // EARNED_RESPONSE, which are about the moment of witnessing and must not fire every turn.
   const tier = tierFromRecord(detectPowerTier(recentText), state.pressure_state?.recent);
+  // STANDING tier: what this world knows the player to be. Same evidence, longer memory — see
+  // rememberPowerTier. Drives how the world ORIENTS to them (the pressure nudge, public standing),
+  // which should not reset to "unremarkable stranger" three turns after they unmade a city.
+  const remembered = rememberPowerTier(tier, state.power_witnessed, state.world.current_turn);
+  state.power_witnessed = remembered.memory;
+  const standingTier = remembered.tier;
   // WITNESS STAMP — when the player wields genuinely impossible power in front of others, that
   // witnessing durably rewrites how each present character relates to them. Stamp an active_state so
   // the reorientation PERSISTS across later turns (not just the turn of the act): a character who saw
@@ -829,9 +875,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const wc = state.condition[wid];
       if (!wc) continue;
       const we = state.world.edges.find((x) => x.from === wid && x.to === "char_player");
-      const bond = ((we?.warmth ?? 0) + (we?.trust ?? 0)) / 2;
+      const bond = bondStrength(we);
       const witnessState =
-        bond >= 35
+        bond >= 25
           ? (tier === "cosmic" ? "exalted by the player's impossible power, and theirs" : "moved and unsettled by the player's impossible power")
           : bond <= -15
           ? (tier === "cosmic" ? "terrified by the player's impossible power" : "shaken by the player's impossible power")
@@ -843,7 +889,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       if (wc.psyche.active_states.length > 5) wc.psyche.active_states = wc.psyche.active_states.slice(-5);
     }
   }
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, tier, beat);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, standingTier, beat);
   // CROSS-TALK NUDGE — when two or more NPCs share the scene, the narrator tends to line them all up
   // facing the player. Remind it they have each other: with 2+ present NPCs, at least one exchange this
   // turn should run NPC↔NPC (they address, answer, needle, or side-deal with each other), not everyone
@@ -897,13 +943,36 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // own. A character's relationships are INSTRUMENTS of their drive, not substitutes for it: someone
   // who loves the player pursues their goal in a way that routes through the player (asking, waiting a
   // beat, carrying them along), but the goal still drives — affection is a method, not the objective.
+  // WHO STEERS. Sorting on priority alone left ties to insertion order, and it counted a goal whose
+  // entire content is the protagonist ("Protect Rabi and enforce his will") as an equally good
+  // engine for a scene as one with a life behind it. It is not: a want that is only the player
+  // cannot MOVE anywhere, so the scene it drives is the player being attended to, again. The Forge
+  // already forbids this shape when it writes a companion; characters created mid-play never got
+  // the rule. Rank self-propelled wants first, and let the previous turn's lead yield when someone
+  // else in the room wants something — so one person cannot hold the wheel indefinitely.
+  const playerFirst = state.characters["char_player"]?.name?.split(/\s+/)[0]?.toLowerCase() ?? "";
+  const aboutPlayerOnly = (goal: string): boolean => {
+    if (!playerFirst) return false;
+    const g = goal.toLowerCase();
+    if (!g.includes(playerFirst) && !/\bthe player\b/.test(g)) return false;
+    // strip the player and the verb scaffolding; what's left is the character's own stake in it
+    const rest = g.replace(new RegExp(`\\b${playerFirst}\\b|\\bthe player\\b`, "g"), " ")
+      .replace(/\b(protect|guard|serve|obey|please|follow|find|reach|help|keep|enforce|his|her|their|its|will|and|the|a|an|to|for|of|from|with|by|safe|first)\b/g, " ")
+      .replace(/[^a-z]+/g, " ").trim();
+    return rest.split(/\s+/).filter(Boolean).length <= 1;
+  };
+  const lastLead = state.last_scene_lead;
   const drivers = presentNpcs
     .map((id) => ({ id, c: state.characters[id] }))
     .filter(({ c }) => c.drive?.goal)
-    .sort((a, b) => (b.c.drive!.priority ?? 1) - (a.c.drive!.priority ?? 1));
+    .sort((a, b) =>
+      (b.c.drive!.priority ?? 1) - (a.c.drive!.priority ?? 1) ||
+      (aboutPlayerOnly(a.c.drive!.goal) ? 1 : 0) - (aboutPlayerOnly(b.c.drive!.goal) ? 1 : 0) ||
+      (a.id === lastLead ? 1 : 0) - (b.id === lastLead ? 1 : 0));
 
   if (drivers.length) {
     const lead = drivers[0];
+    state.last_scene_lead = lead.id;   // so the next turn can let someone else steer
     // The scene's prime mover this turn: the highest-desire present character. When the player is
     // inert, this character sets the turn's direction and the player is carried, asked, or given
     // something to react to — the world does not stall waiting on a passive player, it flows with
@@ -1163,8 +1232,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const waryWitnesses: string[] = [];
   for (const id of presentNpcs) {
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
-    const bond = ((e?.warmth ?? 0) + (e?.trust ?? 0)) / 2;
-    if (bond >= 35) bondedWitnesses.push(state.characters[id].name);
+    const bond = bondStrength(e);
+    if (bond >= 25) bondedWitnesses.push(state.characters[id].name);
     else if (bond <= -15) waryWitnesses.push(state.characters[id].name);
   }
   const witnessRoster = [
@@ -1185,7 +1254,18 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // state at all for "the wider community" and improvised it from whatever the nearest directive
   // implied, which at high tier meant fear every time. Reads the standing built by prior turns'
   // public acts; this turn's act updates it after the prose exists (see updatePublicStanding below).
-  const publicNote = publicStandingDirective(state, tier);
+  const publicNote = publicStandingDirective(state, standingTier);
+  // ── BODY STATE ── A wrecked body reached the narrator as a noun in a comma-joined list
+  // ("conditions: eviscerated and exposed") with no weight and no instruction, while the contract
+  // told it that conditions not caused this turn are background. So a man could be opened up and
+  // go on producing composed argument, in cadence, arms crossed. Severity is graded now, and
+  // anything from moderate up arrives as a directive naming what the body has taken away. Covers
+  // the player too — the state is the state.
+  const bodyNote = [...state.world.present, "char_player"]
+    .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
+    .map((id) => bodyDirective(state.condition[id], id === "char_player" ? "The player" : state.characters[id].name))
+    .filter(Boolean)
+    .join("");
   // ── REST PROTECTION, scaled by tension. Low tension: rest is sacred, the world holds its
   // breath. Mid tension: one soft knock at most, and whatever interrupts must let them finish —
   // the meal gets eaten, the night gets slept, THIS turn. High tension (7+): the world is
@@ -1210,7 +1290,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1942,7 +2022,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
   }
 
-  if ((state.model_settings.tension ?? 5) > 0) offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [], { dispersion: undertow.dispersion, sharedTarget: undertow.shared_target })); // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; dispersion spreads the cast off any shared magnet; suppressed entirely at tension 0
+  if ((state.model_settings.tension ?? 5) > 0) {
+    // Dispersion is measured from the ledger now, not handed over by the retired undertow (which
+    // supplied a hardcoded 0 and left the anti-chorus machinery unreachable). See magnetPull.
+    const magnet = magnetPull(state);
+    if (magnet.sharedTarget && magnet.dispersion >= 0.4) {
+      console.info(`[drives] chorus magnet: ${state.characters[magnet.sharedTarget]?.name ?? magnet.sharedTarget} at dispersion ${magnet.dispersion.toFixed(2)} — seeding self-interested wants`);
+    }
+    offscreenLog.push(...regenerateDrives(state, Math.random, undertow.epistemic_pulls ?? [], { dispersion: magnet.dispersion, sharedTarget: magnet.sharedTarget }));
+  } // tracked + idle → a fresh want; epistemic pulls steer toward "find out" goals; dispersion spreads the cast off any shared magnet; suppressed entirely at tension 0
   // SEED BEFORE SPREAD. The diffusion engine was correct and permanently empty because nothing
   // created rumors — the simulator's optional rumors_new was the only writer and it rarely fires.
   // A witnessed memory big enough to be worth repeating IS the seed, and it costs no tokens.
@@ -1959,7 +2047,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // someone the town already loves does not spread as dread. Runs after seeding (so the deed is
   // already a rumor) and before diffusion (so the charge is read against the fresh standing).
   {
-    const standingLine = updatePublicStanding(state, action, prose, tier);
+    const standingLine = updatePublicStanding(state, action, prose, tier, standingTier);
     if (standingLine) { offscreenLog.push(standingLine); shifts.push(standingLine); }
   }
   offscreenLog.push(...diffuseRumors(state));
@@ -1968,7 +2056,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const cc = state.condition[id];
     if (!cc) continue; // defensive: imported saves can lack a condition record
     cc.condition_age ??= {};
-    const expired = cc.conditions.filter((x) => turn - (cc.condition_age![x] ?? turn) >= CONDITION_LIFESPAN);
+    // ...but only the kind of thing that decays. The timer applied to every string equally, so
+    // "eviscerated and exposed" was scheduled to quietly vanish ten turns after a man's insides
+    // came out, and he would have been well again with nothing in the prose healing him. Anything
+    // severe or worse waits for the story to remove it (condition_remove), not the clock.
+    const expired = cc.conditions.filter((x) => fadesOnItsOwn(x) && turn - (cc.condition_age![x] ?? turn) >= CONDITION_LIFESPAN);
     if (expired.length) {
       cc.conditions = cc.conditions.filter((x) => !expired.includes(x));
       for (const x of expired) delete cc.condition_age![x];
@@ -2087,7 +2179,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     summary: diff.scene_summary || prose.slice(0, 120),
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
-    offscreen: offscreenLog.slice(0, 6), time_label: state.world.current_time,
+    offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
@@ -2285,7 +2377,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   if (state.telemetry.length > TEL_WINDOW) state.telemetry = state.telemetry.slice(-TEL_WINDOW);
   if (state.pressure_trace.length > TEL_WINDOW) state.pressure_trace = state.pressure_trace.slice(-TEL_WINDOW);
   state.world.current_turn++;
-  ev.onMeta({ telemetry: tel, offscreen: offscreenLog.slice(0, 6), shifts: shifts.slice(0, 8), weather: state.world.weather, time: state.world.current_time });
+  ev.onMeta({ telemetry: tel, offscreen: rankOffscreen(offscreenLog).slice(0, 6), shifts: shifts.slice(0, 8), weather: state.world.weather, time: state.world.current_time });
 }
 
 const TRANSIENT_RE = /\b(currently|right now|at the moment|for now|bleeding|blood(y|ied)?|nosebleed|fatigued?|exhausted|tears?|crying|sweat(ing)?|panting|trembling|shaking|wincing|sedat\w*|bandag\w*|restrained)\b/i;
@@ -2614,6 +2706,29 @@ function spawnNamed(state: SaveState, action: string, shifts: string[]): string 
     }
   }
   return `\nNEWLY NAMED — the player just referred to ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a WHOLE PERSON on the page: a specific body, a way of speaking that is theirs, wants that predate this moment and have nothing to do with the player. Not a function, not a role in a costume, not someone who exists to answer. They were living a life before this turn and will be after it. Do not explain who they are to the player, and do not have them announce themselves — write them as though they have always been in this story.`;
+}
+
+/**
+ * The offscreen feed shows six lines, and it was showing the wrong six.
+ *
+ * Everything the engine does between turns pushes into one flat list, then the first six survive.
+ * Drive bookkeeping fires for every tracked character every turn and lands at the front, so a
+ * hundred-and-twenty-turn game showed seventy lines of "Lady Marchess sets aside A and turns to B"
+ * and exactly ONE line reporting something that happened in the world. Rank by what a player is
+ * actually being told: the world moved, a faction closed on something, a person got what they
+ * wanted — and only then the engine's own goal-shuffling.
+ */
+export function rankOffscreen(lines: string[]): string[] {
+  const weight = (l: string) =>
+    /^Elsewhere:/.test(l) ? 0 :
+    /^SIGN \(|clock has run out|moved closer to their objective|has nothing to act on/.test(l) ? 1 :
+    /got what they wanted|stopped waiting on|is back in the world|word about|written bond/.test(l) ? 2 :
+    /sets aside|turns to something new|works toward|can't get a read/.test(l) ? 4 :
+    3;
+  return lines
+    .map((l, i) => ({ l, i }))
+    .sort((a, b) => weight(a.l) - weight(b.l) || a.i - b.i)
+    .map((x) => x.l);
 }
 
 export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string, prose: string, footerSeen = false): string[] {
@@ -3012,6 +3127,11 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     seedAttraction(state, a, "char_player");
     for (const b of state.world.present) if (a !== b && state.characters[b]?.central !== false) seedAttraction(state, a, b);
   }
+  // AUTHORSHIP OUTRANKS THE FIRST READ. A card that already states the relationship — a spouse, a
+  // lover, someone written as obsessed with this person — was authored with the bond in place, and
+  // a stranger's beauty-and-taste read has no business overwriting it. Catches edges seeded before
+  // this existed and edges whose person was authored into a partner long after they met.
+  shifts.push(...repairAuthoredBonds(state));
 
   // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
   // or alive on a later turn (it sees them lingering in a scene and writes them acting), which

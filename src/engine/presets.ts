@@ -54,6 +54,7 @@ function sump9(): SaveState {
     core_traits: ["resourceful", "wary", "dry-humored"], values: ["self-reliance", "fair trade"],
     speech_pattern: "Clipped Solder-Slang, jokes that land flat on purpose.",
     skills: { soldering: "expert", "drone evasion": "competent", barter: "competent" },
+    beauty: 58,
   });
   const kildare = registerCharacter(s, {
     name: "Kildare Sumpter", age: 47,
@@ -135,6 +136,7 @@ function thaw(): SaveState {
     background: "Taken in by the band six winters ago after his own people starved out. Earns his place daily.",
     core_traits: ["watchful", "capable", "outsider's caution"], values: ["earning his place", "the children eat first"],
     speech_pattern: "Few words, exact ones.", skills: { "ice reading": "expert", flintwork: "competent", fishing: "competent" },
+    beauty: 62,
   });
   const ettel = registerCharacter(s, {
     name: "Ettel", age: 61,

@@ -24,6 +24,7 @@
 // or for restful/inert actions. Zero tokens: the LLM renders the verdict; it never decides it.
 
 import type { SaveState } from "./types";
+import { bodySeverity, bodyMarks } from "./body";
 import { relevance } from "./memory";
 
 export type AttemptOutcome = "sufficient" | "contested" | "insufficient";
@@ -98,13 +99,21 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
   else if (cond.hunger === "hungry") { raw -= 0.25; causes.push("hungry"); }
   if ((cond.thirst_meter ?? 0) >= 8) { raw -= 0.5; causes.push("parched"); }
   else if ((cond.thirst_meter ?? 0) >= 5) { raw -= 0.25; causes.push("thirsty"); }
-  for (const inj of cond.injuries ?? []) {
-    const text = `${inj.type} ${inj.cause} ${inj.functional_impact}`;
-    const impaired = IMPAIRMENT.some(([body, act]) => body.test(text) && act.test(action))
-      || stemOverlap(text, action) > 0.2;
-    if (impaired) {
-      raw -= 1; causes.push(`the ${inj.type} (${inj.functional_impact})`);
-      break; // one named wound is enough to carry the fiction
+  // A body taken apart does not need the action to overlap a named wound: nothing works.
+  // Read from BOTH channels — catastrophic damage is as often recorded as a condition
+  // ("eviscerated and exposed") as an injury, and only injuries were ever consulted here.
+  const sev = bodySeverity(cond);
+  if (sev >= 4) { raw -= 3; causes.push(`the body is wrecked (${bodyMarks(cond, 4).join(", ") || "catastrophic damage"}) — nothing works properly`); }
+  else {
+    if (sev === 3) { raw -= 0.75; causes.push(`severely hurt (${bodyMarks(cond, 3).join(", ")})`); }
+    for (const inj of cond.injuries ?? []) {
+      const text = `${inj.type} ${inj.cause} ${inj.functional_impact}`;
+      const impaired = IMPAIRMENT.some(([body, act]) => body.test(text) && act.test(action))
+        || stemOverlap(text, action) > 0.2;
+      if (impaired) {
+        raw -= 1; causes.push(`the ${inj.type} (${inj.functional_impact})`);
+        break; // one named wound is enough to carry the fiction
+      }
     }
   }
   return { score: (clamp(raw, -3, 1) + 3) / 4, causes };

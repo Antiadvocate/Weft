@@ -34,6 +34,27 @@ export function getEdge(edges: SocialEdge[], from: string, to: string): SocialEd
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Roles that ARE a bond, whatever the numbers have gotten around to recording. */
+const BOND_ROLE = /date|lover|girlfriend|boyfriend|partner|spouse|wife|husband|fianc|betrothed|beloved|consort|friend|ally|sworn|protector|guardian|sister|brother|mother|father|daughter|son|family|kin/i;
+
+/**
+ * How strongly this edge holds its target — the single number the "is this person bonded to the
+ * player" gates should read.
+ *
+ * It replaces a plain (warmth + trust) / 2, which weighted suspicion equally with love and so
+ * scored a devoted-but-guarded companion (warmth 33, trust 14 → 23) below the bar while a cheerful
+ * acquaintance cleared it. That is the precise case dispositionCue already warns about: warm and
+ * cautious is not cold, and the gates that decide whether a bond is VISIBLE must not be the one
+ * place the engine forgets it. Warmth carries the bond; trust modulates; a stated relationship
+ * counts for itself, because a wife is a wife on the turn before she trusts you again.
+ */
+export function bondStrength(e?: Pick<SocialEdge, "warmth" | "trust" | "roles">): number {
+  if (!e) return 0;
+  const core = e.warmth * 0.75 + e.trust * 0.25;
+  const named = (e.roles ?? []).some((r) => BOND_ROLE.test(r));
+  return named && e.warmth > 0 ? core + 20 : core;
+}
+
 // ── RATCHET BRAKE ── Step sizes are symmetric but OPPORTUNITY is not: almost every turn contains
 // something kind, brave, or grateful, and almost none contain betrayal. So up-moves fire constantly
 // and down-moves rarely, and any symmetric rule drifts upward until it pins at the ceiling and never
@@ -220,11 +241,18 @@ export function updatePublicStanding(
   action: string,
   prose: string,
   tier: PowerTier = "mortal",
+  standingTier: PowerTier = tier,
 ): string | null {
   const before = state.world.public_standing ?? 0;
   // DISSIPATION, same as everything else here: a reputation nobody is refreshing fades toward the
   // neutral read. Fear and love both wear off; this is what lets a story recover from one bad turn.
-  let v = before > 0 ? Math.max(0, before - 0.2) : Math.min(0, before + 0.2);
+  // But it wears off at the speed of ORDINARY news, and 0.2/turn means a reputation must be
+  // re-earned roughly every ten turns or it is gone — which is why a player who had publicly
+  // remade a town could sit at a standing of exactly zero a hundred turns later, the crowd holding
+  // no opinion whatsoever about the god living up the hill. What a world knows about a power it
+  // cannot resist fades much more slowly than gossip about a merchant.
+  const fade = standingTier === "cosmic" ? 0.04 : standingTier === "mythic" ? 0.08 : 0.2;
+  let v = before > 0 ? Math.max(0, before - fade) : Math.min(0, before + fade);
 
   // WHOSE DEED? Scoring the whole prose blob would credit the player with everything anyone did in
   // it — a raider burning a farm would move the PLAYER's reputation. Score the player's own
