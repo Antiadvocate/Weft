@@ -3201,7 +3201,10 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
       const covered = new Set((diff.places_update ?? []).map((p) => String(p?.place ?? "").toLowerCase().trim()));
       for (const place of targets) {
         if (covered.has(place.id.toLowerCase()) || covered.has(place.name.toLowerCase().trim())) continue;
-        if (place.changed_turn === turn) continue;
+        // NOT `changed_turn === turn`: emptying a place of people also stamps that field, and a
+        // massacre is exactly the case where the description most needs flagging as out of date.
+        // Places the bookkeeper actually rewrote are already excluded by `covered` above; the stamp
+        // below is what stops a second append on the same turn.
         const stamp = `[turn-${turn} change]`;
         if (place.description_facts.includes(stamp)) continue;
         const note = `${stamp} The player: "${action.trim().slice(0, 140)}" — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`;
