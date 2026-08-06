@@ -104,7 +104,7 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       c.voice?.agenda ? `Agenda (their subtext): ${c.voice.agenda}` : "",
       c.drive?.goal ? `Wants: ${c.drive.goal}` : "",
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
-      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal; they agree to nothing yet.",
+      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",
       `WHY THEY HAVE STAKES THIS BEAT: ${reason}`,
       `WHAT THE PLAYER AUDIBLY SAID / VISIBLY DID: ${perceptibleAction}`,
     ].filter(Boolean).join("\n");

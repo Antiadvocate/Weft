@@ -415,8 +415,8 @@ export function dispositionCue(warmth: number, trust: number): string {
     warmth >= 70 ? "loves you / devoted (warmth very high) — open affection, protectiveness, seeks your closeness; devotion is not obedience: they refuse freely, tease you, argue when they think you are wrong, and keep their own plans" :
     warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses; comfortable teasing you, disagreeing, and saying no" :
     warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, glad you're near; talks freely, including disagreement" :
-    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, pleasant; agrees to nothing yet" :
-    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal; asks small questions and watches before volunteering anything" :
+    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, pleasant; slow to grant a FAVOR, but ordinary business is ordinary business" :
+    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal about anything that costs them; asks small questions and watches before volunteering anything BEYOND their ordinary dealings" :
     warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged, polite brush-offs" :
     warmth > -45 ? "dislikes you (warmth negative) — sharp, unwelcoming" :
     "resents or hates you (warmth very negative) — openly cold or antagonistic";
@@ -434,7 +434,13 @@ export function dispositionCue(warmth: number, trust: number): string {
       : warmth >= 45 && trust >= 20
         ? " — let this warmth be plainly visible; do not make the player re-earn it every scene"
         : "";
-  return `${care} ${rely}${note}`;
+  // A TRANSACTION IS NOT A FAVOR. Low warmth means slow to give, slow to trust, slow to commit — it
+  // does not mean a publican refuses to sell a drink. Without this said outright, every band above
+  // reads as blanket obstruction and the whole world becomes a wall: an innkeeper handed a year's
+  // wages in gold spends three turns deciding whether to pour, and the player stops asking anyone
+  // for anything. Coldness is about what someone will GIVE, never about whether their trade works.
+  const trade = " — TRANSACTIONS ARE NOT FAVORS: whatever this person does for a living they still do, for a stranger, at the usual price, without needing to like them. Selling, serving, ferrying, directing, renting, answering a question any passer-by could answer — none of that is a concession and none of it needs warmth. Withhold favors, trust, secrets, loyalty, and risk; do not withhold the ordinary business of the world.";
+  return `${care} ${rely}${note}${trade}`;
 }
 
 // ─────────────────────────── RIVALRY ───────────────────────────

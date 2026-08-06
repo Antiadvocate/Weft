@@ -2543,6 +2543,28 @@ function findCharByName(state: SaveState, name: string): string | null {
   return null;
 }
 
+/**
+ * Can this character legitimately receive state from THIS scene?
+ *
+ * Yes when they were in it, when the prose names them, or when the player's action names them.
+ * The case this exists to reject is the one the arrival guard also catches from the other side: a
+ * cast member who is nowhere near the scene being handed the behavior of an unnamed walk-on the
+ * narrator wrote, because the bookkeeper needed an id and that was the nearest one on its list.
+ */
+function misattributionAllowed(state: SaveState, id: string, prose: string, action: string): boolean {
+  if (id === "char_player") return true;
+  if (state.world.present.includes(id)) return true;
+  const c = state.characters[id];
+  if (!c) return false;
+  if (c.location && c.location === state.world.player_location) return true;
+  const nameLow = (c.name ?? "").toLowerCase();
+  const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3);
+  const probes = [...new Set([nameLow, ...tokens])].filter((p) => p.length >= 3);
+  if (!probes.length) return true;                    // unprobeable name: don't block on nothing
+  const blob = `${prose} ${action}`.toLowerCase();
+  return probes.some((p) => blob.includes(p));
+}
+
 function resolveId(state: SaveState, ref: string): string | null {
   if (!ref) return null;
   if (state.characters[ref]) return ref;
@@ -3171,6 +3193,32 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
           continue;
         }
       }
+      // ARRIVAL EVIDENCE GUARD — the mirror of the above, and the half that was missing.
+      //
+      // Nothing stopped the bookkeeper moving a character INTO the player's scene. That matters
+      // because the narrator legitimately writes unnamed people — an innkeeper, a boatman, a
+      // stallholder — and the bookkeeper, needing an id to hang their behavior on and having none,
+      // reaches for the nearest real cast member. In one save that put a guard captain from a city
+      // the player had flown away from behind the bar of an inn in another country, complete with
+      // a new drive ("get the stranger to leave the inn without incident") and a fresh trait,
+      // while the prose never mentioned her once. The player never brought her; the ledger did.
+      //
+      // Same evidence test as departures, in the other direction: a character not in the scene at
+      // the start of the turn only enters it if the prose actually shows them here.
+      if (!presentAtStart.has(cid) && pid === state.world.player_location) {
+        const c = state.characters[cid];
+        const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
+        const nameLow = (c.name ?? "").toLowerCase();
+        const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3);
+        const named = [...new Set([nameLow, ...tokens])].some((p) => p.length >= 3 && proseLow.includes(p));
+        // the player calling for them is evidence too — "I send for Angeline" should work
+        const calledFor = [...new Set([nameLow, ...tokens])].some((p) => p.length >= 3 && action.toLowerCase().includes(p));
+        if (!named && !calledFor) {
+          shifts.push(`bookkeeping correction: ${c.name} was not in this scene — the prose never showed them arrive`);
+          console.warn(`[cast] blocked phantom arrival of ${c.name} into ${state.world.places[pid]?.name ?? pid} — unnamed in prose and action`);
+          continue;
+        }
+      }
       // a move is an event the character remembers: where from, where to, when
       const fromName = (fromPid && state.world.places[fromPid]?.name) || "elsewhere";
       const toName = state.world.places[pid]?.name ?? mv.place;
@@ -3652,6 +3700,16 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   const drivesByChar = new Map<string, typeof diff.drives_update>();
   for (const du of diff.drives_update ?? []) {
     const id = resolveId(state, du.char_id); if (!id || id === "char_player" || !du.goal) continue;
+    // MISATTRIBUTION GUARD. The narrator writes unnamed people constantly — an innkeeper, a
+    // boatman, a stallholder — and the bookkeeper, needing an id to hang their wants on and having
+    // none, reaches for a real cast member. That is how a guard captain who had never left another
+    // country acquired the goal "get the stranger to leave the inn without incident". A want can
+    // only be recorded for someone the scene actually contained or the prose actually named.
+    if (!misattributionAllowed(state, id, prose, action)) {
+      shifts.push(`bookkeeping correction: ${nameOf(id)} was not in this scene — a want from it was not recorded for them`);
+      console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
+      continue;
+    }
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
   }
   for (const [id, dus] of drivesByChar) {
