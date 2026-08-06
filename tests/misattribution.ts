@@ -14,7 +14,7 @@
  *
  * Also pinned: low warmth must not mean a publican refuses to sell a drink. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
+import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, repairBibleLists, splitLines, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -459,6 +459,54 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   const removed = repairStrandedCast(s).concat(pruneParseArtifacts(s));
   check("all four common-noun phantoms are removed", removed.length === 4, removed);
   check("the real person is untouched", !!s.characters[real]);
+}
+
+/* 17. LISTS THAT A COMMA-SPLIT SHREDDED.
+ *
+ * pressure_palette and forbidden_as_primary round-tripped through join(", ") / split(","), so any
+ * entry containing a comma broke in two — and did it again on every save. One save's palette had
+ * decayed into seven fragments, three of them starting with "and", and its forbidden list read
+ * ["Political intrigue without immediate", ...] with the words that gave it meaning gone. The
+ * narrator was handed those fragments as genre law every turn. */
+{
+  const s = newSave("lists", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  s.world_bible.pressure_palette = [
+    "The king's spies are everywhere", "and Rabi's power could be seen as a threat or a tool.",
+    "Rabi's compulsion can be exploited by anyone who learns of it", "leading to betrayal or manipulation.",
+    "The kingdom is on the brink of civil war", "and Rabi's actions could tip the balance.",
+    "Rabi's power attracts dangerous attention from those who want to use him.",
+  ];
+  s.world_bible.forbidden_as_primary = ["Political intrigue without immediate", "personal stakes", "Moralizing about power—let actions speak."];
+  const log = repairBibleLists(s);
+
+  const pal = s.world_bible.pressure_palette!;
+  check("the shredded palette is put back together", pal.length === 4, pal);
+  check("the tail is rejoined to its head",
+    pal[0] === "The king's spies are everywhere, and Rabi's power could be seen as a threat or a tool.", pal[0]);
+  check("no entry starts mid-sentence any more", !pal.some((x) => /^(and|or|leading) /.test(x)), pal);
+  check("an entry that was always whole is untouched",
+    pal[3] === "Rabi's power attracts dangerous attention from those who want to use him.", pal[3]);
+
+  const fb = s.world_bible.forbidden_as_primary!;
+  check("the truncated ban recovers its meaning", fb[0] === "Political intrigue without immediate, personal stakes", fb[0]);
+  check("the ban that survived intact is left alone", fb[1] === "Moralizing about power—let actions speak.", fb);
+  check("the repair says what it did", log.some((x) => /rejoined/.test(x)), log);
+
+  // a healthy save is not "repaired"
+  const ok = newSave("ok", { name: "V" } as any);
+  registerCharacter(ok, { name: "Rabi", character_id: "char_player" } as any);
+  ok.world_bible.pressure_palette = ["Money", "The weather turning", "A rival's patience running out"];
+  check("nothing is done to a list that is already fine", repairBibleLists(ok).length === 0);
+  check("and it is left exactly as it was", ok.world_bible.pressure_palette!.length === 3);
+
+  // and the editor no longer creates the damage in the first place
+  check("an entry with a comma survives the editor now",
+    splitLines("Political intrigue without immediate, personal stakes\nMoralizing about power").length === 2,
+    splitLines("Political intrigue without immediate, personal stakes\nMoralizing about power"));
+  check("a legacy single-line value still splits on commas",
+    splitLines("Money, The weather, A rival").length === 3);
+  check("blank lines are dropped", splitLines("a\n\n\nb").length === 2);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

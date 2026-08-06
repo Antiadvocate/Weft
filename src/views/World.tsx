@@ -77,6 +77,19 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
               <span className="font-mono text-[9.5px] shrink-0" style={{ color: t.tension >= 7 ? "var(--danger)" : "var(--text-lo)" }}>
                 tension {t.tension}/10
               </span>
+              {/* The narrator reads every active thread on every turn as a live question the story
+                  is carrying. Editing the world bible cannot reach one, so a storyline the player
+                  has decided they are finished with had no way out except the raw JSON editor. */}
+              <button
+                className="font-mono text-[9.5px] shrink-0 opacity-60 hover:opacity-100"
+                style={{ color: "var(--text-lo)" }}
+                title="Close this thread — the narrator stops carrying it"
+                onClick={async () => {
+                  if (!confirm(`Retire "${t.title}"?\n\nThe narrator stops carrying this storyline. It stays in the record as resolved.`)) return;
+                  const s = await api.retireThread(save.id, t.id);
+                  onSave?.(s);
+                }}
+              >retire</button>
             </div>
             <div className="text-[12.5px] mt-0.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{t.description}</div>
             <div className="meter mt-2"><div style={{ width: `${t.tension * 10}%`, background: t.tension >= 7 ? "var(--danger)" : "var(--accent)" }} /></div>

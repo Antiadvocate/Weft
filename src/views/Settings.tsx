@@ -3,6 +3,7 @@ import { ModelPicker } from "./ModelPicker";
 import { Braces, Check, Copy, Download, Wrench } from "lucide-react";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
+import { splitLines } from "../engine/turn";
 import { getApiKey, setApiKey } from "../config";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
@@ -89,8 +90,13 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     destination_turns: wb.destination_turns ?? 0,
     art_direction: wb.art_direction ?? "",
   });
-  const [palette, setPalette] = useState((wb.pressure_palette ?? []).join(", "));
-  const [forbidPrimary, setForbidPrimary] = useState((wb.forbidden_as_primary ?? []).join(", "));
+  // ONE PER LINE, NOT COMMA-SEPARATED. These round-tripped through `join(", ")` / `split(",")`,
+  // which shreds any entry containing a comma and does it again on every save: "Political intrigue
+  // without immediate, personal stakes" became "Political intrigue without immediate" plus a lost
+  // fragment, and a pressure palette decayed into seven half-sentences, three of them starting with
+  // "and". Newlines, the way canon below already does it.
+  const [palette, setPalette] = useState((wb.pressure_palette ?? []).join("\n"));
+  const [forbidPrimary, setForbidPrimary] = useState((wb.forbidden_as_primary ?? []).join("\n"));
   const [godMode, setGodMode] = useState(!!wb.god_mode);
   const [canon, setCanon] = useState(((save.world as any).canon ?? []).join("\n"));
   const [difficulty, setDifficulty] = useState({ ...wb.difficulty_profile });
@@ -124,8 +130,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       destination_turns: Math.max(0, parseInt(String(bible.destination_turns ?? 0), 10) || 0),
       god_mode: godMode,
       difficulty_profile: difficulty,
-      pressure_palette: palette.split(",").map((x) => x.trim()).filter(Boolean),
-      forbidden_as_primary: forbidPrimary.split(",").map((x) => x.trim()).filter(Boolean),
+      pressure_palette: splitLines(palette),
+      forbidden_as_primary: splitLines(forbidPrimary),
     } });
     setSave(s); setBibleSaved(true);
     setTimeout(() => setBibleSaved(false), 1400);
@@ -180,8 +186,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
         <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
         <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
-        <TextField label="Pressure palette (comma-sep — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={2} />
-        <TextField label="Never the primary engine of a scene (comma-sep)" value={forbidPrimary} onChange={setForbidPrimary} rows={2} />
+        <TextField label="Pressure palette (one per line — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={3} />
+        <TextField label="Never the primary engine of a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
         <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
         {!!bible.destination?.trim() && (

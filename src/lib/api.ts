@@ -8,7 +8,7 @@ import type {
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon } from "../engine/state";
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
-import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -141,9 +141,17 @@ export const api = {
       .slice(0, 6)
       .map((m) => m.content.trim());
     const player = s.characters["char_player"];
+    // THE FORBIDDEN LIST HAS TO REACH THE CHAPTER FORGE. It never did — the digest carried the
+    // world, the cast, canon and threads, and nothing about what the player has banned. So a player
+    // who filled in `forbidden` precisely to get rid of a storyline, and then branched to be free of
+    // it, got a new chapter whose opening scene, world bible and threads were built out of the
+    // banned material, faithfully carried forward from the canon and threads the forge WAS shown.
+    // The ban is the most load-bearing instruction in the bible and it was the one thing omitted.
+    const bans = [s.world_bible.forbidden, ...(s.world_bible.forbidden_as_primary ?? [])].map((x) => String(x ?? "").trim()).filter(Boolean);
     const digest = [
       `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
-      s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION (honor it): ${s.world_bible.narrator_direction}` : "",
+      bans.length ? `FORBIDDEN IN THIS WORLD — BINDING ON EVERYTHING YOU WRITE, and on what you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is material the player has since banned. It does not go in the recap, the opening, the threads or the bible. The time skip is where it ends; write the chapter as being about something else.` : "",
+      s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION — obey it, never rewrite or restate it: ${s.world_bible.narrator_direction}` : "",
       `PLAYER: ${player?.name}. ${player?.background ?? ""}`,
       `CAST:\n${cast}`,
       `CANON: ${(s.world.canon ?? []).join(" | ")}`,
@@ -171,11 +179,40 @@ export const api = {
     //
     // Whitelist. `tone`, `forbidden`, `god_mode`, `difficulty_profile`, `destination` and the rest
     // belong to the player and the Forge, and a chapter summary does not get to touch them.
-    const CHAPTER_FIELDS = ["name", "political_situation", "what_people_fear", "narrator_direction", "start_date"] as const;
+    //
+    // `narrator_direction` was on this list and should never have been. It is the same category as
+    // `tone` — a standing instruction the narrator reads on every call — and the digest above even
+    // labels it "PLAYER'S STANDING DIRECTION (honor it)" before inviting the model to replace it.
+    // A player deleted theirs (it had acquired an editorial thesis about their character that
+    // nobody asked for), branched the story, and got a freshly generated one back saying the same
+    // thing. Clearing a field is a choice; a chapter summary does not get to overrule it.
+    // `what_people_fear` came off for the same reason. It is a hand-editable register line — one
+    // player's read "Hunger, illness, death, etc typical of medieval era issues" — and the chapter
+    // forge replaced it with "The God-Duke's mood. That a gift has a hidden price. That the thing
+    // worshipped at Thornwood might one day look their way": a verdict on the player installed as a
+    // standing law of the world, and, in that save, the reason every gift the player made was met
+    // with a demand for payment. What ordinary people fear does not need a model to restate it
+    // across a time skip, and every time one did, it came back pointed at the protagonist.
+    const CHAPTER_FIELDS = ["name", "political_situation", "start_date"] as const;
     const carried: Partial<WorldBible> = {};
     for (const f of CHAPTER_FIELDS) {
       const v = (g.world_bible ?? {})[f];
-      if (typeof v === "string" && v.trim()) (carried as any)[f] = v.trim();
+      if (typeof v !== "string" || !v.trim()) continue;
+      // ── THE WORLD IS NOT ADDRESSED TO THE PLAYER ────────────────────────────────────────────
+      // These two fields describe the world: what the factions did, what ordinary people worry
+      // about at night. The prompt says so, and the prompt was not enough — one branch turned
+      // "King Aldric's authority is collapsing inward, the northern barons have gone from
+      // withholding tribute to raising their own levies" into "King Aldric's crown is a ruin held
+      // together by fear of YOU", and turned a plain line about hunger and illness into "the
+      // God-Duke's mood. That a gift has a hidden price." Both then feed the narrator every turn
+      // as standing world-truth, which is how a whole world comes to be about the player's moral
+      // condition. Second person here is the reliable tell, so enforce it in code: a field written
+      // AT the player is not a description of the world, and the previous chapter's stands.
+      if (f === "political_situation" && /\byou(r|rs|rself)?\b/i.test(v)) {
+        console.warn(`[chapter] rejected ${f} — written at the player rather than about the world: ${v.slice(0, 120)}`);
+        continue;
+      }
+      (carried as any)[f] = v.trim();
     }
     const dropped = Object.keys(g.world_bible ?? {}).filter((k) => !CHAPTER_FIELDS.includes(k as any));
     if (dropped.length) console.info(`[chapter] ignored unrequested world_bible fields: ${dropped.join(", ")}`);
@@ -643,6 +680,31 @@ export const api = {
     return clientView(s);
   },
 
+  /**
+   * RETIRE A THREAD the player is done with.
+   *
+   * A thread is read by the narrator every single turn as a live question the story is carrying,
+   * and until now there was no way to close one except the raw JSON editor. That is how a player
+   * who deleted every mention of the supernatural from their world bible kept getting it anyway:
+   * the material had long since moved into threads — "a shadow-creature approaches the northern
+   * road", tension 8 — where editing the bible could not reach it, and the engine dutifully fed it
+   * back on every call. Retiring marks the thread resolved rather than deleting it, so the history
+   * stays honest about what the story once was.
+   */
+  retireThread: async (id: string, thread_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const t = s.world.threads.find((x) => x.id === thread_id);
+    if (!t) throw new Error("No such thread.");
+    t.status = "resolved";
+    t.turn_resolved = s.world.current_turn;
+    // The pressure system re-opens a thread it still sees momentum behind, so drain the tension
+    // too — a resolved thread at tension 8 is an invitation to revive it.
+    t.tension = 0;
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
   editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string; population?: { scale: number; who: string } }): Promise<ClientSave> => {
     const s = await need(id);
     const p = s.world.places[place_id];
@@ -837,6 +899,7 @@ export const api = {
       ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description, not a person.`),
       ...repairStrandedCast(s),
       ...repairPlaceDescriptions(s),
+      ...repairBibleLists(s),
     ];
     if (log.length) { s.updated_at = new Date().toISOString(); await putSave(s); }
     return { save: clientView(s), log };

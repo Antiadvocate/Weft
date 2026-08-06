@@ -342,6 +342,52 @@ const COMMON_NOUN = /^(i|me|my|we|us|our|you|your|he|him|his|she|her|hers|it|its
  * portrait. Anything a player has interacted with stays, whatever it is called; a name the player
  * can rename by hand is not worth deleting data over.
  */
+/**
+ * Split a textarea of one-per-line entries into a list. Tolerates a legacy comma-separated line so
+ * an old value pasted back in still works, but only when the user gave no line breaks at all.
+ */
+export function splitLines(text: string): string[] {
+  const raw = String(text ?? "");
+  const parts = raw.includes("\n") ? raw.split("\n") : raw.split(",");
+  return parts.map((x) => x.trim()).filter(Boolean).slice(0, 24);
+}
+
+/**
+ * REJOIN LISTS THAT A COMMA-SPLIT SHREDDED.
+ *
+ * `pressure_palette` and `forbidden_as_primary` were edited as one comma-separated line and saved
+ * with `split(",")`, so every entry containing a comma broke in two — and did it again on the next
+ * save. One save's palette had decayed into seven fragments, three of them beginning with "and":
+ *   ["The king's spies are everywhere", "and Rabi's power could be seen as a threat or a tool.", …]
+ * and its forbidden list read ["Political intrigue without immediate", "Moralizing about power…"],
+ * where the first entry has lost the words that gave it meaning. The narrator was being handed
+ * sentence fragments as genre law every turn.
+ *
+ * The editor now uses newlines, which stops it happening again. This puts back together what is
+ * already in saves: an entry that opens in lower case is not a new item, it is the tail of the one
+ * above it. Entries that were always fine are untouched.
+ */
+export function repairBibleLists(state: SaveState): string[] {
+  const shifts: string[] = [];
+  for (const field of ["pressure_palette", "forbidden_as_primary"] as const) {
+    const list = (state.world_bible as any)[field] as string[] | undefined;
+    if (!Array.isArray(list) || list.length < 2) continue;
+    const out: string[] = [];
+    let joined = 0;
+    for (const item of list.map((x) => String(x ?? "").trim()).filter(Boolean)) {
+      // A continuation: begins lower-case, and the entry above it did not end in a full stop.
+      const isTail = /^[a-z]/.test(item) && out.length > 0 && !/[.!?]$/.test(out[out.length - 1]);
+      if (isTail) { out[out.length - 1] = `${out[out.length - 1]}, ${item}`; joined++; }
+      else out.push(item);
+    }
+    if (joined) {
+      (state.world_bible as any)[field] = out;
+      shifts.push(`${field.replace(/_/g, " ")}: rejoined ${joined} fragment${joined === 1 ? "" : "s"} a comma-split had broken off.`);
+    }
+  }
+  return shifts;
+}
+
 export function pruneParseArtifacts(state: SaveState): string[] {
   const removed: string[] = [];
   for (const [id, c] of Object.entries(state.characters)) {

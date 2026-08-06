@@ -17,12 +17,14 @@
 import type { WorldBible } from "../src/engine/types";
 
 /** The merge api.newSeason performs. Mirrored here so the whitelist is pinned. */
-const CHAPTER_FIELDS = ["name", "political_situation", "what_people_fear", "narrator_direction", "start_date"] as const;
+const CHAPTER_FIELDS = ["name", "political_situation", "start_date"] as const;
 function mergeChapterBible(prev: WorldBible, returned: any): WorldBible {
   const carried: Partial<WorldBible> = {};
   for (const f of CHAPTER_FIELDS) {
     const v = (returned ?? {})[f];
-    if (typeof v === "string" && v.trim()) (carried as any)[f] = v.trim();
+    if (typeof v !== "string" || !v.trim()) continue;
+    if (f === "political_situation" && /\byou(r|rs|rself)?\b/i.test(v)) continue;
+    (carried as any)[f] = v.trim();
   }
   return { ...prev, ...carried, name: carried.name || `${prev.name} — Next Chapter` };
 }
@@ -75,16 +77,63 @@ const base = {
   check("nor the world's own rules", out.magic_rules === "rare" && out.era === "medieval");
 }
 
-/* 3. the five requested fields all still work, and blanks do not wipe anything */
+/* 3. the requested fields all still work, and blanks do not wipe anything */
 {
   const out = mergeChapterBible(base, {
     political_situation: "  ", what_people_fear: "", narrator_direction: "keep it quiet and small",
     start_date: "1187-04-02",
   });
   check("a blank does not erase the previous value", out.political_situation === "strained", out.political_situation);
-  check("narrator_direction carries", out.narrator_direction === "keep it quiet and small");
+  check("narrator_direction is no longer the model's to write", out.narrator_direction === undefined, out.narrator_direction);
   check("start_date carries", out.start_date === "1187-04-02");
   check("an absent world_bible entirely is survivable", mergeChapterBible(base, undefined).tone === "warm picaresque adventure");
+}
+
+/* 5. THE PLAYER'S STANDING DIRECTION IS THE PLAYER'S.
+ *
+ * `narrator_direction` was on the whitelist and is the same category as `tone`: a standing order
+ * the narrator reads on every call. A player deleted theirs — it had acquired an editorial thesis
+ * about their character that nobody asked for — branched the story, and got a regenerated one back
+ * saying the same thing. Clearing a field is a choice. */
+{
+  const authored = { ...base, narrator_direction: "" } as WorldBible;
+  const out = mergeChapterBible(authored, {
+    political_situation: "The barons field open armies.",
+    narrator_direction: "Rabi is lonely, lethal, and privately ruled by his hunger for women's bare feet — write him plainly, self-loathing and dangerous. The world answers him with fear.",
+  });
+  check("a direction the player deleted stays deleted", out.narrator_direction === "", out.narrator_direction);
+  check("the world update still lands", out.political_situation === "The barons field open armies.");
+
+  const kept = { ...base, narrator_direction: "Keep it light. No gore." } as WorldBible;
+  const out2 = mergeChapterBible(kept, { narrator_direction: "Let the loneliness sit heavy." });
+  check("a direction the player wrote is not overwritten", out2.narrator_direction === "Keep it light. No gore.", out2.narrator_direction);
+}
+
+/* 6. THE WORLD IS DESCRIBED, NOT ADDRESSED TO THE PLAYER.
+ *
+ * These two fields feed the narrator every turn as standing world-truth. One branch turned a plain
+ * account of a succession crisis into "a crown held together by fear of YOU", and turned "hunger,
+ * illness, death, typical of the medieval era" into "the God-Duke's mood. That a gift has a hidden
+ * price." — which is a moral verdict on the player installed as a law of the world, and, in that
+ * save, the reason every gift the player gave was met with a demand for payment. */
+{
+  const out = mergeChapterBible(base, {
+    political_situation: "King Aldric's crown is a ruin held together by fear of you — the barons field open armies.",
+    what_people_fear: "The God-Duke's mood. That a gift has a hidden price.",
+  });
+  check("a political situation written at the player is rejected", out.political_situation === "strained", out.political_situation);
+  // No second person to catch here, and no reliable way to spot a verdict in code — so this field
+  // simply stops being the chapter forge's to write. The player's own line stands.
+  check("what people fear is not regenerated at all", out.what_people_fear === "the tax men", out.what_people_fear);
+
+  const clean = mergeChapterBible(base, {
+    political_situation: "The northern barons have gone from withholding tribute to raising their own levies; the succession is unsettled.",
+  });
+  check("an actual description of the world is carried", /northern barons/.test(clean.political_situation), clean.political_situation);
+  check("'your' is caught as well as 'you'",
+    mergeChapterBible(base, { political_situation: "The barons move against your holdings." }).political_situation === "strained");
+  check("a word merely containing 'you' is not a false positive",
+    /young/.test(mergeChapterBible(base, { political_situation: "The young king is dying of fever." }).political_situation));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
