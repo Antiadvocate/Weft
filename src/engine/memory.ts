@@ -410,7 +410,31 @@ function fuzzedWhen(m: EpisodicMemory, full: boolean): string {
   return anchor || "a while back";
 }
 
-export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0): string {
+/**
+ * A BELIEF ABOUT SOMEBODY WHO IS NO LONGER STANDING.
+ *
+ * Beliefs are written in the present tense as live guidance — "Andrea is the only one who speaks
+ * plainly to me, and her advice to slow down was right" — and nothing ever revisits them. That one
+ * was formed on turn 175, about a woman the player had already killed, and went on being served to
+ * the narrator as the player's current read of the world. The belief is not wrong to exist; people
+ * do hold convictions about the dead. It is wrong to be in the present tense with no marker, which
+ * is what makes a player look at their own recorded beliefs and not recognise the person holding
+ * them. `gone` maps lowercase name → "dead" | "departed".
+ */
+export function beliefLine(content: string, gone: Map<string, string>): string {
+  const text = content.length > 180 ? content.slice(0, 178).trimEnd() + "…" : content;
+  const hits: string[] = [];
+  for (const [name, how] of gone) {
+    if (name.length < 3) continue;
+    // match case-insensitively but report the name as the belief spells it, so the annotation
+    // does not read like a different person to the one the sentence is about
+    const m = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").exec(text);
+    if (m) hits.push(`${m[0]} is ${how}`);
+  }
+  return hits.length ? `${text} [${hits.slice(0, 2).join("; ")} — this is held ABOUT the past, not a live read of the present]` : text;
+}
+
+export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0, gone: Map<string, string> = new Map()): string {
   const parts: string[] = [];
   if (mem.core.length) parts.push(`CORE: ${mem.core.join(" | ")}`);
   // the fact ledger: verified declarative knowledge, never decayed — most query-relevant few + newest
@@ -432,7 +456,7 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
       parts.push(`ONCE BELIEVED, NOW KNOWS BETTER (never state the old version as true): ${corrected.map((f) => `"${clipF(f.content)}" → ${clipF(f.superseded_by!)}`).join(" | ")}`);
     }
   }
-  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => (b.content.length > 180 ? b.content.slice(0, 178).trimEnd() + "…" : b.content)).join(" | ")}`);
+  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => beliefLine(b.content, gone)).join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
   // ── RECENCY FLOOR ──────────────────────────────────────────────────────────
   // Retrieval is relevance-ranked, and word-overlap relevance is nearly flat across a long

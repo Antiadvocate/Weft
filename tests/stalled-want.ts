@@ -18,6 +18,8 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { tickDrives, edgeNote, applyEdgeDelta, getEdge, STALLED_WANT_TURNS, NOTE_FRESH_TURNS, NOTE_STALE_TURNS } from "../src/engine/social";
 import { nagDirective } from "../src/engine/turn";
+import { beliefLine } from "../src/engine/memory";
+import { REFLECTION_SYSTEM } from "../src/engine/prompts";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -193,6 +195,53 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
     /the condition for success is revealed only after they have failed it/.test(d), d);
   check("a still-open want has to name what is concretely missing", /name it in one clause/.test(d));
   check("and the manner is explicitly not that thing", /"It wasn't said the right way" is not a concrete thing missing/.test(d));
+}
+
+/* MY OWN BELIEFS MAKE NO SENSE. I BELIEVE ANDREA?
+ *
+ * The player's belief ledger, straight out of the save:
+ *
+ *   t145  "Andrea sees what I cannot — she may be the only one who will tell me the truth."
+ *   t155  "Andrea is right that I have moved too fast for them to trust me."
+ *   t175  "Andrea is the only one who speaks plainly to me, and her advice to slow down was right."
+ *
+ * Their edge toward Andrea on those exact turns, read off the telemetry: -97, -98.5, -100. She had
+ * also been dead for the last one. The reflection pass was given a name, an acquaintance label, a
+ * goal, its existing beliefs and twenty episodic memories — and nothing about how the character
+ * stands with anyone, or who is still alive. Andrea did say useful things in those memories, so
+ * with no counterweight the model concluded she was the truth-teller, while the ledger recorded
+ * total hatred and the world recorded a corpse. */
+{
+  const gone = new Map<string, string>([["andrea", "dead"], ["father caelus", "departed"]]);
+
+  const live = beliefLine("Andrea is the only one who speaks plainly to me, and her advice to slow down was right.", gone);
+  check("a belief about the dead is marked as such", /Andrea is dead/.test(live), live);
+  check("and marked as history rather than a live read", /not a live read of the present/.test(live), live);
+  check("the belief itself is not destroyed", live.startsWith("Andrea is the only one"), live);
+
+  check("someone who merely left is marked too",
+    /Father Caelus is departed/i.test(beliefLine("Father Caelus will bring the Church down on me.", gone)));
+
+  const clean = "The peasants are slow to trust and need time to come to me on their own terms.";
+  check("a belief about nobody in particular is untouched", beliefLine(clean, gone) === clean);
+  check("a belief about the living is untouched",
+    beliefLine("Mable is waiting for me to say it plainly.", gone) === "Mable is waiting for me to say it plainly.");
+  check("no dead cast, nothing annotated", beliefLine("Andrea was right.", new Map()) === "Andrea was right.");
+
+  // substring collisions must not fire — "Andreas" is not "Andrea"
+  check("a longer name containing the dead one does not match",
+    beliefLine("Andreas the mason still owes me for the winter.", gone) === "Andreas the mason still owes me for the winter.",
+    beliefLine("Andreas the mason still owes me for the winter.", gone));
+
+  const long = "x".repeat(300);
+  check("an over-long belief is still clipped", beliefLine(long, gone).length < 200);
+
+  // and the pass that WRITES beliefs is now told the standing, so these cannot be born
+  const R = REFLECTION_SYSTEM;
+  check("the standing block is declared binding on beliefs", /A BELIEF MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS/.test(R));
+  check("it says the standing outranks the memories", /That block outranks your reading of the memories, always/.test(R));
+  check("it names the helpful-but-hated case explicitly", /the conviction that forms is NOT "she was the only one who told me the truth"/.test(R));
+  check("and the dead are required to be past tense", /THE DEAD AND THE GONE ARE PAST TENSE/.test(R));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

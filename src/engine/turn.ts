@@ -2612,9 +2612,39 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     ev.onPhase("reflection");
     try {
       const recent = mem.episodic.slice(-20).map((m) => `[T${m.turn}, imp ${m.importance}] ${m.content}`).join("\n");
+      // ── HOW THEY ACTUALLY STAND WITH THE PEOPLE IN THESE MEMORIES ────────────────────────────
+      // Reflection was given a name, an acquaintance label, a goal, its existing beliefs, a note on
+      // its nervous system, and twenty episodic memories. Nothing about who anyone IS to it now,
+      // and nothing about who is still alive. So it read the memories at face value and wrote what
+      // they appeared to say. One player's own belief list came out of this:
+      //
+      //   t145  "Andrea sees what I cannot — she may be the only one who will tell me the truth."
+      //   t155  "Andrea is right that I have moved too fast for them to trust me."
+      //   t175  "Andrea is the only one who speaks plainly to me, and her advice was right."
+      //
+      // Their edge toward Andrea, read off the telemetry for those exact turns: -97, -98.5, -100.
+      // She had also been dead since before the last one. Andrea did say useful things in those
+      // memories, so with no counterweight the model concluded she was the truth-teller — while the
+      // ledger recorded total hatred and the world recorded a corpse. The player read their own
+      // beliefs back and did not recognise the person holding them, which is exactly right: nobody
+      // held them. Give the pass the standing and the status, and none of those lines can be written.
+      const standing = Object.entries(state.characters)
+        .filter(([oid]) => oid !== id)
+        .map(([oid, oc]) => {
+          const e = state.world.edges.find((x) => x.from === id && x.to === oid);
+          const named = new RegExp(`\\b${(oc.name.split(/\s+/)[0] ?? "").toLowerCase()}\\b`).test(recent.toLowerCase());
+          if (!named && !e) return "";
+          const gone = oc.status === "dead" || oc.status === "departed" ? `, ${oc.status.toUpperCase()}` : "";
+          return e
+            ? `${oc.name}: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.roles?.length ? `, ${e.roles.join("/")}` : ""}${gone}`
+            : `${oc.name}: no relationship on record${gone}`;
+        })
+        .filter(Boolean)
+        .slice(0, 10)
+        .join(" | ");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;

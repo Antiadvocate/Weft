@@ -21,6 +21,17 @@ import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
 import { edgeNote } from "./social";
 
+/** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
+ *  present tense and never revisited, so without this the narrator is handed "Andrea is the only
+ *  one who speaks plainly to me" as a live read, about a woman the player killed. */
+export function goneMap(state: SaveState): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const c of Object.values(state.characters)) {
+    if (c.status === "dead" || c.status === "departed") m.set(c.name.trim().toLowerCase(), c.status);
+  }
+  return m;
+}
+
 export const NARRATOR_SYSTEM = `You are the Narrator of a persistent world engine. Render the world one turn at a time. Do not generate quests; respond to what the player does.
 
 AUTHORITY ORDER (highest first):
@@ -372,6 +383,9 @@ HOW LONG HAVE THEY KNOWN THIS PERSON? You are given the elapsed in-world time. C
 
 A BELIEF IS NOT A SUMMARY OF THE PLOT. \"Her father's ship is coming in three days\" is a fact she holds, not a conviction — facts belong elsewhere and you should not restate them here. A belief is a standing disposition toward a person or a situation that changes how she ACTS: what she expects, what she braces for, who she credits. If your line reads like a sentence from a story synopsis, it is wrong.
 
+A BELIEF MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS. You are given their current warmth and trust toward everyone in these memories, and whether that person is dead or gone. That block outranks your reading of the memories, always. Memories record what somebody SAID and DID; the standing records what this character made of it, over a much longer stretch than the twenty lines you can see. So when a memory shows someone being helpful, insightful or right, and the standing toward them is hatred, the conviction that forms is NOT "she was the only one who told me the truth" — it is about the hatred, or about the fact that the true thing came from someone they cannot bear. One player's own belief list read "Andrea sees what I cannot; she may be the only one who will tell me the truth" while their warmth toward Andrea was -97, and a later one called her advice right after they had killed her. Read those back and you do not recognise the person holding them.
+THE DEAD AND THE GONE ARE PAST TENSE. Never write a conviction about someone marked dead or departed as a live, present-tense read of the world ("X is the only one who speaks plainly to me"). What they were, what they did, and what it cost — past tense, and never as current guidance.
+
 ONE CONVICTION PER SUBJECT. If she already holds a belief about this thing, do not write a second one beside it in different words — write the UPDATED version, or write nothing. Returning a rephrasing of an existing belief is the most common failure here. Weigh the "Nervous system this period" note: the SAME events produce different convictions in a body that spent the period braced (protective, absolute, suspicious readings) versus one that spent it settled (generous, revisable readings) — belief is shaped by the state it was formed in, not just the facts — convictions, attachments, or learned wariness they would actually hold. First person is not required; write as compact third-person convictions ("She trusts Kael with her life now", "The docks are not safe after the horn"). ALSO review their ACTIVE GOAL (given below) against what the memories show: has it been achieved, become impossible, or is it blocked because its target is elsewhere? Output ONLY JSON: {"beliefs":[{"content":"","confidence":0.8}],"drive_review":{"status":"active|complete|impossible","new_goal":"only if status is complete/impossible AND no queued goal exists — one concrete want in their voice, arising from these memories","blocker":"only if blocked — the operative obstacle, e.g. \'must find Rabi first — he is elsewhere\'"}}`;
 
 export const MEMORY_CONDENSE_SYSTEM = `You are the Bookkeeper performing a CONTEXT REFRESH — condensing one character's long, fragmented episodic memory into a small set of clean, accurate memories, WITHOUT losing what actually happened. No time passes; this is the same moment, just tidied.
@@ -582,7 +596,7 @@ export function deltaNote(state: SaveState, query: string): string {
     if (dv) lines.push(`  changed since snapshot (this is their CURRENT state, overriding the anchor) → ${dv}`);
     const mem = state.memory[id];
     if (mem) {
-      const digest = compactMemoryDigest(mem, query, turn, 2, state.world.current_time, cond.psyche.relaxation);
+      const digest = compactMemoryDigest(mem, query, turn, 2, state.world.current_time, cond.psyche.relaxation, goneMap(state));
       const recalls = digest.split("\n").find((l) => l.startsWith("RECALLS"));
       if (recalls) lines.push(`  ${recalls}`);
     }
@@ -1233,7 +1247,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       const mem = state.memory[id];
       if (mem) {
         const memK = detail >= 2 ? (isPlayer ? Math.min(4, k) : k) : Math.min(2, k);
-        const digest = compactMemoryDigest(mem, query, turn, memK, state.world.current_time, cond?.psyche?.relaxation ?? 0);
+        const digest = compactMemoryDigest(mem, query, turn, memK, state.world.current_time, cond?.psyche?.relaxation ?? 0, goneMap(state));
         if (digest) lines.push(digest.split("\n").map((l) => "  " + l).join("\n"));
       }
     }
