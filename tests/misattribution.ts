@@ -16,6 +16,7 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, repairBibleLists, splitLines, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
+import { isSketch } from "../src/engine/sketch";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
 
@@ -507,6 +508,89 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   check("a legacy single-line value still splits on commas",
     splitLines("Money, The weather, A rival").length === 3);
   check("blank lines are dropped", splitLines("a\n\n\nb").length === 2);
+}
+
+/* 18. "SHE" KEEPS BECOMING A CHARACTER.
+ *
+ * isPersonName holds COMMON_NOUN — every pronoun, every role, every abstraction people say out
+ * loud — and it was being applied to the quoted self-introduction and to NOTHING ELSE. The two
+ * speech-verb paths, which do most of the detecting, ran with no vocabulary check at all. So
+ * `"Go away," She said` cleared every remaining test and put a cast member called She in the
+ * story, over and over, in a save that also held Wife, Dinner and Cost. */
+{
+  const cast = (action: string, prose: string) => {
+    const s = newSave("she", { name: "V" } as any);
+    s.world.places["loc_x"] = { id: "loc_x", name: "X", description_facts: "", contains: [] };
+    s.world.player_location = "loc_x";
+    registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+    applyDiff(s, {} as unknown as SimulatorDiff, action, prose);
+    return Object.values(s.characters).map((c: any) => c.name).filter((n) => n !== "Rabi");
+  };
+
+  check("the exact line: a capitalised pronoun after a quote", cast("I listen", `"Go away," She said, and shut the door.`).length === 0,
+    cast("I listen", `"Go away," She said, and shut the door.`));
+  check("and repeated across a turn", cast("I listen", `"I won't," She replied. Later, She added, "Not for you."`).length === 0);
+  check("a pronoun opening a sentence is not a person", cast("I listen", `The room was still. She said nothing, and the fire cracked.`).length === 0);
+  check("roles and meals are caught by the same gate",
+    cast("I listen", `Dinner said nothing because Dinner is not a person, and Wife said less.`).length === 0);
+  check("an abstraction said aloud is not a person",
+    cast("I listen", `The pilgrims knelt. Everlasting said nothing. The light was everlasting and cold.`).length === 0);
+  check("nor is a gerund", cast("I listen", `Hiding said nothing. The thing in the glass was hiding from the light.`).length === 0);
+  check("institutions still blocked", cast("I wait", `The Church replied through its legate; the Crown said nothing at all.`).length === 0);
+
+  // and the path still does its actual job
+  check("a real speaker after a closing quote still registers",
+    cast("I wait", `Allison set the ledger down. "You should go," Allison said, and did not look up.`).includes("Allison"));
+  check("a real speaker named repeatedly still registers",
+    cast("I wait", `Marek shrugged. "It's done," Marek muttered, and Marek walked out.`).includes("Marek"));
+}
+
+/* 19. AND A PHANTOM MUST NOT BE LAUNDERED INTO A PERSON.
+ *
+ * The worst part of that save was not that the phantoms existed, it was that they could not be
+ * removed. Sketch completion had written four of them careful backstories — "Born to the
+ * pidgin-speaking coastal traders…", "A laundress of Thornwood, born poor…" — which DESTROYS the
+ * INCOMPLETE RECORD marker pruneParseArtifacts uses to recognise an auto-registered stub. Only
+ * Cost, which the pass had not reached yet, could still be repaired. And every one of them owned a
+ * fistful of edges at warmth 0, because seedAttraction runs on everyone present the turn they
+ * appear — so the "is anything attached to this record?" guard was satisfied automatically. */
+{
+  check("a phantom is never sent for a backstory",
+    !isSketch({ character_id: "c1", name: "She", background: "INCOMPLETE RECORD — entered the story in prose." } as any));
+  check("nor is a role-noun", !isSketch({ character_id: "c2", name: "Wife", provisional: true } as any));
+  check("a real hollow record still is",
+    isSketch({ character_id: "c3", name: "Mable", background: "INCOMPLETE RECORD — the player made her." } as any));
+
+  // the exact save shape: a phantom with a written background, no marker, and six neutral edges
+  const s = newSave("laundered", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  const she = registerCharacter(s, { name: "She", central: false, background: "Born to a farming and stock-slaughtering family in the low country." } as any);
+  const real = registerCharacter(s, { name: "Mable", central: true, background: "Made by Rabi on the terrace." } as any);
+  for (const other of ["char_player", real]) {
+    s.world.edges.push({ from: she, to: other, warmth: 0, trust: 0, power: 0, notes: "", updated_turn: 1 } as any);
+    s.world.edges.push({ from: other, to: she, warmth: 0, trust: 0, power: 0, notes: "", updated_turn: 1 } as any);
+  }
+  s.memory[she].episodic = [{ turn: 1, content: "Stood in the room.", importance: 2 } as any];
+
+  const removed = pruneParseArtifacts(s);
+  check("a backstory no longer protects a phantom", removed.includes("She"), removed);
+  check("the record is actually gone", !s.characters[she]);
+  check("its dead edges go with it", !s.world.edges.some((e) => e.from === she || e.to === she));
+  check("the real person is untouched", !!s.characters[real]);
+
+  // an edge that has genuinely MOVED still protects a record
+  const s2 = newSave("attached", { name: "V" } as any);
+  registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
+  const nm = registerCharacter(s2, { name: "Cost", central: false, provisional: true } as any);
+  s2.world.edges.push({ from: nm, to: "char_player", warmth: -30, trust: -12, power: 0, notes: "", updated_turn: 9 } as any);
+  check("a record with a real relationship is left for the player to judge", !pruneParseArtifacts(s2).includes("Cost"));
+  check("and a role on the edge protects it too", (() => {
+    const s3 = newSave("roled", { name: "V" } as any);
+    registerCharacter(s3, { name: "Rabi", character_id: "char_player" } as any);
+    const id = registerCharacter(s3, { name: "Wife", central: false, provisional: true } as any);
+    s3.world.edges.push({ from: id, to: "char_player", warmth: 0, trust: 0, power: 0, roles: ["wife"], notes: "", updated_turn: 4 } as any);
+    return !pruneParseArtifacts(s3).includes("Wife");
+  })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

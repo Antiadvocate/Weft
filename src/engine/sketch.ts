@@ -23,6 +23,7 @@
  * systems was using it: the player's own words creating them, and the prose that rendered them.
  */
 import type { Identity, SaveState } from "./types";
+import { isPersonName } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { asList, asText } from "./coerce";
 
@@ -61,6 +62,15 @@ Output ONLY this JSON:
 export function isSketch(c: Identity | undefined): boolean {
   if (!c || c.character_id === "char_player") return false;
   if (c.status === "dead" || c.status === "departed") return false;
+  // A PHANTOM IS NOT A SKETCH. This pass exists to finish the record of a real person who entered
+  // from prose, and it was finishing the record of parse debris instead — with the worst possible
+  // consequence, because writing them a background DESTROYS the "INCOMPLETE RECORD" marker that
+  // pruneParseArtifacts uses to recognise an auto-registered stub. One save's cast held She, Wife,
+  // Dinner, Cost and Everlasting; four of them had been given careful backstories ("Born to the
+  // pidgin-speaking coastal traders…", "A laundress of Thornwood, born poor…") and were therefore
+  // permanently unprunable. Only Cost, which the pass had not reached yet, could still be repaired.
+  // If the name is not a person's name, there is nothing here to complete.
+  if (!isPersonName(c.name ?? "")) return false;
   const blankAppearance = !asText(c.appearance_facts, " ").trim();
   const blankTraits = asList(c.core_traits).length === 0;
   const stubBackground = /^INCOMPLETE RECORD\b/.test(asText(c.background, " "));

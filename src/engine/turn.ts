@@ -393,16 +393,34 @@ export function pruneParseArtifacts(state: SaveState): string[] {
   for (const [id, c] of Object.entries(state.characters)) {
     if (id === "char_player") continue;
     if (isPersonName(c.name)) continue;
-    const auto = c.provisional === true || /^INCOMPLETE RECORD\b/.test(c.background ?? "");
+    // The `auto` test used to gate on the INCOMPLETE RECORD marker, which the sketch-completion
+    // pass overwrites the moment it fleshes a record out — so a phantom that had been given a
+    // backstory stopped looking auto-registered and became permanently unremovable. The name is
+    // the durable signal and isPersonName above has already rejected it: nobody real is called She
+    // or Dinner. Authored cast still needs protecting, so an explicit portrait or a hand-written
+    // record below is what saves a character, not a paragraph a model wrote about them.
+    const auto = c.provisional === true || /^INCOMPLETE RECORD\b/.test(c.background ?? "") || c.central === false;
     if (!auto) continue;
-    const hasEdges = state.world.edges.some((e) => e.from === id || e.to === id);
+    // AN EDGE IS NOT ATTACHMENT WHEN THE ENGINE CREATED IT. Every character present in a scene gets
+    // seedAttraction run against everyone else on the turn they appear, so a phantom owns a fistful
+    // of edges before it has done anything — six of them, all at warmth 0 / trust 0, in the save
+    // that prompted this. The guard meant to protect real relationships was therefore satisfied by
+    // every phantom automatically, which is why the repair button never removed any of them. Only
+    // an edge that has actually MOVED counts.
+    const movedEdge = state.world.edges.some((e) =>
+      (e.from === id || e.to === id) &&
+      (Math.abs(e.warmth) >= 5 || Math.abs(e.trust) >= 5 || (e.roles?.length ?? 0) > 0 || (e.notes ?? "").trim().length > 0));
     const mem = state.memory[id];
-    const attached = hasEdges || c.portrait_url || (mem?.core?.length ?? 0) > 0 || (mem?.episodic?.length ?? 0) > 1;
+    const attached = movedEdge || c.portrait_url || (mem?.core?.length ?? 0) > 0 || (mem?.episodic?.length ?? 0) > 1;
     if (attached) continue;
     delete state.characters[id];
     delete state.memory[id];
     delete state.condition[id];
     delete state.traits[id];
+    // and take the dead edges with it — otherwise the save keeps a fistful of relationships
+    // pointing at an id nothing resolves, which is how a deleted phantom went on showing up in the
+    // relationship telemetry as a person the player had feelings about.
+    state.world.edges = state.world.edges.filter((e) => e.from !== id && e.to !== id);
     state.world.present = state.world.present.filter((x) => x !== id);
     for (const p of Object.values(state.world.places)) p.contains = p.contains.filter((x) => x !== id);
     removed.push(c.name);
@@ -3362,6 +3380,20 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       const raw = m[1], key = raw.toLowerCase();
       if (known.has(key) || NOT_A_NAME.has(key) || INSTITUTION.test(key)) continue;
       if (raw.includes("'")) continue;                       // "He'll", "That's" — never a name
+      // THE SAME GATE THE INTRO PATH USES. isPersonName holds the COMMON_NOUN list — every pronoun,
+      // every role, every abstraction people say out loud — and it was applied to the quoted
+      // self-introduction and to nothing else, so the two paths that actually do most of the
+      // detecting were running with no vocabulary check at all. `"Go away," She said` cleared every
+      // remaining test and put a cast member called She in the story, repeatedly, in one save
+      // alongside Wife, Dinner and Cost. One gate, on all three paths.
+      if (!isPersonName(raw)) continue;
+      // LOWERCASE ELSEWHERE MEANS COMMON NOUN — the same test the intro path uses, and for the same
+      // reason. COMMON_NOUN is a list and lists end; this is the general form. `Everlasting said
+      // nothing` and `Hiding said nothing` both survive every other check, and the giveaway is that
+      // the identical word appears in lower case somewhere else in the turn, which a real name never
+      // does. It costs the occasional character named Rose or Will, and a miss costs one uncredited
+      // walk-on while a false positive costs a permanent fictional person with a voice card.
+      if (new RegExp(`\\b${raw.toLowerCase()}\\b`).test(`${prose} ${action}`.replace(new RegExp(`\\b${raw}\\b`, "g"), ""))) continue;
       // Must also appear mid-sentence somewhere: a real person gets referred to, not just used to
       // open a sentence before a verb that happens to be in the list. A name directly after a
       // closing quote counts — `"You should go," Allison said` is the single most common way a
