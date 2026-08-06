@@ -8,7 +8,7 @@ import type {
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon } from "../engine/state";
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
-import { runTurn, syncPresence, resolvePlace } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -1082,6 +1082,10 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     s.updated_at = new Date().toISOString();
     s.imported_from = _weft;   // keep the provenance of what was imported, for bug reports
     s.snapshots ??= []; s.telemetry ??= []; s.pressure_trace ??= []; s.history ??= [];
+    // Saves written before the footer parser was fixed carry cast members made out of fragments of
+    // somebody's description. Drop the ones nothing is attached to; see pruneParseArtifacts.
+    const junk = pruneParseArtifacts(s);
+    if (junk.length) console.info(`[import] removed ${junk.length} parse artifact(s) from the cast: ${junk.join(", ")}`);
     await putSave(s);
     return clientView(s);
   },

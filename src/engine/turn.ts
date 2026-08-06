@@ -280,6 +280,77 @@ export function parseSceneFooter(text: string): { prose: string; footer: SceneFo
   return splitAt(text, at);
 }
 
+/** Split a comma/semicolon list, ignoring separators inside parentheses. `a (x, y), b` → ["a (x, y)", "b"]. */
+export function splitOutsideParens(v: string): string[] {
+  const out: string[] = [];
+  let depth = 0, cur = "";
+  for (const ch of v) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    if ((ch === "," || ch === ";") && depth === 0) { out.push(cur.trim()); cur = ""; continue; }
+    cur += ch;
+  }
+  out.push(cur.trim());
+  return out.filter(Boolean);
+}
+
+/** Strip the debris a truncated or malformed footer leaves on a name. */
+function cleanName(raw: string): string {
+  return String(raw).replace(/[()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+}
+
+/**
+ * Is this a person's NAME, or a fragment of somebody's description?
+ *
+ * The creation path had no such check, so any string that survived the split became a character.
+ * A name has a capital letter and does not read as a clause: "wary and calculating" and "broad and
+ * grey-bearded" are traits and appearance, and both ended up in a cast as people with voices.
+ */
+export function isPersonName(name: string): boolean {
+  const n = name.trim();
+  if (n.length < 2 || n.length > 60) return false;
+  if (!/[A-Z]/.test(n)) return false;                    // a real name is capitalised somewhere
+  if (/^(the|a|an)\s+\w+$/i.test(n)) return false;       // "the captain" is a role, not a name
+  if (/\b(and|but|with|who|which|that|wearing|holding)\b/i.test(n)) return false; // a clause
+  if (n.split(/\s+/).length > 5) return false;           // a sentence
+  return true;
+}
+
+/**
+ * Remove cast members that are parse debris rather than people.
+ *
+ * The footer's comma-split created characters out of fragments of somebody's description — a cast
+ * acquiring members called "wary and calculating)" and "broad and grey-bearded". The parser no
+ * longer does that, but saves already carry the ones it made, and they show up in the cast list,
+ * the paging pass, and the offstage digest forever.
+ *
+ * Deliberately narrow: only records that fail the name test AND were auto-created (an INCOMPLETE
+ * RECORD or provisional stub) AND have nothing attached — no relationships, no real memory, no
+ * portrait. Anything a player has interacted with stays, whatever it is called; a name the player
+ * can rename by hand is not worth deleting data over.
+ */
+export function pruneParseArtifacts(state: SaveState): string[] {
+  const removed: string[] = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player") continue;
+    if (isPersonName(c.name)) continue;
+    const auto = c.provisional === true || /^INCOMPLETE RECORD\b/.test(c.background ?? "");
+    if (!auto) continue;
+    const hasEdges = state.world.edges.some((e) => e.from === id || e.to === id);
+    const mem = state.memory[id];
+    const attached = hasEdges || c.portrait_url || (mem?.core?.length ?? 0) > 0 || (mem?.episodic?.length ?? 0) > 1;
+    if (attached) continue;
+    delete state.characters[id];
+    delete state.memory[id];
+    delete state.condition[id];
+    delete state.traits[id];
+    state.world.present = state.world.present.filter((x) => x !== id);
+    for (const p of Object.values(state.world.places)) p.contains = p.contains.filter((x) => x !== id);
+    removed.push(c.name);
+  }
+  return removed;
+}
+
 /** Split prose from a footer starting at `at`, parsing whatever attributes survived truncation. */
 function splitAt(text: string, at: number): { prose: string; footer: SceneFooter } {
   const attrs = text.slice(at).replace(/^<<<\s*SCENE\b/i, "").replace(/>+\s*$/, "").trim();
@@ -289,12 +360,16 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
     const r = new RegExp(`${k}\\s*=\\s*"([^"]*)(?:"|(?=\\s+(?:place|entered|left|here|new|alias)\\s*=)|>|$)`, "i").exec(attrs);
     return r ? r[1].trim() : "";
   };
-  const names = (v: string) => v.split(/[,;]/).map((x) => x.trim()).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
+  const names = (v: string) => splitOutsideParens(v).filter((x) => x && !/^(none|nobody|no ?one|-)$/i.test(x));
   // new="Pell (a weaver, mends nets on the quay)" — name outside the parens, gist inside.
+  // The list was split on every comma BEFORE the parenthetical was read, so a gist containing a
+  // comma — as the documented example itself does — was torn in half and each half registered as a
+  // person: "Pell (a weaver" and "mends nets on the quay)". That is where a cast acquires members
+  // named after fragments of somebody's description. splitOutsideParens respects the brackets.
   const created = names(grab("new")).map((entry) => {
-    const m = /^([^(]+?)\s*(?:\(([^)]*)\))?$/.exec(entry);
-    return { name: (m?.[1] ?? entry).trim().slice(0, 60), gist: (m?.[2] ?? "").trim().slice(0, 200) };
-  }).filter((c) => c.name.length >= 2);
+    const m = /^([^(]*?)\s*(?:\(([^)]*)\))?$/.exec(entry);
+    return { name: cleanName(m?.[1] ?? entry), gist: (m?.[2] ?? "").trim().slice(0, 200) };
+  }).filter((c) => isPersonName(c.name));
   // alias="Headmaster = Professor Albus Dumbledore"
   const aliases = names(grab("alias")).map((entry) => {
     const m = /^(.+?)\s*=\s*(.+)$/.exec(entry);
@@ -2954,6 +3029,47 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     if (!exists) {
       const id = uid("loc");
       state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
+    }
+  }
+
+  // ── PLACES CHANGE ── A place's description_facts is what the narrator (and the offstage world-sim,
+  // and the map) reads as CURRENTLY TRUE of that ground. Until now the only writer after creation was
+  // the player editing it by hand in the World view: the simulator could bring a place into being and
+  // never revise one. So a town the player levelled went on being described as lit, quiet, and walled
+  // in every prompt for the rest of the game, and the engine kept asserting it. A place is state, and
+  // state that only ever grows is a stage set.
+  for (const pu of diff.places_update ?? []) {
+    if (!pu?.place || !pu.description_facts?.trim()) continue;
+    const key = String(pu.place).toLowerCase().trim();
+    const place = state.world.places[pu.place]
+      ?? Object.values(state.world.places).find((p) => p.name.toLowerCase().trim() === key);
+    if (!place || place.id === "loc_offscene") continue;
+    const before = place.description_facts ?? "";
+    const next = pu.description_facts.trim().slice(0, 1200);
+    if (next === before) continue;
+    place.description_facts = next;
+    place.changed_turn = turn;
+    shifts.push(`${place.name} is not what it was${pu.note?.trim() ? ` — ${pu.note.trim()}` : ""}.`);
+    console.info(`[places] ${place.name} rewritten at turn ${turn}${pu.note ? `: ${pu.note}` : ""}`);
+  }
+
+  // BACKSTOP. When the player has plainly remade or unmade the ground under them and the bookkeeper
+  // did not revise it, the description must at least stop asserting the old truth. One dated line
+  // appended is not a rewrite — it is the ledger declining to lie until the next pass rewrites it.
+  {
+    const here = state.world.places[state.world.player_location];
+    const TRANSFORM = /\b(destroy\w*|raze\w*|level(ed|led)?|flatten\w*|burn(ed|t)? (it|this|the|down)|unmake|unmade|erase\w*|obliterat\w*|annihilat\w*|demolish\w*|rebuil\w*|remake|remade|reshape\w*|rebuild\w*|drown\w*|flood\w*|freeze|froze|wipe(d)? out)\b/i;
+    const touchedHere = here && TRANSFORM.test(action) && !(diff.places_update ?? []).some((p) => {
+      const k = String(p?.place ?? "").toLowerCase().trim();
+      return k === here.id.toLowerCase() || k === here.name.toLowerCase().trim();
+    });
+    if (touchedHere && here.changed_turn !== turn) {
+      const note = `[Day-${turn} change] The player ${action.trim().slice(0, 140)} — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`;
+      if (!here.description_facts.includes(`[Day-${turn} change]`)) {
+        here.description_facts = `${here.description_facts}\n${note}`.trim().slice(0, 1600);
+        here.changed_turn = turn;
+        shifts.push(`${here.name} has been changed by what you did; its record is flagged as out of date.`);
+      }
     }
   }
 

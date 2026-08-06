@@ -43,5 +43,6 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   rename: A(S({ who: str, new_name: str }, ["who", "new_name"])),
   bible_update: S({ political_situation: str, what_people_fear: str, technology_level: str, cultures_and_languages: str, magic_rules: str }),
   new_places: A(S({ name: str, description_facts: str }, ["name"])),
+  places_update: A(S({ place: str, description_facts: str, note: str }, ["place", "description_facts"])),
   offscreen: strA,
 }, ["scene_summary", "elapsed_minutes"]);

@@ -430,6 +430,7 @@ export interface Place {
   id: string;
   name: string;
   description_facts: string;
+  changed_turn?: number;   // last turn this place's description was rewritten by play, not by hand
   contains: string[];
   founding?: boolean;   // named at the Forge. Never evicted by the place cap; the world's spine.
 }
@@ -648,6 +649,7 @@ export interface SimulatorDiff {
   clocks_advance: { id: string; segments: number }[];
   new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];
   new_places: { name: string; description_facts: string }[];
+  places_update?: { place: string; description_facts: string; note?: string }[]; // a place the prose materially CHANGED — rewritten description_facts (see applyDiff)
   offscreen: string[];          // world-motion lines (the merged world tick)
 }
 
