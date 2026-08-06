@@ -314,8 +314,20 @@ export function isPersonName(name: string): boolean {
   if (/^(the|a|an)\s+\w+$/i.test(n)) return false;       // "the captain" is a role, not a name
   if (/\b(and|but|with|who|which|that|wearing|holding)\b/i.test(n)) return false; // a clause
   if (n.split(/\s+/).length > 5) return false;           // a sentence
+  if (COMMON_NOUN.test(n)) return false;                 // "Wife", "Dinner", "Cost", "She"
   return true;
 }
+
+/**
+ * Capitalised, and still not somebody's name. English capitalises the first word of a sentence and
+ * of a quotation, so any of these can open one — and a person repeating a word back
+ * (`"Wife," she said quietly. "Co-ruler."`) produces the exact shape of a self-introduction.
+ * One save's cast acquired Cost, She, Dinner and Wife that way.
+ *
+ * Pronouns and closed-class words first, then the common nouns that turn up in dialogue: roles and
+ * relationships, meals, times, places-in-general, and the abstractions people say aloud.
+ */
+const COMMON_NOUN = /^(i|me|my|we|us|our|you|your|he|him|his|she|her|hers|it|its|they|them|their|who|whom|whose|what|which|that|this|these|those|there|here|then|now|when|where|why|how|all|some|none|any|both|each|every|no|not|yes|so|and|or|but|if|as|at|by|for|from|in|of|on|to|up|with)$|^(wife|husband|spouse|partner|lover|mistress|widow|widower|mother|father|mum|mom|dad|papa|mama|son|daughter|child|children|baby|brother|sister|uncle|aunt|cousin|family|kin|friend|enemy|stranger|neighbou?r|master|mistress|servant|maid|cook|guard|soldier|captain|sergeant|knight|squire|lord|lady|king|queen|prince|princess|duke|duchess|baron|count|emperor|priest|father|sister|brother|bishop|abbot|monk|nun|doctor|nurse|smith|miller|baker|butcher|farmer|merchant|trader|sailor|innkeeper|landlord|steward|clerk|scribe|thief|beggar|whore|slave|god|goddess|demon|devil|angel|saint|monster|beast)$|^(breakfast|lunch|dinner|supper|tea|bread|wine|water|food|meal|money|gold|silver|coin|cost|price|payment|debt|work|business|trade|war|peace|law|justice|truth|lie|love|hate|fear|hope|death|life|time|day|night|morning|evening|winter|summer|spring|autumn|fall|home|house|town|city|village|road|gate|door|room|bed|fire|blood|name|word|answer|question|reason|place|nothing|everything|something|anything|someone|anyone|everyone|nobody|somebody|anybody|everybody)$/i;
 
 /**
  * Remove cast members that are parse debris rather than people.
@@ -3076,7 +3088,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
  * Detection is deliberately conservative — a capitalised name adjacent to a speech verb. False
  * positives cost one background character record; false negatives cost another 2026 voice.
  */
-function unregisteredSpeakers(state: SaveState, prose: string): string[] {
+function unregisteredSpeakers(state: SaveState, prose: string, action = ""): string[] {
   const known = new Set<string>();
   for (const c of Object.values(state.characters)) for (const w of c.name.split(/\s+/)) known.add(w.toLowerCase());
   for (const p of Object.values(state.world.places)) for (const w of p.name.split(/\s+/)) known.add(w.toLowerCase());
@@ -3118,6 +3130,12 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     while ((m = intro.exec(prose))) {
       const raw = m[1], key = raw.toLowerCase();
       if (known.has(key) || NOT_A_NAME.has(key) || INSTITUTION.test(key) || raw.includes("'")) continue;
+      if (!isPersonName(raw)) continue;
+      // LOWERCASE ELSEWHERE MEANS COMMON NOUN. `"Wife," she said quietly` is the exact shape of a
+      // self-introduction, and the giveaway is that the same word appears in lower case a sentence
+      // earlier — in the prose, or in what the player just typed ("You would be my wife"). A real
+      // name never does. This is the general form of a blocklist that would otherwise never end.
+      if (new RegExp(`\\b${raw.toLowerCase()}\\b`).test(`${prose} ${action}`.replace(new RegExp(`\\b${raw}\\b`, "g"), ""))) continue;
       found.set(key, raw);
     }
   }
@@ -3197,7 +3215,7 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // FALLBACK ONLY. With a footer present the narrator has already declared the cast; running the
   // regex too means a title, a nickname, or a contraction can still slip in behind it. This now
   // fires only when the footer is missing entirely — truncation, or a model that ignored the spec.
-  for (const nm of (footerSeen ? [] : unregisteredSpeakers(state, prose))) {
+  for (const nm of (footerSeen ? [] : unregisteredSpeakers(state, prose, action))) {
     if (findCharByName(state, nm)) continue;
     // KEEP WHAT THE PROSE SAID ABOUT THEM. The stub background ("nothing else is established")
     // was actively harmful: it produced a record that LOOKS complete, so nothing ever filled it in,

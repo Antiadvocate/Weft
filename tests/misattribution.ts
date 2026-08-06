@@ -14,7 +14,7 @@
  *
  * Also pinned: low warmth must not mean a publican refuses to sell a drink. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { applyDiff, repairStrandedCast, replanDrives, travelMinutesBetween, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
+import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, travelMinutesBetween, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -236,6 +236,59 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   check("a genuinely different place is not free", travelMinutesBetween(s, "Thornwood", "San Pietro") === DEFAULT_TRAVEL_MIN);
   s.world.distances = [{ from: "Thornwood", to: "San Pietro", minutes: 90 }];
   check("a recorded distance wins", travelMinutesBetween(s, "San Pietro", "Thornwood") === 90);
+}
+
+/* 11. a word repeated back is not a person */
+{
+  // The exact turn: the player offers "wife" and "co-ruler", she says the words back, and the cast
+  // gains a member called Wife. One save collected Cost, She, Dinner and Wife this way.
+  const s = newSave("nouns", { name: "V" } as any);
+  s.world.places["loc_floor"] = { id: "loc_floor", name: "Rabi's floor", description_facts: "", contains: [] };
+  s.world.player_location = "loc_floor";
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  const before = Object.keys(s.characters).length;
+  applyDiff(s, {} as unknown as SimulatorDiff,
+    `"You would be my wife. You would be the co-ruler." I say as I walk away.`,
+    `"Wife," she said quietly. "Co-ruler. You say it walking away, like it's a thing you're leaving on the table."`);
+  check("nobody named Wife joins the cast", Object.keys(s.characters).length === before,
+    Object.values(s.characters).map((c: any) => c.name));
+
+  for (const [word, line] of [
+    ["She", `"She," he said. "You keep saying she."`],
+    ["Dinner", `"Dinner," she said, and set down the pot of dinner.`],
+    ["Cost", `"Cost," the factor repeated. "You want to talk about cost."`],
+  ] as [string, string][]) {
+    const s2 = newSave("n", { name: "V" } as any);
+    s2.world.places["loc_x"] = { id: "loc_x", name: "X", description_facts: "", contains: [] };
+    s2.world.player_location = "loc_x";
+    registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
+    applyDiff(s2, {} as unknown as SimulatorDiff, "I listen", line);
+    check(`"${word}" does not become a character`, Object.keys(s2.characters).length === 1,
+      Object.values(s2.characters).map((c: any) => c.name));
+  }
+
+  // a genuine self-introduction still works
+  const s3 = newSave("intro", { name: "V" } as any);
+  s3.world.places["loc_x"] = { id: "loc_x", name: "X", description_facts: "", contains: [] };
+  s3.world.player_location = "loc_x";
+  registerCharacter(s3, { name: "Rabi", character_id: "char_player" } as any);
+  applyDiff(s3, {} as unknown as SimulatorDiff, "I ask her name", `The woman wiped her hands. "Tomasa," she said, and went back to the pot.`);
+  check("a real name answered to a question still registers",
+    Object.values(s3.characters).some((c: any) => c.name === "Tomasa"),
+    Object.values(s3.characters).map((c: any) => c.name));
+}
+
+/* 12. and the pruner can now clear the ones already in a save */
+{
+  const s = newSave("prune2", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  for (const n of ["Wife", "Dinner", "Cost", "She"]) {
+    registerCharacter(s, { name: n, background: "INCOMPLETE RECORD — the narrator brought them into the story." } as any);
+  }
+  const real = registerCharacter(s, { name: "Mable", background: "Made by Rabi on the terrace." } as any);
+  const removed = repairStrandedCast(s).concat(pruneParseArtifacts(s));
+  check("all four common-noun phantoms are removed", removed.length === 4, removed);
+  check("the real person is untouched", !!s.characters[real]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
