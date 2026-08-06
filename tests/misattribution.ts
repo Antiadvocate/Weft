@@ -14,7 +14,7 @@
  *
  * Also pinned: low warmth must not mean a publican refuses to sell a drink. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { applyDiff, repairStrandedCast } from "../src/engine/turn";
+import { applyDiff, repairStrandedCast, replanDrives, travelMinutesBetween, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -168,6 +168,74 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   s2.world.present = [];
   updatePublicStanding(s2, "I kill him", "He fell among the pines. No one saw.");
   check("a killing nobody could see moves nothing", (s2.world.public_standing ?? 0) === 0, s2.world.public_standing);
+}
+
+/* 9. an institution is not a person, and `called` is not a speech verb */
+{
+  const s = newSave("church", { name: "V" } as any);
+  s.world.places["loc_inn"] = { id: "loc_inn", name: "The inn", description_facts: "", contains: [] };
+  s.world.player_location = "loc_inn";
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  const before = Object.keys(s.characters).length;
+  // the exact sentence that registered the Church as a background figure with a rumor feed
+  applyDiff(s, {} as unknown as SimulatorDiff, "I tell her who I am",
+    `"My husband used to say the king's proclamations were lies. He said anyone the Church called a demon was just someone the priests couldn't tax."`);
+  check("the Church does not join the cast", Object.keys(s.characters).length === before,
+    Object.values(s.characters).map((c: any) => c.name));
+
+  // other institutions in ordinary prose
+  const s2 = newSave("crown", { name: "V" } as any);
+  s2.world.places["loc_hall"] = { id: "loc_hall", name: "Hall", description_facts: "", contains: [] };
+  s2.world.player_location = "loc_hall";
+  registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
+  applyDiff(s2, {} as unknown as SimulatorDiff, "I wait", "The Crown answered within the week. The Guild replied that it would not.");
+  check("neither does the Crown or the Guild", Object.keys(s2.characters).length === 1,
+    Object.values(s2.characters).map((c: any) => c.name));
+
+  // ...but a real speaker still registers
+  const s3 = newSave("real", { name: "V" } as any);
+  s3.world.places["loc_hall"] = { id: "loc_hall", name: "Hall", description_facts: "", contains: [] };
+  s3.world.player_location = "loc_hall";
+  registerCharacter(s3, { name: "Rabi", character_id: "char_player" } as any);
+  applyDiff(s3, {} as unknown as SimulatorDiff, "I listen", "The woman set down the cup. \"You should go,\" Allison said, and she meant it.");
+  check("a genuine unregistered speaker is still caught",
+    Object.values(s3.characters).some((c: any) => c.name === "Allison"),
+    Object.values(s3.characters).map((c: any) => c.name));
+}
+
+/* 10. the arrival walk cannot cross a map in eight turns */
+{
+  const s = newSave("travel", { name: "V" } as any);
+  s.world.places["loc_it"] = { id: "loc_it", name: "San Pietro", description_facts: "", contains: [] };
+  s.world.places["loc_home"] = { id: "loc_home", name: "Thornwood", description_facts: "", contains: [] };
+  s.world.places["loc_gate"] = { id: "loc_gate", name: "Thornwood Gate", description_facts: "", contains: [] };
+  s.world.player_location = "loc_it";
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  s.characters["char_player"].location = "loc_it";
+  const wife = registerCharacter(s, { name: "Andrea" } as any);
+  s.characters[wife].location = "loc_home";
+  s.characters[wife].tracked = true;
+  s.characters[wife].drive = { goal: "Find Rabi and keep him engaged", progress: 14, priority: 1, updated_turn: 1 };
+  s.telemetry = [{ turn: 1, present: [wife] }] as any;
+
+  s.world.current_turn = 30; s.world.current_time = "Day 1, 09:00";
+  s.world.time_at_turn = { 30: "Day 1, 09:00" };
+  replanDrives(s);
+  s.world.current_turn = 30 + ARRIVAL_PATIENCE;
+  s.world.current_time = "Day 1, 12:00";                       // three hours later
+  replanDrives(s);
+  check("a country away, three hours is not enough", s.characters[wife].location === "loc_home", s.characters[wife].location);
+
+  s.world.current_time = "Day 3, 12:00";                       // two days later
+  replanDrives(s);
+  check("two days is", s.characters[wife].location === "loc_it", s.characters[wife].location);
+  check("the arrival is announced, not silent", (s.world.arrivals_pending ?? []).includes("Andrea"), s.world.arrivals_pending);
+
+  // and a walk inside the same settlement is free
+  check("same-settlement travel costs nothing", travelMinutesBetween(s, "Thornwood Gate", "Thornwood") === 0);
+  check("a genuinely different place is not free", travelMinutesBetween(s, "Thornwood", "San Pietro") === DEFAULT_TRAVEL_MIN);
+  s.world.distances = [{ from: "Thornwood", to: "San Pietro", minutes: 90 }];
+  check("a recorded distance wins", travelMinutesBetween(s, "San Pietro", "Thornwood") === 90);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

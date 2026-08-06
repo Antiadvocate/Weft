@@ -642,18 +642,55 @@ export function replanDrives(state: SaveState): void {
   //
   // One arrival at a time, and only for someone who has been trying long enough that the walk is
   // plausible — a trickle, not a swarm. Longest-waiting goes first.
+  //
+  // AND THE WALK HAS TO BE WALKABLE. This originally set the location and nothing else, so a wife
+  // left behind in another country appeared in an inn in Italy eight turns later, silently, having
+  // crossed a sea nobody wrote. Turns are not distance. Two gates now: the recorded travel time
+  // between the two places must actually have passed in-world, and when there is no recorded
+  // distance a default day's travel stands in — enough that a walk across a town happens freely and
+  // a walk across a map does not happen by accident. The arrival is also announced, because a
+  // character appearing out of nowhere is exactly what the player experienced.
   if (pursuers.length) {
     pursuers.sort((a, b) => a.since - b.since);
-    const arriving = pursuers.find((p) => turn - p.since >= ARRIVAL_PATIENCE);
     const dest = state.world.player_location;
-    if (arriving && dest && state.characters[arriving.id]) {
-      const c = state.characters[arriving.id];
+    const destName = state.world.places[dest]?.name ?? "";
+    for (const p of pursuers) {
+      if (turn - p.since < ARRIVAL_PATIENCE) continue;
+      const c = state.characters[p.id];
+      if (!c || !dest) continue;
+      const fromName = state.world.places[c.location ?? ""]?.name ?? "";
+      const needed = travelMinutesBetween(state, fromName, destName);
+      const elapsed = minutesBetween(state.world.time_at_turn?.[p.since] ?? "", state.world.current_time);
+      if (needed > 0 && elapsed < needed) continue;   // they are still on the road
       c.location = dest;
       c.paged = false;                         // they are in the room; the narrator has to be able to see them
       if (c.drive) { c.drive.updated_turn = turn; delete c.drive.pursuit_since; }
-      console.info(`[drives] ${c.name} reaches ${state.characters["char_player"]?.name} after ${turn - arriving.since} turns of looking`);
+      state.world.arrivals_pending = [...(state.world.arrivals_pending ?? []), c.name].slice(-3);
+      console.info(`[drives] ${c.name} reaches ${state.characters["char_player"]?.name} at ${destName} after ${turn - p.since} turns and ${Math.round(elapsed)}min of travel`);
+      break;   // one at a time
     }
   }
+}
+
+/** Default in-world minutes to cross from one named place to another when the world records no
+ *  distance for the pair. A day: far too long for a walk across a town (which the same-place and
+ *  same-name-prefix cases below let through), and far too short to matter for a genuine journey,
+ *  which is the point — it stops an accidental teleport without pretending to a map. */
+export const DEFAULT_TRAVEL_MIN = 24 * 60;
+
+/** How long it takes to get from `from` to `to`, in in-world minutes. 0 when they are the same
+ *  place or share a settlement prefix ("Thornwood Gate" → "Thornwood Market"). */
+export function travelMinutesBetween(state: SaveState, from: string, to: string): number {
+  const a = from.trim().toLowerCase(), b = to.trim().toLowerCase();
+  if (!a || !b || a === b) return 0;
+  for (const d of state.world.distances ?? []) {
+    const f = String(d.from).trim().toLowerCase(), t = String(d.to).trim().toLowerCase();
+    if ((f === a && t === b) || (f === b && t === a)) return Math.max(0, d.minutes);
+  }
+  // same settlement: "Thornwood Gate" and "Thornwood Market" are a stroll apart
+  const head = (x: string) => x.split(/[\s,]+/)[0];
+  if (head(a).length >= 4 && head(a) === head(b)) return 0;
+  return DEFAULT_TRAVEL_MIN;
 }
 
 function emptyDiff(): SimulatorDiff {
@@ -1408,6 +1445,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // the player too — the state is the state.
   // ── THE ROOM IS NOT EMPTY ── PRESENT lists cast members only, so a populated place with nobody
   // carded standing in it read to the narrator as deserted. See engine/population.ts.
+  // Someone finished a journey to the player this turn. If the narrator is not told, they simply
+  // materialise in the room — which is precisely what "Andrea just magically appeared" was.
+  const arrivalNote = (state.world.arrivals_pending ?? []).length
+    ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")} — they have been travelling to reach the player and get here THIS turn. WRITE THEM ARRIVING, on the page, in the door, off the road: where they came from, what the journey cost, why they came. They do not simply be here; nobody may already be mid-conversation with them. This is their entrance.`
+    : "";
   const crowdNote = crowdDirective(state);
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
@@ -1438,7 +1480,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + crowdNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2819,6 +2861,13 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === ploc)
     .map(([id]) => id);
   state.world.present_prev = before;
+  state.world.arrivals_pending = [];   // consumed by the directive that renders the entrance
+  // Stamp the clock for this turn so elapsed in-world time between two turns is knowable. Kept to a
+  // short window — this is for travel arithmetic, not a history.
+  const t = state.world.current_turn;
+  const stamps = (state.world.time_at_turn ??= {});
+  stamps[t] = state.world.current_time;
+  for (const k of Object.keys(stamps)) if (t - Number(k) > 60) delete stamps[Number(k)];
 }
 
 
@@ -3010,7 +3059,15 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   // acceptable loss, since a miss costs one uncredited walk-on and a false positive costs a
   // permanent fictional person with opinions.
   const NAME = "[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ][a-záéíóúàèìòùâêîôûäëïöü-]{2,}";
-  const VERBS = "said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|whispered|called|calls|shouted|snapped|added|continued";
+  // `called` and `calls` are gone. They are speech verbs about one time in ten — "the Church CALLED
+  // him a demon", "a place called Vismara", "he called for help", "she called him a liar" — and the
+  // one that bit registered the Church as a member of the cast, complete with a rumor feed. The
+  // rest of this list is unambiguous; a real "Come here," he called is an acceptable loss.
+  const VERBS = "said|says|asked|asks|replied|replies|answered|answers|murmured|muttered|whispered|shouted|snapped|added|continued";
+  // Capitalised, adjacent to a speech verb, and still not a person: institutions, powers and
+  // titles-as-bodies. A story says "the Crown replied" and "the Guild answered" in perfectly
+  // ordinary prose, and none of them have a face.
+  const INSTITUTION = /^(the )?(church|crown|guild|council|order|empire|kingdom|realm|senate|court|temple|abbey|city|state|company|house|watch|guard|army|navy|clergy|priesthood|inquisition|parliament|throne|god|lord|heavens?)$/i;
   // SELF-INTRODUCTION. The two rules above look for a name ADJACENT to a speech verb, and the most
   // common way a person enters a story defeats both: the player asks a name, and the answer comes
   // back as `"Tomas," he said.` — the verb attaches to the pronoun, the name sits inside the quote.
@@ -3027,7 +3084,7 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     let m: RegExpExecArray | null;
     while ((m = intro.exec(prose))) {
       const raw = m[1], key = raw.toLowerCase();
-      if (known.has(key) || NOT_A_NAME.has(key) || raw.includes("'")) continue;
+      if (known.has(key) || NOT_A_NAME.has(key) || INSTITUTION.test(key) || raw.includes("'")) continue;
       found.set(key, raw);
     }
   }
@@ -3038,11 +3095,15 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     let m: RegExpExecArray | null;
     while ((m = re.exec(prose))) {
       const raw = m[1], key = raw.toLowerCase();
-      if (known.has(key)) continue;
+      if (known.has(key) || NOT_A_NAME.has(key) || INSTITUTION.test(key)) continue;
       if (raw.includes("'")) continue;                       // "He'll", "That's" — never a name
       // Must also appear mid-sentence somewhere: a real person gets referred to, not just used to
-      // open a sentence before a verb that happens to be in the list.
-      const mid = new RegExp(`[a-z,;:]\\s+${raw}\\b`).test(prose);
+      // open a sentence before a verb that happens to be in the list. A name directly after a
+      // closing quote counts — `"You should go," Allison said` is the single most common way a
+      // speaker is attributed in English, and requiring a lowercase letter before the name threw
+      // every one of them away.
+      const mid = new RegExp(`[a-z,;:]\\s+${raw}\\b`).test(prose)
+        || new RegExp(`["”'\u2019][,.!?]?\\s+${raw}\\b`).test(prose);
       if (!mid) continue;
       found.set(key, raw);
     }
@@ -3512,6 +3573,7 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
 
   for (const p of diff.psyche ?? []) {
     const id = resolveId(state, p.char_id); if (!id) continue;
+    if (!misattributionAllowed(state, id, prose, action)) continue;   // not in this scene, not named in it
     const c = state.condition[id]; if (!c) continue;
     c.psyche.relaxation = clamp(c.psyche.relaxation + clamp(p.relaxation_delta ?? 0, -6, 6), -10, 10);
     if (p.mood) c.psyche.mood = p.mood;
@@ -3614,6 +3676,13 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
   }
   for (const m of diff.memories ?? []) {
     const id = resolveId(state, m.char_id); if (!id || !m.content) continue;
+    // A memory of a scene someone was never in is the most damaging misattribution of all: it
+    // becomes what they "know", and every later turn reasons from it. This is how a wife left in
+    // another country came to "now know" that a stranger in an inn was her husband.
+    if (!misattributionAllowed(state, id, prose, action)) {
+      console.warn(`[cast] blocked memory misattributed to absent ${nameOf(id)}: "${String(m.content).slice(0, 60)}"`);
+      continue;
+    }
     const mem = state.memory[id]; if (!mem) continue;
     if (isPrivateBackgroundLeak(m.content, id)) {
       console.warn(`[memory] BLOCKED background leak in ${nameOf(id)}'s memory — the player never revealed it`);
@@ -3813,6 +3882,7 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
 
   for (const t of diff.traits ?? []) {
     const id = resolveId(state, t.char_id); if (!id || id === "char_player" || !t.label) continue;
+    if (!misattributionAllowed(state, id, prose, action)) continue;   // a trait grown from a scene they were not in
     // age plausibility: temperament/disposition can form at any age (guarded, cruel, brave), but
     // ACQUIRED EXPERTISE needs years a child hasn't lived. Block mastery-type traits on the young.
     const age = state.characters[id]?.age ?? 30;

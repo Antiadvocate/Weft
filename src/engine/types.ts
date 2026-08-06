@@ -475,6 +475,12 @@ export interface WorldState {
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
   offstage_last_time?: string;
+  /** In-world timestamp at each turn, so elapsed travel time can be measured between two turns
+   *  rather than assumed from a turn count. Trimmed to the recent window. */
+  time_at_turn?: Record<number, string>;
+  /** People whose journey to the player completed this turn — the narrator has to write them
+   *  arriving, or they appear out of nowhere, which is exactly the bug this exists to stop. */
+  arrivals_pending?: string[];
   present_prev?: string[];      // who was in the scene before the last presence rebuild — so the narrator delta can SAY who left, rather than leaving it to be inferred from a shorter list
   offstage_last_turn?: number;  // turn of the last offstage pass — the turn-based floor on the interval, so a story told in conversation doesn't freeze the world for forty turns
   /** How far apart places are, in in-world minutes of ordinary travel. The engine uses this to
