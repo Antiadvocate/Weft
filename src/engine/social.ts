@@ -18,6 +18,7 @@ import { asText } from "./coerce";
 import { relevance } from "./memory";
 import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
+import { populationOf } from "./population";
 import { recordHop } from "./knowledge";
 import type { PowerTier } from "./pressure";
 
@@ -230,6 +231,10 @@ const PUBLIC_BOON = /\b(sav(ed|es|ing)|rescu\w+|heal(ed|s|ing)|cured|protect(ed|
 const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing)|burn\w+ (the|their|a) (village|town|city|home|house|farm|field|quarter)|razed?|destroy\w+ (the|their) (village|town|city|home|quarter)|tortur\w+|maim\w+|enslav\w+|terroriz\w+|made an example of|left \w+ to die|killed (a|the) (child|children|innocent)|cut \w+ down where (he|she|they|it) stood)\b/i;
 /** Was this turn even public? A boon nobody saw moves no reputation. Crowd nouns only — "people"
  *  and "road" were in here once and matched nearly every paragraph ever written. */
+/** Harm at the scale of a place, not a person. This is not a worse insult — it is a different
+ *  kind of fact about someone, and it should not have to accumulate at 1.2 a turn to be believed. */
+const MASS_HARM = /\b(kill(ed)? (the )?(whole|entire|every)\b|slaughter\w* (the )?(whole|entire|town|city|village|everyone)|massacre\w* (the )?(town|city|village|everyone)|wiped? out (the )?(town|city|village|everyone|them all)|everyone in (the )?(town|city|village) (is |was )?(dead|died|killed)|kill\w* everyone|destroy\w* (the )?(town|city|village) and everyone|left no one alive|no survivors|erase\w* (the )?(town|city|village)|unmade (the )?(town|city|village))\b/i;
+
 const PUBLIC_EYES = /\b(crowd|crowds|onlookers?|bystanders?|villagers?|townsfolk|townspeople|the street|the market|marketplace|the square|tavern|congregation|caravan|watchers|a dozen \w+|half the (town|village|city))\b/i;
 
 /**
@@ -264,15 +269,26 @@ export function updatePublicStanding(
   // Public means SEEN. A private room with one confidant is not the community, no matter what
   // happened in it — that is what edges are for. Three or more people present is a small audience;
   // two is a conversation.
-  const seen = PUBLIC_EYES.test(prose) || state.world.present.filter((id) => id !== "char_player").length >= 3;
+  // Public means SEEN — and the engine now knows how many people are ordinarily about, which is a
+  // far better answer than "are three CARDED characters standing here". Counting only the cast meant
+  // an atrocity committed in a city of four thousand moved the needle by nothing at all, because
+  // none of the four thousand had a character record. A populated place is an audience.
+  const pop = populationOf(state.world.places[state.world.player_location]);
+  const seen = PUBLIC_EYES.test(prose) || (pop?.scale ?? 0) >= 10
+    || state.world.present.filter((id) => id !== "char_player").length >= 3;
   if (seen) {
     const boon = PUBLIC_BOON.test(text), harm = PUBLIC_HARM.test(text);
+    const mass = MASS_HARM.test(text);
     // Scale by what the crowd is reacting to: an impossible act is talked about for longer.
     const scale = tier === "cosmic" ? 2 : tier === "mythic" ? 1.5 : 1;
-    // Harm outweighs boon when both are present — a rescue that razed the quarter is remembered
-    // for the quarter. Asymmetric on purpose: this is the one place a ratchet is correct.
-    if (harm) v -= 1.2 * scale;
-    else if (boon) v += 0.9 * scale;
+    // ...and by how many people it happened to. A tavern brawl and the killing of a whole town were
+    // the same 1.2 on this scale, which is how a player could erase a settlement and remain, as far
+    // as the world was concerned, an unremarkable stranger. An act that ends a populated place does
+    // not nudge a reputation; it fixes one.
+    const crowd = (pop?.scale ?? 0) >= 500 ? 2 : (pop?.scale ?? 0) >= 100 ? 1.5 : 1;
+    if (mass) v = Math.min(v, -8);                      // saturate: this is what "feared" is for
+    else if (harm) v -= 1.2 * scale * crowd;
+    else if (boon) v += 0.9 * scale * crowd;
   }
   v = clamp(v, -10, 10);
   state.world.public_standing = v;

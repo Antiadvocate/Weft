@@ -352,6 +352,68 @@ export function pruneParseArtifacts(state: SaveState): string[] {
   return removed;
 }
 
+/**
+ * REPAIR — send home the people the ledger put somewhere they never went.
+ *
+ * The bookkeeper needs an id for every behavior it records, and when the narrator writes an unnamed
+ * walk-on it has none, so it reaches for the nearest real cast member: a guard captain a country
+ * away ends up behind the bar of an inn, with a drive about the inn and a trait grown from it,
+ * while the prose never once says her name. The arrival guard stops that happening now, but saves
+ * already carry the results, and a phantom in the room keeps drawing the narrator's attention
+ * forever.
+ *
+ * The test is the arrival guard applied backwards over the record. Being quiet is not evidence of
+ * anything — a character can stand in a room for six turns without a line — so silence alone is
+ * never enough. What marks a phantom is the TRANSITION: they were not in the scene, then suddenly
+ * they were, and the prose of the turn they appeared in never named them. Send them back — to the last place their own memory says they went, otherwise
+ * offscene, where the return-from-offscene pass will walk them somewhere real.
+ *
+ * Deliberately conservative: only the player's current scene, only characters who appeared during
+ * the recorded window, and anyone the prose names even once is left alone.
+ */
+export function repairStrandedCast(state: SaveState, window = 8): string[] {
+  const fixed: string[] = [];
+  const ploc = state.world.player_location;
+  if (!ploc) return fixed;
+  const recent = state.history.slice(-window);
+  if (recent.length < 2) return fixed;                       // too little record to judge on
+  const blob = recent.map((h) => `${h.player_action ?? ""} ${h.narrator_prose ?? ""}`).join(" ").toLowerCase();
+
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || c.location !== ploc) continue;
+    if (c.status === "dead" || c.status === "departed") continue;
+    const nameLow = (c.name ?? "").toLowerCase();
+    const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3);
+    const probes = [...new Set([nameLow, ...tokens])].filter((p) => p.length >= 3);
+    if (!probes.length || probes.some((p) => blob.includes(p))) continue;   // named at all → real
+
+    // THE TRANSITION IS THE EVIDENCE, NOT THE SILENCE. Find where they entered the scene inside the
+    // window; if they were in it the whole time, this is not the bug and they are left alone.
+    const firstIn = recent.findIndex((h) => (h.present ?? []).includes(id));
+    if (firstIn <= 0) continue;                              // never recorded here, or here all along
+    const arrival = recent[firstIn];
+    const arrivalText = `${arrival.player_action ?? ""} ${arrival.narrator_prose ?? ""}`.toLowerCase();
+    if (probes.some((p) => arrivalText.includes(p))) continue;   // the prose DID write them in
+
+    // Where do they belong? Their own movement memories know; failing that, elsewhere.
+    let home: string | undefined;
+    for (const m of [...(state.memory[id]?.episodic ?? [])].reverse()) {
+      const mm = /\bwent to ([^.]+)\.?/i.exec(m.content ?? "");
+      const pid = mm ? Object.values(state.world.places).find((p) => p.name.toLowerCase() === mm[1].toLowerCase().trim())?.id : undefined;
+      if (pid && pid !== ploc) { home = pid; break; }
+    }
+    ensureOffscene(state);
+    c.location = home ?? OFFSCENE;
+    // a goal formed from a scene they were never in is not their goal
+    if (c.drive?.goal && !probes.some((p) => (c.drive!.goal + " " + (c.drive!.blocker ?? "")).toLowerCase().includes(p))) {
+      c.drive = c.drive_queue?.shift() ?? undefined;
+    }
+    fixed.push(`${c.name} was standing in a scene they were never written into — sent back to ${state.world.places[c.location]?.name ?? "elsewhere"}.`);
+  }
+  if (fixed.length) syncPresence(state);
+  return fixed;
+}
+
 /** Split prose from a footer starting at `at`, parsing whatever attributes survived truncation. */
 function splitAt(text: string, at: number): { prose: string; footer: SceneFooter } {
   const attrs = text.slice(at).replace(/^<<<\s*SCENE\b/i, "").replace(/>+\s*$/, "").trim();

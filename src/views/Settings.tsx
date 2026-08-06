@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ModelPicker } from "./ModelPicker";
-import { Braces, Check, Copy, Download } from "lucide-react";
+import { Braces, Check, Copy, Download, Wrench } from "lucide-react";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { getApiKey, setApiKey } from "../config";
@@ -475,6 +475,21 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         catch { alert("Export failed on this browser. Try Copy save instead."); }
       }}>
         <Download size={14} /> Export save (share / download)
+      </button>
+
+      {/* REPAIR — ledger damage is fixable in place; you should not have to export and re-import a
+          save to get a phantom out of the room. */}
+      <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
+        try {
+          const { save: fresh, log } = await api.repairSave(save.id);
+          setSave(fresh);
+          alert(log.length ? `Repaired:\n\n${log.join("\n")}` : "Nothing to repair — the cast and the scene are consistent.");
+        } catch (e: any) { alert(`Repair failed: ${e?.message ?? e}`); }
+      }}>
+        <Wrench size={14} /> Repair this save
+        <span className="block text-[10.5px] font-normal normal-case tracking-normal" style={{ color: "var(--text-lo)" }}>
+          removes cast members made of parse debris, and sends home anyone standing in a scene the prose never wrote them into
+        </span>
       </button>
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
