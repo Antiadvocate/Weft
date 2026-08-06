@@ -156,11 +156,33 @@ export const api = {
     const g = safeJson<any>(out.text, null);
     if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't distill a new chapter — try again, or use a stronger forge model.");
 
-    // build the fresh save from the distilled bible (keep most of the original bible, overlay the updates)
+    // ── THE MODEL ONLY GETS TO CHANGE WHAT IT WAS ASKED FOR ──────────────────
+    // This spread accepted whatever `world_bible` the model returned, unbounded. The new-chapter
+    // schema asks for five fields; a model that volunteered a sixth silently overwrote the player's
+    // own setting with it, permanently.
+    //
+    // The field that did the damage is `tone`, because prompts.ts renders it as "GENRE — the
+    // register this whole story is written in" at the top of every single narrator call. A model
+    // distilling a playthrough wrote an editorial thesis about the protagonist into it — "the world
+    // answers him with fear, never warmth; connection as impossible without transaction" — and that
+    // became a standing order to the narrator for the rest of the game, explaining a great deal of
+    // behavior the player had been reporting as broken. Nobody asked for it and nothing showed it.
+    //
+    // Whitelist. `tone`, `forbidden`, `god_mode`, `difficulty_profile`, `destination` and the rest
+    // belong to the player and the Forge, and a chapter summary does not get to touch them.
+    const CHAPTER_FIELDS = ["name", "political_situation", "what_people_fear", "narrator_direction", "start_date"] as const;
+    const carried: Partial<WorldBible> = {};
+    for (const f of CHAPTER_FIELDS) {
+      const v = (g.world_bible ?? {})[f];
+      if (typeof v === "string" && v.trim()) (carried as any)[f] = v.trim();
+    }
+    const dropped = Object.keys(g.world_bible ?? {}).filter((k) => !CHAPTER_FIELDS.includes(k as any));
+    if (dropped.length) console.info(`[chapter] ignored unrequested world_bible fields: ${dropped.join(", ")}`);
+    // keep most of the original bible, overlay only the updates that were actually asked for
     const bible: WorldBible = {
       ...s.world_bible,
-      ...(g.world_bible ?? {}),
-      name: g.world_bible?.name || `${s.world_bible.name} — Next Chapter`,
+      ...carried,
+      name: carried.name || `${s.world_bible.name} — Next Chapter`,
     };
     const ns = newSave(bible.name, bible);
     // player carries forward COMPLETE: full memory, full traits, nothing dropped or sanitized.

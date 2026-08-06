@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, ChevronDown, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -413,6 +413,19 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     const next = window.prompt("Standing direction for the narrator — takes effect on the next turn, overrides everything. What is this story about, or how should it be told? (blank to clear)", cur);
     if (next === null) return; // cancelled
     setSave(await api.edit(save.id, { world_bible: { narrator_direction: next.trim() } }));
+  };
+
+  /** GENRE / REGISTER. Rendered at the top of every narrator call as "the register this whole story
+   *  is written in", and until now it was set once at the Forge and never shown again — so a value
+   *  written by something other than the player was invisible and permanent. */
+  const setTone = async () => {
+    const cur = save.world_bible.tone ?? "";
+    const next = window.prompt(
+      "GENRE & REGISTER — the key this whole story is written in. The narrator reads this every turn, above almost everything else. (blank to clear)",
+      cur,
+    );
+    if (next === null) return; // cancelled
+    setSave(await api.edit(save.id, { world_bible: { tone: next.trim() } }));
   };
 
   const setFocusPrompt = async () => {
@@ -1010,6 +1023,15 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <span className="flex-1 min-w-0">
                   <span className="sheet-label block">Watch a turn</span>
                   <span className="sheet-hint block">the world and your character act on their own</span>
+                </span>
+              </button>
+              <button className="sheet-item" onClick={() => { setMenuOpen(false); setTone(); }}>
+                <span className={save.world_bible.tone ? "sheet-ic lit" : "sheet-ic"}><Feather size={15} /></span>
+                <span className="flex-1 min-w-0">
+                  <span className="sheet-label block">Genre & register</span>
+                  <span className="sheet-hint block truncate">
+                    {save.world_bible.tone ? `set — ${save.world_bible.tone}` : "the key the whole story is written in"}
+                  </span>
                 </span>
               </button>
               <button className="sheet-item" onClick={() => { setMenuOpen(false); setNarratorDirection(); }}>
