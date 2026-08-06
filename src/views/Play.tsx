@@ -221,7 +221,19 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch { /* non-critical; retried after the next turn */ }
   };
 
-  const flushPostTurn = (s: ClientSave) => { void flushBeautyRescore(s); void flushSketches(s); };
+  /** A place the story has been played in but never written down is invisible to the narrator, and
+   *  one flagged out of date makes it describe something no longer there. The bookkeeper is asked
+   *  for these in-turn; this catches what it misses. See engine/placedesc.ts. */
+  const flushPlaceDescriptions = async (s: ClientSave) => {
+    const places = Object.values<any>(s.world?.places ?? {});
+    if (!places.some((p) => p.id !== "loc_offscene" && (!String(p.description_facts ?? "").trim() || p.stale_note))) return;
+    try {
+      const fresh = await api.describePlaces(s.id);
+      if (fresh) setSave(fresh);
+    } catch { /* non-critical; retried after the next turn */ }
+  };
+
+  const flushPostTurn = (s: ClientSave) => { void flushBeautyRescore(s); void flushSketches(s); void flushPlaceDescriptions(s); };
 
   const runAction = async (a: string) => {
     if (!a) return;

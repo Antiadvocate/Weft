@@ -17,6 +17,7 @@ import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
 import { completeSketch, pendingSketches } from "../engine/sketch";
+import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
@@ -851,6 +852,21 @@ export const api = {
     for (const cid of targets) {
       try { wrote = (await completeSketch(s, cid, s.model_settings.forge_model, s.model_settings.fallback_model)) || wrote; }
       catch { /* leave the sketch; it will be retried after the next turn */ }
+    }
+    if (wrote) { s.updated_at = new Date().toISOString(); await putSave(s); }
+    return clientView(s);
+  },
+
+  /** PLACE DESCRIPTIONS — write the physical record for places the story has played in but never
+   *  written down, and rewrite the ones flagged as out of date. The bookkeeper is asked for these
+   *  in-turn; this is the backstop for what it misses. One small call per place, after the turn. */
+  describePlaces: async (id: string, ids?: string[]): Promise<ClientSave> => {
+    const s = await need(id);
+    const targets = (ids && ids.length ? ids : pendingPlaces(s)).filter((pid) => s.world.places[pid]).slice(0, 3);
+    let wrote = false;
+    for (const pid of targets) {
+      try { wrote = (await completePlaceDescription(s, pid, s.model_settings.forge_model, s.model_settings.fallback_model)) || wrote; }
+      catch { /* leave it; retried after the next turn */ }
     }
     if (wrote) { s.updated_at = new Date().toISOString(); await putSave(s); }
     return clientView(s);
