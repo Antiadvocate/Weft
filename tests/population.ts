@@ -110,8 +110,10 @@ function check(name: string, c: boolean, extra?: unknown) {
   s.world.places["loc_beach"] = place("Thornwood Beach", "Sand and river.");
   s.world.player_location = "loc_beach";        // standing on the beach, unmaking the town
   applyDiff(s, {} as unknown as SimulatorDiff, "I destroy Thornwood and revert it to how it was before I came", "The town came apart.");
-  check("the named place is flagged, not just the one underfoot", /no longer reliable/.test(s.world.places["loc_town"].description_facts), s.world.places["loc_town"].description_facts);
-  check("the place the player is standing in is left alone when another is named", !/no longer reliable/.test(s.world.places["loc_beach"].description_facts));
+  // the note lives beside the description now, never inside it
+  check("the named place is flagged, not just the one underfoot", !!s.world.places["loc_town"].stale_note, s.world.places["loc_town"].stale_note);
+  check("the description itself is left clean", !/predates/.test(s.world.places["loc_town"].description_facts), s.world.places["loc_town"].description_facts);
+  check("the place the player is standing in is left alone when another is named", !s.world.places["loc_beach"].stale_note);
 
   // and places_update still carries population when the change moved people
   const s2 = newSave("wreck2", { name: "V" } as any);

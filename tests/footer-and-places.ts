@@ -12,7 +12,7 @@
  *    hand. The simulator could create a place and never revise one, so a town the player levelled
  *    went on being described as walled, lit and quiet in every prompt for the rest of the game. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { parseSceneFooter, splitOutsideParens, isPersonName, pruneParseArtifacts, applyDiff } from "../src/engine/turn";
+import { parseSceneFooter, splitOutsideParens, isPersonName, pruneParseArtifacts, applyDiff, repairPlaceDescriptions } from "../src/engine/turn";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -109,14 +109,62 @@ function placeState(): SaveState {
 {
   const s = placeState();
   applyDiff(s, {} as unknown as SimulatorDiff, "I destroy the town and everyone in it", "The ground opened.");
-  const d = s.world.places["loc_town"].description_facts;
-  check("an unrevised transformed place is flagged stale", /no longer reliable/.test(d), d);
-  check("the original text is preserved for the rewrite to build on", /curtain wall of dressed stone/.test(d));
+  const p = s.world.places["loc_town"];
+  check("an unrevised transformed place is flagged stale", /predates that/.test(p.stale_note ?? ""), p.stale_note);
+  check("the note is NOT inside the description", !/predates that/.test(p.description_facts), p.description_facts);
+  check("the description itself is untouched", /curtain wall of dressed stone/.test(p.description_facts));
 
   // an ordinary turn does not touch it
   const s2 = placeState();
   applyDiff(s2, {} as unknown as SimulatorDiff, "I walk to the market and buy bread", "You buy bread.");
-  check("an ordinary action leaves the description alone", !/no longer reliable/.test(s2.world.places["loc_town"].description_facts));
+  check("an ordinary action leaves it alone", !s2.world.places["loc_town"].stale_note);
+}
+
+/* 7b. the false positives that put a quote of the player's own dialogue in a description */
+{
+  // a figure of speech, inside dialogue, in a place with no description yet
+  const s = placeState();
+  s.world.places["loc_town"].description_facts = "";
+  const shifts = applyDiff(s, {} as unknown as SimulatorDiff,
+    `I sit on the ground and hold my face in my hands. "You walk around barefoot destroying my ability to even think."`,
+    "He sat.");
+  check("a metaphor inside dialogue is not demolition", !s.world.places["loc_town"].stale_note, s.world.places["loc_town"].stale_note);
+  check("and an empty description stays empty", s.world.places["loc_town"].description_facts === "", s.world.places["loc_town"].description_facts);
+  check("nothing is reported", !shifts.some((x) => /out of date/.test(x)), shifts);
+
+  // a threat is not an act either
+  const s2 = placeState();
+  applyDiff(s2, {} as unknown as SimulatorDiff, `I stay where I am. "I could level this whole place and you'd still stand there."`, "She did not move.");
+  check("a threat to level a place does not level it", !s2.world.places["loc_town"].stale_note);
+
+  // ...but the real thing still lands
+  const s3 = placeState();
+  applyDiff(s3, {} as unknown as SimulatorDiff, "I destroy the town", "It came apart.");
+  check("an actual demolition is still caught", !!s3.world.places["loc_town"].stale_note, s3.world.places["loc_town"].stale_note);
+  const s4 = placeState();
+  applyDiff(s4, {} as unknown as SimulatorDiff, "I raze Thornwood to the ground", "Nothing stood.");
+  check("naming the place works too", !!s4.world.places["loc_town"].stale_note);
+}
+
+/* 8. the repair lifts old engine notes back out of descriptions */
+{
+  const s = placeState();
+  // exactly what one save carried: a place whose entire description is the note
+  s.world.places["loc_bare"] = {
+    id: "loc_bare", name: "San Pietro", contains: [],
+    description_facts: `[turn-48 change] The player: "I sit on the ground. And hold my face in my hands." — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`,
+  };
+  // and one where the note was merely appended to a real description
+  s.world.places["loc_town"].description_facts += `\n[turn-12 change] The player: "I burn the whole thing down" — this description predates that and is no longer reliable.`;
+
+  const log = repairPlaceDescriptions(s);
+  check("both places are repaired", log.length === 2, log);
+  check("a description that was only a note is cleared", s.world.places["loc_bare"].description_facts === "", JSON.stringify(s.world.places["loc_bare"].description_facts));
+  check("and the repair says it needs writing", log.some((l) => /needs writing/.test(l)), log);
+  check("a real description survives with the note lifted out", /curtain wall of dressed stone/.test(s.world.places["loc_town"].description_facts));
+  check("the note is gone from the description", !/turn-12 change/.test(s.world.places["loc_town"].description_facts), s.world.places["loc_town"].description_facts);
+  check("but it is remembered beside it", !!s.world.places["loc_town"].stale_note);
+  check("running it again is a no-op", repairPlaceDescriptions(s).length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -426,6 +426,33 @@ export function repairStrandedCast(state: SaveState, window = 8): string[] {
   return fixed;
 }
 
+/**
+ * REPAIR — get engine notes back out of place descriptions.
+ *
+ * The staleness backstop used to append `[turn-N change] The player: "..."` INTO description_facts.
+ * Where a place already had a description that merely made it untidy; where it did not, the note
+ * became the entire description, and a location ended up described by a quote of the player's own
+ * dialogue. The note lives in its own field now; this lifts the old ones out of saves that have
+ * them, keeping whatever real description was underneath.
+ */
+export function repairPlaceDescriptions(state: SaveState): string[] {
+  const fixed: string[] = [];
+  const NOTE = /\[turn-\d+ change\][^\n]*/g;
+  for (const p of Object.values(state.world.places)) {
+    const d = p.description_facts ?? "";
+    if (!NOTE.test(d)) { NOTE.lastIndex = 0; continue; }
+    NOTE.lastIndex = 0;
+    const notes = d.match(NOTE) ?? [];
+    const cleaned = d.replace(NOTE, "").replace(/\n{2,}/g, "\n").trim();
+    p.description_facts = cleaned;
+    if (!p.stale_note && notes.length) p.stale_note = `The description predates a change made on ${notes.length > 1 ? "several turns" : "an earlier turn"}; render what the recent prose established.`;
+    fixed.push(cleaned
+      ? `${p.name}: an engine note was removed from its description.`
+      : `${p.name}: its description was nothing but an engine note — cleared, and it needs writing.`);
+  }
+  return fixed;
+}
+
 /** Split prose from a footer starting at `at`, parsing whatever attributes survived truncation. */
 function splitAt(text: string, at: number): { prose: string; footer: SceneFooter } {
   const attrs = text.slice(at).replace(/^<<<\s*SCENE\b/i, "").replace(/>+\s*$/, "").trim();
@@ -3298,9 +3325,20 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // did not revise it, the description must at least stop asserting the old truth. One dated line
   // appended is not a rewrite — it is the ledger declining to lie until the next pass rewrites it.
   {
+    // WHAT THE PLAYER DID, NOT WHAT THEY SAID. Quoted speech is dialogue, not action — the engine
+    // says so everywhere else and this did not honor it. A player sitting on the ground telling
+    // someone "you walk around barefoot DESTROYING my ability to even think" tripped a destruction
+    // check on a figure of speech inside dialogue.
+    const deeds = action.replace(/["“][^"”]*["”]/g, " ");
     const TRANSFORM = /\b(destroy\w*|raze\w*|level(ed|led)?|flatten\w*|burn(ed|t)? (it|this|the|down)|unmake|unmade|erase\w*|obliterat\w*|annihilat\w*|demolish\w*|rebuil\w*|remake|remade|reshape\w*|rebuild\w*|drown\w*|flood\w*|freeze|froze|wipe(d)? out|revert\w*)\b/i;
-    if (TRANSFORM.test(action)) {
-      const act = action.toLowerCase();
+    // ...and the verb needs something in the WORLD to have been done to, or "destroying my ability
+    // to think" and "I could level this place" keep counting as demolition.
+    const WORLD_OBJECT = /\b(town|city|village|place|house|home|building|hall|street|streets|walls?|gate|ground|land|everything|it all|quarter|district|market|estate|castle|keep|temple|church|bridge|fields?|forest)\b/i;
+    const namesAPlace = Object.values(state.world.places).some(
+      (p) => p.id !== "loc_offscene" && p.name.length >= 4 && deeds.toLowerCase().includes(p.name.toLowerCase()),
+    );
+    if (TRANSFORM.test(deeds) && (WORLD_OBJECT.test(deeds) || namesAPlace)) {
+      const act = deeds.toLowerCase();
       const here = state.world.places[state.world.player_location];
       // WHICH GROUND. Scoping this to the player's own location missed the ordinary case: a player
       // standing on the riverbank who unmakes the town he built is not standing in the town. So
@@ -3317,10 +3355,12 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // massacre is exactly the case where the description most needs flagging as out of date.
         // Places the bookkeeper actually rewrote are already excluded by `covered` above; the stamp
         // below is what stops a second append on the same turn.
-        const stamp = `[turn-${turn} change]`;
-        if (place.description_facts.includes(stamp)) continue;
-        const note = `${stamp} The player: "${action.trim().slice(0, 140)}" — this description predates that and is no longer reliable; render what the recent prose established, not the text above.`;
-        place.description_facts = `${place.description_facts}\n${note}`.trim().slice(0, 1600);
+        // The note lives BESIDE the description, never inside it. Appending into description_facts
+        // meant a place with no description yet ended up described entirely by the note — one
+        // location's whole description was a quote of the player's own dialogue.
+        const note = `Changed on turn ${turn} by: ${deeds.trim().slice(0, 120)} — the description predates that; render what the recent prose established.`;
+        if (place.stale_note === note) continue;
+        place.stale_note = note;
         place.changed_turn = turn;
         shifts.push(`${place.name} has been changed by what you did; its record is flagged as out of date.`);
       }

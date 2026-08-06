@@ -1314,7 +1314,7 @@ Player carries: ${state.world.money || "—"}${(() => {
   const named = Object.values(state.world.places).filter((p) => p.id !== "loc_offscene");
   // Each place carries who is ordinarily about it, so the world reads as inhabited everywhere and
   // not only where a cast member happens to be standing. See engine/population.ts.
-  const list = named.map((p) => `- ${p.name}${populationLine(p)}`).join("\n");
+  const list = named.map((p) => `- ${p.name}${populationLine(p)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
   const away = Object.entries(state.characters)
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location && c.location !== state.world.player_location)
     .map(([, c]) => `${c.name} (${c.location === "loc_offscene" ? "elsewhere" : state.world.places[c.location!]?.name})`);

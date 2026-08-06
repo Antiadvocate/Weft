@@ -442,6 +442,11 @@ export interface Place {
   name: string;
   description_facts: string;
   changed_turn?: number;   // last turn this place's description was rewritten by play, not by hand
+  /** Engine note that this place's description predates something that happened to it. Kept OUT of
+   *  description_facts on purpose: that field is the physical baseline the player can read and
+   *  edit, and a meta-note appended into it becomes the description when the description was
+   *  empty — which is how one place ended up described as a quote of the player's own dialogue. */
+  stale_note?: string;
   contains: string[];
   founding?: boolean;   // named at the Forge. Never evicted by the place cap; the world's spine.
   /** THE PEOPLE WHO ARE NOT CHARACTERS. `contains` holds carded cast only, and the cast is capped

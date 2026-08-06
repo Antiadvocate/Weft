@@ -271,9 +271,14 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                 </div>
               </div>
             ) : (
-              p.description_facts && (
-                <div className="text-[12px] whitespace-pre-wrap" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
-              )
+              <>
+                {p.description_facts && (
+                  <div className="text-[12px] whitespace-pre-wrap" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
+                )}
+                {p.stale_note && (
+                  <div className="text-[11px] italic mt-0.5" style={{ color: "var(--accent)" }}>{p.stale_note}</div>
+                )}
+              </>
             )}
             <div className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
               {here.length ? here.map(([, c]: any) => c.name).join(", ") : "empty"}

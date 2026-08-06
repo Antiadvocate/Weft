@@ -8,7 +8,7 @@ import type {
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon } from "../engine/state";
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
-import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -835,6 +835,7 @@ export const api = {
     const log = [
       ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description, not a person.`),
       ...repairStrandedCast(s),
+      ...repairPlaceDescriptions(s),
     ];
     if (log.length) { s.updated_at = new Date().toISOString(); await putSave(s); }
     return { save: clientView(s), log };
@@ -1190,6 +1191,7 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     // somebody's description. Drop the ones nothing is attached to; see pruneParseArtifacts.
     const junk = pruneParseArtifacts(s);
     if (junk.length) console.info(`[import] removed ${junk.length} parse artifact(s) from the cast: ${junk.join(", ")}`);
+    repairPlaceDescriptions(s);
     const stranded = repairStrandedCast(s);
     if (stranded.length) console.info(`[import] ${stranded.length} stranded character(s) sent home: ${stranded.join(" ")}`);
     await putSave(s);
