@@ -1169,17 +1169,38 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     pressureCandidates.push({ prio: 5, text: leadText });
   }
 
-  // GENRE-THREAT ESCALATION — a lethal-threat world must not let its danger sit offstage for many
-  // turns. Candidate, not immediate.
+  // GENRE-THREAT ESCALATION — a world whose core danger is a THING THAT HUNTS must not let it sit
+  // offstage for many turns. Candidate, not immediate.
+  //
+  // This used to fire on a world whose danger is nothing of the kind. `lethalWorld` was true if any
+  // pressure-palette entry matched /predator|threat|attack|hunt|violence|kill/ — unanchored, so the
+  // bare word "threat" was enough, and a pressure palette is BY DEFINITION a list of threats. Every
+  // world qualified. A political-intrigue game about spies, a civil war and a compulsion that could
+  // be exploited was classified as a monster world on the strength of one clause reading "Rabi's
+  // power could be seen as a threat or a tool."
+  //
+  // Then the directive demanded a PREDATOR arrive bodily and menace someone, and handed the
+  // narrator a `what_people_fear` that named no creature at all — "the heretic god of Thornwood,
+  // the Church's fires, the cold arithmetic that neither king nor faith can protect anyone from."
+  // Told to make that walk in and take someone, the only thing a narrator can do is invent a beast.
+  // Hence black mass creatures, at intervals, in a story with no monsters in it.
   {
     const fear = (state.world_bible.what_people_fear ?? "").toLowerCase();
-    const lethalWorld = /\b(eaten|eat|devour|hunt|predator|prey|killed|kill|maul|attack|torn|blood|beast|creature|monster|dinosaur|claw|teeth)\b/.test(fear)
-      || (state.world_bible.pressure_palette ?? []).some((p) => /predator|threat|attack|hunt|violence|kill/i.test(p));
-    if (lethalWorld && (state.model_settings.tension ?? 5) >= 3) {
+    // A creature is a creature. Nouns that name a thing which hunts, not the abstract vocabulary of
+    // menace — and read ONLY from what_people_fear, which is the field that says what stalks this
+    // world. The palette is a list of pressures; it can never be evidence of a predator.
+    const BEAST = /\b(predator|beast|creature|monster|dinosaur|raptor|wolf|wolves|bear|shark|swarm|horde|infected|undead|zombie|revenant|wraith|demon|devil|maw|claw|tooth|teeth|fang)s?\b|\b(thing|things) in the\b|\b(eaten alive|devour\w*|maul\w*|being (eaten|devoured|hunted))\b/;
+    const lethalWorld = BEAST.test(fear);
+    // AND THE PLAYER IS NEVER SENT AT THEMSELVES. When the thing this world fears IS the
+    // protagonist — which is what a god-mode rampage makes true, and what the bible then records —
+    // "bring the core danger onstage" is an instruction to attack the player with the player.
+    const playerName = (state.characters["char_player"]?.name ?? "").toLowerCase();
+    const fearIsThePlayer = playerName.length >= 3 && fear.includes(playerName);
+    if (lethalWorld && !fearIsThePlayer && (state.model_settings.tension ?? 5) >= 3) {
       const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
       if (!threatWords.test(recentProse)) {
-        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them.` });
+        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them. Use ONLY the danger named above — never invent a new kind of creature to stand in for it.` });
       }
     }
   }
