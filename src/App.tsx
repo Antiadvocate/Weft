@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText } from "lucide-react";
 import { api, type ClientSave } from "./lib/api";
 import { hasApiKey, setApiKey } from "./config";
+import { watchForUpdate } from "./lib/freshness";
 import Library from "./views/Library";
 import Play from "./views/Play";
 import Cast from "./views/Cast";
@@ -76,6 +77,10 @@ export default function App() {
   const title = mode === "game" && save ? save.world_bible.name : mode === "forge" ? "The Forge" : "Weft";
   const subtitle = mode === "game" && save ? `${save.world.current_time} · turn ${save.world.current_turn}` : "a world that reacts";
 
+  // FRESHNESS — watch for a newer deploy and offer a reload. See lib/freshness.ts.
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => watchForUpdate(() => setUpdateReady(true)), []);
+
   if (needKey) {
     return (
       <div className="shell">
@@ -102,6 +107,16 @@ export default function App() {
 
   return (
     <div className="shell">
+      {updateReady && (
+        // A tab left open keeps running the bundle it loaded. Without this the only signal that the
+        // code in front of you is stale is hitting a bug that was fixed an hour ago.
+        <button
+          onClick={() => location.reload()}
+          className="w-full text-center py-1.5 font-mono text-[10.5px] uppercase tracking-widest z-40"
+          style={{ background: "var(--accent-soft)", color: "var(--accent)", borderBottom: "1px solid var(--accent-glow)" }}>
+          a newer version of Weft is available — tap to reload
+        </button>
+      )}
       <header className="topbar z-30">
         <div className="flex items-center justify-between px-4 py-2">
           <button className="text-left min-w-0" onClick={mode === "game" ? closeSave : undefined}>

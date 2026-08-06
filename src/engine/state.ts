@@ -44,6 +44,12 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     // character silently entered as central because `central` never landed on the record —
     // and (b) erased life_history when carrying a cast into a new chapter.
     central: ident.central,
+    // PROVISIONAL SURVIVES REGISTRATION. Three creation sites set `provisional: true` to mark a
+    // record as a sketch the machinery is supposed to finish — and this function dropped the field
+    // on the floor, so nothing downstream could ever tell a stub from a finished character and no
+    // backfill was possible. A person created from prose kept a name, a location, and nothing else,
+    // permanently: no appearance, no traits, no values. See engine/sketch.ts.
+    provisional: ident.provisional,
     life_history: ident.life_history ? asText(ident.life_history, " ") : undefined,
     appearance_now: ident.appearance_now ? asText(ident.appearance_now, " ") : undefined,
     knows_player_name: ident.knows_player_name,

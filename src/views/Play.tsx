@@ -205,6 +205,24 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch { /* non-critical; will retry on the next appearance change */ }
   };
 
+  /** A person who entered from the prose arrives as a name and nothing else — no appearance, no
+   *  traits, no values. Finish those records in the background, one small call each, reading the
+   *  player's own words and the prose they appeared in. Silent; retried after the next turn if it
+   *  fails. See engine/sketch.ts. */
+  const flushSketches = async (s: ClientSave) => {
+    if (!s.characters) return;
+    const hollow = Object.entries(s.characters).some(([id, c]: any) =>
+      id !== "char_player" && c.status !== "dead" && c.status !== "departed" &&
+      (c.provisional === true || (!String(c.appearance_facts ?? "").trim() && !(c.core_traits ?? []).length)));
+    if (!hollow) return;
+    try {
+      const fresh = await api.completeSketches(s.id);
+      if (fresh) setSave(fresh);
+    } catch { /* non-critical; retried after the next turn */ }
+  };
+
+  const flushPostTurn = (s: ClientSave) => { void flushBeautyRescore(s); void flushSketches(s); };
+
   const runAction = async (a: string) => {
     if (!a) return;
     setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setReads([]); setPhase("pressure");
@@ -216,7 +234,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); void flushBeautyRescore(s); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); flushPostTurn(s); },
         onError: (msg) => { setError(msg); failed = true; },
       }, { ground, tightness });
     } catch (e: any) {
@@ -374,7 +392,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); void flushBeautyRescore(s); resolve(); },
+        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); flushPostTurn(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
       }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });

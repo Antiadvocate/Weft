@@ -16,6 +16,7 @@ import { seedDrive } from "../engine/drives";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
+import { completeSketch, pendingSketches } from "../engine/sketch";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
@@ -801,6 +802,21 @@ export const api = {
       .filter((f) => f.content)
       .slice(0, 40);
     await putSave(s);
+    return clientView(s);
+  },
+
+  /** SKETCH COMPLETION — finish the records of people who entered from prose and were never
+   *  written down. One small call per hollow character, run after the turn commits, non-blocking.
+   *  Only ever fills EMPTY fields; anything the story established stays. See engine/sketch.ts. */
+  completeSketches: async (id: string, ids?: string[]): Promise<ClientSave> => {
+    const s = await need(id);
+    const targets = (ids && ids.length ? ids : pendingSketches(s)).filter((cid) => s.characters[cid]).slice(0, 4);
+    let wrote = false;
+    for (const cid of targets) {
+      try { wrote = (await completeSketch(s, cid, s.model_settings.forge_model, s.model_settings.fallback_model)) || wrote; }
+      catch { /* leave the sketch; it will be retried after the next turn */ }
+    }
+    if (wrote) { s.updated_at = new Date().toISOString(); await putSave(s); }
     return clientView(s);
   },
 
