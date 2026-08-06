@@ -9,7 +9,7 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, heal
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists } from "../engine/turn";
-import { runInterlude, embodyCharacter, condenseForNewChapter } from "../engine/continuity";
+import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
@@ -237,7 +237,7 @@ export const api = {
     const playerCarry = condenseForNewChapter(player, s.memory["char_player"], s.traits["char_player"]);
     registerCharacter(ns, {
       ...player, character_id: "char_player",
-      background: `${player?.background ?? ""} ${g.player?.background_addition ?? ""}`.replace(/\s+/g, " ").trim(),
+      background: appendBackground(player?.background ?? "", g.player?.background_addition),
       drive: undefined, drive_queue: [],
     });
     ns.memory["char_player"] = { ...playerCarry.carried_memory, character_id: "char_player" }; // full memory intact
@@ -300,7 +300,7 @@ export const api = {
         name: c.name,
         age: prev?.age ?? 30,
         appearance_facts: prev?.appearance_facts ?? "",
-        background: `${prev?.background ?? ""} ${c.background_addition ?? ""}`.replace(/\s+/g, " ").trim(),
+        background: appendBackground(prev?.background ?? "", c.background_addition),
         life_history: prev?.life_history ?? "",          // the accreted defining-moments carry verbatim
         core_traits: prev?.core_traits ?? [],
         values: prev?.values ?? [],

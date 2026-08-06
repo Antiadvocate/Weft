@@ -22,6 +22,7 @@ import { syncPresence } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { stablePrefix } from "./prompts";
 import { pushSnapshot, uid } from "./state";
+import { relevance } from "./memory";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -287,6 +288,77 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
  * time-skip. Deterministic, zero tokens; the prose recap stays the player-facing layer, this is
  * the mechanical inheritance underneath it.
  */
+/**
+ * APPEND A CHAPTER NOTE TO A CHARACTER RECORD — without letting it become a verdict.
+ *
+ * `background_addition` is glued onto the end of a paragraph and stays for the rest of the game,
+ * and the narrator reads the whole accumulated thing every turn as WHO THIS PERSON IS. One save's
+ * player record started as two sentences the player typed about themselves — an electrical
+ * engineer, ADHD, introspective, self-deprecating, socially awkward — and grew FOUR appended
+ * paragraphs, one per chapter fork, each restating the same three facts with more contempt:
+ *
+ *   "…bored, self-loathing, casually lethal, still ruled by his private hunger … and still
+ *    incapable of connecting without power or transaction in the way."
+ *   "…remains a lonely, self-loathing man … incapable of wanting anyone who isn't afraid of him."
+ *   "…three months deeper into a boredom that has curdled to rot … still cannot want anyone who
+ *    isn't afraid of him, and still, in private, is undone by …"
+ *   "Three months entombed as weeping stone did not kill you or cure you; you have surfaced again,
+ *    still god, still bored to rot, still killing when the mood takes you…"
+ *
+ * Every character in that world then met a man whose own card said he was a monster who could not
+ * be loved, and behaved accordingly — and the player spent a long time asking why nobody would warm
+ * to him. The last addition had even switched to the second person and was telling him what three
+ * months had failed to cure.
+ *
+ * Three gates, because the prompt rule alone is what failed for `tone` and `narrator_direction`
+ * before this: a record about a person is never addressed TO them; an addition that restates what
+ * the record already says adds nothing but contempt; and the additions cannot grow without end.
+ */
+/** How many chapter notes may sit under a record before the oldest starts falling off. The record
+ *  the player wrote themselves is line one and is never one of them. */
+export const MAX_BACKGROUND_ADDITIONS = 3;
+/** Overlap at which an addition is the record said over again rather than news. See the note below. */
+export const RESTATEMENT = 0.2;
+/** The language of a verdict on a person, as opposed to a record of what happened to them. */
+const VERDICT = /\b(self[- ]loathing|incapable of|cannot (?:want|love|connect|be loved)|unable to (?:want|love|connect)|bored to rot|curdled|undone by|hollow(?:ed)? (?:man|shell|out)|beyond mending|too broken|will never (?:be|have|find|love)|doomed to|and yet,? (?:he|she|they)|still (?:god|bored|killing|lethal|alone|empty|ruled|incapable|cannot)|emptiness|loneliness|monster he|the man he has become)\b/i;
+
+export function appendBackground(existing: string, addition?: string): string {
+  const base = String(existing ?? "").replace(/[ \t]+/g, " ").trim();
+  const add = String(addition ?? "").replace(/\s+/g, " ").trim();
+  if (!add) return base;
+  // 1. SECOND PERSON. A record describes a person; it does not address them. "Three months
+  //    entombed as weeping stone did not kill you or cure you" is not a biography, it is a verdict
+  //    delivered to the reader's face, and it was sitting in a player's own character card.
+  if (/\byou(r|rs|rself)?\b/i.test(add)) {
+    console.warn(`[chapter] dropped a background addition written at the player: ${add.slice(0, 100)}`);
+    return base;
+  }
+  // 2. VERDICT VOCABULARY. This field is one sentence on what CHANGED — a title taken, a city
+  //    built, a person lost. It is not a diagnosis. Measured against the four real additions, the
+  //    tell is a small vocabulary of emotional condition and permanence: self-loathing, incapable
+  //    of, cannot want, bored to rot, curdled, undone by, and the "still …, still …, still …"
+  //    construction that makes a chapter note a restatement of the last one with the screws
+  //    tightened. None of it says anything about what happened in the chapter.
+  if (VERDICT.test(add)) {
+    console.warn(`[chapter] dropped a background addition that diagnoses rather than records: ${add.slice(0, 100)}`);
+    return base;
+  }
+  // 3. RESTATEMENT. Measured on the real data: additions restating the record scored 0.26 and 0.37
+  //    against it, while genuine chapter notes — the charter, the crusade at the gate, the crossing
+  //    to Vismara — all scored 0.00, because events share no vocabulary with a description of a
+  //    person. 0.20 sits in the gap with room on both sides.
+  if (base && relevance(base, add) >= RESTATEMENT) {
+    console.warn(`[chapter] dropped a background addition that restates the record: ${add.slice(0, 100)}`);
+    return base;
+  }
+  // 4. ACCUMULATION. Chapter notes go on their own lines, so the player's own opening is always
+  //    line one and is never what falls off. Legacy records are a single line and stay whole.
+  const lines = base ? base.split("\n").map((x) => x.trim()).filter(Boolean) : [];
+  const own = lines.slice(0, 1);
+  const notes = [...lines.slice(1), add].slice(-MAX_BACKGROUND_ADDITIONS);
+  return [...own, ...notes].join("\n").trim();
+}
+
 export function condenseForNewChapter(ident: Identity, mem: CharMemory | undefined, traits: AcquiredTrait[] | undefined): {
   carried_memory: CharMemory;      // the COMPLETE memory, carried intact — nothing dropped, nothing sanitized
   carried_traits: AcquiredTrait[]; // the COMPLETE trait list, carried intact
