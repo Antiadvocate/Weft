@@ -233,7 +233,7 @@ const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing
  *  and "road" were in here once and matched nearly every paragraph ever written. */
 /** Harm at the scale of a place, not a person. This is not a worse insult — it is a different
  *  kind of fact about someone, and it should not have to accumulate at 1.2 a turn to be believed. */
-const MASS_HARM = /\b(kill(ed)? (the )?(whole|entire|every)\b|slaughter\w* (the )?(whole|entire|town|city|village|everyone)|massacre\w* (the )?(town|city|village|everyone)|wiped? out (the )?(town|city|village|everyone|them all)|everyone in (the )?(town|city|village) (is |was )?(dead|died|killed)|kill\w* everyone|destroy\w* (the )?(town|city|village) and everyone|left no one alive|no survivors|erase\w* (the )?(town|city|village)|unmade (the )?(town|city|village))\b/i;
+export const MASS_HARM = /\b(kill(ed)? (the )?(whole|entire|every)\b|slaughter\w* (the )?(whole|entire|town|city|village|everyone)|massacre\w* (the )?(town|city|village|everyone)|wiped? out (the )?(town|city|village|everyone|them all)|everyone in (the )?(town|city|village) (is |was )?(dead|died|killed)|kill\w* everyone|destroy\w* (the )?(town|city|village) and everyone|left no one alive|no survivors|erase\w* (the )?(town|city|village)|unmade (the )?(town|city|village))\b/i;
 
 const PUBLIC_EYES = /\b(crowd|crowds|onlookers?|bystanders?|villagers?|townsfolk|townspeople|the street|the market|marketplace|the square|tavern|congregation|caravan|watchers|a dozen \w+|half the (town|village|city))\b/i;
 

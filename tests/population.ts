@@ -122,5 +122,28 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("a rewrite can empty a place of people", populationOf(s2.world.places["loc_town"]) === null);
 }
 
+/* 8. a place the player wipes out stops having people in it */
+{
+  const s = newSave("massacre", { name: "V" } as any);
+  registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
+  s.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "A walled town.", contains: [], population: { scale: 400, who: "townsfolk" } };
+  s.world.player_location = "loc_town";
+  s.world.present = [];
+  check("populated before", (populationOf(s.world.places["loc_town"])?.scale ?? 0) === 400);
+
+  const shifts = applyDiff(s, {} as unknown as SimulatorDiff, "I kill everyone in the town", "You left no one alive.");
+  check("the ground is empty afterwards", populationOf(s.world.places["loc_town"]) === null, s.world.places["loc_town"].population);
+  check("the crowd directive stops repopulating a graveyard", crowdDirective(s) === "", crowdDirective(s).slice(0, 80));
+  check("it is reported", shifts.some((x) => /empty of people now/.test(x)), shifts);
+
+  // an ordinary killing does not empty a city
+  const s2 = newSave("murder", { name: "V" } as any);
+  registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
+  s2.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "", contains: [], population: { scale: 400, who: "townsfolk" } };
+  s2.world.player_location = "loc_town";
+  applyDiff(s2, {} as unknown as SimulatorDiff, "I kill the guard who stopped me", "The guard fell.");
+  check("one death is not a depopulation", (populationOf(s2.world.places["loc_town"])?.scale ?? 0) === 400);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

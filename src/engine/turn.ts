@@ -23,7 +23,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -3164,6 +3164,22 @@ function unregisteredSpeakers(state: SaveState, prose: string): string[] {
     place.changed_turn = turn;
     shifts.push(`${place.name} is not what it was${pu.note?.trim() ? ` — ${pu.note.trim()}` : ""}.`);
     console.info(`[places] ${place.name} rewritten at turn ${turn}${pu.note ? `: ${pu.note}` : ""}`);
+  }
+
+  // ── A KILLED PLACE IS EMPTY ── Population is what tells the narrator a place has people in it,
+  // and it survived the people. So a town the player had just wiped out went on being described as
+  // having two hundred stallholders and children underfoot, and the crowd directive cheerfully
+  // repopulated a graveyard every turn. Mass harm empties the ground it happened on.
+  {
+    const here = state.world.places[state.world.player_location];
+    const playerRe = new RegExp(`\\byou\\b|\\byour\\b`, "i");
+    const playerProse = prose.split(/(?<=[.!?])\s+/).filter((x) => playerRe.test(x)).join(" ");
+    if (here && MASS_HARM.test(`${action} ${playerProse}`) && (here.population?.scale ?? 1) !== 0) {
+      here.population = { scale: 0, who: "" };
+      here.changed_turn = turn;
+      shifts.push(`${here.name} is empty of people now.`);
+      console.info(`[places] ${here.name} depopulated at turn ${turn}`);
+    }
   }
 
   // BACKSTOP. When the player has plainly remade or unmade the ground under them and the bookkeeper
