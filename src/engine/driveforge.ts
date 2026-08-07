@@ -32,6 +32,11 @@ INVALID, and these are the common failures:
 - VAGUE PEACE. "Find peace and quiet", "tend to something neglected", "keep her head down." These are what you write when you have nothing; they describe a person who has stopped existing. Write what she actually does with her hands this week.
 - ANYTHING PHRASED AROUND ONE PARTICULAR PERSON'S FEELINGS toward them. Bonds are real and belong in the want as a REASON or a METHOD — she wants the field cleared before the frost BECAUSE her brother's family eats from it — never as the object.
 
+- A DOCUMENT. "Draft a written schedule of duties", "reconcile the ledgers into a clean tally", "secure a written agreement sealed before she leaves", "lock in a season's supply contract", "press on with the negotiation for the charter". This is the failure that comes from taking every rule above seriously and nothing else: paperwork is concrete, it needs nobody's permission, you can do it with your own hands starting today, and you can tell exactly when it is finished. It is the locally perfect answer and it is almost never a person's actual want. One save reached nine living characters and FIVE of them were producing documents — a clerk, a steward, a merchant, an envoy, and the commander of an invading army, who was negotiating a charter. The player said: I had to invent an army to make it interesting and the army is signing charters.
+  A record is a MEANS. If the want really does run through a document, the want is the thing the document gets them — the grain in the cellar before the frost, the rival cut out of the trade, the sister's boy taken on at the vault — and the paper is at most the first step. Never the goal.
+
+WANTS ARE NOT ALL ADMINISTRATIVE. Before you write, consider what else a person spends a week on: a body (get strong again after the winter sickness, sleep somewhere warm, eat properly for once); an appetite (bed someone, get drunk with people who knew them before, hear the good singer at the market); a grudge (make the man who shorted them pay for it publicly); repair (fix the roof before it takes the ceiling, get the mare's leg right); curiosity (find out what is actually down the north road, learn to read); standing (be asked to the table where the decisions get made); somebody else (get their brother out of the levy, find the girl a place). Pick the one that fits THIS person's traits, background, skills and interests. If two people in the same story have wants of the same KIND, one of them is wrong.
+
 SCALE IT TO WHO THEY ARE. Someone powerful, independent, or used to command does not spend their want on whether a person likes them: they take ground, install someone, settle a debt, break a rival, build the thing they have been describing for years. A servant's want is smaller and just as much theirs. Read the traits and background you are given and write the want that person would actually carry — a dominating, confident, independent character whose goal is to await instructions is a contradiction, and the contradiction is your error.
 
 Also give a first concrete STEP they could take within a day, by their own means, without anyone's permission.
@@ -63,6 +68,39 @@ export function isDependentGoal(goal: string, playerName: string): boolean {
   return false;
 }
 
+/**
+ * IS THIS WANT A PIECE OF PAPER?
+ *
+ * The drive prompt asks for something concrete, achievable by the person's own hands, needing
+ * nobody's permission, and verifiable as done. A document satisfies every one of those perfectly,
+ * so it is what a model reaches for when it has nothing better — and because each want is forged
+ * independently, the whole cast reaches for it at once. One save, nine living characters, five of
+ * them producing documents: a schedule of duties, a reconciled ledger, a written price agreement, a
+ * season's supply contract, and a charter being negotiated by the commander of an invading army.
+ *
+ * This is not a ban. A steward really may want the ledgers straight, and a merchant really may want
+ * a contract — ONCE, in a cast. What is wrong is the fifth one. So the gate is cast-aware: the
+ * first paperwork want in a story stands, and the next is sent back to be something else.
+ */
+const PAPER = /\b(charter|ledger|ledgers|contract|tally|tallies|schedule|inventory|audit|deed|writ|invoice|register|registry|manifest|accounts?|paperwork|documents?|agreements?|terms|bond|licen[cs]e|warrant|decree|treaty|receipts?)\b/i;
+const PAPER_VERB = /\b(draft\w*|draw\w*\s+up|drew\s+up|set\w*\s+down|writ\w*\s+out|wrote\s+out|reconcil\w*|tall(?:y|ies|ying)|seal\w*|sign\w*|ratif\w*|notari\w*|fil(?:e|es|ing)|formali\w*|codif\w*|negotiat\w*|lock\w*\s+in|put\w*\s+in\s+writing|in\s+writing)/i;
+
+export function isPaperworkGoal(goal: string): boolean {
+  const g = String(goal ?? "");
+  if (!PAPER.test(g)) return false;
+  // A document merely MENTIONED is fine — "get the grain into the cellar before the audit" is about
+  // grain. It is paperwork when producing or agreeing the record is the thing being pursued.
+  return PAPER_VERB.test(g) || /\b(written|formal|clean|final)\b[^.]{0,40}\b(schedule|tally|agreement|record|terms|contract|charter)\b/i.test(g);
+}
+
+/** Who in the living cast is already pursuing a piece of paper. */
+export function paperworkHolders(state: any, exceptId: string): string[] {
+  return Object.entries<any>(state.characters ?? {})
+    .filter(([oid, o]) => oid !== exceptId && oid !== "char_player" && o.status !== "dead" && o.status !== "departed")
+    .filter(([, o]) => o.drive?.goal && isPaperworkGoal(o.drive.goal))
+    .map(([, o]) => o.name);
+}
+
 /** Everything the pass is allowed to see. Deliberately excludes the player and the transcript. */
 function brief(state: any, id: string): string {
   const c = state.characters[id];
@@ -88,6 +126,19 @@ function brief(state: any, id: string): string {
     `WHAT PEOPLE HERE FEAR: ${b.what_people_fear ?? ""}`,
     `SEASON AND TIME: ${state.world.current_time}`,
     others ? `\nOTHER PEOPLE IN THEIR LIFE:\n${others}` : "",
+    // WHAT EVERYONE ELSE IS ALREADY DOING. Each want used to be forged in isolation, so nine
+    // independent calls under the same constraints converged on the same locally-optimal shape and
+    // the whole cast ended up doing paperwork at each other. The forge cannot avoid a collision it
+    // cannot see.
+    (() => {
+      const held = Object.entries<any>(state.characters ?? {})
+        .filter(([oid, o]) => oid !== id && oid !== "char_player" && o.drive?.goal && o.status !== "dead" && o.status !== "departed")
+        .slice(0, 8)
+        .map(([, o]) => `- ${o.name}: ${String(o.drive.goal).slice(0, 120)}`);
+      return held.length
+        ? `\nWANTS ALREADY TAKEN IN THIS STORY — yours must not be the same KIND as any of these. If they are all errands of record and account, that is the failure described above and yours is something else entirely:\n${held.join("\n")}`
+        : "";
+    })(),
     `\nOPEN BUSINESS IN THE WORLD: ${(state.world.threads ?? []).filter((t: any) => t.status === "active").map((t: any) => t.title).join("; ") || "nothing pressing"}`,
   ].filter(Boolean).join("\n");
 }
@@ -98,16 +149,23 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
   if (!c || c.status === "dead" || c.status === "departed") return null;
   const playerName = state.characters?.char_player?.name ?? "";
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let rejection = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const extra = attempt === 0 ? "" : "\n\nYour previous attempt was rejected for being a decision, a wait for someone's answer, or a bid for approval. Write what this person DOES.";
-      const msgs = buildMessages(DRIVE_SYSTEM, "PERSON:", brief(state, id) + extra, model);
+      const msgs = buildMessages(DRIVE_SYSTEM, "PERSON:", brief(state, id) + rejection, model);
       const out = await complete(msgs, model, model, true, 700);
       const j = safeJson<{ goal?: string; step?: string; why?: string }>(out.text, {});
       const goal = String(j.goal ?? "").trim();
       if (!goal || goal.length < 8) continue;
       if (isDependentGoal(goal, playerName)) {
         console.info(`[drives] rejected player-contingent goal for ${c.name}: "${goal}"`);
+        rejection = "\n\nYour previous attempt was rejected for being a decision, a wait for someone's answer, or a bid for approval. Write what this person DOES.";
+        continue;
+      }
+      const holders = paperworkHolders(state, id);
+      if (holders.length && isPaperworkGoal(goal)) {
+        console.info(`[drives] rejected paperwork goal for ${c.name} (${holders.join(", ")} already have one): "${goal}"`);
+        rejection = `\n\nYour previous attempt was another errand of record and account, and ${holders.join(" and ")} ${holders.length === 1 ? "is" : "are"} already doing that in this story. Write a want of a different KIND — the body, an appetite, a grudge, a repair, curiosity, standing, or somebody else they are trying to get something for.`;
         continue;
       }
       c.drive = {
