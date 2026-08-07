@@ -11,7 +11,8 @@
  * immediately above their mood and their wants. The player got one truncated sentence of
  * background and nothing else. It read as being ignored because it effectively was. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { volatileDigest, narratorSystem, tailGist } from "../src/engine/prompts";
+import { volatileDigest, narratorSystem, simulatorSystem, tailGist, FORGE_SYSTEM } from "../src/engine/prompts";
+import { SKETCH_SYSTEM } from "../src/engine/sketch";
 import { needsHistoryCompaction } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
 
@@ -130,6 +131,66 @@ function world(): SaveState {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: the trait outranks the character's own log`, /since the story began/.test(P) && /the TRAIT wins|the trait wins/.test(P));
     check(`${label}: and the reason it loses otherwise is named`, /volume|drown/.test(P));
+  }
+}
+
+/* 6. A PERSON HAS MORE THAN ONE SUBJECT.
+ *
+ * Every NPC in a 25-turn save had `skills: {}` — the field is required on Identity and no creation
+ * path ever asked for it. `texture` was specced as "1-2 concrete habits or physical tells" against
+ * a type whose own comment says it holds "a few standing interests… knows too much about rocks",
+ * so it filled with body language instead of interests. And both were rendered only at detail>=2,
+ * which fires at the top context level alone.
+ *
+ * The result, read off the save: a trader whose background, traits, values, speech, example lines
+ * and agenda are ALL about trade; an innkeeper whose six fields are all about surviving power; a
+ * made woman whose every field is about being made. Each is one subject with legs. */
+{
+  const s2 = world();
+  const m = Object.keys(s2.characters).find((id) => s2.characters[id].name === "Mable")!;
+  s2.characters[m].texture = ["watches for the first swifts every spring", "will not hear the harvest song sung slow", "keeps a tally stick out of habit"];
+  s2.characters[m].skills = { "reading a scale": "better than the merchants she learned it from", "mending nets": "passable, learned as a child" };
+
+  const d = volatileDigest(s2, "the cave");
+  check("texture reaches the narrator", /watches for the first swifts/.test(d), d.match(/ {2}texture[^\n]*/)?.[0]);
+  check("and is labelled as something she raises herself", /raises these unprompted/.test(d));
+  check("skills reach the narrator", /reading a scale/.test(d), d.match(/ {2}knows[^\n]*/)?.[0]);
+  check("with how she came by them", /learned as a child/.test(d));
+  check("labelled as what she can talk about", /can hold forth on/.test(d));
+
+  // and they are not gated behind the most generous context budget
+  const squeezed = volatileDigest(s2, "the cave", { budgetOverride: 900 });
+  check("they survive a tight token budget", /swifts/.test(squeezed) && /reading a scale/.test(squeezed),
+    squeezed.match(/ {2}(texture|knows)[^\n]*/g));
+
+  // empty fields produce no empty lines
+  s2.characters[m].texture = [];
+  s2.characters[m].skills = {};
+  const bare = volatileDigest(s2, "x");
+  check("no texture, no line", !/texture \(raises/.test(bare));
+  check("no skills, no line", !/knows \(can hold/.test(bare));
+}
+
+/* 7. and every creation path now asks for a life outside the plot */
+{
+  const paths: [string, string][] = [
+    ["forge", FORGE_SYSTEM],
+    ["simulator", simulatorSystem(false)],
+    ["simulator (lean)", simulatorSystem(true)],
+    ["sketch", SKETCH_SYSTEM],
+  ];
+  for (const [label, P] of paths) {
+    check(`${label}: asks where they are from`, /where they are from/i.test(P), label);
+    check(`${label}: asks for a named trade or body of knowledge`, /trade or body of knowledge/i.test(P), label);
+    check(`${label}: asks for something unconnected to the player`, /(unconnected to the player|NOTHING to do with the story|nothing to do with the player)/i.test(P), label);
+    check(`${label}: asks for texture unrelated to their role`, /(unrelated to their trade|nothing to do with their trade)/i.test(P), label);
+    check(`${label}: asks for skills`, /skills/i.test(P), label);
+  }
+  check("the forge names the failure it is preventing",
+    /can talk about one subject, and every scene with them is the same scene/.test(FORGE_SYSTEM));
+  for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
+    check(`${label}: texture is no longer confined to quiet scenes`, !/texture:" quiet scenes only|quiet scenes only\./.test(P), label);
+    check(`${label}: texture is declared conversational range`, /raises? (?:these )?unprompted|conversational range|brings up unprompted/i.test(P), label);
   }
 }
 

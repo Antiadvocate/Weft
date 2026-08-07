@@ -27,7 +27,7 @@ import { isPersonName } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { asList, asText } from "./coerce";
 
-const SKETCH_SYSTEM = `You complete a CHARACTER RECORD for someone who has already entered a story but was never written down properly.
+export const SKETCH_SYSTEM = `You complete a CHARACTER RECORD for someone who has already entered a story but was never written down properly.
 
 You are given: their name, the player's action that brought them in (when there was one), the prose in which they appeared, and the world they are in. Everything in those sources is TRUE and BINDING — if the prose says her eyes are grey-green and her feet are bare, the record says grey-green eyes; if the player said she is more beautiful than a named character, she is strikingly beautiful. You are filling in what was left blank around facts already established, never overwriting them and never contradicting them.
 
@@ -42,11 +42,12 @@ Output ONLY this JSON:
 "appearance_facts": "COMPLETE physical baseline of the body they actually have — hair colour AND texture, eye colour, skin, face or one distinctive feature, build, apparent age, one unique identifying mark. Every physical detail the prose gave, verbatim; invent the rest consistently. PHYSICAL CONSTANTS ONLY — never clothing.",
 "height_cm": 170,
 "weight_kg": 65,
-"background": "who they are and where they came from, in two or three plain sentences. If the player created them outright, say so plainly and say what they were made to be.",
+"background": "WHO THEY ARE APART FROM THE SCENE THEY ENTERED IN. Three or four plain sentences, and the test is whether a stranger could hold four different conversations with them: where they are from and what that place was like; who raised them or who they have lost; the trade or body of knowledge they actually hold, named specifically; one formative thing with nothing to do with the player or the story; and one ordinary strong opinion about something small. If the player created them outright, say so plainly and say what they were made to be \u2014 then give them the rest of a self anyway, because a person made yesterday still has to be able to talk about something other than the person who made them.",
 "core_traits": ["2-4 real personality traits, not plot function"],
 "values": ["2-3 things they actually care about"],
 "speech_pattern": "how they talk — register, rhythm, what they refuse to say",
-"texture": ["1-2 concrete habits or physical tells"],
+"texture": ["2-4 standing interests and enthusiasms they raise unprompted when a scene gives them room \u2014 at least two with nothing to do with their trade, their rank, or the player. One physical tell is allowed among them, never more."],
+"skills": {"3-5 entries, key = the competence, value = how good and how they came by it \u2014 a person's skills are the subjects they can actually hold forth on": ""},
 "beauty": 50,
 "conscience": 0.7,
 "attracted_to": "women / men / anyone / no one",
@@ -158,6 +159,17 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
   putList("core_traits", g.core_traits);
   putList("values", g.values);
   putList("texture", g.texture);
+  // SKILLS. The field is required on Identity and no creation path ever filled it — every NPC in a
+  // 25-turn save had none. A person's competences are the subjects they can actually hold forth on,
+  // so an empty map is a person with nothing to say outside their one plot function.
+  if (g.skills && typeof g.skills === "object" && !Array.isArray(g.skills) && !Object.keys(c.skills ?? {}).length) {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(g.skills).slice(0, 6)) {
+      const key = String(k).trim().slice(0, 40);
+      if (key) out[key] = String(v ?? "").trim().slice(0, 120);
+    }
+    if (Object.keys(out).length) c.skills = out;
+  }
   putNum("age", g.age, 0, 200, 30);          // 30 is the registration default, i.e. "nobody said"
   putNum("height_cm", g.height_cm, 30, 300);
   putNum("weight_kg", g.weight_kg, 2, 500);
