@@ -125,6 +125,25 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                   style={{ background: i < c.filled ? "var(--accent)" : "var(--ink-3)" }} />
               ))}
             </div>
+            {/* A clock that fills does not act — it queues its consequence, which beat selection
+                then discharges into a scene ahead of cooldowns and grace. Firing by hand has to go
+                through that same path: setting status to "fired" is the one edit that stops it
+                working, because the discharge only picks up clocks that are still running. */}
+            {c.status !== "fired" && (
+              <div className="flex justify-end mt-1.5">
+                <button
+                  className="font-mono text-[9.5px] shrink-0 opacity-60 hover:opacity-100"
+                  style={{ color: "var(--danger)" }}
+                  title="fill this clock now — its consequence lands in the next scene"
+                  onClick={async () => {
+                    if (!confirm(`Fire ${c.faction}'s clock now?\n\n${c.consequence || "Its consequence lands in the next scene."}`)) return;
+                    const { save: s2, log } = await api.fireClock(save.id, c.id);
+                    onSave?.(s2);
+                    if (log.length) alert(log.join("\n"));
+                  }}
+                >fire now</button>
+              </div>
+            )}
           </div>
         ))}
       </Block>

@@ -8,6 +8,7 @@ import type {
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
+import { dischargeFiredClocks } from "../engine/pressure";
 import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
@@ -712,6 +713,37 @@ export const api = {
     s.updated_at = new Date().toISOString();
     await putSave(s);
     return clientView(s);
+  },
+
+  /**
+   * FIRE A CLOCK NOW.
+   *
+   * A clock does not *do* anything when it fills. `dischargeFiredClocks` converts it into a PENDING
+   * CONSEQUENCE, and beat selection checks due consequences before cooldowns and grace — that is
+   * what forces the promised thing into a scene at full scale. So firing by hand means filling the
+   * clock and letting the engine's own discharge run, never setting `status` and hoping.
+   *
+   * Setting `status: "fired"` by hand is in fact the one edit that PREVENTS it firing: the discharge
+   * guard requires `running`, so a hand-fired clock is skipped, no consequence is ever queued, and
+   * the clock goes quiet having promised something that never arrives. This exists so nobody has to
+   * know that.
+   */
+  fireClock: async (id: string, clock_id: string): Promise<{ save: ClientSave; log: string[] }> => {
+    const s = await need(id);
+    const c = s.world.clocks.find((x) => x.id === clock_id);
+    if (!c) throw new Error("No such clock.");
+    if (c.status === "fired") throw new Error("That clock has already fired.");
+    c.filled = c.segments;
+    c.status = "running";                       // discharge only picks up running clocks
+    c.last_advanced_time = s.world.current_time;
+    const log = dischargeFiredClocks(s, s.world.current_turn);
+    // Land it on the NEXT turn rather than turn+1, so "fire now" means the next thing that happens.
+    for (const x of s.world.consequences) {
+      if (x.id === `clockfire_${c.id}` && x.status === "pending") x.fire_turn = s.world.current_turn;
+    }
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return { save: clientView(s), log };
   },
 
   editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string; population?: { scale: number; who: string } }): Promise<ClientSave> => {
