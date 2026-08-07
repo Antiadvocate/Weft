@@ -92,8 +92,24 @@ export default function Inspector({ save, setSave, onClose }: { save: ClientSave
 
   return (
     <div className="h-full flex flex-col">
+      {/* ── SAVE BAR, AT THE TOP ────────────────────────────────────────────
+          It was at the bottom, and the overlay carried no bottom safe-area padding, so on a phone
+          it sat under the home indicator: a player reported that the Inspector simply had no save
+          button. A control you cannot find is a control that does not exist. It lives above the
+          fold now, on the first row, and it never dims to the point of being unreadable. */}
+      <div className="px-3 pt-3 pb-2 shrink-0 flex items-center gap-2" style={{ borderBottom: L.line }}>
+        <div className="text-[11px] flex-1 min-w-0 truncate" style={{ color: err ? "var(--danger)" : dirty ? "var(--accent)" : "var(--text-lo)" }}>
+          {err ? err : busy ? "writing…" : saved ? "written to the save" : dirty ? "unsaved changes" : "no changes yet"}
+        </div>
+        <button className="chip" disabled={!dirty || busy} style={{ opacity: dirty && !busy ? 1 : 0.5 }}
+          onClick={() => setDraft(raw)}>revert</button>
+        <button className="chip chip-accent" disabled={!dirty || busy} style={{ opacity: dirty && !busy ? 1 : 0.5 }}
+          onClick={commit}>{saved ? <><Check size={11} /> saved</> : "save"}</button>
+        {onClose && <button className="chip" disabled={busy} onClick={close}>{dirty ? "save & close" : "close"}</button>}
+      </div>
+
       {/* ── search + section picker ───────────────────────────────────────── */}
-      <div className="px-3 pt-3 pb-2 shrink-0" style={{ borderBottom: L.line }}>
+      <div className="px-3 pt-2 pb-2 shrink-0" style={{ borderBottom: L.line }}>
         <div className="flex items-center gap-2 px-2.5 py-1.5 rounded" style={{ background: "var(--ink-1)" }}>
           <Search size={13} style={{ color: "var(--text-lo)" }} />
           <input
@@ -122,18 +138,6 @@ export default function Inspector({ save, setSave, onClose }: { save: ClientSave
         />
       </div>
 
-      {/* ── save bar ──────────────────────────────────────────────────────── */}
-      <div className="px-3 py-2.5 shrink-0 flex items-center gap-2" style={{ borderTop: L.line, background: "var(--ink-0)" }}>
-        {err && <div className="text-[11px] flex-1" style={{ color: "var(--danger)" }}>{err}</div>}
-        {!err && <div className="text-[11px] flex-1" style={{ color: "var(--text-lo)" }}>
-          {saved ? "written to the save" : dirty ? "unsaved changes" : "no changes"}
-        </div>}
-        <button className="chip" disabled={!dirty || busy} style={{ opacity: dirty && !busy ? 1 : 0.4 }}
-          onClick={() => setDraft(raw)}>revert</button>
-        <button className="chip chip-accent" disabled={!dirty || busy} style={{ opacity: dirty && !busy ? 1 : 0.4 }}
-          onClick={commit}>{busy ? "writing…" : saved ? <><Check size={11} /> saved</> : "save"}</button>
-        {onClose && <button className="chip" disabled={busy} onClick={close}>{dirty ? "save & close" : "close"}</button>}
-      </div>
     </div>
   );
 }

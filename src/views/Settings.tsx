@@ -441,8 +441,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
 
       {inspecting && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 96, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
-          <div className="px-4 py-2.5 flex items-center gap-3" style={{ borderBottom: "1px solid var(--line)" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 96, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <div className="px-4 py-2 flex items-center gap-3 shrink-0" style={{ borderBottom: "1px solid var(--line)" }}>
             <div className="min-w-0">
               <div className="font-display text-[16px]">Inspector</div>
               <div className="text-[11px]" style={{ color: "var(--text-mid)" }}>Every field in this save, typed and searchable.</div>
