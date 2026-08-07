@@ -24,6 +24,9 @@
  * these families — and a contraction ("the way she'D looked") and a reordering ("not X, not Y,
  * just Z") were enough to walk through it. */
 import { scrubForReplay } from "../src/engine/turn";
+import { newSave, registerCharacter } from "../src/engine/state";
+import { promisesLikelyMet, addPromise } from "../src/engine/social";
+import { simulatorContext } from "../src/engine/prompts";
 import { narratorSystem } from "../src/engine/prompts";
 
 let pass = 0, fail = 0;
@@ -88,6 +91,59 @@ const gone = (s: string) => !scrubForReplay(s).includes(s.trim().slice(0, 40));
     check(`${label}: with the exact line`, /the part you didn't come here to say/i.test(P));
     check(`${label}: the accounting metaphor is named`, /sums, ledgers, arithmetic, numbers adding up/i.test(P));
   }
+}
+
+/* 6. "SAY IT AGAIN" — banned outright, in both contracts.
+ *
+ * A player: "I really really hate them saying 'say it again' in general — even in the old save it's
+ * non stop. One time she had me say something three times." It is the same move every time: the
+ * player typed a line, it landed, and instead of answering it the world hands it back and asks for
+ * it louder. */
+{
+  for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
+    check(`${label}: the demand is banned by name`, /NOBODY MAKES THE PLAYER SAY IT TWICE/.test(P));
+    check(`${label}: with the phrasings`, /say it again/i.test(P) && /I want to hear you say it/i.test(P));
+    check(`${label}: and what to do instead`, /what (?:somebody|they) DO(?:ES)?\b/i.test(P), label);
+  }
+}
+
+/* 7. A PROMISE THE PLAYER HAS ALREADY KEPT MUST NOT SIT OPEN IN THEIR JOURNAL.
+ *
+ * "Help her drain the woad vat before the date." — made turn 2. Turn 3: "I snap my fingers and the
+ * vat is drained." At turn 3 the ledger still read open, and the Journal still told the player it
+ * was a job they owed. The bookkeeper is told in capitals that resolving open promises is its job,
+ * and was never shown WHICH promises were open: threads were listed in its context, promises were
+ * not. It cannot close what it cannot see. */
+{
+  const s2 = newSave("promise", { name: "V" } as any);
+  s2.world.places["loc_dye"] = { id: "loc_dye", name: "The dye-house", description_facts: "Vats.", contains: [] };
+  s2.world.player_location = "loc_dye";
+  registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
+  const mich = registerCharacter(s2, { name: "Michelle" } as any);
+  s2.characters[mich].location = "loc_dye";
+  s2.world.current_turn = 3;
+  addPromise(s2, "char_player", mich, "Help her drain the woad vat before the date.", 1);
+  addPromise(s2, "char_player", mich, "Walk her home to Thornhaven when the roads are safe.", 2);
+
+  const ctx = simulatorContext(s2);
+  check("the open ledger reaches the bookkeeper", /OPEN PROMISES/.test(ctx));
+  check("with the promise text", /Help her drain the woad vat/.test(ctx));
+  check("and the id it must resolve by", /promise_/.test(ctx));
+  check("and who owes whom", /Rabi → Michelle/.test(ctx), ctx.slice(ctx.indexOf("OPEN PROMISES"), ctx.indexOf("OPEN PROMISES") + 260));
+  check("it says an unclosed promise is visible to the player", /journal/i.test(ctx));
+
+  const met = promisesLikelyMet(s2, "I snap my fingers and the vat is drained.", "The vat was empty before the snap finished ringing off the rafters.");
+  check("the one this turn settled is flagged", met.length === 1, met.map((p) => p.text));
+  check("and it is the right one", /woad vat/.test(met[0]?.text ?? ""), met[0]?.text);
+  check("the unrelated promise is not flagged", !met.some((p) => /Thornhaven/.test(p.text)));
+
+  check("an unrelated turn flags nothing",
+    promisesLikelyMet(s2, "I go to the north gate and count the column.", "Cookfires, and a woman counting.").length === 0);
+  check("a kept promise stops being offered", (() => {
+    for (const p of s2.world.promises!) p.status = "kept";
+    return promisesLikelyMet(s2, "I drain the woad vat", "the vat is drained").length === 0;
+  })());
+  check("no promises, no block", !/OPEN PROMISES/.test(simulatorContext(newSave("x", { name: "V" } as any))));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

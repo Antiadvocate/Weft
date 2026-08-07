@@ -811,6 +811,33 @@ export function addPromise(state: SaveState, from: string, to: string, text: str
 
 /** Resolve a promise kept or broken, applying the weight- and pattern-scaled relationship change and
  *  a memory for the one it was made to. Returns a human line for the shift log. */
+/**
+ * PROMISES THIS TURN'S EVENTS LOOK LIKE THEY SETTLED.
+ *
+ * Showing the bookkeeper the open ledger is most of the fix, but a small model reading a long turn
+ * will still miss one, and the cost of a miss is visible to the player: a job they have already
+ * done sits in their journal as still owed. This is the cheap second pass — word overlap between
+ * the promise and what actually happened. It never closes anything itself; a promise is kept or
+ * broken by the record, not by a regex. It points, and the bookkeeper decides.
+ *
+ * The case that prompted it: "Help her drain the woad vat before the date." made on turn 2, and on
+ * turn 3 the player typed "I snap my fingers and the vat is drained". Overlap is obvious to a
+ * reader and was invisible to the engine.
+ */
+export function promisesLikelyMet(state: SaveState, action: string, prose: string): PromiseRec[] {
+  const turnText = `${action}\n${prose}`;
+  if (!turnText.trim()) return [];
+  return (state.world.promises ?? [])
+    .filter((p) => p.status === "open")
+    .filter((p) => {
+      const t = (p.text ?? "").trim();
+      if (t.length < 8) return false;
+      // Both directions: a short promise inside a long turn scores badly one way and well the other.
+      return relevance(t, turnText) >= 0.25 || relevance(turnText, t) >= 0.25;
+    })
+    .slice(0, 4);
+}
+
 export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" | "broken", turn: number): string {
   if (p.status !== "open") return "";
   p.status = outcome;
