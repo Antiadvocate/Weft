@@ -191,7 +191,27 @@ const MOTIVE_LEAK = new RegExp([
   // UNSPOKEN SPEECH: "He did not say we didn't know you'd be here." Reporting the sentence someone
   // withheld is interior access with a negation in front of it.
   "\\b(?:he|she|they|xe) did not say\\b", "\\bwhatever (?:he|she|they) had been about to say\\b",
-  "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
+  // A CONTRACTION WAS ENOUGH TO SLIP IT. This required a bare pronoun followed by a word, so
+  // "the way SHE watched" was caught and "the way she'D LOOKED at him when they were younger" —
+  // the same move, reaching further, into a shared past and a feeling — sailed through. Allow the
+  // contraction and the auxiliary.
+  "\\bthe way (?:he|she|they|xe|ze|it)(?:'d|'s|'ll|'ve| had| has| would| always)?\\s+(?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said|smile|hold|held)",
+  // THE RELATIONSHIP AS A STANDING FACT: "the way it always was with him", "the way she always
+  // did with him". A claim about how these two always are, asserted by the camera, in a scene.
+  "\\bthe way it (?:always |usually )?(?:was|is|had been) with (?:him|her|them)\\b",
+  // NEGATIVE DEFINITION, SECOND FORM. The list already catches "not the stillness of a man…";
+  // this is the same construction with the ruling-out done first and the verdict landed last:
+  // "not frightened, not grateful, just a woman doing arithmetic on a sum she hadn't expected".
+  "\\bnot \\w+, (?:not \\w+, )?just (?:a|an|the) (?:man|woman|boy|girl|person|someone)\\b",
+  "\\bjust (?:a|an) (?:man|woman|boy|girl|person|someone) (?:doing|working|reading|deciding|weighing|counting|thinking)\\b",
+  // THE ACCOUNTING METAPHOR. Reported by a player as the one that gets used constantly, and it is
+  // interior access wearing a bookkeeping costume: a sum, a ledger, arithmetic, numbers that do or
+  // do not add up, all standing in for what somebody is privately concluding. This world contains
+  // real ledgers and real tallies, so only the FIGURATIVE frames are listed.
+  "\\b(?:doing|did|finished|running) (?:the )?arithmetic\\b", "\\ba sum (?:he|she|they|xe)\\b",
+  "\\bthe (?:ledger|arithmetic|calculus|accounting|mathematics) of\\b",
+  "\\bnumbers (?:that )?(?:did ?n[o']t|don'?t|would ?n[o']t) add up\\b", "\\badding (?:it|them|her|him) up\\b",
+    "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
   "\\bpretend(?:s|ing|ed)?\\b", "\\bto (?:hide|conceal|mask|cover)\\b", "\\bmask(?:ing)? (?:still |firmly )?in place\\b",
   "\\b(?:polite|careful|practised|practiced) mask\\b", "\\bcarefully (?:blank|neutral|still|empty)\\b",
   "\\bwhich meant\\b", "\\bwhat (?:he|she|they|xe) really\\b", "\\bdoes ?n[o']t say what\\b", "\\bdid ?n[o']t say what\\b",
