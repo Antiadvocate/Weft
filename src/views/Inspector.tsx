@@ -17,7 +17,7 @@ import {
 
 const L = { line: "1px solid var(--line)" };
 
-export default function Inspector({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
+export default function Inspector({ save, setSave, onClose }: { save: ClientSave; setSave: (s: ClientSave) => void; onClose?: () => void }) {
   const [raw, setRaw] = useState<any>(null);
   const [draft, setDraft] = useState<any>(null);
   const [sectionId, setSectionId] = useState("bible");
@@ -52,8 +52,8 @@ export default function Inspector({ save, setSave }: { save: ClientSave; setSave
   const edit = (path: (string | number)[], value: unknown) =>
     setDraft((d: any) => (value === undefined ? deletePath(d, path) : setPath(d, path, value)));
 
-  const commit = async () => {
-    if (!dirty) return;
+  const commit = async (): Promise<boolean> => {
+    if (!dirty) return true;
     setBusy(true); setErr("");
     try {
       // Diff the two trees at the top level of each section rather than field by field: one patch
@@ -68,8 +68,22 @@ export default function Inspector({ save, setSave }: { save: ClientSave; setSave
       setSave(s);
       await load();
       setSaved(true); setTimeout(() => setSaved(false), 1500);
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+      return true;
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); return false; }
     finally { setBusy(false); }
+  };
+
+  /**
+   * CLOSING IS NOT DISCARDING. The first version of this panel had two buttons — "done" in the
+   * overlay header and "save" in the footer — and "done" threw the draft away without a word. That
+   * is the whole of "I make the changes and they go away": the work was never written, and nothing
+   * said so. Closing now writes first, and only gives up the edits if the player says to.
+   */
+  const close = async () => {
+    if (!dirty) { onClose?.(); return; }
+    const ok = await commit();
+    if (ok) { onClose?.(); return; }
+    if (confirm("Those changes could not be written. Close anyway and lose them?")) onClose?.();
   };
 
   if (!draft || !active) return <div className="px-4 pt-6 text-[13px]" style={{ color: "var(--text-lo)" }}>Reading the save…</div>;
@@ -118,6 +132,7 @@ export default function Inspector({ save, setSave }: { save: ClientSave; setSave
           onClick={() => setDraft(raw)}>revert</button>
         <button className="chip chip-accent" disabled={!dirty || busy} style={{ opacity: dirty && !busy ? 1 : 0.4 }}
           onClick={commit}>{busy ? "writing…" : saved ? <><Check size={11} /> saved</> : "save"}</button>
+        {onClose && <button className="chip" disabled={busy} onClick={close}>{dirty ? "save & close" : "close"}</button>}
       </div>
     </div>
   );
@@ -213,10 +228,15 @@ function Collapsible({ id, label, badge, open, setOpen, depth, children, onDelet
   );
 }
 
-function Field({ path, label, kind, value, onEdit }: {
+function Field({ path, label, kind: initialKind, value, onEdit }: {
   path: (string | number)[]; label: string; kind: FieldKind; value: unknown;
   onEdit: (p: (string | number)[], v: unknown) => void;
 }) {
+  // THE CONTROL DOES NOT CHANGE UNDER THE CURSOR. `classify` reads the CURRENT value, and the
+  // text/prose boundary is a length: typing past it swapped an <input> for a <textarea> mid-word,
+  // which unmounts the element the cursor is in and drops focus and the rest of the sentence. Fix
+  // the kind on first sight and keep it for the life of the field.
+  const [kind] = useState<FieldKind>(initialKind);
   const set = (v: unknown) => onEdit(path, v);
   return (
     <div>
@@ -279,11 +299,18 @@ function ImageField({ value, onClear }: { value: string; onClear: () => void }) 
 
 /** string[] as one per line — the shape every list in this app actually wants. */
 function ListField({ path, value, onEdit }: { path: (string | number)[]; value: string[]; onEdit: (p: (string | number)[], v: unknown) => void }) {
+  // The textarea holds the text the person typed; the save holds the parsed list. Those two are not
+  // the same thing — pressing Enter makes an empty line, the parse drops it, and syncing the box
+  // back from the parse deletes the newline as fast as it is typed. So the box is only re-synced
+  // while it is NOT focused, which is exactly when an outside change should land in it.
   const [text, setText] = useState(value.join("\n"));
-  useEffect(() => { setText(value.join("\n")); }, [JSON.stringify(value)]);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (!focused) setText(value.join("\n")); }, [JSON.stringify(value), focused]);
   return (
     <textarea
       value={text} spellCheck={false}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onChange={(e) => { setText(e.target.value); onEdit(path, e.target.value.split("\n").map((x) => x.trim()).filter(Boolean)); }}
       rows={Math.min(12, Math.max(2, value.length + 1))}
       placeholder="one per line"

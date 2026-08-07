@@ -448,10 +448,11 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
               <div className="text-[11px]" style={{ color: "var(--text-mid)" }}>Every field in this save, typed and searchable.</div>
             </div>
             <div style={{ flex: 1 }} />
-            <button className="chip" onClick={() => setInspecting(false)}>done</button>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
-            <Inspector save={save} setSave={setSave} />
+            {/* Closing is the Inspector's call, not the header's — it knows whether there is unsaved
+                work and writes it before it goes. A "done" button up here silently threw drafts away. */}
+            <Inspector save={save} setSave={setSave} onClose={() => setInspecting(false)} />
           </div>
         </div>
       )}
