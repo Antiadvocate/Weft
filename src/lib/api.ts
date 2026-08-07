@@ -5,7 +5,7 @@ import type {
   SaveState, ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
-import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon } from "../engine/state";
+import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists } from "../engine/turn";
@@ -816,6 +816,51 @@ export const api = {
     };
   },
 
+  /**
+   * THE WHOLE SAVE, for the Inspector. `getWorldRaw` below exposes one slice — bible, threads,
+   * clocks, places, canon, edges — and characters, memory, condition and traits were not reachable
+   * from the editor at all. Snapshots are stripped: they are device-local rollback copies of the
+   * entire save and would multiply the payload by their count.
+   */
+  getSaveRaw: async (id: string): Promise<any> => {
+    const s = await need(id);
+    const { snapshots, ...rest } = s as any;
+    return JSON.parse(JSON.stringify(rest));
+  },
+
+  /**
+   * Write a set of edits back, each addressed by path. One round trip, one save, then the same
+   * healing every other write path gets — types repaired, presence re-derived from co-location — so
+   * a hand edit cannot leave the save in a shape the engine will not read.
+   *
+   * `undefined` as a value means DELETE: dropping a key or splicing an array entry is half of what
+   * the raw editor was being used for.
+   */
+  applySavePatches: async (id: string, patches: { path: (string | number)[]; value: unknown }[]): Promise<ClientSave> => {
+    const s = await need(id);
+    for (const { path, value } of patches) {
+      if (!Array.isArray(path) || !path.length) continue;
+      if (path[0] === "id" || path[0] === "snapshots") continue;   // identity and rollback are not editable
+      let cur: any = s;
+      for (let i = 0; i < path.length - 1; i++) {
+        const k = path[i];
+        if (cur[k] === null || typeof cur[k] !== "object") cur[k] = typeof path[i + 1] === "number" ? [] : {};
+        cur = cur[k];
+      }
+      const last = path[path.length - 1];
+      if (value === undefined) {
+        if (Array.isArray(cur) && typeof last === "number") cur.splice(last, 1);
+        else delete cur[last as any];
+      } else cur[last as any] = value;
+    }
+    healCharacterTypes(s);
+    sanitize(s);
+    syncPresence(s);
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
   /** The editable world slice for the raw world editor (no per-character data — use the character editor for that). */
   getWorldRaw: async (id: string): Promise<any> => {
     const s = await need(id);
@@ -1267,7 +1312,7 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
   describeSave: (data: any): string => describeStamp(data?._weft),
 
   importSave: async (data: any): Promise<ClientSave> => {
-    if (!data?.world_bible || !data?.world || !data?.characters) throw new Error("not a Weft save file");
+    if (!data?.world_bible || !data?.world || !data?.characters) throw new Error("not a Weaver save file");
     console.info(`[import] ${describeStamp(data?._weft)}`);
     const { _weft, ...rest } = data;
     const s = sanitize(rest as SaveState);

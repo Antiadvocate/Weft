@@ -314,7 +314,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                   {pricey ? " This is a premium model; cost adds up fast at this volume. A cheaper narrator in Tuning cuts most of the spend." : ""}
                 </div>
                 <div className="text-[10.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-                  See live billing at openrouter.ai/activity — Weft tracks token counts, not prices.
+                  See live billing at openrouter.ai/activity — Weaver tracks token counts, not prices.
                 </div>
               </>
             );

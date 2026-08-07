@@ -74,7 +74,7 @@ export default function App() {
 
   const closeSave = useCallback(() => { setSave(null); setMode("library"); }, []);
 
-  const title = mode === "game" && save ? save.world_bible.name : mode === "forge" ? "The Forge" : "Weft";
+  const title = mode === "game" && save ? save.world_bible.name : mode === "forge" ? "The Forge" : "Weaver";
   const subtitle = mode === "game" && save ? `${save.world.current_time} · turn ${save.world.current_turn}` : "a world that reacts";
 
   // FRESHNESS — watch for a newer deploy and offer a reload. See lib/freshness.ts.
@@ -86,7 +86,7 @@ export default function App() {
       <div className="shell">
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="card p-6 max-w-sm w-full">
-            <div className="font-display text-[22px] mb-1" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>Weft</div>
+            <div className="font-display text-[22px] mb-1" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>Weaver</div>
             <div className="text-[13.5px] mb-4" style={{ color: "var(--text-mid)" }}>
               A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key — paste it once to begin.
             </div>
@@ -114,7 +114,7 @@ export default function App() {
           onClick={() => location.reload()}
           className="w-full text-center py-1.5 font-mono text-[10.5px] uppercase tracking-widest z-40"
           style={{ background: "var(--accent-soft)", color: "var(--accent)", borderBottom: "1px solid var(--accent-glow)" }}>
-          a newer version of Weft is available — tap to reload
+          a newer version of Weaver is available — tap to reload
         </button>
       )}
       <header className="topbar z-30">

@@ -132,7 +132,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
           <Upload size={17} style={{ color: "var(--text-mid)" }} />
           <div>
             <div className="font-display text-[15px]">Import a chronicle</div>
-            <div className="text-[12.5px]" style={{ color: "var(--text-mid)" }}>Restore from an exported .weft.json file.</div>
+            <div className="text-[12.5px]" style={{ color: "var(--text-mid)" }}>Restore from an exported .weaver.json file — older .weft.json saves load too.</div>
           </div>
           <input ref={fileRef} type="file" accept=".json,application/json" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ""; }} />

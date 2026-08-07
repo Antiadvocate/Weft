@@ -48,5 +48,5 @@ export function stampFor(turn: number, engine?: string): SaveStamp {
 export function describeStamp(stamp: SaveStamp | undefined): string {
   if (!stamp) return "unstamped save — exported before provenance existed (schema 3 or earlier)";
   const age = stamp.schema < SCHEMA_VERSION ? ` (this build is schema ${SCHEMA_VERSION})` : "";
-  return `Weft ${stamp.app}, schema ${stamp.schema}${age}, exported ${stamp.exported_at.slice(0, 10)} at turn ${stamp.turn}`;
+  return `Weaver ${stamp.app}, schema ${stamp.schema}${age}, exported ${stamp.exported_at.slice(0, 10)} at turn ${stamp.turn}`;
 }

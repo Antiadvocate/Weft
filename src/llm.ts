@@ -49,7 +49,7 @@ function headers() {
     "Content-Type": "application/json",
     Authorization: `Bearer ${key()}`,
     "HTTP-Referer": location.origin,
-    "X-Title": "Weft",
+    "X-Title": "Weaver",
   };
 }
 

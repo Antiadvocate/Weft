@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ModelPicker } from "./ModelPicker";
-import { Braces, Check, Copy, Download, Wrench } from "lucide-react";
+import { Braces, Check, Copy, Download, Wrench, SlidersHorizontal } from "lucide-react";
+import Inspector from "./Inspector";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { splitLines } from "../engine/turn";
@@ -75,6 +76,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [keySaved, setKeySaved] = useState(false);
   const [rescueText, setRescueText] = useState<string | null>(null);
   const [worldJson, setWorldJson] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState(false);
   const [worldErr, setWorldErr] = useState("");
   const [openingText, setOpeningText] = useState<string | null>(null);
   const [openingBusy, setOpeningBusy] = useState(false);
@@ -239,6 +241,10 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <button className="btn w-full mt-3" onClick={commitBible}>
           {bibleSaved ? <><Check size={14} /> saved</> : "Save world bible"}
         </button>
+        <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={() => setInspecting(true)}>
+          <SlidersHorizontal size={14} /> Inspector — every field in the save
+        </button>
+
         <button className="btn btn-ghost w-full mt-2" onClick={async () => {
           setWorldErr(""); const raw = await api.getWorldRaw(save.id); setWorldJson(JSON.stringify(raw, null, 2));
         }}>
@@ -434,6 +440,22 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
 
 
+      {inspecting && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 96, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="px-4 py-2.5 flex items-center gap-3" style={{ borderBottom: "1px solid var(--line)" }}>
+            <div className="min-w-0">
+              <div className="font-display text-[16px]">Inspector</div>
+              <div className="text-[11px]" style={{ color: "var(--text-mid)" }}>Every field in this save, typed and searchable.</div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <button className="chip" onClick={() => setInspecting(false)}>done</button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <Inspector save={save} setSave={setSave} />
+          </div>
+        </div>
+      )}
+
       {worldJson !== null && (
         <div style={{ position: "fixed", inset: 0, zIndex: 95, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>
           <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
@@ -458,7 +480,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);
-        const filename = `${name}.weft.json`;
+        const filename = `${name}.weaver.json`;
         // 1) iOS/modern: native share sheet with a real file (Save to Files, AirDrop, Messages…)
         try {
           const file = new File([json], filename, { type: "application/json" });
