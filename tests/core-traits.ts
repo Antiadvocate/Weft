@@ -11,7 +11,8 @@
  * immediately above their mood and their wants. The player got one truncated sentence of
  * background and nothing else. It read as being ignored because it effectively was. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { volatileDigest, narratorSystem } from "../src/engine/prompts";
+import { volatileDigest, narratorSystem, tailGist } from "../src/engine/prompts";
+import { needsHistoryCompaction } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -75,6 +76,60 @@ function world(): SaveState {
     check(`${label}: the trait outranks convenience`, /where a trait and the scene's convenience disagree,? the trait wins/i.test(P));
     check(`${label}: the player's agency is protected`, /never their decisions/i.test(P));
     check(`${label}: it points at the lines the digest actually emits`, /"as:"/.test(P) && /"built like this"/.test(P));
+  }
+}
+
+/* 4. AND THE RUNNING LOG DOES NOT GET TO DROWN THEM.
+ *
+ * This is the half that made NPC traits look ignored. `life_history` accretes a line per beat and
+ * was rendered in full every turn. One character's had reached 1,100 characters — EIGHT TIMES the
+ * length of her trait line — and was a first-person transcript of the exact conversation the scene
+ * was stuck in. Her card said "Devoted; Perceptive; enjoys being worshipped by rabi". Three bare
+ * adjectives against eight times their length of vivid, specific, aggrieved prose describing a
+ * different woman entirely, and the log wins that on volume every turn. It also feeds the stall
+ * back in: the record of the loop becomes the strongest argument for continuing it. */
+{
+  const REAL_LOG = "Rabi broke down crying in the cave and almost said my full name but couldn't finish it; I sat beside him and touched his knee, telling him he said it. Rabi said he wants to die; I held his chin and told him dying is not on the table, that I did not cross a sea to watch him find a third way to leave. Rabi called me 'Duchess Mable' in the cave, naming me as his duchess, and I felt the claim land. Rabi called me everything to him, said he cannot define me as cook or lover because I am all those things in one, and promised the title would be decreed in record. I told Rabi I would stop guessing and asking, and that he must tell me the real reason he left his city if he wants me to know. Rabi told her he left because he couldn't bear being in that place alone without her. Rabi admitted we've had less intimacy than a normal relationship in two days, and I told him he's been finding reasons not to kiss me since I woke.";
+  check("the real log is long enough to bury a trait line", REAL_LOG.length > 800, REAL_LOG.length);
+
+  const s2 = world();
+  const m = Object.keys(s2.characters).find((id) => s2.characters[id].name === "Mable")!;
+  s2.characters[m].life_history = REAL_LOG;
+  const d = volatileDigest(s2, "Mable devotion the cave");
+  const logLine = d.match(/ {2}since the story began: [^\n]*/)?.[0] ?? "";
+  check("the log is cut down in the block", logLine.length < 500, logLine.length);
+  check("it is marked as a tail rather than the whole thing", logLine.includes("…"), logLine.slice(0, 80));
+  check("the newest beat survives", /finding reasons not to kiss me/.test(logLine), logLine.slice(-80));
+  check("the oldest is what was dropped", !/broke down crying/.test(logLine));
+  check("and the traits are still right there above it", /as: Devoted; Perceptive/.test(d));
+
+  // a short log is left exactly as it is
+  s2.characters[m].life_history = "She took the third floor and nobody contested it.";
+  const d2 = volatileDigest(s2, "x");
+  check("a short log is untouched", /since the story began: She took the third floor and nobody contested it\./.test(d2), d2.match(/since the story began: [^\n]*/)?.[0]);
+
+  // tailGist itself
+  check("a short string is returned whole", tailGist("Short enough.", 100) === "Short enough.");
+  check("a long one is cut on a sentence boundary, never mid-sentence",
+    tailGist("Alpha beta gamma. Delta epsilon zeta. Eta theta iota.", 26) === "…Eta theta iota.",
+    tailGist("Alpha beta gamma. Delta epsilon zeta. Eta theta iota.", 26));
+  check("a log with no sentence breaks at all still gets cut rather than passed through",
+    tailGist("a".repeat(300), 50).length <= 51, tailGist("a".repeat(300), 50).length);
+  check("the tail is what is kept, not the head",
+    tailGist("Alpha beta gamma. Delta epsilon zeta. Eta theta iota.", 26).includes("Eta theta iota"));
+  check("an empty log is nothing", tailGist("", 100) === "");
+
+  // and compaction now fires before a log can reach that size
+  check("a 1,100-character log is now due for compaction",
+    needsHistoryCompaction({ life_history: REAL_LOG } as any));
+  check("a short one is not", !needsHistoryCompaction({ life_history: "Took the third floor." } as any));
+}
+
+/* 5. the contract says what a trait outranks, in both versions */
+{
+  for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
+    check(`${label}: the trait outranks the character's own log`, /since the story began/.test(P) && /the TRAIT wins|the trait wins/.test(P));
+    check(`${label}: and the reason it loses otherwise is named`, /volume|drown/.test(P));
   }
 }
 

@@ -533,7 +533,10 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
  *  re-summarize it into tighter prose (preserve the shape, lose verbatim detail). The actual
  *  rewrite is async, done by the turn loop — rare and cheap. Bedrock background is never touched. */
 export function needsHistoryCompaction(ident: Identity): boolean {
-  return (ident.life_history?.length ?? 0) > 1400;
+  // Lowered from 1400: this field is rendered to the narrator every turn, so "long enough to need
+  // compacting" and "long enough to drown the character card" are the same question, and the second
+  // one answers much lower. See the note beside "since the story began" in prompts.ts.
+  return (ident.life_history?.length ?? 0) > 900;
 }
 
 export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {
