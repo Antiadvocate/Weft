@@ -494,6 +494,20 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   check("the ban that survived intact is left alone", fb[1] === "Moralizing about power—let actions speak.", fb);
   check("the repair says what it did", log.some((x) => /rejoined/.test(x)), log);
 
+  // A HAND-WRITTEN LIST IS NOT DEBRIS. Lower-case alone was the whole test, so a legitimately
+  // lower-case palette got glued into one sentence by the repair meant to fix the opposite problem.
+  const hand = newSave("hand", { name: "V" } as any);
+  registerCharacter(hand, { name: "Rabi", character_id: "char_player" } as any);
+  hand.world_bible.pressure_palette = [
+    "the war on the roads, and what a column of eleven hundred does when it runs out of food",
+    "women sent from courts across the sea to reach the Duke the cheap way, each careful of the Duchess",
+    "the king's spies, and the barons' spies, and the ones who work for both",
+    "what people do when they want something from someone they are also afraid of",
+  ];
+  const beforeHand = [...hand.world_bible.pressure_palette];
+  check("a hand-written lower-case list is left alone", repairBibleLists(hand).length === 0, hand.world_bible.pressure_palette);
+  check("all four entries survive intact", JSON.stringify(hand.world_bible.pressure_palette) === JSON.stringify(beforeHand));
+
   // a healthy save is not "repaired"
   const ok = newSave("ok", { name: "V" } as any);
   registerCharacter(ok, { name: "Rabi", character_id: "char_player" } as any);

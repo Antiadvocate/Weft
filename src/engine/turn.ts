@@ -375,8 +375,16 @@ export function repairBibleLists(state: SaveState): string[] {
     const out: string[] = [];
     let joined = 0;
     for (const item of list.map((x) => String(x ?? "").trim()).filter(Boolean)) {
-      // A continuation: begins lower-case, and the entry above it did not end in a full stop.
-      const isTail = /^[a-z]/.test(item) && out.length > 0 && !/[.!?]$/.test(out[out.length - 1]);
+      // A continuation: begins lower-case, the entry above it did not end in a full stop, AND it
+      // either opens with a connective or is short enough to be a severed tail. Lower-case alone is
+      // far too weak — a hand-written list is legitimately all lower case ("the war on the roads",
+      // "the king's spies and the barons' spies") and this pass cheerfully glued a perfectly good
+      // five-item palette into one sentence. Real debris looks like debris: "and Rabi's power could
+      // be seen as a threat", "leading to betrayal or manipulation", "personal stakes".
+      const CONNECTIVE = /^(and|or|but|so|then|leading|which|that|with|without|plus|nor|yet|including|especially|as well as)\b/i;
+      const prev = out[out.length - 1] ?? "";
+      const isTail = /^[a-z]/.test(item) && !!prev && !/[.!?]$/.test(prev)
+        && (CONNECTIVE.test(item) || item.length <= 30);
       if (isTail) { out[out.length - 1] = `${out[out.length - 1]}, ${item}`; joined++; }
       else out.push(item);
     }
