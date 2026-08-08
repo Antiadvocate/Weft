@@ -5,6 +5,7 @@ import { RelationshipWeb } from "./RelationshipWeb";
 import StoryMap from "../lib/StoryMap";
 import { nice } from "../lib/format";
 import { api } from "../lib/api";
+import { readFate } from "../engine/fate";
 
 export default function World({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
   const w = save.world;
@@ -67,6 +68,48 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
           The world as you've walked it — every place you've stood, every path between.
         </div>
       </Block>
+
+      {/* ── WHERE THIS IS HEADED ────────────────────────────────────────────
+          A player set a specific ending, played to turn 87, and watched the engine do nothing with
+          it — because the budget was 77 turns and only 15 had been spent, which puts the story in
+          the "open" act where fate deliberately leaves the player free. That is a defensible rule
+          and it was completely invisible: no way to see the act, the clock, or the gap. Nothing
+          here changes the pacing; it just stops it being a mystery. */}
+      {(() => {
+        const f = readFate(save as any);
+        if (!f.active) return null;
+        const prog = (save as any).destination_progress;
+        const actWord: Record<string, string> = {
+          open: "open — the world is not bending toward it yet",
+          rising: "rising — frictions are being chosen from between here and there",
+          closing: "closing — unrelated threads are losing their pull",
+          convergence: "convergence — everything in a scene should shorten the distance",
+          arrival: "arrival — the ending is being written",
+        };
+        return (
+          <Block title="Where this is headed" delay={0.036}>
+            <div className="py-1.5">
+              <div className="text-[13px] leading-relaxed">{f.destination}</div>
+              <div className="flex justify-between items-baseline gap-2 mt-2">
+                <span className="font-mono text-[9.5px]" style={{ color: "var(--text-lo)" }}>{actWord[f.act] ?? f.act}</span>
+                <span className="font-mono text-[9.5px] shrink-0" style={{ color: f.turnsLeft <= 5 ? "var(--danger)" : "var(--text-lo)" }}>
+                  {f.turnsLeft > 0 ? `${f.turnsLeft} turns left` : "the turns are spent"}
+                </span>
+              </div>
+              <div className="meter mt-1.5"><div style={{ width: `${f.pct}%`, background: f.pct >= 80 ? "var(--danger)" : "var(--accent)" }} /></div>
+              {prog?.missing && (
+                <div className="text-[12px] mt-2 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                  <span className="font-mono text-[9.5px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>still in the way </span>
+                  {prog.missing}
+                </div>
+              )}
+              <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
+                The act comes from turns spent against the budget, nothing else. To make the world start bending sooner, shorten the budget in Tuning.
+              </div>
+            </div>
+          </Block>
+        );
+      })()}
 
       <Block title="Threads" delay={0.04}>
         {activeThreads.length === 0 && <Empty>No active threads yet.</Empty>}

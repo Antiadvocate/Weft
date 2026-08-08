@@ -140,6 +140,28 @@ function brief(state: any, id: string): string {
         : "";
     })(),
     `\nOPEN BUSINESS IN THE WORLD: ${(state.world.threads ?? []).filter((t: any) => t.status === "active").map((t: any) => t.title).join("; ") || "nothing pressing"}`,
+    // ── WHERE THE STORY IS GOING ───────────────────────────────────────────────────────────────
+    // The destination is the one thing the player states outright about where this is all headed,
+    // and it never reached this pass. So the person the ending is ABOUT got a want derived from her
+    // card and her mood alone, and it came out pointing the opposite way: a save whose stated
+    // ending was "Tessa claims Anthony as her lover and relegates Rabi" gave Tessa the want "get
+    // herself hard and stay hard with Rabi again — reclaim the part of her body he loves". Every
+    // other character's want pointed away from the ending too. The player's read was exactly right:
+    // she has no general direction, and the destination was missed completely.
+    //
+    // This is not a instruction to serve the plot. A want is still theirs and can still cut against
+    // the ending — a person walking away from where the story is going is drama, a person who has
+    // never heard of it is an oversight.
+    (() => {
+      const dest = String(state.world_bible?.destination ?? "").trim();
+      if (!dest) return "";
+      const missing = String(state.destination_progress?.missing ?? "").trim();
+      const named = new RegExp(`\\b${(c.name ?? "").split(/\\s+/)[0]}\\b`, "i").test(`${dest} ${missing}`);
+      return `\nWHERE THIS STORY IS HEADED: ${dest}${missing ? `\nWHAT STILL STANDS BETWEEN HERE AND THERE: ${missing}` : ""}`
+        + (named
+          ? `\nTHIS PERSON IS NAMED IN THAT ENDING. Their want must be ABOUT it — moving toward it, resisting it, bargaining with it, or trying to get it on their own terms. A want that is simply unaware of the thing the whole story is pointed at is the failure here; it leaves the person the ending needs wandering off after something else while the story waits.`
+          : `\nThey are not named in that ending, so they do not have to serve it — but they live in the world it is happening to. Their own want may cut across it, complicate it, or ignore it for their own reasons; it should not be written as though the ending does not exist.`);
+    })(),
   ].filter(Boolean).join("\n");
 }
 

@@ -79,7 +79,14 @@ export function fateDirective(f: Fate, missing?: string): string {
 /** What the world does as the ending nears. Threads and clocks are the machinery the story runs on;
  *  a note to the narrator leaves them pulling elsewhere. Mutates state; returns lines for the log. */
 export function enforceFate(state: SaveState, f: Fate): string[] {
-  if (!f.active || f.act === "open") return [];
+  // THE SPINE EXISTS FROM THE MOMENT A DESTINATION DOES. This used to return immediately during the
+  // "open" act, which is the first quarter of the budget — so a player who set an ending got, for
+  // the whole of that stretch, no thread, no clock, nothing selectable by the pressure system, and
+  // one line of narration telling the narrator to leave them free. In a 77-turn budget that is
+  // nineteen turns of the engine doing literally nothing with the thing the player asked for. One
+  // save reached turn 87 with a specific ending set and every single character's want pointing away
+  // from it. Open still means low pressure and a free hand — it does not mean absent.
+  if (!f.active) return [];
   const out: string[] = [];
   const threads = state.world.threads ?? [];
 
@@ -92,14 +99,18 @@ export function enforceFate(state: SaveState, f: Fate): string[] {
   // The ending becomes a thread, so the existing pressure system can select it as a beat.
   let spine = threads.find((t) => t.id === "thread_fate");
   if (!spine) {
-    spine = { id: "thread_fate", title: f.destination.split(/[.,;]/)[0].trim().slice(0, 60), status: "active", description: f.destination.slice(0, 240), turn_started: state.world.current_turn, tension: 5 };
+    spine = { id: "thread_fate", title: f.destination.split(/[.,;]/)[0].trim().slice(0, 60), status: "active", description: f.destination.slice(0, 240), turn_started: state.world.current_turn, tension: f.act === "open" ? 3 : 5 };
     threads.push(spine);
     state.world.threads = threads;
   }
   if (spine.status === "active") {
-    const want = Math.round(Math.min(10, 4 + (f.pct / 100) * 6));
+    // Open sits at 3 — present, visible in the World tab, selectable, and quieter than whatever the
+    // player is actually doing. From there it climbs with the clock.
+    const want = f.act === "open" ? 3 : Math.round(Math.min(10, 4 + (f.pct / 100) * 6));
     if (want > spine.tension) spine.tension = want;
   }
+  // Everything below is the world bending toward the ending, and none of it belongs in the open act.
+  if (f.act === "open") return out;
 
   // From the closing act on, unrelated threads stop pressing. They still happened — they just stop
   // competing for the scene. At convergence they close.
