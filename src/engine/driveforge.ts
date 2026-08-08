@@ -32,6 +32,8 @@ INVALID, and these are the common failures:
 - VAGUE PEACE. "Find peace and quiet", "tend to something neglected", "keep her head down." These are what you write when you have nothing; they describe a person who has stopped existing. Write what she actually does with her hands this week.
 - ANYTHING PHRASED AROUND ONE PARTICULAR PERSON'S FEELINGS toward them. Bonds are real and belong in the want as a REASON or a METHOD — she wants the field cleared before the frost BECAUSE her brother's family eats from it — never as the object.
 
+- ABSTENTION. "Get through the day without calling him." "Avoid Mara until she's calmed down." "Stop herself from saying the thing." "Keep it together in front of the children." A want you satisfy by NOT doing something cannot be stepped toward, and every system downstream needs a step: the world-sim is asked each pass for a named person taking a concrete action on a want, and there is no action that is the absence of one. A save's whole offstage report came back as three other people texting HER while she did nothing, on every pass, because her recorded want was to refrain. Restraint is real and belongs in the BLOCKER or in how they carry it — never as the goal. The goal is what they do with the hands: go to the one person who will still pick up, clear his things out of the flat, walk into her sister's kitchen at midnight, take the shift nobody wants.
+
 - A DOCUMENT. "Draft a written schedule of duties", "reconcile the ledgers into a clean tally", "secure a written agreement sealed before she leaves", "lock in a season's supply contract", "press on with the negotiation for the charter". This is the failure that comes from taking every rule above seriously and nothing else: paperwork is concrete, it needs nobody's permission, you can do it with your own hands starting today, and you can tell exactly when it is finished. It is the locally perfect answer and it is almost never a person's actual want. One save reached nine living characters and FIVE of them were producing documents — a clerk, a steward, a merchant, an envoy, and the commander of an invading army, who was negotiating a charter. The player said: I had to invent an army to make it interesting and the army is signing charters.
   A record is a MEANS. If the want really does run through a document, the want is the thing the document gets them — the grain in the cellar before the frost, the rival cut out of the trade, the sister's boy taken on at the vault — and the paper is at most the first step. Never the goal.
 
@@ -66,6 +68,30 @@ export function isDependentGoal(goal: string, playerName: string): boolean {
     if (/\b(whether|offer|permission|approval|command|instruction|wants|asks|tells)\b/.test(clause)) return true;
   }
   return false;
+}
+
+/**
+ * IS THIS WANT AN ABSENCE?
+ *
+ * A goal satisfied by refraining produces no events, ever. The world-sim asks each pass for a named
+ * person taking a concrete step on a recorded want; there is no step that is the absence of a step.
+ * One save's offstage report came back three passes running as other people texting HER — Mara
+ * texted her, John texted her — while she, the woman the story was about, did nothing, because the
+ * want on her card was "Get through the next day without calling him, and fail at it" and its
+ * blocker was "she gets as far as the contact screen and puts the phone down, four times before
+ * noon". A beautiful line and an unplayable input: the engine had written down that her job was to
+ * be still, and then faithfully kept her still.
+ */
+const ABSTAIN = /\b(?:without|avoid|avoiding|refrain|refrains?|resist(?:ing)?|stop (?:her|him|them)self|keep (?:her|him|them)self from|not (?:to )?(?:call|text|contact|reach|speak|go|see|tell|say)|never (?:call|text|contact|speak)|hold (?:back|off)|stay away|keep (?:it|herself|himself) together|get through .* without|make it through .* without)\b/i;
+
+export function isAbstentionGoal(goal: string): boolean {
+  const g = String(goal ?? "").toLowerCase();
+  if (!ABSTAIN.test(g)) return false;
+  // "…without calling him, and fail at it" is still abstention: the failure is not a plan either.
+  // But "go to the bar without telling Mara" is a real errand with a condition on it — the verb
+  // that carries the goal comes FIRST, so only treat it as abstention when nothing active leads.
+  const beforeAbstain = g.slice(0, g.search(ABSTAIN));
+  return !/\b(go|goes|going|walk|drive|take|takes|bring|get \w+ (?:out|back|to)|pack|clear|sell|burn|call|text|tell|ask|meet|find|make|build|fix|leave for|quit|hand|give)\b/.test(beforeAbstain);
 }
 
 /**
@@ -182,6 +208,11 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       if (isDependentGoal(goal, playerName)) {
         console.info(`[drives] rejected player-contingent goal for ${c.name}: "${goal}"`);
         rejection = "\n\nYour previous attempt was rejected for being a decision, a wait for someone's answer, or a bid for approval. Write what this person DOES.";
+        continue;
+      }
+      if (isAbstentionGoal(goal)) {
+        console.info(`[drives] rejected abstention goal for ${c.name}: "${goal}"`);
+        rejection = "\n\nYour previous attempt was a want satisfied by NOT doing something, which can never be stepped toward and leaves this person motionless while everyone around them acts. Restraint belongs in the blocker, not the goal. Write what they DO with their hands this week.";
         continue;
       }
       const holders = paperworkHolders(state, id);

@@ -19,7 +19,7 @@
  * perfectly — it is the locally optimal answer — and every want was forged in isolation, so nine
  * independent calls under identical constraints converged on it at once. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { isPaperworkGoal, paperworkHolders } from "../src/engine/driveforge";
+import { isPaperworkGoal, paperworkHolders, isAbstentionGoal } from "../src/engine/driveforge";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -92,6 +92,40 @@ const REAL: [string, string][] = [
   // and a cast doing real things blocks nothing
   s.characters[ids[1]].drive = { goal: "Fix the byre roof before the storm.", progress: 0, priority: 1, updated_turn: 1 } as any;
   check("an ordinary want holds no slot", paperworkHolders(s, ids[0]).length === 0, paperworkHolders(s, ids[0]));
+}
+
+/* 5. A WANT SATISFIED BY NOT DOING SOMETHING LEAVES A PERSON MOTIONLESS.
+ *
+ * Three offstage passes running, the report came back as other people acting on HER — "Mara texted
+ * Tessa", "John texted Tessa" — while she did nothing at all, in the story that was about her. Her
+ * recorded want was "Get through the next day without calling him, and fail at it" and its blocker
+ * was "she gets as far as the contact screen and puts the phone down, four times before noon".
+ * A good line and an unplayable input: the world-sim is asked each pass for a named person taking a
+ * concrete step on a want, and there is no step that is the absence of a step. */
+{
+  for (const g of [
+    "Get through the next day without calling him, and fail at it",
+    "Avoid Mara until she has calmed down",
+    "Stop herself from saying the thing she has been holding",
+    "Keep it together in front of the children",
+    "Resist the urge to text him back",
+    "Make it through the week without going to the bar",
+  ]) check(`abstention: ${g.slice(0, 44)}…`, isAbstentionGoal(g), g);
+
+  for (const g of [
+    "Go to John's room tonight because he is the only person who will still pick up",
+    "Clear every one of his things out of the flat before Thursday",
+    "Walk into her sister's kitchen at midnight and finally say it out loud",
+    "Take the shift nobody wants so the flat is empty when he comes for his things",
+    "Get the grain into the cellar before the frost",
+    "Make the man who shorted her pay for it publicly",
+  ]) check(`a real want: ${g.slice(0, 44)}…`, !isAbstentionGoal(g), g);
+
+  // an errand with a condition on it is still an errand — the active verb leads
+  check("a condition attached to a real action is not abstention",
+    !isAbstentionGoal("Go to the bar and settle it with John without telling Mara first"));
+  check("and going somewhere to avoid someone is still going somewhere",
+    !isAbstentionGoal("Take the late train to her mother's to avoid being in the flat when he calls"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
