@@ -926,6 +926,15 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
       for (let j = i + 1; j < group.length; j++) {
         const a = group[i], b = group[j];
         if (rng() > 0.5) continue; // not every pair every round — bonds move slowly
+        // GRIEF DOES NOT MAKE FRIENDS. This warms any two offstage people who happen to share a
+        // room, toward a ceiling derived from how compatible their CARDS are — which knows nothing
+        // about what either of them is living through. So the woman whose marriage detonated last
+        // night drifts steadily closer to the man she detonated it with, a point per pass, purely
+        // for being in the same building: the story quietly resolves into company and comfort while
+        // the person she actually needs to face is across the city and cooling by decay alone.
+        // Somebody carrying grief still HAS scenes, and a real scene still moves the number — the
+        // bookkeeper's deltas are untouched. What stops is the automatic drift toward fondness.
+        if ((state.condition[a]?.psyche?.grief_drag ?? 0) >= 1 || (state.condition[b]?.psyche?.grief_drag ?? 0) >= 1) continue;
         const comp = compatibility(state.characters[a], state.characters[b]);
         const dir = comp >= 0.5 ? 1 : -1; // compatible warm up, incompatible cool
         const e1 = getEdge(state.world.edges, a, b), e2 = getEdge(state.world.edges, b, a);
