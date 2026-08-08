@@ -513,16 +513,37 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
                 {playerEdges.length > 0 && (
                   <Section title="Bonds">
+                    {/* BOTH DIRECTIONS. Feeling is directional in this engine and the card only ever
+                        showed one side, labelled as though it were "the relationship". Opening a
+                        woman's card the day after her marriage ended read "warm 74 · trust 18" —
+                        which is true, she still loves him, and it is the whole tragedy — while the
+                        player's own feeling toward her, warmth 2, was not on the screen anywhere.
+                        A one-sided number presented as a bond is worse than no number. */}
                     {playerEdges.map((e) => {
                       const other = save.characters[e.to]?.name ?? e.to;
+                      const back = (save.world.edges ?? []).find((x) => x.from === e.to && x.to === sel);
+                      const line = (edge: typeof e) => (
+                        <span className="font-mono text-[10px]" style={{ color: edge.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
+                          {edge.warmth >= 0 ? "warm" : "cold"} {Math.abs(Math.round(edge.warmth))} · trust {Math.round(edge.trust)}{edge.attraction !== undefined ? ` · ${attractionWord(edge.attraction)}` : ""}
+                        </span>
+                      );
                       return (
                         <div key={e.to} className="py-1.5">
                           <div className="flex justify-between text-[13.5px]">
                             <span>→ {other}{e.roles?.length ? <span style={{ color: "var(--accent)" }}> · {e.roles.join(" & ")}</span> : null}</span>
-                            <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
-                              {e.warmth >= 0 ? "warm" : "cold"} {Math.abs(e.warmth)} · trust {e.trust}{e.attraction !== undefined ? ` · ${attractionWord(e.attraction)}` : ""}
-                            </span>
+                            {line(e)}
                           </div>
+                          {back && (
+                            <div className="flex justify-between text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+                              <span>← {other} toward them</span>
+                              {line(back)}
+                            </div>
+                          )}
+                          {back && Math.abs(back.warmth - e.warmth) >= 30 && (
+                            <div className="text-[11px] italic mt-0.5" style={{ color: "var(--accent)" }}>
+                              {Math.abs(Math.round(back.warmth - e.warmth))} apart — this bond is not mutual
+                            </div>
+                          )}
                           {e.notes && <div className="text-[11.5px] italic mt-0.5" style={{ color: "var(--text-lo)" }}>{e.notes}</div>}
                         </div>
                       );
