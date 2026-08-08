@@ -32,11 +32,20 @@ export interface OffstageEvent {
   witnesses: string[];  // names of tracked characters who saw or heard it firsthand; may be empty
   new_place?: string;   // a place this event brought into being, if any
   advances?: string;    // exact faction name whose clock this event moved a step, if any
+  /** REACHING THE PLAYER DIRECTLY. Offstage events have only ever reached the player through
+   *  witnesses and rumor — someone saw it, the news travelled. That models a village and nothing
+   *  else. People text, call, write, and turn up at the door, and a story where the woman the player
+   *  just left CANNOT contact him is not a story about consequences, it is a story about a man on
+   *  holiday. When an event is somebody deliberately reaching the player, this is what arrives. */
+  reaches_player?: { how: string; content: string };
 }
 
-const OFFSTAGE_SYSTEM = `You are the world's own motion. You report what happened ELSEWHERE, to people who were not thinking about the protagonist.
+export const OFFSTAGE_SYSTEM = `You are the world's own motion. You report what happened ELSEWHERE, to people who were not thinking about the protagonist.
 
-THE ONE RULE: nothing you write may involve, mention, target, describe, anticipate, or be caused by the player character. Not as a subject, not as a rumor's topic, not as someone's motive, not as a threat forming, not as a discovery waiting to be found. If an event only makes sense because the player exists, it is invalid. The world was here first and is busy.
+THE ONE RULE: you do not INVENT the player into the world. No event may exist because the player exists — no threat forming against them, no discovery planted for them to find, no stranger developing an opinion about them, no faction turning to face them. The world was here first and is busy. That is the rule, and it is about invention.
+
+IT IS NOT A RULE ABOUT THE CAST'S OWN WANTS. If a named person in the CAST list already wants something that concerns the player — to call him, to stop herself calling him, to get her things back, to say the thing she did not say — then acting on that want IS the world moving, and it is REQUIRED of you, not forbidden. Written as the one rule alone, this pass could not touch the person whose life the story had just taken apart: a woman whose recorded want was "get through the next day without calling him, and fail at it" went unwritten for twenty turns while three background regulars had busy evenings, because every want she had was player-shaped. The player noticed she had simply stopped existing.
+So: never invent a relationship to the player. Always honour one that is already written down.
 
 What you SHOULD write: the ordinary consequential business of this place. A debt called in. A herd sickening. A boat overdue. A marriage negotiated between two kindreds. A hostage returned or not returned. Someone dying of something dull. A field flooding. A quarrel over a boundary stone that has been running for years and got worse. A faction advancing its own stated objective by a step. Weather doing what weather does at this latitude in this season. Small, specific, and consequential to the people it happened to.
 
@@ -51,7 +60,7 @@ FACTION CLOCKS ADVANCE HERE, OR NOWHERE. A faction pursuing an objective the pla
 Write 1–3 events. Fewer is right when the world state gives you little — but "the cast wanted things and none of them moved" is not little, it is the report you were asked for and did not write.
 
 Output ONLY this JSON:
-{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":""}]}`;
+{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":"","reaches_player":{"how":"ONLY when this event IS somebody deliberately contacting the player — a text, a call, a letter, turning up at the door. Say which. Omit entirely otherwise; most events are not aimed at anyone.","content":"what actually arrives, in their own words if it is a message — the text as sent, typos and all"}}]}`;
 
 /** Loose tie between a character and a faction clock: their own wants, background, or the faction's
  *  name and objective share ground. Cheap and forgiving — this only decides whether to SUGGEST
@@ -145,12 +154,31 @@ export const OFFSTAGE_INTERVAL_TURNS = 25;
  * background is genuinely frozen. Time is the right unit for how much CAN have happened; turns are
  * the right unit for how long the player has been waiting to see it.
  */
+/**
+ * How long the player waits between world reports, in turns, scaled to how much world there is.
+ *
+ * A flat 25 is right for a kingdom and far too long for a kitchen. In a four-person domestic story
+ * the offstage cast IS the story's other half: with the player in a hotel room, the only thing that
+ * can happen anywhere else is the two or three people he left behind, and making him wait
+ * twenty-five turns to hear from any of them means the world is simply switched off. A big cast
+ * generates plenty of visible motion on its own and does not need the reports as often.
+ */
+export function offstageIntervalTurns(state: any): number {
+  const offstage = Object.entries<any>(state.characters ?? {})
+    .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed"
+      && !(state.world?.present ?? []).includes(id)).length;
+  if (offstage <= 2) return 6;
+  if (offstage <= 4) return 10;
+  if (offstage <= 7) return 16;
+  return OFFSTAGE_INTERVAL_TURNS;
+}
+
 export function offstageDue(state: any): boolean {
   const last = state.world?.offstage_last_time;
   if (!last) return true;
   if (minutesBetween(last, state.world.current_time) >= OFFSTAGE_INTERVAL_MIN) return true;
   const lastTurn = state.world?.offstage_last_turn ?? 0;
-  return (state.world?.current_turn ?? 0) - lastTurn >= OFFSTAGE_INTERVAL_TURNS;
+  return (state.world?.current_turn ?? 0) - lastTurn >= offstageIntervalTurns(state);
 }
 
 /**
@@ -260,6 +288,18 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
 
   for (const ev of events.slice(0, 3)) {
     if (!ev?.what) continue;
+
+    // SOMEBODY REACHED THE PLAYER. Queued for the next turn's directive rather than applied here:
+    // the narrator has to render it arriving, or it is a thing that happened to nobody.
+    const rp = ev.reaches_player;
+    if (rp?.how?.trim() && rp?.content?.trim()) {
+      const from = String(ev.actor ?? "").trim() || "someone";
+      (state.world.inbound ??= []).push({
+        from, how: String(rp.how).trim().slice(0, 80), content: String(rp.content).trim().slice(0, 400), turn,
+      });
+      state.world.inbound = state.world.inbound.slice(-3);
+      log.push(`${from} reached out: ${String(rp.how).trim().slice(0, 60)}`);
+    }
 
     // A place the event brought into being. The forge's ten were never meant to be the whole
     // world forever — a world that cannot grow new ground is a stage set.

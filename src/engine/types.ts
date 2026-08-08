@@ -507,6 +507,11 @@ export interface WorldState {
   /** People whose journey to the player completed this turn — the narrator has to write them
    *  arriving, or they appear out of nowhere, which is exactly the bug this exists to stop. */
   arrivals_pending?: string[];
+  /** THINGS THAT REACH THE PLAYER FROM OFFSTAGE — a text, a call, a letter, a knock. The offstage
+   *  world has only ever reached the player through witnesses and rumor, which models a village and
+   *  nothing else; a woman in an apartment across the city could not send a message to a man in a
+   *  hotel. Written by the offstage pass, rendered by the narrator on the next turn, then cleared. */
+  inbound?: { from: string; how: string; content: string; turn: number }[];
   present_prev?: string[];      // who was in the scene before the last presence rebuild — so the narrator delta can SAY who left, rather than leaving it to be inferred from a shorter list
   offstage_last_turn?: number;  // turn of the last offstage pass — the turn-based floor on the interval, so a story told in conversation doesn't freeze the world for forty turns
   /** How far apart places are, in in-world minutes of ordinary travel. The engine uses this to

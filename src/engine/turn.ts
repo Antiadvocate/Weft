@@ -1714,6 +1714,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const arrivalNote = (state.world.arrivals_pending ?? []).length
     ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")} — they have been travelling to reach the player and get here THIS turn. WRITE THEM ARRIVING, on the page, in the door, off the road: where they came from, what the journey cost, why they came. They do not simply be here; nobody may already be mid-conversation with them. This is their entrance.`
     : "";
+  // ── SOMEBODY REACHED THE PLAYER ──────────────────────────────────────────────────────────────
+  // The offstage world has only ever reached the player through witnesses and rumor: someone saw
+  // it, the news travelled. That models a village. It does not model a phone. A player sat in a
+  // hotel for twenty turns while the woman he had left — whose recorded want was to stop herself
+  // calling him and fail at it — could not send a single text, because there was no channel for an
+  // absent person to reach him at all. This is that channel, and it is delivered, not offered.
+  const inboundNote = (state.world.inbound ?? []).length
+    ? `\nREACHING YOU NOW — render this arriving, this turn, on the page:\n${(state.world.inbound ?? []).map((m) => `- ${m.from}, ${m.how}: "${m.content}"`).join("\n")}\nIt does not hover unread unless the player chooses not to look, and it is not summarised — the words arrive as they were sent. Whatever the player is doing, this interrupts it the way a phone interrupts a room.`
+    : "";
   const crowdNote = crowdDirective(state);
   const giftNote = giftDirective(action);
   const bodyNote = [...state.world.present, "char_player"]
@@ -1745,7 +1754,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3170,6 +3179,7 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     .map(([id]) => id);
   state.world.present_prev = before;
   state.world.arrivals_pending = [];   // consumed by the directive that renders the entrance
+  state.world.inbound = [];            // same: delivered once, on the turn after it was sent
   // Stamp the clock for this turn so elapsed in-world time between two turns is knowable. Kept to a
   // short window — this is for travel arithmetic, not a history.
   const t = state.world.current_turn;
