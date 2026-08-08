@@ -15,7 +15,7 @@ import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } fr
 import { detectWorldPronoun, repairNativePronouns } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
-import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs } from "../llm";
+import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
@@ -1044,8 +1044,17 @@ function deriveDefaultVoice(traits: string[], age: string): { diction?: string; 
   };
 }
 
-export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number }): Promise<void> {
+export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal }): Promise<void> {
   const t0 = Date.now();
+  // ── STOP ── The two long calls of a turn (narrator, then bookkeeper) can be abandoned. The
+  // engine never persists anything itself: the caller reads a fresh SaveState, we mutate that
+  // copy, and the caller writes it at the end. So unwinding by throwing — at any point BEFORE
+  // applyDiff commits the diff — leaves the stored world untouched and the turn simply never
+  // happened. Past `apply` the world has moved, so the checkpoints stop there rather than
+  // leaving a half-applied turn behind.
+  const signal = opts?.signal;
+  const stopped = (): boolean => !!signal?.aborted;
+  const checkStop = (): void => { if (stopped()) throw new Cancelled(); };
   // WEB SEARCH TARGET — the player can name exactly what to ground on with ((double parens)):
   //   "I lead the Imperial Guard into the breach ((Warhammer 40k Astra Militarum tactics))"
   // The ((...)) is a directive to the search layer, NOT story text, so it's stripped from the
@@ -1203,6 +1212,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   ev.onMeta({ pressure: verdict.pressure, band: verdict.band, source: verdict.source, beat: beat.kind });
 
   // 2 ── narrator (streamed)
+  checkStop();   // stopped during the world tick — nothing has been written yet
   ev.onPhase("narrator");
   const arrivalShifts: string[] = [];
   // spawnNamed is now a FALLBACK only — see the footer block below. It runs when the narrator
@@ -1843,7 +1853,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // simulator, applyDiff, physiology, reflection, chapters, telemetry — runs identically.
     prose = opts.proseOverride;
   } else {
-    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, groundOn, resolvedQuery || undefined);
+    checkStop();
+    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, groundOn, resolvedQuery || undefined, signal);
     let narratorSources: { url: string; title?: string }[] | undefined;
     while (true) {
       const { done, value } = await stream.next();
@@ -1869,7 +1880,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       ev.onMeta?.({ shifts: [`narrator model declined this turn — retrying on fallback`] });
       const fb = state.model_settings.fallback_model || "google/gemini-2.5-flash";
       try {
-        const retry = completeStream(narratorMsgs, fb, fb, 5000, groundOn, resolvedQuery || undefined);
+        const retry = completeStream(narratorMsgs, fb, fb, 5000, groundOn, resolvedQuery || undefined, signal);
         let rprose = "";
         while (true) {
           const { done, value } = await retry.next();
@@ -1879,6 +1890,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         if (rprose && !isRefusal(rprose, state.world_bible)) prose = rprose;
         else { prose = ""; ev.onMeta?.({ shifts: [`both narrator models declined this turn — no narration written; try rephrasing`] }); }
       } catch (e) {
+        if (isCancel(e)) throw new Cancelled();   // a stop is not a refusal
         prose = "";
         console.warn(`[turn] fallback narrator also failed: ${e}`);
       }
@@ -2007,6 +2019,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // is settled before the entry is written. Never blocks meaningfully, never throws.
   const turnReads: Read[] = await readsPromise;
 
+  // stopped while the scene was still streaming — the words are yours again, nothing is recorded
+  checkStop();
   ev.onPhase("simulator");
   // The bookkeeper gets its OWN minimal context (roster, ledgers, open bookkeeping objects) —
   // not the narrator's prefix+digest. This cuts its input by more than half AND removes the
@@ -2055,7 +2069,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
     // decoder; `complete` transparently falls back to json_object where unsupported.
-    const simOpts = state.model_settings.sim_route_speed !== false ? { providerSort: "throughput" as const } : undefined;
+    const simOpts = { ...(state.model_settings.sim_route_speed !== false ? { providerSort: "throughput" as const } : {}), signal };
     // ADAPTIVE ESCALATION — if the simulator has been failing (see watchdog below), temporarily route
     // bookkeeping to the fallback model for a few turns. A different model often clears whatever context
     // was choking the primary; it auto-clears after a healthy streak. Only meaningful when they differ.
@@ -2072,7 +2086,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const fix = await complete(
         [{ role: "system", content: "The following was supposed to be one strict JSON object but failed to parse. Re-emit it as VALID JSON only — same content, no commentary, no markdown fences." },
          { role: "user", content: res.text.slice(0, 6000) }],
-        state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000);
+        state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000, { signal });
       simUsage.prompt_tokens += fix.usage.prompt_tokens; simUsage.completion_tokens += fix.usage.completion_tokens;
       const reparsed = safeJson<Partial<SimulatorDiff> | null>(fix.text, null);
       if (reparsed && Object.keys(reparsed).length) { diff = { ...emptyDiff(), ...reparsed }; simOk = true; }
@@ -2093,9 +2107,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         simUsage.prompt_tokens += retry.usage.prompt_tokens; simUsage.completion_tokens += retry.usage.completion_tokens;
         const rediff = safeJson<Partial<SimulatorDiff> | null>(retry.text, null);
         if (rediff && vitalityOf(rediff) > 0) diff = { ...emptyDiff(), ...rediff };
-      } catch (e: any) { console.warn(`[turn] vitality-recovery pass failed (kept thin diff): ${e.message}`); }
+      } catch (e: any) {
+        if (isCancel(e)) throw new Cancelled();
+        console.warn(`[turn] vitality-recovery pass failed (kept thin diff): ${e.message}`);
+      }
     }
   } catch (e: any) {
+    // A STOP IS NOT A DEAD BOOKKEEPER. Without this the cancel would be swallowed here and the
+    // turn would go on to commit a heuristics-only diff — exactly the turn the player just said
+    // they did not want.
+    if (isCancel(e)) throw new Cancelled();
     console.warn(`[turn] simulator failed entirely: ${e.message} — applying heuristics only`);
   }
   if (!simOk) console.warn("[turn] simulator diff unusable — this turn's bookkeeping is thin");
@@ -2358,6 +2379,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   }
 
   // 4 ── apply diff + deterministic systems
+  // LAST EXIT. From the next line on the world has moved; a stop after this would leave a
+  // half-recorded turn, which is worse than either finishing or never starting. The UI stops
+  // offering the button once this phase is announced.
+  checkStop();
   ev.onPhase("apply");
   const prevLocation = state.world.player_location; // for the scene clock below
   // capture the cast BEFORE the diff runs — applyDiff may move people, and the history entry

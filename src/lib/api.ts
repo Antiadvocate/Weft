@@ -24,7 +24,7 @@ import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun } from "../engine/coerce";
-import { buildMessages, complete, generateImage, safeJson } from "../llm";
+import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
@@ -1371,6 +1371,8 @@ export interface TurnEvents {
   onRead?: (reads: { faculty: string; line: string }[]) => void;
   onDone?: (save: ClientSave) => void;
   onError?: (message: string) => void;
+  /** The player pressed stop. Not an error: nothing was written, and their words come back. */
+  onCancel?: () => void;
 }
 
 /** The turn loop, run locally. Same signature the views already use.
@@ -1429,7 +1431,7 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   return { kind: "completed", save: clientView(s) };
 }
 
-export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean; tightness?: number }): Promise<void> {
+export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean; tightness?: number; signal?: AbortSignal }): Promise<void> {
   let proseJournaled = false;
   try {
     const s = await need(saveId);
@@ -1457,7 +1459,7 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       onDelta: (t) => { proseAcc += t; ev.onDelta?.(t); },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
       onRead: (rs) => ev.onRead?.(rs),
-    }, observe ? "story" : mode, { ...opts, eco: gov.eco });
+    }, observe ? "story" : mode, { ...opts, eco: gov.eco, signal: opts?.signal });
     // FRESH READER. After the turn, re-derive the voice of anyone in the scene whose card hasn't
     // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of
     // narrator prose — so it can't inherit the drift it exists to undo. Best-effort and silent:
@@ -1479,6 +1481,11 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     clearJournal(saveId);
     ev.onDone?.(clientView(s));
   } catch (e: any) {
+    // STOPPED ON PURPOSE. The turn threw before applyDiff, so `s` — a throwaway copy read from
+    // storage at the top — is simply discarded unwritten. The journal MUST go too: it exists to
+    // finish a turn the app died in the middle of, and left behind it would resurrect on the next
+    // visibility change the very turn the player just cancelled.
+    if (isCancel(e)) { clearJournal(saveId); ev.onCancel?.(); return; }
     // the words were handed back via onError; a stale journal would restore them a second
     // time on the next app open. Keep the journal only when paid prose is in it (resume path).
     if (!proseJournaled) clearJournal(saveId);

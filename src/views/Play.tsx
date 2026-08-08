@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -80,6 +80,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const observingRef = useRef(false);
   const runningRef = useRef(false);
   const [hasPending, setHasPending] = useState(false);
+  // ── STOP ── A turn is two long calls back to back. Until you can interrupt them, a typo, a
+  // wrong name, or a scene going somewhere you did not mean has to be watched all the way to the
+  // end and then undone. The controller lives in a ref because the button that aborts it renders
+  // from a closure created before the turn started.
+  const cancelRef = useRef<AbortController | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastId = useRef(0);
   // the two summoning states of the decluttered surface: the "⋯" sheet of rare
@@ -240,26 +246,50 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     setAction(""); setError(null); setRunning(true); runningRef.current = true; setProseDone(false); setLiveProse(""); setReads([]); setPhase("pressure");
     setLiveAction(a); // your words go up as a bubble immediately — they anchor the reading while the world works
     let failed = false;
+    let cancelled = false;
+    const ctrl = new AbortController();
+    cancelRef.current = ctrl;
     try {
       await streamTurn(save.id, a, mode, {
         onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
-        onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); flushPostTurn(s); },
+        onDone: (s) => {
+          setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); flushPostTurn(s);
+          // the stop landed after the last exit — the world already moved, so say so rather than
+          // pretending the turn was thrown away
+          if (ctrl.signal.aborted) pushToasts(["too late to stop — the turn had already been recorded"]);
+        },
         onError: (msg) => { setError(msg); failed = true; },
-      }, { ground, tightness });
+        onCancel: () => { cancelled = true; setLiveProse(""); setReads([]); },
+      }, { ground, tightness, signal: ctrl.signal });
     } catch (e: any) {
       if (e.name !== "AbortError") { setError(e.message ?? "turn failed"); failed = true; }
     } finally {
+      cancelRef.current = null; setCancelling(false);
       setRunning(false); runningRef.current = false; setProseDone(false); setPhase(null); setLiveAction("");
       // reactive tightness is a per-turn reading — it clears once the turn commits (a spike, not a setting).
       // the baseline (ceiling) is separate and persists in save state until the player clears it.
-      if (!failed) setTightness(undefined);
+      if (!failed && !cancelled) setTightness(undefined);
       const pend = pendingRef.current; pendingRef.current = null; setHasPending(false);
-      if (failed) setAction(pend ? `${a}\n${pend}` : a); // a failed turn gives your words back
+      // A stopped turn gives the words back exactly like a failed one — that is the whole point of
+      // stopping: you wanted to change what you said. A queued follow-up comes back with them
+      // rather than firing into the turn you just cancelled.
+      if (failed || cancelled) setAction(pend ? `${a}\n${pend}` : a);
       else if (pend) void runAction(pend);               // fire the queued action immediately
+      if (cancelled) pushToasts(["stopped — nothing was recorded, your words are back"]);
     }
+  };
+
+  /** Cancellable up to the last exit: once consequences start applying, the world has moved. */
+  const CANCELLABLE = ["undertow", "pressure", "narrator", "simulator", "eco"];
+  const canStop = running && !!phase && CANCELLABLE.includes(phase) && !!cancelRef.current;
+  const doStop = () => {
+    const c = cancelRef.current;
+    if (!c || c.signal.aborted) return;
+    setCancelling(true);
+    c.abort();
   };
 
   useEffect(() => {
@@ -398,6 +428,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     if (running || observingRef.current) return;
     observingRef.current = true; setObserving(true); setError(null);
     setRunning(true); runningRef.current = true; setLiveProse(""); setReads([]); setPhase("pressure");
+    const ctrl = new AbortController();
+    cancelRef.current = ctrl;
     await new Promise<void>((resolve) => {
       streamTurn(save.id, "", "story", {
         onPhase: setPhase,
@@ -406,8 +438,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); flushPostTurn(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
-      }, { observe: true }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
+        onCancel: () => { setLiveProse(""); setReads([]); pushToasts(["stopped — that beat was not recorded"]); resolve(); },
+      }, { observe: true, signal: ctrl.signal }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });
+    cancelRef.current = null; setCancelling(false);
     setRunning(false); runningRef.current = false; setPhase(null);
     observingRef.current = false; setObserving(false);
   };
@@ -826,9 +860,18 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
         <AnimatePresence>
           {phase && (
-            <motion.div key={phase} className="font-mono text-[11px] uppercase tracking-widest py-2"
+            <motion.div key={phase} className="font-mono text-[11px] uppercase tracking-widest py-2 flex items-center gap-3"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <span className="shimmer">{phase === "narrator" && ground ? "narrator · searching the web" : PHASE_LABEL[phase] ?? phase}…</span>
+              <span className="shimmer">{cancelling ? "stopping" : phase === "narrator" && ground ? "narrator · searching the web" : PHASE_LABEL[phase] ?? phase}…</span>
+              {/* STOP — reachable the whole time the two long calls are running. Nothing is written
+                  until consequences apply, so this genuinely throws the turn away. */}
+              {canStop && (
+                <button className="chip shrink-0" onClick={doStop} disabled={cancelling}
+                  title="stop the narrator or the bookkeeper — nothing is recorded and your words come back"
+                  aria-label="stop this turn">
+                  <Square size={9} style={{ fill: "currentColor" }} /> {cancelling ? "stopping" : "stop"}
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

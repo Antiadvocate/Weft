@@ -68,7 +68,21 @@ export function buildMessages(system: string, stable: string, volatile: string, 
 }
 
 export type JsonMode = boolean | { schema: object; name?: string };
-export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; omitReasoning?: boolean; online?: boolean; searchQuery?: string }
+export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; omitReasoning?: boolean; online?: boolean; searchQuery?: string;
+  /** Abort the request in flight. A turn is two long calls back to back — the narrator, then the
+   *  bookkeeper — and until now there was no way to stop either one. A typo, a wrong name, a scene
+   *  going somewhere you did not mean: you watched it finish, then undid it. */
+  signal?: AbortSignal }
+
+/** Thrown when the caller aborted. Distinguished from a real failure so nothing gets logged as an
+ *  error, no fallback model is spent, and the turn can unwind quietly. */
+export class Cancelled extends Error {
+  constructor() { super("cancelled"); this.name = "Cancelled"; }
+}
+/** Matched on the error's NAME, not its text. A model that happens to say "aborted" in a 500 body
+ *  is a failure and must still get the fallback ladder; only a real abort unwinds the turn. */
+export const isCancel = (e: unknown): boolean =>
+  e instanceof Cancelled || (e as any)?.name === "AbortError" || (e as any)?.name === "Cancelled";
 
 
 /** CHATLOG-MODE message builder. The full state snapshot (I-frame) rides inside the system
@@ -124,8 +138,10 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
         ? { id: "web", max_results: 3, search_prompt: `Web results for "${gq}". Use the factual detail; cite nothing.` }
         : { id: "web", max_results: 3 }]
     : undefined;
+  if (opts?.signal?.aborted) throw new Cancelled();
   const res = await fetch(OR_URL, {
     method: "POST",
+    signal: opts?.signal,
     headers: headers(),
     body: JSON.stringify({
       model, messages: groundMsgs, max_tokens: maxTokens,
@@ -174,6 +190,10 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
 export async function complete(messages: any[], model: string, fallback: string, json: JsonMode = false, maxTokens = 4000, opts?: CallOpts): Promise<LLMResult> {
   try { return await once(messages, model, json, maxTokens, opts); }
   catch (e1: any) {
+    // A CANCELLATION IS NOT A FAILURE. Without this the whole recovery ladder below runs on the way
+    // out — schema retry, reasoning retry, then the fallback model — so pressing stop would fire
+    // three more requests and bill for all of them.
+    if (isCancel(e1)) throw new Cancelled();
     logErr(model, e1);
     const msg = String(e1?.message ?? "");
     // the reasoning parameter itself rejected → same call without it
@@ -203,7 +223,7 @@ export async function complete(messages: any[], model: string, fallback: string,
   }
 }
 
-export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string): AsyncGenerator<string, LLMResult, unknown> {
+export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string, signal?: AbortSignal): AsyncGenerator<string, LLMResult, unknown> {
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
     // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
     // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
@@ -240,7 +260,8 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       if (q) web.search_prompt = `Web results for "${q}". Incorporate the factual detail into the prose; do not cite sources or break fiction.`;
       body.plugins = [web];
     }
-    const res = await fetch(OR_URL, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+    if (signal?.aborted) throw new Cancelled();
+    const res = await fetch(OR_URL, { method: "POST", signal, headers: headers(), body: JSON.stringify(body) });
     if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -278,7 +299,11 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined, truncated };
   };
   try { return yield* attempt(model); }
-  catch (e: any) { logErr(model, e); return yield* attempt(fallback); }
+  catch (e: any) {
+    // stopping the narrator must not silently re-buy the whole scene on the fallback model
+    if (isCancel(e)) throw new Cancelled();
+    logErr(model, e); return yield* attempt(fallback);
+  }
 }
 
 export function extractJson(text: string): string {
