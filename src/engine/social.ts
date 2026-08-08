@@ -454,7 +454,10 @@ export function tickPsyche(p: Psyche): void {
   // A discharge (release from depth — see tickDischarge in emotions.ts) temporarily raises the
   // resting point: for a while after letting something go, the body CAN sit more open than its
   // nature. The lift decays below; capacity itself is untouched.
-  const effCapacity = p.capacity + (p.discharge_lift ?? 0);
+  // A person does not sit at their easy resting point in the week their life came apart. GRIEF DRAG
+  // is the missing half of discharge_lift: a lift existed for release and nothing existed for loss,
+  // so relaxation drifted back up to a positive capacity while the story was still destroying them.
+  const effCapacity = p.capacity + (p.discharge_lift ?? 0) - (p.grief_drag ?? 0);
   const gap = effCapacity - p.relaxation;
   const rate = p.relaxation > effCapacity ? Math.max(p.recovery, 0.5) : p.recovery; // above-capacity overshoot collapses fast
   p.relaxation = clamp(p.relaxation + gap * rate, -10, 10);
@@ -465,6 +468,12 @@ export function tickPsyche(p: Psyche): void {
   // Reset when relaxation falls meaningfully below their capacity OR below the neutral line.
   const openFloor = Math.min(3, Math.max(0, effCapacity - 1));
   p.open_run = p.relaxation >= openFloor ? (p.open_run ?? 0) + 1 : 0;
+  // Grief lifts far more slowly than a discharge closes — ×0.94 a turn, so a real rupture is still
+  // pulling on someone twenty turns later, which is the point. Cleared when it stops mattering.
+  if (p.grief_drag !== undefined) {
+    p.grief_drag = +(p.grief_drag * 0.94).toFixed(3);
+    if (p.grief_drag < 0.2) delete p.grief_drag;
+  }
   // the discharge opening closes gradually — ×0.7 per turn, gone within about a week of turns
   if (p.discharge_lift !== undefined) {
     p.discharge_lift = +(p.discharge_lift * 0.7).toFixed(3);

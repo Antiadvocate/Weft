@@ -308,6 +308,13 @@ export interface Psyche {
   prev_relaxation?: number;    // relaxation captured at the START of the current turn, before drift and deltas —
                                // the discharge detector (emotions.ts) reads the turn's net movement against this baseline
   discharge_lift?: number;     // temporary capacity bonus granted by a discharge (release from depth). Decays ×0.7
+  /** GRIEF DRAG — the counterpart to discharge_lift, and the thing whose absence made a woman whose
+   *  marriage had just ended read as stoic. Relaxation drifts toward CAPACITY every turn, so a
+   *  character with a positive nature is pulled back to "open and at ease" no matter what the story
+   *  did to them: one save had her at relaxation 0.87 and rising, mood "grieving, hollow", valence
+   *  +1, ten turns after her husband left her and called her a slut to his family. The engine had a
+   *  temporary lift for good news and nothing at all for bad. Subtracted from capacity; decays. */
+  grief_drag?: number;
                                // per turn in tickPsyche — an opening, not a personality change
   betrayals?: number;          // recent self-betrayals: times this character gave in under pressure AGAINST an
                                // active want of their own. Each one dips relaxation (agreeing while holding a want

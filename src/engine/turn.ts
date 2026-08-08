@@ -3190,8 +3190,19 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
  *  sentence is usually grammar, and the old frequency heuristic in unregisteredSpeakers is a
  *  standing lesson in what happens when you guess. A name must either sit mid-sentence or follow
  *  a word that can only precede a person. */
-const NOT_A_PERSON = new Set(["i","the","a","an","and","but","then","so","if","when","my","his","her","their","its","this","that","these","those","it","he","she","they","we","you","there","here","what","who","why","how","ok","okay","yes","no","god","lord","sir","lady","hey","alright","well","now","after","before","while"]);
+const NOT_A_PERSON = new Set(["i","the","a","an","and","but","then","so","if","when","my","his","her","their","its","this","that","these","those","it","he","she","they","we","you","there","here","what","who","why","how","ok","okay","yes","no","god","lord","sir","lady","hey","alright","well","now","after","before","while",
+  // Closed-class words that follow the person-verbs above — "ask ABOUT the divorce", "call BACK",
+  // "tell THEM". None of them is ever somebody's name, and on the lower-case path capitalisation is
+  // not there to rule them out.
+  "about","again","around","back","out","up","down","off","over","through","whether","because",
+  "me","him","them","us","someone","anyone","everyone","nobody","something","anything","nothing","everything"]);
 const PERSON_LEAD = /\b(?:to|with|for|at|about|and|find|see|call|summon|conjure|ask|tell|meet|greet|visit|bring|invite|toward|towards|beside|near|from)\s+$/i;
+/** A much stricter lead, for the LOWER-CASE path only. Capitalisation is doing no work there, so
+ *  the word in front has to be one that can take almost nothing BUT a person: a verb aimed at
+ *  somebody, or the relationship noun a name is usually apposed to ("my friend sarah"). The general
+ *  list above is far too weak for this — "and", "to" and "about" precede anything, and letting them
+ *  through turned "i sit down and think about it" into a character named Think. */
+const LOWER_LEAD = /\b(?:find|call|calls|called|text|texts|texted|message|messages|messaged|email|emails|emailed|phone|phones|phoned|ring|dm|ask|asks|asked|tell|tells|told|meet|meets|met|greet|visit|visits|invite|invites|summon|summons|conjure|conjures|kiss|kisses|hug|hugs|friend|sister|brother|wife|husband|mother|father|cousin|neighbou?r|colleague|partner|boss|named|calledd?)\s+$/i;
 
 export function namedInAction(state: SaveState, action: string): string[] {
   const known = new Set<string>();
@@ -3203,7 +3214,13 @@ export function namedInAction(state: SaveState, action: string): string[] {
   for (const w of `${state.world_bible?.name ?? ""} ${state.world_bible?.era ?? ""}`.split(/\s+/)) known.add(w.toLowerCase());
 
   const out = new Set<string>();
-  const re = /[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ](?:'?[A-Za-záéíóúàèìòùâêîôûäëïöü-]){2,}/g;
+  // PLAYERS TYPE IN LOWER CASE. This required a capital letter, so "I text sarah" named nobody: a
+  // friend the player wrote to twice, whom the narrator described at length ("a friend from the old
+  // job, the one who'd never met Tessa, the one who wouldn't have to pick sides"), never became a
+  // person, never got a card, and could never answer. A lower-case candidate is only considered when
+  // it follows a word that can ONLY precede a person — text, call, find, ask, meet — which is a far
+  // stronger signal than capitalisation ever was, and is exactly how it was typed.
+  const re = /[A-Za-zÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜáéíóúàèìòùâêîôûäëïöü](?:'?[A-Za-záéíóúàèìòùâêîôûäëïöü-]){2,}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(action))) {
     const name = m[0];
@@ -3218,12 +3235,16 @@ export function namedInAction(state: SaveState, action: string): string[] {
     // "the Northgate" is a place; nobody is "the Marek". The definite article is the cheapest
     // and most reliable person/place discriminator available in an unparsed sentence.
     if (/\bthe\s+$/i.test(before)) continue;
+    // A lower-case word is a name ONLY on the strength of the verb in front of it.
+    if (!/^[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ]/.test(name) && !LOWER_LEAD.test(before)) continue;
+    if (!isPersonName(name[0].toUpperCase() + name.slice(1))) continue;
     const sentenceStart = /(?:^|[.!?]\s+|["'“]\s*)$/.test(before);
     // A name can legitimately open a sentence — "Marek is waiting for me" is the most natural way
     // to write it. Allow that when what follows behaves like a person: a verb, or an appositive comma.
     const actsLikePerson = /^\s*(?:,|is|was|are|were|says|said|asks|asked|stands|sits|looks|nods|turns|waits|walks|comes|arrives|answers|tells|smiles|laughs|and)\b/i.test(after);
     if (sentenceStart && !PERSON_LEAD.test(before) && !actsLikePerson) continue;
-    out.add(name);
+    // Record them capitalised however they were typed — "sarah" is Sarah on her card.
+    out.add(name[0].toUpperCase() + name.slice(1));
   }
   return [...out].slice(0, 3);   // a turn that names four new people is a typo, not a scene
 }
@@ -3957,6 +3978,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
     const d = clamp(p.relaxation_delta ?? 0, -6, 6);
+    // A HARD HIT LOWERS THE RESTING POINT, NOT JUST TODAY'S NUMBER. Relaxation drifts back toward
+    // capacity every turn, so without this a big negative delta is erased within a few turns by the
+    // drift and the character is at ease again. One save had a woman ten turns past her husband
+    // leaving and calling her a slut to his family, sitting at relaxation +0.87 and climbing toward
+    // a capacity of +3, mood "grieving, hollow", valence +1 — stoic, because the ledger said fine.
+    // The engine had discharge_lift for release and nothing at all for loss. See tickPsyche.
+    if (d <= -3) {
+      const drag = Math.min(6, (c.psyche.grief_drag ?? 0) + Math.abs(d) * 0.6);
+      c.psyche.grief_drag = +drag.toFixed(3);
+    }
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
   }
 

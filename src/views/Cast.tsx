@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import { splitLines } from "../engine/turn";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
@@ -77,7 +78,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     if (!c) return;
     setDraft({
       name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", height_ft: c.height_cm ? String(Math.floor(Math.round(c.height_cm / 2.54) / 12)) : "", height_in: c.height_cm ? String(Math.round(c.height_cm / 2.54) % 12) : "", weight_lb: c.weight_kg ? String(Math.round(c.weight_kg * 2.20462)) : "",
-      current_goal: c.current_goal ?? "", core_traits: c.core_traits.join(", "),
+      current_goal: c.current_goal ?? "", core_traits: c.core_traits.join("\n"),
     });
     setEditing(true);
   };
@@ -94,7 +95,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         height_cm: (Number(draft.height_ft) || Number(draft.height_in)) ? Math.round(((Number(draft.height_ft) || 0) * 12 + (Number(draft.height_in) || 0)) * 2.54) : undefined,
         weight_kg: Number(draft.weight_lb) ? Math.round(Number(draft.weight_lb) / 2.20462) : undefined,
         current_goal: draft.current_goal,
-        core_traits: draft.core_traits.split(",").map((x) => x.trim()).filter(Boolean),
+        // ONE PER LINE. Splitting on commas shreds any trait containing one, and the traits worth
+        // writing all contain one: "Cries at commercials with dogs in them, and at songs she loved
+        // in high school, and never at the thing that's actually breaking her heart" came back as
+        // three fragments — and the fragment that carried the whole character was the one lost.
+        core_traits: splitLines(draft.core_traits),
       } },
     });
     setSave(s); setEditing(false);
@@ -394,7 +399,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
-                    <EditField label="Core traits (comma-sep)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} />
+                    <EditField label="Core traits (one per line)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} rows={4} />
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
                   </Section>
                 )}
