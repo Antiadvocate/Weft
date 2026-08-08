@@ -9,3 +9,4 @@ tsconfig.tsbuildinfo
 # and they are generated into the working tree by hand-built saves and by downloads. They are
 # never part of the engine and never belong in the repository.
 *.weft.json
+*.weaver.json
