@@ -2,6 +2,7 @@
 import { factGate, factOverlap } from "./facts";
 import { reconcileStores } from "./memory";
 import { ensureHabits } from "./habits";
+import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
 import { asText, asList, asNum, detectWorldPronoun } from "./coerce";
@@ -364,6 +365,16 @@ export function sanitize(state: SaveState): SaveState {
     state.memory[id] ??= blankMemory(id);
     state.memory[id].facts ??= [];   // fact-ledger backfill for older saves
     state.condition[id].psyche ??= blankCondition().psyche;
+    // A MOOD THAT DEGENERATED INTO A LOOP IS A STUCK RECORD, NOT WEATHER. It renders on the card and
+    // goes back into the next prompt as the character's current state, so it re-seeds itself: one
+    // save held "…not the quiet after the door closes. The quiet after the door closes, the quiet
+    // after the door closes. The quiet after the door closes." Healed on load, so a save already
+    // carrying one repairs itself the next time it is opened rather than waiting for a new mood.
+    const mood = state.condition[id].psyche.mood;
+    if (mood) {
+      const clean = cleanMood(mood);
+      if (clean && clean !== mood) state.condition[id].psyche.mood = clean;
+    }
   }
   // backfill the location model for saves made before it existed
   const placeIds = Object.keys(state.world.places);

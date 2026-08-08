@@ -143,6 +143,10 @@ export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, ste
   }
 }
 
+/** A note that says the bond is broken, in words that cannot mean anything else. Deliberately narrow:
+ *  a bare "withdrew" (a hand, from a room) or "hurt" is ordinary friction and stays out of it. */
+const RUPTURE_NOTE = /\b(contempt|disgust(ed|s)?|revulsion|revolted|loath(es|ing|ed)?|hatred|despises?|betray(ed|al)|estranged?)\b|\b(emotional withdrawal|withdrawn from|withdrawing from|cannot forgive|will not forgive|can never forgive|wants nothing (more )?to do with|done with (him|her|them)|no longer loves?|no longer trusts?|hardened against)\b/i;
+
 export function applyEdgeDelta(
   edges: SocialEdge[],
   d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] },
@@ -169,7 +173,21 @@ export function applyEdgeDelta(
   }
   e.trust = clamp(e.trust + clamp(trustDelta, -20, 20), -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
-  if (d.note) { e.notes = d.note.slice(0, 140); e.notes_turn = turn; }
+  if (d.note) {
+    e.notes = d.note.slice(0, 140);
+    e.notes_turn = turn;
+    // THE WORDS AND THE NUMBERS HAVE TO AGREE. The note is written from the prose; the deltas are
+    // written from habit, and the habit is ±2–8. One save carried "Rabi's silent disgust marks a
+    // deepening emotional withdrawal" on warmth 9 / trust 5, and "Rabi views John with open
+    // contempt" on warmth -2 — a card that reads lukewarm attached to the scene where a marriage
+    // ended. When the note names a rupture the feeling is not allowed to sit on the friendly side
+    // of zero. This only ever pushes toward the note's own meaning, never back, and never past an
+    // estrangement already deeper than it.
+    if (RUPTURE_NOTE.test(e.notes)) {
+      e.warmth = Math.min(e.warmth, -8);
+      e.trust = Math.min(e.trust, -5);
+    }
+  }
   if (d.roles_set) {
     let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean).slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional

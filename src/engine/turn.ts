@@ -31,7 +31,7 @@ import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthored
 import { fadesOnItsOwn, bodyDirective, bodySeverity } from "./body";
 import { crowdDirective } from "./population";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
-import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
+import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
 import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
@@ -4007,9 +4007,17 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!misattributionAllowed(state, id, prose, action)) continue;   // not in this scene, not named in it
     const c = state.condition[id]; if (!c) continue;
     c.psyche.relaxation = clamp(c.psyche.relaxation + clamp(p.relaxation_delta ?? 0, -6, 6), -10, 10);
-    if (p.mood) c.psyche.mood = p.mood;
-    for (const s of p.states_add ?? []) if (s && !c.psyche.active_states.includes(s)) { c.psyche.active_states.push(s); (c.psyche.state_ages ??= {})[s] = turn; }
-    if (p.mood) c.psyche.mood_set_turn = turn;
+    const mood = cleanMood(p.mood);
+    if (mood) { c.psyche.mood = mood; c.psyche.mood_set_turn = turn; }
+    for (const s of p.states_add ?? []) {
+      if (!s) continue;
+      if (!c.psyche.active_states.includes(s)) c.psyche.active_states.push(s);
+      // RE-ASSERTED IS NOT OLD. state_ages measures how long a feeling has sat there untouched, and
+      // the lifecycle retires one that has outlived its cause. A state the bookkeeper names again
+      // this turn is being felt again now — dating it from its first appearance would retire the
+      // thing the scene just re-lit.
+      (c.psyche.state_ages ??= {})[s] = turn;
+    }
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
     const d = clamp(p.relaxation_delta ?? 0, -6, 6);

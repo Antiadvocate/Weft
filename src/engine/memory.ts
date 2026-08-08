@@ -373,7 +373,20 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
     if (b.length > 12 && bare(pa).includes(b)) return null;
   }
 
-  // 3. ONE PERSON THROUGHOUT. Their own memory is written about them in the third person, so the
+  // 3. THE PLAYER'S MEMORY RECORDS WHAT THEY DID, NOT A VERDICT ON WHY. The bookkeeper likes to
+  //    close a player memory with an interpretation of their inner life — "Rabi apologized to Tessa
+  //    for his lack of trust, CONVINCED THAT HER LOYALTY REMAINED INTACT throughout the affair."
+  //    A memory outlives the turn it was written in and a promoted one is permanent, so a clause
+  //    like that keeps telling the narrator what the player believes ninety turns after they
+  //    stopped believing it — which reads, from inside the story, as a character who feels
+  //    permanently at fault no matter what they do. Keep the act; drop the ruling on the motive.
+  if (opts.isPlayer) {
+    const stripped = t.replace(/,\s*(convinced|believing|certain|sure|knowing|feeling|thinking|hoping|convincing himself|convincing herself|convincing themselves)\b[^.!?]*/gi, "");
+    // only take it if an actual account survives — never turn a memory into a fragment
+    if (stripped.trim().length >= 20) t = stripped.replace(/\s+([.!?])/g, "$1").trim();
+  }
+
+  // 4. ONE PERSON THROUGHOUT. Their own memory is written about them in the third person, so the
   //    engine can hand it to any reader without it changing meaning. First-person entries are the
   //    ones that flip; rewrite the pronouns rather than throwing the memory away.
   if (!opts.isPlayer) {

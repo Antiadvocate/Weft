@@ -42,6 +42,16 @@
  *    The player's interior is never authored anywhere in this file: the player can BE someone's
  *    safe person, but the engine never moves the player's own relaxation, and their release is
  *    theirs to report through the tightness anchor.
+ *
+ *    RELEASING IS NOT AUTHORING. That rule used to be enforced by skipping the player in the
+ *    lifecycle entirely, which quietly made the player the one person in the game who could never
+ *    put a feeling down. Everyone else sheds; you only accumulate. One save at turn 122 had a man
+ *    reading as flat, clean and moving on in the prose while his card still carried "obsessive",
+ *    "devastated" and "hyper-aware of her sounds" — stamped around turn 70 and never released — plus
+ *    a mood that had degenerated into a stuck loop: a card describing someone he had stopped being
+ *    fifty turns earlier. Writing a new feeling
+ *    onto the player is authorship and stays forbidden; letting one that has run its course go is
+ *    the opposite of authorship, and the player gets it like anyone else.
  */
 import type { SaveState } from "./types";
 
@@ -54,7 +64,7 @@ const STRUCTURAL = [/^fixated on /i];
 const TRANSMUTE: { match: RegExp; residue: string }[] = [
   { match: /anger|angry|rage|furious|fury|resent/i, residue: "settles into a clear view of what was actually wrong" },
   { match: /fear|afraid|dread|terrif|anxious|anxiety|worry/i, residue: "settles into plain alertness to what matters" },
-  { match: /grief|griev|mourn|loss|bereft/i, residue: "softens into plain love for what was lost" },
+  { match: /grief|griev|mourn|loss|bereft|devastat/i, residue: "softens into plain love for what was lost" },
   { match: /jealous|envy|envious/i, residue: "settles into knowing what they actually want" },
   { match: /shame|humiliat|embarrass|guilt/i, residue: "loosens into honesty about what happened" },
   { match: /hurt|betray|wounded/i, residue: "settles into knowing exactly where the line is now" },
@@ -63,6 +73,33 @@ const TRANSMUTE: { match: RegExp; residue: string }[] = [
 function residueFor(stateName: string): string {
   for (const t of TRANSMUTE) if (t.match.test(stateName)) return t.residue;
   return "passes on its own — felt fully, not fed";
+}
+
+/** A mood is weather: a few words for how someone is carrying themselves right now.
+ *
+ *  Models sometimes fall into a repetition loop on this field, and what lands in state is a stuck
+ *  record: "…not the quiet after the door closes. The quiet after the door closes, the quiet after
+ *  the door closes. The quiet after the door closes." That degenerate string then renders on the
+ *  card AND goes back into the next prompt as the character's current weather, which is how it
+ *  keeps happening. Keep the first few distinct clauses and drop the loop. */
+export function cleanMood(raw: unknown): string {
+  const t = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  const parts = t.split(/[;,.]+/).map((x) => x.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const part of parts) {
+    // "not the quiet after the door closes" is the same loop as "the quiet after the door closes";
+    // normalise the leading filler away so a negated echo counts as the repeat it is
+    let k = part.toLowerCase();
+    for (let prev = ""; k !== prev; ) { prev = k; k = k.replace(/^(not|still|and|but|then|the|a|an)\s+/, ""); }
+    if (seen.has(k)) continue;
+    seen.add(k);
+    kept.push(part);
+  }
+  let out = kept.slice(0, 3).join(", ");
+  if (out.length > 140) out = out.slice(0, 140).replace(/[\s,;]+\S*$/, "");
+  return out;
 }
 
 /** Stamp ages for states that arrived without one (simulator adds, older saves). */
@@ -76,42 +113,64 @@ export function stampStateAges(state: SaveState): void {
   }
 }
 
+/** How long an emotional state may sit before it is released whether or not the body ever settles.
+ *
+ *  Self-liberation needs relaxation >= 3, and someone in real trouble never gets there — a clenched
+ *  body holds every state it is ever given, forever. That is not endurance, it is a stuck bit: the
+ *  scene has moved on, the prose has moved on, and the card is still reporting a feeling from
+ *  seventy turns ago. `state_ages` is refreshed every time the bookkeeper names a state again, so
+ *  this only ever retires something nothing in the story has touched since — a feeling that has
+ *  outlived its own cause. It still leaves its residue on the way out. */
+const STATE_MAX_TURNS = 20;
+
 export function tickEmotions(state: SaveState): string[] {
   const shifts: string[] = [];
   const turn = state.world.current_turn;
   stampStateAges(state);
-  for (const id of state.world.present) {
+  // the player is not in world.present (that list is who is in the room WITH them), so they have to
+  // be named explicitly or the lifecycle never reaches them at all
+  for (const id of [...new Set([...state.world.present, "char_player"])]) {
     const c = state.characters[id];
     const cond = state.condition[id];
-    if (!c || !cond || id === "char_player" || c.central === false) continue; // player's interior is theirs
+    if (!c || !cond || c.central === false) continue;
+    // The player gets the RELEASE half only. Nothing below may write them a feeling, move their
+    // relaxation, or decide their weather — those stay theirs. Letting go of what has run its
+    // course is not authorship.
+    const isPlayer = id === "char_player";
     const p = cond.psyche;
     const r = p.relaxation;
     const emotional = p.active_states.filter((st) => !STRUCTURAL.some((rx) => rx.test(st)));
 
     for (const st of emotional) {
       const age = turn - (p.state_ages?.[st] ?? turn);
-      if (r >= 3 && age >= 2) {
-        // SELF-LIBERATION: nothing is gripping it, so it goes — and leaves its information.
+      const settledOut = r >= 3 && age >= 2;   // nothing is gripping it, so it goes
+      const outlived = age >= STATE_MAX_TURNS; // nothing has touched it in a very long time
+      if (settledOut || outlived) {
+        // SELF-LIBERATION: released, and it leaves its information behind.
         p.active_states = p.active_states.filter((x) => x !== st);
         if (p.state_ages) delete p.state_ages[st];
         shifts.push(`${c.name}'s ${st} ${residueFor(st)}.`);
-      } else if (r <= -3 && age === 3) {
+      } else if (!isPlayer && r <= -3 && age === 3) {
         // SECOND HIT: announced once, when the re-telling starts.
         shifts.push(`${c.name} keeps re-telling the ${st} — the reaction has become its own pain now.`);
       }
     }
     // while clenched with an aged emotional state, the story feeds itself: small ongoing drain
-    if (r <= -3 && emotional.some((st) => turn - (p.state_ages?.[st] ?? turn) >= 3)) {
+    if (!isPlayer && r <= -3 && emotional.some((st) => turn - (p.state_ages?.[st] ?? turn) >= 3)) {
       p.relaxation = clamp(+(p.relaxation - 0.2).toFixed(2), -10, 10);
       // the oldest emotion colonizes the weather
       const oldest = emotional.slice().sort((a, b) => (p.state_ages?.[a] ?? turn) - (p.state_ages?.[b] ?? turn))[0];
       if (oldest && (p.mood === "even" || !p.mood)) p.mood = oldest;
     }
-    // moods are weather: a stale mood fades once the body settles
-    if (p.mood && p.mood !== "even" && r >= 2 && p.mood_set_turn !== undefined && turn - p.mood_set_turn >= 4) {
-      shifts.push(`${c.name}'s ${p.mood} passed — weather, not climate.`);
-      p.mood = "even";
-      p.mood_set_turn = turn;
+    // moods are weather: a stale mood fades once the body settles — or, for a body that never
+    // settles, once it has plainly outlasted the day it was set on
+    if (p.mood && p.mood !== "even" && p.mood_set_turn !== undefined) {
+      const age = turn - p.mood_set_turn;
+      if ((r >= 2 && age >= 4) || age >= STATE_MAX_TURNS) {
+        shifts.push(`${c.name}'s ${p.mood} passed — weather, not climate.`);
+        p.mood = "even";
+        p.mood_set_turn = turn;
+      }
     }
   }
   return shifts;
