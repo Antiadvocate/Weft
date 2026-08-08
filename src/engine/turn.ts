@@ -34,7 +34,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
-import { reflectionDue, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
+import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
@@ -1556,7 +1556,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // person is generated in the sealed channel (engine/read.ts) where it belongs to the player
   // and can be wrong. Relaxation still governs interpretation — it governs it THERE, where it
   // is visible to the player as their own faculties failing, instead of here as tonal mush.
-  const povFilter = `\nPOV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive ("puts the shuttle down to listen"), naming a concealment ("pretending he hasn't", "doesn't say what xe means"), captioning a gesture with its significance, following an act with a clause explaining the feeling under it, or routing any of these through a filter verb to make them deniable — "seems", "as if", "something in the way", "makes him think", "you can tell" are not licenses, they are the same violation with a hedge on it. If the player has a thought about someone, that thought does not appear here; another channel carries it.
+  const povFilter = `\nPOV — THE CAMERA IS WITH THE PLAYER AND DOES NOT LEAVE. Every sentence reports something the player could see, hear, smell, or touch from where they actually are. No cutting away. No scene break to somewhere else. No "meanwhile", no "upstairs", no "back at the —", no paragraph about what an absent character is doing, feeling, or looking at. This is not a style rule: whatever you write becomes the record, so a scene rendered in a room the player has left is filed as something they witnessed, and the person in it is credited with knowing it. One save had the player leave in a car and text his family from the back seat; the prose cut to the woman he had left, alone in the apartment, and the ledger came out saying she witnessed the messages he sent. If something is happening elsewhere it reaches the player the way things reach people — someone arrives, someone calls, word gets back, they find out later, or they never do.
+POV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive ("puts the shuttle down to listen"), naming a concealment ("pretending he hasn't", "doesn't say what xe means"), captioning a gesture with its significance, following an act with a clause explaining the feeling under it, or routing any of these through a filter verb to make them deniable — "seems", "as if", "something in the way", "makes him think", "you can tell" are not licenses, they are the same violation with a hedge on it. If the player has a thought about someone, that thought does not appear here; another channel carries it.
 COMPARISONS: a simile or metaphor may touch ONLY physical form, motion, texture, sound, or scale. Never compare a person, act, or gesture to a ROLE, PROFESSION, RITUAL, RELATIONSHIP, or INTENTION — "the way a physician takes a pulse", "like someone apologizing", "as though closing a bargain" smuggle the emotional verdict inside the vehicle, which is the same failure as stating it outright. When in doubt write no comparison: the gesture, plainly, is stronger. If a gesture needs a caption to land, the gesture is wrong — fix the gesture.
 JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by side without a connective. Never join them with a verb of perception or cause. Not "her brow furrows, showing irritation" and not "her brow furrows, which makes you think she is angry" — "her brow furrows." Then the next thing that happens.`;
 
@@ -4058,6 +4059,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       continue;
     }
     const mem = state.memory[id]; if (!mem) continue;
+    // A memory is somebody's ACCOUNT of what happened, in one voice, not a clipping from the page.
+    // See cleanMemoryContent: this is what stops the player's own typed words being filed as
+    // another character's memory, and what keeps a person's memories from flipping between "I" and
+    // "she" two turns apart.
+    const cleaned = cleanMemoryContent(m.content, { name: nameOf(id), isPlayer: id === "char_player", playerAction: action });
+    if (!cleaned) {
+      console.warn(`[memory] dropped an unusable memory for ${nameOf(id)}: "${String(m.content).slice(0, 60)}"`);
+      continue;
+    }
+    (m as any).content = cleaned;
     if (isPrivateBackgroundLeak(m.content, id)) {
       console.warn(`[memory] BLOCKED background leak in ${nameOf(id)}'s memory — the player never revealed it`);
       continue;

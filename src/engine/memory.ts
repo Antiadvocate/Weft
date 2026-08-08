@@ -330,6 +330,64 @@ export function compactGist(text: string, maxLen = 170): string {
   return out.replace(/\u0001/g, "."); // restore protected periods
 }
 
+/**
+ * A MEMORY IS SOMEBODY'S ACCOUNT OF WHAT HAPPENED, NOT A CLIPPING FROM THE PAGE.
+ *
+ * The contract asks for "one tight sentence, the core of what happened" and says nothing about
+ * whose account it is or what form it takes. One save's memory bank shows what that permits:
+ *
+ *   "Hey in getting a divorce.                         ← the player's own typed text, filed as HERS
+ *   "I don't want to be that woman on the train.       ← a dangling quote fragment
+ *   How about you?                                     ← a line of dialogue with no context at all
+ *   Rabi demanded the universe obey HER wishes, and SHE deflected…
+ *   Rabi joked about serenading ME and I dared him…    ← the same person, two turns apart
+ *
+ * Two separate failures. The person flips between first and third for the same character, which is
+ * what makes them read as if she did the thing the player did. And raw quoted spans get stored as
+ * memories, which is how the player's own words ended up in somebody else's head — the player wrote
+ * "Hey in getting a divorce" as a text message from a car, and it became a thing Tessa remembers.
+ *
+ * Returns the repaired content, or null if there is nothing recoverable.
+ */
+export function cleanMemoryContent(content: unknown, opts: { name: string; isPlayer: boolean; playerAction?: string }): string | null {
+  let t = String(content ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+
+  // 1. A BARE QUOTE IS NOT A MEMORY. A span that is mostly quoted speech with no account around it
+  //    records the words and loses who said them, which is exactly how they end up owned by the
+  //    wrong person on the next read.
+  const unbalanced = (t.match(/["\u201c\u201d]/g) ?? []).length % 2 === 1;
+  const startsQuoted = /^["\u201c]/.test(t);
+  if (startsQuoted && unbalanced) return null;                 // `"Hey in getting a divorce.`
+  if (startsQuoted && /^["\u201c][^"\u201d]*["\u201d]$/.test(t)) return null;  // a whole line, nothing else
+  // A fragment with no clause in it is a line off the page, not an account of anything. Four words
+  // cannot say who did what: `How about you?` was sitting in a character's memory bank.
+  if (t.length < 12 || t.split(/\s+/).length < 5) return null;
+
+  // 2. THE PLAYER'S OWN WORDS ARE NEVER SOMEBODY ELSE'S MEMORY. Verbatim, or near enough that it is
+  //    plainly a copy rather than an account of having heard it.
+  const pa = String(opts.playerAction ?? "").replace(/\s+/g, " ").trim();
+  if (!opts.isPlayer && pa.length > 12) {
+    const bare = (x: string) => x.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+    const b = bare(t);
+    if (b.length > 12 && bare(pa).includes(b)) return null;
+  }
+
+  // 3. ONE PERSON THROUGHOUT. Their own memory is written about them in the third person, so the
+  //    engine can hand it to any reader without it changing meaning. First-person entries are the
+  //    ones that flip; rewrite the pronouns rather than throwing the memory away.
+  if (!opts.isPlayer) {
+    const first = opts.name.split(/\s+/)[0] || opts.name;
+    t = t
+      .replace(/\bI'm\b/g, `${first} is`).replace(/\bI've\b/g, `${first} has`).replace(/\bI'd\b/g, `${first} would`).replace(/\bI'll\b/g, `${first} will`)
+      .replace(/\bI\b/g, first)
+      .replace(/\bme\b/g, "her/him").replace(/\bmy\b/g, "their").replace(/\bmine\b/g, "theirs").replace(/\bmyself\b/g, "themselves");
+    // "her/him" is a placeholder that reads badly; prefer the name once, then drop to a pronoun.
+    t = t.replace(/her\/him/g, first);
+  }
+  return t.slice(0, 400);
+}
+
 export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number, salt = 0): boolean {
   // salt (a stable per-character hash) staggers reflections across turns — previously every
   // character reflected on the SAME turn, producing a burst of LLM calls and a visible stall.
