@@ -290,6 +290,10 @@ export interface Injury {
   cause: string;
   permanent: boolean;
   functional_impact: string;
+  /** When it was taken. Conditions have always healed on a timer and injuries never did, so a
+   *  scrape recorded once stayed on the card for the rest of the story with `cause: "this turn"`
+   *  still on it a hundred turns later. Optional: older saves start their clock on load. */
+  turn?: number;
 }
 
 export interface Psyche {

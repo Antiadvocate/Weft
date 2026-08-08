@@ -9,7 +9,7 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
-import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible } from "./types";
+import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, repairNativePronouns } from "./coerce";
@@ -28,7 +28,7 @@ import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
-import { fadesOnItsOwn, bodyDirective, bodySeverity } from "./body";
+import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
 import { crowdDirective } from "./population";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
@@ -368,8 +368,19 @@ const COMMON_NOUN = /^(i|me|my|we|us|our|you|your|he|him|his|she|her|hers|it|its
  */
 export function splitLines(text: string): string[] {
   const raw = String(text ?? "");
-  const parts = raw.includes("\n") ? raw.split("\n") : raw.split(",");
-  return parts.map((x) => x.trim()).filter(Boolean).slice(0, 24);
+  const clean = (parts: string[]) => parts.map((x) => x.trim()).filter(Boolean).slice(0, 24);
+  if (raw.includes("\n")) return clean(raw.split("\n"));
+  // A COMMA IS NOT ALWAYS A SEPARATOR. One line of prose is one item, and splitting it on its commas
+  // makes three, two of which say nothing on their own: "Notices when someone's drink is empty and
+  // refills it without being asked, every time, in any room." became ["…without being asked",
+  // "every time", "in any room."] and the card then listed two fragments as core traits. Only treat
+  // a single line as a comma list when it reads like one — no sentence punctuation inside it, and
+  // every piece short enough to be a label rather than a clause.
+  const parts = clean(raw.split(","));
+  const looksLikeAList = parts.length > 1
+    && !/[.!?](?!$)/.test(raw.trim())
+    && parts.every((p) => p.length <= 40);
+  return looksLikeAList ? parts : clean([raw]);
 }
 
 /**
@@ -1086,13 +1097,24 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // INVENTORY DEDUP — older saves (and repeated inventory_add before the guard existed) can hold the
   // same item twice ("KSG shotgun" x2). Collapse by name so nobody carries a phantom duplicate.
   for (const cond of Object.values(state.condition)) {
-    if (!cond.inventory?.length) continue;
-    const seen = new Set<string>();
-    cond.inventory = cond.inventory.filter((i) => {
-      const k = i.name.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k); return true;
-    });
+    if (cond.inventory?.length) {
+      const seen = new Set<string>();
+      cond.inventory = cond.inventory.filter((i) => {
+        const k = i.name.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+    }
+    // the same, for injuries — saves made before the applier deduped carry the same wound two and
+    // three times over. The oldest copy wins so the healing clock counts from when it was taken.
+    if (cond.injuries?.length) {
+      const seen = new Set<string>();
+      cond.injuries = cond.injuries.filter((i) => {
+        const k = i.type.trim().toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+    }
   }
   // CAPACITY HEAL — older saves (and forge slips) left some characters with a resting openness that
   // contradicts their nature: a cold, predatory character sitting at capacity 3+ drifts to serene
@@ -2574,6 +2596,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       for (const x of expired) delete cc.condition_age![x];
       offscreenLog.push(`${state.characters[id].name}: ${expired.map((e) => e.toLowerCase()).join(", ")} — faded.`);
     }
+    const healed = healMinorInjuries(cc, turn);
+    if (healed.length) offscreenLog.push(`${state.characters[id].name}: ${healed.join(", ")} — healed.`);
     if (id === "char_player") continue;
     const { kept, log } = decayTraits(state.traits[id] ?? [], turn);
     state.traits[id] = kept;
@@ -2974,6 +2998,28 @@ export function addCondition(c: { conditions: string[]; condition_age?: Record<s
 }
 
 const CONDITION_LIFESPAN = 10; // turns; afflictions heal unless re-earned
+const INJURY_LIFESPAN = 12;    // turns; the mild end of the injury ledger heals the same way
+
+/**
+ * SCRAPES HEAL. Conditions have had a timer since they existed and injuries never had one at all,
+ * so anything the prose did not explicitly remove stayed on the body for the rest of the story: one
+ * save was still carrying cut palms from a fist clenched sixty turns earlier, with `cause` reading
+ * "this turn". Only the mild end heals itself, on exactly the reasoning that governs conditions —
+ * a break, a burn, or worse waits for the story to remove it, never for the clock. Injuries from
+ * older saves carry no stamp; their clock starts now rather than healing the moment a save is
+ * opened. Returns what healed, for the shift log.
+ */
+export function healMinorInjuries(cond: { injuries: Injury[] }, turn: number): string[] {
+  for (const inj of cond.injuries ?? []) inj.turn ??= turn;
+  const healed = (cond.injuries ?? []).filter((i) =>
+    !i.permanent
+    && severityOfText(`${i.type} ${i.functional_impact ?? ""}`) <= 1
+    && turn - (i.turn ?? turn) >= INJURY_LIFESPAN);
+  if (!healed.length) return [];
+  const ids = new Set(healed.map((i) => i.id));
+  cond.injuries = cond.injuries.filter((i) => !ids.has(i.id));
+  return healed.map((i) => i.type.toLowerCase());
+}
 
 function findCharByName(state: SaveState, name: string): string | null {
   const n = name.toLowerCase().trim();
@@ -3993,7 +4039,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         c.wearing = c.wearing.filter((w) => { const lw = w.toLowerCase(); return lw !== v && !lw.includes(v) && !v.includes(lw); });
         break;
       }
-      case "injury": if (f.value) c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: false, functional_impact: f.value }); break;
+      case "injury": {
+        if (!f.value) break;
+        // THE SAME HURT TWICE IS ONE HURT. Nothing deduped injuries the way inventory is deduped, so
+        // a beat the bookkeeper recorded on three separate turns became three separate wounds: one
+        // save carried "cut palms from clenching fists" three times over, each still labelled as
+        // having happened this turn. Re-earning an injury refreshes it rather than stacking it.
+        const key = f.value.trim().toLowerCase();
+        const had = c.injuries.find((i) => i.type.trim().toLowerCase() === key);
+        if (had) { had.turn = turn; had.cause = "this turn"; break; }
+        c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: false, functional_impact: f.value, turn });
+        break;
+      }
       case "injury_remove": {
         const q = f.value.toLowerCase();
         c.injuries = c.injuries.filter((inj) => !(inj.type.toLowerCase().includes(q) || q.includes(inj.type.toLowerCase())));

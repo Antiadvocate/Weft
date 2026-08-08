@@ -69,7 +69,7 @@ Rules:
 - surface and truth may match (an honest, open character, or one who is simply, plainly feeling what they feel) or diverge (a liar, someone hiding desire, someone saving face). Divergence is ONE tool, not the default — use it only when the character's state actually supports a concealed truth. A resigned, hurt, or wary person is usually just that underneath; do not manufacture a hidden agenda, a secret scheme, or a dark reading of the player where the state shows only ordinary feeling. Most beats, surface and truth are close and lying is false.
 - CALIBRATE TO THE STATE — the truth must be PROPORTIONAL to the character's actual disposition (given as warmth/trust with their plain-language meaning). Mild negatives are mild: warmth slightly below zero is "a little hurt, a little guarded", NOT terror; low trust is "cautious, watching", NOT conviction that the player is a monster. Do NOT escalate a wary or resigned character into someone secretly certain the player is a manipulator, a monster, a hollow shell, or a danger — that is invention, and it poisons how the character is played. Only write fear, hatred, or a dark verdict when the warmth/trust and history genuinely support that intensity. If the numbers say "mildly hurt but still cares," the truth is mildly hurt, full stop.
 - The character reacts to what the player actually SAID and DID this beat and to their real history — never to a sinister interpretation the state doesn't justify. If nothing hostile has actually happened, the character is not secretly seething about it.
-- Keep each field to one or two tight sentences. Concrete, not literary.
+- Keep each field to one or two tight sentences. Concrete, not literary. TWO IS THE CEILING, not a target: these are stored and rendered at a fixed width, and a third sentence is cut off, which reads as the thought being lost mid-way rather than the field having a limit.
 - NO QUOTATION MARKS ANYWHERE IN YOUR OUTPUT. Not in surface, not in truth, not in tell. A quoted line here becomes a sentence the player is later shown as something the character said, when it was never spoken in the story at all — the surest way to make the whole system look like it is fabricating.
 - NEVER reference the player's unspoken thoughts or feelings. The character reacts only to what the player audibly said and visibly did.
 
@@ -126,6 +126,48 @@ function priorIntentBlock(state: SaveState, id: string): string {
 }
 
 /** Have the last intents been saying the same thing? Token overlap, no call. */
+/**
+ * STRIP INVENTED SPEECH. The intent pass runs BEFORE the narrator writes, so any dialogue it drafts
+ * is dialogue that was never spoken — and the GM view renders `surface` to the player as the stance
+ * a real character brought to a real beat. Cheaper to remove quoted lines than to trust the
+ * instruction not to write them.
+ *
+ * AN APOSTROPHE IS NOT A QUOTE MARK. The pattern this replaces opened a quoted span on a bare ' or ’
+ * anywhere at all, so in "a half-smile that doesn't quite reach his eyes. He's about to leave" it
+ * matched from the apostrophe in doesn't to the one in He's and deleted everything in between,
+ * leaving "doesns about to leave". Clauses vanished out of the middle of sentences and a whole
+ * save's GM panel filled with wreckage: "Het push or ask for anything", "Hes hostility", "as if the
+ * words havent reach for her hair", "shet fall apart". Double quotes are unambiguous and go first;
+ * a single-quoted span only counts as one when it OPENS and CLOSES at a word boundary. Where that
+ * is not certain the text is left alone — a stray quoted phrase on a card is a far smaller failure
+ * than a deleted clause.
+ */
+export function deQuoteIntent(t: string): string {
+  return String(t ?? "")
+    .replace(/\s*[,:]?\s*(?:and\s+)?(?:she|he|they)?\s*says?,?\s*["“][^"“”]*["”]/gi, "")
+    .replace(/["“][^"“”]{4,}["”]/g, "")
+    .replace(/(^|[\s(\[])['‘]([^'‘’\n]{4,})['’](?=$|[\s.,!?;:)\]])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,])/g, "$1")
+    .trim();
+}
+
+/** Cut to a length without cutting mid-sentence. A hard slice left the GM panel full of intents that
+ *  simply stop — "…and she is terrified that space is", "…She wants to" — which reads as the engine
+ *  losing the thread rather than the field having a ceiling. Prefer the last completed sentence;
+ *  fall back to the last whole word with an ellipsis. */
+export function clip(t: string, max: number): string {
+  const s = t.trim();
+  if (s.length <= max) return s;
+  const head = s.slice(0, max);
+  const lastStop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  // only take the sentence boundary if it keeps most of the budget — otherwise we throw away
+  // the substance to gain a full stop
+  if (lastStop >= max * 0.5) return head.slice(0, lastStop + 1).trim();
+  if (/[.!?]$/.test(head)) return head.trim();
+  return head.slice(0, head.lastIndexOf(" ")).trim().replace(/[,;:]$/, "") + "…";
+}
+
 export function repeatedIntent(prior: string[]): boolean {
   const last = prior[prior.length - 1] ?? "";
   const prev = prior[prior.length - 2] ?? "";
@@ -184,22 +226,11 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       );
       const j = safeJson<Partial<NpcIntent> | null>(out.text, null);
       if (!j || !j.surface) return null;
-      // STRIP INVENTED SPEECH. The intent pass runs BEFORE the narrator writes, so any dialogue it
-      // drafts is dialogue that was never spoken — and the GM view renders `surface` to the player
-      // as what the character said. A model that ignores the no-quotes rule would otherwise put
-      // fabricated lines on screen attributed to a real character. Cheaper to remove them than to
-      // trust the instruction.
-      const deQuote = (t: string) =>
-        t.replace(/\s*[,:]?\s*(?:and\s+)?(?:she|he|they)?\s*says?,?\s*['"\u2018\u201c][^'"\u2019\u201d]*['"\u2019\u201d]/gi, "")
-         .replace(/['"\u2018\u201c][^'"\u2019\u201d]{4,}['"\u2019\u201d]/g, "")
-         .replace(/\s{2,}/g, " ")
-         .replace(/\s+([.,])/g, "$1")
-         .trim();
       return {
         char_id: id, name: c.name,
-        surface: deQuote(String(j.surface)).slice(0, 300),
-        truth: deQuote(String(j.truth ?? j.surface)).slice(0, 300),
-        tell: j.tell ? deQuote(String(j.tell)).slice(0, 200) : undefined,
+        surface: clip(deQuoteIntent(String(j.surface)), 300),
+        truth: clip(deQuoteIntent(String(j.truth ?? j.surface)), 300),
+        tell: j.tell ? clip(deQuoteIntent(String(j.tell)), 200) : undefined,
         lying: !!j.lying,
       } as NpcIntent;
     } catch {
