@@ -260,7 +260,7 @@ export function selectBeat(inp: BeatInput): Beat {
   // arrived in it. Standing weight may be FELT (reminders) but nothing discharges yet.
   if (inp.turn <= 8) {
     const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
-    return early && inp.turn >= 4 && (inp.rng ?? Math.random)() < 0.35 ? { kind: "reminder", ref: early.title.slice(0, 90) } : { kind: "none" };
+    return early && inp.turn >= 4 && (inp.rng ?? Math.random)() < 0.35 ? { kind: "reminder", ref: String(early.title ?? "").slice(0, 90) } : { kind: "none" };
   }
 
   const sinceBeat = inp.turn - inp.last_beat_turn;
@@ -283,7 +283,7 @@ export function selectBeat(inp: BeatInput): Beat {
     const kind = t.kind ?? "threat";
     const bar = kind === "threat" ? 6 : 2;
     if ((t.tension ?? 0) >= bar)
-      standing.push({ ref: t.title.slice(0, 90), kind, mk: () => ({ kind: "thread", ref: t.title.slice(0, 90) }) });
+      standing.push({ ref: String(t.title ?? "").slice(0, 90), kind, mk: () => ({ kind: "thread", ref: String(t.title ?? "").slice(0, 90) }) });
   }
   // Agents gated at priority 6 meant a person only pressed the world when they were in crisis.
   // People acting on ordinary wants IS how a world turns; 3 lets them.

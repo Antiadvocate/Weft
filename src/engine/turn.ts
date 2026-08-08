@@ -1192,7 +1192,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       // individual sources — four fresh threats in a row is four fresh sources and one flavour.
       const srcKind = beat.kind === "clock" ? "threat"
         : beat.kind === "agent" ? "relationship"
-        : beat.kind === "thread" ? (state.world.threads.find((t) => t.title.slice(0, 90) === ref)?.kind ?? "threat")
+        : beat.kind === "thread" ? (state.world.threads.find((t) => String(t.title ?? "").slice(0, 90) === ref)?.kind ?? "threat")
         : "obligation";
       const prior = rec.find((r) => r.ref === ref);
       if (prior) { prior.turn = turn; prior.time = nowT; prior.count += 1; prior.kind = srcKind; }
@@ -2904,7 +2904,11 @@ function wordOverlap(a: string, b: string): boolean {
  *  Used to detect NEAR-DUPLICATE threads and consequences the model re-emits with reworded titles
  *  ("The Inquisitorius (Sarn Veylo) — locate and claim the anomaly" vs "Sarn Veylo — locate and
  *  claim the anomaly"). Returns 0..1; ~0.5+ means they're the same beat wearing different words. */
-function overlapRatio(a: string, b: string): number {
+/** Token overlap between two strings. Coerces on the way in ON PURPOSE: every caller passes a
+ *  hand-editable field — a thread title, a consequence description — and one of them being blank is
+ *  a real state, not a programming error. It should score zero, not take the turn down with it. */
+function overlapRatio(rawA: unknown, rawB: unknown): number {
+  const a = String(rawA ?? ""), b = String(rawB ?? "");
   const STOP = new Set(["the","a","an","of","in","on","and","with","from","to","for","by","at","as","that","this","it","is","are","was","were","be","has","have","had","who","which","their","they","them","his","her","its","if","when","then","now","up","down","fast","two","one"]);
   const toks = (s: string) => new Set(s.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w)));
   const sa = toks(a), sb = toks(b);
@@ -3287,7 +3291,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
       // at rest: no fresh people wander in either, unless the PLAYER's own action summoned them
       new_characters: (diff.new_characters ?? []).filter(() => /\b(summon|conjure|create|bring|call|invite|make)\b/i.test(action)),
       threads_update: (diff.threads_update ?? []).filter((t) => {
-        const exists = state.world.threads.some((x) => x.id === t.id || x.title.toLowerCase() === t.title.toLowerCase());
+        const exists = state.world.threads.some((x) => x.id === t.id || String(x.title ?? "").toLowerCase() === String(t.title ?? "").toLowerCase());
         return exists; // allow updates/resolutions to existing threads, block brand-new ones
       }),
     } as SimulatorDiff;
@@ -4321,9 +4325,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   for (const tu of diff.threads_update ?? []) {
     if (!tu?.title) continue;
-    const existing = state.world.threads.find((t) => t.id === tu.id || t.title.toLowerCase() === tu.title.toLowerCase()
+    const existing = state.world.threads.find((t) => t.id === tu.id || String(t.title ?? "").toLowerCase() === tu.title.toLowerCase()
       // near-duplicate: same beat with a reworded title (subject + action overlap heavily)
-      || (t.status === "active" && overlapRatio(t.title, tu.title) >= 0.6));
+      || (t.status === "active" && overlapRatio(String(t.title ?? ""), tu.title) >= 0.6));
     if (existing) {
       existing.status = tu.status;
       if (tu.description) existing.description = tu.description;

@@ -105,7 +105,7 @@ export async function threadsFromSuccess(
       .slice(0, 2)
       .map((t) => ({
         id: uid("thr"),
-        title: t.title.slice(0, 90),
+        title: String(t.title ?? "").slice(0, 90),
         description: t.description.slice(0, 400),
         status: "active" as const,
         turn_started: turn,

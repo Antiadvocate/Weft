@@ -205,7 +205,7 @@ function applyThreads(
     if (!want) continue;
     const t = state.world.threads.find(
       (x) => x.status === "active"
-        && (x.title.toLowerCase() === want.toLowerCase() || overlapRatio(x.title, want) >= 0.6),
+        && (String(x.title ?? "").toLowerCase() === want.toLowerCase() || overlapRatio(String(x.title ?? ""), want) >= 0.6),
     );
     if (!t) continue;   // never invent a thread in order to resolve it
     // WEIGHT GATE — a short skip cannot dissolve a heavy arc. The model asked; the
@@ -230,7 +230,7 @@ function applyThreads(
     if (!title) continue;
     const dupe = state.world.threads.some(
       (x) => x.status === "active"
-        && (x.title.toLowerCase() === title.toLowerCase() || overlapRatio(x.title, title) >= 0.6),
+        && (String(x.title ?? "").toLowerCase() === title.toLowerCase() || overlapRatio(String(x.title ?? ""), title) >= 0.6),
     );
     if (dupe) continue;
     if (state.world.threads.filter((x) => x.status === "active").length >= 12) break;
@@ -254,7 +254,7 @@ function applyBeat(
 
   // ── memories ── staggered across the beat's days so decay and "that was weeks ago" work
   const factionNames = new Set(state.world.clocks.map((c) => c.faction.toLowerCase()));
-  const threadTitles = state.world.threads.map((t) => t.title.toLowerCase());
+  const threadTitles = state.world.threads.map((t) => String(t.title ?? "").toLowerCase());
   const whitelist = new Set(
     Object.values(state.characters).map((c) => c.name.toLowerCase())
       .concat(Object.values(state.world.places).map((p) => p.name.toLowerCase())),

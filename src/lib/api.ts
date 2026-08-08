@@ -1292,7 +1292,7 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     // them, not all at once; the player can always ignore them (they resolve/abandon like any thread).
     for (const t of seedThreads ?? []) {
       if (!t.title?.trim()) continue;
-      s.world.threads.push({ id: uid("thr"), title: t.title.trim(), status: "active", description: t.description?.trim() ?? "", turn_started: 1, tension: clampNum(t.tension ?? 3, 1, 10) });
+      s.world.threads.push({ id: uid("thr"), title: String(t.title ?? "").trim(), status: "active", description: t.description?.trim() ?? "", turn_started: 1, tension: clampNum(t.tension ?? 3, 1, 10) });
     }
     // DISTANCES: what the engine uses to answer "could word have got there and back by now?"
     // Without a table the check has no basis and silently passes, which is how a mother three days'

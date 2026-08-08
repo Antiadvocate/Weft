@@ -181,7 +181,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   // has no recorded connection to, and they weren't co-located with that event, drop it. World-scale
   // events live in the interlude prose, not in an individual's head.
   const factionNames = new Set(state.world.clocks.map((c) => c.faction.toLowerCase()));
-  const threadTitles = state.world.threads.map((t) => t.title.toLowerCase());
+  const threadTitles = state.world.threads.map((t) => String(t.title ?? "").toLowerCase());
   for (const m of parsed.memories ?? []) {
     const id = state.characters[m.char_id] ? m.char_id
       : Object.entries(state.characters).find(([, c]) => c.name.toLowerCase() === String(m.char_id).toLowerCase())?.[0];

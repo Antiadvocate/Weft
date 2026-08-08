@@ -55,7 +55,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
 
   // 2) live threads they could insert themselves into
   for (const th of state.world.threads.filter((t) => t.status === "active")) {
-    if (th.tension >= 4) candidates.push(`get to the bottom of ${th.title.toLowerCase()}`);
+    if (th.tension >= 4) candidates.push(`get to the bottom of ${String(th.title ?? "").toLowerCase()}`);
   }
 
   // 3) clocks still running — ambient stakes to push or resist

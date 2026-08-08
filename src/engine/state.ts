@@ -185,6 +185,60 @@ export function sanitize(state: SaveState): SaveState {
   state.model_settings = { ...DEFAULT_MODELS, ...state.model_settings };
   state.world.rumors ??= []; state.world.edges ??= []; state.world.clocks ??= [];
   state.world.norms ??= []; state.world.threads ??= []; state.world.consequences ??= []; state.world.canon ??= []; state.world.canon_meta ??= {};
+  // ── HEAL THE WORLD'S LISTS ───────────────────────────────────────────────────────────────────
+  // Threads, clocks, promises and consequences are all hand-editable now, and nothing validated
+  // them on the way in. A thread with no `title` is the one that bites: ten separate places call
+  // `t.title.toLowerCase()` on stored threads, one of them on every single turn, so a single blank
+  // title in the editor turned into "undefined is not an object (evaluating 'z.title.toLowerCase')"
+  // on every turn thereafter — an unplayable save from one field. Coerce here, on load, so a save
+  // already carrying the damage repairs itself the next time it is opened.
+  state.world.threads = (state.world.threads ?? [])
+    .filter((t: any) => t && typeof t === "object")
+    .map((t: any) => ({
+      ...t,
+      id: String(t.id ?? uid("thr")),
+      title: String(t.title ?? "").trim(),
+      description: String(t.description ?? "").trim(),
+      status: ["active", "resolved", "abandoned"].includes(t.status) ? t.status : "active",
+      tension: Number.isFinite(Number(t.tension)) ? Math.max(0, Math.min(10, Number(t.tension))) : 3,
+      turn_started: Number.isFinite(Number(t.turn_started)) ? Number(t.turn_started) : (state.world.current_turn ?? 0),
+    }))
+    // A thread with neither a title nor a description is not a thread; it is a row somebody added
+    // and never filled in, and it would be invisible in every view while still being matched against.
+    .filter((t: any) => t.title || t.description);
+  state.world.clocks = (state.world.clocks ?? [])
+    .filter((c: any) => c && typeof c === "object" && (c.faction || c.objective))
+    .map((c: any) => ({
+      ...c,
+      id: String(c.id ?? uid("clk")),
+      faction: String(c.faction ?? "").trim(),
+      objective: String(c.objective ?? "").trim(),
+      consequence: String(c.consequence ?? "").trim(),
+      visible_signs: Array.isArray(c.visible_signs) ? c.visible_signs.map((x: any) => String(x)) : [],
+      segments: Math.max(1, Math.round(Number(c.segments) || 6)),
+      filled: Math.max(0, Math.round(Number(c.filled) || 0)),
+      status: ["running", "fired", "stalled"].includes(c.status) ? c.status : "running",
+    }));
+  state.world.promises = (state.world.promises ?? [])
+    .filter((p: any) => p && typeof p === "object" && String(p.text ?? "").trim())
+    .map((p: any) => ({
+      ...p,
+      id: String(p.id ?? uid("promise")),
+      text: String(p.text).trim(),
+      status: ["open", "kept", "broken"].includes(p.status) ? p.status : "open",
+      weight: [1, 2, 3].includes(Number(p.weight)) ? Number(p.weight) : 1,
+    }));
+  state.world.consequences = (state.world.consequences ?? [])
+    .filter((c: any) => c && typeof c === "object" && String(c.description ?? "").trim())
+    .map((c: any) => ({
+      ...c,
+      id: String(c.id ?? uid("cons")),
+      description: String(c.description).trim(),
+      status: ["pending", "fired", "cancelled"].includes(c.status) ? c.status : "pending",
+      fire_turn: Number.isFinite(Number(c.fire_turn)) ? Number(c.fire_turn) : (state.world.current_turn ?? 0),
+      severity: ["minor", "notable", "major"].includes(c.severity) ? c.severity : "notable",
+    }));
+
   // heal traits: LLM-written or raw-imported trait entries can arrive with null fields, which
   // crashes every renderer that calls intensity.toFixed. Coerce on load; drop the label-less.
   for (const id of Object.keys(state.traits ?? {})) state.traits[id] = healTraits(state.traits[id]);
