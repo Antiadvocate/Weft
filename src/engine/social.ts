@@ -145,7 +145,17 @@ export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, ste
 
 /** A note that says the bond is broken, in words that cannot mean anything else. Deliberately narrow:
  *  a bare "withdrew" (a hand, from a room) or "hurt" is ordinary friction and stays out of it. */
-const RUPTURE_NOTE = /\b(contempt|disgust(ed|s)?|revulsion|revolted|loath(es|ing|ed)?|hatred|despises?|betray(ed|al)|estranged?)\b|\b(emotional withdrawal|withdrawn from|withdrawing from|cannot forgive|will not forgive|can never forgive|wants nothing (more )?to do with|done with (him|her|them)|no longer loves?|no longer trusts?|hardened against)\b/i;
+const RUPTURE_NOTE = /\b(contempt|disgust(ed|s)?|revulsion|revolted|loath(es|ing|ed)?|hatred|despises?|betray(ed|al)|estranged?)\b|\b(emotional withdrawal|withdrawn from|withdrawing from|cannot forgive|will not forgive|can never forgive|wants nothing (more )?to do with|done with (him|her|them)|hardened against)\b/i;
+
+/** …and the same words in a sentence about GETTING OVER it. "Moving past her immediate hatred" is a
+ *  note about reconciliation that happens to contain the word hatred, and reading the keyword alone
+ *  inverted a bond that had been warming for seventeen straight turns. */
+const RECONCILING_NOTE = /\b(mov(es|ed|ing)? (past|beyond)|past (her|his|their|the) (immediate |initial |first )?(hatred|contempt|disgust|anger|betrayal)|get(s|ting)? over|set(s|ting)? aside|put(s|ting)? aside|let(s|ting)? go of|forgiv(e|es|en|ing)|choos(es|ing) to align|reconcil|softening toward|warming (to|toward))\b/i;
+
+/** The largest move a NOTE alone may cause, matching the per-turn ceiling every delta already obeys.
+ *  The first version of this rule SET warmth to -8 outright, which could invert 78 points in a single
+ *  turn — a move nothing else in the engine is allowed to make. It amplifies now; it never sets. */
+const RUPTURE_STEP = 15;
 
 export function applyEdgeDelta(
   edges: SocialEdge[],
@@ -180,12 +190,24 @@ export function applyEdgeDelta(
     // written from habit, and the habit is ±2–8. One save carried "Rabi's silent disgust marks a
     // deepening emotional withdrawal" on warmth 9 / trust 5, and "Rabi views John with open
     // contempt" on warmth -2 — a card that reads lukewarm attached to the scene where a marriage
-    // ended. When the note names a rupture the feeling is not allowed to sit on the friendly side
-    // of zero. This only ever pushes toward the note's own meaning, never back, and never past an
-    // estrangement already deeper than it.
-    if (RUPTURE_NOTE.test(e.notes)) {
-      e.warmth = Math.min(e.warmth, -8);
-      e.trust = Math.min(e.trust, -5);
+    // ended. A rupture the note names gets a rupture-sized move.
+    //
+    // THREE THINGS KEEP THAT FROM EATING A RELATIONSHIP, all learned the hard way. The first version
+    // set warmth to -8 whenever a rupture word appeared, and on a note reading "Tessa acknowledges
+    // Rabi's endurance and chooses to align with him, MOVING PAST her immediate HATRED" it took a
+    // bond that had climbed 56 → 78 over seventeen turns and put it at -8 in one step.
+    //   · DIRECTION. A note may only enlarge a move the numbers are already making. If this turn
+    //     warmed the bond, nothing here fires — the words and the numbers already agree.
+    //   · SCOPE. A rupture word inside a sentence about getting over it is not a rupture.
+    //   · SIZE. It amplifies, never sets, and never past the ±15 ceiling every other delta obeys.
+    //     One turn cannot invert a marriage; several consecutive ones can, which is correct.
+    if (RUPTURE_NOTE.test(e.notes) && !RECONCILING_NOTE.test(e.notes)) {
+      if (d.warmth_delta < 0 && Math.abs(warmthDelta) < RUPTURE_STEP) {
+        e.warmth = clamp(e.warmth - (RUPTURE_STEP - Math.abs(warmthDelta)), -100, 100);
+      }
+      if (d.trust_delta < 0 && Math.abs(trustDelta) < RUPTURE_STEP) {
+        e.trust = clamp(e.trust - (RUPTURE_STEP - Math.abs(trustDelta)), -100, 100);
+      }
     }
   }
   if (d.roles_set) {

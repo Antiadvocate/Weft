@@ -148,10 +148,39 @@ const edge = (over: Partial<SocialEdge> = {}): SocialEdge[] => {
 }
 {
   const edges = edge({ warmth: -70, trust: -80 });
-  applyEdgeDelta(edges, { from: "char_player", to: "char_t", warmth_delta: 0, trust_delta: 0, power_delta: 0,
+  applyEdgeDelta(edges, { from: "char_player", to: "char_t", warmth_delta: -1, trust_delta: -1, power_delta: 0,
     note: "She is estranged from him now." }, 122);
   const e = getEdge(edges, "char_player", "char_t");
-  check("a deeper estrangement is never softened toward zero", e.warmth === -70 && e.trust === -80, e);
+  check("an existing estrangement only ever deepens", e.warmth < -70 && e.trust < -80, e);
+  check("and never by more than one turn's ceiling", e.warmth >= -85 && e.trust >= -95, e);
+}
+{
+  // A NOTE MAY ONLY ENLARGE A MOVE THE NUMBERS ARE ALREADY MAKING. This shipped once without the
+  // gate and set warmth to -8 outright: a bond that had climbed 56 -> 78 over seventeen turns, on a
+  // WARMING turn, went to -8 in one step because the note contained the word "hatred".
+  const edges = edge({ warmth: 78.18, trust: -95.26 });
+  applyEdgeDelta(edges, { from: "char_player", to: "char_t", warmth_delta: 3, trust_delta: 3, power_delta: 0,
+    note: "Tessa acknowledges Rabi's endurance and chooses to align with him, moving past her immediate hatred." }, 18);
+  const e = getEdge(edges, "char_player", "char_t");
+  check("a warming turn is never inverted by a word in its note", e.warmth > 78, e.warmth);
+  check("and the trust it earned is kept", e.trust > -95.26, e.trust);
+}
+{
+  // scope, independent of direction: getting over it is not the thing itself
+  const edges = edge({ warmth: 40, trust: 20 });
+  applyEdgeDelta(edges, { from: "char_player", to: "char_t", warmth_delta: -2, trust_delta: -1, power_delta: 0,
+    note: "She is moving past the betrayal and choosing him anyway." }, 122);
+  const e = getEdge(edges, "char_player", "char_t");
+  check("a note about getting over it is not a rupture", e.warmth > 30 && e.trust > 15, e);
+}
+{
+  // and no single turn may invert a real bond, even on a true rupture
+  const edges = edge({ warmth: 78, trust: 60 });
+  applyEdgeDelta(edges, { from: "char_player", to: "char_t", warmth_delta: -3, trust_delta: -3, power_delta: 0,
+    note: "She looks at him with open contempt now." }, 122);
+  const e = getEdge(edges, "char_player", "char_t");
+  check("one turn cannot invert a marriage", e.warmth >= 60, e.warmth);
+  check("but it costs a rupture-sized step", e.warmth <= 78 - 15, e.warmth);
 }
 {
   const edges = edge({ warmth: 40, trust: 35 });
