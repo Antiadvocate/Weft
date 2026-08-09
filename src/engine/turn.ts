@@ -132,13 +132,23 @@ function presenceFromProse(state: SaveState, prose: string): string[] {
  *  leaves the narrator with no new material and it restages the previous beat — turn 17 in one save
  *  reopens with turn 16's closing line word for word. Naming the lines is cheap and specific in a
  *  way "don't repeat yourself" is not. */
-function echoBan(state: SaveState): string {
+function echoBan(_state: SaveState): string {
+  // The do-not-repeat list used to live here, at the tail of this string. It now lives in
+  // lastWord(), which is appended after the POV block — see there for why.
+  return `\nDIALOGUE COMES FROM THE SPEAKER, NOT FROM THE PLAYER'S LAST MOVE: no character restates, describes, recaps, or marvels at what the player just did. Forbidden shapes — "you didn't even —", "you just —", "most people would —", "nobody does that", "that's not how anyone —", and any line whose content is the player's own action handed back to them. Astonishment is real and shows in what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.`;
+}
+
+/** THE LAST THING THE MODEL READS.
+ *
+ *  The no-repeat list lived inside echoBan, roughly sixty thousand characters into the request and
+ *  with the whole POV block after it. It fired correctly on the turn a save re-staged the previous
+ *  turn's dialogue: both lines were named, verbatim, as forbidden, and both were said again anyway.
+ *  A rule that is right and unread is not a rule. Same content, moved to where nothing follows it. */
+export function lastWord(state: SaveState): string {
   const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
-  const spoken = (prev.match(/"[^"]{8,160}"/g) ?? []).slice(-4).map((q) => q.trim());
-  const norepeat = spoken.length
-    ? `\nALREADY SPOKEN LAST TURN — these lines have been said and cannot be said again, in whole or in near-paraphrase, by anyone: ${spoken.join(" / ")}. If a character's question went unanswered, they do not re-ask it in the same words; they press differently, drop it, or let the silence sit.`
-    : "";
-  return `\nDIALOGUE COMES FROM THE SPEAKER, NOT FROM THE PLAYER'S LAST MOVE: no character restates, describes, recaps, or marvels at what the player just did. Forbidden shapes — "you didn't even —", "you just —", "most people would —", "nobody does that", "that's not how anyone —", and any line whose content is the player's own action handed back to them. Astonishment is real and shows in what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.${norepeat}`;
+  const spoken = (prev.match(/["\u201c][^"\u201d]{8,160}["\u201d]/g) ?? []).slice(-4).map((q) => q.trim());
+  if (!spoken.length) return "";
+  return `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`;
 }
 
 const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
@@ -254,6 +264,36 @@ export function scrubForReplay(prose: string): string {
     if (kept.length < sents.length * 0.5 && sents.length > 2) return para; // too greedy — leave it
     return kept.join("").trim();
   }).filter(Boolean).join("\n\n");
+}
+
+/** THE CONVERSATION MUST NOT START COLD.
+ *
+ *  Chatlog mode replays recent turns as user/assistant pairs behind the anchored snapshot. The pairs
+ *  were filtered to turns at or after the anchor — and the anchor is set to the CURRENT turn the
+ *  moment it goes stale. So on every re-anchor the filter matched nothing, and the narrator was
+ *  handed the snapshot, the player's action, and ZERO prose. Once every `iframe_cadence` turns (and,
+ *  before presence came out of the cast signature, far more often than that) it wrote the next beat
+ *  of a scene it had not read a word of.
+ *
+ *  Turn 59 of one save ran that way. Turns 60 and 61 then re-staged turn 60's dialogue almost
+ *  verbatim — the same two lines, down to a woman taking off a shoe she had already taken off.
+ *  That is not a repetition bug in the model; it is the only thing a writer can do when the last
+ *  thing they can see is a summary.
+ *
+ *  A couple of turns are carried back across the boundary. The digest is fixed at the moment the
+ *  anchor is set and the pairs after it are append-only, so the carried prose sits in the same
+ *  cached prefix as everything else — which is why the cliff was there in the first place, and why
+ *  removing it costs nothing. */
+const CARRY = 2;
+export function replayPairs(
+  history: SaveState["history"],
+  anchorTurn: number,
+  cad: number,
+): { user: string; assistant: string }[] {
+  return history
+    .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= anchorTurn - CARRY)
+    .slice(-(cad + CARRY))
+    .map((h) => ({ user: h.player_action, assistant: scrubForReplay(h.narrator_prose) }));
 }
 
 /** Does a trait label describe ACQUIRED EXPERTISE (skill built over years) rather than temperament?
@@ -1846,7 +1886,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1893,10 +1933,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const stale = !anchor || (turn - anchor.turn) >= cad || anchor.cast_sig !== castSig;
     if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig, present: [...state.world.present], ledger: ledgerSnapshot(state) };
     const a = state.context_anchor!;
-    const pairs = state.history
-      .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= a.turn)
-      .slice(-cad)
-      .map((h) => ({ user: h.player_action, assistant: scrubForReplay(h.narrator_prose) }));
+    const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
       `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
