@@ -23,6 +23,9 @@ import { recordHop } from "./knowledge";
 import type { PowerTier } from "./pressure";
 
 export const RUMOR_BASE_P = 0.45;
+/** How much of a conversation a message is. Applied to news travelling between people who are not
+ *  in the same room — the channel exists, it is just thinner than being there. */
+export const REMOTE_REACH = 0.3;
 
 /** Turns a want may sit without its PROGRESS moving before the person gives up on it. A want that
  *  can only be satisfied by the player answering — "get him to give me a place in his life" — never
@@ -431,6 +434,34 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
   for (const group of byLocation.values()) {
     if (group.length > 1) groups.push(group); // only same-place offscreen characters mingle
   }
+  // ── PEOPLE WHO ARE APART STILL TALK ─────────────────────────────────────────────────────────
+  // Co-presence alone models a village, and it silently switches the whole subsystem off for any
+  // story that is not one. Measured on a five-person domestic save: every offscreen character was
+  // alone at a different place, so `byLocation` produced no group of size 2, `world.present` held
+  // one person, and the naive set excludes the player — the graph had ZERO edges. Twenty live
+  // rumours, salience up to 8, and not one possible recipient for any of them. 86 of 103 never left
+  // the person who saw them, and no second-hand knower ever brought one up on the page.
+  //
+  // So a bond is a channel too. Anyone carrying a real edge toward someone can reach them across
+  // distance — a call, a text, word sent — at a fraction of the rate of standing in the same room,
+  // because that is how much less of it there is. A weak acquaintance is not a channel; the edge has
+  // to be something. In a low-technology world the same mechanism reads as word sent with a
+  // traveller, which is slower rather than impossible, and the reduced rate already says so.
+  const remotePairs: string[][] = [];
+  const offstageIds = [...byLocation.values()].flat();
+  for (let i = 0; i < offstageIds.length; i++) {
+    for (let j = i + 1; j < offstageIds.length; j++) {
+      const a = offstageIds[i], b = offstageIds[j];
+      if (state.characters[a]?.location === state.characters[b]?.location) continue; // already mingling
+      const bond = (x: string, y: string) => {
+        const e = state.world.edges.find((z) => z.from === x && z.to === y);
+        return e ? Math.abs(e.warmth) >= 25 || Math.abs(e.trust) >= 25 || !!e.roles?.length : false;
+      };
+      if (bond(a, b) || bond(b, a)) remotePairs.push([a, b]);
+    }
+  }
+  const REMOTE = new Set(remotePairs);
+  groups.push(...remotePairs);
   // each neighborhood's aggregate body state — the mean relaxation of its members. This is the
   // local field the rule reads: one number per room, recomputed each turn.
   const groupMood = new Map<string[], number>();
@@ -461,7 +492,10 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
         for (const j of naive) {
           if (rumor.knowers.includes(j)) continue;
           const gj = state.characters[j]?.gregariousness ?? 0.5;
-          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread;
+          // a message is not a conversation: reaching someone who is not in the room carries much
+          // less, and carries it less often
+          const reach = REMOTE.has(group) ? REMOTE_REACH : 1;
+          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread * reach;
           if (rng() < p) {
             rumor.knowers.push(j);
             // PROVENANCE: record who told whom, where, and when. Without this the knowers list is

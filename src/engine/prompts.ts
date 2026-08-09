@@ -1164,6 +1164,10 @@ ${cast}`;
 }
 
 /** VOLATILE DIGEST: present-character live state, memories, world snapshot. */
+/** How long an offstage sighting stays something a character might still bring up. Past this it is
+ *  not "while you were away", it is history, and it competes for a memory slot like anything else. */
+const OFFSTAGE_SIGHTING_TURNS = 25;
+
 export function volatileDigest(state: SaveState, query: string, opts?: { budgetOverride?: number }): string {
   const k = state.model_settings.context_memories_k;
   const turn = state.world.current_turn;
@@ -1282,9 +1286,28 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       if (ident.texture?.length) lines.push(`  texture (raises these unprompted): ${ident.texture.slice(0, 4).join("; ")}`);
       { const sk = Object.entries(ident.skills ?? {}).slice(0, 5);
         if (sk.length) lines.push(`  knows (can hold forth on): ${sk.map(([k, v]) => (v ? `${k} — ${v}` : k)).join("; ")}`); }
-      if (detail >= 2) {
+      // ── WHAT THEY KNOW THAT THE PLAYER DOES NOT ─────────────────────────────────────────────
+      // These two lines are the entire return path for a world that moves offstage, and both were
+      // gated behind detail>=2 — the top context budget, which is not most turns. A save with 103
+      // rumours in it had 86 that never left their witness and not one that a second-hand knower
+      // ever brought up on the page; measured against the prompts, the whole rumour subsystem
+      // reached the narrator 2% of the time. News someone is carrying is not a luxury field. It is
+      // the only reason the diffusion engine exists.
+      {
         const heard = state.world.rumors.filter((r) => !r.dead && r.knowers.includes(id) && r.origin_char !== id).slice(-3);
-        if (heard.length) lines.push(`  has heard: ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
+        if (heard.length) lines.push(`  has heard (theirs to raise, or not — never make them announce it): ${heard.map((r) => `"${r.content}"${r.truth !== "true" ? " (their version is off)" : ""}`).join("; ")}`);
+        // And what they SAW while the player was somewhere else. The offstage pass gives witnesses a
+        // real memory, and that memory is then dropped into an episodic store a hundred deep and
+        // ranked by word overlap against this turn's words — where a thing that happened forty
+        // turns ago at a place the player has never been scores near zero and is never retrieved.
+        // The channel the world sim was designed around was losing to a relevance sort. It gets its
+        // own slot now, recent-first, so someone in the room always has the option of mentioning it.
+        const saw = (state.memory[id]?.episodic ?? [])
+          .filter((m) => m.source === "offstage" && turn - m.turn <= OFFSTAGE_SIGHTING_TURNS)
+          .slice(-2);
+        if (saw.length) lines.push(`  saw while you were elsewhere: ${saw.map((m) => `"${m.content}"${m.where ? ` (at ${m.where})` : ""}`).join("; ")}`);
+      }
+      if (detail >= 2) {
         const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15 || e.roles?.length));
         if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${n ? ` (${n})` : ""}`; }).join("; ")}`);
       }

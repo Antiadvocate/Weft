@@ -38,6 +38,14 @@ export interface OffstageEvent {
    *  just left CANNOT contact him is not a story about consequences, it is a story about a man on
    *  holiday. When an event is somebody deliberately reaching the player, this is what arrives. */
   reaches_player?: { how: string; content: string };
+  /** A QUESTION THE WORLD JUST OPENED. Threads and clocks were the only machinery with any pull on
+   *  the story, and both are authored — by the forge at the start, by the bookkeeper from a scene the
+   *  player was in. So the world could move all it liked offstage and never change what the story was
+   *  ABOUT. A hundred and eight turns of one save produced forty-five offstage events and not one new
+   *  question. When an event genuinely opens something unresolved — a decision now forced, a debt now
+   *  owed, a door now standing open — it becomes a thread like any other, and the pressure system
+   *  picks it up without knowing where it came from. */
+  opens_thread?: { title: string; description: string };
 }
 
 export const OFFSTAGE_SYSTEM = `You are the world's own motion. You report what happened ELSEWHERE, to people who were not thinking about the protagonist.
@@ -57,10 +65,12 @@ WITNESSES ARE HOW ANY OF THIS REACHES THE STORY. An event nobody in the cast saw
 
 FACTION CLOCKS ADVANCE HERE, OR NOWHERE. A faction pursuing an objective the player never sees is doing that work offstage, in ordinary steps: a testimony taken, a boundary walked, a payment made, a page finished, a rider sent. When one of your events IS such a step for one of the listed factions, set "advances" to that faction's name. This is the ONLY way their clocks move — a clock the player never walks into otherwise sits frozen forever, which is not the world being patient, it is the world being dead. A faction marked HAS NOT MOVED ONCE is not a faction with nothing to do; it is one whose first ordinary step nobody has written yet. Write it. Do not attribute an event to a faction it has nothing to do with.
 
+THE WORLD MAY OPEN A QUESTION, NOT JUST REPORT ONE. Most events close over: a shift worked, a call made, a bill paid. Some do not — they leave something unresolved that will have to be answered by somebody, and those are what a story is made of. When one of your events leaves a real question standing (a decision now forced on someone, a debt now owed, a position now vacant, a door now open that was shut), set "opens_thread" with a short title and one plain sentence. Do NOT open one for an ordinary beat, do not open more than one per report, and never open a question that is simply "what will the player do" — the question belongs to the world, and the player may never even learn it exists.
+
 Write 1–3 events. Fewer is right when the world state gives you little — but "the cast wanted things and none of them moved" is not little, it is the report you were asked for and did not write.
 
 Output ONLY this JSON:
-{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":"","reaches_player":{"how":"ONLY when this event IS somebody deliberately contacting the player — a text, a call, a letter, turning up at the door. Say which. Omit entirely otherwise; most events are not aimed at anyone.","content":"what actually arrives, in their own words if it is a message — the text as sent, typos and all"}}]}`;
+{"events":[{"actor":"","place":"","what":"","witnesses":[],"new_place":"","advances":"","reaches_player":{"how":"ONLY when this event IS somebody deliberately contacting the player — a text, a call, a letter, turning up at the door. Say which. Omit entirely otherwise; most events are not aimed at anyone.","content":"what actually arrives, in their own words if it is a message — the text as sent, typos and all"},"opens_thread":{"title":"","description":"OMIT ENTIRELY unless this event leaves a real unresolved question in the world"}}]}`;
 
 /** Loose tie between a character and a faction clock: their own wants, background, or the faction's
  *  name and objective share ground. Cheap and forgiving — this only decides whether to SUGGEST
@@ -278,6 +288,14 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
     return [];
   }
 
+  return applyOffstage(state, events, retired);
+}
+
+/** Everything the world's report DOES to the world. Split out from the call so it can be exercised
+ *  without a model: this is where an event becomes a memory, a rumour seed, a clock step, a place,
+ *  a message on the player's phone, and — the part that was missing — a question the story now has
+ *  to answer. */
+export function applyOffstage(state: any, events: OffstageEvent[], retired: string[] = []): string[] {
   const byName = new Map<string, string>();
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
     if (id !== "char_player") byName.set(c.name.toLowerCase(), id);
@@ -314,6 +332,28 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
 
     (state.world.offstage_log ??= []).push({ turn, time: state.world.current_time, what: ev.what, place: ev.place, actor: ev.actor });
 
+    // A QUESTION THE WORLD OPENED FOR ITSELF. Once it is a thread it is indistinguishable from an
+    // authored one: beat selection weighs it, the pressure system can pick it as a source, the fate
+    // spine counts it. Capped hard — the world gets to raise questions, not to bury the story in
+    // them — and never duplicated against a thread that already says the same thing.
+    const ot = ev.opens_thread;
+    if (ot?.title?.trim() && ot?.description?.trim()) {
+      const title = ot.title.trim().slice(0, 70);
+      const active = (state.world.threads ?? []).filter((t: any) => t.status === "active");
+      const dup = active.some((t: any) => {
+        const a = new Set(t.title.toLowerCase().split(/\W+/).filter(Boolean));
+        const b = title.toLowerCase().split(/\W+/).filter(Boolean);
+        return b.length && b.filter((w) => a.has(w)).length / b.length > 0.6;
+      });
+      if (!dup && active.length < 12) {
+        state.world.threads.push({
+          id: uid("thr"), title, description: ot.description.trim().slice(0, 200),
+          status: "active", tension: 3, turn_started: turn,
+        } as any);
+        log.push(`the world opened a question: ${title}`);
+      }
+    }
+
     // Witnesses get a real memory. This is the ONLY channel by which an offstage event can ever
     // reach the player — through a person who was there, then through whoever they talk to.
     //
@@ -343,7 +383,9 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
         turn,
         content: ev.what.slice(0, 200),
         importance: 7,                          // at the gossip threshold: worth repeating, not world-ending
-        source: "witnessed",
+        // marked distinctly from an ordinary witnessed memory so the digest can give it a guaranteed
+        // slot: this is the world's own motion, and it has no other way back to the page
+        source: "offstage",
         where: ev.place,
         when_label: state.world.current_time,
         emotional_charge: 0,

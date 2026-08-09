@@ -352,6 +352,7 @@ export type MemorySource =
   | "witnessed"                 // the character was present when it happened
   | "rumor"                     // reached them through the rumor mill
   | "inferred"                  // written by an offscreen/interlude pass — they didn't directly see it
+  | "offstage"                  // they witnessed the world sim's own motion, somewhere the player was not
   | { told_by: string };        // a specific character conveyed it (char id), e.g. via memory_recohere
 
 export interface EpisodicMemory {
@@ -465,6 +466,10 @@ export interface Place {
    *  edit, and a meta-note appended into it becomes the description when the description was
    *  empty — which is how one place ended up described as a quote of the player's own dialogue. */
   stale_note?: string;
+  /** Last turn the player actually stood here. Not for display — it is the boundary for "what has
+   *  happened in this room since you last saw it", which is how offstage motion becomes something
+   *  the player can walk into rather than a log nobody reads. */
+  player_last_here?: number;
   contains: string[];
   founding?: boolean;   // named at the Forge. Never evicted by the place cap; the world's spine.
   /** THE PEOPLE WHO ARE NOT CHARACTERS. `contains` holds carded cast only, and the cast is capped

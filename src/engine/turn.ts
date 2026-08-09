@@ -1755,6 +1755,30 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const inboundNote = (state.world.inbound ?? []).length
     ? `\nREACHING YOU NOW — render this arriving, this turn, on the page:\n${(state.world.inbound ?? []).map((m) => `- ${m.from}, ${m.how}: "${m.content}"`).join("\n")}\nIt does not hover unread unless the player chooses not to look, and it is not summarised — the words arrive as they were sent. Whatever the player is doing, this interrupts it the way a phone interrupts a room.`
     : "";
+  // ── THE WORLD MOVED WHERE YOU ARE STANDING ──────────────────────────────────────────────────
+  // The offstage log was measured at 0% coverage: 225 fields of invented world, read by exactly one
+  // caller — the offstage pass itself, checking what it already said so it does not repeat. So the
+  // world sim ran for a hundred turns talking only to itself, and the player's complaint that
+  // nothing offscreen ever comes back was not a feeling, it was the architecture.
+  //
+  // Only what is FINDABLE HERE: events at this place since the player last stood in it. Not the log,
+  // not a digest of everywhere — the traces in this room. Offered as available to be noticed, never
+  // as a thing that must be announced, because a world that reports itself is a newsfeed.
+  const worldMovedNote = (() => {
+    const place = state.world.places[state.world.player_location];
+    const here = place?.name;
+    if (!place || !here) return "";
+    // The boundary is the last turn the player STOOD here, stamped as we read it. So a trace is
+    // offered on the turn they walk back in and not again after — the alternative is a room that
+    // recites the same three events every turn until the log rolls over.
+    const since = place.player_last_here ?? 0;
+    place.player_last_here = turn;
+    const marks = (state.world.offstage_log ?? [])
+      .filter((e) => e.turn > since && e.place && e.place.toLowerCase() === here.toLowerCase())
+      .slice(-3);
+    if (!marks.length) return "";
+    return `\nWHAT HAPPENED HERE WHILE YOU WERE GONE — these are already true of this place; the player has not been told any of it:\n${marks.map((e) => `- ${e.what}`).join("\n")}\nRender only the TRACES: what is moved, missing, left out, said in passing by someone who was here. Do not recap it, do not have anyone narrate it as news, and do not force the player to notice — a room that has changed can be walked through without looking.`;
+  })();
   const crowdNote = crowdDirective(state);
   const giftNote = giftDirective(action);
   const bodyNote = [...state.world.present, "char_player"]
@@ -1786,7 +1810,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via

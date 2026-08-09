@@ -443,8 +443,17 @@ export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn:
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 6);
   const pending = mem.episodic.filter((m) => m.commitment_status === "pending");
+  // WHAT THEY SAW WHILE THE PLAYER WAS ELSEWHERE SURVIVES THIS. An offstage sighting is filed at
+  // importance 7 and then has to win six slots against the player's own scenes, which run 8–10 —
+  // so it is deleted at the first reflection after it stops being recent, roughly eight turns in,
+  // long before the character is next in a room with the player. Measured on a 108-turn save: 45
+  // offstage events, 45 witness memories written, and zero left alive in the file. The channel the
+  // whole world sim depends on was being composted on a schedule. Kept like a pending commitment
+  // is kept — exempt from the contest, and only while it is still news.
+  const OFFSTAGE_KEEP_TURNS = 25;
+  const witnessedWorld = mem.episodic.filter((m) => m.source === "offstage" && currentTurn - m.turn <= OFFSTAGE_KEEP_TURNS);
   const seen = new Set<EpisodicMemory>();
-  mem.episodic = [...recent, ...old, ...pending].filter((m) => (seen.has(m) ? false : (seen.add(m), true)));
+  mem.episodic = [...recent, ...old, ...pending, ...witnessedWorld].filter((m) => (seen.has(m) ? false : (seen.add(m), true)));
 }
 
 function agoLabel(whenLabel: string | undefined, nowLabel: string): string {

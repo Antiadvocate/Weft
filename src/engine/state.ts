@@ -364,6 +364,19 @@ export function sanitize(state: SaveState): SaveState {
     state.traits[id] ??= [];
     state.memory[id] ??= blankMemory(id);
     state.memory[id].facts ??= [];   // fact-ledger backfill for older saves
+    // WHAT THEY SAW WHILE THE PLAYER WAS ELSEWHERE. The offstage pass used to file its witness
+    // memories as plain "witnessed", which left them indistinguishable from anything that happened
+    // in a scene and competing for a retrieval slot they never won. They are marked now, and this
+    // recovers the ones already in a save: an exact match against the offstage log, which is where
+    // the text came from verbatim (`content: ev.what.slice(0, 200)`), so nothing else can match.
+    {
+      const offstage = new Set((state.world.offstage_log ?? []).map((e) => String(e.what ?? "").slice(0, 200)));
+      if (offstage.size) {
+        for (const m of state.memory[id].episodic) {
+          if (m.source === "witnessed" && offstage.has(m.content)) m.source = "offstage";
+        }
+      }
+    }
     state.condition[id].psyche ??= blankCondition().psyche;
     // A MOOD THAT DEGENERATED INTO A LOOP IS A STUCK RECORD, NOT WEATHER. It renders on the card and
     // goes back into the next prompt as the character's current state, so it re-seeds itself: one
