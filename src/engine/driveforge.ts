@@ -17,6 +17,7 @@
 // context is fixed by changing the context, not by arguing with it.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { overlapRatio } from "./turn";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
 export const DRIVE_REFRESH_MIN = 2880;   // two days
@@ -43,8 +44,10 @@ SCALE IT TO WHO THEY ARE. Someone powerful, independent, or used to command does
 
 Also give a first concrete STEP they could take within a day, by their own means, without anyone's permission.
 
+AND GIVE THEM A DOOR. Not the want — the way this particular person goes AT it when other people are in the room. Almost nobody walks up and states what they are after; they find a way in, and which way says more about them than the want does. The adjacent subject raised so they can watch the reaction. The question asked so the other person volunteers it. Telling it as something that happened to a colleague. Floating a small deniable version first. Using an interest they already have as the door into the subject. Working through a third person who will carry it for them. Doing a favour first so the asking costs less. Pick the one that fits THEIR traits, voice and standing — a blunt person's door is still a door, just a short one — and write it as something they DO, in a few words. It must not restate the goal.
+
 Output ONLY:
-{"goal":"one sentence, concrete, theirs","step":"the first thing they do","why":"the trait, debt, bond or fear this grows from"}`;
+{"goal":"one sentence, concrete, theirs","approach":"how they go at it around other people — the door, not the want","step":"the first thing they do","why":"the trait, debt, bond or fear this grows from"}`;
 
 /** A goal is invalid if it cannot be pursued without someone else supplying an answer. */
 export function isDependentGoal(goal: string, playerName: string): boolean {
@@ -221,8 +224,13 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
         rejection = `\n\nYour previous attempt was another errand of record and account, and ${holders.join(" and ")} ${holders.length === 1 ? "is" : "are"} already doing that in this story. Write a want of a different KIND — the body, an appetite, a grudge, a repair, curiosity, standing, or somebody else they are trying to get something for.`;
         continue;
       }
+      // the door is only kept when it is actually a different sentence from the want; a model that
+      // restates the goal here would hand the narrator the announcement twice over
+      const approach = String((j as any).approach ?? "").trim().slice(0, 140);
+      const restates = approach && overlapRatio(approach, goal) > 0.6;
       c.drive = {
         goal,
+        approach: approach && !restates ? approach : undefined,
         progress: 0,
         priority: 1,
         blocker: j.step ? `next: ${j.step}` : undefined,

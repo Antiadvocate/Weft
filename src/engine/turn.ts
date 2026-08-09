@@ -2990,7 +2990,7 @@ function wordOverlap(a: string, b: string): boolean {
 /** Token overlap between two strings. Coerces on the way in ON PURPOSE: every caller passes a
  *  hand-editable field — a thread title, a consequence description — and one of them being blank is
  *  a real state, not a programming error. It should score zero, not take the turn down with it. */
-function overlapRatio(rawA: unknown, rawB: unknown): number {
+export function overlapRatio(rawA: unknown, rawB: unknown): number {
   const a = String(rawA ?? ""), b = String(rawB ?? "");
   const STOP = new Set(["the","a","an","of","in","on","and","with","from","to","for","by","at","as","that","this","it","is","are","was","were","be","has","have","had","who","which","their","they","them","his","her","its","if","when","then","now","up","down","fast","two","one"]);
   const toks = (s: string) => new Set(s.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w)));
@@ -4404,7 +4404,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   }
   for (const [id, dus] of drivesByChar) {
     const sorted = [...dus].sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1));
-    const mk = (d: typeof sorted[number]) => ({ goal: d.goal, progress: clamp(d.progress ?? 0, 0, 100), blocker: d.blocker, priority: d.priority ?? 1, updated_turn: turn });
+    // THE DOOR SURVIVES A PROGRESS UPDATE. The bookkeeper restamps a drive constantly — every turn
+    // the blocker moves — and rebuilding the object from its fields alone dropped `approach` on the
+    // first such rewrite, which is one turn. How someone goes at a want is characterisation, not a
+    // per-turn reading; it is only replaced when the bookkeeper writes a new one or the goal itself
+    // changes, and a "door" that just restates the want is no door at all.
+    const prevDrive = state.characters[id].drive;
+    const mk = (d: typeof sorted[number]) => {
+      const fresh = String((d as any).approach ?? "").trim().slice(0, 140);
+      const carried = prevDrive && prevDrive.goal === d.goal ? prevDrive.approach : undefined;
+      const approach = fresh && overlapRatio(fresh, d.goal) <= 0.6 ? fresh : carried;
+      return { goal: d.goal, approach, progress: clamp(d.progress ?? 0, 0, 100), blocker: d.blocker, priority: d.priority ?? 1, updated_turn: turn };
+    };
     state.characters[id].drive = mk(sorted[0]);
     if (sorted.length > 1) state.characters[id].drive_queue = sorted.slice(1, 3).map(mk);
     state.characters[id].tracked = true;

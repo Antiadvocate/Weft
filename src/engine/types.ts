@@ -192,6 +192,18 @@ export interface Norm {
 
 export interface NPCDrive {
   goal: string;
+  /** HOW THEY GO AT IT — the door they use, not the thing they want.
+   *
+   *  Without this a want is a sentence, and the shortest path from a sentence to a scene is a
+   *  character saying it. One save had a woman whose goal read "find the right words to tell him
+   *  about her body's changes before tonight", and on the page she said: "I'll have words by then.
+   *  The right ones." She recited her own goal field. That is how a book character talks, because a
+   *  novel compresses — and it is not how anyone approaches something they are afraid of.
+   *
+   *  Real pursuit is oblique and the obliquity IS the characterisation: the adjacent topic used as a
+   *  door, the question asked so the other person can volunteer it, the small version floated first
+   *  to see how it lands. This records THIS person's door. */
+  approach?: string;
   progress: number;          // 0–100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
