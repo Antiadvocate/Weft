@@ -2245,11 +2245,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         return (c.aliases ?? []).some((a) => a.toLowerCase() === want);   // "Headmaster", "the old man"
       })?.[0];
     };
+    // ── DID THE PLAYER WALK OUT OF THE SCENE THEY WERE IN? ──────────────────────────────────
+    // `findChar` deliberately never returns the player, so a footer reading "left: Rabi" resolves to
+    // nobody and is thrown away — while `place` (which is where the scene HAPPENED) overwrites the
+    // destination the heuristics just extracted from the action. The player says "I head to Clara's",
+    // the prose walks him out the front door and down the street, the footer says left: Rabi at
+    // Rabi and Jess's House, and he is still standing in the kitchen.
+    //
+    // When the footer says the player left, `place` is the ORIGIN, not the destination. Anything
+    // else that found a destination this turn — the action heuristics, the bookkeeper — outranks it.
+    const playerNames = [state.characters.char_player?.name ?? "", "you", "the player", "player"]
+      .filter(Boolean).map((x) => x.toLowerCase());
+    const playerLeft = footer.left.some((nm) => playerNames.includes(nm.trim().toLowerCase().replace(/^the\s+/, "")));
     if (footer.place) {
       const pid = resolvePlace(state, footer.place, { keepIfUnknown: true });
-      diff.player_location = state.world.places[pid]?.name ?? undefined;
-      if (state.world.places[pid] && pid !== state.world.player_location) {
-        console.info(`[places] narrator set the scene at "${state.world.places[pid].name}"`);
+      const footerName = state.world.places[pid]?.name;
+      const alreadyMoving = diff.player_location && diff.player_location !== state.world.places[state.world.player_location]?.name;
+      if (playerLeft && alreadyMoving) {
+        console.info(`[places] footer says the player left ${footerName ?? footer.place}; keeping the destination already found: "${diff.player_location}"`);
+      } else if (playerLeft && footerName === state.world.places[state.world.player_location]?.name) {
+        // he left, and nothing knows where to. Better to say so than to pin him where he is not.
+        console.warn(`[places] footer says the player left "${footerName}" but named no destination — presence left unchanged`);
+        ev.onMeta({ shifts: [`the scene says you left ${footerName}, but no destination was recorded — say where you went and it will follow`] });
+      } else {
+        diff.player_location = footerName ?? undefined;
+        if (state.world.places[pid] && pid !== state.world.player_location) {
+          console.info(`[places] narrator set the scene at "${state.world.places[pid].name}"`);
+        }
       }
     }
     // ── CAST CREATION IS DECLARED, NOT INFERRED ────────────────────────────
