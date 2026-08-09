@@ -5,7 +5,7 @@ import { ensureHabits } from "./habits";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum, detectWorldPronoun } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun, tidyPhrase } from "./coerce";
 
 export function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -357,6 +357,18 @@ export function sanitize(state: SaveState): SaveState {
     }
     mem.facts = kept.slice(-30);
     reconcileStores(mem);
+  }
+  // HEAL A LOOPED OR SEVERED WANT ON LOAD. These are short model-written fields that render on the
+  // card and go straight back into the next prompt, so a save already carrying one re-seeds it every
+  // turn until something breaks the cycle. Repaired when the file is opened, like the mood loop.
+  for (const c of Object.values(state.characters)) {
+    for (const d of [c.drive, ...(c.drive_queue ?? [])]) {
+      if (!d) continue;
+      const goal = tidyPhrase(d.goal, 160);
+      if (goal && goal !== d.goal) d.goal = goal;
+      if (d.approach) { const a = tidyPhrase(d.approach, 140); if (a !== d.approach) d.approach = a || undefined; }
+      if (d.blocker) { const b = tidyPhrase(d.blocker, 140); if (b !== d.blocker) d.blocker = b || undefined; }
+    }
   }
   state.minds ??= {};
   for (const id of Object.keys(state.characters)) {

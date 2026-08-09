@@ -116,3 +116,55 @@ export function repairNativePronouns(prose: string, worldPronoun: string | undef
   });
   return { prose: out, fixed };
 }
+
+/**
+ * A MODEL THAT FALLS INTO A LOOP, AND THE FIELD THAT KEEPS IT FOREVER.
+ *
+ * Decoding degenerates sometimes — the same phrase, over and over, until the token budget runs out.
+ * In prose it is obvious and the player just rerolls. In a short STATE field it is quiet and
+ * permanent: it renders on the card, it goes back into the next prompt as the character's current
+ * want, and it re-seeds itself. One save had a want reading
+ *
+ *   "Continue to nurture the quiet intimacy with Rabi, deepening the shared private language with
+ *    Jess and Jess's and Rabi's and Rabi's and Rabi's Rabi and Rabi and Rabi and Rabi and Rabi…"
+ *
+ * for six hundred characters. `cleanMood` already handles this for moods, but it splits on
+ * punctuation and a loop like this one has none — it is a repeated n-gram in a single clause.
+ *
+ * Finds the shortest unit (1–6 words) that repeats back to back three or more times and cuts the
+ * text where the repetition begins, then tidies a dangling connective off the end. Text with no
+ * loop in it comes back untouched.
+ */
+export function deLoop(text: string): string {
+  const words = String(text ?? "").trim().split(/\s+/);
+  if (words.length < 6) return String(text ?? "").trim();
+  const at = (i: number, n: number) => words.slice(i, i + n).join(" ").toLowerCase();
+  for (let n = 1; n <= 6; n++) {
+    for (let i = 0; i + n * 3 <= words.length; i++) {
+      const unit = at(i, n);
+      if (!unit) continue;
+      let reps = 1;
+      while (at(i + reps * n, n) === unit) reps++;
+      if (reps >= 3) {
+        const cut = words.slice(0, i).join(" ").trim();
+        // never return nothing: a field that is ALL loop keeps one copy of the unit rather than
+        // vanishing, because an empty want is a different bug from a repetitive one
+        const kept = cut || words.slice(i, i + n).join(" ");
+        return kept.replace(/[\s,;:]*\b(and|or|with|the|a|an|of|to|for|in|by)\s*$/i, "").replace(/[\s,;:]+$/, "").trim();
+      }
+    }
+  }
+  return words.join(" ");
+}
+
+/** Cut to a length at a sentence or word boundary. A hard slice left one save's want-approach ending
+ *  "a favour that requires" — the field has a ceiling, which should not read as a lost thought. */
+export function tidyPhrase(text: unknown, max = 140): string {
+  const t = deLoop(asText(text));
+  if (t.length <= max) return t;
+  const head = t.slice(0, max);
+  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  if (stop >= max * 0.5) return head.slice(0, stop + 1).trim();
+  const sp = head.lastIndexOf(" ");
+  return (sp > 0 ? head.slice(0, sp) : head).replace(/[\s,;:]+$/, "").trim() + "…";
+}

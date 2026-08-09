@@ -17,6 +17,7 @@
 // context is fixed by changing the context, not by arguing with it.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { tidyPhrase } from "./coerce";
 import { overlapRatio } from "./turn";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
@@ -225,7 +226,7 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       }
       // the door is only kept when it is actually a different sentence from the want; a model that
       // restates the goal here would hand the narrator the announcement twice over
-      const approach = String((j as any).approach ?? "").trim().slice(0, 140);
+      const approach = tidyPhrase((j as any).approach, 140);
       const restates = approach && overlapRatio(approach, goal) > 0.6;
       c.drive = {
         goal,

@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
-import { detectWorldPronoun, repairNativePronouns } from "./coerce";
+import { detectWorldPronoun, repairNativePronouns, tidyPhrase } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
@@ -4467,10 +4467,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // changes, and a "door" that just restates the want is no door at all.
     const prevDrive = state.characters[id].drive;
     const mk = (d: typeof sorted[number]) => {
-      const fresh = String((d as any).approach ?? "").trim().slice(0, 140);
-      const carried = prevDrive && prevDrive.goal === d.goal ? prevDrive.approach : undefined;
-      const approach = fresh && overlapRatio(fresh, d.goal) <= 0.6 ? fresh : carried;
-      return { goal: d.goal, approach, progress: clamp(d.progress ?? 0, 0, 100), blocker: d.blocker, priority: d.priority ?? 1, updated_turn: turn };
+      // EVERY MODEL-WRITTEN FIELD ON A DRIVE GOES THROUGH HYGIENE. A decoder that falls into a loop
+      // writes it straight into state, where it renders on the card and goes back into the next
+      // prompt as the want — one save carried six hundred characters of "and Rabi and Rabi and
+      // Rabi". Truncation gets the same treatment: a hard slice left an approach ending "a favour
+      // that requires", which reads as a lost thought rather than a field with a ceiling.
+      const goal = tidyPhrase(d.goal, 160);
+      const fresh = tidyPhrase((d as any).approach, 140);
+      const carried = prevDrive && prevDrive.goal === goal ? prevDrive.approach : undefined;
+      const approach = fresh && overlapRatio(fresh, goal) <= 0.6 ? fresh : carried;
+      return { goal, approach, progress: clamp(d.progress ?? 0, 0, 100), blocker: tidyPhrase(d.blocker, 140) || undefined, priority: d.priority ?? 1, updated_turn: turn };
     };
     state.characters[id].drive = mk(sorted[0]);
     if (sorted.length > 1) state.characters[id].drive_queue = sorted.slice(1, 3).map(mk);
