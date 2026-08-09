@@ -168,3 +168,36 @@ export function tidyPhrase(text: unknown, max = 140): string {
   const sp = head.lastIndexOf(" ");
   return (sp > 0 ? head.slice(0, sp) : head).replace(/[\s,;:]+$/, "").trim() + "…";
 }
+
+/**
+ * A WANT IS WHAT THEY DO, NOT A SENTENCE ABOUT THEM.
+ *
+ * The bookkeeper writes many characters' fields in one JSON object, bound to a person by nothing but
+ * an id — so it slips. Measured across every save to hand: 4% of drives had a goal naming their own
+ * owner. "Mable makes Rabi kneel and worship her feet" is Mable's own goal written from outside her;
+ * "deepening the shared private language with Jess" is Jess's own goal treating Jess as the other
+ * party, and that one had also degenerated into a loop, which is what confusion tends to precede.
+ *
+ * The engine taught it the format. `seedDrive` had a fallback reading "pursue what matters most to
+ * Hewitt right now", so a card could show a goal in the third person naming its owner, and the model
+ * copied what it saw.
+ *
+ * Two shapes, two answers, because they are not equally safe to touch:
+ *   · LEADING — "Mable makes Rabi kneel…" — strip the name and lower-case what follows. The meaning
+ *     is unchanged and the result is the imperative a goal is supposed to be.
+ *   · MID-SENTENCE — the name buried inside a clause. Never rewritten: any edit is a guess about
+ *     what was meant. Reported instead, so it can be corrected where it was written.
+ */
+export function ownWant(ownerName: string, text: unknown): { goal: string; slipped: boolean } {
+  const goal = asText(text).trim();
+  const first = (ownerName || "").trim().split(/\s+/)[0]?.replace(/[^A-Za-z'-]/g, "");
+  if (!goal || !first || first.length < 3) return { goal, slipped: false };
+  const lead = new RegExp(`^${first}(?:'s)?\\s+`, "i");
+  let out = goal;
+  if (lead.test(out)) {
+    out = out.replace(lead, "");
+    out = out.charAt(0).toLowerCase() + out.slice(1);
+  }
+  const stillThere = new RegExp(`\\b${first}(?:'s)?\\b`, "i").test(out);
+  return { goal: out, slipped: stillThere };
+}

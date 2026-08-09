@@ -70,7 +70,10 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   if (has("survi", "street", "thief", "cat")) candidates.push("line up the next score and stay unseen");
   if (has("heal", "doctor", "care", "mend")) candidates.push("tend to someone the city has written off");
   if (has("chaos", "wild", "unpredict")) candidates.push("stir something up just to see what breaks");
-  candidates.push(`pursue what matters most to ${c.name} right now`);
+  // NOT `pursue what matters most to ${c.name}` — a goal that names its own owner in the third
+  // person is the exact shape the bookkeeper then copies onto real wants, and this fallback was
+  // putting it on the card for it to read. A want is what they do.
+  candidates.push("pursue what matters most to them right now");
 
   // SELF-INTEREST set — the antidote to the chorus. These pull a character toward their OWN
   // life instead of the group's shared object. Tagged so dispersion can prefer them.

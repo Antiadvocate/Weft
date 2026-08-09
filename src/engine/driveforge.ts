@@ -17,7 +17,7 @@
 // context is fixed by changing the context, not by arguing with it.
 
 import { buildMessages, complete, safeJson } from "../llm";
-import { tidyPhrase } from "./coerce";
+import { tidyPhrase, ownWant } from "./coerce";
 import { overlapRatio } from "./turn";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
@@ -226,10 +226,12 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       }
       // the door is only kept when it is actually a different sentence from the want; a model that
       // restates the goal here would hand the narrator the announcement twice over
+      // the forge writes goals too, and its output lands on the card the bookkeeper reads next
+      const ownedGoal = ownWant(c.name, goal).goal;
       const approach = tidyPhrase((j as any).approach, 140);
       const restates = approach && overlapRatio(approach, goal) > 0.6;
       c.drive = {
-        goal,
+        goal: ownedGoal,
         approach: approach && !restates ? approach : undefined,
         progress: 0,
         priority: 1,
@@ -237,7 +239,7 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
         updated_turn: state.world.current_turn,
       };
       c.drive_refreshed_time = state.world.current_time;
-      return goal;
+      return ownedGoal;
     } catch {
       return null;
     }

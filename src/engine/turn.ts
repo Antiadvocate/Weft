@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
-import { detectWorldPronoun, repairNativePronouns, tidyPhrase } from "./coerce";
+import { detectWorldPronoun, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
@@ -4458,6 +4458,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
   }
+  const ownerSlips: string[] = [];
   for (const [id, dus] of drivesByChar) {
     const sorted = [...dus].sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1));
     // THE DOOR SURVIVES A PROGRESS UPDATE. The bookkeeper restamps a drive constantly — every turn
@@ -4472,7 +4473,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // prompt as the want — one save carried six hundred characters of "and Rabi and Rabi and
       // Rabi". Truncation gets the same treatment: a hard slice left an approach ending "a favour
       // that requires", which reads as a lost thought rather than a field with a ceiling.
-      const goal = tidyPhrase(d.goal, 160);
+      // A WANT IS WHAT THEY DO. A goal naming its own owner is the bookkeeper losing track of which
+      // row belonged to whom — repairable when the name leads, only reportable when it is buried.
+      const owned = ownWant(state.characters[id]?.name ?? "", tidyPhrase(d.goal, 160));
+      const goal = owned.goal;
+      if (owned.slipped) ownerSlips.push(`${nameOf(id)}: "${goal.slice(0, 90)}"`);
       const fresh = tidyPhrase((d as any).approach, 140);
       const carried = prevDrive && prevDrive.goal === goal ? prevDrive.approach : undefined;
       const approach = fresh && overlapRatio(fresh, goal) <= 0.6 ? fresh : carried;
@@ -4481,7 +4486,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     state.characters[id].drive = mk(sorted[0]);
     if (sorted.length > 1) state.characters[id].drive_queue = sorted.slice(1, 3).map(mk);
     state.characters[id].tracked = true;
-    if (!sorted[0].progress) shifts.push(`${nameOf(id)} wants something new: ${sorted[0].goal}.`);
+    if (!sorted[0].progress) shifts.push(`${nameOf(id)} wants something new: ${state.characters[id].drive!.goal}.`);
+  }
+  if (ownerSlips.length) {
+    shifts.push(`a want was recorded naming its own owner — ${ownerSlips[0]} — check whose it was meant to be`);
+    console.warn(`[ownership] ${ownerSlips.length} want(s) name their owner: ${ownerSlips.join(" | ")}`);
   }
 
   // the narrator can promote characters into the long game
