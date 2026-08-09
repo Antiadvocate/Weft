@@ -646,6 +646,11 @@ export interface SaveState {
   sim_escalated_until?: number;  // when the simulator has failed repeatedly, temporarily route bookkeeping to the fallback model through this turn, then auto-clear after a healthy streak
   context_anchor?: { turn: number; digest: string; cast_sig: string; present?: string[]; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
   contract_drift?: string | null;
+  /** A sentence from LAST turn that stated somebody's interior outright. The engine has always been
+   *  able to detect these (MOTIVE_LEAK, used to scrub the replayed history so the model does not
+   *  learn from its own violations) and has never told anyone it caught one — least of all the
+   *  narrator, which went on making the same move. Quoted back at it next turn, then cleared. */
+  last_leak?: string | null;
   // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
   // standing correction injected into every subsequent turn: this did not happen, never refer to it.

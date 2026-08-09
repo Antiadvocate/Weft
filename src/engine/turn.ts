@@ -40,7 +40,7 @@ import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
-import { readScene, sceneCutDirective } from "./scene";
+import { readScene, sceneCutDirective, perceptionGapDirective } from "./scene";
 
 export interface TurnEvents {
   onPhase: (phase: string) => void;
@@ -224,6 +224,25 @@ const MOTIVE_LEAK = new RegExp([
   "\\bsomething (?:quieter|softer|harder|colder|warmer|sharper|unspoken)\\b",
   "\\bsomething \\w+er than\\b", "\\b(?:held|carried|contained) something \\w+\\b",
   "\\bgone from \\w+ to something\\b", "\\ba look that had gone\\b",
+  // ── THE THREE PLAINEST FORMS, WHICH THIS MISSED ENTIRELY ──────────────────────────────────
+  // Every family above catches interiority smuggled through a hedge, a simile, or a comparison.
+  // None of them caught it stated outright, which is what a model does when the scene gives it
+  // nothing else to write. From one save, all three in two sentences, none detected:
+  //   "she FELT a sudden sharp ACHE in her chest"          — the feeling, named
+  //   "she LET HERSELF look at him"                        — her own permission, her own governance
+  //   "WHEN SHE WAS SURE he was deep under"                — what she knew, and when she knew it
+  // A NAMED FEELING. Kept to feeling-nouns on purpose: "she felt the blanket" is a hand on cloth
+  // and belongs in the prose; "she felt a pang" is the inside of a head nobody can see into.
+  "\\b(?:he|she|they|xe|ze)\\s+felt\\s+(?:a|an|the|her|his|their)?\\s*(?:\\w+\\s+){0,2}" +
+    "(?:ache|pang|rush|surge|wave|knot|lurch|twist|weight|warmth|heat|chill|tightness|" +
+    "relief|shame|guilt|dread|grief|panic|fury|longing|tenderness|revulsion)\\b",
+  // SELF-PERMISSION AND SELF-DENIAL — the narrator adjudicating someone's inner governance.
+  "\\b(?:let|lets|letting|allow|allows|allowed|allowing)\\s+(?:herself|himself|themselves|itself)\\b",
+  "\\b(?:hadn'?t|didn'?t|wouldn'?t|couldn'?t)\\s+(?:let|allow|permit)\\s+(?:herself|himself|themselves)\\b",
+  // STATED KNOWLEDGE AND STATED CERTAINTY. A third person's verb of cognition is the interior in
+  // one word. Bounded to a pronoun subject so quoted first-person speech ("I knew it") is untouched.
+  "\\b(?:when|once|until|after)\\s+(?:he|she|they|xe|ze)\\s+was\\s+(?:sure|certain|satisfied|convinced)\\b",
+  "\\b(?:he|she|they|xe|ze)\\s+(?:knew|realiz|realis|understood|decided|wondered|hoped|feared|regretted|remembered that)\\w*\\b",
 ].join("|"), "i");
 
 export function scrubForReplay(prose: string): string {
@@ -1726,6 +1745,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // direction, every turn carries a course-correction until the next audit passes. This is the
   // machinery that was missing when a "romantic/erotic literary fiction" ran 163 turns of
   // tribunal procedure with nobody noticing.
+  // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
+  // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
+  // making the same move because nothing ever told it not to.
+  const leakFix = state.last_leak
+    ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
+    : "";
   const contractFix = state.contract_drift
     ? `\nCOURSE-CORRECTION (the story has drifted from its contract): ${state.contract_drift} Steer back through present characters' wants and the standing direction — not with a lurch, but starting THIS turn.`
     : "";
@@ -1787,6 +1812,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // working, and it should not be the only way a story ever changes room or hour.
   const sceneRead = readScene(state);
   const sceneNote = sceneCutDirective(sceneRead);
+  // and the hardest scene ending there is: the player stops perceiving
+  const perceptionNote = perceptionGapDirective(state, action);
   if (sceneNote) ev.onMeta({ shifts: [`the scene has spent itself — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
   const crowdNote = crowdDirective(state);
   const giftNote = giftDirective(action);
@@ -1819,7 +1846,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const pronounLock = worldPro
     ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. This is not a preference; their language contains no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, not once.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and does not adopt them, not even once, not even in their head or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + povFilter;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -1996,6 +2023,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
+  // ── DID IT STATE SOMEBODY'S INTERIOR? ────────────────────────────────────────────────────────
+  // The prose is left exactly as written — silently rewriting the player's story is worse than the
+  // leak. What changes is that the engine stops swallowing what it detected: the player is told, and
+  // the sentence is held so next turn's directive can quote it back. Only the worst one, so a turn
+  // with a run of them still produces one correction rather than a lecture.
+  {
+    const sents = prose.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [];
+    const leaked = sents.map((x) => x.trim()).filter((x) => x.length > 25 && MOTIVE_LEAK.test(x));
+    state.last_leak = leaked.length ? leaked.sort((a, b) => b.length - a.length)[0].slice(0, 180) : null;
+    if (leaked.length) {
+      ev.onMeta({ shifts: [`the narrator stated someone's interior ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn — it will be corrected next turn`] });
+      console.warn(`[interiority] ${leaked.length} leak(s): ${leaked[0].slice(0, 100)}`);
+    }
+  }
   // ── TURN-ENDING GUARDS ── Deterministic, zero-cost backstops for the two overrun patterns the
   // prompt can't fully prevent: a CASCADE (the turn keeps escalating past the first new pressure) and
   // a PREEMPT (an NPC resolves the player's choice by moving their body after a demand). Both are

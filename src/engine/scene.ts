@@ -65,6 +65,39 @@ export function readScene(state: SaveState): SceneRead {
   return mk(true, "spent");
 }
 
+/** The player is going under, or already is. The engine has had this regex since sleep credit
+ *  existed — it just ran in the apply phase, long after the narrator had already written the turn. */
+// The SUBJECT has to be the player. A bare verb match read "I ask her whether the baby slept through
+// the night" as the player losing consciousness, which would blank the camera on an ordinary line of
+// dialogue. Player actions are written in the first person, so require that and keep the gap short.
+const UNDER = /\bI(?:'m|\s+am)?\s+(?:\w+\s+){0,2}(?:sleep|sleeping|asleep|nap|napping|doze|dozing|pass out|passing out|black out|blacking out|lie down|bed down|turn in|go to bed|going to bed|call it a night)\b/i;
+const UNCONSCIOUS_COND = /\b(asleep|sleeping|unconscious|blacked out|knocked out|passed out|comatose|sedated|drugged)\b/i;
+
+/**
+ * THE CAMERA DOES NOT FLOAT FREE WHEN NOBODY IS BEHIND IT.
+ *
+ * The POV rule pins the camera to the player and says every sentence must report something they
+ * could see, hear, smell or touch. It has no notion of the player being unable to perceive at all.
+ * So on a turn where the player falls asleep, the camera stays in the room, the player does nothing,
+ * and the only material left is the other person — which is how a save ended up with:
+ *
+ *     "When she was sure he was deep under, she let herself look at him — really look, the way she
+ *      hadn't allowed herself while he was awake… she felt a sudden sharp ache in her chest that she
+ *      didn't have a clinical word for."
+ *
+ * Every clause of that is unobservable by anyone in the fiction. And it is not only a style failure:
+ * by the POV rule's own argument, whatever is written becomes the record, so a scene nobody witnessed
+ * is filed as something the player knows.
+ */
+export function perceptionGapDirective(state: SaveState, action: string): string {
+  const cond = state.condition["char_player"];
+  const out = (cond?.conditions ?? []).some((c) => UNCONSCIOUS_COND.test(c)) || UNDER.test(action);
+  if (!out) return "";
+  return `
+THE PLAYER IS GOING UNDER (asleep, or otherwise not perceiving). There is no observer in this scene now, and the camera does not float free when nobody is behind it. Write only what a body that is going under still registers — a touch, a weight, a sound, warmth, the light going out — and stop when that stops. Nobody else's face, expression, private gesture, or inner life may be rendered while the player cannot see it: not what they do once he is under, not what they let themselves feel, not what they look at. This is the record rule, not a style note — what you write is filed as something the player witnessed, and a person alone with a sleeping man is credited with having been watched.
+End the turn on the last thing he could actually register, or cross straight to waking. What happened while he was under reaches him the way anything does: he is told, he finds a trace of it, or he never learns it at all.`;
+}
+
 /**
  * What the narrator is told when a scene is finished.
  *
