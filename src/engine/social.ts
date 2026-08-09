@@ -148,6 +148,11 @@ export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, ste
 
 /** A note that says the bond is broken, in words that cannot mean anything else. Deliberately narrow:
  *  a bare "withdrew" (a hand, from a room) or "hurt" is ordinary friction and stays out of it. */
+/** Feelings wearing a role's clothes. Kept narrow and absolute — a word here has to be a verdict in
+ *  every context, never a position somebody actually holds. "rival" is left out on purpose: in a
+ *  court, a trade, or a race it is a real standing, not a mood. */
+const VERDICT_ROLE = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
+
 const RUPTURE_NOTE = /\b(contempt|disgust(ed|s)?|revulsion|revolted|loath(es|ing|ed)?|hatred|despises?|betray(ed|al)|estranged?)\b|\b(emotional withdrawal|withdrawn from|withdrawing from|cannot forgive|will not forgive|can never forgive|wants nothing (more )?to do with|done with (him|her|them)|hardened against)\b/i;
 
 /** …and the same words in a sentence about GETTING OVER it. "Moving past her immediate hatred" is a
@@ -214,7 +219,20 @@ export function applyEdgeDelta(
     }
   }
   if (d.roles_set) {
-    let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean).slice(0, 4);
+    // A VERDICT IS NOT A ROLE. This contract's own line is "roles are facts; warmth and trust are
+    // feelings" — and then the bookkeeper writes ["neighbor", "enemy"] after one bad evening, and
+    // "enemy" renders on her card as a standing fact every turn thereafter, next to a want that still
+    // reads "get him alone in her house this week". A woman built to pull the player away from his
+    // wife was permanently relabelled by a single rebuff, and the narrator, handed a seducer's drive
+    // and an enemy's role, resolved the contradiction toward the role every time.
+    //
+    // Husband, boss, daughter, landlord, neighbour — those are positions in the world that outlive a
+    // mood. Enemy, rival, victim, traitor are how somebody FEELS about the other right now, which is
+    // exactly what the two numbers beside them already say. Trust was -6; nothing was lost by
+    // dropping the label, and a relationship stopped being frozen by one turn of friction.
+    let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean)
+      .filter((r) => !VERDICT_ROLE.test(r))
+      .slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
     // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent — Marie's
     // role toward Joe is daughter; father is Joe's role toward Marie. When a known reciprocal PAIR

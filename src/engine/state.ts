@@ -7,6 +7,9 @@ import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTr
 import { DEFAULT_MODELS } from "./types";
 import { asText, asList, asNum, detectWorldPronoun, tidyPhrase } from "./coerce";
 
+/** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
+const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
+
 export function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -369,6 +372,14 @@ export function sanitize(state: SaveState): SaveState {
       if (d.approach) { const a = tidyPhrase(d.approach, 140); if (a !== d.approach) d.approach = a || undefined; }
       if (d.blocker) { const b = tidyPhrase(d.blocker, 140); if (b !== d.blocker) d.blocker = b || undefined; }
     }
+  }
+  // A VERDICT ALREADY WRITTEN INTO AN EDGE STAYS THERE FOREVER — roles never decay. Strip them on
+  // load so a save carrying "enemy" from one bad evening is not stuck with it. The feeling it stood
+  // for is in warmth and trust, which are right there beside it.
+  for (const e of state.world.edges ?? []) {
+    if (!e.roles?.length) continue;
+    const kept = e.roles.filter((r) => !VERDICT_ROLE_HEAL.test(String(r ?? "").trim()));
+    if (kept.length !== e.roles.length) e.roles = kept;
   }
   state.minds ??= {};
   for (const id of Object.keys(state.characters)) {
