@@ -572,7 +572,13 @@ export function deltaNote(state: SaveState, query: string): string {
   // delta against holds a full PRESENT block. A model reading "these five are in the room (law)"
   // followed by a list naming two has no statement that the other three left — so it kept writing
   // them. Absence has to be said out loud, not implied by omission.
-  const gone = (state.world.present_prev ?? []).filter((id) => id !== "char_player" && !state.world.present.includes(id) && state.characters[id]);
+  // AGAINST THE ANCHOR, NOT AGAINST LAST TURN. The snapshot this is a delta against can be several
+  // turns old, so "who left since last turn" was never the right question — someone who walked out
+  // three turns ago is still standing in the snapshot the model is reading as law. Diffing against
+  // the anchor's own roster is what lets presence come out of the cache signature entirely.
+  const anchorRoster = state.context_anchor?.present;
+  const wasHere = anchorRoster ?? state.world.present_prev ?? [];
+  const gone = wasHere.filter((id) => id !== "char_player" && !state.world.present.includes(id) && state.characters[id]);
   if (gone.length) {
     lines.push(`— GONE FROM THE SCENE since the snapshot: ${gone.map((id) => state.characters[id].name).join(", ")}. They are NOT here. Do not give them dialogue, gestures, reactions, or presence of any kind — they cannot see or hear this scene. If one of them is to come back, you must write them arriving.`);
   }

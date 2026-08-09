@@ -644,7 +644,7 @@ export interface SaveState {
   chapters?: Chapter[];        // auto-generated story chapters (see Chapter)
   sim_dry_runs?: number;   // consecutive turns where real prose produced an empty bookkeeping diff — a failing simulator model dies silently otherwise (edges freeze, memories stop, toasts vanish); the watchdog makes it visible
   sim_escalated_until?: number;  // when the simulator has failed repeatedly, temporarily route bookkeeping to the fallback model through this turn, then auto-clear after a healthy streak
-  context_anchor?: { turn: number; digest: string; cast_sig: string; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
+  context_anchor?: { turn: number; digest: string; cast_sig: string; present?: string[]; ledger?: Record<string, Record<string, string>> }; // chatlog mode I-frame: the full state snapshot the conversation is anchored to, plus a per-character ledger fingerprint so P-frames can render ONLY what diverged since (dirty-set)
   contract_drift?: string | null;
   // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a

@@ -1849,16 +1849,22 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // so a scene that opened with five people in a hall kept re-serving "these five are here" for
     // the whole cadence, and the narrator went on writing lines for people who had walked out
     // three turns earlier. Who is in the room, and where the room is, belong in the signature.
+    // WHO IS IN THE ROOM IS A DELTA, NOT AN ANCHOR. The signature used to carry `present:` too,
+    // because the anchored snapshot states who is here and calls it law, and a snapshot six turns
+    // old kept serving people who had walked out. That was the right bug and the wrong fix: it put
+    // the most volatile field in the story into the CACHED block, so every entrance and exit
+    // rewrote a 23,000-token prefix. The delta note carries it now — it diffs against the anchor's
+    // own roster rather than against last turn, which is what it could not do before. Location
+    // stays: moving rooms changes what the snapshot is describing, and it happens rarely.
     const castSig = [
       Object.entries(state.characters)
         .filter(([, c]) => c.status !== "dead" && c.status !== "departed" && c.central !== false && !c.paged)
         .map(([id]) => id).sort().join(","),
       `@${state.world.player_location}`,
-      `present:${[...state.world.present].sort().join(",")}`,
     ].join("|");
     const anchor = state.context_anchor;
     const stale = !anchor || (turn - anchor.turn) >= cad || anchor.cast_sig !== castSig;
-    if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig, ledger: ledgerSnapshot(state) };
+    if (stale) state.context_anchor = { turn, digest: `${prefix}\n\n${digest}`, cast_sig: castSig, present: [...state.world.present], ledger: ledgerSnapshot(state) };
     const a = state.context_anchor!;
     const pairs = state.history
       .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= a.turn)

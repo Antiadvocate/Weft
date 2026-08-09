@@ -92,11 +92,23 @@ export const isCancel = (e: unknown): boolean =>
  *  Anthropic models, cache_control breakpoints are set on the system block and the last
  *  history pair. */
 export function buildChatlogMessages(system: string, anchorDigest: string, pairs: { user: string; assistant: string }[], currentUser: string, model: string): any[] {
-  const sys = `${system}\n\n=== WORLD STATE (anchored snapshot; per-turn deltas follow in the conversation) ===\n${anchorDigest}`;
   const anthropic = model.startsWith("anthropic/");
   const msgs: any[] = [];
-  if (anthropic) msgs.push({ role: "system", content: [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] });
-  else msgs.push({ role: "system", content: sys });
+  // ── THE CONTRACT GETS ITS OWN BLOCK, AND NOTHING ELSE GOES IN IT ────────────────────────────
+  // The narrator contract is 14,455 tokens and never changes; the anchored digest is ~9,000 and
+  // changes every few turns. They were concatenated into one system message, which means the two
+  // shared a fate: every re-anchor rewrote the head of the prefix and threw away the cache on the
+  // rules as well as on the snapshot. Measured across a 121-turn save, the contract was 55% of all
+  // narrator input and the whole prompt cached at 31%.
+  //
+  // Prefix caching works on prefixes. Split into two blocks, in order of how often each changes, the
+  // contract's 14k caches once and holds for the entire story, and only the snapshot pays for a
+  // re-anchor. Nothing about what the model is told changes — only where the boundaries fall.
+  if (anthropic) msgs.push({ role: "system", content: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }] });
+  else msgs.push({ role: "system", content: system });
+  const world = `=== WORLD STATE (anchored snapshot; per-turn deltas follow in the conversation) ===\n${anchorDigest}`;
+  if (anthropic) msgs.push({ role: "system", content: [{ type: "text", text: world, cache_control: { type: "ephemeral" } }] });
+  else msgs.push({ role: "system", content: world });
   pairs.forEach((p, i) => {
     const lastPair = i === pairs.length - 1;
     msgs.push({ role: "user", content: p.user || "(continue)" });

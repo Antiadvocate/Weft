@@ -284,7 +284,20 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       )}
       <Fade delay={0}>
         <div className="card p-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>Token usage — this chronicle</div>
+          {(() => {
+            // TELEMETRY IS A WINDOW, NOT A LEDGER. It keeps the last 300 turns and a new chapter
+            // starts it over, so a 264-turn run showed 60 rows — and this card, labelled "this
+            // chronicle", reported the tokens of the last 60 turns as if they were the whole story.
+            // The player was reading a number four times smaller than the truth while deciding what
+            // a turn costs them. Say what the rows actually cover.
+            const covered = tel.length;
+            const partial = covered > 0 && covered < save.world.current_turn;
+            return (
+              <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>
+                Token usage — {partial ? `last ${covered} turns of ${save.world.current_turn}` : "this chronicle"}
+              </div>
+            );
+          })()}
           {(() => {
             const inTok = tel.reduce((a, t) => a + t.narrator_tokens_in + t.simulator_tokens_in, 0);
             const outTok = tel.reduce((a, t) => a + t.narrator_tokens_out + t.simulator_tokens_out, 0);
@@ -323,7 +336,8 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       </Fade>
       <Fade delay={0.05}>
         <div className="grid grid-cols-2 gap-2.5">
-          <Stat label="Turns" value={String(stats.turns)} sub={save.world.current_time} />
+          {/* the world clock, not the telemetry row count — those diverge after a chapter or 300 turns */}
+          <Stat label="Turns" value={String(save.world.current_turn)} sub={save.world.current_time} />
           <Stat label="Words lived" value={stats.words.toLocaleString()} sub={`${Math.round(stats.words / Math.max(stats.turns, 1))}/turn`} />
           <Stat label="Tokens spent" value={stats.tokens.toLocaleString()} sub={`${Math.round(stats.tokens / Math.max(stats.turns, 1)).toLocaleString()}/turn`} />
           <Stat label="Avg pressure" value={stats.avgPressure.toFixed(1)} sub={`peak ${stats.peak?.pressure ?? 0} @ t${stats.peak?.turn ?? "—"}`} />
