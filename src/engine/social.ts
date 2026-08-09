@@ -19,7 +19,7 @@ import { relevance } from "./memory";
 import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
 import { populationOf } from "./population";
-import { recordHop } from "./knowledge";
+import { recordHop, wordCouldReach } from "./knowledge";
 import type { PowerTier } from "./pressure";
 
 export const RUMOR_BASE_P = 0.45;
@@ -494,7 +494,22 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
           const gj = state.characters[j]?.gregariousness ?? 0.5;
           // a message is not a conversation: reaching someone who is not in the room carries much
           // less, and carries it less often
-          const reach = REMOTE.has(group) ? REMOTE_REACH : 1;
+          let reach = REMOTE.has(group) ? REMOTE_REACH : 1;
+          if (REMOTE.has(group)) {
+            // AND IT CANNOT ARRIVE BEFORE IT COULD HAVE TRAVELLED. `wordCouldReach` has been sitting
+            // in knowledge.ts fully written and called by nothing: given two place names and a start
+            // time it answers whether word could physically have got there yet, and returns null
+            // rather than false when the world records no distance — unknown is not the same as
+            // impossible. Without it the remote channel would teleport a rumour across a world that
+            // takes two days to cross, which is the failure the co-presence model existed to avoid.
+            const from = state.world.places[state.characters[k]?.location ?? ""]?.name;
+            const to = state.world.places[state.characters[j]?.location ?? ""]?.name;
+            const born = state.world.time_at_turn?.[rumor.born_turn];
+            if (from && to && born) {
+              const reachable = wordCouldReach(state, from, to, born);
+              if (reachable && !reachable.possible) reach = 0;   // not yet; it keeps trying next turn
+            }
+          }
           const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread * reach;
           if (rng() < p) {
             rumor.knowers.push(j);

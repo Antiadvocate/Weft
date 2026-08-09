@@ -17,6 +17,7 @@ import { newSave, registerCharacter } from "../src/engine/state";
 import { volatileDigest } from "../src/engine/prompts";
 import { applyOffstage } from "../src/engine/offstage";
 import { applyReflection } from "../src/engine/memory";
+import { diffuseRumors } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -163,6 +164,52 @@ const place = (s: SaveState) => s.world.places[s.world.player_location];
   applyReflection(mem, [{ content: "A conclusion.", confidence: 0.8, formed_turn: 200, evidence_turns: [] }], 200);
   check("but it is not kept forever — once it stops being news it competes like anything else",
     !mem.episodic.some((m) => m.id === "off"), mem.episodic.length);
+}
+
+/* ── 6. news cannot arrive before it could have travelled ────────────────────
+ * The remote channel lets people who are apart still hear things. `wordCouldReach` — written,
+ * careful, and called by nothing until now — is what stops that from teleporting a rumour across a
+ * world that takes a day to cross. It returns null when no distance is on record, and unknown is
+ * deliberately not the same as impossible. */
+function twoTowns(bornTurn: number, nowTurn: number, hours: number): SaveState {
+  const s = world();
+  s.world.current_turn = nowTurn;
+  s.world.present = [];
+  const a = "loc_here", b = "loc_far";
+  s.world.places[a] = { id: a, name: "Ashfield", description_facts: "", contains: [] } as any;
+  s.world.places[b] = { id: b, name: "Brackenridge", description_facts: "", contains: [] } as any;
+  (s.world as any).distances = [{ from: "Ashfield", to: "Brackenridge", minutes: 600 }];  // ten hours
+  registerCharacter(s, { name: "Mara", character_id: "char_mara" } as any);
+  s.characters.char_tessa.location = a;
+  s.characters.char_mara.location = b;
+  s.characters.char_player.location = "loc_apartment";
+  s.world.edges.push({ from: "char_tessa", to: "char_mara", warmth: 60, trust: 55, power: 0, notes: "", updated_turn: 1 } as any);
+  s.world.time_at_turn = { [bornTurn]: "Day 1, 08:00 (Morning)" };
+  s.world.current_time = `Day 1, ${String(8 + hours).padStart(2, "0")}:00 (Morning)`;
+  s.world.rumors = [{
+    id: "r", content: "The foreman walked off the site.", truth: "true", salience: 10,
+    origin_char: "char_tessa", knowers: ["char_tessa"], born_turn: bornTurn, dead: false, path: [],
+  } as any];
+  return s;
+}
+{
+  const s = twoTowns(1, 2, 1);                    // one hour into a ten-hour journey
+  diffuseRumors(s, () => 0);                      // rng always fires: only the gate can stop it
+  check("news does not arrive before it could have travelled",
+    !s.world.rumors[0].knowers.includes("char_mara"), s.world.rumors[0].knowers);
+}
+{
+  const s = twoTowns(1, 2, 11);                   // eleven hours: it has had time
+  diffuseRumors(s, () => 0);
+  check("and does arrive once it has had the time",
+    s.world.rumors[0].knowers.includes("char_mara"), s.world.rumors[0].knowers);
+}
+{
+  const s = twoTowns(1, 2, 1);
+  (s.world as any).distances = [];                // no distance on record
+  diffuseRumors(s, () => 0);
+  check("an unrecorded distance is unknown, not impossible",
+    s.world.rumors[0].knowers.includes("char_mara"), s.world.rumors[0].knowers);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

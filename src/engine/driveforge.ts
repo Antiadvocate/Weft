@@ -20,7 +20,6 @@ import { buildMessages, complete, safeJson } from "../llm";
 import { overlapRatio } from "./turn";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
-export const DRIVE_REFRESH_MIN = 2880;   // two days
 
 const DRIVE_SYSTEM = `You give ONE person their next want. You are writing the life of someone who has one, not a role in someone else's story.
 

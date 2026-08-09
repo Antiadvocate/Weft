@@ -82,10 +82,6 @@ export function stopSpeaking() {
   if (s) try { s.cancel(); } catch { /* ignore */ }
 }
 
-export function isSpeaking(): boolean {
-  const s = synth();
-  return !!s && (s.speaking || s.pending);
-}
 
 /** Read text aloud. `onDone` fires when the last chunk ends, is stopped, or errors. */
 export function speak(text: string, onDone?: () => void) {

@@ -14,7 +14,6 @@
  * still reference these fields keep compiling while they are simplified. No synchronization,
  * no manifold, no chaos metrics.
  */
-import type { SaveState } from "./types";
 
 export type Regime = "damped" | "critical" | "cascading";
 
@@ -40,9 +39,4 @@ export function neutralUndertow(): UndertowReport {
     instability: 0, stances: [], snaps: [], directive: "",
     epistemic_pulls: [], dispersion: 0, shared_target: null,
   };
-}
-
-/** Back-compat alias: anything still calling tickUndertow gets the neutral report. */
-export function tickUndertow(_state: SaveState, _rng: () => number = Math.random): UndertowReport {
-  return neutralUndertow();
 }

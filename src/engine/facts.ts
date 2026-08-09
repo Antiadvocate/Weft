@@ -188,17 +188,6 @@ export function addFact(mem: CharMemory, fact: string, turn: number, quote?: str
   return true;
 }
 
-/** Render the ledger for the digest: the most query-relevant few + the most recent one. */
-export function factsDigest(facts: DurableFact[] | undefined, query: string, max = 5): string {
-  if (!facts?.length) return "";
-  const ranked = [...facts]
-    .map((f) => ({ f, r: relevance(f.content, query) }))
-    .sort((a, b) => b.r - a.r);
-  const chosen = new Set(ranked.slice(0, Math.max(1, max - 1)).map((x) => x.f));
-  chosen.add(facts[facts.length - 1]); // the newest fact always rides along
-  return [...chosen].map((f) => f.content).join(" | ");
-}
-
 /** Reflection guard: drop beliefs whose proper nouns appear in neither the episodic
  *  source text nor the whitelist — the cheap model invented a specific. */
 export function filterSuspectBeliefs<T extends Pick<Belief, "content">>(
