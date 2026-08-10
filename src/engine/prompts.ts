@@ -994,12 +994,30 @@ export function buildScenePrompt(state: SaveState, summary: string, presentIds?:
   ].filter(Boolean).join("\n");
 }
 
+/** True when the fingerprint is just the stored speech_pattern again. Compared on content words so
+ *  punctuation and joiner differences ("a; b; c" vs "a. b. c.") do not read as a real difference. */
+function sameVoice(speech: string, finger: string): boolean {
+  const words = (x: string) => new Set((x.toLowerCase().match(/[a-z]{5,}/g) ?? []));
+  const f = words(finger);
+  if (!f.size) return true;
+  const s = words(speech);
+  let shared = 0;
+  for (const w of f) if (s.has(w)) shared++;
+  return shared / f.size >= 0.8;
+}
+
 export function deriveVoice(
   ident: Identity, cond: Condition,
   traits: { label: string; intensity: number; behavioral_impact: string }[],
   addresseeEdge?: { warmth: number; trust: number },
 ): string {
-  const parts: string[] = [ident.speech_pattern];
+  // THIS LINE IS FOR WHAT CHANGED. It used to open with the whole stored speech_pattern — the third
+  // verbatim copy of it in the same request, after the two on the card. The card is in the prefix
+  // and carries the baseline; repeating it here buried the two or three phrases that actually move
+  // turn to turn under a paragraph that never moves, which is most of why every character reads at
+  // one pitch forever. If nothing dynamic applies, the baseline comes back as a fallback so the
+  // line is never empty.
+  const parts: string[] = [];
   const v = ident.voice;
   if (v) {
     // diction/syntax/rhythm/never-says live on the (cached) card — don't repeat them per turn
@@ -1023,7 +1041,8 @@ export function deriveVoice(
     else if (warmth <= -10) parts.push("to THIS person: wary, distant");
     if (trust <= -40) parts.push("guarded — they do not trust this listener");
   }
-  return parts.filter(Boolean).join("; ");
+  const dynamic = parts.filter(Boolean);
+  return dynamic.length ? dynamic.join("; ") : ident.speech_pattern;
 }
 
 export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false, plan?: { humanoid: boolean; kind: string }): string {
@@ -1054,7 +1073,19 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
     : "";
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   const vc = ident.voice;
-  const vFinger = vc ? [vc.diction, vc.syntax, vc.rhythm].filter(Boolean).join("; ") : "";
+  // ONE COPY OF THE VOICE, NOT THREE.
+  //
+  // `speech_pattern` and the diction/syntax/rhythm fingerprint were both printed here, and on every
+  // real save they are the same text — the voice refresh writes the fingerprint INTO speech_pattern,
+  // so the card carried a character's voice twice verbatim (measured: 27/27 fingerprint words already
+  // present, on all three characters of the save this was found on). deriveVoice then opened the
+  // per-turn line with speech_pattern a third time.
+  //
+  // Beyond the wasted tokens, this is part of why voices read as monotone: the loudest thing about a
+  // person, by sheer repetition, was a static paragraph written at creation and never updated, said
+  // three times a turn. Print the fingerprint once, and only when it is not already the baseline.
+  const rawFinger = vc ? [vc.diction, vc.syntax, vc.rhythm].filter(Boolean).join("; ") : "";
+  const vFinger = rawFinger && !sameVoice(ident.speech_pattern, rawFinger) ? rawFinger : "";
   // EXEMPLARS ARE THE AUTHORITY. This used to read "register only — never reuse", which told the model
   // to extract the gist and write its own smoother version — i.e. to discard the one concrete sample of
   // this person's voice in favor of its default. Don't quote them verbatim into the scene, but the
