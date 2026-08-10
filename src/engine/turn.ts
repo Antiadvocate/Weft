@@ -15,7 +15,7 @@ import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } fr
 import { detectWorldPronoun, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
-import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
+import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
@@ -2211,6 +2211,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
   let diff = emptyDiff();
   let simOk = false;
+  let truncatedDiff = false;
   // shared vitality measure — a diff can PARSE fine yet carry nothing that changes the world
   // (just scene_summary + elapsed_minutes). That is the quiet form of the dead-black-hole bug:
   // simOk=true, watchdog counts it dead, but nothing was ever done to recover the turn. We use
@@ -2230,10 +2231,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // was choking the primary; it auto-clears after a healthy streak. Only meaningful when they differ.
     const escalated = (state.sim_escalated_until ?? 0) >= turn && state.model_settings.fallback_model && state.model_settings.fallback_model !== state.model_settings.simulator_model;
     const simModel = escalated ? state.model_settings.fallback_model : state.model_settings.simulator_model;
+    // ── WHY THIS NUMBER IS NOT BIGGER ────────────────────────────────────────────────────────
+    // Measured over a 107-turn save: fifteen turns filled this budget exactly, and those fifteen
+    // burned fifty of the game's 179 minutes — 201s each against 84s for every other turn. An
+    // eighth of the turns, a quarter of the wall clock.
+    //
+    // The instinct is to raise it. That is backwards. The cost is GENERATION: three thousand output
+    // tokens is a minute or two of decoding no matter how much room is left over, and a bigger
+    // budget only lets a verbose diff get longer. Truncation itself is nearly free — safeJson closes
+    // unterminated structures, so a diff cut off three-quarters through still yields its memories,
+    // edges and facts (tests/sim-budget.ts). The lever on turn time is asking for LESS, not
+    // allowing more.
     const res = await complete(simMsgs, simModel, state.model_settings.fallback_model, { schema: SIMULATOR_JSON_SCHEMA, name: "weft_diff" }, 3000, simOpts);
     simUsage = res.usage;
     const parsed = safeJson<Partial<SimulatorDiff> | null>(res.text, null);
-    if (parsed && Object.keys(parsed).length) { diff = { ...emptyDiff(), ...parsed }; simOk = true; }
+    if (parsed && Object.keys(parsed).length) {
+      diff = { ...emptyDiff(), ...parsed };
+      simOk = true;
+      // A DIFF THAT RAN OUT OF ROOM STILL APPLIES, AND USED TO DO SO IN SILENCE. safeJson closes
+      // the unterminated structures, so the turn records everything that arrived before the cut and
+      // nothing about the cut is visible anywhere — not in the log, not on the turn, not to the
+      // player wondering why a beat went unremembered. These are also the slowest turns in the game
+      // by a factor of two and a half, so they are worth being able to find.
+      if (res.truncated) {
+        truncatedDiff = true;
+        console.warn(`[sim] diff hit the ${3000}-token cap and was salvaged — some of this turn went unrecorded`);
+      }
+    }
     else if (res.text.trim()) {
       // RESCUE: a malformed diff used to be swallowed silently — the turn applied NOTHING and
       // every character quietly failed to remember it (a major source of "amnesia"). One cheap
@@ -2879,7 +2903,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
-    bookkeeping: !simOk ? "failed" : (vitalityOf(diff) === 0 && proseWords >= 120 && mode !== "think") ? "thin" : "ok",
+    // "partial" = the diff was salvaged from output that hit the cap. It applied, but incompletely,
+    // and the turn is re-runnable through the bookkeeper alone if the player wants the rest.
+    bookkeeping: !simOk ? "failed" : (vitalityOf(diff) === 0 && proseWords >= 120 && mode !== "think") ? "thin" : truncatedDiff ? "partial" : "ok",
   });
 
   // 5 ── reflection (occasional, importance-gated)

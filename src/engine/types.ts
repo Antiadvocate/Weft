@@ -659,7 +659,7 @@ export interface TurnHistoryEntry {
   /** Bookkeeping health for this turn. "thin" = the diff parsed but recorded nothing that changed the
    *  world; "failed" = the simulator returned nothing usable. Either way the prose happened but the
    *  world did not notice, and the turn can be re-run through the bookkeeper without re-narrating. */
-  bookkeeping?: "ok" | "thin" | "failed";
+  bookkeeping?: "ok" | "thin" | "failed" | "partial";
   summary: string;             // simulator one-liner, used for context
   offscreen: string[];         // world-motion log lines
   /** What the player's own faculties made of the focused character this turn — owned, first-person,

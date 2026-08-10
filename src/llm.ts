@@ -193,10 +193,15 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
     throw new Error(`model refusal: ${msg.refusal.slice(0, 200)}`);
   }
   if (!text) throw new Error("empty completion");
+  // RAN OUT OF ROOM, rather than finished. Only the streaming path reported this, so a non-streamed
+  // JSON call that filled its budget looked identical to one that simply produced malformed output —
+  // and the two need completely different handling. Truncated content is MISSING, not mangled: asking
+  // a model to re-emit it as valid JSON buys a full round trip and returns the same missing content.
   return {
     text,
     usage: { prompt_tokens: data.usage?.prompt_tokens ?? 0, completion_tokens: data.usage?.completion_tokens ?? 0, cached_tokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0, cost: data.usage?.cost ?? undefined },
     model: data.model ?? model,
+    truncated: data.choices?.[0]?.finish_reason === "length",
   };
 }
 

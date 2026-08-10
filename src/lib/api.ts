@@ -1577,14 +1577,18 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // a failed refresh just leaves the existing voice in place.
     // Anyone with no want, or a want that only exists in relation to the player, gets a real one —
     // derived from their own life, in a pass that never sees the player or the transcript.
-    try {
-      const gained = await refreshDrives(s, s.model_settings.forge_model);
-      if (gained.length) console.info(`[drives] ${gained.join(" | ")}`);
-    } catch { /* they keep whatever they had */ }
-    try {
-      const refreshed = await refreshStaleVoices(s, s.model_settings.forge_model);
-      if (refreshed.length) console.info(`[voice] re-read from the card: ${refreshed.join(", ")}`);
-    } catch { /* voice refresh is never allowed to fail a turn */ }
+    // SIDE BY SIDE, NOT ONE AFTER THE OTHER. These two are independent — one gives a want to
+    // somebody who has none, the other re-reads a voice off the card — and they were awaited in
+    // sequence on the forge model, which on a real save is Opus. Two Opus round trips end to end,
+    // after the narrator and the bookkeeper have already finished, while the player watches
+    // "recording changes". Neither reads what the other writes; running them together costs one
+    // wait instead of two.
+    const [drives, voices] = await Promise.allSettled([
+      refreshDrives(s, s.model_settings.forge_model),
+      refreshStaleVoices(s, s.model_settings.forge_model),
+    ]);
+    if (drives.status === "fulfilled" && drives.value.length) console.info(`[drives] ${drives.value.join(" | ")}`);
+    if (voices.status === "fulfilled" && voices.value.length) console.info(`[voice] re-read from the card: ${voices.value.join(", ")}`);
     await putSave(s);
     // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
     // bounded to <25 turns even with no export anywhere
