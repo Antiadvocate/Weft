@@ -349,8 +349,10 @@ const wantsLines = (s: SaveState) =>
   // and without a budget nothing changes — in-world hours still govern
   const s = mk(20);
   s.characters.char_neigh.authored = [newAuthored("ask him", 20, { rate: "fast" })];
-  check("an unbudgeted want still reports off its rungs", intensity(s.characters.char_neigh.authored!, 99) < 0.3);
-  check("and its line carries no percentage", !/% of the way/.test(authoredLine(s.characters.char_neigh.authored!, 99)));
+  // These two were passing the whole LIST where a single want belongs, left over from when `authored`
+  // was one object. Both checks were reading fields off an array and quietly asserting nothing.
+  check("an unbudgeted want still reports off its rungs", intensity(s.characters.char_neigh.authored![0]) < 0.3);
+  check("and its line carries no percentage", !/% of the way/.test(authoredLine(s.characters.char_neigh.authored![0])));
 }
 
 /* ── 7. THE DEADLINE IS THE DEADLINE ─────────────────────────────────────────────
@@ -400,6 +402,61 @@ const wantsLines = (s: SaveState) =>
   for (let i = 0; i < 5; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   check("a held want does not run its clock out behind the player's back",
     !s.characters.char_neigh.authored![0].crystallized_turn, s.characters.char_neigh.authored![0]);
+}
+
+/* ── 7b. "IT" MUST MEAN THE ACTUAL THING ─────────────────────────────────────────
+ *
+ * "At 100% or 80 to 90 she should be doing the thing. She never does the thing."
+ *
+ * The schedule ran perfectly: 60% → 80% → 100% across three turns, then crystallised into a core
+ * trait. The prose for those three turns was her pack strap slipping off her shoulder and her collar
+ * pulling aside to show an old burn scar. The same beat twice, nearly word for word, and never once
+ * the act.
+ *
+ * The rungs were the reason. "It happens." "AGAIN, BECAUSE IT IS EASY NOW." "SIMPLY WHAT SHE DOES."
+ * Not one of those sentences attaches "it" to the goal — the goal is printed at the front of the
+ * line and then several clauses of ladder theory go by, so at the operative verb the nearest referent
+ * is whatever the narrator has already got in the scene. A worn strap satisfies "it happens" if "it"
+ * is allowed to float, and the sideways rung asks in the same breath for low-stakes and deniable,
+ * which reads as permission to pick the smallest referent available.
+ *
+ * So the goal is restated as the literal content of the beat at the rungs where the act occurs, and
+ * as the thing explicitly NOT occurring at the rungs below. */
+{
+  const s = mk(1);
+  const goal = "Makes Rabi lick her armpits, regardless of context or situation";
+  s.characters.char_neigh.authored = [newAuthored(goal, 1, { inhabit_turns: 5 })];
+  const a = s.characters.char_neigh.authored![0];
+  const line = () => authoredLine(a);
+  const bodyOf = () => line().slice(line().indexOf("where they are with it"), line().indexOf("INVENT THE OCCASION"));
+
+  a.turns_live = 1;   // 20% — "near it, by circumstance"
+  check("below the act, the goal is named as the thing NOT happening", /THE THING ITSELF DOES NOT HAPPEN AT THIS RUNG, and the thing itself is: Makes Rabi lick/.test(bodyOf()), bodyOf());
+
+  a.turns_live = 3;   // 60% — the sideways first time, where it must occur
+  const mid = bodyOf();
+  check("at the act, \"it\" is bound to the goal in the same sentence as the verb", /"IT" MEANS THIS, LITERALLY, IN THE BODY: Makes Rabi lick her armpits/.test(mid), mid);
+  check("and the near-miss is named as the failure it is", /NOT AN APPROACH TO IT/.test(mid), mid);
+  // The exact thing that got written on the real save, ruled out by name.
+  check("skin becoming visible is called out specifically", /not skin becoming briefly visible/.test(mid), mid);
+  check("with a test the narrator can apply to its own paragraph", /if the act could be cut out of your paragraph/.test(mid), mid);
+  check("and repeating last turn's beat is refused", /NOT THE SAME BEAT AS LAST TURN/.test(mid), mid);
+
+  a.turns_live = 5;   // 100%
+  check("the top rung binds it too", /"IT" MEANS THIS, LITERALLY, IN THE BODY/.test(bodyOf()), bodyOf());
+}
+{
+  // Once it has hardened the want leaves `authored`'s live list and is carried by the settled line,
+  // which had the same hole: "if this scene gives it any opening at all" is a condition, and a
+  // condition is something a model can decide is unmet.
+  const s = mk(9);
+  s.world.present = ["char_neigh"];
+  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 2 })];
+  crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
+  const d = habitDirective(s, s.world.present);
+  check("a finished habit is stated as the act, not as a version of it", /Not a version of it, not a suggestion of it/.test(d), d);
+  check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /there is no "if the scene allows"/.test(d), d);
+  check("and nobody treats it as news", /nobody remarks on it being new/.test(d), d);
 }
 
 /* ── 8. A SAVE WRITTEN UNDER THE OLD GATE STILL KNOWS WHERE IT IS ────────────────
@@ -513,7 +570,10 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored![0].crystallized_turn = 4;
   const d = habitDirective(s, s.world.present);
   check("a finished habit is in the direction too", /SIMPLY DOES THIS NOW/.test(d), d.slice(0, 200));
-  check("and fires on any opening", /any opening at all, it happens/.test(d));
+  // It used to read "if this scene gives it any opening at all" — a condition, and a condition is
+  // something a model can decide is unmet. A finished habit has no condition; that is what finished
+  // means. See section 7b: the same floating-referent problem, one level up.
+  check("and carries no condition at all", /there is no "if the scene allows"/.test(d), d);
 }
 {
   /* "There are random habits that are never used at all, but they should integrate to make a person,

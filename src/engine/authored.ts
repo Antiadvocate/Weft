@@ -155,6 +155,31 @@ export function hasAuthored(c: Identity | undefined): boolean {
   return liveAuthored(c).length > 0;
 }
 
+/** BIND "IT" TO THE ACTUAL THING.
+ *
+ *  The top three rungs read "It happens", "AGAIN, BECAUSE IT IS EASY NOW", "SIMPLY WHAT SHE DOES" —
+ *  and nowhere in any of those sentences is "it" attached to the goal. The goal is printed at the
+ *  FRONT of the line and then several clauses of ladder theory go by, so by the operative verb the
+ *  nearest available referent is whatever the narrator has already put in the scene.
+ *
+ *  On the save that prompted this, that referent was a worn pack strap. The want ran 60% → 80% →
+ *  100%, three turns at the rungs where the act is supposed to occur, and what got written was her
+ *  strap slipping and her collar pulling aside to show a scar — the same beat twice, nearly word for
+ *  word. Every one of those paragraphs satisfies "it happens" if "it" is allowed to mean the mildest
+ *  thing already on the page, and a model will always let it mean that: the sideways rung explicitly
+ *  asks for deniable and low-stakes, which reads as licence to pick the smallest possible referent.
+ *
+ *  So from the rung where the act first occurs, the goal is restated as the literal content of the
+ *  beat, and the near-miss is named as the failure it is. The lower rungs get the opposite guard,
+ *  because there the near-miss is the whole assignment. */
+function bind(a: AuthoredDrive, stage: number): string {
+  const g = a.goal.trim().replace(/\.$/, "");
+  if (stage < 3) {
+    return ` THE THING ITSELF DOES NOT HAPPEN AT THIS RUNG, and the thing itself is: ${g}. What goes on the page is the approach to that and the turning away from it, written so that a reader who had been told the ending would recognise this as its beginning.`;
+  }
+  return ` AND "IT" MEANS THIS, LITERALLY, IN THE BODY: ${g}. That act occurs in this turn's prose, plainly enough that it could not be mistaken for anything else. NOT AN APPROACH TO IT. Not a gesture that resembles it, not skin becoming briefly visible, not a hand or a look that someone who already knew would read that way. Those are the rungs BELOW this one, and writing one of them here is writing the wrong rung. The test is subtraction: if the act could be cut out of your paragraph and the paragraph would still make sense, you did not write it. It is also NOT THE SAME BEAT AS LAST TURN, because the same near-miss repeated is a stall wearing the costume of progress.`;
+}
+
 /** The want as one line, in the same grammar as every other want on the card.
  *
  *  Provenance is deliberately absent. The narrator must not be told a human typed this — told that,
@@ -171,7 +196,7 @@ export function authoredLine(a: AuthoredDrive): string {
   const bits = [a.goal];
   if (a.approach) bits.push("goes at it by: " + a.approach);
   if (a.because) bits.push("started because: " + a.because);
-  bits.push("where they are with it: " + NERVE[Math.max(0, stage)]);
+  bits.push("where they are with it: " + NERVE[Math.max(0, stage)] + bind(a, stage));
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
@@ -200,7 +225,9 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
     for (const a of settledAuthored(c)) {
-      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal}. It needs no occasion and no excuse. If this scene gives it any opening at all, it happens.`);
+      // "If this scene gives it any opening at all" was a condition, and a condition is something a
+      // model can find unmet. A finished habit has no condition — that is what finished means.
+      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. Not a version of it, not a suggestion of it — that, the act itself, in this turn's prose. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not.`);
     }
     for (const a of liveAuthored(c)) {
       rows.push(`${c.name} — ${authoredLine(a)}`);
