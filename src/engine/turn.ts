@@ -10,7 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
-import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
@@ -1274,6 +1274,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     agents, last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     restoration: RESTORE_INTENT.test(action),
+    // A zombie story does not get an eight-turn quiet opening. See isBesieged.
+    besieged: isBesieged(state.world_bible.tone, state.world_bible.pressure_palette),
   });
   if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) {
     state.pressure_state.last_beat_turn = turn;

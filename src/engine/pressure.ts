@@ -184,6 +184,27 @@ export function decidePressure(input: PressureInput): PressureVerdict {
  * beats keep the weight felt at zero mechanical cost: a message, a look, a rumor.
  */
 export interface AgentCandidate { name: string; goal: string; priority: number }
+/** IS THE THREAT THE PREMISE, OR AN INTRUSION INTO IT?
+ *
+ *  Read off the tone the player chose at forge time and the pressure palette the forge wrote for it.
+ *  A drama, a romance, a mystery: the danger arrives from outside an ordinary life, and the opening
+ *  act is that life. Zombies, a war, a hunt, a siege, a plague: the danger IS the ordinary life, and
+ *  an opening act without it is not an establishing scene, it is the wrong story.
+ *
+ *  Deliberately matched on the palette too, not just the tone word — the palette is the concrete
+ *  list of what may press ("walkers converging on noise", "dwindling ammunition"), and it is the
+ *  more honest signal of what kind of world this is. */
+const SIEGE = /(zombie|walker|undead|infected|outbreak|plague|apocalyp|survival|siege|besieg|\bwar\b|warfare|militar|combat|shelling|artiller|horror|monster|predator|hunted|manhunt|raid|invasion|famine|starv|blizzard|wasteland|dystop|escape|survive|eaten|bite|infection|contagion|ammunition|\\bammo\\b)/i;
+export function isBesieged(tone?: string, palette?: string[]): boolean {
+  return SIEGE.test(`${tone ?? ""} ${(palette ?? []).join(" ")}`);
+}
+
+/** Turns before the world may discharge on a player who just arrived in it. */
+const GRACE_TURNS = 8;
+/** …and when the threat is the premise rather than an intrusion into it. Two turns is enough to
+ *  establish where everyone is standing; a third quiet one is the story failing to start. */
+const BESIEGED_GRACE = 2;
+
 export interface BeatInput {
   turn: number;
   now?: string;
@@ -200,6 +221,8 @@ export interface BeatInput {
   minutesSinceBeat?: number;
   minutesSinceExo?: number;
   restoration?: boolean;           // rest turns never receive incident beats (protection handled upstream too)
+  /** True when the premise IS the threat — zombies, a war, a hunt, a siege. See GRACE_TURNS. */
+  besieged?: boolean;
   /** What has already fired, and how often. Without this, `standing` is a flat bag sampled
    *  uniformly every turn, so the loudest source keeps being re-picked — which is how the same
    *  raiders came back and died to the player three times. A source that has just discharged is
@@ -256,11 +279,25 @@ export function selectBeat(inp: BeatInput): Beat {
   const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
   if (due) return { kind: "consequence", ref: due.description.slice(0, 80), consequence: due };
 
-  // GRACE WINDOW: the first 8 turns establish a world; they do not besiege the player who just
+  // GRACE WINDOW: the opening turns establish a world; they do not besiege the player who just
   // arrived in it. Standing weight may be FELT (reminders) but nothing discharges yet.
-  if (inp.turn <= 8) {
+  //
+  // EXCEPT WHEN BESIEGEMENT IS THE PREMISE. Eight turns was genre-blind, and for a zombie survival
+  // story that is the entire opening act guaranteed quiet: one save reached turn 8 of "Horror,
+  // action, drama" — pressure palette led by "walkers converging on noise" — having produced a beat
+  // on none of its seven turns, every one of them emitting the line below that says nothing arrives
+  // and that it outranks the genre. Zero walkers, by construction, in a game about walkers.
+  //
+  // A drama earns its grace: the threat there is an intrusion into an ordinary life, and arriving
+  // in one is the point of the first act. In a siege the threat IS the ordinary life. Establishing
+  // that world means showing it.
+  const grace = inp.besieged ? BESIEGED_GRACE : GRACE_TURNS;
+  if (inp.turn <= grace) {
     const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
-    return early && inp.turn >= 4 && (inp.rng ?? Math.random)() < 0.35 ? { kind: "reminder", ref: String(early.title ?? "").slice(0, 90) } : { kind: "none" };
+    const minRemind = inp.besieged ? 1 : 4;
+    return early && inp.turn >= minRemind && (inp.rng ?? Math.random)() < (inp.besieged ? 0.7 : 0.35)
+      ? { kind: "reminder", ref: String(early.title ?? "").slice(0, 90) }
+      : { kind: "none" };
   }
 
   const sinceBeat = inp.turn - inp.last_beat_turn;
@@ -374,7 +411,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
     // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
     switch (beat.kind) {
       case "none":
-        lines.push("NO EXTERNAL PUSH THIS TURN — this outranks the genre paragraph, the pressure reading, and your own sense of pace. Nothing new arrives, presses, or develops from outside: no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions — which is motion enough; people acting on what they want IS the scene. Quiet is correct, not a failure, and however many turns it has been, the answer is still nothing.");
+        lines.push("NO NEW INCIDENT THIS TURN — no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions; people acting on what they want IS the scene, and quiet is correct rather than a failure. THIS IS NOT A CHANGE OF SETTING. Whatever is permanently true of this world is still true and still on the page — its weather, its ruin, its dead, its dark, whatever the people here have to keep doing to stay alive. A world where the danger is the ordinary condition does not become a safe one because nothing new happened; it is simply not interrupted this turn. Withhold the EVENT, never the place.");
         break;
       case "reminder":
         lines.push(`REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
