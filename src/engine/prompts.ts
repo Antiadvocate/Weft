@@ -403,7 +403,66 @@ A BELIEF IS NOT A SUMMARY OF THE PLOT. \"Her father's ship is coming in three da
 A BELIEF MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS. You are given their current warmth and trust toward everyone in these memories, and whether that person is dead or gone. That block outranks your reading of the memories, always. Memories record what somebody SAID and DID; the standing records what this character made of it, over a much longer stretch than the twenty lines you can see. So when a memory shows someone being helpful, insightful or right, and the standing toward them is hatred, the conviction that forms is NOT "she was the only one who told me the truth" — it is about the hatred, or about the fact that the true thing came from someone they cannot bear. One player's own belief list read "Andrea sees what I cannot; she may be the only one who will tell me the truth" while their warmth toward Andrea was -97, and a later one called her advice right after they had killed her. Read those back and you do not recognise the person holding them.
 THE DEAD AND THE GONE ARE PAST TENSE. Never write a conviction about someone marked dead or departed as a live, present-tense read of the world ("X is the only one who speaks plainly to me"). What they were, what they did, and what it cost — past tense, and never as current guidance.
 
+A PERSON IS NOT ONLY THEIR RELATIONSHIPS. Every rule above is about convictions toward somebody, and a pass given only scenes with one person writes only convictions about that person. On one save a central character held fourteen beliefs and thirty-three memories and every single one of the forty-seven named her husband — while she was an obstetrics resident with a physics habit, a choir she still will not sing in front of anyone, and a symptom she had been hiding from her own doctors for three days. Nobody is that empty. You are given THEIR OWN LIFE below when there is one: what they raise unprompted, what they can hold forth on, what they are carrying that the player is not part of, and what their body is doing. A conviction may come from there and be about no one — what their work has taught them to expect, what they have decided about their own body, what they now think is true of the thing they are hiding. When their own life supplies material and every belief you are about to write is about the same one person, you have written the pass and not the character: replace one of them. Do not manufacture a hobby to satisfy this — use only what you are given.
+
 ONE CONVICTION PER SUBJECT. If she already holds a belief about this thing, do not write a second one beside it in different words — write the UPDATED version, or write nothing. Returning a rephrasing of an existing belief is the most common failure here. Weigh the "Nervous system this period" note: the SAME events produce different convictions in a body that spent the period braced (protective, absolute, suspicious readings) versus one that spent it settled (generous, revisable readings) — belief is shaped by the state it was formed in, not just the facts — convictions, attachments, or learned wariness they would actually hold. First person is not required; write as compact third-person convictions ("She trusts Kael with her life now", "The docks are not safe after the horn"). ALSO review their ACTIVE GOAL (given below) against what the memories show: has it been achieved, become impossible, or is it blocked because its target is elsewhere? Output ONLY JSON: {"beliefs":[{"content":"","confidence":0.8}],"drive_review":{"status":"active|complete|impossible","new_goal":"only if status is complete/impossible AND no queued goal exists — one concrete want in their voice, arising from these memories","blocker":"only if blocked — the operative obstacle, e.g. \'must find Rabi first — he is elsewhere\'"}}`;
+
+/** THE PART OF A PERSON THAT IS NOT ABOUT THE PLAYER.
+ *
+ *  The reflection pass was handed a character's name, how long they had known the player, their
+ *  goal, their standing toward other people, and memories from scenes the player was in. Nothing
+ *  else. So it could only ever write convictions about the player, and it did: on the save this was
+ *  written against, the wife's inner life was 14 beliefs and 33 memories, and 100% of all 47 named
+ *  her husband. Not most. All.
+ *
+ *  She is an obstetrics resident with a physics habit, a meditation practice, a childhood in a choir
+ *  she still will not sing in front of anyone, and a symptom she has been hiding from her own
+ *  doctors for three days. None of it was ever in front of the pass that decides what she believes.
+ *
+ *  There is a second, quieter reason this hits the CENTRAL character hardest, which is the opposite
+ *  of what anyone would guess. A character who is offstage gets an independent life from the world
+ *  sim — offstage events, filed as memories with source "offstage". A character who is always in the
+ *  room never qualifies for that channel. So the person the story is most about is the only one
+ *  structurally incapable of having a thought that is not about the player.
+ *
+ *  This is that missing material: what they bring up unprompted, what they can hold forth on, what
+ *  they are carrying that the player is not part of, and what their body is doing. */
+export function ownLifeBlock(state: SaveState, id: string): string {
+  const c = state.characters[id];
+  if (!c) return "";
+  const playerFirst = (state.characters.char_player?.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+  const mine = (c.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+  const bits: string[] = [];
+
+  if (c.texture?.length) bits.push(`They bring these up unprompted: ${c.texture.slice(0, 4).join("; ")}`);
+  const sk = Object.entries(c.skills ?? {}).slice(0, 4);
+  if (sk.length) bits.push(`They can hold forth on: ${sk.map(([k, v]) => (v ? `${k} (${v})` : k)).join("; ")}`);
+
+  // Threads that are THEIRS — the ones naming them and not the player. A worry somebody is carrying
+  // alone is the most belief-shaped thing in the whole state, and it was never shown to this pass.
+  const own = (state.world.threads ?? [])
+    .filter((t) => t.status === "active")
+    .map((t) => `${t.title ?? ""}: ${t.description ?? ""}`)
+    .filter((txt) => {
+      // Whole words, and never on a name too short to identify anyone. A walk-on called "A courier"
+      // has the first name "A", and a substring test handed them every worry in the story.
+      const l = txt.toLowerCase();
+      const names = (n: string) => n.length >= 3 && new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(l);
+      return names(mine) && !(playerFirst && names(playerFirst));
+    })
+    .slice(0, 3);
+  if (own.length) bits.push(`CARRYING ALONE, without the player in it: ${own.join(" | ")}`);
+
+  const cond = state.condition[id];
+  const body = [
+    cond?.injuries?.length ? `injured: ${cond.injuries.map((i) => i.type).join(", ")}` : "",
+    cond?.conditions?.length ? `condition: ${cond.conditions.join(", ")}` : "",
+  ].filter(Boolean).join("; ");
+  if (body) bits.push(`Their own body: ${body}`);
+
+  if (!bits.length) return "";
+  return `\nTHEIR OWN LIFE, APART FROM ALL THIS (a conviction may come from here — it does not have to be about anybody):\n${bits.map((b) => `- ${b}`).join("\n")}`;
+}
 
 export const MEMORY_CONDENSE_SYSTEM = `You are the Bookkeeper performing a CONTEXT REFRESH — condensing one character's long, fragmented episodic memory into a small set of clean, accurate memories, WITHOUT losing what actually happened. No time passes; this is the same moment, just tidied.
 
