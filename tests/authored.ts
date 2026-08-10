@@ -16,6 +16,8 @@
 import { authoredLine, authoredWants, crystallize, hasAuthored, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
 
 import { regenerateDrives, seedDrive } from "../src/engine/drives";
+import { volatileDigest } from "../src/engine/prompts";
+import { sanitize } from "../src/engine/state";
 import type { SaveState } from "../src/engine/types";
 
 /* A turn is a quarter-hour of story on a real save (Day 1 to Day 3 across 108 turns), so that is
@@ -191,6 +193,76 @@ for (const status of ["dead", "departed"] as const) {
   const s = mk();
   give(s, { paused: true });
   check("a held want is not driving the world either", !authoredWants(s).has("char_neigh"));
+}
+
+/* ── 5. IT HAS TO OCCUPY THE WANTS SLOT ──────────────────────────────────────────
+ *
+ * "I've now put in multiple things and not a single one has shown up as a part of them."
+ *
+ * It rendered the whole time. It rendered UNDERNEATH this, on the same card, two lines apart:
+ *
+ *     wants: nothing pressing
+ *     and this has been going on in their life: start having people over late — ...
+ *
+ * The emptiness check only ever looked at `drive`, so a character whose only want was the authored
+ * one was announced as wanting nothing — in the field every downstream rule keys off, including the
+ * one that says a character with nothing of their own to say says nothing and does something
+ * instead. What the player had deliberately written arrived after it, introduced with "and", as
+ * background colour. A model resolving that contradiction picks the field that governs behaviour. */
+const scene = (over: Record<string, unknown> = {}): SaveState => {
+  const base: any = {
+    id: "x", name: "t", updated_at: "",
+    world_bible: { name: "W", era: "", technology_level: "", magic_rules: "", forbidden: "", what_people_fear: "", cultures_and_languages: "", climate_and_geography: "", calendar_and_currency: "", political_situation: "", difficulty_profile: {} },
+    world: { current_turn: 20, current_time: "Day 2, 10:00 (Morning)", weather: "clear", player_location: "loc_a", present: ["char_n"],
+      places: { loc_a: { id: "loc_a", name: "The street", description_facts: "" } },
+      edges: [], threads: [], clocks: [], consequences: [], rumors: [], canon: [], norms: [], money: "", promises: [], offstage_log: [], time_at_turn: {} },
+    characters: {
+      char_player: { name: "Rabi", age: 34, appearance_facts: "x", background: "b", core_traits: [], values: [], speech_pattern: "p", intelligence: "average", gregariousness: 0.5 },
+      char_n: { name: "Dev", age: 40, appearance_facts: "x", background: "b", core_traits: ["private"], values: [], speech_pattern: "p", intelligence: "average", gregariousness: 0.5, tracked: true, central: true, location: "loc_a", ...over },
+    },
+    condition: {}, memory: {}, traits: {}, history: [], telemetry: [], pressure_trace: [], records: [], snapshots: [],
+    model_settings: { narrator_model: "m", simulator_model: "m", forge_model: "m", fallback_model: "m", image_model: "m", context_memories_k: 6, reflection_cadence: 10, history_window: 5 },
+  };
+  // through sanitize, as the real app does — it is what fills derived fields like place.contains
+  return sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
+};
+const wantsLines = (s: SaveState) =>
+  volatileDigest(s, "").split("\n").filter((l) => /^\s+(wants|also wants)/.test(l));
+
+{
+  const s = scene({ authored: newAuthored("start having people over late", 12, { because: "his brother moved in" }) });
+  const lines = wantsLines(s);
+  check("an authored want reaches the narrator at all", lines.some((l) => /people over late/.test(l)), lines);
+  check("and it is in the WANTS slot, not an appendix", /^\s+wants:.*people over late/.test(lines.join("\n")), lines);
+  check("the card no longer also claims they want nothing",
+    !lines.some((l) => /nothing pressing/.test(l)), lines);
+}
+{
+  // with a real drive as well, both are wants — the authored one is marked standing, not demoted
+  const s = scene({
+    drive: { goal: "get the gate fixed before dark", progress: 0, updated_turn: 19 },
+    authored: newAuthored("start having people over late", 12),
+  });
+  const lines = wantsLines(s);
+  check("an ordinary drive still leads when there is one", /^\s+wants:.*gate fixed/.test(lines.join("\n")), lines);
+  check("and the authored want sits beside it as standing", lines.some((l) => /also wants.*people over late/.test(l)), lines);
+  check("neither is described as nothing", !lines.some((l) => /nothing pressing/.test(l)), lines);
+}
+{
+  const s = scene({});
+  check("a character with no wants at all still says so", wantsLines(s).some((l) => /nothing pressing/.test(l)), wantsLines(s));
+}
+{
+  const s = scene({ authored: newAuthored("start having people over late", 12, { paused: true }) });
+  check("a held want is not presented as a live one", !wantsLines(s).some((l) => /people over late/.test(l)), wantsLines(s));
+  check("and the card falls back to nothing pressing", wantsLines(s).some((l) => /nothing pressing/.test(l)), wantsLines(s));
+}
+{
+  // stage 0 must not read as permission to skip it
+  const a = newAuthored("start having people over late", 12);
+  const line = authoredLine(a);
+  check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
+  check("but it is still described as new", /new|first time/i.test(line), line);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

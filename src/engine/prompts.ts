@@ -1382,16 +1382,24 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (drv?.approach?.trim()) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${drv.approach.trim()}`);
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
-      } else {
+      } else if (!(hasAuthored(ident) && !ident.authored.paused)) {
         lines.push(`  wants: nothing pressing`);
       }
       // A STANDING WANT — something going on in this person's life across the whole story rather than
-      // an errand they are on today. Rendered as a want like any other and never marked as authored:
-      // told a human wrote it, a model plays it as an instruction to discharge, and the character
-      // announces it and gets it over with. What makes it behave differently is that it does not
-      // complete and it climbs — both of which are already baked into the line. See engine/authored.ts.
+      // an errand they are on today. See engine/authored.ts.
+      //
+      // IT GOES IN THE WANTS SLOT, and that is the entire fix. It used to be appended as a trailing
+      // aside — under a line that still read "wants: nothing pressing", because the emptiness check
+      // above only ever looked at `drive`. So a card carried a flat contradiction two lines apart:
+      // the field every downstream rule keys off ("a character with nothing of their own to say says
+      // nothing and does something instead") declared the person empty, and the thing the player had
+      // deliberately written was introduced with "and" as background colour. Nothing the player
+      // authored ever showed up, and this is why.
+      //
+      // Never marked as authored: told a human wrote it, a model plays it as an instruction to
+      // discharge, and the character announces it and gets it over with in one scene.
       if (hasAuthored(ident) && !ident.authored.paused) {
-        lines.push(`  and this has been going on in their life: ${authoredLine(ident.authored)}`);
+        lines.push(`  ${goalNow ? "also wants, and this one is standing rather than an errand" : "wants"}: ${authoredLine(ident.authored)}`);
       }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);

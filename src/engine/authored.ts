@@ -39,7 +39,10 @@ export const MAX_STAGE = 3;
  *  expect to get away with, which is exactly what separates a first attempt from a standing
  *  grievance, whatever the act happens to be. */
 const NERVE = [
-  "just starting — a first attempt, tentative, easily abandoned if it goes badly",
+  // NOT "easily abandoned if it goes badly", which is what this said. On a want the PLAYER wrote,
+  // that reads as permission to skip it — and paired with the wants-slot bug it meant an authored
+  // want arrived as an optional aside a model was invited to drop. New is not the same as fragile.
+  "new — the first time they have gone at it, and it has not yet settled into a shape anyone would name",
   "settling into it — no longer a one-off, not yet a habit anyone would name",
   "routine now, and unapologetic about it — they have stopped expecting to be challenged",
   "well past reasonable, and it has become part of how they live — being challenged would surprise them",
