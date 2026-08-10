@@ -589,8 +589,19 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         ))}
                       </div>
                     )}
+                    {/* THAT NEVER HAPPENED. The engine records what it infers, not only what it was
+                        shown, and some of those inferences are wrong — a wound nobody had, a line the
+                        player never said in character. Reflection then turns them into beliefs, which
+                        are permanent. The player is the ground truth about their own story and needs a
+                        way to say so; see api.forget. */}
                     {mem.beliefs.map((b, i) => (
-                      <div key={`b${i}`} className="text-[13px] py-1" style={{ color: "var(--accent)" }}>※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</div>
+                      <div key={`b${i}`} className="text-[13px] py-1 flex gap-2 items-start group" style={{ color: "var(--accent)" }}>
+                        <span className="flex-1">※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</span>
+                        <button title="she never concluded this — remove it" className="shrink-0 opacity-40 hover:opacity-100"
+                          onClick={async () => { try { setSave(await api.forget(save.id, sel!, { belief: b.content })); } catch { /* already gone */ } }}>
+                          <X size={12} />
+                        </button>
+                      </div>
                     ))}
                     {[...mem.episodic].sort((a, b) => ((b.event_turn ?? b.turn) - (a.event_turn ?? a.turn))).slice(0, 7).map((m, i) => (
                       <div key={i} className="text-[12.5px] py-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
@@ -598,6 +609,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                           {m.when_label ? m.when_label.replace(/\s*\(.*\)$/, "") : `t${m.turn}`}{m.anchor_rel ? ` · ${m.anchor_rel}` : ""}{m.where ? ` · ${m.where}` : ""}{sourceLabel((m as any).source) ? ` · ${sourceLabel((m as any).source)}` : ""}
                         </span>
                         {m.content}
+                        <button title="this never happened — remove it" className="ml-1.5 align-middle opacity-30 hover:opacity-100"
+                          onClick={async () => { try { setSave(await api.forget(save.id, sel!, { episodic: m.content })); } catch { /* already gone */ } }}>
+                          <X size={11} />
+                        </button>
                       </div>
                     ))}
                   </Section>

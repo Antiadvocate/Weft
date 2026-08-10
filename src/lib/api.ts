@@ -1149,6 +1149,40 @@ export const api = {
     return clientView(s);
   },
 
+  /** THAT NEVER HAPPENED — remove a memory or a belief from somebody's head.
+   *
+   *  The engine writes what it INFERS, not only what it was shown, and until now nothing could take
+   *  any of it back. One save had a character remember unwrapping a bandage and seeing "the wound
+   *  beneath" when the record held no injury at all; another filed the player's own furious
+   *  out-of-character complaint — "What the hell are you talking about about doing a field wrap?" —
+   *  as something she remembered him saying. Both then fed reflection, which turns memories into
+   *  beliefs, which are permanent. Every wrong inference compounded and none could be corrected.
+   *
+   *  Constraining what may be written is worth doing and has been done in several places, but it
+   *  will never be sufficient — the engine is a machine for making inferences about a story, and
+   *  some of them will be wrong. What was missing is the other half: the player is the ground truth
+   *  about their own game, and needed a way to say so.
+   *
+   *  Matched on exact content because that is what the UI has in hand, and deleting the wrong
+   *  memory would be a worse bug than the one this fixes. */
+  forget: async (id: string, char_id: string, what: { episodic?: string; belief?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    const mem = s.memory[char_id];
+    if (!mem) throw new Error("no memory for that character");
+    if (what.episodic) {
+      const before = mem.episodic.length;
+      mem.episodic = mem.episodic.filter((m) => m.content !== what.episodic && m.full_content !== what.episodic);
+      if (mem.episodic.length === before) throw new Error("that memory is already gone");
+    }
+    if (what.belief) {
+      const before = mem.beliefs.length;
+      mem.beliefs = mem.beliefs.filter((b) => b.content !== what.belief);
+      if (mem.beliefs.length === before) throw new Error("that belief is already gone");
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
   /** AUTHOR A STANDING WANT onto somebody — the injector. See engine/authored.ts for the whole
    *  argument; briefly, this is the tool that was missing between "do nothing" and "rewrite who
    *  they are", and its absence is why core_traits was being used to record things that had never
