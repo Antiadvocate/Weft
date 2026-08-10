@@ -19,7 +19,7 @@ import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
-import { authoredLine, hasAuthored, liveAuthored } from "./authored";
+import { authoredLine, hasAuthored, liveAuthored, settledAuthored } from "./authored";
 import { edgeNote } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
@@ -1396,7 +1396,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (drv?.approach?.trim()) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${drv.approach.trim()}`);
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
-      } else if (!hasAuthored(ident)) {
+      } else if (!hasAuthored(ident) && !settledAuthored(ident).length) {
         lines.push(`  wants: nothing pressing`);
       }
       // A STANDING WANT — something going on in this person's life across the whole story rather than
@@ -1414,6 +1414,12 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       // discharge, and the character announces it and gets it over with in one scene.
       // EVERY authored want, not one — a person can be building more than one habit at a time, and
       // the field was singular so a second one silently replaced the first.
+      // A habit that finished forming stays on the card forever — it is the most predictable thing
+      // about this person, and removing it on completion was why a crystallised want stopped
+      // appearing entirely. See settledAuthored.
+      settledAuthored(ident).forEach((a) => {
+        lines.push(`  simply does this, every time the situation allows, without deciding to: ${a.goal} — it needs no occasion and no excuse, and being prevented would surprise her. If this scene gives it any opening at all, it happens.`);
+      });
       liveAuthored(ident).forEach((a, i) => {
         const lead = !goalNow && i === 0 ? "wants" : "also wants, and this one is standing rather than an errand";
         lines.push(`  ${lead}: ${authoredLine(a)}`);

@@ -130,6 +130,17 @@ function rampStage(a: AuthoredDrive): number {
 export function liveAuthored(c: Identity | undefined): AuthoredDrive[] {
   return (c?.authored ?? []).filter((a) => a?.goal && !a.crystallized_turn && !a.paused);
 }
+
+/** WHAT THEY SIMPLY DO NOW — habits that finished forming and are still part of the person.
+ *
+ *  Crystallising used to REMOVE the want: hasAuthored went false, the wants slot lost it, and it
+ *  survived only as one line among five in core_traits, which nothing obliges anybody to act on. So
+ *  the reward for a habit completing was that it stopped appearing — "once it's solidified it
+ *  doesn't show up at all", which is worse than never having formed. A finished habit is the most
+ *  reliable thing about a person and belongs on the card permanently. */
+export function settledAuthored(c: Identity | undefined): AuthoredDrive[] {
+  return (c?.authored ?? []).filter((a) => a?.goal && a.crystallized_turn && !a.paused);
+}
 export function hasAuthored(c: Identity | undefined): boolean {
   return liveAuthored(c).length > 0;
 }
@@ -154,7 +165,7 @@ export function authoredLine(a: AuthoredDrive): string {
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
-    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. THIS IS NOT OPTIONAL AND IT IS NOT BACKGROUND: write the beat for this rung into this scene, at exactly this strength and no more. Under half it has not happened yet and must not — but "has not happened" still requires a visible moment on the page, in the body, that a reader could point at. A turn in which nothing about it can be seen is a turn in which this failed, and it is the ONLY way to get this wrong besides rushing to the act`);
+    bits.push(`INVENT THE OCCASION — do not wait for one. A habit forms because the world keeps putting the thing in reach, and this world will not do that by itself. Find the reason inside the conditions that already exist here: the heat, the thirst, the work, what is short, what hurts, what has to be carried, who is standing where. "There is no water and she is running a fever." "Her bag strap keeps slipping and her hands are full." "Her joints ache and nobody has salt." The occasion must break no established rule and invent no new fact about the world — it is assembled out of what the scene already contains, which is why it reads as circumstance rather than as a plot handing somebody what they want.\n  ${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. THIS IS NOT OPTIONAL AND IT IS NOT BACKGROUND: write the beat for this rung into this scene, at exactly this strength and no more. Under half it has not happened yet and must not — but "has not happened" still requires a visible moment on the page, in the body, that a reader could point at. A turn in which nothing about it can be seen is a turn in which this failed, and it is the ONLY way to get this wrong besides rushing to the act`);
   }
   return bits.join(" — ");
 }

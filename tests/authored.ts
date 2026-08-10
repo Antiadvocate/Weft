@@ -428,5 +428,42 @@ const wantsLines = (s: SaveState) =>
   check("but the subject named plainly always counts", (a.seen ?? 0) === 1, a.seen);
 }
 
+/* ── 9. THE MODEL INVENTS THE OCCASION, AND A FINISHED HABIT STAYS VISIBLE ───────
+ *
+ * "You can literally utilize the habit creation within the framework of the story — it would have to
+ *  invent the scenario for the habit to build emergent out of current conditions without requiring
+ *  it to break any rules. For Dana it could be 'I get so sweaty, my bag slips off' or 'you need salt,
+ *  your bones hurt, we don't have salt'."
+ *
+ * That is a better answer than the mechanism I was about to build. The engine has nothing that
+ * manufactures the circumstances a habit forms under, and a model asked to find one inside the
+ * conditions already present will do it better than a pressure table would.
+ *
+ * "And worse is that once it's solidified it doesn't show up at all in the personality."
+ *
+ * That one was mine. Crystallising REMOVED the want — hasAuthored went false, the wants slot lost
+ * it, and it survived only as one line among five in core_traits, which nothing obliges anybody to
+ * act on. The reward for a habit completing was that it stopped appearing. */
+{
+  const s = mk(1);
+  s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
+  const line = authoredLine(s.characters.char_neigh.authored![0]);
+  check("the narrator is told to invent the occasion", /INVENT THE OCCASION/.test(line), line.slice(0, 120));
+  check("out of conditions that already exist", /conditions that already exist/.test(line));
+  check("and is given the shape of one", /bag strap|no water|salt/.test(line));
+  check("without inventing new facts about the world", /invent no new fact about the world/.test(line));
+  check("and without waiting for the world to supply it", /do not wait for one/.test(line));
+}
+{
+  const s = scene({ authored: [newAuthored("start having people over late", 1, { inhabit_turns: 2, crystallize: true })] });
+  const c: any = s.characters.char_n;
+  c.authored[0].crystallized_turn = 9;
+  const lines = volatileDigest(s, "").split("\n").filter((l) => /simply does this|wants/.test(l));
+  check("a finished habit is still on the card", lines.some((l) => /people over late/.test(l)), lines);
+  check("stated as something needing no occasion", lines.some((l) => /needs no occasion and no excuse/.test(l)), lines);
+  check("and it fires whenever the scene gives it an opening", lines.some((l) => /any opening at all, it happens/.test(l)), lines);
+  check("the card does not also claim they want nothing", !lines.some((l) => /nothing pressing/.test(l)), lines);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
