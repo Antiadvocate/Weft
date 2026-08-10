@@ -701,7 +701,8 @@ const RATES: { k: "slow" | "steady" | "fast"; label: string; hint: string }[] = 
   { k: "steady", label: "steady", hint: "a couple of days" },
   { k: "fast", label: "fast", hint: "within a day" },
 ];
-const STAGE_WORDS = ["just started", "settling in", "routine", "past reasonable"];
+/* The six rungs of habit formation — see engine/authored.ts. Nothing happens on the first three. */
+const STAGE_WORDS = ["noticing it", "near it", "examining it", "first time, sideways", "doing it again", "simply what they do"];
 
 function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSave: (s: ClientSave) => void }) {
   const cur = save.characters[sel]?.authored;
@@ -741,7 +742,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           {cur.because && <Row k="because" v={cur.because} />}
           <Row k="how far" v={cur.crystallized_turn
             ? `it stopped being a thing they do and became who they are (turn ${cur.crystallized_turn})`
-            : `${STAGE_WORDS[Math.max(0, Math.min(3, cur.stage))]} — ${cur.paused ? "held here" : cur.inhabit_turns ? `${Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * Math.log10(1 + 9 * Math.max(0, Math.min(1, (save.world.current_turn - cur.added_turn) / cur.inhabit_turns))))))}% — full by turn ${cur.added_turn + cur.inhabit_turns}` : `climbing, ${cur.rate}`}`} />
+            : `${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, cur.stage))]} — ${cur.paused ? "held here" : cur.inhabit_turns ? `${Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * Math.log10(1 + 9 * Math.max(0, Math.min(1, (save.world.current_turn - cur.added_turn) / cur.inhabit_turns))))))}% — full by turn ${cur.added_turn + cur.inhabit_turns}` : `climbing, ${cur.rate}`}`} />
           {!cur.crystallized_turn && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               <button className="btn-sm" disabled={busy} onClick={start}>edit</button>

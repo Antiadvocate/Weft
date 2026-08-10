@@ -25,49 +25,65 @@ import type { AuthoredDrive, Identity, SaveState } from "./types";
  *
  *  Tuned so all three fit inside a story of a few days: fast lands within one, steady over a couple,
  *  slow needs most of a week and is the one to pick when the story is going to be long. */
-const STEP_HOURS: Record<AuthoredDrive["rate"], number> = { slow: 40, steady: 16, fast: 6 };
+// Per RUNG, and there are now five to climb rather than three (see NERVE), so these are scaled to
+// keep the TOTAL unchanged: fast still lands inside a day, steady over a couple, slow across most of
+// a week. Changing the ladder's length without rescaling these would have quietly made every want
+// take almost twice as long to arrive.
+const STEP_HOURS: Record<AuthoredDrive["rate"], number> = { slow: 24, steady: 10, fast: 4 };
 
-/** Four rungs and no more. Past this it is not escalation any more, it is a different story, and the
- *  player can write that one themselves. */
-export const MAX_STAGE = 3;
+/** Six rungs: exposure, proximity, examination, the sideways first time, repetition, habit. Past this
+ *  it is not escalation any more, it is a different story, and the player can write that one. */
+export const MAX_STAGE = 5;
 
-/** HOW HARD THEY ARE GOING AT IT, in words the world-sim can act on.
+/* HOW A HABIT ACTUALLY FORMS.
  *
- *  Generic on purpose. The goal is free text the player wrote — it can be parties, phone calls,
- *  showing up at the shop, leaving notes — so the ladder cannot describe the ACT, only the nerve.
- *  What changes across the rungs is how settled the person is in doing it and how much they now
- *  expect to get away with, which is exactly what separates a first attempt from a standing
- *  grievance, whatever the act happens to be. */
-/* HABITUATION, NOT A SWITCH.
+ *  The worked example this is built from, and it is worth keeping whole because every rung below is
+ *  one of its days:
  *
- *  "When it hit the turn it's supposed to happen Dana randomly just... brought it up. The goal is
- *   that the personality aspect showcases itself in small ways leading to the emergent trait. So
- *   when it's like 10% shown, the trait might show that she's looking at doing something. The way
- *   humans build through habituation towards an eventual end... so when it does happen it's not a
- *   shock."
+ *    Day 1  goes to the gas station for coffee, sees the candy, the sheer number of options is
+ *           enough to put them off — nothing happens
+ *    Day 2  there is a QUEUE, so they are standing near it anyway; they read the calories. Their
+ *           turn comes. They ignore it and leave
+ *    Day 3  they check the specific brand this time. Hm. That is not too bad. Is it any good —
+ *           and then they have to shop
+ *    Day 4  they ask the man at the counter: you like these, right? Light for a morning? They take one
+ *    Day 5  they skip a day, and next time notice they could use something sweet
+ *    Day 6  again, because why not, it is light
+ *    Day 10 they always get it
  *
- *  The old bottom rung read "the first time they have gone at it", which is already the ACT. So the
- *  ladder ran from doing-it-once to doing-it-always, and 10% meant "do it, tentatively" — which a
- *  model renders as raising it out of nowhere and then retreating. There was no rung for the part
- *  that matters: the weeks before a person does a thing, when they are circling it.
+ *  Three things in that which the previous ladder got wrong.
  *
- *  These four are now orientation → approach → attempt → habit. Only the third does the thing. The
- *  first two are what makes the third land as inevitable rather than random, and they are where a
- *  scene is actually built: noticing, positioning, testing the ground, the almost-ask that turns
- *  into something else. That is the ramp the player asked for. */
+ *  IT IS EXTERNAL BEFORE IT IS INTERNAL. Nothing in the first three days is a decision. A queue puts
+ *  them there; the shelf is at eye level; a stranger's opinion is available. The environment supplies
+ *  the occasion and they are simply in the right place often enough. So the early rungs are written
+ *  as things the SCENE does, not things the character resolves to do.
+ *
+ *  IT IS NON-SELFED. "There's not a lot of talking about it, you just do the movement." Until it is
+ *  already a habit they do not discuss it, name it, or explain it — it shows in the body: where they
+ *  stand, what their hands find, what their eyes go back to, what they linger over. The previous
+ *  bottom rungs were both about CONVERSATION — a joke that is nearly the subject, a question that
+ *  would make sense if the answer were yes — which is the last thing to arrive, not the first.
+ *
+ *  THE INTERRUPTION IS THE MECHANISM. Twice they get close and something takes them away. That is
+ *  what keeps it from being a decision and what makes the eventual doing feel inevitable instead of
+ *  chosen. It has to be written in, not skipped past.
+ *
+ *  And the meaning comes LAST. They do not know why they like it until long after they always get it. */
 const NERVE = [
-  "NOT DOING IT YET, and must not this scene. It is on their mind and nowhere else: they notice the openings for it, they position themselves near one, they let their attention go there and pull it back. Anyone watching closely would see only that something is occupying them. If they get close to raising it they change the subject themselves — the retreat IS the beat.",
-  "CIRCLING IT. Still not the thing itself. They test the ground for it sideways: a joke that is nearly the subject, a question that would make sense if the answer were yes, a small liberty taken to see whether it is allowed. They are finding out what happens before they risk the real version, and a refusal here costs them almost nothing.",
-  "THEY GO AT IT. The first real attempt, in the open, meant — and it should land as something the last several scenes were quietly building toward, not as a swerve. If nothing has been building, build it here and go at it NEXT time rather than making this the moment.",
-  "SIMPLY WHAT THEY DO NOW. No approach, no working up to it; it is part of how they are with this person, and being refused would surprise them.",
+  "EXPOSURE — nothing happens. The thing is simply present in the scene and they register it, the way you register a shelf you walk past. No comment, no reaching, no interest they would admit to. If anything they find a reason it is not for them. The SCENE puts it in front of them; they do not go looking.",
+  "NEAR IT, BY CIRCUMSTANCE. Something unrelated keeps them beside it longer than they needed — a wait, a queue, somebody else's errand, the seat that happened to be free. They look properly for the first time while they are stuck there. Then the wait ends and they leave without doing anything. Body only: where they stand, where their eyes go back to. Not one word about it.",
+  "EXAMINING IT, still doing nothing. Narrowed from the general thing to the specific one. They handle it, weigh it, read it, watch how it is done — assessing, with no commitment and no audience for the assessment. Something takes them away again before they act, and they let it. THE INTERRUPTION IS THE POINT: it is what stops this being a decision.",
+  "THE SIDEWAYS FIRST TIME. They finally do it, and it arrives through someone else or through a pretext — asking a third party's opinion, going along with what somebody else is already doing, since-I-am-here. Low stakes, deniable, never framed as wanting it. This is the first rung on which the thing actually happens.",
+  "AGAIN, BECAUSE IT IS EASY NOW. No pretext needed any more, and no reason given. They may skip once and notice the absence — this is the first moment the wanting becomes conscious to them, and the first moment they might say anything about it at all.",
+  "SIMPLY WHAT THEY DO. It needs no occasion and no excuse; it is part of the shape of their day with this person. Only now do they have anything to SAY about it — the meaning arrives after the habit, never before.",
 ];
 
 /** HOW MUCH OF THIS IS SHOWING, 0.1 to 1.
  *
  *  With `inhabit_turns` set, escalation is a deterministic function of turns since the want was
- *  written: 10% immediately, full by the deadline, on a logarithmic curve so the first sign appears
- *  at once and the rest arrives on schedule. Without it, the four in-world-hour rungs are used and
- *  this reports where they sit.
+ *  written: 10% immediately, linear to full at the deadline, so it visibly moves EVERY turn. The
+ *  rungs do not move linearly with it — see rampStage. Without a budget, the in-world-hour rungs are
+ *  used and this reports where they sit.
  *
  *  The point of the turn budget is not that turns are the truer unit — they are not — but that a
  *  want you cannot see moving is indistinguishable from a want that is broken, and this engine has
@@ -98,10 +114,14 @@ function elapsedFraction(a: AuthoredDrive, turn: number): number {
  *  thing checkable; it is the STAGE that waits. */
 function rampStage(a: AuthoredDrive, turn: number): number {
   const p = elapsedFraction(a, turn);
-  if (p >= 1) return 3;      // simply what they do now
-  if (p >= 0.75) return 2;   // the first real attempt, in the last quarter
-  if (p >= 0.45) return 1;   // circling it
-  return 0;                  // not doing it yet, and must not
+  // 10–50% of the window is the build-up "through external means that are noticeable" — three rungs
+  // in which the thing never once happens. The first time it happens is past halfway, sideways.
+  if (p >= 1) return 5;      // simply what they do
+  if (p >= 0.70) return 4;   // again, because it is easy
+  if (p >= 0.50) return 3;   // the sideways first time
+  if (p >= 0.35) return 2;   // examining it
+  if (p >= 0.20) return 1;   // near it, by circumstance
+  return 0;                  // exposure
 }
 
 /** True when this person has a live authored want that should be acting on the world. */
@@ -127,7 +147,7 @@ export function authoredLine(a: AuthoredDrive, turn?: number): string {
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
-    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. Something of it is visible THIS scene at exactly that strength — no more. Below half that means it is only ever an inclination they have not acted on, and rushing to the act because a number is rising is the one way to get this wrong: the point is that by the time it happens nobody is surprised`);
+    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. Show it at EXACTLY that strength and no more. Under half, it has not happened yet and must not this scene — it lives in the body and in what the room puts in their way, never in what they say about it. Rushing to the act because a number is rising is the one way to get this wrong: the whole point is that by the time it happens, nobody is surprised, least of all them`);
   }
   return bits.join(" — ");
 }

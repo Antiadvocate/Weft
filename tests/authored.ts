@@ -32,7 +32,7 @@ const tick = (s: SaveState, n = 1, min = TURN_MIN) => {
   return out;
 };
 
-const RUNGS = ["NOT DOING IT YET", "CIRCLING IT", "THEY GO AT IT", "SIMPLY WHAT THEY DO NOW"];
+const RUNGS = ["EXPOSURE", "NEAR IT", "EXAMINING IT", "THE SIDEWAYS FIRST TIME", "AGAIN", "SIMPLY WHAT THEY DO"];
 const rampOrder = (r: string) => RUNGS.indexOf(r);
 
 let pass = 0, fail = 0;
@@ -123,8 +123,8 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
   const s = mk();
   give(s, { rate: "fast", stage: 2 });
   check("starting it partway up does not strand the counter below it",
-    s.characters.char_neigh.authored!.acted >= 2 * 6 * 60, s.characters.char_neigh.authored!.acted);
-  tick(s, 1, 6 * 60);
+    s.characters.char_neigh.authored!.acted >= 2 * 4 * 60, s.characters.char_neigh.authored!.acted);
+  tick(s, 1, 4 * 60);
   check("so the next rung arrives on schedule rather than after a full re-climb",
     s.characters.char_neigh.authored!.stage === 3, s.characters.char_neigh.authored!.stage);
 }
@@ -134,7 +134,7 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
   setback(s.characters.char_neigh.authored!);
   const a = s.characters.char_neigh.authored!;
   check("being faced down costs a rung", a.stage === 1, a.stage);
-  check("and the counter goes back with it, so it does not jump straight up again", a.acted === 1 * 16 * 60, a.acted);
+  check("and the counter goes back with it, so it does not jump straight up again", a.acted === 1 * 10 * 60, a.acted);
   setback(a); setback(a); setback(a);
   check("it stops at the bottom instead of going negative", a.stage === 0, a.stage);
 }
@@ -156,7 +156,7 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "fast", crystallize: true, because: "his brother moved in last month" });
-  tick(s, 1, 24 * 60);
+  tick(s, 1, 24 * 60 * 7);
   const c = s.characters.char_neigh;
   check("a want carried to the top long enough becomes a trait", !!c.authored?.crystallized_turn, c.authored);
   check("it lands in core traits, where the player would have typed it",
@@ -267,7 +267,7 @@ const wantsLines = (s: SaveState) =>
   check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
   // and the bottom rung is now the part BEFORE the act, which is the whole correction: at the start
   // the want exists only as attention, and doing the thing is explicitly off the table
-  check("the bottom rung forbids doing it rather than inviting a tentative go", /must not this scene/.test(line), line);
+  check("the bottom rung is exposure — the scene shows it and nothing happens", /EXPOSURE — nothing happens/.test(line), line);
 }
 
 /* ── 6. A FIXED TIMEFRAME YOU CAN CHECK ──────────────────────────────────────────
@@ -286,7 +286,7 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 });
   const a = s.characters.char_neigh.authored!;
   const at = (t: number) => Math.round(intensity(a, t) * 100);
-  const rung = (t: number) => /where they are with it: ([A-Z ]+)/.exec(authoredLine(a, t))?.[1]?.trim() ?? "?";
+  const rung = (t: number) => RUNGS.find((r) => authoredLine(a, t).includes("where they are with it: " + r)) ?? "?";
   check("it is visible immediately rather than at zero", at(20) === 10, at(20));
   check("it moves on the very next turn", at(21) > 10, at(21));
   check("and on every turn after that", [22,23,24,25,26,27,28,29].every((t) => at(t) > at(t - 1)));
@@ -296,11 +296,19 @@ const wantsLines = (s: SaveState) =>
   /* THE SHAPE IS THE FEATURE. The first version used a logarithmic curve — steepest at the start —
    * and two turns into a ten-turn budget it already said GO AT IT. Dana brought it up out of
    * nowhere, which is the failure this exists to prevent. Habituation is the other shape. */
-  check("nearly half the window is spent NOT doing it", rung(24) === "NOT DOING IT YET", rung(24));
-  check("the middle is circling, not acting", rung(26) === "CIRCLING IT", rung(26));
-  check("the first real attempt lands in the last quarter", rung(28) === "THEY GO AT IT", rung(28));
-  check("and only at the deadline is it simply what they do", rung(30) === "SIMPLY WHAT THEY DO NOW", rung(30));
-  check("at 28% shown, the act is still forbidden outright", /must not this scene/.test(authoredLine(a, 22)), rung(22));
+  /* The Yorkie days, in order. 10–50% is build-up through things the world puts in their way, and
+   * on none of those rungs does the thing happen. */
+  check("it opens as bare exposure — the scene shows it, they do nothing", rung(20) === "EXPOSURE", rung(20));
+  check("then proximity by circumstance, still not a decision", rung(22) === "NEAR IT", rung(22));
+  check("then examining the specific thing, and being interrupted", rung(24) === "EXAMINING IT", rung(24));
+  check("nothing has HAPPENED through the whole first half", [20,21,22,23,24].every((t) => RUNGS.indexOf(rung(t)) <= 2), [20,24].map(rung));
+  check("the first time it happens is past halfway, and sideways", rung(25) === "THE SIDEWAYS FIRST TIME", rung(25));
+  check("then repetition without a pretext", rung(28) === "AGAIN", rung(28));
+  check("and only at the deadline is it simply what they do", rung(30) === "SIMPLY WHAT THEY DO", rung(30));
+  check("the early rungs are body and circumstance, never conversation",
+    /Not one word about it/.test(authoredLine(a, 22)), rung(22));
+  check("and the meaning arrives after the habit, not before",
+    /meaning arrives after the habit/.test(authoredLine(a, 30)));
   check("the rung never goes backwards", [21,22,23,24,25,26,27,28,29,30].every((t, i, xs) => i === 0 || rampOrder(rung(t)) >= rampOrder(rung(xs[i-1]))));
 }
 {
@@ -308,8 +316,8 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 10 });
   const line = authoredLine(s.characters.char_neigh.authored!, 25);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
-  check("and that it must show at exactly that strength and no more", /visible THIS scene at exactly that strength — no more/.test(line), line);
-  check("with rushing to the act named as the way to get it wrong", /rushing to the act/.test(line));
+  check("and that it must show at exactly that strength and no more", /EXACTLY that strength and no more/.test(line), line);
+  check("with rushing to the act named as the way to get it wrong", /Rushing to the act/.test(line), line);
 }
 {
   // the budget completes the want, so "fully inhabits it" actually finishes
