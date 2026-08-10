@@ -201,3 +201,27 @@ export function ownWant(ownerName: string, text: unknown): { goal: string; slipp
   const stillThere = new RegExp(`\\b${first}(?:'s)?\\b`, "i").test(out);
   return { goal: out, slipped: stillThere };
 }
+
+/** EVERY LIST FIELD IS ACTUALLY A LIST.
+ *
+ *  The diff schema declares ~30 array fields and the engine reads them as arrays: `(diff.psyche ??
+ *  []).filter(...)`. That guard covers null and undefined and nothing else, so when a model emits a
+ *  single record where a list was asked for —
+ *
+ *      "psyche": { "char_id": "char_dana", "relaxation_delta": -2 }
+ *
+ *  — instead of wrapping it in brackets, the turn dies with "(Xe.psyche ?? []).filter is not a
+ *  function" and the player loses the whole turn to a missing pair of square brackets.
+ *
+ *  One object where a list belongs is a list of one; that reading is never wrong. Normalising once
+ *  at the boundary is also the only version that stays fixed — guarding the call sites means
+ *  guarding all of them forever, and there are thirty, and the next one added will not be guarded. */
+export function normalizeDiffArrays<T extends Record<string, unknown>>(diff: T): T {
+  for (const [k, v] of Object.entries(diff)) {
+    if (v === null || v === undefined || Array.isArray(v)) continue;
+    // Only fields the engine iterates. A scalar (elapsed_minutes, scene_summary) stays a scalar;
+    // wrapping those would turn a number into [number] and break arithmetic downstream.
+    if (typeof v === "object") (diff as Record<string, unknown>)[k] = [v];
+  }
+  return diff;
+}

@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
-import { detectWorldPronoun, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
+import { detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
@@ -2262,7 +2262,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     simUsage = res.usage;
     const parsed = safeJson<Partial<SimulatorDiff> | null>(res.text, null);
     if (parsed && Object.keys(parsed).length) {
-      diff = { ...emptyDiff(), ...parsed };
+      // A single record where a list was asked for is a list of one — see normalizeDiffArrays. This
+      // used to kill the turn outright with ".filter is not a function".
+      diff = { ...emptyDiff(), ...normalizeDiffArrays(parsed as Record<string, unknown>) };
       simOk = true;
       // A DIFF THAT RAN OUT OF ROOM STILL APPLIES, AND USED TO DO SO IN SILENCE. safeJson closes
       // the unterminated structures, so the turn records everything that arrived before the cut and
@@ -2284,7 +2286,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000, { signal });
       simUsage.prompt_tokens += fix.usage.prompt_tokens; simUsage.completion_tokens += fix.usage.completion_tokens;
       const reparsed = safeJson<Partial<SimulatorDiff> | null>(fix.text, null);
-      if (reparsed && Object.keys(reparsed).length) { diff = { ...emptyDiff(), ...reparsed }; simOk = true; }
+      if (reparsed && Object.keys(reparsed).length) { diff = { ...emptyDiff(), ...normalizeDiffArrays(reparsed as Record<string, unknown>) }; simOk = true; }
     }
     // VITALITY-DEAD RECOVERY: the diff parsed, but a substantial scene produced zero world
     // change. Constrained decoding + disabled reasoning starves small/reasoning-tier models into

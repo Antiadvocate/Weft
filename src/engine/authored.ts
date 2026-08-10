@@ -38,14 +38,28 @@ export const MAX_STAGE = 3;
  *  What changes across the rungs is how settled the person is in doing it and how much they now
  *  expect to get away with, which is exactly what separates a first attempt from a standing
  *  grievance, whatever the act happens to be. */
+/* HABITUATION, NOT A SWITCH.
+ *
+ *  "When it hit the turn it's supposed to happen Dana randomly just... brought it up. The goal is
+ *   that the personality aspect showcases itself in small ways leading to the emergent trait. So
+ *   when it's like 10% shown, the trait might show that she's looking at doing something. The way
+ *   humans build through habituation towards an eventual end... so when it does happen it's not a
+ *   shock."
+ *
+ *  The old bottom rung read "the first time they have gone at it", which is already the ACT. So the
+ *  ladder ran from doing-it-once to doing-it-always, and 10% meant "do it, tentatively" — which a
+ *  model renders as raising it out of nowhere and then retreating. There was no rung for the part
+ *  that matters: the weeks before a person does a thing, when they are circling it.
+ *
+ *  These four are now orientation → approach → attempt → habit. Only the third does the thing. The
+ *  first two are what makes the third land as inevitable rather than random, and they are where a
+ *  scene is actually built: noticing, positioning, testing the ground, the almost-ask that turns
+ *  into something else. That is the ramp the player asked for. */
 const NERVE = [
-  // NOT "easily abandoned if it goes badly", which is what this said. On a want the PLAYER wrote,
-  // that reads as permission to skip it — and paired with the wants-slot bug it meant an authored
-  // want arrived as an optional aside a model was invited to drop. New is not the same as fragile.
-  "new — the first time they have gone at it, and it has not yet settled into a shape anyone would name",
-  "settling into it — no longer a one-off, not yet a habit anyone would name",
-  "routine now, and unapologetic about it — they have stopped expecting to be challenged",
-  "well past reasonable, and it has become part of how they live — being challenged would surprise them",
+  "NOT DOING IT YET, and must not this scene. It is on their mind and nowhere else: they notice the openings for it, they position themselves near one, they let their attention go there and pull it back. Anyone watching closely would see only that something is occupying them. If they get close to raising it they change the subject themselves — the retreat IS the beat.",
+  "CIRCLING IT. Still not the thing itself. They test the ground for it sideways: a joke that is nearly the subject, a question that would make sense if the answer were yes, a small liberty taken to see whether it is allowed. They are finding out what happens before they risk the real version, and a refusal here costs them almost nothing.",
+  "THEY GO AT IT. The first real attempt, in the open, meant — and it should land as something the last several scenes were quietly building toward, not as a swerve. If nothing has been building, build it here and go at it NEXT time rather than making this the moment.",
+  "SIMPLY WHAT THEY DO NOW. No approach, no working up to it; it is part of how they are with this person, and being refused would surprise them.",
 ];
 
 /** HOW MUCH OF THIS IS SHOWING, 0.1 to 1.
@@ -59,11 +73,35 @@ const NERVE = [
  *  want you cannot see moving is indistinguishable from a want that is broken, and this engine has
  *  produced enough of the second that the first is not worth defending. */
 export function intensity(a: AuthoredDrive, turn: number): number {
-  if (a.inhabit_turns && a.inhabit_turns > 0) {
-    const p = Math.max(0, Math.min(1, (turn - a.added_turn) / a.inhabit_turns));
-    return Math.max(0.1, Math.min(1, 0.1 + 0.9 * (Math.log10(1 + 9 * p))));
-  }
+  if (a.inhabit_turns && a.inhabit_turns > 0) return 0.1 + 0.9 * elapsedFraction(a, turn);
   return Math.max(0.1, Math.min(1, ((a.stage ?? 0) + 1) / (MAX_STAGE + 1)));
+}
+
+/** How far through the budget, 0..1. */
+function elapsedFraction(a: AuthoredDrive, turn: number): number {
+  if (!a.inhabit_turns || a.inhabit_turns <= 0) return 0;
+  return Math.max(0, Math.min(1, (turn - a.added_turn) / a.inhabit_turns));
+}
+
+/** WHERE ON THE RAMP, and the shape of the ramp is the whole feature.
+ *
+ *  The first version put the percentage on a logarithmic curve, because "escalating logarithmically"
+ *  was what was asked for. That was a misreading, and it produced precisely the failure it was meant
+ *  to fix: a log curve is steepest at the start, so two turns into a ten-turn budget the want was
+ *  already at 55% and the ladder said GO AT IT. Dana brought it up out of nowhere, which is what
+ *  prompted all of this.
+ *
+ *  Habituation is the other shape. Nearly HALF the window is spent not doing it at all — noticing
+ *  the openings, changing the subject away from it. Then circling. The attempt belongs in the last
+ *  quarter, by which point several scenes have quietly been about it and nobody is surprised. The
+ *  displayed percentage stays linear so it visibly moves every single turn, which is what makes the
+ *  thing checkable; it is the STAGE that waits. */
+function rampStage(a: AuthoredDrive, turn: number): number {
+  const p = elapsedFraction(a, turn);
+  if (p >= 1) return 3;      // simply what they do now
+  if (p >= 0.75) return 2;   // the first real attempt, in the last quarter
+  if (p >= 0.45) return 1;   // circling it
+  return 0;                  // not doing it yet, and must not
 }
 
 /** True when this person has a live authored want that should be acting on the world. */
@@ -79,9 +117,9 @@ export function hasAuthored(c: Identity | undefined): c is Identity & { authored
  *  their own hand; the prompt shows a want. */
 export function authoredLine(a: AuthoredDrive, turn?: number): string {
   const i = turn === undefined ? undefined : intensity(a, turn);
-  const stage = i === undefined
+  const stage = turn === undefined || !a.inhabit_turns
     ? Math.max(0, Math.min(MAX_STAGE, a.stage | 0))
-    : Math.min(MAX_STAGE, Math.floor(i * (MAX_STAGE + 1) - 0.0001));
+    : rampStage(a, turn);
   const bits = [a.goal];
   if (a.approach) bits.push("goes at it by: " + a.approach);
   if (a.because) bits.push("started because: " + a.because);
@@ -89,7 +127,7 @@ export function authoredLine(a: AuthoredDrive, turn?: number): string {
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
-    bits.push(`this is ${Math.round(i * 100)}% of the way to being simply how they are, and it is still climbing — it shows in SOMETHING they do this scene, however small`);
+    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. Something of it is visible THIS scene at exactly that strength — no more. Below half that means it is only ever an inclination they have not acted on, and rushing to the act because a number is rising is the one way to get this wrong: the point is that by the time it happens nobody is surprised`);
   }
   return bits.join(" — ");
 }

@@ -32,6 +32,9 @@ const tick = (s: SaveState, n = 1, min = TURN_MIN) => {
   return out;
 };
 
+const RUNGS = ["NOT DOING IT YET", "CIRCLING IT", "THEY GO AT IT", "SIMPLY WHAT THEY DO NOW"];
+const rampOrder = (r: string) => RUNGS.indexOf(r);
+
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
   if (c) { pass++; console.log(`ok   ${name}`); }
@@ -262,7 +265,9 @@ const wantsLines = (s: SaveState) =>
   const a = newAuthored("start having people over late", 12);
   const line = authoredLine(a);
   check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
-  check("but it is still described as new", /new|first time/i.test(line), line);
+  // and the bottom rung is now the part BEFORE the act, which is the whole correction: at the start
+  // the want exists only as attention, and doing the thing is explicitly off the table
+  check("the bottom rung forbids doing it rather than inviting a tentative go", /must not this scene/.test(line), line);
 }
 
 /* ── 6. A FIXED TIMEFRAME YOU CAN CHECK ──────────────────────────────────────────
@@ -281,20 +286,30 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 });
   const a = s.characters.char_neigh.authored!;
   const at = (t: number) => Math.round(intensity(a, t) * 100);
+  const rung = (t: number) => /where they are with it: ([A-Z ]+)/.exec(authoredLine(a, t))?.[1]?.trim() ?? "?";
   check("it is visible immediately rather than at zero", at(20) === 10, at(20));
   check("it moves on the very next turn", at(21) > 10, at(21));
-  check("it is most of the way there at the halfway point — the curve is front-loaded",
-    at(25) >= 60, at(25));
-  check("and it is exactly full on the turn named", at(30) === 100, at(30));
-  check("it does not overshoot afterwards", at(40) === 100, at(40));
-  check("the climb never goes backwards", [21,22,23,24,25,26,27,28,29,30].every((t, i, xs) => i === 0 || at(t) >= at(xs[i-1])));
+  check("and on every turn after that", [22,23,24,25,26,27,28,29].every((t) => at(t) > at(t - 1)));
+  check("it is exactly full on the turn named", at(30) === 100, at(30));
+  check("and does not overshoot", at(40) === 100, at(40));
+
+  /* THE SHAPE IS THE FEATURE. The first version used a logarithmic curve — steepest at the start —
+   * and two turns into a ten-turn budget it already said GO AT IT. Dana brought it up out of
+   * nowhere, which is the failure this exists to prevent. Habituation is the other shape. */
+  check("nearly half the window is spent NOT doing it", rung(24) === "NOT DOING IT YET", rung(24));
+  check("the middle is circling, not acting", rung(26) === "CIRCLING IT", rung(26));
+  check("the first real attempt lands in the last quarter", rung(28) === "THEY GO AT IT", rung(28));
+  check("and only at the deadline is it simply what they do", rung(30) === "SIMPLY WHAT THEY DO NOW", rung(30));
+  check("at 28% shown, the act is still forbidden outright", /must not this scene/.test(authoredLine(a, 22)), rung(22));
+  check("the rung never goes backwards", [21,22,23,24,25,26,27,28,29,30].every((t, i, xs) => i === 0 || rampOrder(rung(t)) >= rampOrder(rung(xs[i-1]))));
 }
 {
   const s = mk(20);
   s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 10 });
   const line = authoredLine(s.characters.char_neigh.authored!, 25);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
-  check("and that it must show in something they do this scene", /shows in SOMETHING they do this scene/.test(line));
+  check("and that it must show at exactly that strength and no more", /visible THIS scene at exactly that strength — no more/.test(line), line);
+  check("with rushing to the act named as the way to get it wrong", /rushing to the act/.test(line));
 }
 {
   // the budget completes the want, so "fully inhabits it" actually finishes
