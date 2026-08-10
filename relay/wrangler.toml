@@ -1,0 +1,24 @@
+name = "weaver-relay"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# The free plan caps CPU at 10ms per request. Waiting on the model does not count toward that, but
+# decoding and accumulating a few thousand tokens of stream does, and it will run past 10ms on a
+# long turn. This is the Workers Paid setting ($5/month) — see README.md.
+[limits]
+cpu_ms = 300000
+
+[[durable_objects.bindings]]
+name = "JOB"
+class_name = "Job"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Job"]
+
+# Secrets are NOT set here — wrangler.toml is committed. Set them with `wrangler secret put`:
+#   OPENROUTER_KEY   your OpenRouter key
+#   RELAY_TOKEN      any long random string; the app sends it so the relay is not open to the world
+#   VAPID_PUBLIC     from `npm run keys`
+#   VAPID_PRIVATE    from `npm run keys`
+#   VAPID_SUBJECT    mailto:you@example.com

@@ -6,6 +6,7 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { splitLines } from "../engine/turn";
 import { getApiKey, setApiKey } from "../config";
+import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
 
@@ -59,6 +60,83 @@ function SectionHeader({ label, blurb }: { label: string; blurb: string }) {
     <div className="px-1 pt-2">
       <div className="font-display text-[16px]">{label}</div>
       <div className="text-[11px]" style={{ color: "var(--text-lo)" }}>{blurb}</div>
+    </div>
+  );
+}
+
+/** BACKGROUND TURNS — the relay, and the notification that tells you a turn landed.
+ *
+ *  This is the only place in Settings that configures something outside the browser, so it says
+ *  plainly what leaves the device. See src/relay.ts and relay/README.md. */
+function BackgroundTurns() {
+  const cur = getRelay();
+  const [url, setUrl] = useState(cur?.url ?? "");
+  const [token, setToken] = useState(cur?.token ?? "");
+  const [vapid, setVapid] = useState(cur?.vapid ?? "");
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [subbed, setSubbed] = useState<boolean | null>(null);
+
+  React.useEffect(() => { void currentPush().then((p) => setSubbed(!!p)); }, []);
+
+  const save = async () => {
+    const c = { url: url.trim().replace(/\/+$/, ""), token: token.trim(), vapid: vapid.trim() || undefined };
+    if (!c.url || !c.token) { setRelay(null); setStatus("relay off — turns run in this tab, as before"); return; }
+    setBusy(true);
+    try {
+      const h = await relayHealth(c);
+      if (!h.ok) { setStatus(`couldn't reach it: ${h.error}`); return; }
+      setRelay(c);
+      setStatus("connected — narration now runs on the relay");
+      if (h.vapid && !c.vapid) { setVapid(h.vapid); setRelay({ ...c, vapid: h.vapid }); }
+    } finally { setBusy(false); }
+  };
+
+  const enablePush = async () => {
+    const c = getRelay();
+    if (!c?.vapid) { setStatus("save the relay first — the public key comes from it"); return; }
+    setBusy(true);
+    try {
+      await subscribePush(c.vapid);
+      setSubbed(true);
+      setStatus("notifications on — you'll get a ping when a turn lands");
+    } catch (e) {
+      setStatus(`couldn't subscribe: ${(e as Error)?.message ?? e}`);
+    } finally { setBusy(false); }
+  };
+
+  const installed = isInstalled();
+  return (
+    <div className="card p-4 mt-3">
+      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Background turns (optional)</div>
+      <div className="text-[12px] leading-relaxed mb-3" style={{ color: "var(--text-mid)" }}>
+        Without this, a turn is written by this tab — so if the app is closed or killed while the
+        narrator is working, the turn dies with it. On iOS that happens within seconds of switching
+        away. Point Weaver at a relay you've deployed and the narrator call is made there instead:
+        leave, come back, it's finished. Setup is in <span style={{ fontFamily: "var(--font-mono)" }}>relay/README.md</span>.
+      </div>
+      <div className="text-[11px] italic mb-3" style={{ color: "var(--text-lo)" }}>
+        What the relay sees: the narrator prompt (world digest and recent prose) and what comes back.
+        Your save never leaves this device — bookkeeping still runs here.
+      </div>
+      <TextField label="Relay URL" value={url} onChange={setUrl} mono />
+      <TextField label="Relay token" value={token} onChange={setToken} mono />
+      <TextField label="VAPID public key (for notifications)" value={vapid} onChange={setVapid} mono />
+      <div className="flex gap-2 mt-2">
+        <button className="btn flex-1" disabled={busy} onClick={() => void save()}>
+          {busy ? "checking…" : "Save & test"}
+        </button>
+        <button className="btn flex-1" disabled={busy || !installed || subbed === true} onClick={() => void enablePush()}>
+          {subbed ? <><Check size={14} /> notifications on</> : "Turn on notifications"}
+        </button>
+      </div>
+      {!installed && (
+        <div className="text-[11px] italic mt-2" style={{ color: "var(--text-lo)" }}>
+          Notifications need the app added to your home screen — iOS gives a plain browser tab no
+          access to them at all. Share → Add to Home Screen, then open it from the icon.
+        </div>
+      )}
+      {status && <div className="text-[11.5px] mt-2" style={{ color: "var(--accent)" }}>{status}</div>}
     </div>
   );
 }
@@ -343,6 +421,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           The key lives in your browser's localStorage and is sent straight to OpenRouter. It never touches any other server. Get one at openrouter.ai/keys.
         </div>
       </div>
+
+      <BackgroundTurns />
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids)</div>
         <ModelPicker label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />

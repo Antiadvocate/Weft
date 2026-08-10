@@ -14,6 +14,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
+import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback } from "../engine/authored";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
@@ -1446,7 +1447,10 @@ export function governorState(s: Pick<SaveState, "telemetry" | "model_settings">
  * records the in-flight turn at two checkpoints (submission; prose-complete). On return,
  * resumePending() finishes the ledger from the exact point of death — only the cheap simulator
  * call re-fires; narrator tokens are never re-bought. */
-interface TurnJournal { turn: number; action: string; mode: string; prose?: string; partial?: boolean; ts: number }
+interface TurnJournal { turn: number; action: string; mode: string; prose?: string; partial?: boolean; ts: number;
+  /** The relay job this turn's narration was handed to, if any. Written BEFORE the request goes
+   *  out — it is the only way a cold-booted app can find a completion it already paid for. */
+  job?: string }
 
 /** Prose below this is a fragment, not a scene: hand the words back and let them re-run rather than
  *  committing a two-sentence turn to history. Above it, there is a beat worth keeping. */
@@ -1478,8 +1482,27 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   // finished from what there is, trimmed back to the last complete paragraph so it ends on a whole
   // sentence rather than mid-word. Short of that it is still words-back — a three-sentence turn in
   // permanent history is worse than re-running one.
-  const prose = j.prose && j.partial ? trimToParagraph(j.prose) : j.prose;
-  if (!prose || (j.partial && prose.length < PARTIAL_MIN)) {
+  // ── THE RELAY STILL HAS IT ────────────────────────────────────────────────────────────────
+  // This is the case the whole relay exists for. The app was killed during narration — on iOS,
+  // seconds after you switched to something else — but the request was never being made by this
+  // device, so it kept running. Ask for it. A finished completion here means the turn is whole
+  // rather than truncated, and nothing was paid for twice.
+  let relayed: string | null = null;
+  const relay = j.job ? getRelay() : null;
+  if (relay && j.job) {
+    try {
+      const r = await fetchJob(relay, j.job);
+      if (r.status === "done" && r.text.trim()) relayed = r.text;
+      // STILL WRITING. Leave everything exactly as it is and come back — the journal is the only
+      // record of which job this turn belongs to, so clearing it here would strand a completion
+      // that is still being paid for, and the fallthrough below would commit a truncated local
+      // copy of a turn that is about to arrive whole.
+      else if (r.status === "running") return { kind: "none" };
+    } catch { /* relay unreachable — fall back to whatever the local journal caught */ }
+  }
+
+  const prose = relayed ?? (j.prose && j.partial ? trimToParagraph(j.prose) : j.prose);
+  if (!prose || (!relayed && j.partial && prose.length < PARTIAL_MIN)) {
     clearJournal(id);
     return { kind: "restore_action", action: j.action };
   }
@@ -1491,7 +1514,7 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   }, (j.mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: prose });
   await putSave(s);
   clearJournal(id);
-  return { kind: "completed", save: clientView(s), cutShort: !!j.partial };
+  return { kind: "completed", save: clientView(s), cutShort: !!j.partial && !relayed };
 }
 
 /** Back up to the last paragraph break so a killed stream ends on a finished thought. Falls back to
@@ -1519,13 +1542,16 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // Play is never blocked; over-budget just means eco + a visible HUD state.
     const gov = governorState(s);
     if (gov.eco) ev.onPhase?.("eco");
-    writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, ts: Date.now() });
+    // The job id exists before the call does, so the journal can point at it even if the app dies
+    // during the very first second of narration.
+    const job = getRelay() ? newJobId() : undefined;
+    writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, ts: Date.now(), job });
     let proseAcc = "";
     let lastJournaled = 0;
     await runTurn(s, act, {
       onPhase: (p) => {
         if (!proseJournaled && p !== "pressure" && p !== "narrator" && p !== "eco" && proseAcc) {
-          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, ts: Date.now() });
+          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, ts: Date.now(), job });
           proseJournaled = true;
         }
         ev.onPhase?.(p);
@@ -1538,13 +1564,13 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
         proseAcc += t;
         if (!proseJournaled && proseAcc.length - lastJournaled >= 1200) {
           lastJournaled = proseAcc.length;
-          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, partial: true, ts: Date.now() });
+          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, partial: true, ts: Date.now(), job });
         }
         ev.onDelta?.(t);
       },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
       onRead: (rs) => ev.onRead?.(rs),
-    }, observe ? "story" : mode, { ...opts, eco: gov.eco, signal: opts?.signal });
+    }, observe ? "story" : mode, { ...opts, eco: gov.eco, signal: opts?.signal, jobId: job });
     // FRESH READER. After the turn, re-derive the voice of anyone in the scene whose card hasn't
     // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of
     // narrator prose — so it can't inherit the drift it exists to undo. Best-effort and silent:

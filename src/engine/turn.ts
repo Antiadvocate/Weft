@@ -1116,7 +1116,11 @@ function deriveDefaultVoice(traits: string[], age: string): { diction?: string; 
   };
 }
 
-export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal }): Promise<void> {
+export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal;
+  /** Identifies THIS turn's narrator call to the relay, when one is configured. Generated and
+   *  journaled by the caller before the turn starts, so an app that gets killed mid-narration can
+   *  come back and collect the completion instead of re-buying it. Ignored with no relay. */
+  jobId?: string }): Promise<void> {
   const t0 = Date.now();
   // ── STOP ── The two long calls of a turn (narrator, then bookkeeper) can be abandoned. The
   // engine never persists anything itself: the caller reads a fresh SaveState, we mutate that
@@ -1980,7 +1984,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     prose = opts.proseOverride;
   } else {
     checkStop();
-    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, groundOn, resolvedQuery || undefined, signal);
+    const stream = completeStream(narratorMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, groundOn, resolvedQuery || undefined, signal, opts?.jobId);
     let narratorSources: { url: string; title?: string }[] | undefined;
     while (true) {
       const { done, value } = await stream.next();
@@ -2006,6 +2010,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       ev.onMeta?.({ shifts: [`narrator model declined this turn — retrying on fallback`] });
       const fb = state.model_settings.fallback_model || "google/gemini-2.5-flash";
       try {
+        // No job id on the retry, on purpose. The relay treats a job id as idempotent — a second
+        // POST for an id it has seen returns the FIRST job's state, which here is the one that just
+        // failed. The retry is a direct call; it is also the short path, so it is the one least
+        // worth protecting.
         const retry = completeStream(narratorMsgs, fb, fb, 5000, groundOn, resolvedQuery || undefined, signal);
         let rprose = "";
         while (true) {

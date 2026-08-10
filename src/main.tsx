@@ -27,3 +27,15 @@ createRoot(document.getElementById("root")!).render(
     <Boundary><App /></Boundary>
   </React.StrictMode>
 );
+
+// SERVICE WORKER — registered for one reason: a push notification cannot be delivered without one,
+// and "your turn is ready" on the phone is the whole point of running turns on a relay. It caches
+// nothing (see public/sw.js). Registration is best-effort and silent: no service worker means no
+// notifications, and everything else about the app works exactly as before.
+// Relative URL, because the build uses base "./" and may be served from a project subpath.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(new URL("sw.js", document.baseURI), { scope: "./" })
+      .catch(() => { /* file://, an insecure origin, or a browser that will not — play on regardless */ });
+  });
+}

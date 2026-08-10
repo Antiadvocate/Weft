@@ -1,6 +1,7 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
 import { getApiKey } from "./config";
+import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -235,7 +236,10 @@ export async function complete(messages: any[], model: string, fallback: string,
   }
 }
 
-export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string, signal?: AbortSignal): AsyncGenerator<string, LLMResult, unknown> {
+/** `jobId`, when a relay is configured, is what makes this call survive the app being killed. It is
+ *  generated once per turn and journaled BEFORE the request goes out, so a cold-booted app can ask
+ *  the relay for the completion it already paid for. Passing nothing keeps the old direct path. */
+export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string, signal?: AbortSignal, jobId?: string): AsyncGenerator<string, LLMResult, unknown> {
   const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
     // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
     // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
@@ -273,6 +277,49 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       body.plugins = [web];
     }
     if (signal?.aborted) throw new Cancelled();
+
+    // ── THE RELAY TAKES THE CALL ──────────────────────────────────────────────────────────────
+    // With a relay configured and a job id for this turn, the request is made by the relay and this
+    // tab only watches. The difference shows up when the app is killed mid-narration, which on iOS
+    // is the common case rather than the rare one: the relay is still holding the socket, so the
+    // completion finishes, and the same job id fetches it whole on the next cold boot.
+    //
+    // A failure here falls through to the direct call below rather than failing the turn. A relay
+    // that is down, misconfigured, or out of quota should cost the player a background turn, never
+    // the turn itself.
+    const relay = jobId ? getRelay() : null;
+    if (relay && jobId) {
+      try {
+        await startJob(relay, jobId, body, await currentPush());
+        // Driven by hand rather than with yield*, because the deltas have to be accumulated on the
+        // way past: the caller gets them for live rendering AND the finished text is the turn.
+        const it = streamJob(relay, jobId, signal);
+        let full = "";
+        let tail: { usage?: RawUsage | null; truncated?: boolean } = {};
+        for (;;) {
+          const step = await it.next();
+          if (step.done) { tail = step.value ?? {}; break; }
+          full += step.value;
+          yield step.value;
+        }
+        if (!full.trim()) throw new Error("relay returned an empty stream");
+        return {
+          text: full,
+          usage: {
+            prompt_tokens: tail.usage?.prompt_tokens ?? 0,
+            completion_tokens: tail.usage?.completion_tokens ?? 0,
+            cached_tokens: tail.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+            cost: tail.usage?.cost,
+          },
+          model: m,
+          truncated: !!tail.truncated,
+        };
+      } catch (e) {
+        if (isCancel(e)) throw new Cancelled();
+        console.warn("[relay] falling back to a direct call:", (e as Error)?.message);
+      }
+    }
+
     const res = await fetch(OR_URL, { method: "POST", signal, headers: headers(), body: JSON.stringify(body) });
     if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const reader = res.body.getReader();
