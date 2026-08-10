@@ -184,6 +184,9 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
   const log: string[] = [];
   const turn = state.world.current_turn;
   const elapsed = Math.max(0, minutesElapsed);
+  // Every name in the cast is scenery for this purpose — the player's especially, since it appears
+  // in nearly every sentence of every turn.
+  const castNames = Object.values(state.characters ?? {}).flatMap((c) => (c.name ?? "").split(/\s+/)).filter(Boolean);
   for (const [id, c] of Object.entries(state.characters ?? {})) {
     if (id === "char_player") continue;
     if (c.status === "dead" || c.status === "departed") continue;
@@ -192,7 +195,7 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
 
       if (a.inhabit_turns && a.inhabit_turns > 0) {
         // EARNED, NOT ELAPSED.
-        if (prose && mentions(a.goal, prose)) {
+        if (prose && mentions(a.goal, prose, castNames)) {
           a.seen = (a.seen ?? 0) + 1;
           a.last_seen_turn = turn;
           a.stalled = 0;
@@ -223,14 +226,37 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
   return log;
 }
 
-/** Did this turn's prose acknowledge the want, directly or indirectly? */
-function mentions(goal: string, prose: string): boolean {
-  const stop = new Set(["their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from", "every", "time", "always", "gets", "getting"]);
-  const words = [...new Set((goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))].filter((w) => !stop.has(w));
+/** DID THIS TURN'S PROSE ACTUALLY ACKNOWLEDGE THE WANT?
+ *
+ *  The first version of this counted any two content words, and on a real save that meant a want
+ *  reading "Makes Rabi lick her armpits anytime she sees him" was marked SHOWN on a turn whose prose
+ *  merely contained "makes" and "Rabi". The player's own name appears in nearly every sentence of
+ *  every turn; "makes", "sees", "gets" are narration. So the percentage climbed while nothing
+ *  happened — the evidence gate was counting the noise it existed to filter out.
+ *
+ *  The signal is the RARE word. In that goal it is "armpits", and only "armpits": if the prose does
+ *  not contain the one word nothing else in the story would produce, the thing did not happen. So
+ *  character names and ordinary verbs are stripped, and the longest surviving word — a decent proxy
+ *  for the most distinctive one — must actually be there. */
+const NARRATION = new Set([
+  "their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from",
+  "every", "time", "always", "gets", "getting", "make", "makes", "making", "sees", "seeing", "look",
+  "looks", "looking", "take", "takes", "taking", "give", "gives", "come", "comes", "goes", "going",
+  "want", "wants", "says", "said", "tell", "tells", "asks", "asked", "keep", "keeps", "does", "doing",
+  "again", "still", "just", "back", "over", "down", "away", "like", "would", "could", "then", "than",
+]);
+function mentions(goal: string, prose: string, names: string[] = []): boolean {
+  const banned = new Set([...NARRATION, ...names.map((n) => n.toLowerCase())]);
+  const words = [...new Set((goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))]
+    .filter((w) => !banned.has(w))
+    .sort((a, b) => b.length - a.length);
   if (!words.length) return false;
   const hay = prose.toLowerCase();
-  const hits = words.filter((w) => hay.includes(w)).length;
-  return hits >= Math.min(words.length, Math.max(1, Math.ceil(words.length * 0.34)));
+  // One of the two most distinctive words must be present. Length is a crude rarity proxy and a
+  // single longest word is too brittle — "start having people over late" ranks "having" first, so
+  // requiring only that would miss "six people in his front room". Two gives the real subject noun
+  // a chance while still refusing anything that matched on scenery alone.
+  return words.slice(0, 2).some((w) => hay.includes(w));
 }
 
 /** Did this want ever actually reach the page? Matched on the distinctive words of the goal against

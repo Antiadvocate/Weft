@@ -383,5 +383,50 @@ const wantsLines = (s: SaveState) =>
   check("but one the story DID show becomes who they are", !!s.characters.char_neigh.authored?.[0]?.crystallized_turn);
 }
 
+/* ── 8. THE EVIDENCE GATE MUST NOT COUNT SCENERY ─────────────────────────────────
+ *
+ * The gate shipped counting any two content words. On a real save that marked a want reading
+ * "Makes Rabi lick her armpits anytime she sees him" as SHOWN on a turn whose prose merely contained
+ * "makes" and "Rabi" — the player's name, which appears in nearly every sentence of every turn, plus
+ * a narration verb. The percentage climbed while nothing happened, which is precisely the failure
+ * the gate was added to prevent, now with a number attesting to it.
+ *
+ * The signal is the RARE word. Here that is "armpits" and only "armpits". */
+{
+  const s = mk(1);
+  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits anytime she sees him.", 1, { inhabit_turns: 3 })];
+  const a = s.characters.char_neigh.authored![0];
+  const feed = (text: string) => { s.world.current_turn++; tickAuthored(s, 15, text); };
+
+  feed("Rabi crossed the room and she watched him go.");
+  check("the player's name alone is not evidence", (a.seen ?? 0) === 0, a.seen);
+  feed("She makes a note on the manifest. Rabi sees the number and says nothing.");
+  check("nor a narration verb plus the player's name — the exact false positive", (a.seen ?? 0) === 0, a.seen);
+  feed("Dev leaned in and put her nose against him, and did not explain it.");
+  check("nor a scene that is merely adjacent", (a.seen ?? 0) === 0, a.seen);
+
+  feed("She raised her arm and held it there until he put his mouth to her armpits.");
+  check("the rare word is what counts", (a.seen ?? 0) === 1, a.seen);
+  check("and the stall counter resets when it finally lands", (a.stalled ?? 0) === 0, a.stalled);
+}
+{
+  // THE DELIBERATE TRADE, recorded so it is not mistaken for an oversight. A rare-word rule is strict
+  // and will miss some genuinely indirect acknowledgements ("he did not have anyone over that night"
+  // shares nothing distinctive with "start having people over late"). That costs one turn of
+  // progress. The looser rule it replaced cost the entire feature: it certified as SHOWN a turn
+  // containing only the player's name and the word "makes", so the percentage rose to completion
+  // across a story in which the want never appeared. A missed beat is recoverable; a false one is
+  // the bug this exists to catch, wearing the badge of the thing that catches it.
+  const s = mk(1);
+  s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 3 })];
+  const a = s.characters.char_neigh.authored![0];
+  s.world.current_turn++;
+  tickAuthored(s, 15, "He did not have anyone over that night, and the house stayed quiet.");
+  check("a strictly indirect mention is missed, and that is the safe direction", (a.seen ?? 0) === 0, a.seen);
+  s.world.current_turn++;
+  tickAuthored(s, 15, "By ten there were six people in his front room and the music was up.");
+  check("but the subject named plainly always counts", (a.seen ?? 0) === 1, a.seen);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
