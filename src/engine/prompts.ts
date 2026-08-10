@@ -751,7 +751,21 @@ export function simulatorContext(state: SaveState): string {
     const bits = [
       `fatigue ${c.fatigue}, hunger ${c.hunger}`,
       c.conditions.length ? `conditions: ${c.conditions.join(", ")}${bodySeverity(c) >= 3 ? " [BODY WRECKED — dominates everything they do]" : ""}` : "",
-      c.injuries.length ? `injuries: ${c.injuries.map((i) => i.type).join(", ")}` : "",
+      // SAY THE NEGATIVE. Every injury render in this file is gated on injuries.length, so an
+      // unhurt body was described by SILENCE — and silence is not a statement, it is room.
+      //
+      // One save carried conditions ["ankle_wrapped_and_elevated"] and injuries []. A dressing with
+      // nothing under it is an incoherent body, and the narrator resolved it the only way left: it
+      // invented the wound. "It was a field wrap. It's been wet for three hours. You walked off the
+      // beach on it" — none of which was in the state, which recorded the ankle being wrapped five
+      // turns earlier in a lit room — and then "the pause when the gauze came free and she saw what
+      // was underneath". Nothing is underneath. The bookkeeper then filed that as a memory, so the
+      // invention became canon and the character has been treating a wound that does not exist.
+      c.injuries.length
+        ? `injuries: ${c.injuries.map((i) => i.type).join(", ")}`
+        : c.conditions.length
+          ? `NO INJURIES — nothing is wounded, broken, bleeding, or healing. Any dressing or treatment named above is precautionary or already resolved; there is no wound under it. Do not write one, do not have anyone uncover one, and do not describe a body part as damaged.`
+          : "no injuries",
       c.inventory.length ? `carrying: ${c.inventory.slice(-8).map((i) => i.name).join(", ")}` : "",
       c.wearing.length ? `wearing: ${c.wearing.join(", ")}` : "",
       `mood ${c.psyche.mood || "even"}`,
