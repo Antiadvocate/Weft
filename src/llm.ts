@@ -77,6 +77,23 @@ export interface CallOpts { providerSort?: "price" | "throughput" | "latency"; o
 
 /** Thrown when the caller aborted. Distinguished from a real failure so nothing gets logged as an
  *  error, no fallback model is spent, and the turn can unwind quietly. */
+/** THE PROVIDER NEVER STARTED TALKING.
+ *
+ *  A hung provider is not an error — it is a socket that stays open, producing nothing, for as long
+ *  as you are willing to wait. Turn 1 of one save took 320 SECONDS to produce 385 narrator tokens
+ *  and 430 bookkeeper tokens, which is not generation, it is queueing. Nothing in the client had any
+ *  opinion about how long that was allowed to take.
+ *
+ *  Thrown when the first token has not arrived in TTFT_MS, so the caller can re-route rather than
+ *  keep waiting. Distinct from Cancelled: the player did not ask for this. */
+export class Stalled extends Error {
+  constructor(ms: number) { super(`no first token in ${Math.round(ms / 1000)}s`); this.name = "Stalled"; }
+}
+/** How long to wait for the FIRST token before giving up on a provider and asking for another one.
+ *  Generous: a big cached prompt on a healthy provider starts inside ten seconds, and a cold cache on
+ *  a busy one can legitimately take twenty. Past forty-five, nothing good is happening. */
+export const TTFT_MS = 45_000;
+
 export class Cancelled extends Error {
   constructor() { super("cancelled"); this.name = "Cancelled"; }
 }
@@ -245,7 +262,7 @@ export async function complete(messages: any[], model: string, fallback: string,
  *  generated once per turn and journaled BEFORE the request goes out, so a cold-booted app can ask
  *  the relay for the completion it already paid for. Passing nothing keeps the old direct path. */
 export async function* completeStream(messages: any[], model: string, fallback: string, maxTokens = 4000, online = false, searchQuery?: string, signal?: AbortSignal, jobId?: string): AsyncGenerator<string, LLMResult, unknown> {
-  const attempt = async function* (m: string): AsyncGenerator<string, LLMResult, unknown> {
+  const attempt = async function* (m: string, reroute = false): AsyncGenerator<string, LLMResult, unknown> {
     // WEB GROUNDING — the explicit plugins form, not the ":online" slug. Some provider routes
     // reject a suffixed slug outright, and the catch below then re-ran the turn WITHOUT search
     // via the fallback: grounding failed silently and looked like it did nothing. The plugins
@@ -270,8 +287,9 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       }
     }
     const body: Record<string, unknown> = { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
-      // routing rides the narrator stream too — it's the biggest call of the turn
-      ...providerParam(m),
+      // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
+      // after a stall, drop the price sort and the provider pin: whoever answers fastest.
+      ...(reroute ? { provider: { sort: "throughput", allow_fallbacks: true } } : providerParam(m)),
       // NO THINKING FOR PROSE: reasoning-tier models default to thinking, and those tokens bill
       // as output. A scene doesn't need deliberation; the directive already carries the design.
       ...(prefs.narratorReasoning ? {} : { reasoning: { enabled: false } }),
@@ -325,8 +343,25 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       }
     }
 
-    const res = await fetch(OR_URL, { method: "POST", signal, headers: headers(), body: JSON.stringify(body) });
-    if (!res.ok || !res.body) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    // TIME TO FIRST TOKEN, WATCHED. The abort controller is chained to the caller's signal so the
+    // stop button still works, and the timer is cleared the moment anything arrives — a slow
+    // GENERATION is fine and none of our business, a provider that never starts is not.
+    const guard = new AbortController();
+    const onAbort = () => guard.abort();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    let started = false;
+    let stalled = false;
+    const ttft = setTimeout(() => { if (!started) { stalled = true; guard.abort(); } }, TTFT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(OR_URL, { method: "POST", signal: guard.signal, headers: headers(), body: JSON.stringify(body) });
+    } catch (e) {
+      clearTimeout(ttft); signal?.removeEventListener("abort", onAbort);
+      if (stalled) throw new Stalled(TTFT_MS);
+      throw e;
+    }
+    if (!res.ok || !res.body) { clearTimeout(ttft); signal?.removeEventListener("abort", onAbort); throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`); }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "", full = "", usage: Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -346,7 +381,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         try {
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
-          if (delta) { full += delta; yield delta; }
+          if (delta) { if (!started) { started = true; clearTimeout(ttft); } full += delta; yield delta; }
           // hit the output cap mid-generation — the tail (scene footer) was cut. Flag it so the
           // caller can recover rather than silently losing the footer.
           if (j.choices?.[0]?.finish_reason === "length") truncated = true;
@@ -359,6 +394,9 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         } catch { /* keep-alive */ }
       }
     }
+    clearTimeout(ttft);
+    signal?.removeEventListener("abort", onAbort);
+    if (stalled) throw new Stalled(TTFT_MS);
     if (!full.trim()) throw new Error("empty stream");
     return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined, truncated };
   };
@@ -366,6 +404,20 @@ export async function* completeStream(messages: any[], model: string, fallback: 
   catch (e: any) {
     // stopping the narrator must not silently re-buy the whole scene on the fallback model
     if (isCancel(e)) throw new Cancelled();
+    // A STALL IS A ROUTING PROBLEM, NOT A MODEL PROBLEM. The provider never started talking, so the
+    // model has not been given a chance to fail — switching to a different MODEL would be answering
+    // the wrong question and would change the prose for a reason the player never chose. Ask for the
+    // same model on the fastest available provider instead, with no pinned order.
+    //
+    // This matters most in exactly the configuration that produced it: route-by-price plus a pin to
+    // first-party DeepSeek sends the longest call of the turn to the cheapest, most-queued host
+    // there is. The bookkeeper already opts out of price routing because "bookkeeping latency is the
+    // felt latency" — which is true, and truer still of the narrator, which is twice the call.
+    if (e?.name === "Stalled") {
+      logErr(model, e);
+      console.warn(`[llm] ${model} never started; re-routing for throughput`);
+      return yield* attempt(model, true);
+    }
     logErr(model, e); return yield* attempt(fallback);
   }
 }
