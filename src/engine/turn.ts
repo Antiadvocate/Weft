@@ -34,7 +34,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
-import { hasAuthored, liveAuthored, tickAuthored } from "./authored";
+import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -1914,7 +1914,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + povFilter + lastWord(state);
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via

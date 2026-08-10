@@ -1418,13 +1418,14 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       // about this person, and removing it on completion was why a crystallised want stopped
       // appearing entirely. See settledAuthored.
       settledAuthored(ident).forEach((a) => {
-        lines.push(`  simply does this, every time the situation allows, without deciding to: ${a.goal} — it needs no occasion and no excuse, and being prevented would surprise her. If this scene gives it any opening at all, it happens.`);
+        lines.push(`  simply does this now, without deciding to: ${a.goal} [see the direction below]`);
       });
       liveAuthored(ident).forEach((a, i) => {
         const lead = !goalNow && i === 0 ? "wants" : "also wants, and this one is standing rather than an errand";
-        lines.push(`  ${lead}: ${authoredLine(a)}`);
-        // A want the narrator has been ignoring gets louder rather than quietly stalling.
-        if ((a.stalled ?? 0) >= 2) lines.push(`  ^ this has not been visible for ${a.stalled} turns and has therefore not advanced at all. It does not move until it is written. Put its beat in THIS scene.`);
+        // ONE LINE ONLY. The working instruction lives in the per-turn directive (habitDirective),
+        // because a rule in the middle of a thirty-thousand-character digest is reference and a rule
+        // at the end is an instruction. Repeating the whole thing here would pay for it twice.
+        lines.push(`  ${lead}: ${a.goal} [see the forming-habits note in the direction below]`);
       });
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);

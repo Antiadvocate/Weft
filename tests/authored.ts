@@ -13,7 +13,7 @@
  *   2. it does not complete — a habit that finishes after one party is not a habit
  *   3. it climbs — same want, different evening, at stage 0 and stage 3
  *   4. it becomes the person, once it has run long enough to have earned it */
-import { authoredLine, authoredWants, crystallize, hasAuthored, intensity, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
+import { authoredLine, authoredWants, crystallize, habitDirective, hasAuthored, intensity, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
 
 import { regenerateDrives, seedDrive } from "../src/engine/drives";
 import { volatileDigest } from "../src/engine/prompts";
@@ -460,9 +460,59 @@ const wantsLines = (s: SaveState) =>
   c.authored[0].crystallized_turn = 9;
   const lines = volatileDigest(s, "").split("\n").filter((l) => /simply does this|wants/.test(l));
   check("a finished habit is still on the card", lines.some((l) => /people over late/.test(l)), lines);
-  check("stated as something needing no occasion", lines.some((l) => /needs no occasion and no excuse/.test(l)), lines);
-  check("and it fires whenever the scene gives it an opening", lines.some((l) => /any opening at all, it happens/.test(l)), lines);
+  // the card keeps a one-line reference; the working instruction moved to the per-turn direction,
+  // because a rule in the middle of a 30k digest is reference and a rule at the end is an instruction
+  check("the card points at where the instruction actually lives", lines.some((l) => /see the direction below/.test(l)), lines);
   check("the card does not also claim they want nothing", !lines.some((l) => /nothing pressing/.test(l)), lines);
+}
+
+/* ── 10. A RULE AT THE END IS AN INSTRUCTION; ONE IN THE MIDDLE IS REFERENCE ─────
+ *
+ * Ten turns, 0% seen, stalled 6 — with the want on the card, correct and complete, on every one of
+ * them. It sat 60% of the way through a 29,788-character digest, behind a 27,000-character contract.
+ * Every previous fix made that middle-of-the-document entry longer, which is not the same as making
+ * it louder.
+ *
+ * This is the identical failure to the repeated-dialogue bug earlier in the same session, whose fix
+ * was to move the no-repeat rule out of a block sixty thousand characters in and put it where
+ * nothing follows it. I never applied that lesson here. */
+{
+  const s = mk(5);
+  s.world.present = ["char_neigh"];
+  s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
+  s.characters.char_neigh.authored![0].stalled = 4;
+  const d = habitDirective(s, s.world.present);
+  check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
+  check("stated as required rather than as background", /not background and it is not optional/.test(d));
+  check("a turn without it is named as a failure", /a turn in which none of it can be seen is a turn in which it failed/.test(d));
+  check("and a stalled want says how long it has been ignored", /has not been visible for 4 turns/.test(d), d);
+}
+{
+  const s = mk(5);
+  s.world.present = ["char_neigh"];
+  s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 2 })];
+  s.characters.char_neigh.authored![0].crystallized_turn = 4;
+  const d = habitDirective(s, s.world.present);
+  check("a finished habit is in the direction too", /SIMPLY DOES THIS NOW/.test(d), d.slice(0, 200));
+  check("and fires on any opening", /any opening at all, it happens/.test(d));
+}
+{
+  /* "There are random habits that are never used at all, but they should integrate to make a person,
+   * which is why everyone feels like the same person." Same failure one level up: core_traits are
+   * listed where things are listed, never where things are asked for. */
+  const s = mk(5);
+  s.world.present = ["char_neigh"];
+  s.characters.char_neigh.core_traits = ["Sleeps with a wrench within arm's reach", "Comments on every wasted resource out loud"];
+  const d = habitDirective(s, s.world.present);
+  check("an existing core trait is asked for by name", /wrench|wasted resource/.test(d), d);
+  check("as something they DO rather than something stated", /in something they DO rather than something stated/.test(d));
+  const turns = [5, 6, 7, 8].map((t) => { s.world.current_turn = t; return habitDirective(s, s.world.present); });
+  check("and it rotates, so it is a different one across turns", new Set(turns).size > 1);
+}
+{
+  const s = mk(5);
+  s.world.present = [];
+  check("an empty room asks for nothing", habitDirective(s, []) === "");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

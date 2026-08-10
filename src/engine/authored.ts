@@ -170,6 +170,57 @@ export function authoredLine(a: AuthoredDrive): string {
   return bits.join(" — ");
 }
 
+/** THE LAST THING THE NARRATOR READS ABOUT THIS PERSON.
+ *
+ *  This is the fix, and it is the same one that fixed the repeated-dialogue bug earlier: a rule
+ *  living in the middle of a long document is reference, and a rule at the end is an instruction.
+ *
+ *  The want has been on the character card the whole time — correct, complete, increasingly emphatic
+ *  — sixty percent of the way through a thirty-thousand-character digest, behind a
+ *  twenty-seven-thousand-character contract. Every fix I made was making a middle-of-the-document
+ *  entry longer, which is not the same as making it louder. Six turns of stalled: 0% seen, with the
+ *  instruction present and impeccable on every one of them.
+ *
+ *  The per-turn directive is what a narrator acts on. So the want goes there, after everything else,
+ *  next to the player's action — and the card keeps only a one-line reference so the tokens are not
+ *  paid twice. */
+export function habitDirective(state: SaveState, presentIds: string[]): string {
+  const rows: string[] = [];
+  for (const id of presentIds) {
+    const c = state.characters[id];
+    if (!c || id === "char_player") continue;
+    for (const a of settledAuthored(c)) {
+      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal}. It needs no occasion and no excuse. If this scene gives it any opening at all, it happens.`);
+    }
+    for (const a of liveAuthored(c)) {
+      const stalledNote = (a.stalled ?? 0) >= 2
+        ? ` This has not been visible for ${a.stalled} turns and has therefore not advanced at all — it does not move until it is written, so write it.`
+        : "";
+      rows.push(`${c.name} — ${authoredLine(a)}${stalledNote}`);
+    }
+  }
+  // AND THE HABITS THEY ALREADY HAVE. "There are random habits that are never used at all, but they
+  // should integrate to make a person, which is why everyone feels like the same person."
+  //
+  // Correct, and it is the same failure one level up: core_traits are on the card, in the middle of
+  // the digest, obliging nobody. Dana sleeps with a wrench in reach and comments on every wasted
+  // resource out loud, every time — and neither has ever governed a line. They are listed where
+  // things are listed rather than where things are asked for. One of them, chosen by rotation so it
+  // is a different one each turn, comes down here with everything else that must actually happen.
+  const traits: string[] = [];
+  for (const id of presentIds) {
+    const c = state.characters[id];
+    if (!c || id === "char_player" || !c.core_traits?.length) continue;
+    const pick = c.core_traits[(state.world.current_turn + id.length) % c.core_traits.length];
+    if (pick) traits.push(`${c.name}: ${pick}`);
+  }
+  if (traits.length) {
+    rows.push(`AND THESE ARE NOT DECORATION — each of these people acts out of the trait named here at least once this scene, in something they DO rather than something stated about them: ${traits.join(" | ")}`);
+  }
+  if (!rows.length) return "";
+  return `\n[WHAT IS FORMING IN THESE PEOPLE — write the beat for each of these into this scene, at the strength named and no more. This is not background and it is not optional; a turn in which none of it can be seen is a turn in which it failed.\n· ${rows.join("\n· ")}]`;
+}
+
 /** Every live authored want in the cast, as the world-sim's `wantsOf` wants them: id → lines. */
 export function authoredWants(state: SaveState): Map<string, string> {
   const out = new Map<string, string>();
