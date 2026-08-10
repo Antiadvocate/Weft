@@ -711,11 +711,13 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
   const [because, setBecause] = useState("");
   const [rate, setRate] = useState<"slow" | "steady" | "fast">("steady");
   const [cryst, setCryst] = useState(true);
+  const [turns, setTurns] = useState("");
   const [busy, setBusy] = useState(false);
 
   const start = () => {
     setGoal(cur?.goal ?? ""); setApproach(cur?.approach ?? ""); setBecause(cur?.because ?? "");
-    setRate(cur?.rate ?? "steady"); setCryst(cur?.crystallize ?? true); setOpen(true);
+    setRate(cur?.rate ?? "steady"); setCryst(cur?.crystallize ?? true);
+    setTurns(cur?.inhabit_turns ? String(cur.inhabit_turns) : ""); setOpen(true);
   };
   const run = async (fn: () => Promise<ClientSave>) => {
     setBusy(true);
@@ -724,7 +726,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
   const commit = () => {
     if (!goal.trim()) return;
     void run(async () => {
-      const s = await api.setAuthored(save.id, sel, { goal, approach, because, rate, crystallize: cryst });
+      const s = await api.setAuthored(save.id, sel, { goal, approach, because, rate, crystallize: cryst, inhabit_turns: Number(turns) || undefined });
       setOpen(false);
       return s;
     });
@@ -739,7 +741,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           {cur.because && <Row k="because" v={cur.because} />}
           <Row k="how far" v={cur.crystallized_turn
             ? `it stopped being a thing they do and became who they are (turn ${cur.crystallized_turn})`
-            : `${STAGE_WORDS[Math.max(0, Math.min(3, cur.stage))]} — ${cur.paused ? "held here" : `climbing, ${cur.rate}`}`} />
+            : `${STAGE_WORDS[Math.max(0, Math.min(3, cur.stage))]} — ${cur.paused ? "held here" : cur.inhabit_turns ? `${Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * Math.log10(1 + 9 * Math.max(0, Math.min(1, (save.world.current_turn - cur.added_turn) / cur.inhabit_turns))))))}% — full by turn ${cur.added_turn + cur.inhabit_turns}` : `climbing, ${cur.rate}`}`} />
           {!cur.crystallized_turn && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               <button className="btn-sm" disabled={busy} onClick={start}>edit</button>
@@ -787,6 +789,12 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
                 {r.label} <span style={{ color: "var(--text-lo)" }}>· {r.hint}</span>
               </button>
             ))}
+          </div>
+          <EditField label="Or: fully themselves within this many turns (overrides the above)" v={turns} set={setTurns} />
+          <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
+            Leave blank to escalate on in-world time. Set a number and it starts showing at 10% on the
+            next turn and reaches full on that turn exactly — and it will pull them into a scene to do
+            it. Use this when you want to SEE whether it works.
           </div>
           <label className="flex items-center gap-2 text-[12.5px] py-1" style={{ color: "var(--text-mid)" }}>
             <input type="checkbox" checked={cryst} onChange={(e) => setCryst(e.target.checked)} />

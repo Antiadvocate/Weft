@@ -48,6 +48,24 @@ const NERVE = [
   "well past reasonable, and it has become part of how they live — being challenged would surprise them",
 ];
 
+/** HOW MUCH OF THIS IS SHOWING, 0.1 to 1.
+ *
+ *  With `inhabit_turns` set, escalation is a deterministic function of turns since the want was
+ *  written: 10% immediately, full by the deadline, on a logarithmic curve so the first sign appears
+ *  at once and the rest arrives on schedule. Without it, the four in-world-hour rungs are used and
+ *  this reports where they sit.
+ *
+ *  The point of the turn budget is not that turns are the truer unit — they are not — but that a
+ *  want you cannot see moving is indistinguishable from a want that is broken, and this engine has
+ *  produced enough of the second that the first is not worth defending. */
+export function intensity(a: AuthoredDrive, turn: number): number {
+  if (a.inhabit_turns && a.inhabit_turns > 0) {
+    const p = Math.max(0, Math.min(1, (turn - a.added_turn) / a.inhabit_turns));
+    return Math.max(0.1, Math.min(1, 0.1 + 0.9 * (Math.log10(1 + 9 * p))));
+  }
+  return Math.max(0.1, Math.min(1, ((a.stage ?? 0) + 1) / (MAX_STAGE + 1)));
+}
+
 /** True when this person has a live authored want that should be acting on the world. */
 export function hasAuthored(c: Identity | undefined): c is Identity & { authored: AuthoredDrive } {
   return !!c?.authored?.goal && !c.authored.crystallized_turn;
@@ -59,12 +77,20 @@ export function hasAuthored(c: Identity | undefined): c is Identity & { authored
  *  a model plays it as an instruction to satisfy rather than as something a person wants, and the
  *  result is a character who announces it and gets it over with. The Inspector shows the player
  *  their own hand; the prompt shows a want. */
-export function authoredLine(a: AuthoredDrive): string {
-  const stage = Math.max(0, Math.min(MAX_STAGE, a.stage | 0));
+export function authoredLine(a: AuthoredDrive, turn?: number): string {
+  const i = turn === undefined ? undefined : intensity(a, turn);
+  const stage = i === undefined
+    ? Math.max(0, Math.min(MAX_STAGE, a.stage | 0))
+    : Math.min(MAX_STAGE, Math.floor(i * (MAX_STAGE + 1) - 0.0001));
   const bits = [a.goal];
   if (a.approach) bits.push("goes at it by: " + a.approach);
   if (a.because) bits.push("started because: " + a.because);
-  bits.push("where they are with it: " + NERVE[stage]);
+  bits.push("where they are with it: " + NERVE[Math.max(0, stage)]);
+  // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
+  // want written by the player is visibly ON A CLOCK rather than optional.
+  if (i !== undefined && a.inhabit_turns) {
+    bits.push(`this is ${Math.round(i * 100)}% of the way to being simply how they are, and it is still climbing — it shows in SOMETHING they do this scene, however small`);
+  }
   return bits.join(" — ");
 }
 
@@ -75,7 +101,7 @@ export function authoredWants(state: SaveState): Map<string, string> {
     if (id === "char_player" || !hasAuthored(c)) continue;
     if (c.status === "dead" || c.status === "departed") continue;
     if (c.authored.paused) continue;
-    out.set(id, authoredLine(c.authored));
+    out.set(id, authoredLine(c.authored, state.world.current_turn));
   }
   return out;
 }
@@ -110,6 +136,8 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
       a.stage = reached;
       log.push(`${c.name} is further into it than they were: ${a.goal}.`);
     }
+    // With a turn budget, "fully themselves" is the deadline, not an hours-based rung.
+    if (a.inhabit_turns && turn - a.added_turn >= a.inhabit_turns) a.stage = MAX_STAGE;
     if (a.stage >= MAX_STAGE && a.crystallize && !a.crystallized_turn) {
       const t = crystallize(state, id, turn);
       if (t) log.push(`${c.name} does not think of it as a thing they started any more: ${t}.`);
@@ -180,6 +208,7 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
     stage,
     acted: Math.max(stage * 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady), opts.acted ?? 0),
     paused: opts.paused,
+    inhabit_turns: opts.inhabit_turns && opts.inhabit_turns > 0 ? Math.round(opts.inhabit_turns) : undefined,
     crystallize: opts.crystallize ?? true,
     added_turn: opts.added_turn ?? turn,
   };

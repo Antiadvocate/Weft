@@ -1413,7 +1413,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       // Never marked as authored: told a human wrote it, a model plays it as an instruction to
       // discharge, and the character announces it and gets it over with in one scene.
       if (hasAuthored(ident) && !ident.authored.paused) {
-        lines.push(`  ${goalNow ? "also wants, and this one is standing rather than an errand" : "wants"}: ${authoredLine(ident.authored)}`);
+        lines.push(`  ${goalNow ? "also wants, and this one is standing rather than an errand" : "wants"}: ${authoredLine(ident.authored, state.world.current_turn)}`);
       }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);

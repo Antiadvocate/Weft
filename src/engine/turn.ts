@@ -34,7 +34,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
-import { tickAuthored } from "./authored";
+import { hasAuthored, tickAuthored } from "./authored";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -1253,8 +1253,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     .filter((n): n is string => !!n && n.length >= 3);
   const hereName = (state.world.places[state.world.player_location]?.name ?? "").toLowerCase();
   const agents = Object.entries(state.characters)
-    .filter(([id, c]) => id !== "char_player" && c.central !== false && c.status !== "dead" && c.status !== "departed" && !state.world.present.includes(id) && c.drive?.goal)
-    .map(([, c]) => ({ name: c.name, goal: c.drive!.goal, priority: c.drive!.priority ?? 1 }))
+    // AN AUTHORED WANT COUNTS AS A REASON TO SHOW UP, and did not until now. This is the machinery
+    // that lets an offscreen character with a want aimed at the player generate an arrival — and it
+    // required c.drive?.goal, which an authored want is deliberately not. So a want the player wrote
+    // onto somebody who happened to be in another room could never bring them into a scene: it went
+    // only to the world-sim, and the player watched nothing happen for nine turns and concluded,
+    // reasonably, that the feature was dead. A hand-written want outranks a seeded one here.
+    .filter(([id, c]) => id !== "char_player" && c.central !== false && c.status !== "dead" && c.status !== "departed" && !state.world.present.includes(id) && (c.drive?.goal || (hasAuthored(c) && !c.authored.paused)))
+    .map(([, c]) => (hasAuthored(c) && !c.authored.paused
+      ? { name: c.name, goal: c.authored.goal, priority: 4 }
+      : { name: c.name, goal: c.drive!.goal, priority: c.drive!.priority ?? 1 }))
     .filter((a) => {
       const g = a.goal.toLowerCase();
       return orbitNames.some((n) => g.includes(n)) || (hereName.length >= 4 && g.includes(hereName));

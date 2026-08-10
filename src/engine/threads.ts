@@ -27,7 +27,11 @@ import type { SaveState, Thread } from "./types";
 
 /** Turns without a mention before a thread stops counting as live. Generous on purpose: stories here
  *  run a few days across a hundred-odd turns, and a situation can reasonably sit for a night. */
-export const DORMANT_AFTER = 25;
+export const DORMANT_AFTER = 12;
+/** Live threads the pressure system may choose from. Past this, the oldest untouched ones go quiet
+ *  regardless of the clock: a story is about a handful of things at once, and a list of twelve is
+ *  not a world with twelve live situations in it, it is a list. */
+export const MAX_LIVE = 6;
 /** Below this, a thread has cooled past the point of pressing on anybody. */
 const COLD = 1;
 
@@ -79,6 +83,20 @@ export function sweepThreads(state: SaveState, prose: string): string[] {
     if (idle >= DORMANT_AFTER || (t.tension ?? 0) <= COLD) {
       t.status = "dormant";
       log.push(`Nobody has thought about it in a while: ${t.title}.`);
+    }
+  }
+  // TOO MANY LIVE THREADS IS THE SAME FAILURE AS NEVER CLOSING ONE. Even with a cooldown, a save
+  // reached twelve active threads at once — "lots of threads, nothing has happened" — because each
+  // was touched just often enough to stay alive while none was ever the thing the story was about.
+  // The pressure controller picks ONE source per beat, so twelve live threads is not twelve times
+  // the pressure, it is one twelfth the chance of returning to any of them.
+  const live = (state.world.threads ?? []).filter((t) => t.status === "active");
+  if (live.length > MAX_LIVE) {
+    live.sort((a, b) => (b.last_touched_turn ?? b.turn_started ?? 0) - (a.last_touched_turn ?? a.turn_started ?? 0)
+      || (b.tension ?? 0) - (a.tension ?? 0));
+    for (const t of live.slice(MAX_LIVE)) {
+      t.status = "dormant";
+      log.push(`Set aside for now: ${t.title}.`);
     }
   }
   return log;

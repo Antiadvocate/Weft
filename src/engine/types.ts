@@ -329,6 +329,15 @@ export interface AuthoredDrive {
   because?: string;
   /** How fast it ratchets when nothing opposes it. Turns of standing per stage. */
   rate: "slow" | "steady" | "fast";
+  /** FULLY THEMSELVES WITHIN THIS MANY TURNS. A deterministic budget that overrides `rate`.
+   *
+   *  `rate` measures in-world hours, which is right in principle — a habit escalates on nights, not
+   *  on how much the player typed — and useless when you want to SEE whether the feature works. One
+   *  want sat at stage 0 for nine turns because 165 of the required 360 minutes had passed, which is
+   *  correct and indistinguishable from broken. With this set, the want starts visible at 10% on the
+   *  turn after it is written and reaches full by the deadline, on a curve that rises fast and then
+   *  flattens: something shows immediately, and the arrival is on a fixed schedule you can check. */
+  inhabit_turns?: number;
   /** 0–3. How far it has escalated. Derived from `acted`, but stored so the player can move it. */
   stage: number;
   /** Turns this want has been live and unpaused — a standing want expresses itself whether or not

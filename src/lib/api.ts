@@ -1194,6 +1194,8 @@ export const api = {
   setAuthored: async (id: string, char_id: string, want: null | {
     goal: string; approach?: string; because?: string;
     rate?: "slow" | "steady" | "fast"; stage?: number; crystallize?: boolean; paused?: boolean;
+    /** Deterministic budget: fully themselves within this many turns. Overrides rate. */
+    inhabit_turns?: number;
   }): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
@@ -1211,6 +1213,7 @@ export const api = {
         stage: want.stage ?? prev?.stage ?? 0,
         acted: want.stage !== undefined ? undefined : prev?.acted,
         added_turn: prev?.added_turn,   // rewording a want does not restart it
+        inhabit_turns: want.inhabit_turns,
       });
       if (prev?.crystallized_turn && want.stage === undefined) c.authored.crystallized_turn = prev.crystallized_turn;
       c.tracked = true;

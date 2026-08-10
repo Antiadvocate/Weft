@@ -13,7 +13,7 @@
  *   2. it does not complete — a habit that finishes after one party is not a habit
  *   3. it climbs — same want, different evening, at stage 0 and stage 3
  *   4. it becomes the person, once it has run long enough to have earned it */
-import { authoredLine, authoredWants, crystallize, hasAuthored, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
+import { authoredLine, authoredWants, crystallize, hasAuthored, intensity, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
 
 import { regenerateDrives, seedDrive } from "../src/engine/drives";
 import { volatileDigest } from "../src/engine/prompts";
@@ -263,6 +263,54 @@ const wantsLines = (s: SaveState) =>
   const line = authoredLine(a);
   check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
   check("but it is still described as new", /new|first time/i.test(line), line);
+}
+
+/* ── 6. A FIXED TIMEFRAME YOU CAN CHECK ──────────────────────────────────────────
+ *
+ * "I added a random thing to Dana's personality, it's been a day and she hasn't done anything. I
+ *  need a debug mode of 'within x turns she fully inhabits it', showing 10% to start and escalating
+ *  logarithmically."
+ *
+ * Two reasons nothing happened, and only one was pacing. The want was ticking correctly — 165 of the
+ * 360 in-world minutes a "fast" rung needs — which is indistinguishable from broken. And Dana was in
+ * another room: the machinery that lets an offscreen character with a want aimed at the player
+ * generate an arrival required c.drive?.goal, which an authored want deliberately is not. So it went
+ * only to the world-sim and could never bring her into a scene. */
+{
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 });
+  const a = s.characters.char_neigh.authored!;
+  const at = (t: number) => Math.round(intensity(a, t) * 100);
+  check("it is visible immediately rather than at zero", at(20) === 10, at(20));
+  check("it moves on the very next turn", at(21) > 10, at(21));
+  check("it is most of the way there at the halfway point — the curve is front-loaded",
+    at(25) >= 60, at(25));
+  check("and it is exactly full on the turn named", at(30) === 100, at(30));
+  check("it does not overshoot afterwards", at(40) === 100, at(40));
+  check("the climb never goes backwards", [21,22,23,24,25,26,27,28,29,30].every((t, i, xs) => i === 0 || at(t) >= at(xs[i-1])));
+}
+{
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 10 });
+  const line = authoredLine(s.characters.char_neigh.authored!, 25);
+  check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
+  check("and that it must show in something they do this scene", /shows in SOMETHING they do this scene/.test(line));
+}
+{
+  // the budget completes the want, so "fully inhabits it" actually finishes
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 5, crystallize: true });
+  s.world.current_turn = 25;
+  tickAuthored(s, 15);
+  check("reaching the deadline makes it part of who they are",
+    !!s.characters.char_neigh.authored?.crystallized_turn, s.characters.char_neigh.authored);
+}
+{
+  // and without a budget nothing changes — in-world hours still govern
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him", 20, { rate: "fast" });
+  check("an unbudgeted want still reports off its rungs", intensity(s.characters.char_neigh.authored!, 99) < 0.3);
+  check("and its line carries no percentage", !/% of the way/.test(authoredLine(s.characters.char_neigh.authored!, 99)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
