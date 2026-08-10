@@ -42,7 +42,9 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     gregariousness: asNum(ident.gregariousness, 0, 1) ?? 0.5,
     current_goal: ident.current_goal ? asText(ident.current_goal) : undefined,
     current_activity: ident.current_activity ? asText(ident.current_activity) : undefined,
-    drive: ident.drive, drive_queue: ident.drive_queue, authored: ident.authored,
+    drive: ident.drive, drive_queue: ident.drive_queue,
+    // MIGRATION: authored was a single want before it was a list. Saves written then hold an object.
+    authored: Array.isArray(ident.authored) ? ident.authored : ident.authored ? [ident.authored as any] : undefined,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
     // These were previously dropped, which (a) broke the central-character cap — every new
     // character silently entered as central because `central` never landed on the record —

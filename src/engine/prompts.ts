@@ -19,7 +19,7 @@ import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
-import { authoredLine, hasAuthored } from "./authored";
+import { authoredLine, hasAuthored, liveAuthored } from "./authored";
 import { edgeNote } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
@@ -1396,7 +1396,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (drv?.approach?.trim()) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${drv.approach.trim()}`);
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
-      } else if (!(hasAuthored(ident) && !ident.authored.paused)) {
+      } else if (!hasAuthored(ident)) {
         lines.push(`  wants: nothing pressing`);
       }
       // A STANDING WANT — something going on in this person's life across the whole story rather than
@@ -1412,9 +1412,14 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       //
       // Never marked as authored: told a human wrote it, a model plays it as an instruction to
       // discharge, and the character announces it and gets it over with in one scene.
-      if (hasAuthored(ident) && !ident.authored.paused) {
-        lines.push(`  ${goalNow ? "also wants, and this one is standing rather than an errand" : "wants"}: ${authoredLine(ident.authored, state.world.current_turn)}`);
-      }
+      // EVERY authored want, not one — a person can be building more than one habit at a time, and
+      // the field was singular so a second one silently replaced the first.
+      liveAuthored(ident).forEach((a, i) => {
+        const lead = !goalNow && i === 0 ? "wants" : "also wants, and this one is standing rather than an errand";
+        lines.push(`  ${lead}: ${authoredLine(a)}`);
+        // A want the narrator has been ignoring gets louder rather than quietly stalling.
+        if ((a.stalled ?? 0) >= 2) lines.push(`  ^ this has not been visible for ${a.stalled} turns and has therefore not advanced at all. It does not move until it is written. Put its beat in THIS scene.`);
+      });
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");

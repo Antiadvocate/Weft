@@ -272,7 +272,7 @@ export interface Identity {
   current_activity?: string;
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
-  authored?: AuthoredDrive;   // a STANDING want the player wrote onto this person by hand — see AuthoredDrive
+  authored?: AuthoredDrive[]; // STANDING wants the player wrote onto this person by hand — see AuthoredDrive
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
   central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
@@ -329,7 +329,7 @@ export interface AuthoredDrive {
   because?: string;
   /** How fast it ratchets when nothing opposes it. Turns of standing per stage. */
   rate: "slow" | "steady" | "fast";
-  /** FULLY THEMSELVES WITHIN THIS MANY TURNS. A deterministic budget that overrides `rate`.
+  /** FULLY THEMSELVES WITHIN THIS MANY TURNS **THAT SHOW IT**. A deterministic budget that overrides `rate`.
    *
    *  `rate` measures in-world hours, which is right in principle — a habit escalates on nights, not
    *  on how much the player typed — and useless when you want to SEE whether the feature works. One
@@ -338,8 +338,19 @@ export interface AuthoredDrive {
    *  turn after it is written and reaches full by the deadline, on a curve that rises fast and then
    *  flattens: something shows immediately, and the arrival is on a fixed schedule you can check. */
   inhabit_turns?: number;
-  /** 0–3. How far it has escalated. Derived from `acted`, but stored so the player can move it. */
+  /** 0–5. How far it has escalated. Derived from what has actually been SEEN, not from the clock. */
   stage: number;
+  /** TURNS ON WHICH THIS ACTUALLY APPEARED IN THE PROSE.
+   *
+   *  The ramp advances on this and nothing else. A budget measured in elapsed turns can run to
+   *  completion while the want never once reaches the page — one save did exactly that, twenty turns
+   *  with the character present throughout, and then hardened it into a core trait. Progress you did
+   *  not see is not progress. If the narrator ignores it, the percentage simply stops, which also
+   *  makes the failure visible instead of silent. */
+  seen: number;
+  /** Last turn it showed, and how many turns it has been ignored since. */
+  last_seen_turn?: number;
+  stalled?: number;
   /** Turns this want has been live and unpaused — a standing want expresses itself whether or not
    *  the player was in the room to see it. */
   acted: number;

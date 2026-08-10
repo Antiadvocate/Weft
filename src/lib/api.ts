@@ -1194,38 +1194,45 @@ export const api = {
   setAuthored: async (id: string, char_id: string, want: null | {
     goal: string; approach?: string; because?: string;
     rate?: "slow" | "steady" | "fast"; stage?: number; crystallize?: boolean; paused?: boolean;
-    /** Deterministic budget: fully themselves within this many turns. Overrides rate. */
     inhabit_turns?: number;
-  }): Promise<ClientSave> => {
+    /** Which existing want to replace. Omit to ADD a new one — a person can be building more than
+     *  one habit at a time, and this used to be a single field so every new want silently replaced
+     *  the last. Pass null as `want` with an index to remove just that one. */
+    index?: number;
+  }, index?: number): Promise<ClientSave> => {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
     if (char_id === "char_player") throw new Error("author wants onto other people, not yourself");
+    const list = (c.authored ??= []);
+    const at = want?.index ?? index;
+
     if (!want || !want.goal.trim()) {
-      c.authored = undefined;
-    } else {
-      const prev = c.authored;
-      // Editing the wording of a want that is already three rungs up must not reset it to the
-      // bottom — the player is correcting a sentence, not restarting the story. Only an explicit
-      // stage overrides where it had climbed to.
-      c.authored = newAuthored(want.goal, s.world.current_turn, {
-        ...want,
-        stage: want.stage ?? prev?.stage ?? 0,
-        acted: want.stage !== undefined ? undefined : prev?.acted,
-        added_turn: prev?.added_turn,   // rewording a want does not restart it
-        inhabit_turns: want.inhabit_turns,
-      });
-      if (prev?.crystallized_turn && want.stage === undefined) c.authored.crystallized_turn = prev.crystallized_turn;
-      c.tracked = true;
+      if (typeof at === "number" && at >= 0 && at < list.length) list.splice(at, 1);
+      else c.authored = [];
+      await putSave(s);
+      return clientView(s);
     }
+    const prev = typeof at === "number" ? list[at] : undefined;
+    const made = newAuthored(want.goal, s.world.current_turn, {
+      ...want,
+      stage: want.stage ?? prev?.stage ?? 0,
+      acted: want.stage !== undefined ? undefined : prev?.acted,
+      seen: want.stage !== undefined ? undefined : prev?.seen,
+      added_turn: prev?.added_turn,   // rewording a want does not restart it
+    });
+    if (prev?.crystallized_turn && want.stage === undefined) made.crystallized_turn = prev.crystallized_turn;
+    if (typeof at === "number" && at >= 0 && at < list.length) list[at] = made;
+    else list.push(made);
+    c.tracked = true;
     await putSave(s);
     return clientView(s);
   },
 
   /** Knock an authored want back a rung — the character was faced down and it cost them. */
-  authoredSetback: async (id: string, char_id: string): Promise<ClientSave> => {
+  authoredSetback: async (id: string, char_id: string, index = 0): Promise<ClientSave> => {
     const s = await need(id);
-    const a = s.characters[char_id]?.authored;
+    const a = s.characters[char_id]?.authored?.[index];
     if (!a) throw new Error("no authored want");
     setback(a);
     await putSave(s);

@@ -163,7 +163,7 @@ export function doorFor(state: SaveState, focusIds: string[]): { speaker: string
   if (!present.length) return null;
   // prefer someone whose drive names the player, then anyone present
   const aimed = present.find((id) => {
-    const g = `${state.characters[id]?.drive?.goal ?? ""} ${state.characters[id]?.authored?.goal ?? ""}`.toLowerCase();
+    const g = `${state.characters[id]?.drive?.goal ?? ""} ${(state.characters[id]?.authored ?? []).map((a) => a?.goal ?? "").join(" ")}`.toLowerCase();
     const nm = state.characters.char_player?.name?.split(/\s+/)[0]?.toLowerCase() ?? "";
     return !!nm && g.includes(nm);
   });

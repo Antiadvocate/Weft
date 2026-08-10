@@ -88,15 +88,17 @@ const NERVE = [
  *  The point of the turn budget is not that turns are the truer unit — they are not — but that a
  *  want you cannot see moving is indistinguishable from a want that is broken, and this engine has
  *  produced enough of the second that the first is not worth defending. */
-export function intensity(a: AuthoredDrive, turn: number): number {
-  if (a.inhabit_turns && a.inhabit_turns > 0) return 0.1 + 0.9 * elapsedFraction(a, turn);
+export function intensity(a: AuthoredDrive, _turn?: number): number {
+  if (a.inhabit_turns && a.inhabit_turns > 0) return 0.1 + 0.9 * earnedFraction(a);
   return Math.max(0.1, Math.min(1, ((a.stage ?? 0) + 1) / (MAX_STAGE + 1)));
 }
 
-/** How far through the budget, 0..1. */
-function elapsedFraction(a: AuthoredDrive, turn: number): number {
+/** How far through the budget — measured in turns that ACTUALLY SHOWED IT, never in elapsed time.
+ *  "If it doesn't show any kind of indirect or direct acknowledgement of the doing, it shouldn't
+ *  increase in percent." */
+function earnedFraction(a: AuthoredDrive): number {
   if (!a.inhabit_turns || a.inhabit_turns <= 0) return 0;
-  return Math.max(0, Math.min(1, (turn - a.added_turn) / a.inhabit_turns));
+  return Math.max(0, Math.min(1, (a.seen ?? 0) / a.inhabit_turns));
 }
 
 /** WHERE ON THE RAMP, and the shape of the ramp is the whole feature.
@@ -112,8 +114,8 @@ function elapsedFraction(a: AuthoredDrive, turn: number): number {
  *  quarter, by which point several scenes have quietly been about it and nobody is surprised. The
  *  displayed percentage stays linear so it visibly moves every single turn, which is what makes the
  *  thing checkable; it is the STAGE that waits. */
-function rampStage(a: AuthoredDrive, turn: number): number {
-  const p = elapsedFraction(a, turn);
+function rampStage(a: AuthoredDrive): number {
+  const p = earnedFraction(a);
   // 10–50% of the window is the build-up "through external means that are noticeable" — three rungs
   // in which the thing never once happens. The first time it happens is past halfway, sideways.
   if (p >= 1) return 5;      // simply what they do
@@ -125,8 +127,11 @@ function rampStage(a: AuthoredDrive, turn: number): number {
 }
 
 /** True when this person has a live authored want that should be acting on the world. */
-export function hasAuthored(c: Identity | undefined): c is Identity & { authored: AuthoredDrive } {
-  return !!c?.authored?.goal && !c.authored.crystallized_turn;
+export function liveAuthored(c: Identity | undefined): AuthoredDrive[] {
+  return (c?.authored ?? []).filter((a) => a?.goal && !a.crystallized_turn && !a.paused);
+}
+export function hasAuthored(c: Identity | undefined): boolean {
+  return liveAuthored(c).length > 0;
 }
 
 /** The want as one line, in the same grammar as every other want on the card.
@@ -135,11 +140,13 @@ export function hasAuthored(c: Identity | undefined): c is Identity & { authored
  *  a model plays it as an instruction to satisfy rather than as something a person wants, and the
  *  result is a character who announces it and gets it over with. The Inspector shows the player
  *  their own hand; the prompt shows a want. */
-export function authoredLine(a: AuthoredDrive, turn?: number): string {
-  const i = turn === undefined ? undefined : intensity(a, turn);
-  const stage = turn === undefined || !a.inhabit_turns
+export function authoredLine(a: AuthoredDrive): string {
+  // Computed whenever there is a budget — it used to be gated on a `turn` argument that no longer
+  // exists now that progress is earned rather than elapsed, so the percentage silently vanished.
+  const i = a.inhabit_turns ? intensity(a) : undefined;
+  const stage = !a.inhabit_turns
     ? Math.max(0, Math.min(MAX_STAGE, a.stage | 0))
-    : rampStage(a, turn);
+    : rampStage(a);
   const bits = [a.goal];
   if (a.approach) bits.push("goes at it by: " + a.approach);
   if (a.because) bits.push("started because: " + a.because);
@@ -152,62 +159,78 @@ export function authoredLine(a: AuthoredDrive, turn?: number): string {
   return bits.join(" — ");
 }
 
-/** Every authored want in the cast, as the world-sim's `wantsOf` wants them: id → line. */
+/** Every live authored want in the cast, as the world-sim's `wantsOf` wants them: id → lines. */
 export function authoredWants(state: SaveState): Map<string, string> {
   const out = new Map<string, string>();
   for (const [id, c] of Object.entries(state.characters ?? {})) {
-    if (id === "char_player" || !hasAuthored(c)) continue;
+    if (id === "char_player") continue;
     if (c.status === "dead" || c.status === "departed") continue;
-    if (c.authored.paused) continue;
-    out.set(id, authoredLine(c.authored, state.world.current_turn));
+    const live = liveAuthored(c);
+    if (live.length) out.set(id, live.map((a) => authoredLine(a)).join(" ALSO: "));
   }
   return out;
 }
 
-/** THE RATCHET.
+/** THE RATCHET, AND IT ONLY TURNS ON EVIDENCE.
  *
- *  Called once per turn. A standing want is standing whether or not the player was in the room, so
- *  the counter moves on turns rather than on witnessed events — the neighbour's Friday nights happen
- *  during the Tuesday you spent somewhere else. Paused wants hold where they are; a dead or departed
- *  character stops wanting anything.
+ *  Called once per turn with the prose that was just written. A want advances only on turns where it
+ *  actually appeared — directly or indirectly. If the narrator ignores it, the percentage does not
+ *  move, which is both correct and diagnostic: a stalled number is a visible failure rather than a
+ *  silent one, and the want cannot complete itself out of a story it was never in.
  *
- *  Returns the lines worth telling the player about, in the same voice as the rest of the world-motion
- *  feed. Crossing a rung is the interesting moment and the only one that reports. */
-export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
+ *  The in-world-hours ladder (no budget set) still runs on the clock; that path is for a standing
+ *  condition of somebody's life which is true whether or not the page mentions it. */
+export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): string[] {
   const log: string[] = [];
   const turn = state.world.current_turn;
-  // A standing want stands through time, not through turns. A montage that skips two days moves it
-  // two days; a turn spent staring at each other across a table barely moves it at all.
   const elapsed = Math.max(0, minutesElapsed);
   for (const [id, c] of Object.entries(state.characters ?? {})) {
     if (id === "char_player") continue;
-    const a = c.authored;
-    if (!a?.goal || a.crystallized_turn) continue;
     if (c.status === "dead" || c.status === "departed") continue;
-    if (a.paused) continue;
+    for (const a of c.authored ?? []) {
+      if (!a?.goal || a.crystallized_turn || a.paused) continue;
 
-    // `acted` is in-world MINUTES the want has been standing, accumulated from the clock.
-    a.acted = (a.acted ?? 0) + Math.max(0, elapsed);
-    const step = 60 * (STEP_HOURS[a.rate] ?? STEP_HOURS.steady);
-    const reached = Math.min(MAX_STAGE, Math.floor(a.acted / step));
-    if (reached > (a.stage ?? 0)) {
-      a.stage = reached;
-      log.push(`${c.name} is further into it than they were: ${a.goal}.`);
-    }
-    // With a turn budget, "fully themselves" is the deadline, not an hours-based rung.
-    if (a.inhabit_turns && turn - a.added_turn >= a.inhabit_turns) a.stage = MAX_STAGE;
-    // NEVER HARDEN SOMETHING THAT NEVER HAPPENED. One save ran a 20-turn budget to completion with
-    // the character present for all of it, the want on her card every single turn, and not one word
-    // of it ever on the page — and then crystallised it into a core trait reading "Forces Rabi lick
-    // her armpit. Anytime they're together." The engine declared a habit the story had never once
-    // shown. That is precisely the blunt instrument this feature exists to replace, arrived at
-    // automatically. A want that never surfaced holds at the top rung instead, still wanting.
-    if (a.stage >= MAX_STAGE && a.crystallize && !a.crystallized_turn && surfaced(state, a)) {
-      const t = crystallize(state, id, turn);
-      if (t) log.push(`${c.name} does not think of it as a thing they started any more: ${t}.`);
+      if (a.inhabit_turns && a.inhabit_turns > 0) {
+        // EARNED, NOT ELAPSED.
+        if (prose && mentions(a.goal, prose)) {
+          a.seen = (a.seen ?? 0) + 1;
+          a.last_seen_turn = turn;
+          a.stalled = 0;
+          const reached = rampStage(a);
+          if (reached > (a.stage ?? 0)) {
+            a.stage = reached;
+            log.push(`${c.name} is further into it than she was: ${a.goal}.`);
+          }
+        } else {
+          a.stalled = (a.stalled ?? 0) + 1;
+        }
+      } else {
+        a.acted = (a.acted ?? 0) + elapsed;
+        const step = 60 * (STEP_HOURS[a.rate] ?? STEP_HOURS.steady);
+        const reached = Math.min(MAX_STAGE, Math.floor(a.acted / step));
+        if (reached > (a.stage ?? 0)) {
+          a.stage = reached;
+          log.push(`${c.name} is further into it than she was: ${a.goal}.`);
+        }
+      }
+
+      if ((a.stage ?? 0) >= MAX_STAGE && a.crystallize && !a.crystallized_turn && surfaced(state, a)) {
+        const t = crystallize(state, id, a, turn);
+        if (t) log.push(`${c.name} does not think of it as a thing she started any more: ${t}.`);
+      }
     }
   }
   return log;
+}
+
+/** Did this turn's prose acknowledge the want, directly or indirectly? */
+function mentions(goal: string, prose: string): boolean {
+  const stop = new Set(["their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from", "every", "time", "always", "gets", "getting"]);
+  const words = [...new Set((goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))].filter((w) => !stop.has(w));
+  if (!words.length) return false;
+  const hay = prose.toLowerCase();
+  const hits = words.filter((w) => hay.includes(w)).length;
+  return hits >= Math.min(words.length, Math.max(1, Math.ceil(words.length * 0.34)));
 }
 
 /** Did this want ever actually reach the page? Matched on the distinctive words of the goal against
@@ -234,9 +257,8 @@ function surfaced(state: SaveState, a: AuthoredDrive): boolean {
  *  The want is retired in the same motion. Leaving both would double-count the person: a standing
  *  want driving the world-sim AND a trait describing the same behaviour, so every pass sees it twice
  *  and weights it twice. */
-export function crystallize(state: SaveState, id: string, turn: number): string | null {
+export function crystallize(state: SaveState, id: string, a: AuthoredDrive, turn: number): string | null {
   const c = state.characters[id];
-  const a = c?.authored;
   if (!c || !a?.goal || a.crystallized_turn) return null;
 
   const label = a.goal.trim().replace(/^(start|starts|begin|begins|try to|tries to)\s+/i, "").replace(/\.$/, "");
@@ -276,6 +298,7 @@ export function setback(a: AuthoredDrive, rate: AuthoredDrive["rate"] = a.rate):
  *  the full climb again before it reaches 3 — the player would have set it high precisely because
  *  they did not want to wait. */
 export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDrive> = {}): AuthoredDrive {
+  const seen = Math.max(0, opts.seen ?? 0);
   const rate = opts.rate ?? "steady";
   const stage = Math.max(0, Math.min(MAX_STAGE, opts.stage ?? 0));
   return {
@@ -285,6 +308,8 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
     rate,
     stage,
     acted: Math.max(stage * 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady), opts.acted ?? 0),
+    seen: Math.max(seen, opts.inhabit_turns ? Math.round((stage / (MAX_STAGE + 1)) * opts.inhabit_turns) : 0),
+    stalled: opts.stalled ?? 0,
     paused: opts.paused,
     inhabit_turns: opts.inhabit_turns && opts.inhabit_turns > 0 ? Math.round(opts.inhabit_turns) : undefined,
     crystallize: opts.crystallize ?? true,

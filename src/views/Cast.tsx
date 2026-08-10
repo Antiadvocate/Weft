@@ -705,8 +705,8 @@ const RATES: { k: "slow" | "steady" | "fast"; label: string; hint: string }[] = 
 const STAGE_WORDS = ["noticing it", "near it", "examining it", "first time, sideways", "doing it again", "simply what they do"];
 
 function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSave: (s: ClientSave) => void }) {
-  const cur = save.characters[sel]?.authored;
-  const [open, setOpen] = useState(false);
+  const list = save.characters[sel]?.authored ?? [];
+  const [editing, setEditing] = useState<number | null>(null);   // index being edited, -1 = new
   const [goal, setGoal] = useState("");
   const [approach, setApproach] = useState("");
   const [because, setBecause] = useState("");
@@ -715,10 +715,11 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
   const [turns, setTurns] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const start = () => {
+  const start = (i: number) => {
+    const cur = i >= 0 ? list[i] : undefined;
     setGoal(cur?.goal ?? ""); setApproach(cur?.approach ?? ""); setBecause(cur?.because ?? "");
     setRate(cur?.rate ?? "steady"); setCryst(cur?.crystallize ?? true);
-    setTurns(cur?.inhabit_turns ? String(cur.inhabit_turns) : ""); setOpen(true);
+    setTurns(cur?.inhabit_turns ? String(cur.inhabit_turns) : ""); setEditing(i);
   };
   const run = async (fn: () => Promise<ClientSave>) => {
     setBusy(true);
@@ -727,49 +728,57 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
   const commit = () => {
     if (!goal.trim()) return;
     void run(async () => {
-      const s = await api.setAuthored(save.id, sel, { goal, approach, because, rate, crystallize: cryst, inhabit_turns: Number(turns) || undefined });
-      setOpen(false);
+      const s = await api.setAuthored(save.id, sel,
+        { goal, approach, because, rate, crystallize: cryst, inhabit_turns: Number(turns) || undefined },
+        editing !== null && editing >= 0 ? editing : undefined);
+      setEditing(null);
       return s;
     });
   };
+  const pct = (a: NonNullable<typeof list>[number]) =>
+    a.inhabit_turns ? Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * ((a.seen ?? 0) / a.inhabit_turns)))) : null;
 
   return (
-    <Section title="Something going on in their life">
-      {cur?.goal ? (
-        <div className="mb-2">
-          <Row k="doing" v={cur.goal} />
-          {cur.approach && <Row k="by" v={cur.approach} />}
-          {cur.because && <Row k="because" v={cur.because} />}
-          <Row k="how far" v={cur.crystallized_turn
-            ? `it stopped being a thing they do and became who they are (turn ${cur.crystallized_turn})`
-            : `${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, cur.stage))]} — ${cur.paused ? "held here" : cur.inhabit_turns ? `${Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * Math.log10(1 + 9 * Math.max(0, Math.min(1, (save.world.current_turn - cur.added_turn) / cur.inhabit_turns))))))}% — full by turn ${cur.added_turn + cur.inhabit_turns}` : `climbing, ${cur.rate}`}`} />
-          {!cur.crystallized_turn && (
+    <Section title="Things going on in their life">
+      {list.map((a, i) => (
+        <div key={i} className="mb-3 pb-2" style={{ borderBottom: i < list.length - 1 ? "1px solid var(--ink-2)" : undefined }}>
+          <Row k="doing" v={a.goal} />
+          {a.approach && <Row k="by" v={a.approach} />}
+          {a.because && <Row k="because" v={a.because} />}
+          <Row k="how far" v={a.crystallized_turn
+            ? `it became who they are (turn ${a.crystallized_turn})`
+            : a.paused ? "held here"
+            : a.inhabit_turns
+              ? `${pct(a)}% — ${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} · seen in ${a.seen ?? 0} of ${a.inhabit_turns} turns${(a.stalled ?? 0) >= 2 ? ` · IGNORED ${a.stalled} turns running` : ""}`
+              : `${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} — climbing, ${a.rate}`} />
+          {!a.crystallized_turn && (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              <button className="btn-sm" disabled={busy} onClick={start}>edit</button>
+              <button className="btn-sm" disabled={busy} onClick={() => start(i)}>edit</button>
               <button className="btn-sm" disabled={busy}
-                onClick={() => void run(() => api.setAuthored(save.id, sel, { goal: cur.goal, approach: cur.approach, because: cur.because, rate: cur.rate, crystallize: cur.crystallize, paused: !cur.paused }))}>
-                {cur.paused ? "let it climb again" : "hold it here"}
+                onClick={() => void run(() => api.setAuthored(save.id, sel, { goal: a.goal, approach: a.approach, because: a.because, rate: a.rate, crystallize: a.crystallize, inhabit_turns: a.inhabit_turns, paused: !a.paused }, i))}>
+                {a.paused ? "let it climb" : "hold it here"}
               </button>
-              <button className="btn-sm" disabled={busy || cur.stage <= 0}
-                title="they were faced down over it and it cost them a rung"
-                onClick={() => void run(() => api.authoredSetback(save.id, sel))}>knock it back</button>
+              <button className="btn-sm" disabled={busy || a.stage <= 0}
+                onClick={() => void run(() => api.authoredSetback(save.id, sel, i))}>knock it back</button>
               <button className="btn-sm" disabled={busy}
-                onClick={() => void run(() => api.setAuthored(save.id, sel, null))}>drop it</button>
+                onClick={() => void run(() => api.setAuthored(save.id, sel, null, i))}>drop it</button>
             </div>
           )}
         </div>
-      ) : !open ? (
-        <div>
-          <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
-            Give them something to want and the world will get there on its own — the want happens
-            offscreen, escalates if nobody stops it, and only becomes part of who they are once it has
-            gone on long enough to have earned it.
-          </div>
-          <button className="btn-sm" onClick={start}>write one</button>
-        </div>
-      ) : null}
+      ))}
 
-      {open && (
+      {editing === null ? (
+        <div>
+          {!list.length && (
+            <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
+              Give them something to want and the world gets there on its own — it happens offscreen,
+              escalates only on turns where it actually shows, and becomes part of who they are once
+              the story has earned it.
+            </div>
+          )}
+          <button className="btn-sm" onClick={() => start(-1)}>{list.length ? "add another" : "write one"}</button>
+        </div>
+      ) : (
         <div>
           <EditField label="What they start doing" v={goal} set={setGoal} rows={2} />
           <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
@@ -778,10 +787,6 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           </div>
           <EditField label="How they go at it (optional)" v={approach} set={setApproach} />
           <EditField label="Why it started — in their life, not yours (optional)" v={because} set={setBecause} rows={2} />
-          <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
-            Worth the line. Without a reason the narrator invents a different one every turn, and none
-            of them stick.
-          </div>
           <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>How fast it builds</div>
           <div className="flex gap-1.5 mb-2">
             {RATES.map((r) => (
@@ -791,11 +796,10 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
               </button>
             ))}
           </div>
-          <EditField label="Or: fully themselves within this many turns (overrides the above)" v={turns} set={setTurns} />
+          <EditField label="Or: fully themselves within this many SHOWN turns" v={turns} set={setTurns} />
           <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
-            Leave blank to escalate on in-world time. Set a number and it starts showing at 10% on the
-            next turn and reaches full on that turn exactly — and it will pull them into a scene to do
-            it. Use this when you want to SEE whether it works.
+            Counted in turns where it actually appears on the page — not elapsed turns. If the narrator
+            ignores it, the percentage does not move, and the card says so.
           </div>
           <label className="flex items-center gap-2 text-[12.5px] py-1" style={{ color: "var(--text-mid)" }}>
             <input type="checkbox" checked={cryst} onChange={(e) => setCryst(e.target.checked)} />
@@ -803,9 +807,9 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           </label>
           <div className="flex gap-1.5 mt-2">
             <button className="btn-sm" disabled={busy || !goal.trim()} onClick={commit}>
-              {cur?.goal ? "save" : "set it going"}
+              {editing >= 0 ? "save" : "set it going"}
             </button>
-            <button className="btn-sm" disabled={busy} onClick={() => setOpen(false)}>cancel</button>
+            <button className="btn-sm" disabled={busy} onClick={() => setEditing(null)}>cancel</button>
           </div>
         </div>
       )}

@@ -34,7 +34,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
-import { hasAuthored, tickAuthored } from "./authored";
+import { hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -1259,9 +1259,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // onto somebody who happened to be in another room could never bring them into a scene: it went
     // only to the world-sim, and the player watched nothing happen for nine turns and concluded,
     // reasonably, that the feature was dead. A hand-written want outranks a seeded one here.
-    .filter(([id, c]) => id !== "char_player" && c.central !== false && c.status !== "dead" && c.status !== "departed" && !state.world.present.includes(id) && (c.drive?.goal || (hasAuthored(c) && !c.authored.paused)))
-    .map(([, c]) => (hasAuthored(c) && !c.authored.paused
-      ? { name: c.name, goal: c.authored.goal, priority: 4 }
+    .filter(([id, c]) => id !== "char_player" && c.central !== false && c.status !== "dead" && c.status !== "departed" && !state.world.present.includes(id) && (c.drive?.goal || hasAuthored(c)))
+    .map(([, c]) => (hasAuthored(c)
+      ? { name: c.name, goal: liveAuthored(c)[0].goal, priority: 4 }
       : { name: c.name, goal: c.drive!.goal, priority: c.drive!.priority ?? 1 }))
     .filter((a) => {
       const g = a.goal.toLowerCase();
@@ -2758,7 +2758,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // authored want is not the engine originating anything; it is the player originating it, by hand,
   // on purpose. Somebody who turned tension to 0 to stop the world inventing plots and then wrote a
   // want onto their neighbour meant for that want to happen.
-  offscreenLog.push(...tickAuthored(state, minutes));
+  offscreenLog.push(...tickAuthored(state, minutes, prose));
   if ((state.model_settings.tension ?? 5) > 0) {
     // Dispersion is measured from the ledger now, not handed over by the retired undertow (which
     // supplied a hardcoded 0 and left the anti-chorus machinery unreachable). See magnetPull.
