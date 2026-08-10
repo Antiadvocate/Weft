@@ -2609,6 +2609,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // which reads as the world stuck in a loop. Compare against the last few turns' offscreen lines and
   // keep only genuinely new motion.
   const recentOffscreen = state.history.slice(-4).flatMap((h) => h.offscreen ?? []);
+  // HOW MUCH TIME THIS TURN TOOK, hoisted above the world-motion block. The clock itself is not
+  // advanced until later (the offstage passes deliberately run against the time the scene happened
+  // at), but anything here that moves with time rather than with turns needs the number now.
+  const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
   const offscreenLog = [...(diff.offscreen ?? []).filter((line) =>
     !recentOffscreen.some((prev) => overlapRatio(prev, line) >= 0.5))];
   // present, named characters the player is actually engaging join the long game
@@ -2712,7 +2716,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // authored want is not the engine originating anything; it is the player originating it, by hand,
   // on purpose. Somebody who turned tension to 0 to stop the world inventing plots and then wrote a
   // want onto their neighbour meant for that want to happen.
-  offscreenLog.push(...tickAuthored(state));
+  offscreenLog.push(...tickAuthored(state, minutes));
   if ((state.model_settings.tension ?? 5) > 0) {
     // Dispersion is measured from the ledger now, not handed over by the retired undertow (which
     // supplied a hardcoded 0 and left the anti-chorus machinery unreachable). See magnetPull.
@@ -2809,7 +2813,6 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   for (const line of dischargeFiredClocks(state, turn)) shifts.push(line);
 
   // history + time
-  const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
   state.world.current_time = advance(state.world.current_time, minutes);
   // SCENE CLOCK: the narrator sees the world clock every turn but cannot tell how long the current
   // scene has been running — which is exactly what timed world laws ("pain after ten minutes") are

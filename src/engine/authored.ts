@@ -11,9 +11,21 @@
  *  machinery that already works, not a second pathway that has to be kept in step with the first. */
 import type { AuthoredDrive, Identity, SaveState } from "./types";
 
-/** Turns of standing per stage. A want the player marks "slow" takes roughly a month of turns to
- *  reach the top; "fast" gets there inside a long scene's worth. */
-const STEP: Record<AuthoredDrive["rate"], number> = { slow: 10, steady: 6, fast: 3 };
+/** IN-WORLD HOURS PER RUNG — not turns.
+ *
+ *  This was turn-counted, and calibrated against a story that runs for weeks. Real games do not:
+ *  the save this was built against covered Day 1 to Day 3 in a hundred and eight turns, about a
+ *  quarter of an hour of story per turn, and almost nothing on file has ever run past a week. A
+ *  want that needed "a few weeks" to mature would simply never mature — it would sit at the bottom
+ *  rung until the story ended.
+ *
+ *  Turns are also the wrong unit in principle. Ten turns is two hours of a slow conversation or
+ *  three days across a montage, and a neighbour's late-night parties escalate on nights, not on how
+ *  much the player happened to type. The clock already exists; this reads it.
+ *
+ *  Tuned so all three fit inside a story of a few days: fast lands within one, steady over a couple,
+ *  slow needs most of a week and is the one to pick when the story is going to be long. */
+const STEP_HOURS: Record<AuthoredDrive["rate"], number> = { slow: 40, steady: 16, fast: 6 };
 
 /** Four rungs and no more. Past this it is not escalation any more, it is a different story, and the
  *  player can write that one themselves. */
@@ -74,9 +86,12 @@ export function authoredWants(state: SaveState): Map<string, string> {
  *
  *  Returns the lines worth telling the player about, in the same voice as the rest of the world-motion
  *  feed. Crossing a rung is the interesting moment and the only one that reports. */
-export function tickAuthored(state: SaveState): string[] {
+export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
   const log: string[] = [];
   const turn = state.world.current_turn;
+  // A standing want stands through time, not through turns. A montage that skips two days moves it
+  // two days; a turn spent staring at each other across a table barely moves it at all.
+  const elapsed = Math.max(0, minutesElapsed);
   for (const [id, c] of Object.entries(state.characters ?? {})) {
     if (id === "char_player") continue;
     const a = c.authored;
@@ -84,8 +99,9 @@ export function tickAuthored(state: SaveState): string[] {
     if (c.status === "dead" || c.status === "departed") continue;
     if (a.paused) continue;
 
-    a.acted = (a.acted ?? 0) + 1;
-    const step = STEP[a.rate] ?? STEP.steady;
+    // `acted` is in-world MINUTES the want has been standing, accumulated from the clock.
+    a.acted = (a.acted ?? 0) + Math.max(0, elapsed);
+    const step = 60 * (STEP_HOURS[a.rate] ?? STEP_HOURS.steady);
     const reached = Math.min(MAX_STAGE, Math.floor(a.acted / step));
     if (reached > (a.stage ?? 0)) {
       a.stage = reached;
@@ -139,7 +155,7 @@ export function crystallize(state: SaveState, id: string, turn: number): string 
  *  has been opposed all the way back to nothing is a want to delete, and deleting it is a different
  *  button with different consequences. */
 export function setback(a: AuthoredDrive, rate: AuthoredDrive["rate"] = a.rate): void {
-  const step = STEP[rate] ?? STEP.steady;
+  const step = 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady);
   a.stage = Math.max(0, (a.stage ?? 0) - 1);
   a.acted = a.stage * step;
 }
@@ -159,7 +175,7 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
     because: opts.because?.trim().slice(0, 240) || undefined,
     rate,
     stage,
-    acted: Math.max(stage * (STEP[rate] ?? STEP.steady), opts.acted ?? 0),
+    acted: Math.max(stage * 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady), opts.acted ?? 0),
     paused: opts.paused,
     crystallize: opts.crystallize ?? true,
     added_turn: opts.added_turn ?? turn,

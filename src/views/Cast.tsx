@@ -678,10 +678,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
  *  me with loud music nightly" and it is simply true, with no first party and no evening it might
  *  have gone differently. Changing what a person WANTS gets the same destination by way of the
  *  events that earn it. See engine/authored.ts. */
+/* Rungs are in-world HOURS, and the hints say so. These read "a season / a few weeks / days" when
+   they shipped, which was calibrated for a story that runs for weeks — and no story here does. Day 1
+   to Day 3 in 108 turns is the norm, so a want needing weeks would never once move. */
 const RATES: { k: "slow" | "steady" | "fast"; label: string; hint: string }[] = [
-  { k: "slow", label: "slow", hint: "a season" },
-  { k: "steady", label: "steady", hint: "a few weeks" },
-  { k: "fast", label: "fast", hint: "days" },
+  { k: "slow", label: "slow", hint: "most of a week" },
+  { k: "steady", label: "steady", hint: "a couple of days" },
+  { k: "fast", label: "fast", hint: "within a day" },
 ];
 const STAGE_WORDS = ["just started", "settling in", "routine", "past reasonable"];
 

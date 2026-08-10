@@ -14,8 +14,21 @@
  *   3. it climbs — same want, different evening, at stage 0 and stage 3
  *   4. it becomes the person, once it has run long enough to have earned it */
 import { authoredLine, authoredWants, crystallize, hasAuthored, newAuthored, setback, tickAuthored, MAX_STAGE } from "../src/engine/authored";
+
 import { regenerateDrives, seedDrive } from "../src/engine/drives";
 import type { SaveState } from "../src/engine/types";
+
+/* A turn is a quarter-hour of story on a real save (Day 1 to Day 3 across 108 turns), so that is
+ * what one tick means here. Escalation is measured in IN-WORLD time, not in turns: a montage that
+ * skips two days must move a standing want two days, and a turn spent staring across a table must
+ * barely move it at all. It was turn-counted and calibrated for stories lasting weeks — which no
+ * real save does, so a "steady" want would have sat at the bottom rung until the story ended. */
+const TURN_MIN = 15;
+const tick = (s: SaveState, n = 1, min = TURN_MIN) => {
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) { s.world.current_turn++; out.push(...tickAuthored(s, min)); }
+  return out;
+};
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -69,9 +82,9 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "fast" });
-  for (let t = 0; t < 40; t++) { s.world.current_turn++; tickAuthored(s); }
+  tick(s, 1, 24 * 60 * 7);   // a week of story, well past the top of the ladder
   const a = s.characters.char_neigh.authored!;
-  check("forty turns later the want is still there", !!a.goal);
+  check("a week later the want is still there", !!a.goal);
   check("it never reports progress, because it is not a task", !("progress" in a), Object.keys(a));
   check("and it does not climb past the top rung", a.stage === MAX_STAGE, a.stage);
 }
@@ -80,35 +93,33 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "steady" });
-  const stageAfter = (n: number) => {
-    for (let i = 0; i < n; i++) { s.world.current_turn++; tickAuthored(s); }
-    return s.characters.char_neigh.authored!.stage;
-  };
+  const stageAfter = (n: number) => { tick(s, n); return s.characters.char_neigh.authored!.stage; };
   check("it starts at the bottom", s.characters.char_neigh.authored!.stage === 0);
-  check("a few turns in, it is still a new thing", stageAfter(5) === 0, s.characters.char_neigh.authored!.stage);
-  check("it moves up once it has been going a while", stageAfter(3) >= 1, s.characters.char_neigh.authored!.stage);
+  check("an hour in, it is still a new thing", stageAfter(4) === 0, s.characters.char_neigh.authored!.stage);
+  check("it moves up once a day or so has passed", stageAfter(64) >= 1, s.characters.char_neigh.authored!.stage);
 }
 {
   // rate is the whole dial — slow and fast must not land in the same place
-  const run = (rate: "slow" | "fast", turns: number) => {
+  const run = (rate: "slow" | "fast", hours: number) => {
     const s = mk(); give(s, { rate });
-    for (let i = 0; i < turns; i++) { s.world.current_turn++; tickAuthored(s); }
+    tick(s, 1, hours * 60);
     return s.characters.char_neigh.authored!.stage;
   };
-  check("fast gets there and slow does not, over the same stretch", run("fast", 9) > run("slow", 9), [run("fast", 9), run("slow", 9)]);
+  check("over one day, fast has climbed and slow has not", run("fast", 24) > run("slow", 24), [run("fast", 24), run("slow", 24)]);
+  check("slow still gets there across most of a week", run("slow", 24 * 6) >= MAX_STAGE, run("slow", 24 * 6));
 }
 {
   const s = mk();
   give(s, { rate: "fast", paused: true });
-  for (let i = 0; i < 20; i++) { s.world.current_turn++; tickAuthored(s); }
+  tick(s, 1, 24 * 60 * 7);
   check("a want held in place stays where it was put", s.characters.char_neigh.authored!.stage === 0);
 }
 {
   const s = mk();
   give(s, { rate: "fast", stage: 2 });
   check("starting it partway up does not strand the counter below it",
-    s.characters.char_neigh.authored!.acted >= 2 * 3, s.characters.char_neigh.authored!.acted);
-  s.world.current_turn++; tickAuthored(s); s.world.current_turn++; tickAuthored(s); s.world.current_turn++; tickAuthored(s);
+    s.characters.char_neigh.authored!.acted >= 2 * 6 * 60, s.characters.char_neigh.authored!.acted);
+  tick(s, 1, 6 * 60);
   check("so the next rung arrives on schedule rather than after a full re-climb",
     s.characters.char_neigh.authored!.stage === 3, s.characters.char_neigh.authored!.stage);
 }
@@ -118,7 +129,7 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
   setback(s.characters.char_neigh.authored!);
   const a = s.characters.char_neigh.authored!;
   check("being faced down costs a rung", a.stage === 1, a.stage);
-  check("and the counter goes back with it, so it does not jump straight up again", a.acted === 1 * 6, a.acted);
+  check("and the counter goes back with it, so it does not jump straight up again", a.acted === 1 * 16 * 60, a.acted);
   setback(a); setback(a); setback(a);
   check("it stops at the bottom instead of going negative", a.stage === 0, a.stage);
 }
@@ -140,7 +151,7 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "fast", crystallize: true, because: "his brother moved in last month" });
-  for (let i = 0; i < 12; i++) { s.world.current_turn++; tickAuthored(s); }
+  tick(s, 1, 24 * 60);
   const c = s.characters.char_neigh;
   check("a want carried to the top long enough becomes a trait", !!c.authored?.crystallized_turn, c.authored);
   check("it lands in core traits, where the player would have typed it",
@@ -154,7 +165,7 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "fast", crystallize: false });
-  for (let i = 0; i < 20; i++) { s.world.current_turn++; tickAuthored(s); }
+  tick(s, 1, 24 * 60 * 3);
   check("a want the player asked to stay a want never hardens", !s.characters.char_neigh.authored!.crystallized_turn);
   check("but it still sits at the top of the ladder", s.characters.char_neigh.authored!.stage === MAX_STAGE);
 }
@@ -172,7 +183,7 @@ for (const status of ["dead", "departed"] as const) {
   const s = mk();
   give(s, { rate: "fast" });
   (s.characters.char_neigh as any).status = status;
-  for (let i = 0; i < 20; i++) { s.world.current_turn++; tickAuthored(s); }
+  tick(s, 1, 24 * 60 * 7);
   check(`a ${status} character's authored want stops climbing`, s.characters.char_neigh.authored!.stage === 0);
   check(`and is not handed to the world-sim`, !authoredWants(s).has("char_neigh"));
 }
