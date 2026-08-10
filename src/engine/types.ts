@@ -348,6 +348,10 @@ export interface AuthoredDrive {
    *  not see is not progress. If the narrator ignores it, the percentage simply stops, which also
    *  makes the failure visible instead of silent. */
   seen: number;
+  /** Turns this want has been live. THE SCHEDULE RUNS ON THIS — `inhabit_turns` is a contract, not a
+   *  target the narrator may decline. `seen` governs only the escalating demand and the guard that
+   *  stops an unseen want hardening into a trait. */
+  turns_live?: number;
   /** Last turn it showed, and how many turns it has been ignored since. */
   last_seen_turn?: number;
   stalled?: number;

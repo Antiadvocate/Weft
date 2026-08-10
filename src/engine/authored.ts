@@ -93,12 +93,22 @@ export function intensity(a: AuthoredDrive, _turn?: number): number {
   return Math.max(0.1, Math.min(1, ((a.stage ?? 0) + 1) / (MAX_STAGE + 1)));
 }
 
-/** How far through the budget — measured in turns that ACTUALLY SHOWED IT, never in elapsed time.
- *  "If it doesn't show any kind of indirect or direct acknowledgement of the doing, it shouldn't
- *  increase in percent." */
+/** THE TURNS ARE A CONTRACT. "It must increase the percent if I'm using number of turns. Those turns
+ *  aren't suggestions."
+ *
+ *  I had this gated on turns that actually showed it, which was the right answer to a different
+ *  question. The evidence gate was added because a want was reaching 100% and hardening into a core
+ *  trait having never once appeared — the problem there was COMPLETION without evidence, not
+ *  progress on a schedule. Gating the schedule itself handed the narrator a veto over the player's
+ *  own instruction: ignore it and it never advances, which is the AI overriding the injection.
+ *
+ *  So the clock is the clock. `seen` and `stalled` are still tracked, and they do two jobs that do
+ *  not involve slowing anything down: they escalate the demand in the per-turn direction when
+ *  something has been skipped, and they still hard-block CRYSTALLISATION — a habit cannot become
+ *  part of who somebody is on the strength of a story that never showed it. */
 function earnedFraction(a: AuthoredDrive): number {
   if (!a.inhabit_turns || a.inhabit_turns <= 0) return 0;
-  return Math.max(0, Math.min(1, (a.seen ?? 0) / a.inhabit_turns));
+  return Math.max(0, Math.min(1, (a.turns_live ?? 0) / a.inhabit_turns));
 }
 
 /** WHERE ON THE RAMP, and the shape of the ramp is the whole feature.
@@ -193,8 +203,8 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
       rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal}. It needs no occasion and no excuse. If this scene gives it any opening at all, it happens.`);
     }
     for (const a of liveAuthored(c)) {
-      const stalledNote = (a.stalled ?? 0) >= 2
-        ? ` This has not been visible for ${a.stalled} turns and has therefore not advanced at all — it does not move until it is written, so write it.`
+      const stalledNote = (a.stalled ?? 0) >= 1
+        ? ` IT HAS BEEN SKIPPED ${a.stalled} TURN(S) RUNNING AND THE CLOCK DID NOT WAIT — it is further along than it has been shown to be, and the gap between the two is the reader's confusion. Close it in this scene: the beat for the CURRENT rung, plus the smallest acknowledgement that the skipped ground was covered.`
         : "";
       rows.push(`${c.name} — ${authoredLine(a)}${stalledNote}`);
     }
@@ -218,7 +228,8 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
     rows.push(`AND THESE ARE NOT DECORATION — each of these people acts out of the trait named here at least once this scene, in something they DO rather than something stated about them: ${traits.join(" | ")}`);
   }
   if (!rows.length) return "";
-  return `\n[WHAT IS FORMING IN THESE PEOPLE — write the beat for each of these into this scene, at the strength named and no more. This is not background and it is not optional; a turn in which none of it can be seen is a turn in which it failed.\n· ${rows.join("\n· ")}]`;
+  return `\n[WHAT IS FORMING IN THESE PEOPLE — NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE.
+Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]`;
 }
 
 /** Every live authored want in the cast, as the world-sim's `wantsOf` wants them: id → lines. */
@@ -256,16 +267,18 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
       if (!a?.goal || a.crystallized_turn || a.paused) continue;
 
       if (a.inhabit_turns && a.inhabit_turns > 0) {
-        // EARNED, NOT ELAPSED.
+        // The schedule advances every turn the want is live, full stop.
+        a.turns_live = (a.turns_live ?? 0) + 1;
+        const reachedByClock = rampStage(a);
+        if (reachedByClock > (a.stage ?? 0)) {
+          a.stage = reachedByClock;
+          log.push(`${c.name} is further into it than she was: ${a.goal}.`);
+        }
+        // Seen/stalled are recorded for the escalating demand and the crystallisation guard only.
         if (prose && mentions(a.goal, prose, castNames)) {
           a.seen = (a.seen ?? 0) + 1;
           a.last_seen_turn = turn;
           a.stalled = 0;
-          const reached = rampStage(a);
-          if (reached > (a.stage ?? 0)) {
-            a.stage = reached;
-            log.push(`${c.name} is further into it than she was: ${a.goal}.`);
-          }
         } else {
           a.stalled = (a.stalled ?? 0) + 1;
         }

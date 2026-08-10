@@ -318,9 +318,11 @@ const wantsLines = (s: SaveState) =>
   s2.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 })];
   const b = s2.characters.char_neigh.authored![0];
   for (let i = 0; i < 15; i++) { s2.world.current_turn++; tickAuthored(s2, 15, "They talked about the weather and the fuel gauge."); }
-  check("fifteen turns that ignored it advance it by nothing", (b.seen ?? 0) === 0, b.seen);
-  check("so the percentage has not moved", Math.round(intensity(b) * 100) === 10);
-  check("and the card can say how long it has been ignored", (b.stalled ?? 0) === 15, b.stalled);
+  check("fifteen turns that ignored it are recorded as ignored", (b.seen ?? 0) === 0, b.seen);
+  check("and counted, so the demand can escalate", (b.stalled ?? 0) === 15, b.stalled);
+  // "It must increase the percent if I'm using number of turns. Those turns aren't suggestions."
+  check("but the percentage moved anyway, because the turns are a contract", Math.round(intensity(b) * 100) === 100, Math.round(intensity(b) * 100));
+  check("what it may NOT do is harden into a trait it never showed", !b.crystallized_turn, b);
 
 }
 {
@@ -362,17 +364,23 @@ const wantsLines = (s: SaveState) =>
  * her armpit. Anytime they're together."
  *
  * The engine declared a habit the story had never shown, which is exactly the blunt instrument this
- * whole feature exists to replace — arrived at automatically, without a single scene earning it. */
+ * whole feature exists to replace — arrived at automatically, without a single scene earning it.
+ *
+ * Note the two halves, because they pull opposite ways and BOTH are wanted. A turn budget is a
+ * contract: the schedule runs on turns and the narrator does not get a veto over it, so the ramp
+ * climbs to the top rung here and the demand on the page gets louder every turn it is skipped.
+ * Crystallisation is the other half — that is the engine asserting the story DID something, and it
+ * has no business saying so about prose it can't find. So: ramp to the top, never harden. */
 {
   const s = mk(20);
   s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 3, crystallize: true })];
   s.world.current_turn = 24;
-  tickAuthored(s, 15);
+  for (let i = 0; i < 6; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   const a = s.characters.char_neigh.authored![0];
+  // The budget was three turns and six went by, so the schedule is long past its deadline.
+  check("the schedule ran to the top regardless — turns are not suggestions", (a.stage ?? 0) === MAX_STAGE, a.stage);
+  check("and the direction says out loud that it keeps getting skipped", (a.stalled ?? 0) >= 6, a.stalled);
   check("a want the story never showed does not become a trait", !a.crystallized_turn, a);
-  // It does not even reach the top: an unseen want does not advance AT ALL now, which is stricter
-  // than "holds at the top" and is the behaviour that was asked for.
-  check("it has not advanced one rung either", (a.stage ?? 0) === 0, a.stage);
   check("and it is not written into core traits", !s.characters.char_neigh.core_traits.some((t) => /do the thing/.test(t)), s.characters.char_neigh.core_traits);
 }
 {
@@ -400,6 +408,7 @@ const wantsLines = (s: SaveState) =>
 
   feed("Rabi crossed the room and she watched him go.");
   check("the player's name alone is not evidence", (a.seen ?? 0) === 0, a.seen);
+  check("but the SCHEDULE still advanced — the turns are a contract", (a.turns_live ?? 0) === 1, a.turns_live);
   feed("She makes a note on the manifest. Rabi sees the number and says nothing.");
   check("nor a narration verb plus the player's name — the exact false positive", (a.seen ?? 0) === 0, a.seen);
   feed("Dev leaned in and put her nose against him, and did not explain it.");
@@ -483,9 +492,10 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored![0].stalled = 4;
   const d = habitDirective(s, s.world.present);
   check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
-  check("stated as required rather than as background", /not background and it is not optional/.test(d));
-  check("a turn without it is named as a failure", /a turn in which none of it can be seen is a turn in which it failed/.test(d));
-  check("and a stalled want says how long it has been ignored", /has not been visible for 4 turns/.test(d), d);
+  check("stated as required rather than as background", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d));
+  check("a turn without it is not an option at all", /no version of this turn in which none of it can be seen/.test(d));
+  check("and the narrator is denied the busy-scene excuse", /too busy for it, or that the plot matters more/.test(d));
+  check("and a skipped want says the clock did not wait", /SKIPPED 4 TURN\(S\) RUNNING AND THE CLOCK DID NOT WAIT/.test(d), d);
 }
 {
   const s = mk(5);
