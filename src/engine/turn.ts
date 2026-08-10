@@ -37,6 +37,7 @@ import { regenerateDrives, magnetPull } from "./drives";
 import { tickAuthored } from "./authored";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
+import { witnessRecord } from "./witness";
 import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
@@ -1899,9 +1900,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // them, off their own cards — the subject a want gets approached THROUGH instead of announced. See
   // engine/commonground.ts; it exists because the engine knew every want in the story and had never
   // once computed what two people had in common.
+  // THE SHARED RECORD. Characters hold private memories and nothing was ever held in common, so a
+  // false account could not be contradicted by the four people who watched it not happen. See
+  // engine/witness.ts.
+  const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + povFilter + lastWord(state);
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
