@@ -102,10 +102,10 @@ export function intensity(a: AuthoredDrive, _turn?: number): number {
  *  progress on a schedule. Gating the schedule itself handed the narrator a veto over the player's
  *  own instruction: ignore it and it never advances, which is the AI overriding the injection.
  *
- *  So the clock is the clock. `seen` and `stalled` are still tracked, and they do two jobs that do
- *  not involve slowing anything down: they escalate the demand in the per-turn direction when
- *  something has been skipped, and they still hard-block CRYSTALLISATION — a habit cannot become
- *  part of who somebody is on the strength of a story that never showed it. */
+ *  So the clock is the clock, and `turns_live` is the only input. Nothing reads the prose back to
+ *  decide whether a turn counted; see `tickAuthored` for why that check had to go rather than be
+ *  fixed a fourth time. `seen` / `stalled` / `last_seen_turn` survive on the type only so that saves
+ *  written while the detector existed still load. */
 function earnedFraction(a: AuthoredDrive): number {
   if (!a.inhabit_turns || a.inhabit_turns <= 0) return 0;
   return Math.max(0, Math.min(1, (a.turns_live ?? 0) / a.inhabit_turns));
@@ -188,7 +188,7 @@ export function authoredLine(a: AuthoredDrive): string {
  *  The want has been on the character card the whole time — correct, complete, increasingly emphatic
  *  — sixty percent of the way through a thirty-thousand-character digest, behind a
  *  twenty-seven-thousand-character contract. Every fix I made was making a middle-of-the-document
- *  entry longer, which is not the same as making it louder. Six turns of stalled: 0% seen, with the
+ *  entry longer, which is not the same as making it louder — six turns of a want at 0%, with the
  *  instruction present and impeccable on every one of them.
  *
  *  The per-turn directive is what a narrator acts on. So the want goes there, after everything else,
@@ -203,10 +203,7 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
       rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal}. It needs no occasion and no excuse. If this scene gives it any opening at all, it happens.`);
     }
     for (const a of liveAuthored(c)) {
-      const stalledNote = (a.stalled ?? 0) >= 1
-        ? ` IT HAS BEEN SKIPPED ${a.stalled} TURN(S) RUNNING AND THE CLOCK DID NOT WAIT — it is further along than it has been shown to be, and the gap between the two is the reader's confusion. Close it in this scene: the beat for the CURRENT rung, plus the smallest acknowledgement that the skipped ground was covered.`
-        : "";
-      rows.push(`${c.name} — ${authoredLine(a)}${stalledNote}`);
+      rows.push(`${c.name} — ${authoredLine(a)}`);
     }
   }
   // AND THE HABITS THEY ALREADY HAVE. "There are random habits that are never used at all, but they
@@ -244,22 +241,33 @@ export function authoredWants(state: SaveState): Map<string, string> {
   return out;
 }
 
-/** THE RATCHET, AND IT ONLY TURNS ON EVIDENCE.
+/** THE RATCHET.
  *
- *  Called once per turn with the prose that was just written. A want advances only on turns where it
- *  actually appeared — directly or indirectly. If the narrator ignores it, the percentage does not
- *  move, which is both correct and diagnostic: a stalled number is a visible failure rather than a
- *  silent one, and the want cannot complete itself out of a story it was never in.
+ *  Called once per turn. A want with a turn budget advances one turn's worth, unconditionally.
+ *
+ *  There used to be a detector here: match the distinctive words of the goal against the prose, and
+ *  only credit turns where the want could be found. It went through three revisions and every one of
+ *  them was wrong, because the premise is wrong. THE LADDER'S ENTIRE POINT IS THAT THE EARLY RUNGS
+ *  DO NOT NAME THE THING. Stage 0 for "makes him lick her armpits" is a woman standing a half-step
+ *  too close with her sleeve rolled up, holding the position a beat past comfortable — the beat that
+ *  finally landed on a real save, and the detector scored that turn `stalled: 1`. It could only ever
+ *  have fired on prose that said the quiet part, i.e. on precisely the rushed, announced version this
+ *  whole feature exists to prevent. It was rewarding the failure and punishing the success.
+ *
+ *  It was also worse than useless downstream: `stalled: 1` put "IT HAS BEEN SKIPPED 1 TURN RUNNING"
+ *  into the next turn's direction on a turn that had nailed it, which is an instruction to push
+ *  harder than the rung allows. A wrong signal in the prompt is more expensive than no signal.
+ *
+ *  So there is no detector. The turn budget is the whole mechanism, and the only reader who can
+ *  actually judge whether the beat landed is the one holding the phone — who has `knock it back` and
+ *  `hold it here` on the card for exactly that.
  *
  *  The in-world-hours ladder (no budget set) still runs on the clock; that path is for a standing
  *  condition of somebody's life which is true whether or not the page mentions it. */
-export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): string[] {
+export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
   const log: string[] = [];
   const turn = state.world.current_turn;
   const elapsed = Math.max(0, minutesElapsed);
-  // Every name in the cast is scenery for this purpose — the player's especially, since it appears
-  // in nearly every sentence of every turn.
-  const castNames = Object.values(state.characters ?? {}).flatMap((c) => (c.name ?? "").split(/\s+/)).filter(Boolean);
   for (const [id, c] of Object.entries(state.characters ?? {})) {
     if (id === "char_player") continue;
     if (c.status === "dead" || c.status === "departed") continue;
@@ -267,20 +275,22 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
       if (!a?.goal || a.crystallized_turn || a.paused) continue;
 
       if (a.inhabit_turns && a.inhabit_turns > 0) {
-        // The schedule advances every turn the want is live, full stop.
-        a.turns_live = (a.turns_live ?? 0) + 1;
+        if (a.turns_live === undefined) {
+          // A want written while the evidence gate was live has no `turns_live`, and the `seen` it
+          // does have is the bad number that gate produced. Turns elapsed since it was written is
+          // what the field would have held all along, so that is the reconstruction — capped one
+          // short of the budget, so a want abandoned fifty turns ago cannot complete itself in the
+          // instant the save loads. The top rung is always reached by a real turn with the direction
+          // in front of the narrator, never by the migration.
+          a.turns_live = Math.max(0, Math.min(a.inhabit_turns - 1, turn - a.added_turn));
+        } else {
+          // The schedule advances every turn the want is live, full stop.
+          a.turns_live += 1;
+        }
         const reachedByClock = rampStage(a);
         if (reachedByClock > (a.stage ?? 0)) {
           a.stage = reachedByClock;
           log.push(`${c.name} is further into it than she was: ${a.goal}.`);
-        }
-        // Seen/stalled are recorded for the escalating demand and the crystallisation guard only.
-        if (prose && mentions(a.goal, prose, castNames)) {
-          a.seen = (a.seen ?? 0) + 1;
-          a.last_seen_turn = turn;
-          a.stalled = 0;
-        } else {
-          a.stalled = (a.stalled ?? 0) + 1;
         }
       } else {
         a.acted = (a.acted ?? 0) + elapsed;
@@ -292,60 +302,18 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0, prose = ""): 
         }
       }
 
-      if ((a.stage ?? 0) >= MAX_STAGE && a.crystallize && !a.crystallized_turn && surfaced(state, a)) {
+      // Crystallisation used to be gated on the same detector, on the reasoning that the engine has
+      // no business declaring a habit the story never showed. True in principle, and unenforceable in
+      // fact: the check could not tell a landed subtle beat from an ignored one, so it was blocking
+      // the wants that worked. What remains is the player's own switch — `crystallize` is opt-in per
+      // want, and if the story genuinely never showed it, the honest control is `drop it`.
+      if ((a.stage ?? 0) >= MAX_STAGE && a.crystallize && !a.crystallized_turn) {
         const t = crystallize(state, id, a, turn);
         if (t) log.push(`${c.name} does not think of it as a thing she started any more: ${t}.`);
       }
     }
   }
   return log;
-}
-
-/** DID THIS TURN'S PROSE ACTUALLY ACKNOWLEDGE THE WANT?
- *
- *  The first version of this counted any two content words, and on a real save that meant a want
- *  reading "Makes Rabi lick her armpits anytime she sees him" was marked SHOWN on a turn whose prose
- *  merely contained "makes" and "Rabi". The player's own name appears in nearly every sentence of
- *  every turn; "makes", "sees", "gets" are narration. So the percentage climbed while nothing
- *  happened — the evidence gate was counting the noise it existed to filter out.
- *
- *  The signal is the RARE word. In that goal it is "armpits", and only "armpits": if the prose does
- *  not contain the one word nothing else in the story would produce, the thing did not happen. So
- *  character names and ordinary verbs are stripped, and the longest surviving word — a decent proxy
- *  for the most distinctive one — must actually be there. */
-const NARRATION = new Set([
-  "their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from",
-  "every", "time", "always", "gets", "getting", "make", "makes", "making", "sees", "seeing", "look",
-  "looks", "looking", "take", "takes", "taking", "give", "gives", "come", "comes", "goes", "going",
-  "want", "wants", "says", "said", "tell", "tells", "asks", "asked", "keep", "keeps", "does", "doing",
-  "again", "still", "just", "back", "over", "down", "away", "like", "would", "could", "then", "than",
-]);
-function mentions(goal: string, prose: string, names: string[] = []): boolean {
-  const banned = new Set([...NARRATION, ...names.map((n) => n.toLowerCase())]);
-  const words = [...new Set((goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))]
-    .filter((w) => !banned.has(w))
-    .sort((a, b) => b.length - a.length);
-  if (!words.length) return false;
-  const hay = prose.toLowerCase();
-  // One of the two most distinctive words must be present. Length is a crude rarity proxy and a
-  // single longest word is too brittle — "start having people over late" ranks "having" first, so
-  // requiring only that would miss "six people in his front room". Two gives the real subject noun
-  // a chance while still refusing anything that matched on scenery alone.
-  return words.slice(0, 2).some((w) => hay.includes(w));
-}
-
-/** Did this want ever actually reach the page? Matched on the distinctive words of the goal against
- *  the prose since it was written — crude, and the alternative is hardening a trait out of nothing. */
-function surfaced(state: SaveState, a: AuthoredDrive): boolean {
-  const stop = new Set(["their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from", "every", "time", "always"]);
-  const words = [...new Set((a.goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))].filter((w) => !stop.has(w));
-  if (!words.length) return true;
-  const prose = state.history.filter((h) => h.turn >= a.added_turn).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
-  const hits = words.filter((w) => prose.includes(w)).length;
-  // A short goal ("ask him to do the thing") may yield only one distinctive word, so the bar cannot
-  // be a flat two — that would make brief wants incapable of ever crystallising.
-  const need = Math.min(words.length, Math.max(1, Math.ceil(words.length * 0.4)));
-  return hits >= need;
 }
 
 /** THE WANT BECOMES THE PERSON.
@@ -399,7 +367,6 @@ export function setback(a: AuthoredDrive, rate: AuthoredDrive["rate"] = a.rate):
  *  the full climb again before it reaches 3 — the player would have set it high precisely because
  *  they did not want to wait. */
 export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDrive> = {}): AuthoredDrive {
-  const seen = Math.max(0, opts.seen ?? 0);
   const rate = opts.rate ?? "steady";
   const stage = Math.max(0, Math.min(MAX_STAGE, opts.stage ?? 0));
   return {
@@ -409,8 +376,9 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
     rate,
     stage,
     acted: Math.max(stage * 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady), opts.acted ?? 0),
-    seen: Math.max(seen, opts.inhabit_turns ? Math.round((stage / (MAX_STAGE + 1)) * opts.inhabit_turns) : 0),
-    stalled: opts.stalled ?? 0,
+    // Same reasoning as `acted`: a want started part-way up must not have to re-earn the ground the
+    // player just handed it, so the turn counter starts at the fraction its stage represents.
+    turns_live: Math.max(opts.turns_live ?? 0, opts.inhabit_turns ? Math.round((stage / (MAX_STAGE + 1)) * opts.inhabit_turns) : 0),
     paused: opts.paused,
     inhabit_turns: opts.inhabit_turns && opts.inhabit_turns > 0 ? Math.round(opts.inhabit_turns) : undefined,
     crystallize: opts.crystallize ?? true,

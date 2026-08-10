@@ -293,37 +293,34 @@ const wantsLines = (s: SaveState) =>
   const s = mk(20);
   s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 })];
   const a = s.characters.char_neigh.authored![0];
-  const SEEN = "She asked him to do the thing, or nearly did.";
-  const showTo = (n: number) => { while ((a.seen ?? 0) < n) { s.world.current_turn++; tickAuthored(s, 15, SEEN); } };
+  const to = (n: number) => { while ((a.turns_live ?? 0) < n) { s.world.current_turn++; tickAuthored(s, 15); } };
   const pct = () => Math.round(intensity(a) * 100);
   const rung = () => RUNGS.find((r) => authoredLine(a).includes("where they are with it: " + r)) ?? "?";
 
   check("it is visible immediately rather than at zero", pct() === 10, pct());
-  showTo(1);
-  check("one turn that SHOWED it moves the number", pct() > 10, pct());
+  to(1);
+  check("one turn moves the number", pct() > 10, pct());
 
-  /* The Yorkie days, in order — counted in turns that actually showed it. */
-  showTo(1); check("it opens as bare exposure", rung() === "EXPOSURE", rung());
-  showTo(3); check("then proximity by circumstance", rung() === "NEAR IT", rung());
-  showTo(4); check("then examining the specific thing", rung() === "EXAMINING IT", rung());
+  /* The Yorkie days, in order — counted in turns, which is the unit the player set. */
+  to(1); check("it opens as bare exposure", rung() === "EXPOSURE", rung());
+  to(3); check("then proximity by circumstance", rung() === "NEAR IT", rung());
+  to(4); check("then examining the specific thing", rung() === "EXAMINING IT", rung());
   check("nothing has HAPPENED through the whole first half", RUNGS.indexOf(rung()) <= 2, rung());
-  showTo(5); check("the first time it happens is past halfway, and sideways", rung() === "THE SIDEWAYS FIRST TIME", rung());
-  showTo(8); check("then repetition without a pretext", rung() === "AGAIN", rung());
-  showTo(10); check("and only at the end is it simply what they do", rung() === "SIMPLY WHAT SHE DOES", rung());
-  check("the early rungs are body and circumstance, never conversation",
-    /Not one word about it/.test(authoredLine(s.characters.char_neigh.authored![0])) || true);
+  to(5); check("the first time it happens is past halfway, and sideways", rung() === "THE SIDEWAYS FIRST TIME", rung());
+  to(8); check("then repetition without a pretext", rung() === "AGAIN", rung());
+  to(10); check("and only at the end is it simply what they do", rung() === "SIMPLY WHAT SHE DOES", rung());
 
-  /* THE WHOLE POINT: a turn that does not show it does not count. */
+  /* "It must increase the percent if I'm using number of turns. Those turns aren't suggestions."
+   *
+   * Fifteen turns of prose with no visible connection to the want whatsoever. The percentage runs to
+   * the end anyway, because the alternative — the engine reading the prose back and deciding for
+   * itself whether the turn counted — is the thing that broke this feature for a week. */
   const s2 = mk(20);
   s2.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 10 })];
   const b = s2.characters.char_neigh.authored![0];
-  for (let i = 0; i < 15; i++) { s2.world.current_turn++; tickAuthored(s2, 15, "They talked about the weather and the fuel gauge."); }
-  check("fifteen turns that ignored it are recorded as ignored", (b.seen ?? 0) === 0, b.seen);
-  check("and counted, so the demand can escalate", (b.stalled ?? 0) === 15, b.stalled);
-  // "It must increase the percent if I'm using number of turns. Those turns aren't suggestions."
-  check("but the percentage moved anyway, because the turns are a contract", Math.round(intensity(b) * 100) === 100, Math.round(intensity(b) * 100));
-  check("what it may NOT do is harden into a trait it never showed", !b.crystallized_turn, b);
-
+  for (let i = 0; i < 15; i++) { s2.world.current_turn++; tickAuthored(s2, 15); }
+  check("the percentage completes on schedule, unconditionally", Math.round(intensity(b) * 100) === 100, Math.round(intensity(b) * 100));
+  check("and it does not run past the end", (b.stage ?? 0) === MAX_STAGE, b.stage);
 }
 {
   const s = mk(20);
@@ -356,85 +353,93 @@ const wantsLines = (s: SaveState) =>
   check("and its line carries no percentage", !/% of the way/.test(authoredLine(s.characters.char_neigh.authored!, 99)));
 }
 
-/* ── 7. NEVER HARDEN SOMETHING THAT NEVER HAPPENED ───────────────────────────────
+/* ── 7. THE DEADLINE IS THE DEADLINE ─────────────────────────────────────────────
  *
- * A 20-turn budget ran to completion. The character was present for twelve straight turns. The want
- * was on her card, in the wants slot, every single one of them — and it never reached the prose
- * once. Then the deadline arrived and it crystallised into a core trait reading "Forces Rabi lick
- * her armpit. Anytime they're together."
+ * This section used to assert the opposite, and the history is worth keeping because both versions
+ * were responses to a real save.
  *
- * The engine declared a habit the story had never shown, which is exactly the blunt instrument this
- * whole feature exists to replace — arrived at automatically, without a single scene earning it.
+ * FIRST: a 20-turn budget ran to completion with the character present throughout, the want never
+ * reached the prose once, and the deadline hardened it into a core trait reading "Forces Rabi lick
+ * her armpit. Anytime they're together." The engine declared a habit the story had never shown. So a
+ * guard went in: crystallisation required finding the want's distinctive words somewhere in the
+ * prose since it was written.
  *
- * Note the two halves, because they pull opposite ways and BOTH are wanted. A turn budget is a
- * contract: the schedule runs on turns and the narrator does not get a veto over it, so the ramp
- * climbs to the top rung here and the demand on the page gets louder every turn it is skipped.
- * Crystallisation is the other half — that is the engine asserting the story DID something, and it
- * has no business saying so about prose it can't find. So: ramp to the top, never harden. */
+ * THEN: the want finally started landing, and the guard could not see it. The beat that worked was
+ * Dana standing a half-step too close with her sleeve rolled up, holding the position "just long
+ * enough that something in the angle of her body read as an opening". That is EXACTLY the bottom
+ * rung performed correctly, and the detector scored the turn as skipped. It could only ever have
+ * fired on prose that said the quiet part — which is to say, on the rushed and announced version
+ * this whole ladder exists to prevent.
+ *
+ * A detector that fires on the failure and misses the success is not a guard, so it is gone. What
+ * stops a want hardening now is the player: `crystallize` is a per-want switch, and `drop it` and
+ * `knock it back` are on the card. The deadline they set is honoured. */
 {
   const s = mk(20);
   s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 3, crystallize: true })];
   s.world.current_turn = 24;
-  for (let i = 0; i < 6; i++) { s.world.current_turn++; tickAuthored(s, 15); }
+  for (let i = 0; i < 4; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   const a = s.characters.char_neigh.authored![0];
-  // The budget was three turns and six went by, so the schedule is long past its deadline.
-  check("the schedule ran to the top regardless — turns are not suggestions", (a.stage ?? 0) === MAX_STAGE, a.stage);
-  check("and the direction says out loud that it keeps getting skipped", (a.stalled ?? 0) >= 6, a.stalled);
-  check("a want the story never showed does not become a trait", !a.crystallized_turn, a);
-  check("and it is not written into core traits", !s.characters.char_neigh.core_traits.some((t) => /do the thing/.test(t)), s.characters.char_neigh.core_traits);
+  check("the schedule runs to the top on turns alone", (a.stage ?? 0) === MAX_STAGE, a.stage);
+  check("and the deadline the player set is honoured", !!a.crystallized_turn, a);
+  check("so it is written into who they are", s.characters.char_neigh.core_traits.some((t) => /do the thing/.test(t)), s.characters.char_neigh.core_traits);
 }
 {
+  // The player's actual veto, which is a switch rather than a heuristic.
   const s = mk(20);
-  s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 2, crystallize: true })];
-  s.history.push({ turn: 22, player_action: "", narrator_prose: "She asked him to do the thing, finally, and did not look away." } as any);
-  for (let i = 0; i < 3; i++) { s.world.current_turn++; tickAuthored(s, 15, "She asked him to do the thing again."); }
-  check("but one the story DID show becomes who they are", !!s.characters.char_neigh.authored?.[0]?.crystallized_turn);
-}
-
-/* ── 8. THE EVIDENCE GATE MUST NOT COUNT SCENERY ─────────────────────────────────
- *
- * The gate shipped counting any two content words. On a real save that marked a want reading
- * "Makes Rabi lick her armpits anytime she sees him" as SHOWN on a turn whose prose merely contained
- * "makes" and "Rabi" — the player's name, which appears in nearly every sentence of every turn, plus
- * a narration verb. The percentage climbed while nothing happened, which is precisely the failure
- * the gate was added to prevent, now with a number attesting to it.
- *
- * The signal is the RARE word. Here that is "armpits" and only "armpits". */
-{
-  const s = mk(1);
-  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits anytime she sees him.", 1, { inhabit_turns: 3 })];
+  s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 2, crystallize: false })];
+  for (let i = 0; i < 5; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   const a = s.characters.char_neigh.authored![0];
-  const feed = (text: string) => { s.world.current_turn++; tickAuthored(s, 15, text); };
-
-  feed("Rabi crossed the room and she watched him go.");
-  check("the player's name alone is not evidence", (a.seen ?? 0) === 0, a.seen);
-  check("but the SCHEDULE still advanced — the turns are a contract", (a.turns_live ?? 0) === 1, a.turns_live);
-  feed("She makes a note on the manifest. Rabi sees the number and says nothing.");
-  check("nor a narration verb plus the player's name — the exact false positive", (a.seen ?? 0) === 0, a.seen);
-  feed("Dev leaned in and put her nose against him, and did not explain it.");
-  check("nor a scene that is merely adjacent", (a.seen ?? 0) === 0, a.seen);
-
-  feed("She raised her arm and held it there until he put his mouth to her armpits.");
-  check("the rare word is what counts", (a.seen ?? 0) === 1, a.seen);
-  check("and the stall counter resets when it finally lands", (a.stalled ?? 0) === 0, a.stalled);
+  check("a want set not to harden stays a want forever", !a.crystallized_turn && (a.stage ?? 0) === MAX_STAGE, a);
+  check("and stays on the card, still asking", hasAuthored(s.characters.char_neigh));
 }
 {
-  // THE DELIBERATE TRADE, recorded so it is not mistaken for an oversight. A rare-word rule is strict
-  // and will miss some genuinely indirect acknowledgements ("he did not have anyone over that night"
-  // shares nothing distinctive with "start having people over late"). That costs one turn of
-  // progress. The looser rule it replaced cost the entire feature: it certified as SHOWN a turn
-  // containing only the player's name and the word "makes", so the percentage rose to completion
-  // across a story in which the want never appeared. A missed beat is recoverable; a false one is
-  // the bug this exists to catch, wearing the badge of the thing that catches it.
+  // Held in place is the other lever: the thing has reached the level the player wanted.
+  const s = mk(20);
+  s.characters.char_neigh.authored = [newAuthored("ask him to do the thing", 20, { inhabit_turns: 2, crystallize: true, paused: true })];
+  for (let i = 0; i < 5; i++) { s.world.current_turn++; tickAuthored(s, 15); }
+  check("a held want does not run its clock out behind the player's back",
+    !s.characters.char_neigh.authored![0].crystallized_turn, s.characters.char_neigh.authored![0]);
+}
+
+/* ── 8. A SAVE WRITTEN UNDER THE OLD GATE STILL KNOWS WHERE IT IS ────────────────
+ *
+ * Every want injected while the detector was live carries `seen` and no `turns_live`, and `seen` is
+ * a bad number — on the save that prompted the removal it read 0 for a turn that had landed. Reading
+ * the schedule off a fresh `turns_live` alone would silently reset those wants to 10%: the player
+ * would open the card and find yesterday's injection back at the start.
+ *
+ * Turns elapsed since it was written is what the field would have held all along, so that is the
+ * backfill — held one short of the budget, so the top rung is always reached by a real turn with the
+ * direction in front of the narrator rather than by the migration itself. */
+{
   const s = mk(1);
-  s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 3 })];
+  const old = newAuthored("Makes Rabi lick her armpits, regardless of context", 1, { inhabit_turns: 3 });
+  delete (old as { turns_live?: number }).turns_live;
+  (old as { seen?: number }).seen = 0;
+  (old as { stalled?: number }).stalled = 1;
+  s.characters.char_neigh.authored = [old];
+  s.world.current_turn = 2;
+  tickAuthored(s, 15);
   const a = s.characters.char_neigh.authored![0];
+  check("an old want picks up where the story actually is", (a.turns_live ?? 0) === 1, a.turns_live);
+  check("rather than restarting at nothing", Math.round(intensity(a) * 100) > 10, Math.round(intensity(a) * 100));
+}
+{
+  // A long-abandoned want does not complete itself in the instant the save loads.
+  const s = mk(1);
+  const old = newAuthored("ask him to do the thing", 1, { inhabit_turns: 4, crystallize: true });
+  delete (old as { turns_live?: number }).turns_live;
+  s.characters.char_neigh.authored = [old];
+  s.world.current_turn = 90;
+  tickAuthored(s, 15);
+  const a = s.characters.char_neigh.authored![0];
+  check("the migration itself never crystallises anything", !a.crystallized_turn, a);
+  check("it lands one turn short of the deadline instead", (a.turns_live ?? 0) === 3, a.turns_live);
   s.world.current_turn++;
-  tickAuthored(s, 15, "He did not have anyone over that night, and the house stayed quiet.");
-  check("a strictly indirect mention is missed, and that is the safe direction", (a.seen ?? 0) === 0, a.seen);
-  s.world.current_turn++;
-  tickAuthored(s, 15, "By ten there were six people in his front room and the music was up.");
-  check("but the subject named plainly always counts", (a.seen ?? 0) === 1, a.seen);
+  tickAuthored(s, 15);
+  check("and the next real turn — the one the narrator was told about — finishes it",
+    !!s.characters.char_neigh.authored![0].crystallized_turn);
 }
 
 /* ── 9. THE MODEL INVENTS THE OCCASION, AND A FINISHED HABIT STAYS VISIBLE ───────
@@ -489,13 +494,17 @@ const wantsLines = (s: SaveState) =>
   const s = mk(5);
   s.world.present = ["char_neigh"];
   s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
-  s.characters.char_neigh.authored![0].stalled = 4;
   const d = habitDirective(s, s.world.present);
   check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
   check("stated as required rather than as background", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d));
   check("a turn without it is not an option at all", /no version of this turn in which none of it can be seen/.test(d));
   check("and the narrator is denied the busy-scene excuse", /too busy for it, or that the plot matters more/.test(d));
-  check("and a skipped want says the clock did not wait", /SKIPPED 4 TURN\(S\) RUNNING AND THE CLOCK DID NOT WAIT/.test(d), d);
+  // There used to be an extra "IT HAS BEEN SKIPPED N TURNS RUNNING" line here, driven by the prose
+  // detector. It fired on the save where the beat had actually landed — telling the narrator to push
+  // harder than the rung allows, on the strength of a reading that was wrong. A false signal in the
+  // prompt costs more than a missing one, so the direction now says only what it knows: the rung,
+  // the percentage, and that it is due this turn.
+  check("and nothing in it is conditioned on a guess about last turn's prose", !/SKIPPED/.test(d), d);
 }
 {
   const s = mk(5);

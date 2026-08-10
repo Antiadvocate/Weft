@@ -2758,7 +2758,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // authored want is not the engine originating anything; it is the player originating it, by hand,
   // on purpose. Somebody who turned tension to 0 to stop the world inventing plots and then wrote a
   // want onto their neighbour meant for that want to happen.
-  offscreenLog.push(...tickAuthored(state, minutes, prose));
+  offscreenLog.push(...tickAuthored(state, minutes));
   if ((state.model_settings.tension ?? 5) > 0) {
     // Dispersion is measured from the ledger now, not handed over by the retired undertow (which
     // supplied a hardcoded 0 and left the anti-chorus machinery unreachable). See magnetPull.

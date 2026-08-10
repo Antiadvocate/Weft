@@ -338,21 +338,14 @@ export interface AuthoredDrive {
    *  turn after it is written and reaches full by the deadline, on a curve that rises fast and then
    *  flattens: something shows immediately, and the arrival is on a fixed schedule you can check. */
   inhabit_turns?: number;
-  /** 0–5. How far it has escalated. Derived from what has actually been SEEN, not from the clock. */
+  /** 0–5. How far it has escalated. */
   stage: number;
-  /** TURNS ON WHICH THIS ACTUALLY APPEARED IN THE PROSE.
-   *
-   *  The ramp advances on this and nothing else. A budget measured in elapsed turns can run to
-   *  completion while the want never once reaches the page — one save did exactly that, twenty turns
-   *  with the character present throughout, and then hardened it into a core trait. Progress you did
-   *  not see is not progress. If the narrator ignores it, the percentage simply stops, which also
-   *  makes the failure visible instead of silent. */
-  seen: number;
-  /** Turns this want has been live. THE SCHEDULE RUNS ON THIS — `inhabit_turns` is a contract, not a
-   *  target the narrator may decline. `seen` governs only the escalating demand and the guard that
-   *  stops an unseen want hardening into a trait. */
+  /** Turns this want has been live. THE SCHEDULE RUNS ON THIS AND ON NOTHING ELSE — `inhabit_turns`
+   *  is a contract, not a target the narrator may decline. */
   turns_live?: number;
-  /** Last turn it showed, and how many turns it has been ignored since. */
+  /** DEAD. Written by the prose detector that used to gate the schedule, kept so saves from that era
+   *  still load and so the field numbers do not shift under them. Nothing reads them. */
+  seen?: number;
   last_seen_turn?: number;
   stalled?: number;
   /** Turns this want has been live and unpaused — a standing want expresses itself whether or not

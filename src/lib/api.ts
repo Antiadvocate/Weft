@@ -1218,7 +1218,7 @@ export const api = {
       ...want,
       stage: want.stage ?? prev?.stage ?? 0,
       acted: want.stage !== undefined ? undefined : prev?.acted,
-      seen: want.stage !== undefined ? undefined : prev?.seen,
+      turns_live: want.stage !== undefined ? undefined : prev?.turns_live,
       added_turn: prev?.added_turn,   // rewording a want does not restart it
     });
     if (prev?.crystallized_turn && want.stage === undefined) made.crystallized_turn = prev.crystallized_turn;

@@ -735,8 +735,11 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
       return s;
     });
   };
+  // Reads the same field the engine ramps on. It used to read `seen` — the prose detector's count —
+  // so the card showed a want stuck at 10% on the very turns the schedule was advancing underneath
+  // it, which is worse than no number at all.
   const pct = (a: NonNullable<typeof list>[number]) =>
-    a.inhabit_turns ? Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * ((a.seen ?? 0) / a.inhabit_turns)))) : null;
+    a.inhabit_turns ? Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * ((a.turns_live ?? 0) / a.inhabit_turns)))) : null;
 
   return (
     <Section title="Things going on in their life">
@@ -749,7 +752,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
             ? `it became who they are (turn ${a.crystallized_turn})`
             : a.paused ? "held here"
             : a.inhabit_turns
-              ? `${pct(a)}% — ${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} · seen in ${a.seen ?? 0} of ${a.inhabit_turns} turns${(a.stalled ?? 0) >= 2 ? ` · IGNORED ${a.stalled} turns running` : ""}`
+              ? `${pct(a)}% — ${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} · turn ${Math.min(a.turns_live ?? 0, a.inhabit_turns)} of ${a.inhabit_turns}`
               : `${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} — climbing, ${a.rate}`} />
           {!a.crystallized_turn && (
             <div className="flex flex-wrap gap-1.5 mt-2">
