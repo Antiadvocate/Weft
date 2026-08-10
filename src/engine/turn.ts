@@ -3835,6 +3835,31 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   for (const np of diff.new_places ?? []) {
     if (!np?.name) continue;
     const exists = Object.values(state.world.places).some((p) => p.name.toLowerCase() === np.name.toLowerCase());
+    // A ROOM INSIDE A PLACE IS NOT A PLACE, AND THIS PATH NEVER CHECKED.
+    //
+    // The digest tells the models this in as many words — "rooms, corners and doorways inside a
+    // place are prose, not locations" — and the sub-place guard used by createPlace exempts any
+    // name with two or more capitalised words, which every real building has. So this loop, which
+    // never consulted the guard at all, split one bunker into three: "The Alki Bunker", "Alki
+    // Bunker - Rabi and Liz Room", "Alki Bunker - Marcus and Dana Room".
+    //
+    // The consequence is not cosmetic. Presence is computed per location, so two people twenty feet
+    // apart in the same building became NOT IN THIS SCENE — and a character who is absent but needed
+    // gets rendered as a voice from somewhere else. One save had Dana speaking over the radio as the
+    // USS Resolute while sitting in the next room of the bunker she was in.
+    //
+    // A name that opens with an existing place's name is a room in that place. Deterministic, and
+    // it fires exactly on the shape the models actually produce.
+    const inside = Object.values(state.world.places).find((p) => {
+      if (p.id === OFFSCENE) return false;
+      const outer = p.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
+      const inner = np.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
+      return outer.length >= 4 && inner.length > outer.length && inner.startsWith(outer);
+    });
+    if (inside) {
+      console.info(`[places] "${np.name}" is a room inside "${inside.name}" — kept as prose, not a location`);
+      continue;
+    }
     if (!exists) {
       const id = uid("loc");
       state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
