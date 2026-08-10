@@ -506,9 +506,12 @@ export interface Thread {
   last_escalated_time?: string;
   id: string;
   title: string;
-  status: "active" | "resolved" | "abandoned";
+  status: "active" | "resolved" | "abandoned" | "dormant";
   description: string;
   turn_started: number;
+  /** Last turn this thread was written to, or its subject appeared in the prose. A thread nobody has
+   *  touched in a long time is not a live situation, it is a note — see sweepThreads. */
+  last_touched_turn?: number;
   turn_resolved?: number;
   tension: number;             // 0–10 how due it is; pressure controller reads this
   /** What KIND of standing source this is. threat is one flavour of demand on the player, not the

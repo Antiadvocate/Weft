@@ -35,6 +35,7 @@ import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emot
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
 import { tickAuthored } from "./authored";
+import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
@@ -2757,6 +2758,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // witness memories in time to be picked up as rumors on the same turn.
   // Nobody stays in the holding pen. A character with no resolvable location is not a character who
   // has left the story — the engine just lost track of them for a turn.
+  // A LIST OF EVERY SITUATION THAT EVER EXISTED IS NOT A LIST OF WHAT THE STORY IS ABOUT. Threads
+  // that nobody has touched in a long time go dormant, and any mention wakes them. See threads.ts —
+  // this exists because the bookkeeper was never once asked to close one, and never did.
+  offscreenLog.push(...sweepThreads(state, prose));
   offscreenLog.push(...returnFromOffscene(state));
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }
@@ -4711,13 +4716,21 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         }
       }
       if (tu.status === "resolved") existing.turn_resolved = turn;
+      // THE AUTHORITATIVE TOUCH. The bookkeeper naming a thread is the one unambiguous signal that
+      // the story is still about it — far better than matching its wording against the prose, which
+      // a thread's identity does not survive ("the dug corner" / "the corner she had dug"). A
+      // dormant thread the bookkeeper writes to is back in play.
+      existing.last_touched_turn = turn;
+      // cast: `existing` is narrowed to the statuses threads_update can set, but a stored thread
+      // may also be dormant — which is exactly the case being woken here.
+      if ((existing.status as string) === "dormant" && tu.status !== "resolved") existing.status = "active";
     } else if (tu.status === "active") {
       // BIRTH CALIBRATION: a thread is born as POTENTIAL, not a mature crisis. New threads cap
       // at tension 6 (5 in the game's first 10 turns — arrivals establish, they don't besiege);
       // a real crisis earns its 9 turn by turn. This is the fix for "the world was born armed":
       // a turn-1 manhunt at tension 9 with no history contradicts any bible it lives in.
       const birthCap = turn <= 10 ? 5 : 6;
-      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, tension: clamp(Math.min(tu.tension ?? 3, birthCap), 0, 10) });
+      state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, last_touched_turn: turn, tension: clamp(Math.min(tu.tension ?? 3, birthCap), 0, 10) });
       shifts.push(`A new thread: ${tu.title}.`);
     }
     if (existing && tu.status === "resolved") shifts.push(`Thread resolved: ${tu.title}.`);
