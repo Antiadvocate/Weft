@@ -37,6 +37,7 @@
  */
 import type { SaveState } from "./types";
 import { stablePrefix, volatileDigest, simulatorContext } from "./prompts";
+import { MAX_STAGE } from "./authored";
 
 /* ─────────────────────────────────────────────────────────────────────────────────────────────
  * 1. COVERAGE
@@ -275,6 +276,12 @@ export interface EmergenceReport {
   offstage: { events: number; surfaced: number; pct: number; nullRate: number; examples: { from: number; to: number; actor: string; via: string[] }[] };
   rumor: { total: number; witnessedOnly: number; withToldHop: number; hops: Record<number, number>; secondHandActed: number };
   drives: { newWants: number; perTurn: number; survived3: number; longestRun: number; byChar: Record<string, number> };
+  /** Wants the PLAYER wrote by hand, disclosed so the rest of these numbers stay readable. The
+   *  offstage and rumour counts above make no attempt to subtract them, and shouldn't: what the
+   *  world does with an authored want — which evening, who was there, what it cost — is emergent
+   *  even though the want is not. But a save with six authored wants and a save with none are not
+   *  measuring the same thing, and the report should say which one you are looking at. */
+  authored: { live: number; crystallized: number; atTop: number };
   edges: { total: number; moved: number; neverMoved: number; signFlips: number };
   traits: { written: number; everRendered: number; renderedCap: number };
 }
@@ -407,5 +414,15 @@ export function emergenceReport(state: SaveState): EmergenceReport {
     },
     edges: { total: series.size, moved, neverMoved, signFlips },
     traits: { written, everRendered, renderedCap: RENDER_CAP },
+    authored: (() => {
+      const all = Object.entries(state.characters ?? {})
+        .filter(([id, c]) => id !== "char_player" && (c as any).authored?.goal)
+        .map(([, c]) => (c as any).authored as { stage?: number; crystallized_turn?: number });
+      return {
+        live: all.filter((a) => !a.crystallized_turn).length,
+        crystallized: all.filter((a) => a.crystallized_turn).length,
+        atTop: all.filter((a) => !a.crystallized_turn && (a.stage ?? 0) >= MAX_STAGE).length,
+      };
+    })(),
   };
 }

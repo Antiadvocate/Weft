@@ -14,6 +14,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
+import { newAuthored, setback } from "../engine/authored";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
@@ -1147,6 +1148,52 @@ export const api = {
     return clientView(s);
   },
 
+  /** AUTHOR A STANDING WANT onto somebody — the injector. See engine/authored.ts for the whole
+   *  argument; briefly, this is the tool that was missing between "do nothing" and "rewrite who
+   *  they are", and its absence is why core_traits was being used to record things that had never
+   *  happened.
+   *
+   *  Tracking comes along with it. An untracked character is explicitly one the engine spends no
+   *  upkeep on — no drive regeneration, no offstage presence — so a want written onto somebody
+   *  nobody is following would sit on the card and never once act. */
+  setAuthored: async (id: string, char_id: string, want: null | {
+    goal: string; approach?: string; because?: string;
+    rate?: "slow" | "steady" | "fast"; stage?: number; crystallize?: boolean; paused?: boolean;
+  }): Promise<ClientSave> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c) throw new Error("unknown character");
+    if (char_id === "char_player") throw new Error("author wants onto other people, not yourself");
+    if (!want || !want.goal.trim()) {
+      c.authored = undefined;
+    } else {
+      const prev = c.authored;
+      // Editing the wording of a want that is already three rungs up must not reset it to the
+      // bottom — the player is correcting a sentence, not restarting the story. Only an explicit
+      // stage overrides where it had climbed to.
+      c.authored = newAuthored(want.goal, s.world.current_turn, {
+        ...want,
+        stage: want.stage ?? prev?.stage ?? 0,
+        acted: want.stage !== undefined ? undefined : prev?.acted,
+        added_turn: prev?.added_turn,   // rewording a want does not restart it
+      });
+      if (prev?.crystallized_turn && want.stage === undefined) c.authored.crystallized_turn = prev.crystallized_turn;
+      c.tracked = true;
+    }
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Knock an authored want back a rung — the character was faced down and it cost them. */
+  authoredSetback: async (id: string, char_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    const a = s.characters[char_id]?.authored;
+    if (!a) throw new Error("no authored want");
+    setback(a);
+    await putSave(s);
+    return clientView(s);
+  },
+
   /** BASELINE TIGHTNESS — a player-only standing override of their own relaxation ceiling that
    *  HOLDS across turns (unlike the per-turn `tightness` opt, which is a one-turn spike). Level 0-5
    *  maps to a relaxation anchor via TIGHTNESS_ANCHOR; passing null/undefined clears it so the
@@ -1399,7 +1446,11 @@ export function governorState(s: Pick<SaveState, "telemetry" | "model_settings">
  * records the in-flight turn at two checkpoints (submission; prose-complete). On return,
  * resumePending() finishes the ledger from the exact point of death — only the cheap simulator
  * call re-fires; narrator tokens are never re-bought. */
-interface TurnJournal { turn: number; action: string; mode: string; prose?: string; ts: number }
+interface TurnJournal { turn: number; action: string; mode: string; prose?: string; partial?: boolean; ts: number }
+
+/** Prose below this is a fragment, not a scene: hand the words back and let them re-run rather than
+ *  committing a two-sentence turn to history. Above it, there is a beat worth keeping. */
+export const PARTIAL_MIN = 400;
 const journalKey = (id: string): string => "weft:journal:" + id;
 function writeJournal(id: string, j: TurnJournal): void { try { localStorage.setItem(journalKey(id), JSON.stringify(j)); } catch { /* quota */ } }
 function readJournal(id: string): TurnJournal | null { try { const r = localStorage.getItem(journalKey(id)); return r ? JSON.parse(r) as TurnJournal : null; } catch { return null; } }
@@ -1408,7 +1459,7 @@ function clearJournal(id: string): void { try { localStorage.removeItem(journalK
 export type PendingResolution =
   | { kind: "none" }
   | { kind: "restore_action"; action: string }
-  | { kind: "completed"; save: ClientSave };
+  | { kind: "completed"; save: ClientSave; cutShort?: boolean };
 
 /** Finish a turn that died mid-flight. Call on app open / visibility resume. */
 export async function resumePending(id: string, ev?: TurnEvents): Promise<PendingResolution> {
@@ -1416,19 +1467,41 @@ export async function resumePending(id: string, ev?: TurnEvents): Promise<Pendin
   if (!j) return { kind: "none" };
   const s = await need(id);
   if (s.world.current_turn !== j.turn || Date.now() - j.ts > 24 * 3600e3) { clearJournal(id); return { kind: "none" }; }
-  if (!j.prose) {
+  // A FRAGMENT IS NOT A SCENE, BUT MOST OF ONE IS.
+  //
+  // This used to hand the words back whenever the prose was incomplete, and on iOS that was the
+  // common case rather than the rare one: the narrator phase is the long one, a home-screen web app
+  // is terminated seconds after you leave it, so the kill almost always lands mid-narration. The
+  // player got their action back and paid for the tokens anyway.
+  //
+  // Now the stream is journaled as it arrives. If enough of it landed to be a beat, the turn is
+  // finished from what there is, trimmed back to the last complete paragraph so it ends on a whole
+  // sentence rather than mid-word. Short of that it is still words-back — a three-sentence turn in
+  // permanent history is worse than re-running one.
+  const prose = j.prose && j.partial ? trimToParagraph(j.prose) : j.prose;
+  if (!prose || (j.partial && prose.length < PARTIAL_MIN)) {
     clearJournal(id);
-    return { kind: "restore_action", action: j.action }; // partial prose is not a turn — words handed back
+    return { kind: "restore_action", action: j.action };
   }
   const gov = governorState(s);
   await runTurn(s, j.action, {
     onPhase: (p) => ev?.onPhase?.(p),
     onDelta: () => { /* prose already seen; history will render it */ },
     onMeta: (m) => ev?.onMeta?.(m as Record<string, unknown>),
-  }, (j.mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: j.prose });
+  }, (j.mode as ActionMode) ?? "do", { eco: gov.eco, proseOverride: prose });
   await putSave(s);
   clearJournal(id);
-  return { kind: "completed", save: clientView(s) };
+  return { kind: "completed", save: clientView(s), cutShort: !!j.partial };
+}
+
+/** Back up to the last paragraph break so a killed stream ends on a finished thought. Falls back to
+ *  the last sentence end, then to the raw text — a turn cut mid-word is still better than no turn,
+ *  and the caller has already decided there is enough here to keep. */
+export function trimToParagraph(prose: string): string {
+  const para = prose.lastIndexOf("\n\n");
+  if (para > PARTIAL_MIN) return prose.slice(0, para).trim();
+  const m = /[\s\S]*[.!?]["”]?/.exec(prose);
+  return (m?.[0] ?? prose).trim();
 }
 
 export async function streamTurn(saveId: string, action: string, mode: ActionMode, ev: TurnEvents, opts?: { ground?: boolean; observe?: boolean; tightness?: number; signal?: AbortSignal }): Promise<void> {
@@ -1448,6 +1521,7 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     if (gov.eco) ev.onPhase?.("eco");
     writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, ts: Date.now() });
     let proseAcc = "";
+    let lastJournaled = 0;
     await runTurn(s, act, {
       onPhase: (p) => {
         if (!proseJournaled && p !== "pressure" && p !== "narrator" && p !== "eco" && proseAcc) {
@@ -1456,7 +1530,18 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
         }
         ev.onPhase?.(p);
       },
-      onDelta: (t) => { proseAcc += t; ev.onDelta?.(t); },
+      // The stream is checkpointed as it arrives, not only when it finishes. Narration is the long
+      // phase and iOS terminates a backgrounded home-screen app during it, so this is the window
+      // where turns were being lost outright. Throttled by size rather than by time: localStorage
+      // writes are synchronous and this fires per token.
+      onDelta: (t) => {
+        proseAcc += t;
+        if (!proseJournaled && proseAcc.length - lastJournaled >= 1200) {
+          lastJournaled = proseAcc.length;
+          writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, prose: proseAcc, partial: true, ts: Date.now() });
+        }
+        ev.onDelta?.(t);
+      },
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
       onRead: (rs) => ev.onRead?.(rs),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco, signal: opts?.signal });

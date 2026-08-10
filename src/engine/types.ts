@@ -272,6 +272,7 @@ export interface Identity {
   current_activity?: string;
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
+  authored?: AuthoredDrive;   // a STANDING want the player wrote onto this person by hand — see AuthoredDrive
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
   central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
@@ -283,6 +284,65 @@ export interface Identity {
    *  images only when this matches the character's CURRENT plan — a stale person-shaped portrait
    *  attached as a reference outvotes every "not a person" the prompt can write. */
   portrait_plan?: "humanoid" | "nonhuman";
+}
+
+/** A WANT THE PLAYER WROTE, THAT THE WORLD THEN HAS TO LIVE WITH.
+ *
+ *  The only way to change a person by hand was to edit their core traits — which is instant and
+ *  total. Wanting a neighbour to become a nuisance meant typing "annoys me with loud music nightly"
+ *  into the field that describes what someone fundamentally IS, and it was simply true from that
+ *  moment: no first party, no build, no evening where it might have gone differently. A result
+ *  entered as a nature.
+ *
+ *  What was actually wanted is one level down. Give the man a WANT — start having people over late
+ *  — and let the story do the rest. That is already how the engine works; it just had no manual
+ *  entry point.
+ *
+ *  This is deliberately NOT stored in `drive`. Ten places in the engine overwrite that field
+ *  (promotion, seeding, the forge, sketch, rupture, death, chapter transitions), and a hand-written
+ *  want that quietly evaporates two turns later is worse than no feature. Sitting in its own field
+ *  it survives all of them, and it reads as what it is: a standing condition of this person's life
+ *  rather than the errand they happen to be on this afternoon.
+ *
+ *  Two properties the ordinary drive does not have:
+ *
+ *  · IT DOES NOT COMPLETE. `NPCDrive` is a task with progress 0–100 that finishes and gets replaced.
+ *    "Start having parties late at night" is a habit, and a habit that completes after one party is
+ *    not the thing anybody asked for. An authored want has no progress. It stops when the player
+ *    stops it.
+ *  · IT ESCALATES. Left alone it ratchets — one late night, then most weeks, then most nights, then
+ *    past anything reasonable — on a rate the player picks. That is the "builds over time" that was
+ *    being simulated by hand, and it is where the drama comes from: the same want at stage 0 and
+ *    stage 3 produces very different evenings. */
+export interface AuthoredDrive {
+  /** What they DO — same grammar as NPCDrive.goal. "start having people over late", not "be annoying". */
+  goal: string;
+  /** The door they use. Same field, same reason: without it a want gets announced instead of pursued. */
+  approach?: string;
+  /** WHY THIS STARTED, in their life, not the player's.
+   *
+   *  The most important optional field. A want with no cause is a puppet: the narrator is handed
+   *  something the character suddenly does and no reason for it, so it invents one — a different one
+   *  every turn, none of them load-bearing. This is the same failure that has produced most of the
+   *  engine's worst behaviour: a pass asked to act on state it was never given. "His brother moved
+   *  in last month" costs one line and makes the whole thing sit differently. */
+  because?: string;
+  /** How fast it ratchets when nothing opposes it. Turns of standing per stage. */
+  rate: "slow" | "steady" | "fast";
+  /** 0–3. How far it has escalated. Derived from `acted`, but stored so the player can move it. */
+  stage: number;
+  /** Turns this want has been live and unpaused — a standing want expresses itself whether or not
+   *  the player was in the room to see it. */
+  acted: number;
+  /** Held in place: it stays on the card and stays visible, but stops climbing. What the player sets
+   *  when the thing has reached the level they wanted, or when the character has been talked down. */
+  paused?: boolean;
+  /** Should this become part of who they are if it runs long enough? When it matures at the top
+   *  stage, the engine writes the AcquiredTrait itself — the same sentence the player would have
+   *  typed at the start, arrived at instead of declared. */
+  crystallize?: boolean;
+  crystallized_turn?: number;
+  added_turn: number;
 }
 
 export interface AcquiredTrait {

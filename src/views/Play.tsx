@@ -37,7 +37,7 @@ interface Tip { name: string; x: number; y: number }
 
 export default function Play({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
   const draftKey = `weft-draft-${save.id}`;
-  const [action, setAction] = useState(() => sessionStorage.getItem(draftKey) ?? "");
+  const [action, setAction] = useState(() => localStorage.getItem(draftKey) ?? "");
   const [focused, setFocused] = useState(false);
   const [mode, setMode] = useState<ActionMode>("do");
   const [ground, setGround] = useState(false);
@@ -181,8 +181,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   // a new turn landing shifts every echo index — park the nav back at the live edge
   useEffect(() => { setEchoNav(null); setFlashTurn(null); }, [history.length]);
 
-  // never lose a draft: tab switches, remounts, failures — it survives
-  useEffect(() => { sessionStorage.setItem(draftKey, action); }, [action, draftKey]);
+  // NEVER LOSE A DRAFT: tab switches, remounts, failures — it survives. localStorage, not
+  // sessionStorage, and the difference is the whole point on iOS. A home-screen web app is not
+  // suspended when you leave it, it is TERMINATED; coming back is a cold boot, a cold boot is a new
+  // session, and a new session has empty sessionStorage. So the one case this was written for —
+  // type a long action, look at something else, come back — was the exact case it did not cover.
+  useEffect(() => { try { localStorage.setItem(draftKey, action); } catch { /* quota */ } }, [action, draftKey]);
 
   const pushToasts = (lines: string[]) => {
     lines.slice(0, 3).forEach((text, i) => {
@@ -256,7 +260,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => {
-          setSave(s); setLiveProse(""); setReads([]); setPhase(null); sessionStorage.removeItem(draftKey); flushPostTurn(s);
+          setSave(s); setLiveProse(""); setReads([]); setPhase(null); localStorage.removeItem(draftKey); flushPostTurn(s);
           // the stop landed after the last exit — the world already moved, so say so rather than
           // pretending the turn was thrown away
           if (ctrl.signal.aborted) pushToasts(["too late to stop — the turn had already been recorded"]);
@@ -311,7 +315,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       try {
         const r = await resumePending(save.id, { onPhase: (p) => { touched = true; setRunning(true); setPhase(p ?? "simulator"); } });
         if (r.kind === "restore_action") { setAction((a) => a || r.action); pushToasts(["that turn never finished — your action is back in the input box"]); }
-        if (r.kind === "completed") { setSave(r.save); pushToasts(["finished recording the interrupted turn"]); }
+        if (r.kind === "completed") {
+          setSave(r.save);
+          pushToasts([r.cutShort
+            ? "that turn was cut short when the app closed — kept what the narrator had written. Roll back if you'd rather re-run it"
+            : "finished recording the interrupted turn"]);
+        }
       } catch { /* journal stays; next resume retries */ }
       finally { busy = false; if (touched) { setRunning(false); setPhase(null); } }
     };

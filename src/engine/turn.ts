@@ -34,6 +34,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
+import { tickAuthored } from "./authored";
 import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
@@ -2691,6 +2692,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
   }
 
+  // AUTHORED WANTS CLIMB REGARDLESS OF TENSION. The tension gate below means "the engine originates
+  // nothing new" — no invented threads, no seeded drives, a world that only answers what you do. An
+  // authored want is not the engine originating anything; it is the player originating it, by hand,
+  // on purpose. Somebody who turned tension to 0 to stop the world inventing plots and then wrote a
+  // want onto their neighbour meant for that want to happen.
+  offscreenLog.push(...tickAuthored(state));
   if ((state.model_settings.tension ?? 5) > 0) {
     // Dispersion is measured from the ledger now, not handed over by the retired undertow (which
     // supplied a hardcoded 0 and left the anti-chorus machinery unreachable). See magnetPull.

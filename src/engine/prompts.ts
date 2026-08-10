@@ -19,6 +19,7 @@ import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
+import { authoredLine, hasAuthored } from "./authored";
 import { edgeNote } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
@@ -1293,6 +1294,14 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
       } else {
         lines.push(`  wants: nothing pressing`);
+      }
+      // A STANDING WANT — something going on in this person's life across the whole story rather than
+      // an errand they are on today. Rendered as a want like any other and never marked as authored:
+      // told a human wrote it, a model plays it as an instruction to discharge, and the character
+      // announces it and gets it over with. What makes it behave differently is that it does not
+      // complete and it climbs — both of which are already baked into the line. See engine/authored.ts.
+      if (hasAuthored(ident) && !ident.authored.paused) {
+        lines.push(`  and this has been going on in their life: ${authoredLine(ident.authored)}`);
       }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);

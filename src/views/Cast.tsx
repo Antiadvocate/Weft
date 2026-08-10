@@ -430,6 +430,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 
+                {!!sel && sel !== "char_player" && !gone(sel) && <Authored save={save} sel={sel} setSave={setSave} />}
+
                 {(c.background || c.life_history) && (
                   <Section title="Identity">
                     <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Background (who they fundamentally are)</div>
@@ -667,6 +669,120 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       )}
 
     </div>
+  );
+}
+
+/** THE INJECTOR — give somebody something to want, and let the story do the rest.
+ *
+ *  The rung below editing core traits. Changing what a person IS is instant and total: type "annoys
+ *  me with loud music nightly" and it is simply true, with no first party and no evening it might
+ *  have gone differently. Changing what a person WANTS gets the same destination by way of the
+ *  events that earn it. See engine/authored.ts. */
+const RATES: { k: "slow" | "steady" | "fast"; label: string; hint: string }[] = [
+  { k: "slow", label: "slow", hint: "a season" },
+  { k: "steady", label: "steady", hint: "a few weeks" },
+  { k: "fast", label: "fast", hint: "days" },
+];
+const STAGE_WORDS = ["just started", "settling in", "routine", "past reasonable"];
+
+function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSave: (s: ClientSave) => void }) {
+  const cur = save.characters[sel]?.authored;
+  const [open, setOpen] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [approach, setApproach] = useState("");
+  const [because, setBecause] = useState("");
+  const [rate, setRate] = useState<"slow" | "steady" | "fast">("steady");
+  const [cryst, setCryst] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const start = () => {
+    setGoal(cur?.goal ?? ""); setApproach(cur?.approach ?? ""); setBecause(cur?.because ?? "");
+    setRate(cur?.rate ?? "steady"); setCryst(cur?.crystallize ?? true); setOpen(true);
+  };
+  const run = async (fn: () => Promise<ClientSave>) => {
+    setBusy(true);
+    try { setSave(await fn()); } finally { setBusy(false); }
+  };
+  const commit = () => {
+    if (!goal.trim()) return;
+    void run(async () => {
+      const s = await api.setAuthored(save.id, sel, { goal, approach, because, rate, crystallize: cryst });
+      setOpen(false);
+      return s;
+    });
+  };
+
+  return (
+    <Section title="Something going on in their life">
+      {cur?.goal ? (
+        <div className="mb-2">
+          <Row k="doing" v={cur.goal} />
+          {cur.approach && <Row k="by" v={cur.approach} />}
+          {cur.because && <Row k="because" v={cur.because} />}
+          <Row k="how far" v={cur.crystallized_turn
+            ? `it stopped being a thing they do and became who they are (turn ${cur.crystallized_turn})`
+            : `${STAGE_WORDS[Math.max(0, Math.min(3, cur.stage))]} — ${cur.paused ? "held here" : `climbing, ${cur.rate}`}`} />
+          {!cur.crystallized_turn && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <button className="btn-sm" disabled={busy} onClick={start}>edit</button>
+              <button className="btn-sm" disabled={busy}
+                onClick={() => void run(() => api.setAuthored(save.id, sel, { goal: cur.goal, approach: cur.approach, because: cur.because, rate: cur.rate, crystallize: cur.crystallize, paused: !cur.paused }))}>
+                {cur.paused ? "let it climb again" : "hold it here"}
+              </button>
+              <button className="btn-sm" disabled={busy || cur.stage <= 0}
+                title="they were faced down over it and it cost them a rung"
+                onClick={() => void run(() => api.authoredSetback(save.id, sel))}>knock it back</button>
+              <button className="btn-sm" disabled={busy}
+                onClick={() => void run(() => api.setAuthored(save.id, sel, null))}>drop it</button>
+            </div>
+          )}
+        </div>
+      ) : !open ? (
+        <div>
+          <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
+            Give them something to want and the world will get there on its own — the want happens
+            offscreen, escalates if nobody stops it, and only becomes part of who they are once it has
+            gone on long enough to have earned it.
+          </div>
+          <button className="btn-sm" onClick={start}>write one</button>
+        </div>
+      ) : null}
+
+      {open && (
+        <div>
+          <EditField label="What they start doing" v={goal} set={setGoal} rows={2} />
+          <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
+            Something they DO, not something they are: “start having people over late” — not “is an
+            inconsiderate neighbour”.
+          </div>
+          <EditField label="How they go at it (optional)" v={approach} set={setApproach} />
+          <EditField label="Why it started — in their life, not yours (optional)" v={because} set={setBecause} rows={2} />
+          <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
+            Worth the line. Without a reason the narrator invents a different one every turn, and none
+            of them stick.
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>How fast it builds</div>
+          <div className="flex gap-1.5 mb-2">
+            {RATES.map((r) => (
+              <button key={r.k} className="btn-sm" onClick={() => setRate(r.k)}
+                style={r.k === rate ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
+                {r.label} <span style={{ color: "var(--text-lo)" }}>· {r.hint}</span>
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-[12.5px] py-1" style={{ color: "var(--text-mid)" }}>
+            <input type="checkbox" checked={cryst} onChange={(e) => setCryst(e.target.checked)} />
+            let it become part of who they are if it runs its course
+          </label>
+          <div className="flex gap-1.5 mt-2">
+            <button className="btn-sm" disabled={busy || !goal.trim()} onClick={commit}>
+              {cur?.goal ? "save" : "set it going"}
+            </button>
+            <button className="btn-sm" disabled={busy} onClick={() => setOpen(false)}>cancel</button>
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }
 

@@ -18,6 +18,7 @@
 // what the existing systems do with the event once it exists.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { authoredLine, hasAuthored } from "./authored";
 import { uid } from "./state";
 import { minutesBetween } from "./time";
 import { mundaneObjective } from "./knowledge";
@@ -95,8 +96,12 @@ export function worldDigest(state: any): string {
   // their small business instead, while the actual cast's stated goals — a secret weapons order, a
   // missing-girls investigation, a protest being organized — sat untouched for a hundred turns.
   // The live fields are `drive` and `drive_queue`.
+  // An AUTHORED want goes in first and reads as an ordinary one. It is the want most likely to be
+  // worth a scene — it is standing, it escalates, and it is the only one on the card that a human
+  // chose — so it leads. See engine/authored.ts.
   const wantsOf = (c: any): string =>
-    [c.drive?.goal, ...(c.drive_queue ?? []).map((d: any) => d?.goal)].filter(Boolean).join("; ");
+    [hasAuthored(c) && !c.authored.paused ? authoredLine(c.authored) : null,
+     c.drive?.goal, ...(c.drive_queue ?? []).map((d: any) => d?.goal)].filter(Boolean).join("; ");
 
   const cast = Object.entries<any>(state.characters ?? {})
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed")
