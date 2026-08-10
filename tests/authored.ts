@@ -459,6 +459,65 @@ const wantsLines = (s: SaveState) =>
   check("and nobody treats it as news", /nobody remarks on it being new/.test(d), d);
 }
 
+/* ── 7c. WHEN THE ACT IS THE PLAYER'S TO PERFORM ─────────────────────────────────
+ *
+ * The rung above finally produced the whole approach and stopped one sentence short. Dana rolls the
+ * shoulder, "her arm lifted, the sleeve riding up past the burn mark, and she held it there", "the
+ * hollow of her armpit bare and close", "you carry your share" — her entire half, unhedged, no
+ * euphemism — and then the paragraph cuts to Liz.
+ *
+ * That was not the narrator softening. The want reads "Makes RABI lick her armpits": the act is
+ * performed by the PLAYER's body, and the contract forbids the narration from writing the player's
+ * decisions — "the narration stops at the point where a choice begins". So the instruction "that act
+ * occurs in this turn's prose" was an order the narrator could not legally execute, and it went as
+ * far as the law allowed. An unsatisfiable instruction does not get obeyed harder; it gets obeyed
+ * partially, or it starts getting ignored.
+ *
+ * The player-autonomy rule is not the one that gives way — it is the difference between a story the
+ * player is in and a story played at them. So the demand carries its own limit, and the threshold
+ * version is written as a full requirement rather than as an out: her half entire, not retracted
+ * inside the turn, and the scene not wandering off to somebody else's business before the player can
+ * answer. That last clause is the actual defect in the save — the turn continued to Liz's eyebrow
+ * and Marcus's buckle, so the moment closed before the player had it. */
+{
+  const s = mk(1);
+  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits, regardless of context", 1, { inhabit_turns: 5 })];
+  const a = s.characters.char_neigh.authored![0];
+  a.turns_live = 3;
+  const line = authoredLine(a);
+  check("the rule the narrator cannot break is named, and named as the winner",
+    /narration stops where the player's choice begins, that rule outranks this one/.test(line), line);
+  check("with the player's half handed back to the player", /the player types that part/.test(line), line);
+  check("but her half is still a full requirement, not an excuse",
+    /HER ENTIRE HALF and it is not a lesser version of this instruction/.test(line), line);
+  check("she may not take it back inside the same turn", /does not retract it inside the same turn/.test(line), line);
+  // The specific way this turn was drained: it kept going, to Liz and then to Marcus.
+  check("and the scene may not close the moment before the player can answer",
+    /do not move on to another character's business afterwards/.test(line), line);
+}
+{
+  // Below the act there is nothing for the player to consent to yet, so the threshold clause would
+  // just be noise — and worse, an invitation to write the approach as an offer.
+  const s = mk(1);
+  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 5 })];
+  const a = s.characters.char_neigh.authored![0];
+  a.turns_live = 1;
+  check("the lower rungs carry no threshold clause", !/THE TURN ENDS ON IT/.test(authoredLine(a)), authoredLine(a));
+}
+{
+  // A habit that has hardened is not a proposal. It had "she does not comment on it", which still
+  // leaves a character who works up to it every time — the thing being established means she starts
+  // from the far end.
+  const s = mk(9);
+  s.world.present = ["char_neigh"];
+  s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 2 })];
+  crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
+  const d = habitDirective(s, s.world.present);
+  check("a settled habit assumes rather than asks", /she does not ask for it and does not work up to it/.test(d), d);
+  check("and is not embarrassed by an audience", /unbothered by who is standing there/.test(d), d);
+  check("and it too stops where the player's choice begins", /the player types that part/.test(d), d);
+}
+
 /* ── 8. A SAVE WRITTEN UNDER THE OLD GATE STILL KNOWS WHERE IT IS ────────────────
  *
  * Every want injected while the detector was live carries `seen` and no `turns_live`, and `seen` is

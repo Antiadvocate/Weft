@@ -177,8 +177,31 @@ function bind(a: AuthoredDrive, stage: number): string {
   if (stage < 3) {
     return ` THE THING ITSELF DOES NOT HAPPEN AT THIS RUNG, and the thing itself is: ${g}. What goes on the page is the approach to that and the turning away from it, written so that a reader who had been told the ending would recognise this as its beginning.`;
   }
-  return ` AND "IT" MEANS THIS, LITERALLY, IN THE BODY: ${g}. That act occurs in this turn's prose, plainly enough that it could not be mistaken for anything else. NOT AN APPROACH TO IT. Not a gesture that resembles it, not skin becoming briefly visible, not a hand or a look that someone who already knew would read that way. Those are the rungs BELOW this one, and writing one of them here is writing the wrong rung. The test is subtraction: if the act could be cut out of your paragraph and the paragraph would still make sense, you did not write it. It is also NOT THE SAME BEAT AS LAST TURN, because the same near-miss repeated is a stall wearing the costume of progress.`;
+  return ` AND "IT" MEANS THIS, LITERALLY, IN THE BODY: ${g}. That act occurs in this turn's prose, plainly enough that it could not be mistaken for anything else. NOT AN APPROACH TO IT. Not a gesture that resembles it, not skin becoming briefly visible, not a hand or a look that someone who already knew would read that way. Those are the rungs BELOW this one, and writing one of them here is writing the wrong rung. The test is subtraction: if the act could be cut out of your paragraph and the paragraph would still make sense, you did not write it. It is also NOT THE SAME BEAT AS LAST TURN, because the same near-miss repeated is a stall wearing the costume of progress.${THRESHOLD}`;
 }
+
+/** WHEN THE ACT IS THE PLAYER'S TO PERFORM.
+ *
+ *  A want can name the player as the one who has to move — "makes him do X" — and then the rung above
+ *  is an order the narrator is forbidden to carry out. The narration stops at the point where a
+ *  choice begins; that rule is not negotiable and is not one I will trade away for this feature,
+ *  because it is the difference between a story the player is in and a story played at them.
+ *
+ *  On the save this comes from, that collision is visible to the sentence. Dana rolls her shoulder,
+ *  her arm lifts, the sleeve rides up, "she held it there", "the hollow of her armpit bare and
+ *  close", "you carry your share" — her entire half, complete, unhedged — and then the paragraph
+ *  cuts to Liz. The narrator obeyed both rules in the only way both can be obeyed at once. It was
+ *  not refusing and it was not softening; it had been handed an instruction it could not legally
+ *  execute and it went as far as the law allowed.
+ *
+ *  So the demand is stated with its own limit attached, and no classifier decides which branch
+ *  applies — the model can see whose body the goal names better than a regex can. What matters is
+ *  that the threshold version is written as a FULL requirement rather than as an escape: her half
+ *  entire, not retracted inside the same turn, and the scene not wandering off to somebody else's
+ *  business before the player can answer. That last part is what actually went wrong here — the turn
+ *  did not stop at the choice, it moved on to Liz's eyebrow and Marcus's buckle, so the moment was
+ *  over before the player had it. */
+const THRESHOLD = ` IF THE ACT REQUIRES THE PLAYER'S BODY OR THE PLAYER'S ASSENT, YOU CANNOT WRITE IT AND MUST NOT TRY: the narration stops where the player's choice begins, that rule outranks this one, and the player types that part. What you write instead is HER ENTIRE HALF and it is not a lesser version of this instruction — everything up to the choice, complete and unmistakable, named plainly in what she does or says rather than implied. She does not hedge it, she does not retract it inside the same turn, and she does not cover it with a joke. THE TURN ENDS ON IT, still standing, with the choice in front of him: do not move on to another character's business afterwards, because that closes the moment before he can answer it.`
 
 /** The want as one line, in the same grammar as every other want on the card.
  *
@@ -227,7 +250,7 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
     for (const a of settledAuthored(c)) {
       // "If this scene gives it any opening at all" was a condition, and a condition is something a
       // model can find unmet. A finished habit has no condition — that is what finished means.
-      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. Not a version of it, not a suggestion of it — that, the act itself, in this turn's prose. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not.`);
+      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. Not a version of it, not a suggestion of it — that, the act itself, in this turn's prose. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not. THIS IS ESTABLISHED BETWEEN THEM, so she does not ask for it and does not work up to it — she assumes it, positions for it, waits for it, expects it, picks it up again mid-conversation as if it were never in question, and is unbothered by who is standing there.${THRESHOLD}`);
     }
     for (const a of liveAuthored(c)) {
       rows.push(`${c.name} — ${authoredLine(a)}`);
