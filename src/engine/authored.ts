@@ -70,12 +70,12 @@ export const MAX_STAGE = 5;
  *
  *  And the meaning comes LAST. They do not know why they like it until long after they always get it. */
 const NERVE = [
-  "EXPOSURE — nothing happens. The thing is simply present in the scene and they register it, the way you register a shelf you walk past. No comment, no reaching, no interest they would admit to. If anything they find a reason it is not for them. The SCENE puts it in front of them; they do not go looking.",
-  "NEAR IT, BY CIRCUMSTANCE. Something unrelated keeps them beside it longer than they needed — a wait, a queue, somebody else's errand, the seat that happened to be free. They look properly for the first time while they are stuck there. Then the wait ends and they leave without doing anything. Body only: where they stand, where their eyes go back to. Not one word about it.",
-  "EXAMINING IT, still doing nothing. Narrowed from the general thing to the specific one. They handle it, weigh it, read it, watch how it is done — assessing, with no commitment and no audience for the assessment. Something takes them away again before they act, and they let it. THE INTERRUPTION IS THE POINT: it is what stops this being a decision.",
-  "THE SIDEWAYS FIRST TIME. They finally do it, and it arrives through someone else or through a pretext — asking a third party's opinion, going along with what somebody else is already doing, since-I-am-here. Low stakes, deniable, never framed as wanting it. This is the first rung on which the thing actually happens.",
-  "AGAIN, BECAUSE IT IS EASY NOW. No pretext needed any more, and no reason given. They may skip once and notice the absence — this is the first moment the wanting becomes conscious to them, and the first moment they might say anything about it at all.",
-  "SIMPLY WHAT THEY DO. It needs no occasion and no excuse; it is part of the shape of their day with this person. Only now do they have anything to SAY about it — the meaning arrives after the habit, never before.",
+  "EXPOSURE. It does not happen and is not mentioned — but ONE CONCRETE THING IS ON THE PAGE about it: the scene puts the occasion in front of them and they visibly decline it. They reach for something else instead. They put a hand near and take it back. They step around it. Somebody else could describe what she did, even if nobody could say why. NOT ACTING IS NOT THE SAME AS NOTHING HAPPENING: if a reader could not point at a sentence, this rung has not been written.",
+  "NEAR IT, BY CIRCUMSTANCE, and again ONE VISIBLE BEAT. Something unrelated keeps her beside it longer than she needed — a wait, a queue, somebody else's errand. She looks properly, and the looking is on the page: her attention goes there twice, she stays a moment past when she could have gone, she stands closer than the task requires. Then the moment ends and she does nothing. Body only. Not one word about it.",
+  "EXAMINING IT — narrowed from the general thing to the specific one, and STILL A VISIBLE ACT: she handles it, weighs it, tests it, positions herself for it, gets close enough that anyone watching would notice and could not prove anything. Then something takes her away before it happens and she lets it go. THE INTERRUPTION IS THE POINT — it is what stops this being a decision — but the approach before the interruption must actually occur on the page.",
+  "THE SIDEWAYS FIRST TIME. It happens, and it arrives through someone else or through a pretext — a third party's opinion, going along with what is already happening, since-we-are-here. Low stakes, deniable, never framed as wanting it. This is the first rung on which the thing itself occurs.",
+  "AGAIN, BECAUSE IT IS EASY NOW. No pretext and no reason given. She may skip once and notice the absence — the first moment the wanting becomes conscious to her, and the first moment she might say anything about it at all.",
+  "SIMPLY WHAT SHE DOES. No occasion, no excuse; part of the shape of the day with this person. Only now is there anything to SAY about it — the meaning arrives after the habit, never before.",
 ];
 
 /** HOW MUCH OF THIS IS SHOWING, 0.1 to 1.
@@ -147,7 +147,7 @@ export function authoredLine(a: AuthoredDrive, turn?: number): string {
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
-    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. Show it at EXACTLY that strength and no more. Under half, it has not happened yet and must not this scene — it lives in the body and in what the room puts in their way, never in what they say about it. Rushing to the act because a number is rising is the one way to get this wrong: the whole point is that by the time it happens, nobody is surprised, least of all them`);
+    bits.push(`${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. THIS IS NOT OPTIONAL AND IT IS NOT BACKGROUND: write the beat for this rung into this scene, at exactly this strength and no more. Under half it has not happened yet and must not — but "has not happened" still requires a visible moment on the page, in the body, that a reader could point at. A turn in which nothing about it can be seen is a turn in which this failed, and it is the ONLY way to get this wrong besides rushing to the act`);
   }
   return bits.join(" — ");
 }
@@ -196,12 +196,32 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
     }
     // With a turn budget, "fully themselves" is the deadline, not an hours-based rung.
     if (a.inhabit_turns && turn - a.added_turn >= a.inhabit_turns) a.stage = MAX_STAGE;
-    if (a.stage >= MAX_STAGE && a.crystallize && !a.crystallized_turn) {
+    // NEVER HARDEN SOMETHING THAT NEVER HAPPENED. One save ran a 20-turn budget to completion with
+    // the character present for all of it, the want on her card every single turn, and not one word
+    // of it ever on the page — and then crystallised it into a core trait reading "Forces Rabi lick
+    // her armpit. Anytime they're together." The engine declared a habit the story had never once
+    // shown. That is precisely the blunt instrument this feature exists to replace, arrived at
+    // automatically. A want that never surfaced holds at the top rung instead, still wanting.
+    if (a.stage >= MAX_STAGE && a.crystallize && !a.crystallized_turn && surfaced(state, a)) {
       const t = crystallize(state, id, turn);
       if (t) log.push(`${c.name} does not think of it as a thing they started any more: ${t}.`);
     }
   }
   return log;
+}
+
+/** Did this want ever actually reach the page? Matched on the distinctive words of the goal against
+ *  the prose since it was written — crude, and the alternative is hardening a trait out of nothing. */
+function surfaced(state: SaveState, a: AuthoredDrive): boolean {
+  const stop = new Set(["their", "them", "with", "that", "this", "into", "about", "anytime", "they", "when", "have", "from", "every", "time", "always"]);
+  const words = [...new Set((a.goal.toLowerCase().match(/[a-z]{4,}/g) ?? []))].filter((w) => !stop.has(w));
+  if (!words.length) return true;
+  const prose = state.history.filter((h) => h.turn >= a.added_turn).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+  const hits = words.filter((w) => prose.includes(w)).length;
+  // A short goal ("ask him to do the thing") may yield only one distinctive word, so the bar cannot
+  // be a flat two — that would make brief wants incapable of ever crystallising.
+  const need = Math.min(words.length, Math.max(1, Math.ceil(words.length * 0.4)));
+  return hits >= need;
 }
 
 /** THE WANT BECOMES THE PERSON.

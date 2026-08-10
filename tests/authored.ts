@@ -32,7 +32,7 @@ const tick = (s: SaveState, n = 1, min = TURN_MIN) => {
   return out;
 };
 
-const RUNGS = ["EXPOSURE", "NEAR IT", "EXAMINING IT", "THE SIDEWAYS FIRST TIME", "AGAIN", "SIMPLY WHAT THEY DO"];
+const RUNGS = ["EXPOSURE", "NEAR IT", "EXAMINING IT", "THE SIDEWAYS FIRST TIME", "AGAIN", "SIMPLY WHAT SHE DOES"];
 const rampOrder = (r: string) => RUNGS.indexOf(r);
 
 let pass = 0, fail = 0;
@@ -156,6 +156,8 @@ const give = (s: SaveState, opts: Parameters<typeof newAuthored>[2] = {}) => {
 {
   const s = mk();
   give(s, { rate: "fast", crystallize: true, because: "his brother moved in last month" });
+  // it has to have actually happened in the story — see surfaced()
+  s.history.push({ turn: 11, player_action: "", narrator_prose: "He started having people over late, and the street heard it." } as any);
   tick(s, 1, 24 * 60 * 7);
   const c = s.characters.char_neigh;
   check("a want carried to the top long enough becomes a trait", !!c.authored?.crystallized_turn, c.authored);
@@ -267,7 +269,13 @@ const wantsLines = (s: SaveState) =>
   check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
   // and the bottom rung is now the part BEFORE the act, which is the whole correction: at the start
   // the want exists only as attention, and doing the thing is explicitly off the table
-  check("the bottom rung is exposure — the scene shows it and nothing happens", /EXPOSURE — nothing happens/.test(line), line);
+  check("the bottom rung is exposure", /^.*EXPOSURE\./.test(line) || /EXPOSURE\./.test(line), line);
+  // AND IT MUST STILL PUT SOMETHING ON THE PAGE. The version before this one described the first
+  // three rungs purely as absence — "they notice the openings", "anyone watching closely would see
+  // only that something is occupying them" — which a narrator satisfies by writing nothing at all.
+  // A 20-turn budget ran to completion, the character present for every turn of it, and the want
+  // never once reached the prose. Not acting is not the same as nothing happening.
+  check("and even it demands a beat a reader could point at", /ONE CONCRETE THING IS ON THE PAGE/.test(line), line);
 }
 
 /* ── 6. A FIXED TIMEFRAME YOU CAN CHECK ──────────────────────────────────────────
@@ -304,7 +312,7 @@ const wantsLines = (s: SaveState) =>
   check("nothing has HAPPENED through the whole first half", [20,21,22,23,24].every((t) => RUNGS.indexOf(rung(t)) <= 2), [20,24].map(rung));
   check("the first time it happens is past halfway, and sideways", rung(25) === "THE SIDEWAYS FIRST TIME", rung(25));
   check("then repetition without a pretext", rung(28) === "AGAIN", rung(28));
-  check("and only at the deadline is it simply what they do", rung(30) === "SIMPLY WHAT THEY DO", rung(30));
+  check("and only at the deadline is it simply what they do", rung(30) === "SIMPLY WHAT SHE DOES", rung(30));
   check("the early rungs are body and circumstance, never conversation",
     /Not one word about it/.test(authoredLine(a, 22)), rung(22));
   check("and the meaning arrives after the habit, not before",
@@ -316,13 +324,14 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 10 });
   const line = authoredLine(s.characters.char_neigh.authored!, 25);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
-  check("and that it must show at exactly that strength and no more", /EXACTLY that strength and no more/.test(line), line);
-  check("with rushing to the act named as the way to get it wrong", /Rushing to the act/.test(line), line);
+  check("and that it must show at exactly that strength and no more", /at exactly this strength and no more/.test(line), line);
+  check("with an invisible turn named as failure", /nothing about it can be seen is a turn in which this failed/.test(line), line);
 }
 {
   // the budget completes the want, so "fully inhabits it" actually finishes
   const s = mk(20);
   s.characters.char_neigh.authored = newAuthored("ask him", 20, { inhabit_turns: 5, crystallize: true });
+  s.history.push({ turn: 22, player_action: "", narrator_prose: "She finally did ask him, and he said yes." } as any);
   s.world.current_turn = 25;
   tickAuthored(s, 15);
   check("reaching the deadline makes it part of who they are",
@@ -334,6 +343,34 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = newAuthored("ask him", 20, { rate: "fast" });
   check("an unbudgeted want still reports off its rungs", intensity(s.characters.char_neigh.authored!, 99) < 0.3);
   check("and its line carries no percentage", !/% of the way/.test(authoredLine(s.characters.char_neigh.authored!, 99)));
+}
+
+/* ── 7. NEVER HARDEN SOMETHING THAT NEVER HAPPENED ───────────────────────────────
+ *
+ * A 20-turn budget ran to completion. The character was present for twelve straight turns. The want
+ * was on her card, in the wants slot, every single one of them — and it never reached the prose
+ * once. Then the deadline arrived and it crystallised into a core trait reading "Forces Rabi lick
+ * her armpit. Anytime they're together."
+ *
+ * The engine declared a habit the story had never shown, which is exactly the blunt instrument this
+ * whole feature exists to replace — arrived at automatically, without a single scene earning it. */
+{
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him to do the thing", 20, { inhabit_turns: 3, crystallize: true });
+  s.world.current_turn = 24;
+  tickAuthored(s, 15);
+  const a = s.characters.char_neigh.authored!;
+  check("a want the story never showed does not become a trait", !a.crystallized_turn, a);
+  check("it holds at the top rung, still wanting", a.stage === MAX_STAGE, a.stage);
+  check("and it is not written into core traits", !s.characters.char_neigh.core_traits.some((t) => /do the thing/.test(t)), s.characters.char_neigh.core_traits);
+}
+{
+  const s = mk(20);
+  s.characters.char_neigh.authored = newAuthored("ask him to do the thing", 20, { inhabit_turns: 3, crystallize: true });
+  s.history.push({ turn: 22, player_action: "", narrator_prose: "She asked him to do the thing, finally, and did not look away." } as any);
+  s.world.current_turn = 24;
+  tickAuthored(s, 15);
+  check("but one the story DID show becomes who they are", !!s.characters.char_neigh.authored?.crystallized_turn);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
