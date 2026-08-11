@@ -51,7 +51,9 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   const rounds = Math.max(1, Math.round(days * 2)); // two world-rounds per day
   for (let r = 0; r < rounds; r++) {
     for (const id of Object.keys(state.condition)) tickPsyche(state.condition[id].psyche); // kernel drift, per character
-    report.drive_log.push(...tickDrives(state, rng));
+    // Each round is one half-day of the skip, and offstage wants advance against that — a week away
+    // finishes a week's worth of other people's business. See MINUTES_PER_WANT.
+    report.drive_log.push(...tickDrives(state, rng, (days * 24 * 60) / rounds));
     report.drive_log.push(...regenerateDrives(state, rng)); // tracked idle NPCs get fresh wants across the days
     report.rumor_log.push(...diffuseRumors(state, rng));
     report.drive_log.push(...tickBonds(state, rng)); // offscreen same-place pairs drift closer/cooler

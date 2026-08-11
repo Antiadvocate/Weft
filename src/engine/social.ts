@@ -722,8 +722,41 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
   }
 }
 
-/** Offscreen NPC drives advance stochastically; produces world-motion lines without an LLM. */
-export function tickDrives(state: SaveState, rng: () => number = Math.random): string[] {
+/**
+ * In-world minutes of offscreen effort an ordinary want takes to finish.
+ *
+ * A day. Wants written by the drive forge are day-to-week jobs by construction — "retrieve the
+ * stash she hid behind the ludus", "get the field cleared before the frost", "acquire the crest of
+ * the Tiburtine hill from Senator Servilius" — so a day of unimpeded work is a generous rate, not a
+ * slow one. Blocked wants run at a third of it.
+ */
+export const MINUTES_PER_WANT = 24 * 60;
+
+/** One unmeasured beat of scene time, for callers that do not know how long their pass covered. */
+const BEAT_MINUTES = 30;
+
+/**
+ * Offscreen NPC drives advance; produces world-motion lines without an LLM.
+ *
+ * THE WORLD'S CLOCK WAS THE NUMBER OF THINGS THE PLAYER HAD TYPED.
+ *
+ * The step used to be `6 + rng()*8` percent, applied once per TURN, with no reference to elapsed
+ * time at all — so a want completed in roughly ten turns whatever those turns were. A turn is a
+ * beat of conversation. In one save, twenty-four of them covered a hundred and seventy-five minutes
+ * of a single Roman morning, and in that morning, entirely offscreen:
+ *
+ *   · Hadrian finished one life ambition (t3 34% → t12 "completes their aim") and then ACQUIRED THE
+ *     CREST OF THE TIBURTINE HILL FROM A SENATOR'S ESTATE between 10:30 and 11:25.
+ *   · Marcus seized and drained three barrels of illicit lamp-oil from a cellar across the city
+ *     while the same world-motion feed had him sitting in a cookshop finishing his lunch and
+ *     watching the door.
+ *
+ * The player's complaint was that nothing had any timescale, and this is most of why: the fastest
+ * way to make the world lurch was to talk to somebody for a while. Progress is now a rate against
+ * in-world minutes, which is what the drive forge already assumes when it writes a want, and what a
+ * time skip already means. Short scenes barely move it. A day of skipped time finishes a want.
+ */
+export function tickDrives(state: SaveState, rng: () => number = Math.random, elapsedMinutes = BEAT_MINUTES): string[] {
   const log: string[] = [];
 
   // ── STALLED WANTS ───────────────────────────────────────────────────────────
@@ -786,12 +819,15 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
     // movement now comes from the Undertow's QRE stances; this tick is the safety
     // net for worlds whose undertow hasn't run this turn (e.g. plain time skips)
     if (c.drive.updated_turn < state.world.current_turn) {
-      const step = c.drive.blocker ? 2 : 6 + Math.floor(rng() * 8);
+      // Jitter so a roomful of people who took up their wants on the same turn do not all finish
+      // on the same turn either — the meter should look like separate lives, not one clock.
+      const rate = (c.drive.blocker ? 1 / 3 : 1) * (0.6 + rng() * 0.8);
+      const step = (Math.max(0, elapsedMinutes) / MINUTES_PER_WANT) * 100 * rate;
       c.drive.progress = Math.min(100, c.drive.progress + step);
       c.drive.updated_turn = state.world.current_turn;
     }
     if (c.drive.progress >= 100) log.push(`${c.name} completes their aim offscreen: ${c.drive.goal}`);
-    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${c.drive.progress}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
+    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${Math.round(c.drive.progress)}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
   }
   return log;
 }
