@@ -140,7 +140,21 @@ export function edgeNote(e: SocialEdge, turn: number): string {
 export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, step = 0.5) {
   for (const e of edges) {
     if (turn - (e.updated_turn ?? turn) < idleTurns) continue;
-    const ease = (v: number) => (Math.abs(v) <= 20 ? v : v > 0 ? v - step : v + step);
+    // A GRUDGE NOBODY FEEDS FADES. A BOND NOBODY FEEDS HOLDS.
+    //
+    // The band below 20 was exempt in both directions, so a small bond could not erode — which is
+    // right — and a small grudge could not heal, which is not. An early misread is how most of them
+    // start: on turn 5 of one save a wineshop keeper hit trust -8 and his partner -10 for the crime
+    // of being asked where a man buys a slave in Rome, and two hundred idle turns later both were
+    // still exactly -8 and -10, because nothing in the engine could move a number that small. Across
+    // three saves most of the cast sat at zero warmth and negative trust toward a player who had
+    // done nothing to them, which is what "nobody trusts me and I have no relationships" is made of.
+    //
+    // Souring needs no maintenance and warmth does: that is the asymmetry the exemption encodes, and
+    // it is backwards. A first impression wears off unless something confirms it. So an unreinforced
+    // negative drifts back toward zero at the same slow step, and an unreinforced positive still
+    // holds — a quiet friendship is not a decaying one.
+    const ease = (v: number) => (v < 0 ? Math.min(0, v + step) : Math.abs(v) <= 20 ? v : v - step);
     e.warmth = clamp(ease(e.warmth), -100, 100);
     e.trust = clamp(ease(e.trust), -100, 100);
   }
@@ -181,7 +195,15 @@ export function applyEdgeDelta(
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
   // absolute value, which gave wrong results at the clamp ceiling).
-  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 * gainScale(e.trust, obd) : d.trust_delta;
+  //
+  // TWO BRAKES DESIGNED SEPARATELY WERE BEING MULTIPLIED. The 0.6 is trust's own asymmetry and
+  // obduracy is a second one for guarded people, and nobody checked their product: at obduracy 0.6 a
+  // +4 landed as 1.54 against a −4 at full strength, a ratio of 2.6 to 1. Since the forge turns out
+  // to make most of a cast guarded, that was most of a cast. Obduracy still shapes how fast trust
+  // climbs once it is positive — the diminishing-returns half of gainScale — but it no longer
+  // compounds with the flat 0.6 in the low range where a relationship is actually being made.
+  const trustGain = 0.6 * Math.max(gainScale(e.trust, obd), gainScale(e.trust, 0) * (1 - 0.4 * obd));
+  let trustDelta = d.trust_delta > 0 ? d.trust_delta * trustGain : d.trust_delta;
   // RUPTURE-REPAIR: trust that grows within five turns of a real disagreement on this edge is
   // REPAIR, and repair is how trust is actually built — it earns half again. Then the flag clears;
   // the next growth has to be earned on its own terms.
