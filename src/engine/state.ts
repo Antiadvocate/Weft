@@ -5,7 +5,7 @@ import { ensureHabits } from "./habits";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood } from "./coerce";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
 const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
@@ -400,6 +400,17 @@ export function sanitize(state: SaveState): SaveState {
         for (const m of state.memory[id].episodic) {
           if (m.source === "witnessed" && offstage.has(m.content)) m.source = "offstage";
         }
+      }
+    }
+    // A MOOD IN THE ORIENTATION FIELD FROZE SOMEBODY AT ZERO DESIRE. Attraction seeds exactly once,
+    // so a character the old hard cap zeroed stays at zero even after the cap stops applying — the
+    // seed sees a defined value and returns. Clear the zeroes it left so they read fresh. Only the
+    // exact signature of the bug is touched: a card whose orientation is a dated statement, and an
+    // outgoing attraction of precisely 0. A real 0 arrived at through play is not a 0 written by a
+    // gate, but it is also not a value the story can no longer move, so re-seeding is the safe side.
+    if (orientationIsMood(state.characters[id].attracted_to)) {
+      for (const e of state.world.edges) {
+        if (e.from === id && e.attraction === 0) e.attraction = undefined;
       }
     }
     // NOBODY GOES WITHOUT A PRONOUN SET. The forge is asked for one and sometimes does not give it,

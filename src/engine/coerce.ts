@@ -159,6 +159,25 @@ export function deLoop(text: string): string {
 
 /** Cut to a length at a sentence or word boundary. A hard slice left one save's want-approach ending
  *  "a favour that requires" — the field has a ceiling, which should not read as a lost thought. */
+/** Words that date a statement — the difference between "no one" and "no one at the moment". */
+const TEMPORARY_STATE = /\b(currently|right now|for now|at the moment|at present|these days|just now|still|not yet|temporarily|since|until|after|too (?:raw|hurt|tired|frightened|scared|new)|survival|grieving|mourning|recovering)\b/i;
+
+/**
+ * Does this `attracted_to` value describe a MOOD rather than an orientation?
+ *
+ * The field means who a person can desire at all, and "no one" in it is a permanent hard cap in
+ * desire.orientationCap. The forge is asked for one of four values and sometimes answers with a
+ * state and a justification — "no one — currently too raw and survival-focused" — which then
+ * freezes that character at zero desire for the rest of the game whatever happens in it.
+ *
+ * A qualifier that puts a clock on the statement is the tell. Someone who does not experience
+ * attraction says so without one.
+ */
+export function orientationIsMood(attractedTo: unknown): boolean {
+  const o = asText(attractedTo).toLowerCase();
+  return /\b(no ?one|none|nobody)\b/.test(o) && TEMPORARY_STATE.test(o);
+}
+
 /**
  * THE PRONOUNS THE RECORD ALREADY IMPLIES.
  *
