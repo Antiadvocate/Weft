@@ -385,6 +385,32 @@ function cleanName(raw: string): string {
 }
 
 /**
+ * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
+ *
+ * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
+ * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
+ * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
+ * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
+ * follows it.
+ */
+export function splitSentencesOutsideQuotes(para: string): string[] {
+  const out: string[] = [];
+  let buf = "", inQuote = false;
+  for (let i = 0; i < para.length; i++) {
+    const ch = para[i];
+    buf += ch;
+    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
+    if (inQuote || !".!?".includes(ch)) continue;
+    // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
+    while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
+    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
+    out.push(buf); buf = "";
+  }
+  if (buf) out.push(buf);
+  return out.length ? out : [para];
+}
+
+/**
  * WHAT SOMEBODY IS CALLED IS NOT WHAT THEY ARE NAMED.
  *
  * A gladiator did her crowd-work in the prose — `"Tigris the Nubian says it too, so now it's three
@@ -2227,8 +2253,35 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // lot", "you're not wrong"). Prompt bans don't hold; a regex does. We excise the offending SENTENCE
   // rather than regenerate — free, and the surrounding paragraph survives. Guards: never empty a
   // paragraph, never cut a long sentence (it's carrying real content), never cut more than two.
+  //
+  // AND NEVER, EVER TOUCH DIALOGUE. This is the tic guard's whole failure mode and it was silent.
+  // Two things went wrong at once and they compound.
+  //
+  // First, the echo test does not know the difference between the NARRATOR parroting the player and
+  // a PERSON answering them. Repeating what someone just said is not a tic, it is how conversation
+  // works — it is confirmation, disbelief, mockery, a woman turning a phrase over to see what is
+  // inside it. One character's authored voice is literally "starts with a flat observation of fact".
+  // Turn 1 of a save: the player introduced himself with "I'm probably not dressed right for here",
+  // she opened the story by saying it back to him, and the guard deleted her line for containing
+  // four of his words in a row.
+  //
+  // Second, the sentence splitter has no idea quotation marks exist, so it splits inside them and
+  // excises a fragment out of the middle of a spoken line. What the player read as the first thing
+  // anybody says to him in Rome was:
+  //
+  //     The stylus stayed where it was.
+  //
+  //     " The words came out flat, factual, an observation rather than a joke.
+  //
+  // A bare quote mark and an attribution for a line that is not there. It happened again on turn 8
+  // and left the same wreckage. Nothing logs at the player, nothing looks wrong in state, and the
+  // scene simply reads as though the engine had a stroke mid-sentence.
+  //
+  // So: split on sentence ends that are OUTSIDE quotes, and consider only sentences that carry no
+  // quoted speech at all. The tic being hunted here is a narrator's tic. Narration is all it gets.
   {
     const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
+    const QUOTE = /["“”]/;
     // 4+ consecutive words lifted from the player's action, ignoring very common words.
     const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
     const runs: string[] = [];
@@ -2239,11 +2292,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     };
     let cuts = 0;
     const cleaned = prose.split(/\n\n+/).map((para) => {
-      const sents = para.match(/[^.!?]+[.!?]*/g) ?? [para];
+      const sents = splitSentencesOutsideQuotes(para);
       if (sents.length < 2) return para;
       const kept = sents.filter((sent) => {
         const t = sent.trim();
         if (cuts >= 2 || t.length > 160) return true;
+        if (QUOTE.test(t)) return true;            // somebody is speaking — not the narrator's tic
         if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
         return true;
       });
@@ -2803,7 +2857,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       if (state.sim_escalated_until && turn > state.sim_escalated_until) state.sim_escalated_until = undefined;
     }
   }
-  offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+  // completion events (progress already moved by QRE stances). `minutes` is what the scene actually
+  // took: offstage effort runs on the same clock as the scene, not on how many times the player hit
+  // enter. See tickDrives.
+  offscreenLog.push(...tickDrives(state, Math.random, minutes));
   // Deterministic emotional systems, each fault-isolated: a bug in any one of them must degrade
   // that system for a turn, never abort the turn's tail (history, telemetry, the shifts toasts).
   const safeTick = (name: string, fn: () => string[]) => {
