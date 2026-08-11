@@ -1,6 +1,6 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
-import { reconcileStores } from "./memory";
+import { reconcileStores, migrateToFirstPerson } from "./memory";
 import { ensureHabits } from "./habits";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
@@ -401,6 +401,14 @@ export function sanitize(state: SaveState): SaveState {
           if (m.source === "witnessed" && offstage.has(m.content)) m.source = "offstage";
         }
       }
+    }
+    // A MEMORY IS WRITTEN IN THE FIRST PERSON NOW — see cleanMemoryContent rule 4. Saves written
+    // before that hold third-person accounts of their own owner, and a bank with both in it is
+    // exactly the ambiguity the change exists to remove: "Lucia agreed…" beside "I agreed…" beside
+    // a bare "she" that could be either. Converted once, on load, name-only.
+    if (id !== "char_player" && !state.memory[id].first_person) {
+      migrateToFirstPerson(state.memory[id], state.characters[id]?.name ?? "", false);
+      state.memory[id].first_person = true;
     }
     state.condition[id].psyche ??= blankCondition().psyche;
     // A MOOD THAT DEGENERATED INTO A LOOP IS A STUCK RECORD, NOT WEATHER. It renders on the card and

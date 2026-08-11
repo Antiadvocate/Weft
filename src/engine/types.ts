@@ -492,6 +492,9 @@ export interface CharMemory {
   beliefs: Belief[];           // semantic layer from reflection
   facts?: DurableFact[];       // verified declarative knowledge — the fact ledger
   knows: string[];             // char_ids known
+  /** This bank's episodic memories have been converted to the first person (see
+   *  memory.cleanMemoryContent rule 4). Set once, on load, so the migration never runs twice. */
+  first_person?: boolean;
 }
 
 // ───────────────────────────── theory of mind (active-inference belief layer) ─────────────────────────────
