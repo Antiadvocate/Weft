@@ -385,6 +385,35 @@ function cleanName(raw: string): string {
 }
 
 /**
+ * WHAT SOMEBODY IS CALLED IS NOT WHAT THEY ARE NAMED.
+ *
+ * A gladiator did her crowd-work in the prose — `"Tigris the Nubian says it too, so now it's three
+ * people saying it."` — and the cast gained a member called Nubian. She was registered on turn 6,
+ * promoted to central, forged a voice card and a drive of her own, joined PRESENT, and from turn 16
+ * walked beside the player for nine turns as a person nobody had ever written. The bookkeeper then
+ * filed Tigris's own history onto her ("Rabi offered Nubian freedom in exchange for her silence"),
+ * and the player — reasonably — asked who the hell this was and how she got there.
+ *
+ * Every guard in the detector passed her, and the one meant to CONFIRM personhood is what let her
+ * through: `mid` requires a lower-case letter before the name, on the theory that a real person
+ * gets referred to mid-sentence rather than only used to open one. "the Nubian" satisfies it
+ * perfectly.
+ *
+ * English does not put an article in front of a personal name. It puts one in front of every
+ * epithet a story uses INSTEAD of a name — the Nubian, the Gaul, the Greek, the older woman, her
+ * husband, his sergeant — and those sit next to speech verbs constantly. So: if every occurrence in
+ * this turn's prose is preceded by a determiner or a possessive, the word is what somebody is being
+ * called, not what they are named. One bare mention anywhere clears it, which is what a real name
+ * gets within a sentence or two of arriving.
+ */
+const DETERMINED_BY = /(?:\b(?:the|a|an|this|that|these|those|his|her|hers|their|its|my|your|our|another|other|some|every|each|one|old|young|little|poor|dead)|[A-Za-z]+['’]s)\s+$/i;
+export function isAppellation(raw: string, prose: string): boolean {
+  const occurrences = [...String(prose ?? "").matchAll(new RegExp(`(\\S+\\s+)?\\b${raw}\\b`, "g"))];
+  if (!occurrences.length) return false;
+  return occurrences.every((m) => DETERMINED_BY.test(m[1] ?? ""));
+}
+
+/**
  * Is this a person's NAME, or a fragment of somebody's description?
  *
  * The creation path had no such check, so any string that survived the split became a character.
@@ -491,6 +520,15 @@ export function repairBibleLists(state: SaveState): string[] {
   return shifts;
 }
 
+/** A record the ENGINE created and nothing has finished — a footer declaration, a name the player
+ *  used, or a speaker the regex scraped out of prose. It carries the marker until the sketch pass
+ *  writes a real life onto it. Two places care: the pruner, which may delete one, and the promotion
+ *  loop, which must not make one a member of the cast. */
+export function isStub(c: { provisional?: boolean; background?: unknown } | undefined): boolean {
+  if (!c) return false;
+  return c.provisional === true || /^INCOMPLETE RECORD\b/.test(String(c.background ?? ""));
+}
+
 export function pruneParseArtifacts(state: SaveState): string[] {
   const removed: string[] = [];
   for (const [id, c] of Object.entries(state.characters)) {
@@ -502,7 +540,7 @@ export function pruneParseArtifacts(state: SaveState): string[] {
     // the durable signal and isPersonName above has already rejected it: nobody real is called She
     // or Dinner. Authored cast still needs protecting, so an explicit portrait or a hand-written
     // record below is what saves a character, not a paragraph a model wrote about them.
-    const auto = c.provisional === true || /^INCOMPLETE RECORD\b/.test(c.background ?? "") || c.central === false;
+    const auto = isStub(c) || c.central === false;
     if (!auto) continue;
     // AN EDGE IS NOT ATTACHMENT WHEN THE ENGINE CREATED IT. Every character present in a scene gets
     // seedAttraction run against everyone else on the turn they appear, so a phantom owns a fistful
@@ -2671,7 +2709,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const blog = consolidateBackground(c, state.memory[id]);
       for (const l of blog) offscreenLog.push(l);
     }
-    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) {
+    // A RECORD THAT IS STILL A STUB IS NOT A CAST MEMBER YET.
+    //
+    // This loop promotes anyone present, named and untracked to central: tracked, full fidelity,
+    // a voice card, a drive, an intent authored every turn, a place in the digest. It never asked
+    // whether the engine knows who they are. So a name the regex scraped out of one line of prose
+    // — no traits, no background, an INCOMPLETE RECORD marker where a life should be — was made a
+    // full member of the story on the same turn it appeared, and everything downstream then had to
+    // write a person out of nothing. That is how a phantom stops being a stray record and starts
+    // walking beside the player with wants of her own.
+    //
+    // The stub marker is not permanent: the sketch pass runs after every turn and fills these in
+    // from the player's words and the prose they appeared in, and the moment it does, promotion
+    // happens as before. This only says that "we do not know who this is" and "they are now one of
+    // the six people this story is about" cannot both be true on the same turn.
+    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
       const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central && x.status !== "dead" && x.status !== "departed").length;
@@ -3758,6 +3810,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       const mid = new RegExp(`[a-z,;:]\\s+${raw}\\b`).test(prose)
         || new RegExp(`["”'\u2019][,.!?]?\\s+${raw}\\b`).test(prose);
       if (!mid) continue;
+      // AN EPITHET IS NOT A NAME — see isAppellation. This is the last gate because it is the
+      // cheapest one to get wrong: it reads the whole turn's prose, not the match.
+      if (isAppellation(raw, prose)) continue;
       found.set(key, raw);
     }
   }

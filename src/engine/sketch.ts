@@ -186,5 +186,17 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
     c.drive_queue = goals.slice(1, 3).map((goal: string) => ({ goal: goal.slice(0, 140), progress: 0, priority: 0, updated_turn: state.world.current_turn }));
   }
 
-  c.provisional = undefined;   // the sketch is finished; it is a person now
+  // A SKETCH IS NOT FINISHED BECAUSE THE PASS RAN.
+  //
+  // This cleared the marker unconditionally, so a completion that came back short — the 1200-token
+  // budget hit mid-object, safeJson salvaging the keys that had arrived — left a record holding an
+  // appearance and nothing else, still opening "INCOMPLETE RECORD" where its life should be, and
+  // now flagged as a finished person. One save carried exactly that for twenty-five turns: her
+  // appearance_facts stop mid-phrase, at "dark obsidian-brown eyes with sharp calculating".
+  //
+  // Clearing it there is the wrong way round. Ask the record itself: clear the flag, then let
+  // isSketch — which reads the fields the story actually renders — put it back if the record is
+  // still hollow. The pass runs again after the next turn, which is what it is for.
+  c.provisional = undefined;
+  if (isSketch(c)) c.provisional = true;
 }
