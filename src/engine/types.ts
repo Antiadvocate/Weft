@@ -639,6 +639,14 @@ export interface WorldState {
    *  and used to break the tie on how a rumor about the player travels. Undefined on old saves =
    *  neutral. */
   public_standing?: number;
+  /** AN OPEN CALL THE PLAYER PUT TO A POPULATION rather than to a person — a summons, an offer, an
+   *  invitation, an advertisement, a proclamation. The engine had no reading for one at all: the
+   *  only ways anybody new could reach the player were an existing cast member whose drive already
+   *  named him, or the offstage pass volunteering a contact, and the crowd was licensed to exist but
+   *  explicitly forbidden a name. So a call could be answered by nobody, forever, and the silence
+   *  looked like the world's considered verdict instead of an absence of machinery. See
+   *  openCallDirective in population.ts. */
+  open_call?: { what: string; turn: number; time: string; reach: number; answered: number };
   promises?: Promise[];         // the promise ledger: who swore what to whom, and whether it was kept
   focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }

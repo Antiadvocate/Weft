@@ -30,7 +30,7 @@ import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
-import { crowdDirective } from "./population";
+import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -2047,7 +2047,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // and the hardest scene ending there is: the player stops perceiving
   const perceptionNote = perceptionGapDirective(state, action);
   if (sceneNote) ev.onMeta({ shifts: [`the scene has spent itself — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
-  const crowdNote = crowdDirective(state);
+  // A CALL PUT TO EVERYONE. Recorded before the directive is composed, so a call made THIS turn is
+  // already standing when the narrator writes the answer to it — the player should not have to ask
+  // twice to be heard once, and in the save that surfaced this he asked three times and then put it
+  // into every mind in the city.
+  trackOpenCall(state, action);
+  const crowdNote = crowdDirective(state) + openCallDirective(state);
   const giftNote = giftDirective(action);
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
@@ -4064,6 +4069,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       if (newId) { state.characters[newId].drive = drive; state.characters[newId].drive_queue = driveQueue; }
     }
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
+    // Somebody new turned up while the player had a call standing. Whether they came BECAUSE of it
+    // is not knowable here and does not need to be: what the credit stops is the engine going on
+    // insisting the call is unanswered while a new person is standing in the scene.
+    creditCallAnswer(state);
   }
   // AUTO-REGISTER SPEAKERS. The simulator is supposed to declare anyone new via new_characters and
   // often doesn't — a mother, a harper, a rider walks into the prose, speaks at length, and never

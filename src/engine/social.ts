@@ -350,7 +350,58 @@ function rumorCharge(content: string, standing = 0): number {
 // "people", "kind" — and the standing drifted every turn on prose that meant nothing ("she gave him
 // a look" in a room with people in it). A reputation that moves on everything measures nothing, so
 // these only match acts that a town would actually retell.
-const PUBLIC_BOON = /\b(sav(ed|es|ing)|rescu\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered|rebuil\w+|restored|freed|liberat\w+|carried \w+ to safety|pulled \w+ (out|free|clear)|put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between)\b/i;
+// ...but narrow is not the same as one-sided, and this list was one-sided. Every verb in it was
+// EMERGENCY RESCUE: pull them out, put the fire out, hold the gate, stand between. Nothing in it
+// could see a person who PROVIDES — who feeds a quarter, raises a granary, opens a free school,
+// forgives a debt, ends a practice. The harm list has always had both registers, acute (murder) and
+// systemic (enslave, terrorize), so the scale was legible in one direction only.
+//
+// Measured on the save that surfaced this: a player who abolished slavery across an empire,
+// teleported the army onto public works, raised a granary in the Forum and built a school that fed
+// and taught children for nothing scored ZERO on this regex across all seventeen turns, and stood
+// at a public standing of exactly 0.0 while the city he had remade decided he was a thing to avoid.
+// One murder would have moved him further than everything he actually did.
+//
+// The construction and provision verbs need an object, the way the harm verbs do, or "built a wall
+// to keep them out" and "made an example" read as benefaction.
+//
+// AND THEY ARE SCORED FROM THE ACTION ONLY — see PUBLIC_WORKS below. A rescue is an EVENT: it is
+// narrated once and never mentioned again. A building is a FACT: the school stands in the prose for
+// the rest of the story. Scored the same way, the second one pays out forever. Replaying the save
+// this came from with both families on prose, the standing climbed on turns 6 and 8 off "built a
+// school" and "built a granary" — the narrator recapping work already done, one item of which had
+// been done four months before the game began.
+const PUBLIC_BOON = new RegExp([
+  // ACUTE RESCUE — an event, narrated once. Scored from the action and the player's prose alike.
+  `sav(ed|es|ing)|rescu\\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered`,
+  `rebuil\\w+|restored|freed|liberat\\w+|carried [\\w ]{1,24}? to safety|pulled [\\w ]{1,24}? (out|free|clear)`,
+  `put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between`,
+].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
+
+/**
+ * THE OTHER HALF OF A REPUTATION: what the player PROVIDES, not what they rescue.
+ *
+ * Ending a standing evil, forgiving a debt, feeding a quarter, raising a granary, opening a school
+ * that costs nothing. The harm list has always had this register — `enslav`, `terroriz`, "made an
+ * example of" are systemic, not acute — and the boon list had no counterpart at all, so the scale
+ * could only be read in one direction. A player who abolished slavery across an empire, teleported
+ * the army onto public works and built a free school in front of a crowd of five thousand scored
+ * ZERO across seventeen turns and sat at a standing of exactly 0.0 while the city he had remade
+ * decided he was a man to avoid. One murder would have moved him further than all of it.
+ *
+ * Matched against the player's DECLARED ACTION only, because the thing it names goes on existing.
+ */
+const PUBLIC_WORKS = new RegExp([
+  // ending a standing evil — the systemic counterpart to enslav/terroriz on the harm side
+  `abolish(?:e[sd]|ing)?|emancipat(?:e[sd]|ing)|manumit(?:s|ted|ting)?|struck off (the |their )?(collar|collars|chains|irons)|unchained|ended (the )?(slavery|famine|plague|hunger|war|siege|blockade|tribute|levy)`,
+  `forgave (the |their |every |all )?(debt|debts)|cancel(?:s|led|ing|ling)? (the |their |every |all )?(debt|debts)|remitted (the )?(tax|taxes|tribute)`,
+  // provision at scale — a thing a place would retell
+  `fed (the |a )?(town|city|village|quarter|crowd|poor|hungry|children|people|everyone)`,
+  `hous\\w+ (the |a )?(homeless|poor|refugees|displaced)|clothed the (poor|children)`,
+  `(built|build|raised|raise|founded|found|opened|open|endowed|endow|make|made|create[d]?) (a |the |them |every |free )*(school|schools|granary|granaries|hospital|aqueduct|well|wells|bathhouse|almshouse|orphanage|clinic|homes|houses|shelter)`,
+  `made (it |them |the )?(bread|grain|food|schooling|school|medicine|water) free|free (bread|grain|food|schooling|lunches|meals|medicine|land)\\b`,
+  `taught (the |their )?(children|poor|freedmen|them) (to read|letters|their letters)`,
+].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
 const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing)|burn\w+ (the|their|a) (village|town|city|home|house|farm|field|quarter)|razed?|destroy\w+ (the|their) (village|town|city|home|quarter)|tortur\w+|maim\w+|enslav\w+|terroriz\w+|made an example of|left \w+ to die|killed (a|the) (child|children|innocent)|cut \w+ down where (he|she|they|it) stood)\b/i;
 /** Was this turn even public? A boon nobody saw moves no reputation. Crowd nouns only — "people"
  *  and "road" were in here once and matched nearly every paragraph ever written. */
@@ -400,7 +451,9 @@ export function updatePublicStanding(
   const seen = PUBLIC_EYES.test(prose) || (pop?.scale ?? 0) >= 10
     || state.world.present.filter((id) => id !== "char_player").length >= 3;
   if (seen) {
-    const boon = PUBLIC_BOON.test(text), harm = PUBLIC_HARM.test(text);
+    // The works family reads the ACTION alone — a school stays built and stays in the prose, so
+    // scoring it from the narration pays the player again every time the narrator mentions it.
+    const boon = PUBLIC_BOON.test(text) || PUBLIC_WORKS.test(action), harm = PUBLIC_HARM.test(text);
     const mass = MASS_HARM.test(text);
     // Scale by what the crowd is reacting to: an impossible act is talked about for longer.
     const scale = tier === "cosmic" ? 2 : tier === "mythic" ? 1.5 : 1;
@@ -420,7 +473,20 @@ export function updatePublicStanding(
   return `word about ${who || "the player"} spreads — the town's read on them turns ${standingBand(v).adjective}.`;
 }
 
-function standingBand(v: number): { adjective: string; directive: string } {
+function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: string; directive: string } {
+  // A WITNESSED POWER IS A KNOWN QUANTITY. The neutral band below is written for an unremarkable
+  // stranger, and the tier gate in publicStandingDirective hands it to a MYTHIC player too — so on
+  // the turn after a man put words inside every mind in a city of a million and sat down to see who
+  // came, the narrator was told, in these words: "Strangers treat them as a stranger: neither afraid
+  // nor impressed, occupied with their own lives. Do not have crowds react to the player as a known
+  // quantity; they are not one yet." Nobody came. The narrator was doing as it was told.
+  //
+  // Standing 0 does not mean unknown. It means the community has no settled MORAL read — which for
+  // someone whose power everyone has seen is the most charged position there is, not the least.
+  if (Math.abs(v) < 2 && (tier === "mythic" || tier === "cosmic")) return {
+    adjective: "unsettled",
+    directive: `WATCHED, AND NOT YET JUDGED — everyone has seen what the player can do and nobody has decided what it means for them. This is not indifference and must never be written as indifference: strangers do not carry on as though a person like this were ordinary traffic. What they lack is a VERDICT, so the reactions run in every direction at once and different people land differently — awe, calculation, terror, hope, petition, opportunism, the ones who want to be near it and the ones who cross the road. Someone approaches; someone else leaves. Crowds react to the POWER as an established fact and to the PERSON as an open question.`,
+  };
   if (v >= 6) return {
     adjective: "reverent",
     directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The friction available here is the friction of being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
@@ -450,7 +516,7 @@ export function publicStandingDirective(state: SaveState, tier: PowerTier = "mor
   // At mortal tier with no reputation there is nothing to say; silence is cheaper than a paragraph
   // telling the narrator that nothing in particular is true.
   if (Math.abs(v) < 2 && tier !== "mythic" && tier !== "cosmic") return "";
-  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v).directive}`;
+  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v, tier).directive}`;
 }
 
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
