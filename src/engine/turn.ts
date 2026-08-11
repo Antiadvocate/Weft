@@ -3018,12 +3018,27 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   for (const line of dischargeFiredClocks(state, turn)) shifts.push(line);
 
   // history + time
-  state.world.current_time = advance(state.world.current_time, minutes);
+  //
+  // A SCENE THAT ENDED TOOK LONGER THAN THE EXCHANGE THAT ENDED IT. When the scene read as spent,
+  // the narrator was told to close it on the page and permitted to cross the connective time after
+  // it — the walk, the rest of the afternoon, getting from this room to the next. The bookkeeper
+  // reads elapsed_minutes off the prose, and a cut is exactly what it undercounts: the crossing is
+  // one line of text describing hours. Left alone, the turn that ends a scene is billed like any
+  // other three-line exchange, which is how a save reaches turn 45 at two in the afternoon.
+  //
+  // Only when the scene actually ended — the player is somewhere else now. A spent scene the
+  // narrator chose to keep playing is still an ordinary turn and gets its ordinary minutes.
+  let elapsed = minutes;
+  if (sceneRead.spent && prevLocation !== state.world.player_location && elapsed < 45) {
+    elapsed = 45;
+    console.info(`[time] scene ended and the player moved on — crediting the crossing at ${elapsed} min instead of ${minutes}`);
+  }
+  state.world.current_time = advance(state.world.current_time, elapsed);
   // SCENE CLOCK: the narrator sees the world clock every turn but cannot tell how long the current
   // scene has been running — which is exactly what timed world laws ("pain after ten minutes") are
   // measured against. Track when the current scene began: a location change or a big time jump
   // starts a new scene; the digest prints the elapsed minutes beside the location.
-  if (!state.world.scene_started_time || prevLocation !== state.world.player_location || minutes >= 120) {
+  if (!state.world.scene_started_time || prevLocation !== state.world.player_location || elapsed >= 120) {
     state.world.scene_started_time = state.world.current_time;
   }
 
