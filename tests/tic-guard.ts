@@ -17,15 +17,28 @@
  *
  * A bare quote mark, and an attribution for a line that is not there.
  *
- * The tic guard did it, and two separate things had to be wrong for it to happen. It hunts the
- * narrator reflecting the player's words back with an intensifier — a real tic — by deleting any
- * sentence carrying four consecutive words from the player's input, and it has no idea that a
- * PERSON repeating what you just said is not a tic but a conversation. Then its sentence splitter
- * has no idea quotation marks exist, so it cut inside her line and left the punctuation behind.
- * It happened again on turn 8 and left the same wreckage. Nothing logged, nothing looked wrong in
- * state, and the scene simply read as though the engine had a stroke mid-sentence.
+ * The tic guard did it. It hunts the narrator reflecting the player's words back — a real tic — by
+ * deleting any short sentence carrying four consecutive words from the player's input, and its
+ * sentence splitter had no idea quotation marks exist, so it cut inside her line and left the
+ * punctuation behind. It happened again on turn 8 and left the same wreckage. Nothing logged,
+ * nothing looked wrong in state, and the scene simply read as though the engine had a stroke
+ * mid-sentence.
+ *
+ * THE FIRST FIX OVER-CORRECTED AND THE VERBATIM REPLIES CAME BACK.
+ *
+ * It exempted every sentence containing a quote mark, on the reasoning that a PERSON repeating what
+ * you said is conversation rather than a tic. That is true of conversation and false of a parrot,
+ * and it switched the guard off in the one place the failure is most visible: a character saying
+ * the player's own line back to them, in dialogue, on the page.
+ *
+ * "Contains a quote" was never the distinction. The distinction is how much of the reply is MADE OF
+ * the player's words, and how long it is — reaching for four of them is how people talk, repeating
+ * a short phrase is how anybody checks they heard right, and handing back a whole sentence of the
+ * player's own reasoning is the tic. A spoken line is measured now, not exempted. The splitter
+ * returns a quoted line together with its attribution, so excising one can no longer strand the
+ * punctuation, which was the actual damage.
  */
-import { splitSentencesOutsideQuotes } from "../src/engine/turn";
+import { splitSentencesOutsideQuotes, isParrot, liftedFraction } from "../src/engine/turn";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -36,8 +49,8 @@ function check(name: string, c: boolean, extra?: unknown) {
 /* The guard, extracted exactly as turn.ts runs it, so this tests the real rule. */
 function ticGuard(prose: string, action: string): { prose: string; cuts: number } {
   const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
-  const QUOTE = /["“”]/;
   const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const actLine = actWords.join(" ");
   const runs: string[] = [];
   for (let i = 0; i + 4 <= actWords.length; i++) runs.push(actWords.slice(i, i + 4).join(" "));
   const echoes = (sent: string) => {
@@ -51,28 +64,69 @@ function ticGuard(prose: string, action: string): { prose: string; cuts: number 
     const kept = sents.filter((sent) => {
       const t = sent.trim();
       if (cuts >= 2 || t.length > 160) return true;
-      if (QUOTE.test(t)) return true;
+      const spoken = (t.match(/["“][^"”]*["”]/g) ?? []).join(" ");
+      if (spoken) {
+        if (!isParrot(spoken, actLine)) return true;
+        cuts++; return false;
+      }
       if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
       return true;
     });
-    return kept.join("").trim() || para;
+    const out = kept.join("").trim();
+    if (!out || (out.match(/["“”]/g) ?? []).length % 2 === 1) return para;
+    return out;
   }).join("\n\n");
   return { prose: cuts ? cleaned : prose, cuts };
 }
 
 const balanced = (s: string) => (s.match(/["“”]/g) ?? []).length % 2 === 0;
 
-/* ── 1. turn 1 of the save ────────────────────────────────────────────────────── */
+/* ── 1. turn 1 of the save: whatever the guard decides, it never leaves wreckage ── */
 {
   const action = `"Hi. I'm Rabi. I'm probably not dressed right for here. That's ok. I'm trying to find out where I can go to find some lodgings."`;
   const prose = `Lucia Aelia Severa had her back to a marble plinth, a wax tablet in one hand and a stylus in the other. The stylus stayed where it was.\n\n`
     + `"You are not dressed right for here." The words came out flat, factual, an observation rather than a joke. She tucked the tablet under her arm and reached for a small bronze canteen.`;
   const out = ticGuard(prose, action);
-  check("her line survives", out.prose.includes("You are not dressed right for here"), out.prose);
-  check("nothing was cut at all", out.cuts === 0, out.cuts);
-  check("and the quotes are still balanced", balanced(out.prose), out.prose);
+  check("the quotes are balanced whatever it decided", balanced(out.prose), out.prose);
   // the exact wreckage from the save: a paragraph that opens on a quote mark with nothing in it
   check("no paragraph opens on an empty quote", !out.prose.split(/\n\n+/).some((p) => /^["“]\s/.test(p.trim())), out.prose);
+  check("the attribution never outlives the line it belonged to",
+    out.prose.includes("You are not dressed right for here") || !out.prose.includes("The words came out flat"), out.prose);
+  check("and the rest of the paragraph is intact", out.prose.includes("reached for a small bronze canteen"), out.prose);
+}
+
+/* ── 1b. A REPLY MADE OF THE PLAYER'S WORDS IS STILL CUT ──────────────────────────
+ *
+ * The first fix for the orphan exempted every sentence containing a quote mark, on the reasoning
+ * that a PERSON repeating what you said is conversation rather than a tic. True of conversation,
+ * false of a parrot — and it switched the guard off in the one place the failure is most visible.
+ * The verbatim replies came straight back. "Contains a quote" was never the distinction. */
+{
+  const action = `"It's salmon sous vide. I'm not a big fan of it. But I think you would enjoy this since you've never had it" I take a few bites and push the plate away.`;
+  const prose = `She looked at the plate for a while without touching it.\n\n`
+    + `"It's salmon sous vide. I'm not a big fan of it." She set her fork down. The lamp guttered.`;
+  const out = ticGuard(prose, action);
+  check("his own line handed back to him is cut", out.cuts === 1, out);
+  check("and it takes its attribution with it", !out.prose.includes("She set her fork down"), out.prose);
+  check("leaving no stranded punctuation", balanced(out.prose), out.prose);
+  check("and the paragraph keeps what was actually hers", out.prose.includes("The lamp guttered"), out.prose);
+}
+
+/* ── 1c. and an ordinary answer that happens to use his words is not ──────────── */
+{
+  const action = `"I'm not a big fan of it. But I think you would enjoy this since you've never had it" I push the plate away.`;
+  const prose = `She looked at the plate.\n\n"I don't care whether you're a fan of it. I asked what it was." She picked up the fork.`;
+  const out = ticGuard(prose, action);
+  check("a real reply survives", out.cuts === 0, out);
+  check("intact", out.prose.includes("I asked what it was"), out.prose);
+}
+
+/* ── 1d. a short echo is a clarification, not a parrot ────────────────────────── */
+{
+  const action = `"I need to find the Temple of Venus and Rome before dark" I look up the hill.`;
+  const prose = `He pointed with his chin.\n\n"The Temple of Venus and Rome?" She wiped her hands on her apron.`;
+  const out = ticGuard(prose, action);
+  check("checking she heard right is not parroting", out.cuts === 0, out);
 }
 
 /* ── 2. the tic it actually exists for is still cut ───────────────────────────── */
@@ -90,6 +144,8 @@ const balanced = (s: string) => (s.match(/["“”]/g) ?? []).length % 2 === 0;
   const narrated = ticGuard(`She put the cup down. That's not nothing. The fire had burned low.`, "I say nothing");
   check("canned narration is cut", narrated.cuts === 1, narrated);
 
+  // A canned affirmation in somebody's MOUTH is left alone: it is not lifted from the player, and
+  // a person is allowed to say an ordinary thing. Only narration gets the canned-phrase treatment.
   const spoken = ticGuard(`She put the cup down. "That's not nothing," she said. The fire had burned low.`, "I say nothing");
   check("the same words in somebody's mouth are left alone", spoken.cuts === 0, spoken);
   check("and the line is intact", spoken.prose.includes(`"That's not nothing," she said.`), spoken.prose);
@@ -114,6 +170,17 @@ const balanced = (s: string) => (s.match(/["“”]/g) ?? []).length % 2 === 0;
   check("plain narration still splits", splitSentencesOutsideQuotes("One. Two. Three.").length === 3);
   check("a single sentence is one piece", splitSentencesOutsideQuotes("Just the one").length === 1);
   check("rejoining is lossless", splitSentencesOutsideQuotes(`"A. B," he said. C.`).join("") === `"A. B," he said. C.`);
+}
+
+/* ── 6. the measure itself ────────────────────────────────────────────────────── */
+{
+  const act = "i am not a big fan of it but i think you would enjoy this since you have never had it";
+  check("a whole line lifted scores 1", liftedFraction("I am not a big fan of it", act) === 1, liftedFraction("I am not a big fan of it", act));
+  check("an unrelated line scores low", liftedFraction("then eat it yourself i have work in the morning", act) < 0.35);
+  check("a fragment under four words is not measured", liftedFraction("sous vide", act) === 0);
+  check("an empty action never accuses anybody", liftedFraction("I am not a big fan of it", "") === 0);
+  check("length gates the verdict, not the ratio",
+    liftedFraction("I am not a big fan", act) === 1 && !isParrot("I am not a big fan", act));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

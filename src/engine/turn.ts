@@ -384,6 +384,47 @@ function cleanName(raw: string): string {
   return String(raw).replace(/[()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
+/** At or above this, a spoken line is not a reply that uses the player's words — it is made of them. */
+export const PARROT_RATIO = 0.6;
+/** Below this many words, a lifted line is a clarification, not a parrot. */
+export const PARROT_MIN_WORDS = 8;
+
+/**
+ * How much of a spoken line was lifted straight out of what the player typed.
+ *
+ * The longest run of words the line shares, in order, with the player's input, as a fraction of the
+ * line. Repeating four words back is how people talk — confirmation, disbelief, turning a phrase
+ * over. Repeating most of the line back is the tic the prose rules ban in three separate places and
+ * the narrator produces anyway, because handing the player their own sentence is what a model
+ * reaches for when it has nothing to add.
+ */
+export function liftedFraction(spoken: string, actionLine: string): number {
+  const words = String(spoken).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 4 || !actionLine) return 0;
+  let best = 0;
+  for (let i = 0; i < words.length; i++) {
+    for (let j = words.length; j - i > best; j--) {
+      if (actionLine.includes(words.slice(i, j).join(" "))) { best = j - i; break; }
+    }
+  }
+  return best / words.length;
+}
+
+/**
+ * Is this spoken line the player's own sentence handed back to them?
+ *
+ * Two conditions, and the length one matters as much as the ratio. Repeating a short phrase is how
+ * anybody checks they heard right — a name, a place, a term they do not know — and every one of
+ * those scores 1.0 because the whole fragment is lifted. A player asking after the Temple of Venus
+ * and Rome should get somebody saying it back to them with a question mark, not silence. What the
+ * prose rules actually ban is a whole line of the player's own reasoning returned as dialogue.
+ */
+export function isParrot(spoken: string, actionLine: string): boolean {
+  const words = String(spoken).replace(/[^A-Za-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).length;
+  if (words < PARROT_MIN_WORDS) return false;
+  return liftedFraction(spoken, actionLine) >= PARROT_RATIO;
+}
+
 /**
  * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
  *
@@ -2297,13 +2338,22 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // and left the same wreckage. Nothing logs at the player, nothing looks wrong in state, and the
   // scene simply reads as though the engine had a stroke mid-sentence.
   //
-  // So: split on sentence ends that are OUTSIDE quotes, and consider only sentences that carry no
-  // quoted speech at all. The tic being hunted here is a narrator's tic. Narration is all it gets.
+  // The first fix for this exempted every sentence carrying a quote mark, on the reasoning that a
+  // PERSON repeating what you said is conversation rather than a tic. That is true of conversation
+  // and false of a parrot, and it switched the guard off in the one place the failure is most
+  // visible — a character saying the player's own line back to them, in dialogue, on the page. The
+  // verbatim replies came straight back.
+  //
+  // "Contains a quote" was never the distinction. The distinction is how much of the reply is MADE
+  // OF the player's words. A person answering you may reach for four of them; a parrot is built out
+  // of them. So a spoken line is measured, not exempted — and because the splitter above returns a
+  // quoted line together with its attribution as one unit, excising it can no longer strand the
+  // punctuation, which was the actual damage the first fix was for.
   {
     const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
-    const QUOTE = /["“”]/;
     // 4+ consecutive words lifted from the player's action, ignoring very common words.
     const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    const actLine = actWords.join(" ");
     const runs: string[] = [];
     for (let i = 0; i + 4 <= actWords.length; i++) runs.push(actWords.slice(i, i + 4).join(" "));
     const echoes = (sent: string) => {
@@ -2317,11 +2367,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const kept = sents.filter((sent) => {
         const t = sent.trim();
         if (cuts >= 2 || t.length > 160) return true;
-        if (QUOTE.test(t)) return true;            // somebody is speaking — not the narrator's tic
+        const spoken = (t.match(/["“][^"”]*["”]/g) ?? []).join(" ");
+        if (spoken) {
+          // Somebody is speaking. Cut only if the line is substantially the player's own words.
+          if (!isParrot(spoken, actLine)) return true;
+          cuts++; return false;
+        }
         if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
         return true;
       });
-      return kept.join("").trim() || para;
+      const out = kept.join("").trim();
+      // A cut that leaves a paragraph with an odd number of quote marks has stranded one. That was
+      // the whole original failure; never ship it, whatever else the guard concluded.
+      if (!out || (out.match(/["“”]/g) ?? []).length % 2 === 1) return para;
+      return out;
     }).join("\n\n");
     if (cuts) {
       prose = cleaned;
