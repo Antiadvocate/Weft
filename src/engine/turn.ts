@@ -3153,16 +3153,17 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           const named = new RegExp(`\\b${(oc.name.split(/\s+/)[0] ?? "").toLowerCase()}\\b`).test(recent.toLowerCase());
           if (!named && !e) return "";
           const gone = oc.status === "dead" || oc.status === "departed" ? `, ${oc.status.toUpperCase()}` : "";
+          const who = `${oc.name}${oc.pronouns ? ` (${oc.pronouns})` : ""}`;
           return e
-            ? `${oc.name}: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.roles?.length ? `, ${e.roles.join("/")}` : ""}${gone}`
-            : `${oc.name}: no relationship on record${gone}`;
+            ? `${who}: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.roles?.length ? `, ${e.roles.join("/")}` : ""}${gone}`
+            : `${who}: no relationship on record${gone}`;
         })
         .filter(Boolean)
         .slice(0, 10)
         .join(" | ");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}${state.characters[id]?.pronouns ? ` (${state.characters[id]!.pronouns})` : ""}\nPRONOUNS ARE BINDING — a belief is permanent and is read back to the narrator every turn, so a pronoun guessed wrong here is wrong forever. Use the sets given above and never infer gender from a name, a role, or the other people in the memories.\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;

@@ -28,9 +28,15 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
-const src = readFileSync("src/engine/prompts.ts", "utf8");
-/** Everything inside a template literal long enough to be instruction text, i.e. what a model reads. */
-const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{40,}`/g) ?? []).join("\n");
+/**
+ * Everything inside a template literal long enough to be instruction text — i.e. what a model reads
+ * — with the `${...}` interpolations stripped out. Those are CODE, not prose, and leaving them in
+ * made the ratchet below count a fragment like `")}${bodySeverity(c) >= 3 ? "` as a quotable example
+ * phrase. A budget that moves when the surrounding code is edited measures the wrong thing.
+ */
+const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{40,}`/g) ?? [])
+  .join("\n")
+  .replace(/\$\{[^}]*\}/g, " ");
 
 /* ── 1. the phrases caught coming back in the prose ───────────────────────────── */
 {
@@ -60,7 +66,7 @@ const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{
   // Measured after removing the ones proven to leak. This number may go DOWN freely. Raising it
   // means a new rule was written with a ready-made line attached, which is the bug this file is
   // about — lower the count or delete this test deliberately, do not nudge the budget.
-  const BUDGET = 89;
+  const BUDGET = 86;
   console.log(`     (quotable lines attached to a prohibition: ${supplied}, budget ${BUDGET})`);
   check(`the stock of forbidden-but-quotable lines has not grown`, supplied <= BUDGET, supplied);
 }

@@ -109,7 +109,11 @@ export function worldDigest(state: any): string {
       const where = state.world.places[c.location]?.name ?? "unknown";
       const wants = wantsOf(c);
       const blocked = c.drive?.blocker ? ` Stuck on: ${c.drive.blocker}.` : "";
-      return `- ${c.name}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
+      // Without pronouns this pass wrote "Tigris wakes in the Subura and tries to remember what HE
+      // can sell for breakfast" and "Clodia asks HIM where Rabi and Lucia have gone" about a woman
+      // whose record says she/her. The lines it writes become witness memories, so the error is
+      // filed rather than merely read.
+      return `- ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
     }).join("\n");
 
   // Which cast members are standing where, so witnesses can be named rather than guessed at.

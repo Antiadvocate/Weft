@@ -720,9 +720,18 @@ export function simulatorContext(state: SaveState): string {
       // kill them, resolve their fate, or invent what happened to them in prose — that is the
       // bookkeeper's job via character_exits, and only when something onscreen causes it.
       const tag = here ? " [IN SCENE]" : " [OFF-SCENE, ALIVE — do not kill, harm, or resolve their fate in narration]";
-      return `${c.name}=${id}${tag} @${loc}${c.central === false ? " (background)" : ""}`;
+      // PRONOUNS, AND ESPECIALLY THE PLAYER'S. The narrator writes the player in the second person,
+      // so their gender never appears in the prose at all — and this roster was the bookkeeper's
+      // only description of who anybody is. It printed a name, an id and a place. So when it had to
+      // record who had just bought a slave at the Forum, it had nothing to go on and guessed:
+      // "Marcella was bought by a woman who said hey instead of a greeting." The player is he/him.
+      // That went into her episodic memory AND her life_history, which is permanent and read every
+      // turn thereafter. The same blindness wrote "Rabi conducts herself like a soldier" into
+      // another save's belief store.
+      return `${c.name}=${id}${c.pronouns ? ` (${c.pronouns})` : ""}${tag} @${loc}${c.central === false ? " (background)" : ""}`;
     }).join("; ");
   parts.push(`CHARACTERS (use these exact ids): ${roster}`);
+  parts.push(`The pronouns above are BINDING for every line you write — memories, life_history, edge notes, rumors, offscreen lines. The narration you are reading addresses the player in the second person and never genders them, so this list is the only place their gender appears: take it from here and never guess it from the scene.`);
   // Places ranked by relevance, not raw recency — the player's location, present characters'
   // locations, and anything named in the last two turns of prose always survive the cap, so
   // "reuse exact names" keeps working deep into a long save instead of silently spawning duplicates.
