@@ -50,10 +50,10 @@ Output ONLY this JSON:
 "skills": {"3-5 entries, key = the competence, value = how good and how they came by it \u2014 a person's skills are the subjects they can actually hold forth on": ""},
 "beauty": 50,
 "conscience": 0.7,
-"attracted_to": "women / men / anyone / no one",
+"attracted_to": "women / men / anyone / no one — permanent, and read by the engine as a hard gate; never use no one for somebody who is only unavailable right now, and do not qualify it with a mood",
 "taste": "ONE STRING: what their conditioning makes them find attractive",
 "gregariousness": 0.5,
-"attachment_style": "secure / anxious / avoidant / disorganized",
+"attachment_style": "secure / anxious / avoidant / disorganized — most people are secure; pick an insecure style only when this person\u2019s history actually produced one",
 "under_threat": "one plain sentence: what they DO when scared or hurt",
 "soothed_by": "one plain sentence: what actually settles them",
 "drive_goals": ["2-3 distinct wants they carry at once — an immediate aim, a deeper hope or fear, an attachment or grudge. Never only the player."]
