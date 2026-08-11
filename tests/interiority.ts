@@ -121,9 +121,13 @@ const gone = (s: string) => !scrubForReplay(s).includes(s.trim().slice(0, 40));
   registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
   const mich = registerCharacter(s2, { name: "Michelle" } as any);
   s2.characters[mich].location = "loc_dye";
-  s2.world.current_turn = 3;
+  // Made on turn 2 and fulfilled on turn 3, as the case above describes. The fixture used to file
+  // both at turn 3 and it mattered: the turn a promise is MADE is no longer evidence it was kept,
+  // because word overlap peaks on exactly that turn and was firing there and nowhere else.
+  s2.world.current_turn = 2;
   addPromise(s2, "char_player", mich, "Help her drain the woad vat before the date.", 1);
   addPromise(s2, "char_player", mich, "Walk her home to Thornhaven when the roads are safe.", 2);
+  s2.world.current_turn = 3;
 
   const ctx = simulatorContext(s2);
   check("the open ledger reaches the bookkeeper", /OPEN PROMISES/.test(ctx));

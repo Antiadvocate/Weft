@@ -129,6 +129,11 @@ export interface Promise {
   status: "open" | "kept" | "broken" | "retired";
   settled_turn?: number;       // when it stopped being open
   settled_by_hand?: boolean;   // the player closed this one, not the bookkeeper
+  /** Turns on which the engine saw evidence this was made good on. Accumulated because the
+   *  bookkeeper is asked and can decline, and a promise the player has kept three times over should
+   *  not need a fourth prompt. See creditPromiseEvidence in social.ts. */
+  evidence_turns?: number[];
+  settled_by_evidence?: boolean;
 }
 
 /** Directed edge a→b. Axes in [-100, 100]. */

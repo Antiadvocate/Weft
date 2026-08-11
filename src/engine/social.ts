@@ -1103,19 +1103,106 @@ export function addPromise(state: SaveState, from: string, to: string, text: str
  * The case that prompted it: "Help her drain the woad vat before the date." made on turn 2, and on
  * turn 3 the player typed "I snap my fingers and the vat is drained". Overlap is obvious to a
  * reader and was invisible to the engine.
+ *
+ * AND THEN, MEASURED ON A SAVE WHERE IT FAILED: word overlap peaks when a promise is MADE and goes
+ * quiet when it is KEPT. It has the mechanism exactly backwards.
+ *
+ *   t5  "Lucia will walk Rabi into the cookshop and stay as his guide."   overlap 0.257  ← FIRES
+ *   t6   the player arrives at the cookshop. The prose opens "The cookshop
+ *        was a narrow room with a low ceiling blackened by years of smoke"  overlap 0.127
+ *   t7 … t12                                                        overlap 0.04 – 0.17
+ *
+ * The threshold is 0.25. It pointed at the promise on the turn it was created — when there was
+ * nothing to close and the words were freshest — and said nothing on the turn it was fulfilled or
+ * on any turn after. The promise sat open for twenty turns. Of course it did: a turn that STATES a
+ * promise shares its vocabulary, and a turn that FULFILS one describes an event instead. The
+ * measure was reading the restatement, not the keeping.
+ *
+ * So the promise made this turn is excluded outright, and word overlap is demoted to one of two
+ * signals. The other is state, which for this class of promise is decisive and was sitting unused:
+ * the ledger said "walk Rabi into the cookshop", the world has a place called "A cookshop in the
+ * Subura", and the travel log has the player arriving there on turn 6.
  */
-export function promisesLikelyMet(state: SaveState, action: string, prose: string): PromiseRec[] {
+
+/** A promise ABOUT getting somewhere or bringing someone somewhere — the class where arrival IS the
+ *  keeping. Deliberately tight: "I'll pay you when I reach Rome" names a place and is not this. */
+const ESCORT = /\b(walk|walks|walked|take|takes|took|bring|brings|brought|escort\w*|meet|meets|met|come|comes|came|go|goes|went|return\w*|accompany|accompanies|accompanied|lead|leads|led|guide|guides|guided|show|shows|showed|deliver\w*|carry|carries|carried|drop off|see \w+ home|get \w+ to)\b/i;
+const PLACE_STOP = new Set(["the", "a", "an", "of", "in", "on", "at", "and", "house", "room", "place", "street", "road", "city", "town", "north", "south", "east", "west", "old", "new", "great", "little", "upper", "lower", "main"]);
+
+/** Which place, if any, this promise is about reaching. Null when it names none, or when the
+ *  promise is not the kind that arrival could settle. */
+export function promisedPlace(state: SaveState, text: string): string | null {
+  if (!ESCORT.test(text)) return null;
+  const words = new Set((text.toLowerCase().match(/[a-z]{5,}/g) ?? []));
+  // BEST match, not first. Place names carry people's names in them, and "Lucia will walk Rabi into
+  // the cookshop" hit "The house of Lucia Aelia Severa" on the word `lucia` before it ever reached
+  // "A cookshop in the Subura" — the wrong building, on the name of the woman doing the walking.
+  // Score by how much distinctive name was actually matched, so `cookshop` outweighs `lucia`.
+  let best: { id: string; score: number } | null = null;
+  for (const place of Object.values(state.world.places ?? {})) {
+    if (place.id === "loc_offscene") continue;
+    const tokens = (place.name.toLowerCase().match(/[a-z]{5,}/g) ?? []).filter((w) => !PLACE_STOP.has(w));
+    const score = tokens.filter((t) => words.has(t)).reduce((n, t) => n + t.length, 0);
+    if (score > 0 && (!best || score > best.score)) best = { id: place.id, score };
+  }
+  return best?.id ?? null;
+}
+
+/** Evidence, this turn, that an open promise has been made good on. `arrival` is state and is worth
+ *  far more than `words`, which is a hint about a long turn and nothing more. */
+export function promiseEvidence(state: SaveState, p: PromiseRec, action: string, prose: string): "arrival" | "words" | null {
+  const t = (p.text ?? "").trim();
+  if (t.length < 8) return null;
+  // The turn a promise is made is not evidence it was kept. This was most of what the old signal
+  // ever fired on, and it taught the bookkeeper that the pointer means nothing.
+  if (p.made_turn >= (state.world.current_turn ?? 0)) return null;
+  const dest = promisedPlace(state, t);
+  if (dest && state.world.player_location === dest) return "arrival";
   const turnText = `${action}\n${prose}`;
-  if (!turnText.trim()) return [];
+  if (!turnText.trim()) return null;
+  // Both directions: a short promise inside a long turn scores badly one way and well the other.
+  return relevance(t, turnText) >= 0.25 || relevance(turnText, t) >= 0.25 ? "words" : null;
+}
+
+export function promisesLikelyMet(state: SaveState, action: string, prose: string): PromiseRec[] {
   return (state.world.promises ?? [])
-    .filter((p) => p.status === "open")
-    .filter((p) => {
-      const t = (p.text ?? "").trim();
-      if (t.length < 8) return false;
-      // Both directions: a short promise inside a long turn scores badly one way and well the other.
-      return relevance(t, turnText) >= 0.25 || relevance(turnText, t) >= 0.25;
-    })
+    .filter((p) => p.status === "open" && promiseEvidence(state, p, action, prose) !== null)
     .slice(0, 4);
+}
+
+/** How many separate turns of evidence before the engine stops asking and closes it itself. */
+export const PROMISE_EVIDENCE_TO_CLOSE = 3;
+
+/**
+ * THE BOOKKEEPER GETS ASKED, AND THEN IT STOPS BEING ASKED.
+ *
+ * Pointing at a promise is only worth anything if something happens when the pointing is ignored.
+ * "I've done it multiple times, it remains open" is the whole complaint, and the answer to evidence
+ * on three separate turns with the promise still open is not a fourth prompt.
+ *
+ * Only for a favour or a commitment. A VOW is not closed by the engine on any amount of evidence:
+ * "protect your son", "never leave" — the keeping of those is the arc, and a scene that looks like
+ * the keeping of one is just a scene where it held. Those close when the story says so, or by hand.
+ */
+export function creditPromiseEvidence(state: SaveState, action: string, prose: string, turn: number): string[] {
+  const closed: string[] = [];
+  for (const p of state.world.promises ?? []) {
+    if (p.status !== "open") continue;
+    if (promiseEvidence(state, p, action, prose) === null) continue;
+    const seen = (p.evidence_turns ??= []);
+    if (!seen.includes(turn)) seen.push(turn);
+    if (p.weight >= 3 || seen.length < PROMISE_EVIDENCE_TO_CLOSE) continue;
+    resolvePromise(state, p, "kept", turn);
+    p.settled_turn = turn;
+    p.settled_by_evidence = true;
+    // Say that the ENGINE did this. The player is the only one who can tell it apart from a promise
+    // that was genuinely kept, and a line that reads like an ordinary resolution gives them nothing
+    // to object to — the ledger has three buttons precisely because this can be wrong.
+    const who = p.from === "char_player" ? "You" : state.characters[p.from]?.name ?? "someone";
+    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${p.text.replace(/\s*[.]\s*$/, "")} — closed by the engine after ${seen.length} turns of it looking done.`);
+    console.info(`[promises] closed "${p.text}" as kept — ${seen.length} turns of evidence and the bookkeeper never resolved it`);
+  }
+  return closed;
 }
 
 export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" | "broken", turn: number): string {

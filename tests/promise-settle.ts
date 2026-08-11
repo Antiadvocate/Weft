@@ -26,7 +26,7 @@
  * The engine cannot infer its way out of either. What it needs is a door.
  */
 import { readFileSync } from "node:fs";
-import { addPromise, resolvePromise, getEdge } from "../src/engine/social";
+import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -140,7 +140,111 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
     getEdge(s.world.edges, "char_lucia", "char_player").trust === trustAfterFirst);
 }
 
-/* ── 6. the mirror above is not the real function ─────────────────────────────
+/* ── 6. THE ENGINE CLOSES IT ITSELF WHEN THE POINTING IS IGNORED ──────────────
+ *
+ * "I need to be able to keep it because I've done it multiple times, it remains open."
+ *
+ * The second-look pass had the mechanism exactly backwards. Measured on the save:
+ *
+ *   t5  "Lucia will walk Rabi into the cookshop and stay as his guide."   overlap 0.257  <- FIRES
+ *   t6   the player ARRIVES at the cookshop; the prose opens "The cookshop
+ *        was a narrow room with a low ceiling blackened by years of smoke"  overlap 0.127
+ *   t7 … t12                                                         overlap 0.04 – 0.17
+ *
+ * The threshold is 0.25. It pointed at the promise on the turn it was CREATED — nothing to close,
+ * words at their freshest — and went silent on the turn it was fulfilled and every turn after. A
+ * turn that states a promise shares its vocabulary; a turn that keeps one describes an event. It
+ * was reading the restatement.
+ *
+ * Meanwhile the decisive signal sat unused: the ledger says "the cookshop", the world has a place
+ * called "A cookshop in the Subura", and the travel log has the player arriving there on turn 6. */
+{
+  const s = world(5);
+  s.world.places = {
+    loc_offscene: { id: "loc_offscene", name: "elsewhere", contains: [] },
+    loc_cook: { id: "loc_cook", name: "A cookshop in the Subura", contains: [] },
+    loc_lucia: { id: "loc_lucia", name: "The house of Lucia Aelia Severa", contains: [] },
+    loc_sub: { id: "loc_sub", name: "The Subura", contains: [] },
+  } as any;
+  s.world.player_location = "loc_sub";
+  const p = addPromise(s, "char_lucia", "char_player",
+    "Lucia will walk Rabi into the cookshop and stay as his guide in exchange for the gold.", 2)!;
+
+  check("the promise is read as being about reaching the cookshop",
+    promisedPlace(s, p.text) === "loc_cook", s.world.places[promisedPlace(s, p.text) ?? ""]?.name);
+  check("...and not the house of the woman doing the walking",
+    promisedPlace(s, p.text) !== "loc_lucia");
+
+  // t5: the turn it was made. This is what the old signal fired on, and it is not evidence.
+  check("the turn a promise is made is never evidence it was kept",
+    promiseEvidence(s, p, "I ask her to take me somewhere I can sleep", "She named a cookshop in the Subura.") === null);
+
+  // t6-t8: he is standing in the cookshop and nobody closes it
+  const tick = (turn: number) => {
+    s.world.current_turn = turn;
+    s.world.player_location = "loc_cook";
+    return creditPromiseEvidence(s, "I look around", "The cookshop was a narrow room with a low ceiling.", turn);
+  };
+  check("arrival is evidence", (s.world.current_turn = 6, s.world.player_location = "loc_cook",
+    promiseEvidence(s, p, "I look around", "a narrow room") === "arrival"));
+  check("one turn is not enough", tick(6).length === 0 && p.status === "open");
+  check("nor two", tick(7).length === 0 && p.status === "open");
+  const closed = tick(8);
+  check("three turns of it looking done, and the engine stops asking", p.status === "kept", p.status);
+  check("and says plainly that it closed it, not the story",
+    closed.length === 1 && /closed by the engine after 3 turns/.test(closed[0]), closed);
+  check("marked as settled on evidence", p.settled_by_evidence === true && p.settled_turn === 8);
+  check("with the turns it saw", JSON.stringify(p.evidence_turns) === "[6,7,8]", p.evidence_turns);
+  check("and Lucia gets the trust for it", getEdge(s.world.edges, "char_player", "char_lucia").trust > 0);
+}
+
+/* ── 7. what the engine will NOT close for you ────────────────────────────────
+ *
+ * A VOW is never closed on evidence. "Protect your son", "never leave" — the keeping of one of
+ * those is the arc, and a scene that looks like the keeping of it is just a scene where it held.
+ *
+ * And a STANDING ARRANGEMENT has no signal at all: "Payment for lodgings through the Ides and past
+ * them at five asses a night" names no destination and no deliverable, so nothing can ever look
+ * like the keeping of it. That one sat open for seventeen turns in the save and still would. It is
+ * what the retire button is for, and this pins that the engine does not pretend otherwise. */
+{
+  const s = world(5);
+  s.world.places = {
+    loc_offscene: { id: "loc_offscene", name: "elsewhere", contains: [] },
+    loc_villa: { id: "loc_villa", name: "The villa on the Caelian", contains: [] },
+  } as any;
+  const vow = addPromise(s, "char_player", "char_lucia", "Come back to the villa for her, whatever it costs", 3)!;
+  const standing = addPromise(s, "char_player", "char_clodia",
+    "Payment for lodgings through the Ides and past them at five asses a night", 2)!;
+  for (const t of [6, 7, 8, 9, 10]) {
+    s.world.current_turn = t; s.world.player_location = "loc_villa";
+    creditPromiseEvidence(s, "I walk in", "The villa was quiet.", t);
+  }
+  check("a vow is never closed by the engine, however it looks", vow.status === "open", vow.status);
+  check("...though the engine still watches it", (vow.evidence_turns ?? []).length >= 3, vow.evidence_turns);
+  check("a standing arrangement gathers no evidence at all", (standing.evidence_turns ?? []).length === 0);
+  check("and stays open, which is what the retire button is for", standing.status === "open");
+}
+
+/* ── 8. the arrival signal does not fire on a place merely mentioned ──────────
+ *
+ * "I'll pay you back when I reach Rome" names a place and is not a promise to go there. The verb
+ * gate is what separates them, and it is deliberately tight — this is the direction in which a
+ * false positive costs the player something, since arriving would close a debt that is still owed. */
+{
+  const s = world(5);
+  s.world.places = {
+    loc_offscene: { id: "loc_offscene", name: "elsewhere", contains: [] },
+    loc_rome: { id: "loc_rome", name: "Rome", contains: [] },
+    loc_forum: { id: "loc_forum", name: "The Forum Romanum", contains: [] },
+  } as any;
+  check("a debt that happens to name a place is not a promise to go there",
+    promisedPlace(s, "I will pay you back the twelve denarii once I am rich in Rome") === null);
+  check("but walking someone somewhere is", promisedPlace(s, "I will walk you to the Forum Romanum before dark") === "loc_forum");
+  check("and so is returning with something", promisedPlace(s, "Return to the Forum Romanum with the bread") === "loc_forum");
+}
+
+/* ── 9. the mirror above is not the real function ─────────────────────────────
  *
  * settlePromise lives in lib/api.ts behind IndexedDB, so it cannot be called here and `settle` is a
  * paraphrase of it — which is worth exactly nothing if the two drift. Pin the shape of the real one

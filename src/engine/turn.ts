@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -4964,6 +4964,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     if (target) { const line = resolvePromise(state, target, pr.outcome, turn); if (line) shifts.push(line); }
   }
+  // THE BOOKKEEPER HAS NOW HAD ITS TURN. Anything still open that the engine has watched being made
+  // good on for three separate turns gets closed here, because a fourth prompt is not an answer —
+  // see creditPromiseEvidence. Runs after promises_resolved so a promise the bookkeeper DID close
+  // is already gone and cannot be double-counted.
+  for (const line of creditPromiseEvidence(state, action, prose, turn)) shifts.push(line);
 
   for (const tu of diff.threads_update ?? []) {
     if (!tu?.title) continue;
