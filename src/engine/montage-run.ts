@@ -15,6 +15,7 @@ import { addFact, groundMemoryContent } from "./facts";
 import { regrooveHabits } from "./habits";
 import { recordExpressions } from "./novelty";
 import { syncPresence } from "./turn";
+import { placeIntent } from "./places";
 import { buildMessages, complete, safeJson, type Usage } from "../llm";
 import { stablePrefix, CHAPTER_SYSTEM } from "./prompts";
 import { pushSnapshot, uid } from "./state";
@@ -524,12 +525,12 @@ function finalizeMontage(state: SaveState, plan: MontagePlan): void {
   const turn = state.world.current_turn;
 
   // the place the montage moved the player into
+  // Through the same gate as every other creation path — exact-name equality on its own let a
+  // montage stand up a second copy of somewhere the story already had, or a room inside one.
   const create = plan.place_plan?.create;
   if (create?.name) {
-    const existing = Object.entries(state.world.places).find(
-      ([, p]) => p.name.toLowerCase() === create.name.toLowerCase(),
-    )?.[0];
-    if (!existing) {
+    const intent = placeIntent(state, create.name, "montage");
+    if (intent && "create" in intent) {
       const pid = uid("place");
       state.world.places[pid] = {
         id: pid, name: create.name,

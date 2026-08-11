@@ -22,6 +22,7 @@ import { authoredLine, hasAuthored } from "./authored";
 import { uid } from "./state";
 import { minutesBetween } from "./time";
 import { mundaneObjective } from "./knowledge";
+import { placeIntent } from "./places";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 export const OFFSTAGE_INTERVAL_MIN = 360;
@@ -333,10 +334,15 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
 
     // A place the event brought into being. The forge's ten were never meant to be the whole
     // world forever — a world that cannot grow new ground is a stage set.
+    // ...but it must be new GROUND, not a room in somewhere that exists. This checked the name for
+    // exact equality against the gazetteer and created on any miss — no containment test, no
+    // similarity test, no room-noun test — so it was the loosest of the four paths that can mint a
+    // location, and the world it grew was largely a maze of near-duplicates. One gate now: see
+    // existingPlaceFor in turn.ts.
     if (ev.new_place?.trim()) {
       const name = ev.new_place.trim().slice(0, 60);
-      const exists = Object.values<any>(state.world.places).some((p) => p.name.toLowerCase() === name.toLowerCase());
-      if (!exists) {
+      const intent = placeIntent(state, name, "offstage");
+      if (intent && "create" in intent) {
         const pid = uid("loc");
         state.world.places[pid] = { id: pid, name, description_facts: ev.what.slice(0, 160), contains: [], founding: false };
       }

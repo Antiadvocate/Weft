@@ -31,6 +31,7 @@ import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
+import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -3544,7 +3545,7 @@ function isTransientLabel(name: string): boolean {
     /\b(home|away|off|out|back|toward|towards|to|from)\b/i.test(name);
 }
 
-export const OFFSCENE = "loc_offscene";
+export { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 
 /** The offscene record — one place, outside every locale, for everyone who is not in a named
  *  location. Characters there are never in the player's scene and never re-seated by locale merging. */
@@ -3623,23 +3624,6 @@ export function resolvePlace(state: SaveState, ref: string, opts?: { keepIfUnkno
   return createPlace(state, norm);
 }
 
-/** Is this the name of a ROOM, CORNER, or THRESHOLD rather than a place you travel to?
- *  "the kitchen", "upstairs", "the back of the bar", "outside the door" are all parts of somewhere. */
-export function isPartOfAPlace(ref: string): boolean {
-  const bare = ref.trim().replace(/^(the|a|an)\s+/i, "").trim();
-  // A proper name is a place, even when its last word is an ordinary one: "Kubota Garden" and
-  // "Interbay Yard" are somewhere you go; "the garden" and "the yard" are part of where you are.
-  // Two or more capitalized words, or a possessive, means somebody named this.
-  const capped = bare.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).length;
-  if (capped >= 2 || /'s\b/.test(bare)) return false;
-  const r = bare.toLowerCase();
-  const PART = /\b(kitchen|bedroom|bathroom|washroom|restroom|toilet|hallway|hall|corridor|landing|stairs|stairwell|staircase|doorway|door|threshold|porch|stoop|yard|garden|lawn|driveway|garage|attic|basement|cellar|loft|balcony|terrace|patio|deck|roof|rooftop|closet|pantry|cupboard|corner|booth|table|bar top|counter|window|windowsill|fireplace|hearth|couch|sofa|bed|desk|floor|ceiling|wall|upstairs|downstairs|inside|indoors|back room|front room|living room|dining room|sitting room|spare room|back office|storeroom|storage|foyer|entryway|entrance|lobby|vestibule|alley|alleyway|sidewalk|pavement|curb|parking lot|car ?park)\b/;
-  if (PART.test(r)) return true;
-  // "edge of X", "back of X", "near the X", "just outside X" — a position relative to a place
-  return /^(edge|side|back|front|middle|centre|center|top|bottom|foot|head|end|corner|far end|other side)\s+of\b/.test(r)
-    || /^(just )?(outside|inside|behind|beside|beneath|under|above|across from|next to|near|by|toward|towards)\b/.test(r);
-}
-
 export function createPlace(state: SaveState, name: string): string {
   const clean = name.trim().replace(/^(the|a|an)\s+/i, "").slice(0, 60);
   const title = clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -3649,44 +3633,6 @@ export function createPlace(state: SaveState, name: string): string {
   // gcPlaces runs at the end of every turn and holds the cap by forgetting the oldest place nobody
   // is in and nothing has mentioned. Founding locations are never forgotten.
   return id;
-}
-
-/** How much two place names look like the same place. Token overlap weighted toward the rarer,
- *  longer words, so "kitchen doorway" scores 0 against "The Rusty Anchor" but "the rusty anchor bar"
- *  scores high. Substring matching alone was useless here — "kitchen" shares no substring with
- *  "Tessa's house" even though a model meant the latter. */
-export function placeSimilarity(a: string, b: string): number {
-  // Generic nouns are everywhere in place names ("service", "center", "house", "street"), so two
-  // unrelated places share them and score a false match. They count for a fraction of their length.
-  // Coverage is measured in BOTH directions and the better taken: a reference may carry extra words
-  // ("sole service front counter") or fewer ("the anchor") than the place name it names.
-  const GENERIC = new Set(["service", "center", "centre", "house", "street", "road", "avenue", "place",
-    "building", "office", "shop", "store", "station", "hall", "room", "club", "bar", "cafe", "market", "north",
-    "south", "east", "west", "old", "new", "great", "little", "upper", "lower", "main", "city", "town"]);
-  const STOP = new Set(["the", "a", "an", "of", "at", "in", "on", "near", "by", "and", "to"]);
-  const toks = (s: string) => new Set((s.toLowerCase().match(/[a-z0-9']+/g) ?? []).filter((w) => w.length > 2 && !STOP.has(w)));
-  const A = toks(a), B = toks(b);
-  if (!A.size || !B.size) return 0;
-  const weight = (w: string) => (GENERIC.has(w) ? w.length * 0.15 : w.length);
-
-  const side = (X: Set<string>, Y: Set<string>) => {
-    let shared = 0, distinctive = false;
-    for (const w of X) {
-      if (Y.has(w)) { shared += weight(w); if (!GENERIC.has(w)) distinctive = true; continue; }
-      for (const v of Y) if (v.length > 3 && w.length > 3 && (v.startsWith(w) || w.startsWith(v))) {
-        shared += Math.min(weight(v), weight(w)) * 0.7;
-        if (!GENERIC.has(w) && !GENERIC.has(v)) distinctive = true;
-        break;
-      }
-    }
-    const total = [...X].reduce((n, w) => n + weight(w), 0);
-    if (!total) return 0;
-    const cov = Math.min(1, shared / total);
-    // A place whose whole name is ordinary words ("Sole Service") must still match itself, so high
-    // coverage alone can carry it. A reference that merely brushes a generic word is held down.
-    return distinctive ? cov : cov >= 0.85 ? cov : cov * 0.35;
-  };
-  return Math.max(side(A, B), side(B, A));
 }
 
 /** present is DERIVED: whoever shares the player's place is in the scene. Rebuilds every place's
@@ -4114,36 +4060,34 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   for (const np of diff.new_places ?? []) {
     if (!np?.name) continue;
-    const exists = Object.values(state.world.places).some((p) => p.name.toLowerCase() === np.name.toLowerCase());
-    // A ROOM INSIDE A PLACE IS NOT A PLACE, AND THIS PATH NEVER CHECKED.
-    //
-    // The digest tells the models this in as many words — "rooms, corners and doorways inside a
-    // place are prose, not locations" — and the sub-place guard used by createPlace exempts any
-    // name with two or more capitalised words, which every real building has. So this loop, which
-    // never consulted the guard at all, split one bunker into three: "The Alki Bunker", "Alki
-    // Bunker - Rabi and Liz Room", "Alki Bunker - Marcus and Dana Room".
+    // A ROOM INSIDE A PLACE IS NOT A PLACE, and this path used to check only exact-name equality
+    // plus a containment test, with no similarity check and no room-noun check at all. It split one
+    // bunker into three ("The Alki Bunker", "Alki Bunker - Rabi and Liz Room", "Alki Bunker - Marcus
+    // and Dana Room") and it stood up a second and third villa beside the one that existed. All of
+    // those checks now live in one place — see existingPlaceFor / placeIntent above.
     //
     // The consequence is not cosmetic. Presence is computed per location, so two people twenty feet
-    // apart in the same building became NOT IN THIS SCENE — and a character who is absent but needed
+    // apart in the same building become NOT IN THIS SCENE — and a character who is absent but needed
     // gets rendered as a voice from somewhere else. One save had Dana speaking over the radio as the
-    // USS Resolute while sitting in the next room of the bunker she was in.
-    //
-    // A name that opens with an existing place's name is a room in that place. Deterministic, and
-    // it fires exactly on the shape the models actually produce.
-    const inside = Object.values(state.world.places).find((p) => {
-      if (p.id === OFFSCENE) return false;
-      const outer = p.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
-      const inner = np.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
-      return outer.length >= 4 && inner.length > outer.length && inner.startsWith(outer);
-    });
-    if (inside) {
-      console.info(`[places] "${np.name}" is a room inside "${inside.name}" — kept as prose, not a location`);
+    // USS Resolute while sitting in the next room of the bunker she was in; another left Marcus,
+    // Tigris and Clodia downstairs in a cookshop for three turns while the player stood at the top
+    // of its stairs in a location of his own.
+    const intent = placeIntent(state, np.name, "bookkeeper");
+    if (!intent) continue;
+    if ("id" in intent) {
+      // The declaration was really about somewhere that exists. Its description is still worth
+      // having — a new_place carrying a room's description is how "The villa" came to exist with
+      // nothing in it but a rebuilt kitchen — so fold the facts in rather than dropping them.
+      const p = state.world.places[intent.id];
+      const facts = String(np.description_facts ?? "").trim();
+      if (facts && !(p.description_facts ?? "").includes(facts)) {
+        p.description_facts = `${p.description_facts ?? ""}${p.description_facts ? " " : ""}${facts}`.slice(0, 1200);
+        p.changed_turn = turn;
+      }
       continue;
     }
-    if (!exists) {
-      const id = uid("loc");
-      state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
-    }
+    const id = uid("loc");
+    state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
   }
 
   // ── PLACES CHANGE ── A place's description_facts is what the narrator (and the offstage world-sim,

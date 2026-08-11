@@ -2,6 +2,7 @@
 import { factGate, factOverlap } from "./facts";
 import { reconcileStores, migrateToFirstPerson } from "./memory";
 import { ensureHabits } from "./habits";
+import { mergePhantomPlaces } from "./places";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
@@ -294,6 +295,8 @@ export function sanitize(state: SaveState): SaveState {
       for (const p of ps) if (p.id !== "loc_offscene") p.founding = true;
     }
   }
+
+  mergePhantomPlaces(state);
 
   // ── WORLD-PRONOUN HEAL ── a save forged before the pronoun backstop can hold a whole cast of
   // "she/her" in a world whose canon says everyone uses xe/xem. Only act when canon is unambiguous
