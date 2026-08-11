@@ -726,7 +726,14 @@ export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kep
     const idle = currentTurn - t.last_reinforced_turn;
     if (idle <= 6) return true;
     const decay = 0.15 * Math.sqrt(idle - 6) * (1 - Math.min(0.9, t.self_weight / 10));
-    t.intensity = Math.max(0, t.intensity - decay);
+    // A TRAIT AT ZERO INTENSITY IS A LABEL, NOT A TRAIT. Dissolution below is gated on self_weight
+    // under 3, so a trait the person identifies with was kept — correctly — and kept decaying, all
+    // the way to nothing. One save carried "manipulative" at intensity 0.00 and self_weight 3.5:
+    // still on the card, still rendered to the narrator every turn, exerting no force whatsoever and
+    // occupying one of the eight slots. If identity holds a trait in place, it holds it in place at
+    // a strength it can still act at.
+    const floor = t.self_weight >= 3 ? 1 : 0;
+    t.intensity = Math.max(floor, t.intensity - decay);
     if (t.intensity < 0.8 && t.self_weight < 3) {
       log.push(`trait dissolved: "${t.label}" (disuse)`);
       return false;
@@ -736,7 +743,9 @@ export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kep
   return { kept, log };
 }
 
-export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label: string; origin: string; behavioral_impact: string; intensity: number }, turn: number): void {
+/** Returns "reinforced" when the incoming trait folded into one already held, "planted" when it
+ *  became a new one — the caller rate-limits planting, never reinforcement. */
+export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label: string; origin: string; behavioral_impact: string; intensity: number }, turn: number): "reinforced" | "planted" {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
   const existing = traits.find((t) => {
     const a = new Set(norm(t.label).split(" ")), b = norm(incoming.label).split(" ");
@@ -747,6 +756,7 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
     existing.self_weight = clamp(existing.self_weight + 0.5, 0, 10);
     existing.reinforcement_count++;
     existing.last_reinforced_turn = turn;
+    return "reinforced";
   } else {
     traits.push({
       id: `trait_${Math.random().toString(36).slice(2, 8)}`,
@@ -762,7 +772,16 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
       traits.sort((a, b) => b.self_weight * b.intensity - a.self_weight * a.intensity);
       traits.length = 8;
     }
+    return "planted";
   }
+}
+
+/** In-story turns a character must go without gaining a NEW trait before they may gain another. */
+export const TRAIT_PLANT_COOLDOWN = 5;
+
+/** Has this character been given a brand-new trait too recently for another to be credible? */
+export function plantedRecently(traits: AcquiredTrait[], turn: number): boolean {
+  return traits.some((t) => t.reinforcement_count <= 1 && turn - t.last_reinforced_turn < TRAIT_PLANT_COOLDOWN);
 }
 
 /**

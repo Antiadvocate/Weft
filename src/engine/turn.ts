@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -4929,7 +4929,35 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       const absorbed = absorbContradiction(state, id, t.label, 6);
       if (absorbed) { console.warn(`[habit] "${t.label}" absorbed as a seen-fire credit against "${absorbed}" (not planted — arcs are earned, not flipped)`); continue; }
     }
-    reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
+    // A SINGLE BEAT DOES NOT MAKE A PERMANENT DISPOSITION.
+    //
+    // Nothing rate-limited planting, so a character could pick one up every turn. From a save at
+    // turn 13, one woman held four, three of them acquired on turns 10, 11 and 12 and all three the
+    // same behaviour under different names: reorients instead of pressing the point; accepts the
+    // loss rather than ask again; does not linger, does not listen. Each came from ONE beat — a
+    // rejection — and each was filed as a new permanent trait because the labels shared no words and
+    // the dedupe compares labels.
+    //
+    // Comparing the behaviour instead does not rescue it: those three descriptions score 0.07 on
+    // token overlap, because a model naming a trait invents fresh vocabulary every time. What is
+    // wrong is not the matching, it is that a reaction to one event was ever a disposition. The
+    // habit engine already argues this for contradictions — arcs are earned, not flipped — and the
+    // same holds for acquisition. If it is real it will be shown again; a few turns is nothing to a
+    // trait that is going to last the rest of the story.
+    //
+    // Reinforcement is never limited. Seeing the same thing again is exactly what should count.
+    const held = state.traits[id] ?? (state.traits[id] = []);
+    if (plantedRecently(held, turn)) {
+      const before = held.length;
+      const how = reinforceOrMergeTrait(held, t, turn);
+      if (how === "planted") {
+        held.length = before;   // undo: too soon after the last one to be anything but a reaction
+        console.info(`[traits] held back "${t.label}" for ${nameOf(id)} — a new trait was planted less than ${TRAIT_PLANT_COOLDOWN} turns ago`);
+        continue;
+      }
+    } else {
+      reinforceOrMergeTrait(held, t, turn);
+    }
     shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }
 
