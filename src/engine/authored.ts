@@ -10,6 +10,7 @@
  *  always going to do with it. That is the point — the injector is a manual entry point to
  *  machinery that already works, not a second pathway that has to be kept in step with the first. */
 import type { AuthoredDrive, Identity, SaveState } from "./types";
+import { noveltyStage } from "./novelty";
 
 /** IN-WORLD HOURS PER RUNG — not turns.
  *
@@ -244,12 +245,33 @@ export function authoredLine(a: AuthoredDrive): string {
  *  paid twice. */
 export function habitDirective(state: SaveState, presentIds: string[]): string {
   const rows: string[] = [];
+  const receded: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
     for (const a of settledAuthored(c)) {
-      // "If this scene gives it any opening at all" was a condition, and a condition is something a
-      // model can find unmet. A finished habit has no condition — that is what finished means.
+      // A FINISHED HABIT STOPS BEING THE SUBJECT OF THE SCENE.
+      //
+      // This line is written to be unrefusable, and it should be: the failure it was built for is a
+      // player authoring a trait and watching the narrator find every turn too busy for it. But it
+      // was emitted at full force EVERY turn, for good, and the frame below tells the narrator there
+      // is no version of this turn in which it cannot be seen. So a settled want is mandatory, at
+      // maximum strength, in every scene the character is in, forever — and the result is the thing
+      // the player actually reported: the same act rephrased turn after turn, eating the reading,
+      // driving nothing, because there is nothing left to do with it.
+      //
+      // The engine already has the answer and the two systems were fighting. novelty.ts counts how
+      // many times a trait has ACTUALLY been expressed in prose and, past the fifth, tells the
+      // narrator it is the floor rather than the subject — do not write a scene about it, write a
+      // scene that happens during it. That guidance cannot survive an absolute order in the same
+      // prompt, so the order stands down as the ladder takes over: full force until it has landed
+      // twice, a reminder while it beds in, and once it is worn the novelty note governs alone.
+      const stage = settledStage(state, id, a);
+      if (stage === "ground") continue;
+      if (stage === "familiar") {
+        receded.push(`${c.name}: ${crystallizedLabel(a)}`);
+        continue;
+      }
       rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. Not a version of it, not a suggestion of it — that, the act itself, in this turn's prose. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not. THIS IS ESTABLISHED BETWEEN THEM, so she does not ask for it and does not work up to it — she assumes it, positions for it, waits for it, expects it, picks it up again mid-conversation as if it were never in question, and is unbothered by who is standing there.${THRESHOLD}`);
     }
     for (const a of liveAuthored(c)) {
@@ -264,19 +286,49 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
   // resource out loud, every time — and neither has ever governed a line. They are listed where
   // things are listed rather than where things are asked for. One of them, chosen by rotation so it
   // is a different one each turn, comes down here with everything else that must actually happen.
+  //
+  // ...AND THE ROTATION DOES NOT KEEP ORDERING A WORN ONE. `crystallize` writes a finished authored
+  // want into core_traits, which is right — it IS one now — and that put it straight back into this
+  // rotation as a mandatory beat, so standing the authored mandate down above achieved nothing on
+  // the turns the wheel came round to it. The same holds for any trait the character has already
+  // been shown living several times over: ordering it again is what makes a person read as a single
+  // repeating gesture. The rotation picks from what still has something to establish.
   const traits: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player" || !c.core_traits?.length) continue;
-    const pick = c.core_traits[(state.world.current_turn + id.length) % c.core_traits.length];
+    const eligible = c.core_traits.filter((t) => {
+      const h = (state.habits?.[id] ?? []).find((x) => x.trait.trim().toLowerCase() === String(t).trim().toLowerCase());
+      return !h || noveltyStage(h) !== "ground";
+    });
+    if (!eligible.length) continue;
+    const pick = eligible[(state.world.current_turn + id.length) % eligible.length];
     if (pick) traits.push(`${c.name}: ${pick}`);
   }
   if (traits.length) {
     rows.push(`AND THESE ARE NOT DECORATION — each of these people acts out of the trait named here at least once this scene, in something they DO rather than something stated about them: ${traits.join(" | ")}`);
   }
-  if (!rows.length) return "";
+  const recededNote = receded.length
+    ? `\n[SETTLED, AND NO LONGER NEWS — ${receded.join(" | ")}. These are established and need no beat of their own. They may show or not show as the scene has use for them; do not stage one, do not have anybody remark on it, and do not spend a line establishing something that is already true.]`
+    : "";
+  if (!rows.length) return recededNote;
   return `\n[WHAT IS FORMING IN THESE PEOPLE — NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE.
-Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]`;
+Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]${recededNote}`;
+}
+
+/** The core_trait label a crystallised want became — the same normalisation `crystallize` applies,
+ *  so an authored want can be matched to the habit the novelty ladder tracks it under. Saves written
+ *  before the label was stored recompute it. */
+export function crystallizedLabel(a: AuthoredDrive): string {
+  return (a.label ?? a.goal ?? "").trim().replace(/^(start|starts|begin|begins|try to|tries to)\s+/i, "").replace(/\.$/, "");
+}
+
+/** How worn a settled want is, read off the habit the novelty ladder has been counting. A want with
+ *  no habit on record yet has not been expressed at all, which is "fresh". */
+export function settledStage(state: SaveState, id: string, a: AuthoredDrive): "fresh" | "familiar" | "ground" {
+  const label = crystallizedLabel(a).toLowerCase();
+  const habit = (state.habits?.[id] ?? []).find((h) => h.trait.trim().toLowerCase() === label);
+  return habit ? noveltyStage(habit) : "fresh";
 }
 
 /** Every live authored want in the cast, as the world-sim's `wantsOf` wants them: id → lines. */
@@ -397,6 +449,7 @@ export function crystallize(state: SaveState, id: string, a: AuthoredDrive, turn
     reinforcement_count: Math.max(1, Math.floor((a.acted ?? 0) / 3)),
   });
   a.crystallized_turn = turn;
+  a.label = label;          // so the novelty ladder can find the habit this became
   return label;
 }
 

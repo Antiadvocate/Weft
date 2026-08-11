@@ -317,6 +317,9 @@ export interface Identity {
 export interface AuthoredDrive {
   /** What they DO — same grammar as NPCDrive.goal. "start having people over late", not "be annoying". */
   goal: string;
+  /** The core_trait label this became when it crystallised, so the novelty ladder can find the
+   *  habit it is tracked under and the mandatory directive can stand down once it is worn. */
+  label?: string;
   /** The door they use. Same field, same reason: without it a want gets announced instead of pursued. */
   approach?: string;
   /** WHY THIS STARTED, in their life, not the player's.
