@@ -140,7 +140,21 @@ export function edgeNote(e: SocialEdge, turn: number): string {
 export function decayEdges(edges: SocialEdge[], turn: number, idleTurns = 8, step = 0.5) {
   for (const e of edges) {
     if (turn - (e.updated_turn ?? turn) < idleTurns) continue;
-    const ease = (v: number) => (Math.abs(v) <= 20 ? v : v > 0 ? v - step : v + step);
+    // A GRUDGE NOBODY FEEDS FADES. A BOND NOBODY FEEDS HOLDS.
+    //
+    // The band below 20 was exempt in both directions, so a small bond could not erode — which is
+    // right — and a small grudge could not heal, which is not. An early misread is how most of them
+    // start: on turn 5 of one save a wineshop keeper hit trust -8 and his partner -10 for the crime
+    // of being asked where a man buys a slave in Rome, and two hundred idle turns later both were
+    // still exactly -8 and -10, because nothing in the engine could move a number that small. Across
+    // three saves most of the cast sat at zero warmth and negative trust toward a player who had
+    // done nothing to them, which is what "nobody trusts me and I have no relationships" is made of.
+    //
+    // Souring needs no maintenance and warmth does: that is the asymmetry the exemption encodes, and
+    // it is backwards. A first impression wears off unless something confirms it. So an unreinforced
+    // negative drifts back toward zero at the same slow step, and an unreinforced positive still
+    // holds — a quiet friendship is not a decaying one.
+    const ease = (v: number) => (v < 0 ? Math.min(0, v + step) : Math.abs(v) <= 20 ? v : v - step);
     e.warmth = clamp(ease(e.warmth), -100, 100);
     e.trust = clamp(ease(e.trust), -100, 100);
   }
@@ -181,7 +195,15 @@ export function applyEdgeDelta(
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
   // absolute value, which gave wrong results at the clamp ceiling).
-  let trustDelta = d.trust_delta > 0 ? d.trust_delta * 0.6 * gainScale(e.trust, obd) : d.trust_delta;
+  //
+  // TWO BRAKES DESIGNED SEPARATELY WERE BEING MULTIPLIED. The 0.6 is trust's own asymmetry and
+  // obduracy is a second one for guarded people, and nobody checked their product: at obduracy 0.6 a
+  // +4 landed as 1.54 against a −4 at full strength, a ratio of 2.6 to 1. Since the forge turns out
+  // to make most of a cast guarded, that was most of a cast. Obduracy still shapes how fast trust
+  // climbs once it is positive — the diminishing-returns half of gainScale — but it no longer
+  // compounds with the flat 0.6 in the low range where a relationship is actually being made.
+  const trustGain = 0.6 * Math.max(gainScale(e.trust, obd), gainScale(e.trust, 0) * (1 - 0.4 * obd));
+  let trustDelta = d.trust_delta > 0 ? d.trust_delta * trustGain : d.trust_delta;
   // RUPTURE-REPAIR: trust that grows within five turns of a real disagreement on this edge is
   // REPAIR, and repair is how trust is actually built — it earns half again. Then the flag clears;
   // the next growth has to be earned on its own terms.
@@ -328,7 +350,58 @@ function rumorCharge(content: string, standing = 0): number {
 // "people", "kind" — and the standing drifted every turn on prose that meant nothing ("she gave him
 // a look" in a room with people in it). A reputation that moves on everything measures nothing, so
 // these only match acts that a town would actually retell.
-const PUBLIC_BOON = /\b(sav(ed|es|ing)|rescu\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered|rebuil\w+|restored|freed|liberat\w+|carried \w+ to safety|pulled \w+ (out|free|clear)|put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between)\b/i;
+// ...but narrow is not the same as one-sided, and this list was one-sided. Every verb in it was
+// EMERGENCY RESCUE: pull them out, put the fire out, hold the gate, stand between. Nothing in it
+// could see a person who PROVIDES — who feeds a quarter, raises a granary, opens a free school,
+// forgives a debt, ends a practice. The harm list has always had both registers, acute (murder) and
+// systemic (enslave, terrorize), so the scale was legible in one direction only.
+//
+// Measured on the save that surfaced this: a player who abolished slavery across an empire,
+// teleported the army onto public works, raised a granary in the Forum and built a school that fed
+// and taught children for nothing scored ZERO on this regex across all seventeen turns, and stood
+// at a public standing of exactly 0.0 while the city he had remade decided he was a thing to avoid.
+// One murder would have moved him further than everything he actually did.
+//
+// The construction and provision verbs need an object, the way the harm verbs do, or "built a wall
+// to keep them out" and "made an example" read as benefaction.
+//
+// AND THEY ARE SCORED FROM THE ACTION ONLY — see PUBLIC_WORKS below. A rescue is an EVENT: it is
+// narrated once and never mentioned again. A building is a FACT: the school stands in the prose for
+// the rest of the story. Scored the same way, the second one pays out forever. Replaying the save
+// this came from with both families on prose, the standing climbed on turns 6 and 8 off "built a
+// school" and "built a granary" — the narrator recapping work already done, one item of which had
+// been done four months before the game began.
+const PUBLIC_BOON = new RegExp([
+  // ACUTE RESCUE — an event, narrated once. Scored from the action and the player's prose alike.
+  `sav(ed|es|ing)|rescu\\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered`,
+  `rebuil\\w+|restored|freed|liberat\\w+|carried [\\w ]{1,24}? to safety|pulled [\\w ]{1,24}? (out|free|clear)`,
+  `put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between`,
+].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
+
+/**
+ * THE OTHER HALF OF A REPUTATION: what the player PROVIDES, not what they rescue.
+ *
+ * Ending a standing evil, forgiving a debt, feeding a quarter, raising a granary, opening a school
+ * that costs nothing. The harm list has always had this register — `enslav`, `terroriz`, "made an
+ * example of" are systemic, not acute — and the boon list had no counterpart at all, so the scale
+ * could only be read in one direction. A player who abolished slavery across an empire, teleported
+ * the army onto public works and built a free school in front of a crowd of five thousand scored
+ * ZERO across seventeen turns and sat at a standing of exactly 0.0 while the city he had remade
+ * decided he was a man to avoid. One murder would have moved him further than all of it.
+ *
+ * Matched against the player's DECLARED ACTION only, because the thing it names goes on existing.
+ */
+const PUBLIC_WORKS = new RegExp([
+  // ending a standing evil — the systemic counterpart to enslav/terroriz on the harm side
+  `abolish(?:e[sd]|ing)?|emancipat(?:e[sd]|ing)|manumit(?:s|ted|ting)?|struck off (the |their )?(collar|collars|chains|irons)|unchained|ended (the )?(slavery|famine|plague|hunger|war|siege|blockade|tribute|levy)`,
+  `forgave (the |their |every |all )?(debt|debts)|cancel(?:s|led|ing|ling)? (the |their |every |all )?(debt|debts)|remitted (the )?(tax|taxes|tribute)`,
+  // provision at scale — a thing a place would retell
+  `fed (the |a )?(town|city|village|quarter|crowd|poor|hungry|children|people|everyone)`,
+  `hous\\w+ (the |a )?(homeless|poor|refugees|displaced)|clothed the (poor|children)`,
+  `(built|build|raised|raise|founded|found|opened|open|endowed|endow|make|made|create[d]?) (a |the |them |every |free )*(school|schools|granary|granaries|hospital|aqueduct|well|wells|bathhouse|almshouse|orphanage|clinic|homes|houses|shelter)`,
+  `made (it |them |the )?(bread|grain|food|schooling|school|medicine|water) free|free (bread|grain|food|schooling|lunches|meals|medicine|land)\\b`,
+  `taught (the |their )?(children|poor|freedmen|them) (to read|letters|their letters)`,
+].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
 const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing)|burn\w+ (the|their|a) (village|town|city|home|house|farm|field|quarter)|razed?|destroy\w+ (the|their) (village|town|city|home|quarter)|tortur\w+|maim\w+|enslav\w+|terroriz\w+|made an example of|left \w+ to die|killed (a|the) (child|children|innocent)|cut \w+ down where (he|she|they|it) stood)\b/i;
 /** Was this turn even public? A boon nobody saw moves no reputation. Crowd nouns only — "people"
  *  and "road" were in here once and matched nearly every paragraph ever written. */
@@ -378,7 +451,9 @@ export function updatePublicStanding(
   const seen = PUBLIC_EYES.test(prose) || (pop?.scale ?? 0) >= 10
     || state.world.present.filter((id) => id !== "char_player").length >= 3;
   if (seen) {
-    const boon = PUBLIC_BOON.test(text), harm = PUBLIC_HARM.test(text);
+    // The works family reads the ACTION alone — a school stays built and stays in the prose, so
+    // scoring it from the narration pays the player again every time the narrator mentions it.
+    const boon = PUBLIC_BOON.test(text) || PUBLIC_WORKS.test(action), harm = PUBLIC_HARM.test(text);
     const mass = MASS_HARM.test(text);
     // Scale by what the crowd is reacting to: an impossible act is talked about for longer.
     const scale = tier === "cosmic" ? 2 : tier === "mythic" ? 1.5 : 1;
@@ -398,7 +473,20 @@ export function updatePublicStanding(
   return `word about ${who || "the player"} spreads — the town's read on them turns ${standingBand(v).adjective}.`;
 }
 
-function standingBand(v: number): { adjective: string; directive: string } {
+function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: string; directive: string } {
+  // A WITNESSED POWER IS A KNOWN QUANTITY. The neutral band below is written for an unremarkable
+  // stranger, and the tier gate in publicStandingDirective hands it to a MYTHIC player too — so on
+  // the turn after a man put words inside every mind in a city of a million and sat down to see who
+  // came, the narrator was told, in these words: "Strangers treat them as a stranger: neither afraid
+  // nor impressed, occupied with their own lives. Do not have crowds react to the player as a known
+  // quantity; they are not one yet." Nobody came. The narrator was doing as it was told.
+  //
+  // Standing 0 does not mean unknown. It means the community has no settled MORAL read — which for
+  // someone whose power everyone has seen is the most charged position there is, not the least.
+  if (Math.abs(v) < 2 && (tier === "mythic" || tier === "cosmic")) return {
+    adjective: "unsettled",
+    directive: `WATCHED, AND NOT YET JUDGED — everyone has seen what the player can do and nobody has decided what it means for them. This is not indifference and must never be written as indifference: strangers do not carry on as though a person like this were ordinary traffic. What they lack is a VERDICT, so the reactions run in every direction at once and different people land differently — awe, calculation, terror, hope, petition, opportunism, the ones who want to be near it and the ones who cross the road. Someone approaches; someone else leaves. Crowds react to the POWER as an established fact and to the PERSON as an open question.`,
+  };
   if (v >= 6) return {
     adjective: "reverent",
     directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The friction available here is the friction of being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
@@ -428,7 +516,7 @@ export function publicStandingDirective(state: SaveState, tier: PowerTier = "mor
   // At mortal tier with no reputation there is nothing to say; silence is cheaper than a paragraph
   // telling the narrator that nothing in particular is true.
   if (Math.abs(v) < 2 && tier !== "mythic" && tier !== "cosmic") return "";
-  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v).directive}`;
+  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v, tier).directive}`;
 }
 
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
@@ -622,7 +710,24 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
   // core memory always counts; so does an importance>=6 beat carrying real emotional charge, or any
   // importance>=7. This keeps trivia out while catching the beats that actually reshape a person.
   const charged = (m: EpisodicMemory) => !!(m.emotional_charge && m.emotional_charge.trim() && !/none|neutral|calm/i.test(m.emotional_charge));
-  const defining = mem.episodic.filter((m) => !m.folded && (m.importance >= 7 || (m.importance >= 6 && charged(m))));
+  // WHAT SOMEBODY ELSE DID IS NOT A CHAPTER OF YOUR LIFE.
+  //
+  // This filtered on importance alone, and the offstage pass files its witness memories at
+  // importance 7 — the raw event text, verbatim, written in the third person about whoever acted.
+  // So every errand a character merely heard about was folded into their life_history, which is the
+  // document that tells the narrator who they ARE and is read on every turn. From one save, this is
+  // the whole of a baker's recorded life:
+  //
+  //   "The stranger asked Marcus about buying slaves, and Sabina felt a cold weight settle...
+  //    Tigellinus sends a boy down toward the Subura with a folded note for the freedman who bought
+  //    the Sosii dealing-house's back-room papers... Marcus catches the landlord's man crossing the
+  //    corner and puts a free cup in front of him..."
+  //
+  // Two thirds of it is other people's afternoons, and the identical text sat in Tigellinus's record
+  // too. A character built from that cannot be played as anyone. The memory stays where it belongs —
+  // she heard it, she can act on it — it simply is not part of who she is.
+  const defining = mem.episodic.filter((m) =>
+    !m.folded && m.source !== "offstage" && (m.importance >= 7 || (m.importance >= 6 && charged(m))));
   if (!defining.length) return log;
   const facts = defining
     .slice()
@@ -631,7 +736,11 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
     .filter((c) => c && !asText(ident.life_history, " ").includes(c) && !asText(ident.background, " ").includes(c));
   if (facts.length) {
     // fold into the ACCRETED layer, never the bedrock forge background
-    ident.life_history = `${ident.life_history ?? ""} ${facts.join(" ")}`.trim();
+    // Each moment ends in a stop before the next begins. Joined on a bare space, two entries ran
+    // together mid-sentence — "…off the Argiletum Before the market crowd thickens…" — which reads
+    // as one garbled clause rather than two things that happened.
+    const ended = facts.map((f) => (/[.!?]["'’”]?$/.test(f) ? f : `${f}.`));
+    ident.life_history = `${ident.life_history ?? ""} ${ended.join(" ")}`.trim();
     // deterministic light trim: keep the most recent ~1100 chars on a sentence boundary
     const SOFT = 1100;
     if (ident.life_history.length > SOFT) {
@@ -683,7 +792,14 @@ export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kep
     const idle = currentTurn - t.last_reinforced_turn;
     if (idle <= 6) return true;
     const decay = 0.15 * Math.sqrt(idle - 6) * (1 - Math.min(0.9, t.self_weight / 10));
-    t.intensity = Math.max(0, t.intensity - decay);
+    // A TRAIT AT ZERO INTENSITY IS A LABEL, NOT A TRAIT. Dissolution below is gated on self_weight
+    // under 3, so a trait the person identifies with was kept — correctly — and kept decaying, all
+    // the way to nothing. One save carried "manipulative" at intensity 0.00 and self_weight 3.5:
+    // still on the card, still rendered to the narrator every turn, exerting no force whatsoever and
+    // occupying one of the eight slots. If identity holds a trait in place, it holds it in place at
+    // a strength it can still act at.
+    const floor = t.self_weight >= 3 ? 1 : 0;
+    t.intensity = Math.max(floor, t.intensity - decay);
     if (t.intensity < 0.8 && t.self_weight < 3) {
       log.push(`trait dissolved: "${t.label}" (disuse)`);
       return false;
@@ -693,7 +809,9 @@ export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kep
   return { kept, log };
 }
 
-export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label: string; origin: string; behavioral_impact: string; intensity: number }, turn: number): void {
+/** Returns "reinforced" when the incoming trait folded into one already held, "planted" when it
+ *  became a new one — the caller rate-limits planting, never reinforcement. */
+export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label: string; origin: string; behavioral_impact: string; intensity: number }, turn: number): "reinforced" | "planted" {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
   const existing = traits.find((t) => {
     const a = new Set(norm(t.label).split(" ")), b = norm(incoming.label).split(" ");
@@ -704,6 +822,7 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
     existing.self_weight = clamp(existing.self_weight + 0.5, 0, 10);
     existing.reinforcement_count++;
     existing.last_reinforced_turn = turn;
+    return "reinforced";
   } else {
     traits.push({
       id: `trait_${Math.random().toString(36).slice(2, 8)}`,
@@ -719,11 +838,53 @@ export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label
       traits.sort((a, b) => b.self_weight * b.intensity - a.self_weight * a.intensity);
       traits.length = 8;
     }
+    return "planted";
   }
 }
 
-/** Offscreen NPC drives advance stochastically; produces world-motion lines without an LLM. */
-export function tickDrives(state: SaveState, rng: () => number = Math.random): string[] {
+/** In-story turns a character must go without gaining a NEW trait before they may gain another. */
+export const TRAIT_PLANT_COOLDOWN = 5;
+
+/** Has this character been given a brand-new trait too recently for another to be credible? */
+export function plantedRecently(traits: AcquiredTrait[], turn: number): boolean {
+  return traits.some((t) => t.reinforcement_count <= 1 && turn - t.last_reinforced_turn < TRAIT_PLANT_COOLDOWN);
+}
+
+/**
+ * In-world minutes of offscreen effort an ordinary want takes to finish.
+ *
+ * A day. Wants written by the drive forge are day-to-week jobs by construction — "retrieve the
+ * stash she hid behind the ludus", "get the field cleared before the frost", "acquire the crest of
+ * the Tiburtine hill from Senator Servilius" — so a day of unimpeded work is a generous rate, not a
+ * slow one. Blocked wants run at a third of it.
+ */
+export const MINUTES_PER_WANT = 24 * 60;
+
+/** One unmeasured beat of scene time, for callers that do not know how long their pass covered. */
+const BEAT_MINUTES = 30;
+
+/**
+ * Offscreen NPC drives advance; produces world-motion lines without an LLM.
+ *
+ * THE WORLD'S CLOCK WAS THE NUMBER OF THINGS THE PLAYER HAD TYPED.
+ *
+ * The step used to be `6 + rng()*8` percent, applied once per TURN, with no reference to elapsed
+ * time at all — so a want completed in roughly ten turns whatever those turns were. A turn is a
+ * beat of conversation. In one save, twenty-four of them covered a hundred and seventy-five minutes
+ * of a single Roman morning, and in that morning, entirely offscreen:
+ *
+ *   · Hadrian finished one life ambition (t3 34% → t12 "completes their aim") and then ACQUIRED THE
+ *     CREST OF THE TIBURTINE HILL FROM A SENATOR'S ESTATE between 10:30 and 11:25.
+ *   · Marcus seized and drained three barrels of illicit lamp-oil from a cellar across the city
+ *     while the same world-motion feed had him sitting in a cookshop finishing his lunch and
+ *     watching the door.
+ *
+ * The player's complaint was that nothing had any timescale, and this is most of why: the fastest
+ * way to make the world lurch was to talk to somebody for a while. Progress is now a rate against
+ * in-world minutes, which is what the drive forge already assumes when it writes a want, and what a
+ * time skip already means. Short scenes barely move it. A day of skipped time finishes a want.
+ */
+export function tickDrives(state: SaveState, rng: () => number = Math.random, elapsedMinutes = BEAT_MINUTES): string[] {
   const log: string[] = [];
 
   // ── STALLED WANTS ───────────────────────────────────────────────────────────
@@ -786,12 +947,15 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random): s
     // movement now comes from the Undertow's QRE stances; this tick is the safety
     // net for worlds whose undertow hasn't run this turn (e.g. plain time skips)
     if (c.drive.updated_turn < state.world.current_turn) {
-      const step = c.drive.blocker ? 2 : 6 + Math.floor(rng() * 8);
+      // Jitter so a roomful of people who took up their wants on the same turn do not all finish
+      // on the same turn either — the meter should look like separate lives, not one clock.
+      const rate = (c.drive.blocker ? 1 / 3 : 1) * (0.6 + rng() * 0.8);
+      const step = (Math.max(0, elapsedMinutes) / MINUTES_PER_WANT) * 100 * rate;
       c.drive.progress = Math.min(100, c.drive.progress + step);
       c.drive.updated_turn = state.world.current_turn;
     }
     if (c.drive.progress >= 100) log.push(`${c.name} completes their aim offscreen: ${c.drive.goal}`);
-    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${c.drive.progress}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
+    else if (rng() < 0.18) log.push(`${c.name} works toward "${c.drive.goal}" (${Math.round(c.drive.progress)}%)${c.drive.blocker ? ` — blocked by ${c.drive.blocker}` : ""}`);
   }
   return log;
 }
@@ -939,19 +1103,106 @@ export function addPromise(state: SaveState, from: string, to: string, text: str
  * The case that prompted it: "Help her drain the woad vat before the date." made on turn 2, and on
  * turn 3 the player typed "I snap my fingers and the vat is drained". Overlap is obvious to a
  * reader and was invisible to the engine.
+ *
+ * AND THEN, MEASURED ON A SAVE WHERE IT FAILED: word overlap peaks when a promise is MADE and goes
+ * quiet when it is KEPT. It has the mechanism exactly backwards.
+ *
+ *   t5  "Lucia will walk Rabi into the cookshop and stay as his guide."   overlap 0.257  ← FIRES
+ *   t6   the player arrives at the cookshop. The prose opens "The cookshop
+ *        was a narrow room with a low ceiling blackened by years of smoke"  overlap 0.127
+ *   t7 … t12                                                        overlap 0.04 – 0.17
+ *
+ * The threshold is 0.25. It pointed at the promise on the turn it was created — when there was
+ * nothing to close and the words were freshest — and said nothing on the turn it was fulfilled or
+ * on any turn after. The promise sat open for twenty turns. Of course it did: a turn that STATES a
+ * promise shares its vocabulary, and a turn that FULFILS one describes an event instead. The
+ * measure was reading the restatement, not the keeping.
+ *
+ * So the promise made this turn is excluded outright, and word overlap is demoted to one of two
+ * signals. The other is state, which for this class of promise is decisive and was sitting unused:
+ * the ledger said "walk Rabi into the cookshop", the world has a place called "A cookshop in the
+ * Subura", and the travel log has the player arriving there on turn 6.
  */
-export function promisesLikelyMet(state: SaveState, action: string, prose: string): PromiseRec[] {
+
+/** A promise ABOUT getting somewhere or bringing someone somewhere — the class where arrival IS the
+ *  keeping. Deliberately tight: "I'll pay you when I reach Rome" names a place and is not this. */
+const ESCORT = /\b(walk|walks|walked|take|takes|took|bring|brings|brought|escort\w*|meet|meets|met|come|comes|came|go|goes|went|return\w*|accompany|accompanies|accompanied|lead|leads|led|guide|guides|guided|show|shows|showed|deliver\w*|carry|carries|carried|drop off|see \w+ home|get \w+ to)\b/i;
+const PLACE_STOP = new Set(["the", "a", "an", "of", "in", "on", "at", "and", "house", "room", "place", "street", "road", "city", "town", "north", "south", "east", "west", "old", "new", "great", "little", "upper", "lower", "main"]);
+
+/** Which place, if any, this promise is about reaching. Null when it names none, or when the
+ *  promise is not the kind that arrival could settle. */
+export function promisedPlace(state: SaveState, text: string): string | null {
+  if (!ESCORT.test(text)) return null;
+  const words = new Set((text.toLowerCase().match(/[a-z]{5,}/g) ?? []));
+  // BEST match, not first. Place names carry people's names in them, and "Lucia will walk Rabi into
+  // the cookshop" hit "The house of Lucia Aelia Severa" on the word `lucia` before it ever reached
+  // "A cookshop in the Subura" — the wrong building, on the name of the woman doing the walking.
+  // Score by how much distinctive name was actually matched, so `cookshop` outweighs `lucia`.
+  let best: { id: string; score: number } | null = null;
+  for (const place of Object.values(state.world.places ?? {})) {
+    if (place.id === "loc_offscene") continue;
+    const tokens = (place.name.toLowerCase().match(/[a-z]{5,}/g) ?? []).filter((w) => !PLACE_STOP.has(w));
+    const score = tokens.filter((t) => words.has(t)).reduce((n, t) => n + t.length, 0);
+    if (score > 0 && (!best || score > best.score)) best = { id: place.id, score };
+  }
+  return best?.id ?? null;
+}
+
+/** Evidence, this turn, that an open promise has been made good on. `arrival` is state and is worth
+ *  far more than `words`, which is a hint about a long turn and nothing more. */
+export function promiseEvidence(state: SaveState, p: PromiseRec, action: string, prose: string): "arrival" | "words" | null {
+  const t = (p.text ?? "").trim();
+  if (t.length < 8) return null;
+  // The turn a promise is made is not evidence it was kept. This was most of what the old signal
+  // ever fired on, and it taught the bookkeeper that the pointer means nothing.
+  if (p.made_turn >= (state.world.current_turn ?? 0)) return null;
+  const dest = promisedPlace(state, t);
+  if (dest && state.world.player_location === dest) return "arrival";
   const turnText = `${action}\n${prose}`;
-  if (!turnText.trim()) return [];
+  if (!turnText.trim()) return null;
+  // Both directions: a short promise inside a long turn scores badly one way and well the other.
+  return relevance(t, turnText) >= 0.25 || relevance(turnText, t) >= 0.25 ? "words" : null;
+}
+
+export function promisesLikelyMet(state: SaveState, action: string, prose: string): PromiseRec[] {
   return (state.world.promises ?? [])
-    .filter((p) => p.status === "open")
-    .filter((p) => {
-      const t = (p.text ?? "").trim();
-      if (t.length < 8) return false;
-      // Both directions: a short promise inside a long turn scores badly one way and well the other.
-      return relevance(t, turnText) >= 0.25 || relevance(turnText, t) >= 0.25;
-    })
+    .filter((p) => p.status === "open" && promiseEvidence(state, p, action, prose) !== null)
     .slice(0, 4);
+}
+
+/** How many separate turns of evidence before the engine stops asking and closes it itself. */
+export const PROMISE_EVIDENCE_TO_CLOSE = 3;
+
+/**
+ * THE BOOKKEEPER GETS ASKED, AND THEN IT STOPS BEING ASKED.
+ *
+ * Pointing at a promise is only worth anything if something happens when the pointing is ignored.
+ * "I've done it multiple times, it remains open" is the whole complaint, and the answer to evidence
+ * on three separate turns with the promise still open is not a fourth prompt.
+ *
+ * Only for a favour or a commitment. A VOW is not closed by the engine on any amount of evidence:
+ * "protect your son", "never leave" — the keeping of those is the arc, and a scene that looks like
+ * the keeping of one is just a scene where it held. Those close when the story says so, or by hand.
+ */
+export function creditPromiseEvidence(state: SaveState, action: string, prose: string, turn: number): string[] {
+  const closed: string[] = [];
+  for (const p of state.world.promises ?? []) {
+    if (p.status !== "open") continue;
+    if (promiseEvidence(state, p, action, prose) === null) continue;
+    const seen = (p.evidence_turns ??= []);
+    if (!seen.includes(turn)) seen.push(turn);
+    if (p.weight >= 3 || seen.length < PROMISE_EVIDENCE_TO_CLOSE) continue;
+    resolvePromise(state, p, "kept", turn);
+    p.settled_turn = turn;
+    p.settled_by_evidence = true;
+    // Say that the ENGINE did this. The player is the only one who can tell it apart from a promise
+    // that was genuinely kept, and a line that reads like an ordinary resolution gives them nothing
+    // to object to — the ledger has three buttons precisely because this can be wrong.
+    const who = p.from === "char_player" ? "You" : state.characters[p.from]?.name ?? "someone";
+    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${p.text.replace(/\s*[.]\s*$/, "")} — closed by the engine after ${seen.length} turns of it looking done.`);
+    console.info(`[promises] closed "${p.text}" as kept — ${seen.length} turns of evidence and the bookkeeper never resolved it`);
+  }
+  return closed;
 }
 
 export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" | "broken", turn: number): string {

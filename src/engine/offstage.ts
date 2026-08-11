@@ -22,6 +22,7 @@ import { authoredLine, hasAuthored } from "./authored";
 import { uid } from "./state";
 import { minutesBetween } from "./time";
 import { mundaneObjective } from "./knowledge";
+import { placeIntent } from "./places";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 export const OFFSTAGE_INTERVAL_MIN = 360;
@@ -52,6 +53,9 @@ export interface OffstageEvent {
 export const OFFSTAGE_SYSTEM = `You are the world's own motion. You report what happened ELSEWHERE, to people who were not thinking about the protagonist.
 
 THE ONE RULE: you do not INVENT the player into the world. No event may exist because the player exists — no threat forming against them, no discovery planted for them to find, no stranger developing an opinion about them, no faction turning to face them. The world was here first and is busy. That is the rule, and it is about invention.
+
+IT IS ALSO NOT A RULE ABOUT REACTING TO WHAT THE PLAYER DID IN PUBLIC. Written as the one rule alone, it reads as a ban on anyone approaching him — and it was obeyed in exactly one direction. Four months into a save the player abolished slavery, built a school out of light in the middle of the Forum, and put a spoken offer into every mind in the city; the four events this pass returned for those hours were a baker's boy deciding not to offer him bread, a freedwoman crossing the lane to avoid his gate, a tradesman hardening a rumour into a warning, and a matron telling her husband that nobody went near the villa and that was the right decision. Every one of those is a stranger developing an opinion about the player. They passed because a stranger turning AWAY reads as the world being busy, while a stranger turning TOWARD reads as staged for him. Nothing in the rule says that, and it is not true: both are reactions and both are the world moving.
+So: when the player has done something in public that people would plainly react to, they react, and the reactions run in every direction that the population supports. A crowd does not reach consensus. If the report has three people avoiding him and nobody approaching him, it has taken a side.
 
 IT IS NOT A RULE ABOUT THE CAST'S OWN WANTS. If a named person in the CAST list already wants something that concerns the player — to call him, to stop herself calling him, to get her things back, to say the thing she did not say — then acting on that want IS the world moving, and it is REQUIRED of you, not forbidden. Written as the one rule alone, this pass could not touch the person whose life the story had just taken apart: a woman whose recorded want was "get through the next day without calling him, and fail at it" went unwritten for twenty turns while three background regulars had busy evenings, because every want she had was player-shaped. The player noticed she had simply stopped existing.
 So: never invent a relationship to the player. Always honour one that is already written down.
@@ -109,7 +113,11 @@ export function worldDigest(state: any): string {
       const where = state.world.places[c.location]?.name ?? "unknown";
       const wants = wantsOf(c);
       const blocked = c.drive?.blocker ? ` Stuck on: ${c.drive.blocker}.` : "";
-      return `- ${c.name}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
+      // Without pronouns this pass wrote "Tigris wakes in the Subura and tries to remember what HE
+      // can sell for breakfast" and "Clodia asks HIM where Rabi and Lucia have gone" about a woman
+      // whose record says she/her. The lines it writes become witness memories, so the error is
+      // filed rather than merely read.
+      return `- ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
     }).join("\n");
 
   // Which cast members are standing where, so witnesses can be named rather than guessed at.
@@ -326,10 +334,15 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
 
     // A place the event brought into being. The forge's ten were never meant to be the whole
     // world forever — a world that cannot grow new ground is a stage set.
+    // ...but it must be new GROUND, not a room in somewhere that exists. This checked the name for
+    // exact equality against the gazetteer and created on any miss — no containment test, no
+    // similarity test, no room-noun test — so it was the loosest of the four paths that can mint a
+    // location, and the world it grew was largely a maze of near-duplicates. One gate now: see
+    // existingPlaceFor in turn.ts.
     if (ev.new_place?.trim()) {
       const name = ev.new_place.trim().slice(0, 60);
-      const exists = Object.values<any>(state.world.places).some((p) => p.name.toLowerCase() === name.toLowerCase());
-      if (!exists) {
+      const intent = placeIntent(state, name, "offstage");
+      if (intent && "create" in intent) {
         const pid = uid("loc");
         state.world.places[pid] = { id: pid, name, description_facts: ev.what.slice(0, 160), contains: [], founding: false };
       }

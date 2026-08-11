@@ -50,10 +50,10 @@ Output ONLY this JSON:
 "skills": {"3-5 entries, key = the competence, value = how good and how they came by it \u2014 a person's skills are the subjects they can actually hold forth on": ""},
 "beauty": 50,
 "conscience": 0.7,
-"attracted_to": "women / men / anyone / no one",
+"attracted_to": "women / men / anyone / no one — permanent, and read by the engine as a hard gate; never use no one for somebody who is only unavailable right now, and do not qualify it with a mood",
 "taste": "ONE STRING: what their conditioning makes them find attractive",
 "gregariousness": 0.5,
-"attachment_style": "secure / anxious / avoidant / disorganized",
+"attachment_style": "secure / anxious / avoidant / disorganized — most people are secure; pick an insecure style only when this person\u2019s history actually produced one",
 "under_threat": "one plain sentence: what they DO when scared or hurt",
 "soothed_by": "one plain sentence: what actually settles them",
 "drive_goals": ["2-3 distinct wants they carry at once — an immediate aim, a deeper hope or fear, an attachment or grudge. Never only the player."]
@@ -186,5 +186,17 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
     c.drive_queue = goals.slice(1, 3).map((goal: string) => ({ goal: goal.slice(0, 140), progress: 0, priority: 0, updated_turn: state.world.current_turn }));
   }
 
-  c.provisional = undefined;   // the sketch is finished; it is a person now
+  // A SKETCH IS NOT FINISHED BECAUSE THE PASS RAN.
+  //
+  // This cleared the marker unconditionally, so a completion that came back short — the 1200-token
+  // budget hit mid-object, safeJson salvaging the keys that had arrived — left a record holding an
+  // appearance and nothing else, still opening "INCOMPLETE RECORD" where its life should be, and
+  // now flagged as a finished person. One save carried exactly that for twenty-five turns: her
+  // appearance_facts stop mid-phrase, at "dark obsidian-brown eyes with sharp calculating".
+  //
+  // Clearing it there is the wrong way round. Ask the record itself: clear the flag, then let
+  // isSketch — which reads the fields the story actually renders — put it back if the record is
+  // still hollow. The pass runs again after the next turn, which is what it is for.
+  c.provisional = undefined;
+  if (isSketch(c)) c.provisional = true;
 }

@@ -74,7 +74,29 @@ export function recency(deltaTurns: number, halfLife = HALF_LIFE_TURNS): number 
  * Deterministic, zero tokens. The text itself is rewritten to its faded form lazily, at reflection.
  */
 export function decayStageFor(m: EpisodicMemory, currentTurn: number): 0 | 1 | 2 | 3 {
-  if (m.commitment_status === "pending" || m.folded) return 0; // live commitments and folded-into-identity memories don't blur
+  // A LIVE COMMITMENT DOES NOT BLUR — BUT ALMOST NONE OF THESE ARE LIVE COMMITMENTS.
+  //
+  // This exempted every memory carrying `commitment_status: "pending"`, and `commitmentBoost` below
+  // has a whole paragraph on what that flag actually means in practice: "Set scheduled_time whenever
+  // something is left unfinished" reads to the simulator as EVERYTHING, measured at 98-100% of
+  // episodic memories in a live save. The retrieval side was fixed for it — an unclocked loop's
+  // salience is live for a day, fades after, gone after three — and the decay side never was. So in
+  // a 24-turn save 21 of 45 memories carried `scheduled_time: "unresolved"` and were pinned at
+  // stage 0 permanently. Replayed forward to turn 150 they are still at stage 0.
+  //
+  // `folded` was the other half. It marks a memory whose gist has already been folded into the
+  // character's life_history, which makes the episodic copy REDUNDANT — the least valuable thing in
+  // the bank to keep at full fidelity, not the most. Terminal decay already declines to promote a
+  // folded memory into a fact for exactly this reason (its gist is elsewhere); it should be allowed
+  // to reach terminal decay in the first place.
+  //
+  // What stays vivid: a commitment with a real clock on it. That is what "she is expecting me at
+  // nine" means, and it is rare enough to be worth exempting.
+  if (m.commitment_status === "pending") {
+    const unclocked = !m.scheduled_time || /^unresolved$/i.test(String(m.scheduled_time).trim());
+    if (!unclocked) return 0;
+    if (currentTurn - m.turn <= 12) return 0;   // an unclocked loop is live for about a day of turns
+  }
   const age = currentTurn - m.turn;
   const sinceAccess = currentTurn - m.last_accessed_turn;
   const base = age * 0.6 + sinceAccess * 0.4;             // unaccessed memories blur faster
@@ -121,12 +143,80 @@ export function reconcileStores(mem: CharMemory): void {
   }
 }
 
+/** How long a memory's text is allowed to be at each decay stage. */
+const STAGE_LEN: Record<number, number> = { 1: 150, 2: 110, 3: 70 };
+
+/**
+ * THE STEP THAT WAS NEVER WRITTEN.
+ *
+ * The block above this one describes four decay stages and ends "The text itself is rewritten to
+ * its faded form lazily, at reflection." Nothing ever rewrote it. `tickMemoryDecay` advanced
+ * `decay_stage`, cleared `where`, and returned; `applyReflection` pruned the store and never
+ * touched a character's words. `tickMemoryDecay` is byte-identical to the first commit in this
+ * repository, so the fade has never once run.
+ *
+ * Everything downstream was built assuming it had. The digest renders `content` for a faded memory
+ * and `full_content` only for the two the moment strongly cues — but with the fade missing those
+ * are the same string, so a "dim, distant impression" was shipped to the narrator at full length
+ * and the only compression anywhere was `raw.slice(0, 170)` at render: a hard mid-word cut that
+ * regularly severs a memory before its own object. From a save at turn 24: fifteen memories had
+ * reached stage 2 or 3 and every one of them still held its complete original text.
+ *
+ * And it takes the whole reconsolidation idea with it. `reconsolidate` pulls a memory two stages
+ * back toward vivid when new detail is integrated — recalling something and re-storing it changed.
+ * There was nothing to change. The gist it would re-cohere from never existed.
+ *
+ * What goes first is what goes first in people: the exact words. Then the surrounding clauses, then
+ * everything but who and what. `full_content` is kept untouched, so a strong cue still brings the
+ * whole thing back — that contrast is the entire point of storing both.
+ */
+export function fadeToStage(full: string, stage: 0 | 1 | 2 | 3): string {
+  const original = String(full ?? "").replace(/\s+/g, " ").trim();
+  if (stage <= 0 || !original) return original;
+  const budget = STAGE_LEN[stage] ?? 110;
+
+  // 1. VERBATIM SPEECH IS THE MOST PERISHABLE THING IN A MEMORY. People keep what was said and lose
+  //    how it was said within hours, so a quoted line is the first thing to stop being exact. The
+  //    speech verb it hung off has to be given something back, or the sentence loses its object:
+  //    `Rabi said "you already know what I am" and I did not answer` must not fade to `Rabi said
+  //    and I did not answer`.
+  let t = original.replace(/\s*["“][^"”]{0,400}["”]\s*/g, " ").replace(/\s+/g, " ").trim();
+  if (t !== original) {
+    t = t.replace(
+      /\b(said|says|told (?:me|him|her|them|us)|asked|answered|replied|shouted|snapped|whispered|muttered|added)(?=\s*(?:[,.;]|$|\b(?:and|but|then)\b))/gi,
+      "$1 something",
+    ).replace(/\s+([,.;])/g, "$1").replace(/\s+/g, " ").trim();
+  }
+  //    ...unless the memory was ALL speech, in which case removing it removes the memory.
+  if (t.split(/\s+/).filter(Boolean).length < 4) t = original;
+
+  // 2. AT TERMINAL DECAY ONLY THE HEAD CLAUSE SURVIVES: who, and what, and nothing after it.
+  if (stage >= 3) t = t.split(/\s*[;—–]\s*|,\s+(?:and|but|then|which|while|so|because)\s+/)[0];
+
+  // 3. AND THEN IT HAS TO ACTUALLY BE SHORTER. compactGist only ever cuts on sentence boundaries —
+  //    its loop takes the first sentence whole however long it is — and a memory is almost always
+  //    ONE sentence, so on its own it returns the input unchanged and the fade does nothing. Cut to
+  //    the budget on a word boundary after it, never mid-word, which is the failure the render-time
+  //    `slice(0, 170)` has been committing on every long memory in the digest.
+  let out = compactGist(t, budget);
+  if (out.length > budget) out = out.slice(0, budget).replace(/\s+\S*$/, "").replace(/[\s,;:]+$/, "") + "…";
+  out = out.replace(/[\s,;:]+$/, "").trim();
+  // A cut that lands inside a quoted span leaves an opening mark with nothing to close it. At this
+  // point the exact words are going anyway, so drop the marks rather than ship the orphan.
+  if ((out.match(/["“”]/g) ?? []).length % 2 === 1) out = out.replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
+  return out || original;
+}
+
 export function tickMemoryDecay(mem: CharMemory, currentTurn: number): void {
   const semanticized: EpisodicMemory[] = [];
   for (const m of mem.episodic) {
     const stage = decayStageFor(m, currentTurn);
     if ((m.decay_stage ?? 0) < stage) {
+      // Preserve the vivid original BEFORE the first fade overwrites it — full recall reads this,
+      // and a memory that faded without keeping one can never come back sharp.
+      m.full_content ??= m.content;
       m.decay_stage = stage;
+      m.content = fadeToStage(m.full_content, stage);
       if (stage >= 2) m.where = undefined; // place is lost at the gist-only stage (reconstructable, not stored)
     }
     // SEMANTICIZATION (Ribot's gradient): a memory reaching terminal decay does not vanish — if
@@ -386,19 +476,88 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
     if (stripped.trim().length >= 20) t = stripped.replace(/\s+([.!?])/g, "$1").trim();
   }
 
-  // 4. ONE PERSON THROUGHOUT. Their own memory is written about them in the third person, so the
-  //    engine can hand it to any reader without it changing meaning. First-person entries are the
-  //    ones that flip; rewrite the pronouns rather than throwing the memory away.
+  // 4. A MEMORY BELONGS TO SOMEBODY, AND THE TEXT HAS TO SAY SO.
+  //
+  //    This used to run the other way: rewrite first person INTO third, on the reasoning that a
+  //    memory written about its owner from outside "can be handed to any reader without changing
+  //    meaning". It fixed the flipping it was written for and created something worse, because
+  //    third person about yourself is not one voice — it is a name and then a pronoun, and the
+  //    pronoun has no anchor. Two entries from one save:
+  //
+  //      in Lucia's bank:  "Rabi put the soft-soled shoes on HER bare feet ... and SHE flushed"
+  //      in Tigris's bank: "Rabi gave HER a pair of shoes ... which SHE took with a thank-you"
+  //
+  //    Same shape, different woman, and the digest renders both as a bare line with no owner on it.
+  //    The reflection pass then read one of Marcus's memories — "reading it as a sign SHE is
+  //    building her own network", about Lucia — and formed him a permanent conviction that reads
+  //    "RABI conducts HERSELF like a soldier ... SHE is the kind of initiative he would recruit
+  //    for." Rabi is a man. Two people fused into one belief because a pronoun had nothing to hold
+  //    onto. That is the "who did what" corruption, and it starts here.
+  //
+  //    So: first person is the canonical form. "I" cannot be anybody but the owner of the bank it
+  //    is stored in, which is the property the old rule was reaching for and could not get from a
+  //    pronoun. The digest already prints these under a heading that names the character, so the
+  //    reader always knows whose "I" it is.
+  //
+  //    Only the NAME is rewritten, never a pronoun. A third-person memory says "Lucia agreed" and
+  //    then "she told him", where the second word may be Lucia or may be someone else; converting
+  //    the first without knowing about the second is how you turn one ambiguity into two. The
+  //    bookkeeper contract now asks for first person directly, and every other person by name.
   if (!opts.isPlayer) {
-    const first = opts.name.split(/\s+/)[0] || opts.name;
-    t = t
-      .replace(/\bI'm\b/g, `${first} is`).replace(/\bI've\b/g, `${first} has`).replace(/\bI'd\b/g, `${first} would`).replace(/\bI'll\b/g, `${first} will`)
-      .replace(/\bI\b/g, first)
-      .replace(/\bme\b/g, "her/him").replace(/\bmy\b/g, "their").replace(/\bmine\b/g, "theirs").replace(/\bmyself\b/g, "themselves");
-    // "her/him" is a placeholder that reads badly; prefer the name once, then drop to a pronoun.
-    t = t.replace(/her\/him/g, first);
+    const first = (opts.name.split(/\s+/)[0] || opts.name).replace(/[^A-Za-z'’-]/g, "");
+    if (first.length >= 2) {
+      const full = opts.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // "I" or "me" depends on where the name stands. A name is a SUBJECT when it opens the memory,
+      // follows a sentence end, or follows a conjunction that starts a fresh clause; anywhere else
+      // — after a verb, after a preposition — it is an object, and "Rabi took Tessa aside" must not
+      // become "Rabi took I aside".
+      const SUBJECT_BEFORE = /(?:^|[.!?;:]["”')\]]?\s+|\b(?:and|but|then|or|so|because|which|that|while|when|if|though|although|yet|however|before|after|until|once)\s+)$/i;
+      const selfPronoun = (offset: number, s: string) => (SUBJECT_BEFORE.test(s.slice(0, offset)) ? "I" : "me");
+      t = t
+        .replace(new RegExp(`\\b${full}(?:'s|’s)\\b`, "g"), "my")
+        .replace(new RegExp(`\\b${full}\\b`, "g"), (_m, off: number, s: string) => selfPronoun(off, s))
+        .replace(new RegExp(`\\b${first}(?:'s|’s)\\b`, "g"), "my")
+        .replace(new RegExp(`\\b${first}\\b`, "g"), (_m, off: number, s: string) => selfPronoun(off, s))
+        // agreement for the verbs that follow a subject swap
+        .replace(/\bI\s+(?:is|are)\b/g, "I am")
+        .replace(/\bI\s+(?:has)\b/g, "I have")
+        .replace(/\bI\s+(?:does)\b/g, "I do")
+        .replace(/\bI\s+herself\b/g, "I myself").replace(/\bI\s+himself\b/g, "I myself").replace(/\bI\s+themselves\b/g, "I myself");
+      // ...and for a coordinated clause whose subject was elided: "Tessa is terrified and has not
+      // said a word" carries its subject across the "and", so the swap has to reach it too. Only
+      // when the conjunction is followed IMMEDIATELY by the verb (an elided subject) and no other
+      // named person stands between it and the "I" — "I told Rabi and he has not answered" and
+      // "I went out and the bread is stale" both supply their own subject and are left alone.
+      const AGREE: Record<string, string> = { is: "am", has: "have", does: "do", "isn't": "am not", "hasn't": "haven't", "doesn't": "don't" };
+      t = t.replace(
+        /\bI\b(?:(?!\b[A-Z][a-z])[^.!?])*?\b(?:and|but|then|or)\s+(is|has|does|isn't|hasn't|doesn't)\b/g,
+        (m, v: string) => m.slice(0, m.length - v.length) + AGREE[v.toLowerCase()],
+      );
+      // a memory that is now nothing but "I" and a verb lost its content to the rewrite
+      if (t.split(/\s+/).filter(Boolean).length < 5) return null;
+    }
   }
   return t.slice(0, 400);
+}
+
+/**
+ * Bring an existing save's memories into the first-person form (see rule 4 above). Runs once per
+ * bank on load: saves written before the change hold third-person accounts, and leaving them mixed
+ * in with new first-person ones is the ambiguity the change exists to remove. Name-only, for the
+ * same reason the write path is name-only — a pronoun cannot be safely reassigned after the fact.
+ */
+export function migrateToFirstPerson(mem: CharMemory, name: string, isPlayer: boolean): number {
+  if (isPlayer || !name) return 0;
+  let changed = 0;
+  for (const m of mem.episodic ?? []) {
+    for (const key of ["content", "full_content"] as const) {
+      const before = m[key];
+      if (typeof before !== "string" || !before) continue;
+      const after = cleanMemoryContent(before, { name, isPlayer: false });
+      if (after && after !== before) { m[key] = after; changed++; }
+    }
+  }
+  return changed;
 }
 
 export function reflectionDue(mem: CharMemory, cadence: number, currentTurn: number, salt = 0): boolean {

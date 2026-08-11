@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, Eraser, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
@@ -496,6 +496,20 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     if (next && next.trim() && next.trim() !== cur) setSave(await api.setTime(save.id, next.trim()));
   };
 
+  /** Draw the line the models read from — or lift it again. The story stays on the page either way. */
+  const clearLog = async () => {
+    const cleared = save.world.context_from_turn ?? 0;
+    if (cleared) {
+      if (!confirm("Let the narrator see the whole log again? Nothing was deleted — this just moves the line back.")) return;
+      try { setSave(await api.clearLog(save.id, { restore: true })); }
+      catch (e: any) { alert(`Failed: ${e.message}`); }
+      return;
+    }
+    if (!confirm("Clear the log?\n\nThe narrator and every other pass stop reading the turns before this one, so context and repetition drop. The last beat is kept so the next turn is not written blind.\n\nNothing is deleted: the whole story stays on this page, in the Chronicle and in the export, and you can undo this from the same menu. Memories, relationships and the world are untouched.")) return;
+    try { setSave(await api.clearLog(save.id)); }
+    catch (e: any) { alert(`Failed: ${e.message}`); }
+  };
+
   const refreshMemory = async () => {
     if (!confirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character.")) return;
     setChaptering(true);
@@ -693,6 +707,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           </AnimatePresence>
           {history.map((h) => (
             <div className={h.turn === history[history.length - 1]?.turn ? undefined : "turn-block"} key={`${h.kind ?? "turn"}-${h.turn}`}>
+              {/* Where the narrator's reading starts. Everything above is still yours to scroll and
+                  still in the export — it is simply no longer being fed forward. */}
+              {save.world.context_from_turn === h.turn && h.turn > (history[0]?.turn ?? 0) && (
+                <div className="interlude my-5">
+                  <div className="interlude-rule"><span>the narrator reads from here</span></div>
+                </div>
+              )}
               {h.kind === "interlude" ? (
                 <div className="interlude my-5">
                   <div className="interlude-rule"><span>✦ {h.span_label} ✦</span></div>
@@ -1160,6 +1181,17 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   </span>
                 </button>
               )}
+              <button className="sheet-item" disabled={running} onClick={() => { setMenuOpen(false); clearLog(); }}>
+                <span className={save.world.context_from_turn ? "sheet-ic lit" : "sheet-ic"}><Eraser size={15} /></span>
+                <span className="flex-1 min-w-0">
+                  <span className="sheet-label block">{save.world.context_from_turn ? "Restore the log" : "Clear the log"}</span>
+                  <span className="sheet-hint block">
+                    {save.world.context_from_turn
+                      ? `the narrator is reading from turn ${save.world.context_from_turn} — tap to let it see everything again`
+                      : "the narrator stops reading earlier turns — nothing is deleted, the story stays on the page"}
+                  </span>
+                </span>
+              </button>
               <button className="sheet-item" disabled={running || chaptering}
                 onClick={() => { setMenuOpen(false); refreshMemory(); }}>
                 <span className="sheet-ic"><BookOpen size={15} /></span>

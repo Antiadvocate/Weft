@@ -112,5 +112,34 @@ function stubState(): { s: SaveState; id: string } {
   check("a genuinely blank field is still filled", c.beauty === 40);
 }
 
+/* ── A PARTIAL COMPLETION IS STILL A SKETCH ───────────────────────────────────────
+ *
+ * The pass cleared `provisional` the moment it ran, whatever came back. A save carried a record
+ * whose appearance_facts stop mid-phrase — "dark obsidian-brown eyes with sharp calculating" —
+ * because the completion hit its token budget and safeJson salvaged only the keys that had
+ * arrived. Everything after appearance_facts in the schema, background included, never landed.
+ * The record was marked finished anyway, so nothing ever tried again, and a name scraped out of
+ * one line of prose was carried for twenty-five turns as a person. */
+{
+  const s = newSave("sketch", { name: "V" } as any);
+  const c = s.characters[registerCharacter(s, {
+    name: "Nubian", provisional: true,
+    background: "INCOMPLETE RECORD — entered the story at Day 1, 09:05 (Morning) without being declared.",
+  } as any)!];
+
+  // what actually came back: appearance only, cut off mid-word
+  applySketch(s, c, { appearance_facts: "Deep dark brown skin, coiled black hair tightly braided against her scalp, dark obsidian-brown eyes with sharp calculating" });
+  check("a truncated completion leaves the record provisional", c.provisional === true, c);
+  check("and it still reads as a sketch, so the pass runs again", isSketch(c), c);
+
+  // and the next attempt, which lands
+  applySketch(s, c, {
+    background: "Born on the river above Meroe, sold north at eleven, works the Tiber barges and knows their depths.",
+    core_traits: ["counts the money twice", "will not stand with her back to a door"],
+  });
+  check("a completion that lands finishes the record", c.provisional === undefined, c);
+  check("and it stops being a sketch", !isSketch(c), c);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

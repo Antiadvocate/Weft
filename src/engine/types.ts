@@ -123,7 +123,17 @@ export interface Promise {
   made_turn: number;
   due_time?: string;           // in-world time it comes due, if time-bound
   weight: 1 | 2 | 3;           // 1 small favor · 2 real commitment · 3 a vow / life-stakes
-  status: "open" | "kept" | "broken";
+  /** `retired` is the player closing the ledger by hand on something that was never going to close
+   *  itself, and it carries NO relationship consequence — see settlePromise in lib/api.ts. Kept and
+   *  broken both move edges and write a memory; retired says only that the story is done with it. */
+  status: "open" | "kept" | "broken" | "retired";
+  settled_turn?: number;       // when it stopped being open
+  settled_by_hand?: boolean;   // the player closed this one, not the bookkeeper
+  /** Turns on which the engine saw evidence this was made good on. Accumulated because the
+   *  bookkeeper is asked and can decline, and a promise the player has kept three times over should
+   *  not need a fourth prompt. See creditPromiseEvidence in social.ts. */
+  evidence_turns?: number[];
+  settled_by_evidence?: boolean;
 }
 
 /** Directed edge a→b. Axes in [-100, 100]. */
@@ -317,6 +327,9 @@ export interface Identity {
 export interface AuthoredDrive {
   /** What they DO — same grammar as NPCDrive.goal. "start having people over late", not "be annoying". */
   goal: string;
+  /** The core_trait label this became when it crystallised, so the novelty ladder can find the
+   *  habit it is tracked under and the mandatory directive can stand down once it is worn. */
+  label?: string;
   /** The door they use. Same field, same reason: without it a want gets announced instead of pursued. */
   approach?: string;
   /** WHY THIS STARTED, in their life, not the player's.
@@ -492,6 +505,9 @@ export interface CharMemory {
   beliefs: Belief[];           // semantic layer from reflection
   facts?: DurableFact[];       // verified declarative knowledge — the fact ledger
   knows: string[];             // char_ids known
+  /** This bank's episodic memories have been converted to the first person (see
+   *  memory.cleanMemoryContent rule 4). Set once, on load, so the migration never runs twice. */
+  first_person?: boolean;
 }
 
 // ───────────────────────────── theory of mind (active-inference belief layer) ─────────────────────────────
@@ -589,6 +605,10 @@ export interface WorldState {
   canon_meta?: Record<string, { turn: number; witnesses: string[] }>; // keyed by lowercase canon text — who was present when the fact entered the world, and when. Fresh + unwitnessed = a character does NOT know it yet. Evicted canon folds into the bible instead of vanishing.
   current_turn: number;
   current_time: string;        // "Day 2, 14:30"
+  /** Turns before this one are still in `history` — on the page, in the export, in the chapter
+   *  record — but are no longer fed to any model. Set by "Clear the log"; 0/undefined = no line
+   *  drawn. See engine/context.ts. */
+  context_from_turn?: number;
   scene_started_time?: string; // when the current scene began (same format) — resets on location change or a ≥2h jump; the digest prints scene elapsed so timed world laws can be judged
   weather: string;
   player_location: string;
@@ -629,6 +649,14 @@ export interface WorldState {
    *  and used to break the tie on how a rumor about the player travels. Undefined on old saves =
    *  neutral. */
   public_standing?: number;
+  /** AN OPEN CALL THE PLAYER PUT TO A POPULATION rather than to a person — a summons, an offer, an
+   *  invitation, an advertisement, a proclamation. The engine had no reading for one at all: the
+   *  only ways anybody new could reach the player were an existing cast member whose drive already
+   *  named him, or the offstage pass volunteering a contact, and the crowd was licensed to exist but
+   *  explicitly forbidden a name. So a call could be answered by nobody, forever, and the silence
+   *  looked like the world's considered verdict instead of an absence of machinery. See
+   *  openCallDirective in population.ts. */
+  open_call?: { what: string; turn: number; time: string; reach: number; answered: number };
   promises?: Promise[];         // the promise ledger: who swore what to whom, and whether it was kept
   focus?: FocusPhase | null;    // the convergence/phase system: shapes the tension curve toward an event, then auto-advances when it fires
 }

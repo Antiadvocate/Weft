@@ -10,6 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
+import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
@@ -23,13 +24,14 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
-import { crowdDirective } from "./population";
+import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
+import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
@@ -384,6 +386,102 @@ function cleanName(raw: string): string {
   return String(raw).replace(/[()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
+/** At or above this, a spoken line is not a reply that uses the player's words — it is made of them. */
+export const PARROT_RATIO = 0.6;
+/** Below this many words, a lifted line is a clarification, not a parrot. */
+export const PARROT_MIN_WORDS = 8;
+
+/**
+ * How much of a spoken line was lifted straight out of what the player typed.
+ *
+ * The longest run of words the line shares, in order, with the player's input, as a fraction of the
+ * line. Repeating four words back is how people talk — confirmation, disbelief, turning a phrase
+ * over. Repeating most of the line back is the tic the prose rules ban in three separate places and
+ * the narrator produces anyway, because handing the player their own sentence is what a model
+ * reaches for when it has nothing to add.
+ */
+export function liftedFraction(spoken: string, actionLine: string): number {
+  const words = String(spoken).toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 4 || !actionLine) return 0;
+  let best = 0;
+  for (let i = 0; i < words.length; i++) {
+    for (let j = words.length; j - i > best; j--) {
+      if (actionLine.includes(words.slice(i, j).join(" "))) { best = j - i; break; }
+    }
+  }
+  return best / words.length;
+}
+
+/**
+ * Is this spoken line the player's own sentence handed back to them?
+ *
+ * Two conditions, and the length one matters as much as the ratio. Repeating a short phrase is how
+ * anybody checks they heard right — a name, a place, a term they do not know — and every one of
+ * those scores 1.0 because the whole fragment is lifted. A player asking after the Temple of Venus
+ * and Rome should get somebody saying it back to them with a question mark, not silence. What the
+ * prose rules actually ban is a whole line of the player's own reasoning returned as dialogue.
+ */
+export function isParrot(spoken: string, actionLine: string): boolean {
+  const words = String(spoken).replace(/[^A-Za-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).length;
+  if (words < PARROT_MIN_WORDS) return false;
+  return liftedFraction(spoken, actionLine) >= PARROT_RATIO;
+}
+
+/**
+ * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
+ *
+ * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
+ * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
+ * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
+ * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
+ * follows it.
+ */
+export function splitSentencesOutsideQuotes(para: string): string[] {
+  const out: string[] = [];
+  let buf = "", inQuote = false;
+  for (let i = 0; i < para.length; i++) {
+    const ch = para[i];
+    buf += ch;
+    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
+    if (inQuote || !".!?".includes(ch)) continue;
+    // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
+    while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
+    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
+    out.push(buf); buf = "";
+  }
+  if (buf) out.push(buf);
+  return out.length ? out : [para];
+}
+
+/**
+ * WHAT SOMEBODY IS CALLED IS NOT WHAT THEY ARE NAMED.
+ *
+ * A gladiator did her crowd-work in the prose — `"Tigris the Nubian says it too, so now it's three
+ * people saying it."` — and the cast gained a member called Nubian. She was registered on turn 6,
+ * promoted to central, forged a voice card and a drive of her own, joined PRESENT, and from turn 16
+ * walked beside the player for nine turns as a person nobody had ever written. The bookkeeper then
+ * filed Tigris's own history onto her ("Rabi offered Nubian freedom in exchange for her silence"),
+ * and the player — reasonably — asked who the hell this was and how she got there.
+ *
+ * Every guard in the detector passed her, and the one meant to CONFIRM personhood is what let her
+ * through: `mid` requires a lower-case letter before the name, on the theory that a real person
+ * gets referred to mid-sentence rather than only used to open one. "the Nubian" satisfies it
+ * perfectly.
+ *
+ * English does not put an article in front of a personal name. It puts one in front of every
+ * epithet a story uses INSTEAD of a name — the Nubian, the Gaul, the Greek, the older woman, her
+ * husband, his sergeant — and those sit next to speech verbs constantly. So: if every occurrence in
+ * this turn's prose is preceded by a determiner or a possessive, the word is what somebody is being
+ * called, not what they are named. One bare mention anywhere clears it, which is what a real name
+ * gets within a sentence or two of arriving.
+ */
+const DETERMINED_BY = /(?:\b(?:the|a|an|this|that|these|those|his|her|hers|their|its|my|your|our|another|other|some|every|each|one|old|young|little|poor|dead)|[A-Za-z]+['’]s)\s+$/i;
+export function isAppellation(raw: string, prose: string): boolean {
+  const occurrences = [...String(prose ?? "").matchAll(new RegExp(`(\\S+\\s+)?\\b${raw}\\b`, "g"))];
+  if (!occurrences.length) return false;
+  return occurrences.every((m) => DETERMINED_BY.test(m[1] ?? ""));
+}
+
 /**
  * Is this a person's NAME, or a fragment of somebody's description?
  *
@@ -491,6 +589,15 @@ export function repairBibleLists(state: SaveState): string[] {
   return shifts;
 }
 
+/** A record the ENGINE created and nothing has finished — a footer declaration, a name the player
+ *  used, or a speaker the regex scraped out of prose. It carries the marker until the sketch pass
+ *  writes a real life onto it. Two places care: the pruner, which may delete one, and the promotion
+ *  loop, which must not make one a member of the cast. */
+export function isStub(c: { provisional?: boolean; background?: unknown } | undefined): boolean {
+  if (!c) return false;
+  return c.provisional === true || /^INCOMPLETE RECORD\b/.test(String(c.background ?? ""));
+}
+
 export function pruneParseArtifacts(state: SaveState): string[] {
   const removed: string[] = [];
   for (const [id, c] of Object.entries(state.characters)) {
@@ -502,7 +609,7 @@ export function pruneParseArtifacts(state: SaveState): string[] {
     // the durable signal and isPersonName above has already rejected it: nobody real is called She
     // or Dinner. Authored cast still needs protecting, so an explicit portrait or a hand-written
     // record below is what saves a character, not a paragraph a model wrote about them.
-    const auto = c.provisional === true || /^INCOMPLETE RECORD\b/.test(c.background ?? "") || c.central === false;
+    const auto = isStub(c) || c.central === false;
     if (!auto) continue;
     // AN EDGE IS NOT ATTACHMENT WHEN THE ENGINE CREATED IT. Every character present in a scene gets
     // seedAttraction run against everyone else on the turn they appear, so a phantom owns a fistful
@@ -554,7 +661,7 @@ export function repairStrandedCast(state: SaveState, window = 8): string[] {
   const fixed: string[] = [];
   const ploc = state.world.player_location;
   if (!ploc) return fixed;
-  const recent = state.history.slice(-window);
+  const recent = contextHistory(state).slice(-window);
   if (recent.length < 2) return fixed;                       // too little record to judge on
   const blob = recent.map((h) => `${h.player_action ?? ""} ${h.narrator_prose ?? ""}`).join(" ").toLowerCase();
 
@@ -687,7 +794,7 @@ export function updatePaging(state: SaveState, action: string): void {
   if (state.model_settings.paging === false) return;
   const AWAY_TURNS = 12, BOND_FLOOR = 25;   // floor is on bondStrength's scale (~0.75·warmth + 0.25·trust), not the old |w|+|t| sum
   const turn = state.world.current_turn;
-  const recentText = (state.history.slice(-3).map((h) => h.narrator_prose).join(" ") + " " + action).toLowerCase();
+  const recentText = (contextHistory(state).slice(-3).map((h) => h.narrator_prose).join(" ") + " " + action).toLowerCase();
   const lastSeen = new Map<string, number>();
   for (const t of state.telemetry) for (const pid of t.present) lastSeen.set(pid, t.turn);
   for (const [id, c] of Object.entries(state.characters)) {
@@ -756,7 +863,7 @@ export function gcPlaces(state: SaveState, cap = PLACE_CAP): void {
   if (ids.length <= cap) return;
   const used = new Set<string>([state.world.player_location]);
   for (const c of Object.values(state.characters)) if (c.location) used.add(c.location);
-  const recentText = state.history.slice(-8).map((h) => `${h.narrator_prose} ${h.summary}`).join(" ").toLowerCase();
+  const recentText = contextHistory(state).slice(-8).map((h) => `${h.narrator_prose} ${h.summary}`).join(" ").toLowerCase();
   const bornAt = (id: string): number => {
     const m = /^loc_([0-9a-z]+)/.exec(id);
     if (!m) return 0;
@@ -927,6 +1034,53 @@ export function nagDirective(names: string[]): string {
       + `\nAND IF THE PLAYER GIVES IT, THEY HAVE GIVEN IT. The goalpost does not move on delivery. A character who asked for something specific and then receives it may absolutely be hurt by HOW it came — offhand, late, walking away, in front of others — and may say so, once. What they may not do is treat the manner as a reason the thing was never given, keep the want open, and go on being owed it. That exchange has happened in this story and it is the single most maddening thing a written person can do: it makes the player unable to succeed by any action available to them, because the condition for success is revealed only after they have failed it. If the want is genuinely still open after this turn, something CONCRETE must still be missing and you must be able to name it in one clause. "It wasn't said the right way" is not a concrete thing missing. Take the yes.`
 }
 
+/**
+ * THE PLAYER SAYING "I ALREADY TOLD YOU" IS THE END OF THE SUBJECT.
+ *
+ * nagDirective above fires off a character's own drive going stale, which catches the loop that
+ * runs through a drive. It cannot see the other one. A woman asked what secret the player had told
+ * a gladiator; he answered it; and she asked again on the next turn, and the next, and the next,
+ * and the next, and the next — six beats, six rewordings, because each turn the intent pass
+ * independently re-derived the same want from the same unchanged state while her drive kept being
+ * refreshed onto something else entirely. The player answered every time. By turn 19 he was typing
+ * "I already answered you earlier I believe?", by 22 "it's becoming hard for me to constantly
+ * repeat myself", by 23 "I was getting very exhausted saying the same thing over and over and
+ * over". The engine had no reading for any of that: it is not an action, so nothing consumed it.
+ *
+ * It is the clearest signal in the game and it comes from the only participant who can see the
+ * whole loop. A player who says this has told the engine, in words, that a want it believes is open
+ * was satisfied several turns ago. Treat it as authoritative, because it is: no character in the
+ * scene has better information about whether the player has answered than the player does.
+ */
+const ALREADY_ANSWERED = new RegExp([
+  // "I said" on its own is the most ordinary phrase in the game — "I said nothing and kept
+  // walking" — so the report of a PRIOR telling has to be marked as one: by the perfect tense, by
+  // "already"/"just", or by a plain "already/before/twice" trailing the clause.
+  `\\bi(?:'ve| have) (?:already |just )?(?:told|answered|said|explained)\\b`,
+  `\\bi (?:already|just) (?:told|answered|said|explained)\\b`,
+  `\\bi (?:told|answered|explained)\\b[^.!?]{0,40}\\b(?:already|before|twice|again)\\b`,
+  `\\bi(?:'m| am) (?:tired|sick|exhausted|weary) of (?:telling|saying|repeating|explaining|having to)`,
+  `\\brepeat(?:ing)? myself\\b`,
+  `\\b(?:the )?same (?:thing|answer|question|story)\\b[^.!?]{0,30}\\b(?:over and over|again and again|every turn|three times|twice)\\b`,
+  `\\bover and over(?: and over)?\\b`,
+  `\\b(?:stop|quit) asking\\b`,
+  `\\basked and answered\\b`,
+  `\\bhow many times\\b`,
+  `\\bfor the (?:third|fourth|fifth|last) time\\b`,
+].join("|"), "i");
+
+/** Did the player just say, in whatever words, that they have already answered this? */
+export function playerSaysAnswered(action: string): boolean {
+  return ALREADY_ANSWERED.test(String(action ?? ""));
+}
+
+export function answeredDirective(action: string): string {
+  if (!playerSaysAnswered(action)) return "";
+  // Written flat on purpose. A directive in an epigram teaches the narrator an epigram: the
+  // instruction files are full of balanced formulations, and the prose comes back full of them too.
+  return `\nTHE PLAYER HAS SAID THEY ALREADY ANSWERED THIS. Treat the answer they gave as the answer. No character asks the question again this turn, in any form: not rephrased, not narrowed, not as a request to hear it again in their own words, and not passed to a different character to ask. A character who is unsatisfied may say so once, briefly, and then stops raising it. By the end of the scene they want something else.`;
+}
+
 /** Default in-world minutes to cross from one named place to another when the world records no
  *  distance for the pair, nothing connects their names, and the player has never walked it. A day:
  *  far too long for a walk across a town, far too short to matter for a genuine journey, which is
@@ -1008,7 +1162,25 @@ function emptyDiff(): SimulatorDiff {
   };
 }
 
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel.]`;
+/**
+ * WHO "I" AND "YOU" POINT AT INSIDE THE PLAYER'S SPEECH.
+ *
+ * The channel note below is thorough about WHICH channel a span belongs to and says nothing about
+ * whose mouth its pronouns are anchored in. A player typed, aloud, that he was not a fan of the dish
+ * himself but thought his companion would enjoy it since she had never had it — and she answered
+ * that he kept saying HE had never had it, and then pushed it away. The referents were swapped, and
+ * the character spent her turn arguing with a line nobody spoke and catching the player in a
+ * contradiction he had not made.
+ *
+ * It is not a hard inference; nothing had ever stated it. Every pass that reads the player's raw
+ * input needs it, and the intent pass most of all, because it runs on the cheap model and its output
+ * is the stance the narrator then plays.
+ */
+export function deixisNote(addressee?: string): string {
+  return `Pronouns inside anything the player says in quotes are anchored to the player: I, me, my, mine and myself are the PLAYER; you and your are the person the player is SPEAKING TO${addressee ? `, which in this beat is ${addressee}` : ""}, never the player themselves. Resolve them that way before anyone reacts. Answering as though the player said about themselves what they actually said about the listener puts a line in their mouth they did not speak.`;
+}
+
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel. ${deixisNote()}]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
@@ -1016,7 +1188,7 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
   // narrator which parts of a single message were audible.
   do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I keep reading because I feel ignored"), that feeling is PRIVATE. Use it to shape what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
-  say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
+  say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
 };
@@ -1332,7 +1504,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const habitShifts: string[] = [];
   if (state.model_settings.habit_engine) {
     const presentForHabits = state.world.present.filter((pid) => pid !== "char_player");
-    const beatText = `${action} ${state.history.slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
+    const beatText = `${action} ${contextHistory(state).slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
     const hb = tickHabits(state, presentForHabits, beatText, verdict.pressure ?? 3);
     habitVerdict = habitVerdicts(hb.fires, state);
     for (const s of hb.shifts) habitShifts.push(s);
@@ -1358,8 +1530,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
   // behavior — that emerges from each character's relaxation state via the perception gate.
   const recentText = [
-    ...state.history.slice(-3).map((h) => h.narrator_prose ?? ""),
-    state.history.slice(-1)[0]?.player_action ?? "",
+    ...contextHistory(state).slice(-3).map((h) => h.narrator_prose ?? ""),
+    contextHistory(state).slice(-1)[0]?.player_action ?? "",
   ].join(" ");
   // Prose adjectives miss the player who quietly beat the same threat three times in plain
   // language; the discharge record doesn't.
@@ -1502,7 +1674,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const nagging = presentNpcs
     .map((id) => ({ id, c: state.characters[id] }))
     .filter(({ c }) => c.drive?.goal && (state.world.current_turn - (c.drive.progress_turn ?? state.world.current_turn)) >= 2 && (c.drive.progress ?? 0) < 100);
-  const nagNote = nagDirective(nagging.map((n) => n.c.name));
+  const nagNote = nagDirective(nagging.map((n) => n.c.name))
+    // The player's own word that they have already answered, which outranks any of the above: it
+    // closes a loop the engine cannot see because the loop does not live in anybody's drive.
+    + answeredDirective(action);
 
   if (drivers.length) {
     const lead = drivers[0];
@@ -1549,7 +1724,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const playerName = (state.characters["char_player"]?.name ?? "").toLowerCase();
     const fearIsThePlayer = playerName.length >= 3 && fear.includes(playerName);
     if (lethalWorld && !fearIsThePlayer && (state.model_settings.tension ?? 5) >= 3) {
-      const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+      const recentProse = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
       if (!threatWords.test(recentProse)) {
         pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them. Use ONLY the danger named above — never invent a new kind of creature to stand in for it.` });
@@ -1601,7 +1776,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // narrator beats are saturated with verge-markers and NOBODY lands anything. When that holds and
   // the player is NOT passive (they're the ones demanding motion), force the decision to land now.
   const VERGE = /\b(swallow(?:ed|s|ing)?|stopped\.|(?:she|he|they) stopped|trail(?:ed|ing)? off|didn'?t finish|opened.{0,8}closed|mouth (?:opened|worked|closed)|couldn'?t (?:speak|answer|say)|the words (?:hung|wouldn'?t|caught|died)|on the verge|voice cracked|not yet\.|almost said)\b/i;
-  const recentProse = state.history.slice(-4).filter((h) => h.narrator_prose).map((h) => h.narrator_prose as string);
+  const recentProse = contextHistory(state).slice(-4).filter((h) => h.narrator_prose).map((h) => h.narrator_prose as string);
   const vergeTurns = recentProse.filter((p) => VERGE.test(p)).length;
   // dithering = 3+ of the last 4 narrator beats are verge-saturated, the player is actively pushing
   // (not passive), and this isn't a deliberately quiet restoration scene.
@@ -1873,7 +2048,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // and the hardest scene ending there is: the player stops perceiving
   const perceptionNote = perceptionGapDirective(state, action);
   if (sceneNote) ev.onMeta({ shifts: [`the scene has spent itself — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
-  const crowdNote = crowdDirective(state);
+  // A CALL PUT TO EVERYONE. Recorded before the directive is composed, so a call made THIS turn is
+  // already standing when the narrator writes the answer to it — the player should not have to ask
+  // twice to be heard once, and in the save that surfaced this he asked three times and then put it
+  // into every mind in the city.
+  trackOpenCall(state, action);
+  const crowdNote = crowdDirective(state) + openCallDirective(state);
   const giftNote = giftDirective(action);
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
@@ -2141,10 +2321,46 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // lot", "you're not wrong"). Prompt bans don't hold; a regex does. We excise the offending SENTENCE
   // rather than regenerate — free, and the surrounding paragraph survives. Guards: never empty a
   // paragraph, never cut a long sentence (it's carrying real content), never cut more than two.
+  //
+  // AND NEVER, EVER TOUCH DIALOGUE. This is the tic guard's whole failure mode and it was silent.
+  // Two things went wrong at once and they compound.
+  //
+  // First, the echo test does not know the difference between the NARRATOR parroting the player and
+  // a PERSON answering them. Repeating what someone just said is not a tic, it is how conversation
+  // works — it is confirmation, disbelief, mockery, a woman turning a phrase over to see what is
+  // inside it. One character's authored voice is literally "starts with a flat observation of fact".
+  // Turn 1 of a save: the player introduced himself with "I'm probably not dressed right for here",
+  // she opened the story by saying it back to him, and the guard deleted her line for containing
+  // four of his words in a row.
+  //
+  // Second, the sentence splitter has no idea quotation marks exist, so it splits inside them and
+  // excises a fragment out of the middle of a spoken line. What the player read as the first thing
+  // anybody says to him in Rome was:
+  //
+  //     The stylus stayed where it was.
+  //
+  //     " The words came out flat, factual, an observation rather than a joke.
+  //
+  // A bare quote mark and an attribution for a line that is not there. It happened again on turn 8
+  // and left the same wreckage. Nothing logs at the player, nothing looks wrong in state, and the
+  // scene simply reads as though the engine had a stroke mid-sentence.
+  //
+  // The first fix for this exempted every sentence carrying a quote mark, on the reasoning that a
+  // PERSON repeating what you said is conversation rather than a tic. That is true of conversation
+  // and false of a parrot, and it switched the guard off in the one place the failure is most
+  // visible — a character saying the player's own line back to them, in dialogue, on the page. The
+  // verbatim replies came straight back.
+  //
+  // "Contains a quote" was never the distinction. The distinction is how much of the reply is MADE
+  // OF the player's words. A person answering you may reach for four of them; a parrot is built out
+  // of them. So a spoken line is measured, not exempted — and because the splitter above returns a
+  // quoted line together with its attribution as one unit, excising it can no longer strand the
+  // punctuation, which was the actual damage the first fix was for.
   {
     const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
     // 4+ consecutive words lifted from the player's action, ignoring very common words.
     const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    const actLine = actWords.join(" ");
     const runs: string[] = [];
     for (let i = 0; i + 4 <= actWords.length; i++) runs.push(actWords.slice(i, i + 4).join(" "));
     const echoes = (sent: string) => {
@@ -2153,15 +2369,25 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     };
     let cuts = 0;
     const cleaned = prose.split(/\n\n+/).map((para) => {
-      const sents = para.match(/[^.!?]+[.!?]*/g) ?? [para];
+      const sents = splitSentencesOutsideQuotes(para);
       if (sents.length < 2) return para;
       const kept = sents.filter((sent) => {
         const t = sent.trim();
         if (cuts >= 2 || t.length > 160) return true;
+        const spoken = (t.match(/["“][^"”]*["”]/g) ?? []).join(" ");
+        if (spoken) {
+          // Somebody is speaking. Cut only if the line is substantially the player's own words.
+          if (!isParrot(spoken, actLine)) return true;
+          cuts++; return false;
+        }
         if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
         return true;
       });
-      return kept.join("").trim() || para;
+      const out = kept.join("").trim();
+      // A cut that leaves a paragraph with an odd number of quote marks has stranded one. That was
+      // the whole original failure; never ship it, whatever else the guard concluded.
+      if (!out || (out.match(/["“”]/g) ?? []).length % 2 === 1) return para;
+      return out;
     }).join("\n\n");
     if (cuts) {
       prose = cleaned;
@@ -2208,7 +2434,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // thoughts, feelings, and (parenthetical) inner state — is the AUTHORITATIVE signal for the
   // player's own valence, truer than anything inferable from the deliberately-opaque prose. The
   // narrator hides it; the bookkeeper must consume it directly.
-  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the truest evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
+  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. ${deixisNote()} For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the truest evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
@@ -2650,7 +2876,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // model tends to re-narrate the same standing activity every turn ("Sarn continues her sweep..."),
   // which reads as the world stuck in a loop. Compare against the last few turns' offscreen lines and
   // keep only genuinely new motion.
-  const recentOffscreen = state.history.slice(-4).flatMap((h) => h.offscreen ?? []);
+  const recentOffscreen = contextHistory(state).slice(-4).flatMap((h) => h.offscreen ?? []);
   // HOW MUCH TIME THIS TURN TOOK, hoisted above the world-motion block. The clock itself is not
   // advanced until later (the offstage passes deliberately run against the time the scene happened
   // at), but anything here that moves with time rather than with turns needs the number now.
@@ -2671,7 +2897,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const blog = consolidateBackground(c, state.memory[id]);
       for (const l of blog) offscreenLog.push(l);
     }
-    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name)) {
+    // A RECORD THAT IS STILL A STUB IS NOT A CAST MEMBER YET.
+    //
+    // This loop promotes anyone present, named and untracked to central: tracked, full fidelity,
+    // a voice card, a drive, an intent authored every turn, a place in the digest. It never asked
+    // whether the engine knows who they are. So a name the regex scraped out of one line of prose
+    // — no traits, no background, an INCOMPLETE RECORD marker where a life should be — was made a
+    // full member of the story on the same turn it appeared, and everything downstream then had to
+    // write a person out of nothing. That is how a phantom stops being a stray record and starts
+    // walking beside the player with wants of her own.
+    //
+    // The stub marker is not permanent: the sketch pass runs after every turn and fills these in
+    // from the player's words and the prose they appeared in, and the moment it does, promotion
+    // happens as before. This only says that "we do not know who this is" and "they are now one of
+    // the six people this story is about" cannot both be true on the same turn.
+    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
       const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central && x.status !== "dead" && x.status !== "departed").length;
@@ -2703,7 +2943,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       if (state.sim_escalated_until && turn > state.sim_escalated_until) state.sim_escalated_until = undefined;
     }
   }
-  offscreenLog.push(...tickDrives(state));   // completion events (progress already moved by QRE stances)
+  // completion events (progress already moved by QRE stances). `minutes` is what the scene actually
+  // took: offstage effort runs on the same clock as the scene, not on how many times the player hit
+  // enter. See tickDrives.
+  offscreenLog.push(...tickDrives(state, Math.random, minutes));
   // Deterministic emotional systems, each fault-isolated: a bug in any one of them must degrade
   // that system for a turn, never abort the turn's tail (history, telemetry, the shifts toasts).
   const safeTick = (name: string, fn: () => string[]) => {
@@ -2859,12 +3102,27 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   for (const line of dischargeFiredClocks(state, turn)) shifts.push(line);
 
   // history + time
-  state.world.current_time = advance(state.world.current_time, minutes);
+  //
+  // A SCENE THAT ENDED TOOK LONGER THAN THE EXCHANGE THAT ENDED IT. When the scene read as spent,
+  // the narrator was told to close it on the page and permitted to cross the connective time after
+  // it — the walk, the rest of the afternoon, getting from this room to the next. The bookkeeper
+  // reads elapsed_minutes off the prose, and a cut is exactly what it undercounts: the crossing is
+  // one line of text describing hours. Left alone, the turn that ends a scene is billed like any
+  // other three-line exchange, which is how a save reaches turn 45 at two in the afternoon.
+  //
+  // Only when the scene actually ended — the player is somewhere else now. A spent scene the
+  // narrator chose to keep playing is still an ordinary turn and gets its ordinary minutes.
+  let elapsed = minutes;
+  if (sceneRead.spent && prevLocation !== state.world.player_location && elapsed < 45) {
+    elapsed = 45;
+    console.info(`[time] scene ended and the player moved on — crediting the crossing at ${elapsed} min instead of ${minutes}`);
+  }
+  state.world.current_time = advance(state.world.current_time, elapsed);
   // SCENE CLOCK: the narrator sees the world clock every turn but cannot tell how long the current
   // scene has been running — which is exactly what timed world laws ("pain after ten minutes") are
   // measured against. Track when the current scene began: a location change or a big time jump
   // starts a new scene; the digest prints the elapsed minutes beside the location.
-  if (!state.world.scene_started_time || prevLocation !== state.world.player_location || minutes >= 120) {
+  if (!state.world.scene_started_time || prevLocation !== state.world.player_location || elapsed >= 120) {
     state.world.scene_started_time = state.world.current_time;
   }
 
@@ -2961,16 +3219,17 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           const named = new RegExp(`\\b${(oc.name.split(/\s+/)[0] ?? "").toLowerCase()}\\b`).test(recent.toLowerCase());
           if (!named && !e) return "";
           const gone = oc.status === "dead" || oc.status === "departed" ? `, ${oc.status.toUpperCase()}` : "";
+          const who = `${oc.name}${oc.pronouns ? ` (${oc.pronouns})` : ""}`;
           return e
-            ? `${oc.name}: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.roles?.length ? `, ${e.roles.join("/")}` : ""}${gone}`
-            : `${oc.name}: no relationship on record${gone}`;
+            ? `${who}: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.roles?.length ? `, ${e.roles.join("/")}` : ""}${gone}`
+            : `${who}: no relationship on record${gone}`;
         })
         .filter(Boolean)
         .slice(0, 10)
         .join(" | ");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}${state.characters[id]?.pronouns ? ` (${state.characters[id]!.pronouns})` : ""}\nPRONOUNS ARE BINDING — a belief is permanent and is read back to the narrator every turn, so a pronoun guessed wrong here is wrong forever. Use the sets given above and never infer gender from a name, a role, or the other people in the memories.\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — a body bracing this long hardens protective, suspicious convictions`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — a body at ease this long can afford generous, revisable convictions`; return "mixed — neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
@@ -3286,7 +3545,7 @@ function isTransientLabel(name: string): boolean {
     /\b(home|away|off|out|back|toward|towards|to|from)\b/i.test(name);
 }
 
-export const OFFSCENE = "loc_offscene";
+export { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 
 /** The offscene record — one place, outside every locale, for everyone who is not in a named
  *  location. Characters there are never in the player's scene and never re-seated by locale merging. */
@@ -3365,23 +3624,6 @@ export function resolvePlace(state: SaveState, ref: string, opts?: { keepIfUnkno
   return createPlace(state, norm);
 }
 
-/** Is this the name of a ROOM, CORNER, or THRESHOLD rather than a place you travel to?
- *  "the kitchen", "upstairs", "the back of the bar", "outside the door" are all parts of somewhere. */
-export function isPartOfAPlace(ref: string): boolean {
-  const bare = ref.trim().replace(/^(the|a|an)\s+/i, "").trim();
-  // A proper name is a place, even when its last word is an ordinary one: "Kubota Garden" and
-  // "Interbay Yard" are somewhere you go; "the garden" and "the yard" are part of where you are.
-  // Two or more capitalized words, or a possessive, means somebody named this.
-  const capped = bare.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).length;
-  if (capped >= 2 || /'s\b/.test(bare)) return false;
-  const r = bare.toLowerCase();
-  const PART = /\b(kitchen|bedroom|bathroom|washroom|restroom|toilet|hallway|hall|corridor|landing|stairs|stairwell|staircase|doorway|door|threshold|porch|stoop|yard|garden|lawn|driveway|garage|attic|basement|cellar|loft|balcony|terrace|patio|deck|roof|rooftop|closet|pantry|cupboard|corner|booth|table|bar top|counter|window|windowsill|fireplace|hearth|couch|sofa|bed|desk|floor|ceiling|wall|upstairs|downstairs|inside|indoors|back room|front room|living room|dining room|sitting room|spare room|back office|storeroom|storage|foyer|entryway|entrance|lobby|vestibule|alley|alleyway|sidewalk|pavement|curb|parking lot|car ?park)\b/;
-  if (PART.test(r)) return true;
-  // "edge of X", "back of X", "near the X", "just outside X" — a position relative to a place
-  return /^(edge|side|back|front|middle|centre|center|top|bottom|foot|head|end|corner|far end|other side)\s+of\b/.test(r)
-    || /^(just )?(outside|inside|behind|beside|beneath|under|above|across from|next to|near|by|toward|towards)\b/.test(r);
-}
-
 export function createPlace(state: SaveState, name: string): string {
   const clean = name.trim().replace(/^(the|a|an)\s+/i, "").slice(0, 60);
   const title = clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -3391,44 +3633,6 @@ export function createPlace(state: SaveState, name: string): string {
   // gcPlaces runs at the end of every turn and holds the cap by forgetting the oldest place nobody
   // is in and nothing has mentioned. Founding locations are never forgotten.
   return id;
-}
-
-/** How much two place names look like the same place. Token overlap weighted toward the rarer,
- *  longer words, so "kitchen doorway" scores 0 against "The Rusty Anchor" but "the rusty anchor bar"
- *  scores high. Substring matching alone was useless here — "kitchen" shares no substring with
- *  "Tessa's house" even though a model meant the latter. */
-export function placeSimilarity(a: string, b: string): number {
-  // Generic nouns are everywhere in place names ("service", "center", "house", "street"), so two
-  // unrelated places share them and score a false match. They count for a fraction of their length.
-  // Coverage is measured in BOTH directions and the better taken: a reference may carry extra words
-  // ("sole service front counter") or fewer ("the anchor") than the place name it names.
-  const GENERIC = new Set(["service", "center", "centre", "house", "street", "road", "avenue", "place",
-    "building", "office", "shop", "store", "station", "hall", "room", "club", "bar", "cafe", "market", "north",
-    "south", "east", "west", "old", "new", "great", "little", "upper", "lower", "main", "city", "town"]);
-  const STOP = new Set(["the", "a", "an", "of", "at", "in", "on", "near", "by", "and", "to"]);
-  const toks = (s: string) => new Set((s.toLowerCase().match(/[a-z0-9']+/g) ?? []).filter((w) => w.length > 2 && !STOP.has(w)));
-  const A = toks(a), B = toks(b);
-  if (!A.size || !B.size) return 0;
-  const weight = (w: string) => (GENERIC.has(w) ? w.length * 0.15 : w.length);
-
-  const side = (X: Set<string>, Y: Set<string>) => {
-    let shared = 0, distinctive = false;
-    for (const w of X) {
-      if (Y.has(w)) { shared += weight(w); if (!GENERIC.has(w)) distinctive = true; continue; }
-      for (const v of Y) if (v.length > 3 && w.length > 3 && (v.startsWith(w) || w.startsWith(v))) {
-        shared += Math.min(weight(v), weight(w)) * 0.7;
-        if (!GENERIC.has(w) && !GENERIC.has(v)) distinctive = true;
-        break;
-      }
-    }
-    const total = [...X].reduce((n, w) => n + weight(w), 0);
-    if (!total) return 0;
-    const cov = Math.min(1, shared / total);
-    // A place whose whole name is ordinary words ("Sole Service") must still match itself, so high
-    // coverage alone can carry it. A reference that merely brushes a generic word is held down.
-    return distinctive ? cov : cov >= 0.85 ? cov : cov * 0.35;
-  };
-  return Math.max(side(A, B), side(B, A));
 }
 
 /** present is DERIVED: whoever shares the player's place is in the scene. Rebuilds every place's
@@ -3758,6 +3962,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       const mid = new RegExp(`[a-z,;:]\\s+${raw}\\b`).test(prose)
         || new RegExp(`["”'\u2019][,.!?]?\\s+${raw}\\b`).test(prose);
       if (!mid) continue;
+      // AN EPITHET IS NOT A NAME — see isAppellation. This is the last gate because it is the
+      // cheapest one to get wrong: it reads the whole turn's prose, not the match.
+      if (isAppellation(raw, prose)) continue;
       found.set(key, raw);
     }
   }
@@ -3808,6 +4015,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       if (newId) { state.characters[newId].drive = drive; state.characters[newId].drive_queue = driveQueue; }
     }
     if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
+    // Somebody new turned up while the player had a call standing. Whether they came BECAUSE of it
+    // is not knowable here and does not need to be: what the credit stops is the engine going on
+    // insisting the call is unanswered while a new person is standing in the scene.
+    creditCallAnswer(state);
   }
   // AUTO-REGISTER SPEAKERS. The simulator is supposed to declare anyone new via new_characters and
   // often doesn't — a mother, a harper, a rider walks into the prose, speaks at length, and never
@@ -3849,36 +4060,34 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   for (const np of diff.new_places ?? []) {
     if (!np?.name) continue;
-    const exists = Object.values(state.world.places).some((p) => p.name.toLowerCase() === np.name.toLowerCase());
-    // A ROOM INSIDE A PLACE IS NOT A PLACE, AND THIS PATH NEVER CHECKED.
-    //
-    // The digest tells the models this in as many words — "rooms, corners and doorways inside a
-    // place are prose, not locations" — and the sub-place guard used by createPlace exempts any
-    // name with two or more capitalised words, which every real building has. So this loop, which
-    // never consulted the guard at all, split one bunker into three: "The Alki Bunker", "Alki
-    // Bunker - Rabi and Liz Room", "Alki Bunker - Marcus and Dana Room".
+    // A ROOM INSIDE A PLACE IS NOT A PLACE, and this path used to check only exact-name equality
+    // plus a containment test, with no similarity check and no room-noun check at all. It split one
+    // bunker into three ("The Alki Bunker", "Alki Bunker - Rabi and Liz Room", "Alki Bunker - Marcus
+    // and Dana Room") and it stood up a second and third villa beside the one that existed. All of
+    // those checks now live in one place — see existingPlaceFor / placeIntent above.
     //
     // The consequence is not cosmetic. Presence is computed per location, so two people twenty feet
-    // apart in the same building became NOT IN THIS SCENE — and a character who is absent but needed
+    // apart in the same building become NOT IN THIS SCENE — and a character who is absent but needed
     // gets rendered as a voice from somewhere else. One save had Dana speaking over the radio as the
-    // USS Resolute while sitting in the next room of the bunker she was in.
-    //
-    // A name that opens with an existing place's name is a room in that place. Deterministic, and
-    // it fires exactly on the shape the models actually produce.
-    const inside = Object.values(state.world.places).find((p) => {
-      if (p.id === OFFSCENE) return false;
-      const outer = p.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
-      const inner = np.name.toLowerCase().replace(/^(the|a|an)\s+/, "").trim();
-      return outer.length >= 4 && inner.length > outer.length && inner.startsWith(outer);
-    });
-    if (inside) {
-      console.info(`[places] "${np.name}" is a room inside "${inside.name}" — kept as prose, not a location`);
+    // USS Resolute while sitting in the next room of the bunker she was in; another left Marcus,
+    // Tigris and Clodia downstairs in a cookshop for three turns while the player stood at the top
+    // of its stairs in a location of his own.
+    const intent = placeIntent(state, np.name, "bookkeeper");
+    if (!intent) continue;
+    if ("id" in intent) {
+      // The declaration was really about somewhere that exists. Its description is still worth
+      // having — a new_place carrying a room's description is how "The villa" came to exist with
+      // nothing in it but a rebuilt kitchen — so fold the facts in rather than dropping them.
+      const p = state.world.places[intent.id];
+      const facts = String(np.description_facts ?? "").trim();
+      if (facts && !(p.description_facts ?? "").includes(facts)) {
+        p.description_facts = `${p.description_facts ?? ""}${p.description_facts ? " " : ""}${facts}`.slice(0, 1200);
+        p.changed_turn = turn;
+      }
       continue;
     }
-    if (!exists) {
-      const id = uid("loc");
-      state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
-    }
+    const id = uid("loc");
+    state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
   }
 
   // ── PLACES CHANGE ── A place's description_facts is what the narrator (and the offstage world-sim,
@@ -4673,7 +4882,35 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       const absorbed = absorbContradiction(state, id, t.label, 6);
       if (absorbed) { console.warn(`[habit] "${t.label}" absorbed as a seen-fire credit against "${absorbed}" (not planted — arcs are earned, not flipped)`); continue; }
     }
-    reinforceOrMergeTrait(state.traits[id] ?? (state.traits[id] = []), t, turn);
+    // A SINGLE BEAT DOES NOT MAKE A PERMANENT DISPOSITION.
+    //
+    // Nothing rate-limited planting, so a character could pick one up every turn. From a save at
+    // turn 13, one woman held four, three of them acquired on turns 10, 11 and 12 and all three the
+    // same behaviour under different names: reorients instead of pressing the point; accepts the
+    // loss rather than ask again; does not linger, does not listen. Each came from ONE beat — a
+    // rejection — and each was filed as a new permanent trait because the labels shared no words and
+    // the dedupe compares labels.
+    //
+    // Comparing the behaviour instead does not rescue it: those three descriptions score 0.07 on
+    // token overlap, because a model naming a trait invents fresh vocabulary every time. What is
+    // wrong is not the matching, it is that a reaction to one event was ever a disposition. The
+    // habit engine already argues this for contradictions — arcs are earned, not flipped — and the
+    // same holds for acquisition. If it is real it will be shown again; a few turns is nothing to a
+    // trait that is going to last the rest of the story.
+    //
+    // Reinforcement is never limited. Seeing the same thing again is exactly what should count.
+    const held = state.traits[id] ?? (state.traits[id] = []);
+    if (plantedRecently(held, turn)) {
+      const before = held.length;
+      const how = reinforceOrMergeTrait(held, t, turn);
+      if (how === "planted") {
+        held.length = before;   // undo: too soon after the last one to be anything but a reaction
+        console.info(`[traits] held back "${t.label}" for ${nameOf(id)} — a new trait was planted less than ${TRAIT_PLANT_COOLDOWN} turns ago`);
+        continue;
+      }
+    } else {
+      reinforceOrMergeTrait(held, t, turn);
+    }
     shifts.push(`${nameOf(id)} is developing a new trait: "${t.label}".`);
   }
 
@@ -4727,6 +4964,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     if (target) { const line = resolvePromise(state, target, pr.outcome, turn); if (line) shifts.push(line); }
   }
+  // THE BOOKKEEPER HAS NOW HAD ITS TURN. Anything still open that the engine has watched being made
+  // good on for three separate turns gets closed here, because a fourth prompt is not an answer —
+  // see creditPromiseEvidence. Runs after promises_resolved so a promise the bookkeeper DID close
+  // is already gone and cannot be double-counted.
+  for (const line of creditPromiseEvidence(state, action, prose, turn)) shifts.push(line);
 
   for (const tu of diff.threads_update ?? []) {
     if (!tu?.title) continue;

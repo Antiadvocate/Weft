@@ -19,6 +19,7 @@
  * background, silent on failure, retried next turn.
  */
 import type { Place, SaveState } from "./types";
+import { contextHistory } from "./context";
 import { buildMessages, complete, safeJson } from "../llm";
 
 const PLACE_SYSTEM = `You write the PHYSICAL RECORD of one location in a story — what is actually there, as a person walking in would find it.
@@ -54,7 +55,7 @@ function proseFor(state: SaveState, place: Place): string {
   }
   // A place the player is standing in right now is being described even without its name on the page.
   if (!hits.length && state.world.player_location === place.id) {
-    hits.push(...state.history.slice(-2).map((h) => h.narrator_prose ?? ""));
+    hits.push(...contextHistory(state).slice(-2).map((h) => h.narrator_prose ?? ""));
   }
   return hits.join("\n\n").slice(0, 4000);
 }

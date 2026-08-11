@@ -1,11 +1,12 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
-import { reconcileStores } from "./memory";
+import { reconcileStores, migrateToFirstPerson } from "./memory";
 import { ensureHabits } from "./habits";
+import { mergePhantomPlaces } from "./places";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum, detectWorldPronoun, tidyPhrase } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood } from "./coerce";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
 const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
@@ -295,6 +296,8 @@ export function sanitize(state: SaveState): SaveState {
     }
   }
 
+  mergePhantomPlaces(state);
+
   // ── WORLD-PRONOUN HEAL ── a save forged before the pronoun backstop can hold a whole cast of
   // "she/her" in a world whose canon says everyone uses xe/xem. Only act when canon is unambiguous
   // (declares the set AND says there are no men/women), and only overwrite a DEFAULT binary pronoun —
@@ -401,6 +404,33 @@ export function sanitize(state: SaveState): SaveState {
           if (m.source === "witnessed" && offstage.has(m.content)) m.source = "offstage";
         }
       }
+    }
+    // A MOOD IN THE ORIENTATION FIELD FROZE SOMEBODY AT ZERO DESIRE. Attraction seeds exactly once,
+    // so a character the old hard cap zeroed stays at zero even after the cap stops applying — the
+    // seed sees a defined value and returns. Clear the zeroes it left so they read fresh. Only the
+    // exact signature of the bug is touched: a card whose orientation is a dated statement, and an
+    // outgoing attraction of precisely 0. A real 0 arrived at through play is not a 0 written by a
+    // gate, but it is also not a value the story can no longer move, so re-seeding is the safe side.
+    if (orientationIsMood(state.characters[id].attracted_to)) {
+      for (const e of state.world.edges) {
+        if (e.from === id && e.attraction === 0) e.attraction = undefined;
+      }
+    }
+    // NOBODY GOES WITHOUT A PRONOUN SET. The forge is asked for one and sometimes does not give it,
+    // and every pass that writes a permanent record reads the roster where it is printed. Backfilled
+    // from what the character's own background and appearance already say about them; left unset
+    // when that text does not clearly lean one way. See coerce.inferPronouns.
+    if (!state.characters[id].pronouns) {
+      const guess = inferPronouns(`${state.characters[id].background ?? ""} ${state.characters[id].appearance_facts ?? ""}`);
+      if (guess) state.characters[id].pronouns = guess;
+    }
+    // A MEMORY IS WRITTEN IN THE FIRST PERSON NOW — see cleanMemoryContent rule 4. Saves written
+    // before that hold third-person accounts of their own owner, and a bank with both in it is
+    // exactly the ambiguity the change exists to remove: "Lucia agreed…" beside "I agreed…" beside
+    // a bare "she" that could be either. Converted once, on load, name-only.
+    if (id !== "char_player" && !state.memory[id].first_person) {
+      migrateToFirstPerson(state.memory[id], state.characters[id]?.name ?? "", false);
+      state.memory[id].first_person = true;
     }
     state.condition[id].psyche ??= blankCondition().psyche;
     // A MOOD THAT DEGENERATED INTO A LOOP IS A STUCK RECORD, NOT WEATHER. It renders on the card and

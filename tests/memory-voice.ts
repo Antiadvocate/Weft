@@ -9,8 +9,27 @@
  *   Rabi joked about serenading ME and I dared him…    ← the same person, two turns apart
  *
  * The player typed "Hey in getting a divorce" as a text message from the back of a car. It became
- * something Tessa remembers. And her own memories flip between "I" and "she", which is what makes
- * them read as though she did the things the player did. */
+ * something Tessa remembers. And her own memories flipped between "I" and "she", which is what
+ * makes them read as though she did the things the player did.
+ *
+ * THE FLIP WAS FIXED IN THE WRONG DIRECTION, AND THE FIX COST MORE THAN THE BUG.
+ *
+ * Rewriting first person INTO third made every memory consistent and every memory ambiguous, because
+ * third person about yourself is a name and then a pronoun, and the pronoun has no anchor. A later
+ * save, at turn 24:
+ *
+ *   in Lucia's bank:  "Rabi put the soft-soled shoes on HER bare feet ... and SHE flushed"
+ *   in Tigris's bank: "Rabi gave HER a pair of shoes ... which SHE took with a thank-you"
+ *
+ * Same shape, two different women, and the digest prints both as a bare line with no owner on it.
+ * The reflection pass then read one of Marcus's memories — "a sign SHE is building her own network",
+ * about Lucia — and formed him a standing conviction reading "RABI conducts HERSELF like a soldier
+ * ... SHE is the kind of initiative he would recruit for". Rabi is a man. Two people fused into one
+ * belief off a single unanchored pronoun, permanently, and the narrator was handed it every turn.
+ *
+ * First person is the form that cannot do this: "I" can only be the owner of the bank it is stored
+ * in. Only the NAME is ever rewritten — a pronoun cannot be reassigned after the fact without
+ * guessing, and guessing is the bug. */
 import { cleanMemoryContent } from "../src/engine/memory";
 
 let pass = 0, fail = 0;
@@ -31,26 +50,49 @@ const her = { name: "Tessa", isPlayer: false };
   check("another one", cleanMemoryContent(`"Doesn't mean I should have all of them.`, her) === null);
 }
 
-/* 2. first person is rewritten rather than thrown away */
+/* 2. first person is the canonical form and passes straight through */
 {
   const out = cleanMemoryContent("Rabi joked about serenading me and I dared him to do it, while I'm terrified of telling him the truth.", her)!;
-  check("it survives", !!out, out);
-  check("no bare I remains", !/\bI\b/.test(out), out);
-  check("no bare me remains", !/\bme\b/.test(out), out);
-  check("she is named instead", /Tessa/.test(out), out);
-  check("contractions are handled", !/I'm/.test(out) && /Tessa is terrified/.test(out), out);
-  check("the other person is untouched", /Rabi joked/.test(out), out);
-
-  const my = cleanMemoryContent("Rabi told me my love needs no thanks and I felt a wave of safety.", her)!;
-  check("possessives too", !/\bmy\b/.test(my), my);
+  check("a first-person memory is left exactly as written", out === "Rabi joked about serenading me and I dared him to do it, while I'm terrified of telling him the truth.", out);
+  check("the other person stays named", /Rabi joked/.test(out), out);
 }
 
-/* 3. third person is already right and is left alone */
+/* 3. a third-person account of its own owner is converted to first person */
+{
+  const named = "Rabi spoke with pity about people who cheat, and Tessa felt the words land like a stone.";
+  const out = cleanMemoryContent(named, her)!;
+  check("her own name becomes I", /\bI felt the words land\b/.test(out), out);
+  check("and she is no longer a third party in her own memory", !/\bTessa\b/.test(out), out);
+  check("the other person is untouched", /Rabi spoke with pity/.test(out), out);
+
+  const poss = cleanMemoryContent("Rabi took Tessa's hand and Tessa's certainty went out of her all at once.", her)!;
+  check("her possessive becomes mine", /my hand/.test(poss) && !/Tessa's/.test(poss), poss);
+
+  const agree = cleanMemoryContent("Tessa is terrified of telling him the truth and has not said a word about it.", her)!;
+  check("the verb agrees after the swap", /\bI am terrified\b/.test(agree), agree);
+  check("and so does a coordinated clause that elided its subject", /\band have not said\b/.test(agree), agree);
+
+  // ...but only when the subject really was elided. These supply their own and must not be touched.
+  const own = cleanMemoryContent("Tessa told Rabi about the ledger and he has not said a word since then.", her)!;
+  check("a coordinated clause with its own subject is left alone", /\bhe has not said\b/.test(own), own);
+  const bread = cleanMemoryContent("Tessa went out to the market and the bread is stale again today.", her)!;
+  check("and so is one with a noun subject", /\bthe bread is stale\b/.test(bread), bread);
+
+  // SUBJECT OR OBJECT. "Rabi took Tessa aside" is not "Rabi took I aside".
+  const obj = cleanMemoryContent("Rabi took Tessa aside and Tessa did not know what he wanted.", her)!;
+  check("a name in object position becomes me", /\btook me aside\b/.test(obj), obj);
+  check("and the same name in subject position becomes I", /\band I did not know\b/.test(obj), obj);
+  const opener = cleanMemoryContent("He watched Tessa cross the room. Tessa did not look back at him once.", her)!;
+  check("a name opening a new sentence is a subject", /\bwatched me cross\b/.test(opener) && /\. I did not look back\b/.test(opener), opener);
+}
+
+/* 3b. A PRONOUN IS NEVER REASSIGNED. This is the whole discipline: the rule can only move a NAME,
+ *     because "she" in a third-person memory may be its owner or may be somebody else, and a rewrite
+ *     that gets it wrong is how one person's history ends up in another person's head. Left alone,
+ *     a legacy memory is merely vague; rewritten on a guess, it is false. */
 {
   const third = "She told Rabi she wouldn't punch him — she'd just sit in the apartment and wait for him to come home.";
-  check("a third-person account passes through unchanged", cleanMemoryContent(third, her) === third, cleanMemoryContent(third, her));
-  const named = "Rabi spoke with pity about people who cheat, and Tessa felt the words land like a stone.";
-  check("and so does one that names her", cleanMemoryContent(named, her) === named);
+  check("a bare-pronoun account is left exactly as it was", cleanMemoryContent(third, her) === third, cleanMemoryContent(third, her));
 }
 
 /* 4. the player's own memories keep the player's voice */

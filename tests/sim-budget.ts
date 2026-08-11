@@ -51,11 +51,19 @@ const CUT = `{"scene_summary":"She set the plate down and asked about the doorbe
   check("the elapsed time survives, so the clock still moves", salvaged?.elapsed_minutes === 5, salvaged?.elapsed_minutes);
   check("both completed memories survive", (salvaged?.memories ?? []).length === 2, salvaged?.memories?.length);
   check("so does the edge shift", (salvaged?.edges ?? [])[0]?.warmth_delta === 3, salvaged?.edges);
-  // The record straddling the cut survives with a half-written value. That is the real cost of a
-  // capped diff and the reason the turn is now marked "partial": it applied, incompletely, and used
-  // to do so in total silence.
+  // THE RECORD STRADDLING THE CUT IS DROPPED, NOT KEPT HALF-WRITTEN.
+  //
+  // The salvage used to close the open string and hand the half-sentence on as a finished value,
+  // and nothing downstream could tell, because syntactically it was perfect. A save carried four of
+  // these as characters' actual wants — "…the hollowed stone footings behind the Subura lud",
+  // "…the day's events with Rabi and the stranger have kept her aw", "Seize and drain three barrels
+  // of illicit lamp-oil stashed in the cellar beneath the Subura cook", "Force the grain dealer's
+  // carter to take back the spoiled, insect-e" — on cards, in the narrator's digest every turn, and
+  // in the world-motion feed the player reads. A missing field means "no change", which is true. A
+  // truncated field is a lie with no tell.
   const straddling = (salvaged?.facts ?? []).find((f: any) => typeof f?.value === "string" && /steadier than she$/.test(f.value));
-  check("the record straddling the cut comes through truncated — the cost of salvage", !!straddling, salvaged?.facts);
+  check("the half-written record is not kept", !straddling, salvaged?.facts);
+  check("and nothing else invented a value for it", (salvaged?.facts ?? []).every((f: any) => f?.value === undefined || /\S/.test(f.value)), salvaged?.facts);
 }
 {
   // the whole point: what was recorded is most of what the turn contained

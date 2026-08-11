@@ -14,6 +14,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
+import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback } from "../engine/authored";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
@@ -357,6 +358,33 @@ export const api = {
    *  full_content = what actually happened, so stress-recall can still reach the whole scenario);
    *  (2) clears stale threads, consequences, and the recent-history log so a loaded queue can't
    *  regenerate a runaway plot. This is the "reload a clean save of exactly where I am" refresh. */
+  /**
+   * CLEAR THE LOG — draw a line the models read from, without deleting the story.
+   *
+   * `history` is the transcript the player scrolls AND the recent-story context nearly every pass
+   * slices a tail off, so the only existing lever for cutting the context was refreshContext, which
+   * truncates history to the last beat and takes the readable story with it (and runs a memory
+   * condensation call per character on the way). This is the cheap, instant, reversible half: set a
+   * boundary, keep everything.
+   *
+   * The last beat stays on the models' side of the line on purpose — a narrator with no immediately
+   * preceding turn writes the next one blind, which is a worse problem than a long context.
+   * Nothing else is touched: memories, edges, threads, consequences, drives and the world are what
+   * they were. Pass `restore` to lift the line again.
+   */
+  clearLog: async (id: string, opts?: { restore?: boolean }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (opts?.restore) {
+      s.world.context_from_turn = undefined;
+    } else {
+      const last = s.history.at(-1)?.turn ?? s.world.current_turn;
+      s.world.context_from_turn = Math.max(1, last);
+    }
+    // the chatlog anchor was built over turns that are now on the far side of the line
+    s.context_anchor = undefined;
+    await putSave(s);
+    return clientView(s);
+  },
   refreshContext: async (id: string): Promise<ClientSave> => {
     const s = await need(id);
     const model = s.model_settings.simulator_model || s.model_settings.fallback_model; // the bookkeeper, per your choice
@@ -715,6 +743,50 @@ export const api = {
     s.updated_at = new Date().toISOString();
     await putSave(s);
     return clientView(s);
+  },
+
+  /**
+   * SETTLE A PROMISE BY HAND.
+   *
+   * The ledger is written by the bookkeeper and closed by the bookkeeper, and it does not always
+   * close. Two ways it stalls, both from one save:
+   *
+   *   t5   "Lucia will walk Rabi into the cookshop and stay as his guide in exchange for the gold."
+   *        She walked him into the cookshop on turn 6. Twenty turns later it is still open — the
+   *        deliverable was done and nobody filed it. This is a MISS, and the second half of the
+   *        sentence is why: a compound promise ("walk him in AND stay as his guide") has no single
+   *        moment that satisfies all of it, so no turn ever looks like the one that closed it.
+   *
+   *   t8   "Payment for lodgings through the Ides and past them at five asses a night."
+   *        This is not a promise, it is a standing arrangement. There is no event that can ever be
+   *        the keeping of it, so it can never leave the ledger by any automatic route at all.
+   *
+   * Either way the player is looking at a job they consider done, sitting in their journal as owed,
+   * and being fed to the bookkeeper every turn as an open commitment. So: a manual close.
+   *
+   * `kept` and `broken` go through resolvePromise, which is the same path the bookkeeper uses — the
+   * edge moves, the pattern count updates, the other person forms a memory of it. `retired` does
+   * none of that and is the one for the standing arrangement and the promise the story has simply
+   * moved past: it leaves the ledger and changes nothing between anybody. Nothing is deleted; the
+   * record keeps what was sworn and how it ended.
+   */
+  settlePromise: async (id: string, promise_id: string, outcome: "kept" | "broken" | "retired"): Promise<{ save: ClientSave; log: string }> => {
+    const s = await need(id);
+    const p = (s.world.promises ?? []).find((x) => x.id === promise_id);
+    if (!p) throw new Error("No such promise.");
+    if (p.status !== "open") throw new Error(`That promise is already ${p.status}.`);
+    let log: string;
+    if (outcome === "retired") {
+      p.status = "retired";
+      log = `Retired: "${p.text}" — closed by hand, with no consequence between anyone.`;
+    } else {
+      log = resolvePromise(s, p, outcome, s.world.current_turn) || `Marked ${outcome}: "${p.text}".`;
+    }
+    p.settled_turn = s.world.current_turn;
+    p.settled_by_hand = true;
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return { save: clientView(s), log };
   },
 
   /**

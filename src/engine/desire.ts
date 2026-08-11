@@ -27,7 +27,7 @@
  *      only with explicit cause in the prose.
  */
 import type { SaveState, Identity } from "./types";
-import { asText, asList } from "./coerce";
+import { asText, asList, orientationIsMood } from "./coerce";
 import { getEdge } from "./social";
 import { relevance } from "./memory";
 
@@ -166,7 +166,26 @@ function namedClauses(from: Identity, to: Identity): { inTaste: boolean; clauses
 export function orientationCap(from: Identity, to: Identity): number | null {
   const o = asText(from.attracted_to).toLowerCase();
   if (!o) return null;
-  if (/\b(no ?one|none|nobody)\b/.test(o)) return 0;
+  if (/\b(no ?one|none|nobody)\b/.test(o)) {
+    // "NO ONE, CURRENTLY" IS NOT AN ORIENTATION. IT IS A TUESDAY.
+    //
+    // This field means who a person CAN desire at all, and 0 here is a permanent hard cap: the seed
+    // is zero, every later reading is zero, and no amount of story moves it. The forge is asked for
+    // one of four values and answers with a state and a justification. One save's card read
+    //
+    //     attracted_to: "no one — currently too raw and survival-focused"
+    //
+    // and thirty-one turns later that character stood at warmth 86 and trust 48 toward the player,
+    // carrying the roles dependent and possessive, with attraction pinned at exactly 0 — while two
+    // people who had barely met him sat at 58 and 62. The player had spent half the game with her
+    // and asked, reasonably, how she could not be drawn to him.
+    //
+    // A qualifier that dates the statement is the tell. Someone who does not experience attraction
+    // says so without a clock on it; "currently", "for now", "still", "after what happened" all
+    // describe a person who is not available YET, which is warmth and trust and openness doing their
+    // job, not an orientation. So it stops hard-gating and lets the ordinary dynamics run.
+    return orientationIsMood(o) ? null : 0;
+  }
   if (/\b(anyone|everyone|any|all)\b/.test(o)) return null;
   const p = asText(to.pronouns).toLowerCase();
   const targetFem = /\bshe\b|\bher\b/.test(p);

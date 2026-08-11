@@ -32,6 +32,8 @@ const SCENE_LONG_MIN = 75;
 const FLAT_TURNS = 4;
 /** Pressure at or below this is "nothing arrived". */
 const FLAT_BAND = 2;
+/** Past this many minutes in one unbroken scene, it is over whatever else is true. */
+const SCENE_HARD_MIN = 4 * 60;
 
 export interface SceneRead {
   minutes: number;
@@ -41,6 +43,27 @@ export interface SceneRead {
   reason: string;
 }
 
+/**
+ * IT HAS NEVER FIRED.
+ *
+ * Four conditions, all required, and one of them cannot be met in a story that has a pressure
+ * controller in it. FLAT_TURNS asks for four consecutive turns at pressure ≤2, and the pressure
+ * system's entire job is to vary pressure. Measured over a 24-turn save, the trace runs
+ *
+ *   1 1 5 1 1 6 5 4 1 2 1 7 3 2 4 7 1 7 0 1 3 6 4 4
+ *
+ * whose longest run at or below 2 is THREE. The scene reached exactly 75 minutes on the last turn
+ * and the cut was still refused. So the only machinery the engine has for crossing dead time never
+ * ran, the player played every beat at conversational resolution, and the clock advanced 7.3 minutes
+ * a turn — which is 197 turns to get through one day. At turn 45 it was two in the afternoon.
+ *
+ * The vetoes below are right and stay. What was wrong is treating "the scene has more to give" as a
+ * fixed test: the longer one unbroken scene runs, the less any of these signals means. A scene
+ * eighty minutes old with pressure still moving genuinely has more in it. The same scene four hours
+ * later does not, whatever the trace says — nobody sits in one room through an afternoon because a
+ * thread is still warm. So the requirement relaxes with the length of the scene, and past
+ * SCENE_HARD_MIN there is no requirement left: it is over, and the narrator is told to end it.
+ */
 export function readScene(state: SaveState): SceneRead {
   const minutes = Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time));
   const trace = state.pressure_trace ?? [];
@@ -50,7 +73,14 @@ export function readScene(state: SaveState): SceneRead {
   const mk = (spent: boolean, reason: string): SceneRead => ({ minutes, flatFor, spent, reason });
 
   if (minutes < SCENE_LONG_MIN) return mk(false, "still young");
-  if (flatFor < FLAT_TURNS) return mk(false, "something is still arriving");
+
+  // Past the hard ceiling nothing gets a veto — a scene this long is finished by the clock.
+  if (minutes >= SCENE_HARD_MIN) return mk(true, "spent — four hours in one scene");
+
+  // How much quiet is required scales down as the scene ages: the full four turns at 75 minutes,
+  // two by two and a half hours, one past three.
+  const needFlat = minutes >= 3 * 60 ? 1 : minutes >= 150 ? 2 : FLAT_TURNS;
+  if (flatFor < needFlat) return mk(false, `something is still arriving (${flatFor}/${needFlat} quiet turns)`);
   // A DUE CONSEQUENCE IS THE SCENE'S REASON TO EXIST. Never cut away from one about to land.
   if ((state.world.consequences ?? []).some((c) => c.status === "pending")) return mk(false, "a consequence is pending");
   // Nobody present may be mid-pursuit. A want that has moved recently is a scene still doing work,
