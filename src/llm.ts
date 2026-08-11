@@ -441,20 +441,55 @@ export function extractJson(text: string): string {
   return t.slice(start);
 }
 
+/**
+ * CLOSING AN UNFINISHED SENTENCE MAKES IT LOOK FINISHED.
+ *
+ * The salvage used to end `if (inStr) out += '"'`, which is the right instinct and the wrong place
+ * to put the quote. A response cut off mid-string is cut off mid-WORD, and adding the closing quote
+ * turns a fragment into a field value that every consumer downstream reads as complete. From one
+ * save, all four of these are what the story actually ran on:
+ *
+ *   Tigris   want:    "…the stash of silver denarii she hid in the hollowed stone footings behind
+ *                      the Subura lud"
+ *            blocked: "…the day's events with Rabi and the stranger have kept her aw"
+ *   Marcus   want:    "Seize and drain three barrels of illicit lamp-oil stashed in the cellar
+ *                      beneath the Subura cook"
+ *   Clodia   want:    "Force the grain dealer's carter to take back the spoiled, insect-e"
+ *
+ * Those went onto cards, into the digest the narrator reads every turn, into the world-motion feed
+ * the player is shown ("Tigris works toward … behind the Subura lud (15%)"), and nothing anywhere
+ * could tell they were half a sentence, because syntactically they were perfect.
+ *
+ * The salvage is still worth doing — a diff cut three-quarters through still carries its memories,
+ * edges and facts, and that is most of a turn's bookkeeping. What it must not do is keep the one
+ * value it KNOWS is incomplete. So drop it: rewind to where the unterminated string opened, shed
+ * the key it belonged to, and close the structure without it. A missing field means "no change",
+ * which is true. A truncated field is a lie the rest of the engine cannot detect.
+ */
 export function repairJson(t: string): string {
-  let inStr = false, esc = false; const stack: string[] = [];
-  for (const ch of t) {
+  let inStr = false, esc = false, strStart = -1; const stack: string[] = [];
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
     if (esc) { esc = false; continue; }
     if (ch === "\\") { esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; continue; }
+    if (ch === '"') { if (!inStr) strStart = i; inStr = !inStr; continue; }
     if (inStr) continue;
     if (ch === "{") stack.push("}");
     else if (ch === "[") stack.push("]");
     else if (ch === "}" || ch === "]") stack.pop();
   }
-  let out = t;
-  if (inStr) out += '"';
-  out = out.replace(/,\s*$/, "");
+  // Back up over the fragment itself, then shed whatever the cut left dangling: a trailing comma,
+  // a key whose value never arrived (not valid JSON, and worth nothing without it), and an object
+  // or array element that opened and was immediately cut, which is not an element at all. Each of
+  // those can expose the next, so keep going until nothing changes.
+  let out = inStr && strStart >= 0 ? t.slice(0, strStart) : t;
+  for (;;) {
+    const before = out;
+    out = out.replace(/[\s,]+$/, "").replace(/"(?:[^"\\]|\\.)*"\s*:\s*$/, "");
+    const empty = /,\s*[{[]\s*$/.exec(out);
+    if (empty && stack.length > 1) { out = out.slice(0, empty.index); stack.pop(); }
+    if (out === before) break;
+  }
   while (stack.length) out += stack.pop();
   return out;
 }
