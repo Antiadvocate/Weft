@@ -272,16 +272,31 @@ export function intentForNarrator(intents: NpcIntent[]): string {
   return `\n\n=== WHAT PRESENT CHARACTERS LET SHOW (render as behavior; do NOT state their hidden reasons — the player reads them like anyone reads a face) ===\n${lines.join("\n")}`;
 }
 
-/** Format the intents for the BOOKKEEPER: the TRUTH. This is what it records — the lie and what
- *  it conceals, the hidden want — so memory and traits are built from what really happened, not
- *  from the deliberately-deniable prose. */
+/**
+ * Format the intents for the BOOKKEEPER: the TRUTH, and ONLY the truth.
+ *
+ * `surface` used to go too, under a header calling the whole block authoritative and telling the
+ * bookkeeper to record from it "not from the prose". Read what that combination actually says: a
+ * plan written BEFORE the scene existed outranks the scene. It does not describe a turn. It
+ * describes what each person was going to bring to one.
+ *
+ * A player handed one pair of shoes to one woman in an upstairs room. Two other characters were
+ * downstairs and the narrator said so plainly — "Tigris had not moved from her corner. Clodia's rag
+ * kept its slow circle on the counter." Their intents, drafted before any of that was written, had
+ * them each accepting a pair. The bookkeeper obeyed the header, and the turn went into the record
+ * as "Tigris and Clodia receive their own pairs with guarded reactions". Nine turns later the woman
+ * who had actually been given the shoes said, to the player's face, "I watched you give Tigris
+ * shoes" — and the player had to argue with the engine about something he had never done.
+ *
+ * The split the module was designed around is the right one and this is it enforced: `surface` is a
+ * stance for the NARRATOR to render, `truth` is inner state for the BOOKKEEPER to file. Interiority
+ * is the one thing prose genuinely hides and the one thing this pass is authoritative about.
+ * Events are the prose's job and nothing else's.
+ */
 export function intentForBookkeeper(intents: NpcIntent[]): string {
   if (!intents.length) return "";
-  const lines = intents.map((i) => {
-    const bits = [`${i.name} [${i.char_id}]`];
-    if (i.lying) bits.push(`LIED. Surface: "${i.surface}". TRUTH concealed: ${i.truth}`);
-    else bits.push(`showed: "${i.surface}"; true state: ${i.truth}`);
-    return `- ${bits.join(" — ")}`;
-  });
-  return `\n\n=== GROUND TRUTH OF PRESENT CHARACTERS THIS TURN (authoritative — record memories/facts/traits from THIS, not from the prose, which deliberately hides it; e.g. a lie becomes a memory "lied to the player about X" for the liar, and may build a deceit trait) ===\n${lines.join("\n")}`;
+  const lines = intents.map((i) =>
+    `- ${i.name} [${i.char_id}] — ${i.lying ? `WAS CONCEALING SOMETHING. What they hid: ${i.truth}` : `true inner state: ${i.truth}`}`);
+  return `\n\n=== WHAT PRESENT CHARACTERS WERE ACTUALLY FEELING THIS TURN (authoritative for INNER STATE ONLY — the prose deliberately hides it, so take mood, hidden wants, and "lied to the player about X" from here) ===\n${lines.join("\n")}\n`
+    + `THIS IS NOT A RECORD OF WHAT HAPPENED. It was written BEFORE the scene was, and it says what each person carried into the beat, not what they did in it. EVENTS — who spoke, who was in the room, who was handed what, who went where, what anyone learned — come from the NARRATOR PROSE and from nowhere else. If something above is not in the prose, it did not happen: keep it out of scene_summary, do not write it as a memory, and do not let anyone come to know it.`;
 }
