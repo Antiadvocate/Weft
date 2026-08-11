@@ -10,6 +10,7 @@
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
+import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
@@ -659,7 +660,7 @@ export function repairStrandedCast(state: SaveState, window = 8): string[] {
   const fixed: string[] = [];
   const ploc = state.world.player_location;
   if (!ploc) return fixed;
-  const recent = state.history.slice(-window);
+  const recent = contextHistory(state).slice(-window);
   if (recent.length < 2) return fixed;                       // too little record to judge on
   const blob = recent.map((h) => `${h.player_action ?? ""} ${h.narrator_prose ?? ""}`).join(" ").toLowerCase();
 
@@ -792,7 +793,7 @@ export function updatePaging(state: SaveState, action: string): void {
   if (state.model_settings.paging === false) return;
   const AWAY_TURNS = 12, BOND_FLOOR = 25;   // floor is on bondStrength's scale (~0.75·warmth + 0.25·trust), not the old |w|+|t| sum
   const turn = state.world.current_turn;
-  const recentText = (state.history.slice(-3).map((h) => h.narrator_prose).join(" ") + " " + action).toLowerCase();
+  const recentText = (contextHistory(state).slice(-3).map((h) => h.narrator_prose).join(" ") + " " + action).toLowerCase();
   const lastSeen = new Map<string, number>();
   for (const t of state.telemetry) for (const pid of t.present) lastSeen.set(pid, t.turn);
   for (const [id, c] of Object.entries(state.characters)) {
@@ -861,7 +862,7 @@ export function gcPlaces(state: SaveState, cap = PLACE_CAP): void {
   if (ids.length <= cap) return;
   const used = new Set<string>([state.world.player_location]);
   for (const c of Object.values(state.characters)) if (c.location) used.add(c.location);
-  const recentText = state.history.slice(-8).map((h) => `${h.narrator_prose} ${h.summary}`).join(" ").toLowerCase();
+  const recentText = contextHistory(state).slice(-8).map((h) => `${h.narrator_prose} ${h.summary}`).join(" ").toLowerCase();
   const bornAt = (id: string): number => {
     const m = /^loc_([0-9a-z]+)/.exec(id);
     if (!m) return 0;
@@ -1502,7 +1503,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const habitShifts: string[] = [];
   if (state.model_settings.habit_engine) {
     const presentForHabits = state.world.present.filter((pid) => pid !== "char_player");
-    const beatText = `${action} ${state.history.slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
+    const beatText = `${action} ${contextHistory(state).slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
     const hb = tickHabits(state, presentForHabits, beatText, verdict.pressure ?? 3);
     habitVerdict = habitVerdicts(hb.fires, state);
     for (const s of hb.shifts) habitShifts.push(s);
@@ -1528,8 +1529,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
   // behavior — that emerges from each character's relaxation state via the perception gate.
   const recentText = [
-    ...state.history.slice(-3).map((h) => h.narrator_prose ?? ""),
-    state.history.slice(-1)[0]?.player_action ?? "",
+    ...contextHistory(state).slice(-3).map((h) => h.narrator_prose ?? ""),
+    contextHistory(state).slice(-1)[0]?.player_action ?? "",
   ].join(" ");
   // Prose adjectives miss the player who quietly beat the same threat three times in plain
   // language; the discharge record doesn't.
@@ -1722,7 +1723,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const playerName = (state.characters["char_player"]?.name ?? "").toLowerCase();
     const fearIsThePlayer = playerName.length >= 3 && fear.includes(playerName);
     if (lethalWorld && !fearIsThePlayer && (state.model_settings.tension ?? 5) >= 3) {
-      const recentProse = state.history.slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+      const recentProse = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
       if (!threatWords.test(recentProse)) {
         pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them. Use ONLY the danger named above — never invent a new kind of creature to stand in for it.` });
@@ -1774,7 +1775,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // narrator beats are saturated with verge-markers and NOBODY lands anything. When that holds and
   // the player is NOT passive (they're the ones demanding motion), force the decision to land now.
   const VERGE = /\b(swallow(?:ed|s|ing)?|stopped\.|(?:she|he|they) stopped|trail(?:ed|ing)? off|didn'?t finish|opened.{0,8}closed|mouth (?:opened|worked|closed)|couldn'?t (?:speak|answer|say)|the words (?:hung|wouldn'?t|caught|died)|on the verge|voice cracked|not yet\.|almost said)\b/i;
-  const recentProse = state.history.slice(-4).filter((h) => h.narrator_prose).map((h) => h.narrator_prose as string);
+  const recentProse = contextHistory(state).slice(-4).filter((h) => h.narrator_prose).map((h) => h.narrator_prose as string);
   const vergeTurns = recentProse.filter((p) => VERGE.test(p)).length;
   // dithering = 3+ of the last 4 narrator beats are verge-saturated, the player is actively pushing
   // (not passive), and this isn't a deliberately quiet restoration scene.
@@ -2869,7 +2870,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // model tends to re-narrate the same standing activity every turn ("Sarn continues her sweep..."),
   // which reads as the world stuck in a loop. Compare against the last few turns' offscreen lines and
   // keep only genuinely new motion.
-  const recentOffscreen = state.history.slice(-4).flatMap((h) => h.offscreen ?? []);
+  const recentOffscreen = contextHistory(state).slice(-4).flatMap((h) => h.offscreen ?? []);
   // HOW MUCH TIME THIS TURN TOOK, hoisted above the world-motion block. The clock itself is not
   // advanced until later (the offstage passes deliberately run against the time the scene happened
   // at), but anything here that moves with time rather than with turns needs the number now.

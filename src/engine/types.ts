@@ -595,6 +595,10 @@ export interface WorldState {
   canon_meta?: Record<string, { turn: number; witnesses: string[] }>; // keyed by lowercase canon text — who was present when the fact entered the world, and when. Fresh + unwitnessed = a character does NOT know it yet. Evicted canon folds into the bible instead of vanishing.
   current_turn: number;
   current_time: string;        // "Day 2, 14:30"
+  /** Turns before this one are still in `history` — on the page, in the export, in the chapter
+   *  record — but are no longer fed to any model. Set by "Clear the log"; 0/undefined = no line
+   *  drawn. See engine/context.ts. */
+  context_from_turn?: number;
   scene_started_time?: string; // when the current scene began (same format) — resets on location change or a ≥2h jump; the digest prints scene elapsed so timed world laws can be judged
   weather: string;
   player_location: string;

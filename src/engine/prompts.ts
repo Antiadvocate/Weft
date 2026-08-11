@@ -12,6 +12,7 @@
  *     can see, not just how they feel.
  */
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
+import { contextHistory } from "./context";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue } from "./desire";
 import { bodySeverity } from "./body";
@@ -686,7 +687,7 @@ export function deltaNote(state: SaveState, query: string): string {
       if (recalls) lines.push(`  ${recalls}`);
     }
   }
-  const shifts = state.history.at(-1)?.shifts;
+  const shifts = contextHistory(state).at(-1)?.shifts;
   if (shifts?.length) lines.push(`Shifts last turn: ${shifts.slice(0, 5).join(" | ")}`);
   return lines.join("\n");
 }
@@ -735,7 +736,7 @@ export function simulatorContext(state: SaveState): string {
   // Places ranked by relevance, not raw recency — the player's location, present characters'
   // locations, and anything named in the last two turns of prose always survive the cap, so
   // "reuse exact names" keeps working deep into a long save instead of silently spawning duplicates.
-  const recentProse = state.history.slice(-2).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
+  const recentProse = contextHistory(state).slice(-2).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
   const allPlaces = Object.values(state.world.places);
   const hot = new Set<string>([state.world.player_location, ...Object.values(state.characters).filter((c) => c.status !== "dead" && c.location).map((c) => c.location!)]);
   const scoreP = (pl: { id: string; name: string }, idx: number): number =>
@@ -812,7 +813,7 @@ export function simulatorContext(state: SaveState): string {
   if (rumors.length) parts.push(`LIVE RUMORS (don't re-add): ${rumors.map((r) => `"${r.content.slice(0, 70)}"`).join("; ")}`);
   if (state.world.focus) parts.push(`FOCUS ${state.world.focus.mode.toUpperCase()}: ${state.world.focus.label}`);
   parts.push(`TENSION DIAL: ${state.model_settings.tension ?? 5}/10`);
-  const recent = state.history.slice(-2).map((h) => `T${h.turn}: ${h.player_action.slice(0, 90)} → ${h.summary.slice(0, 110)}`).join("\n");
+  const recent = contextHistory(state).slice(-2).map((h) => `T${h.turn}: ${h.player_action.slice(0, 90)} → ${h.summary.slice(0, 110)}`).join("\n");
   parts.push(`NOW: turn ${state.world.current_turn}, ${state.world.current_time}, weather ${state.world.weather || "—"}, player @${state.world.places[state.world.player_location]?.name ?? "?"}${recent ? `\nLAST TURNS:\n${recent}` : ""}`);
   return parts.join("\n\n");
 }
@@ -1510,7 +1511,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
 
   const loc = state.world.places[state.world.player_location];
   const placeName = (id?: string) => (id && state.world.places[id]?.name) || "elsewhere";
-  const recent = state.history.slice(-state.model_settings.history_window);
+  const recent = contextHistory(state).slice(-state.model_settings.history_window);
   const lastProse = [...state.history].reverse().find((h) => h.narrator_prose && h.kind !== "opening");
   const threads = state.world.threads.filter((t) => t.status === "active");
   const clocks = state.world.clocks.filter((c) => c.status === "running");

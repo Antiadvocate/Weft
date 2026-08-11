@@ -27,6 +27,7 @@
  *  what occurred; the prose is full of interpretation, and replaying interpretation as agreed fact
  *  would install the very thing this exists to catch. */
 import type { SaveState } from "./types";
+import { contextHistory } from "./context";
 
 /** How many recent turns of shared record to carry. Enough to cover an argument about something that
  *  happened earlier in the same scene, which is the case this exists for. */
@@ -39,7 +40,7 @@ export function witnessRecord(state: SaveState, presentIds: string[]): string {
 
   const name = (id: string) => state.characters[id]?.name?.split(/\s+/)[0] ?? id;
   const rows: string[] = [];
-  for (const h of state.history.slice(-WITNESS_TURNS)) {
+  for (const h of contextHistory(state).slice(-WITNESS_TURNS)) {
     if (!h.summary?.trim()) continue;
     // who, of the people standing here NOW, was also there THEN
     const saw = others.filter((id) => (h.present ?? []).includes(id));

@@ -357,6 +357,33 @@ export const api = {
    *  full_content = what actually happened, so stress-recall can still reach the whole scenario);
    *  (2) clears stale threads, consequences, and the recent-history log so a loaded queue can't
    *  regenerate a runaway plot. This is the "reload a clean save of exactly where I am" refresh. */
+  /**
+   * CLEAR THE LOG — draw a line the models read from, without deleting the story.
+   *
+   * `history` is the transcript the player scrolls AND the recent-story context nearly every pass
+   * slices a tail off, so the only existing lever for cutting the context was refreshContext, which
+   * truncates history to the last beat and takes the readable story with it (and runs a memory
+   * condensation call per character on the way). This is the cheap, instant, reversible half: set a
+   * boundary, keep everything.
+   *
+   * The last beat stays on the models' side of the line on purpose — a narrator with no immediately
+   * preceding turn writes the next one blind, which is a worse problem than a long context.
+   * Nothing else is touched: memories, edges, threads, consequences, drives and the world are what
+   * they were. Pass `restore` to lift the line again.
+   */
+  clearLog: async (id: string, opts?: { restore?: boolean }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (opts?.restore) {
+      s.world.context_from_turn = undefined;
+    } else {
+      const last = s.history.at(-1)?.turn ?? s.world.current_turn;
+      s.world.context_from_turn = Math.max(1, last);
+    }
+    // the chatlog anchor was built over turns that are now on the far side of the line
+    s.context_anchor = undefined;
+    await putSave(s);
+    return clientView(s);
+  },
   refreshContext: async (id: string): Promise<ClientSave> => {
     const s = await need(id);
     const model = s.model_settings.simulator_model || s.model_settings.fallback_model; // the bookkeeper, per your choice

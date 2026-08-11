@@ -20,6 +20,7 @@
 // no call → zero added cost.
 
 import type { SaveState } from "./types";
+import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
@@ -85,7 +86,7 @@ Rules:
 /** What was written for this character on the last few beats, newest last. */
 export function priorIntents(state: SaveState, id: string, n = 4): string[] {
   const out: string[] = [];
-  for (const h of state.history.slice(-n)) {
+  for (const h of contextHistory(state).slice(-n)) {
     const hit = (h.gm_intents ?? []).find((g) => g.char_id === id);
     if (hit?.truth) out.push(hit.truth);
   }
