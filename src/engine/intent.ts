@@ -23,6 +23,7 @@ import type { SaveState } from "./types";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
+import { playerSaysAnswered } from "./turn";
 
 export interface NpcIntent {
   char_id: string;
@@ -119,7 +120,13 @@ function priorIntentBlock(state: SaveState, id: string): string {
   const prior = priorIntents(state, id);
   if (!prior.length) return "";
   const lines = prior.map((p, i) => `  [${prior.length - i} beats ago] ${p}`).join("\n");
-  const stuck = prior.length >= 2 && repeatedIntent(prior);
+  // A LOOP DOES NOT HAVE TO BE CONSECUTIVE. The check compared the newest intent to the one
+  // immediately before it, so a want that came back every other beat never registered as a repeat:
+  // ask, get an answer, be pleased for a beat, ask again. Six turns of one woman asking one
+  // question read, pairwise, as six different beats. Compare the newest against everything still
+  // in the window instead — if the character is where they were three beats ago, they are circling.
+  const latest = prior[prior.length - 1];
+  const stuck = prior.length >= 2 && prior.slice(0, -1).some((p) => repeatedIntent([p, latest]));
   return `INTENTS YOU ALREADY WROTE FOR THIS CHARACTER (do not restate any of them):\n${lines}`
     + (stuck
       ? `\nTHIS HAS NOW REPEATED. The scene is stalled and this pass is what is holding it still. This beat the character MOVES: they say the thing outright in plain words, or they act on it instead of waiting, or they want something else, or they drop it. They do not test the same question again, and they do not rephrase it.`
@@ -221,6 +228,15 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",
       `WHY THEY HAVE STAKES THIS BEAT: ${reason}`,
       priorIntentBlock(state, id),
+      // THE LOOP THIS PASS CANNOT SEE FROM INSIDE ONE CALL. priorIntentBlock catches a want that
+      // repeats in the same WORDS; it cannot catch six rewordings of one question, each derived
+      // independently from a state that has not moved. The player can see all six, and when they
+      // say so — "I already answered you", "I'm tired of repeating myself" — that is a direct
+      // report on this pass's output, from the only participant with the whole sequence in front of
+      // them. It is worth more than anything in the state, because the state is what is wrong.
+      playerSaysAnswered(playerAction)
+        ? `THE PLAYER HAS JUST SAID THEY ALREADY ANSWERED THIS AND ARE TIRED OF REPEATING IT. They are right; take it as fact. Whatever this character has been waiting to hear, they have heard it — several beats ago. Do NOT write them still wanting it, still unsure of it, still working out how to get it out of the player, or hurt that it took this long. Write what a person does AFTER they get the answer: they take it and act on it, or they decide plainly that they do not believe it and act on THAT, or they want something else now. The subject is closed and their attention is somewhere new by the end of this beat.`
+        : "",
       `WHAT THE PLAYER AUDIBLY SAID / VISIBLY DID: ${perceptibleAction}`,
     ].filter(Boolean).join("\n");
 

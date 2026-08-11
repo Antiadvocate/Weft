@@ -965,6 +965,51 @@ export function nagDirective(names: string[]): string {
       + `\nAND IF THE PLAYER GIVES IT, THEY HAVE GIVEN IT. The goalpost does not move on delivery. A character who asked for something specific and then receives it may absolutely be hurt by HOW it came — offhand, late, walking away, in front of others — and may say so, once. What they may not do is treat the manner as a reason the thing was never given, keep the want open, and go on being owed it. That exchange has happened in this story and it is the single most maddening thing a written person can do: it makes the player unable to succeed by any action available to them, because the condition for success is revealed only after they have failed it. If the want is genuinely still open after this turn, something CONCRETE must still be missing and you must be able to name it in one clause. "It wasn't said the right way" is not a concrete thing missing. Take the yes.`
 }
 
+/**
+ * THE PLAYER SAYING "I ALREADY TOLD YOU" IS THE END OF THE SUBJECT.
+ *
+ * nagDirective above fires off a character's own drive going stale, which catches the loop that
+ * runs through a drive. It cannot see the other one. A woman asked what secret the player had told
+ * a gladiator; he answered it; and she asked again on the next turn, and the next, and the next,
+ * and the next, and the next — six beats, six rewordings, because each turn the intent pass
+ * independently re-derived the same want from the same unchanged state while her drive kept being
+ * refreshed onto something else entirely. The player answered every time. By turn 19 he was typing
+ * "I already answered you earlier I believe?", by 22 "it's becoming hard for me to constantly
+ * repeat myself", by 23 "I was getting very exhausted saying the same thing over and over and
+ * over". The engine had no reading for any of that: it is not an action, so nothing consumed it.
+ *
+ * It is the clearest signal in the game and it comes from the only participant who can see the
+ * whole loop. A player who says this has told the engine, in words, that a want it believes is open
+ * was satisfied several turns ago. Treat it as authoritative, because it is: no character in the
+ * scene has better information about whether the player has answered than the player does.
+ */
+const ALREADY_ANSWERED = new RegExp([
+  // "I said" on its own is the most ordinary phrase in the game — "I said nothing and kept
+  // walking" — so the report of a PRIOR telling has to be marked as one: by the perfect tense, by
+  // "already"/"just", or by a plain "already/before/twice" trailing the clause.
+  `\\bi(?:'ve| have) (?:already |just )?(?:told|answered|said|explained)\\b`,
+  `\\bi (?:already|just) (?:told|answered|said|explained)\\b`,
+  `\\bi (?:told|answered|explained)\\b[^.!?]{0,40}\\b(?:already|before|twice|again)\\b`,
+  `\\bi(?:'m| am) (?:tired|sick|exhausted|weary) of (?:telling|saying|repeating|explaining|having to)`,
+  `\\brepeat(?:ing)? myself\\b`,
+  `\\b(?:the )?same (?:thing|answer|question|story)\\b[^.!?]{0,30}\\b(?:over and over|again and again|every turn|three times|twice)\\b`,
+  `\\bover and over(?: and over)?\\b`,
+  `\\b(?:stop|quit) asking\\b`,
+  `\\basked and answered\\b`,
+  `\\bhow many times\\b`,
+  `\\bfor the (?:third|fourth|fifth|last) time\\b`,
+].join("|"), "i");
+
+/** Did the player just say, in whatever words, that they have already answered this? */
+export function playerSaysAnswered(action: string): boolean {
+  return ALREADY_ANSWERED.test(String(action ?? ""));
+}
+
+export function answeredDirective(action: string): string {
+  if (!playerSaysAnswered(action)) return "";
+  return `\nTHE PLAYER HAS SAID THEY ALREADY ANSWERED THIS. That is not a mood to be written around, an accusation to be met, or a line for someone to be wounded by — it is the end of the subject, and it is the player telling you something about the story you cannot see from inside this turn. Whatever has been pressed for, the answer they gave IS the answer. NOBODY ASKS IT AGAIN THIS TURN: not rephrased, not narrowed, not "I only wanted to hear it in your own words", not one last check to be sure, not a different character picking it up. A character who is unsatisfied may say so ONCE, in one line, and is then done with it — they believe it, or they decide not to and act on that, and either way they want something else by the end of the scene. The turn is about the next thing.`;
+}
+
 /** Default in-world minutes to cross from one named place to another when the world records no
  *  distance for the pair, nothing connects their names, and the player has never walked it. A day:
  *  far too long for a walk across a town, far too short to matter for a genuine journey, which is
@@ -1540,7 +1585,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const nagging = presentNpcs
     .map((id) => ({ id, c: state.characters[id] }))
     .filter(({ c }) => c.drive?.goal && (state.world.current_turn - (c.drive.progress_turn ?? state.world.current_turn)) >= 2 && (c.drive.progress ?? 0) < 100);
-  const nagNote = nagDirective(nagging.map((n) => n.c.name));
+  const nagNote = nagDirective(nagging.map((n) => n.c.name))
+    // The player's own word that they have already answered, which outranks any of the above: it
+    // closes a loop the engine cannot see because the loop does not live in anybody's drive.
+    + answeredDirective(action);
 
   if (drivers.length) {
     const lead = drivers[0];
