@@ -64,19 +64,23 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
               : p.status}
           </div>
         </div>
+        {/* REAL BUTTONS. The first version of this row was 9.5px text at 60% opacity with no border
+            and no background, and it was reported as not being there at all — which is the same
+            failure .btn-sm was added to fix ("a row of buttons rendered as a row of plain text").
+            These are the point of the screen; they get to look like something you can press. */}
         {p.status === "open" && (
-          <div className="flex items-center gap-3 mt-0.5">
-            {([["kept", "It was done — the relationship moves and they remember"],
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {([["kept", "It was done — the relationship moves and they remember it"],
                ["broken", "It was not done — the relationship takes the cost"],
-               ["retired", "Close it with no consequence to anyone"]] as const).map(([o, title]) => (
-              <button key={o} disabled={busy === p.id}
-                className="font-mono text-[9.5px] opacity-60 hover:opacity-100 disabled:opacity-30"
-                style={{ color: o === "kept" ? "var(--good, #6b9e78)" : o === "broken" ? "var(--bad, #b56c6c)" : "var(--text-lo)" }}
-                title={title}
+               ["retired", "Take it off the ledger with no consequence to anyone"]] as const).map(([o, title]) => (
+              <button key={o} disabled={busy === p.id} className="btn-sm" title={title}
+                style={o === "kept" ? { borderColor: "var(--good, #6b9e78)", color: "var(--good, #6b9e78)" }
+                     : o === "broken" ? { borderColor: "var(--bad, #b56c6c)", color: "var(--bad, #b56c6c)" }
+                     : { borderColor: "var(--line)", color: "var(--text-mid)" }}
                 onClick={() => settle(p.id, o, p.text)}
               >{o}</button>
             ))}
-            {stale && <span className="text-[9.5px]" style={{ color: "var(--text-lo)" }}>— open since turn {p.made_turn}</span>}
+            {stale && <span className="text-[10px] ml-0.5" style={{ color: "var(--text-lo)" }}>open since turn {p.made_turn}</span>}
           </div>
         )}
         {p.status !== "open" && p.settled_by_hand && (
