@@ -76,7 +76,7 @@ const TURN_11: NpcIntent[] = [
   const b = intentForBookkeeper(TURN_11);
   check("it is scoped to inner state", /INNER STATE ONLY/.test(b), b);
   check("it says outright that this is not what happened", /NOT A RECORD OF WHAT HAPPENED/.test(b), b);
-  check("events are sent back to the prose", /come from the NARRATOR PROSE and from nowhere else/.test(b), b);
+  check("events are sent back to the prose", /from the NARRATOR PROSE only/.test(b), b);
   check("and the summary is named, since that is where it landed", /scene_summary/.test(b), b);
   check("the old instruction to prefer this over the prose is gone",
     !/not from the prose/i.test(b) && !/record memories\/facts\/traits from THIS/i.test(b), b);

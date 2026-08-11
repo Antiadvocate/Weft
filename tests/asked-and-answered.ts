@@ -75,9 +75,12 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const d = answeredDirective("I already answered you earlier I believe?");
   check("the directive fires", d.length > 0);
-  check("and it closes the subject rather than softening it", /NOBODY ASKS IT AGAIN THIS TURN/.test(d), d);
+  check("and it closes the subject rather than softening it", /asks the question again this turn/i.test(d), d);
   check("it bars the reword, which is the form it always takes", /rephrased/.test(d), d);
-  check("and it bars handing the question to somebody else", /different character picking it up/.test(d), d);
+  check("and it bars handing the question to somebody else", /different character to ask/i.test(d), d);
+  // The directive is deliberately written flat. An instruction phrased as an epigram teaches the
+  // narrator an epigram, and the prose comes back sounding like the rules document.
+  check("and it is not itself written as an aphorism", !/^.*\b(is the end of|is not a|the turn is about)\b/i.test(d.replace(/\n/g, " ")), d);
   check("an ordinary turn gets nothing", answeredDirective("I follow her down the stairs") === "");
 }
 

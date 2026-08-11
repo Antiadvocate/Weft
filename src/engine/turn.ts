@@ -1033,7 +1033,9 @@ export function playerSaysAnswered(action: string): boolean {
 
 export function answeredDirective(action: string): string {
   if (!playerSaysAnswered(action)) return "";
-  return `\nTHE PLAYER HAS SAID THEY ALREADY ANSWERED THIS. That is not a mood to be written around, an accusation to be met, or a line for someone to be wounded by — it is the end of the subject, and it is the player telling you something about the story you cannot see from inside this turn. Whatever has been pressed for, the answer they gave IS the answer. NOBODY ASKS IT AGAIN THIS TURN: not rephrased, not narrowed, not "I only wanted to hear it in your own words", not one last check to be sure, not a different character picking it up. A character who is unsatisfied may say so ONCE, in one line, and is then done with it — they believe it, or they decide not to and act on that, and either way they want something else by the end of the scene. The turn is about the next thing.`;
+  // Written flat on purpose. A directive in an epigram teaches the narrator an epigram: the
+  // instruction files are full of balanced formulations, and the prose comes back full of them too.
+  return `\nTHE PLAYER HAS SAID THEY ALREADY ANSWERED THIS. Treat the answer they gave as the answer. No character asks the question again this turn, in any form: not rephrased, not narrowed, not as a request to hear it again in their own words, and not passed to a different character to ask. A character who is unsatisfied may say so once, briefly, and then stops raising it. By the end of the scene they want something else.`;
 }
 
 /** Default in-world minutes to cross from one named place to another when the world records no
