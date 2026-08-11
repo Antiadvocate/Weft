@@ -5,7 +5,7 @@ import { ensureHabits } from "./habits";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum, detectWorldPronoun, tidyPhrase } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns } from "./coerce";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
 const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
@@ -401,6 +401,14 @@ export function sanitize(state: SaveState): SaveState {
           if (m.source === "witnessed" && offstage.has(m.content)) m.source = "offstage";
         }
       }
+    }
+    // NOBODY GOES WITHOUT A PRONOUN SET. The forge is asked for one and sometimes does not give it,
+    // and every pass that writes a permanent record reads the roster where it is printed. Backfilled
+    // from what the character's own background and appearance already say about them; left unset
+    // when that text does not clearly lean one way. See coerce.inferPronouns.
+    if (!state.characters[id].pronouns) {
+      const guess = inferPronouns(`${state.characters[id].background ?? ""} ${state.characters[id].appearance_facts ?? ""}`);
+      if (guess) state.characters[id].pronouns = guess;
     }
     // A MEMORY IS WRITTEN IN THE FIRST PERSON NOW — see cleanMemoryContent rule 4. Saves written
     // before that hold third-person accounts of their own owner, and a bank with both in it is

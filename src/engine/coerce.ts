@@ -159,6 +159,33 @@ export function deLoop(text: string): string {
 
 /** Cut to a length at a sentence or word boundary. A hard slice left one save's want-approach ending
  *  "a favour that requires" — the field has a ceiling, which should not read as a lost thought. */
+/**
+ * THE PRONOUNS THE RECORD ALREADY IMPLIES.
+ *
+ * The forge is asked for a pronoun set per character and the schema says gender must never be
+ * ambiguous, and models still leave it off: one save reached turn 31 with every single NPC carrying
+ * `pronouns: undefined` while their own backgrounds said "the daughter of a freedman farmer",
+ * "leaving her a widow", "a Campanian farmer's son". Nothing backfilled it, so the roster the
+ * bookkeeper reads printed no gender for anybody and it guessed — which is how a he/him player got
+ * recorded as the woman who bought a slave.
+ *
+ * This does not guess. It reads what the character's OWN record already says about them and adopts
+ * it, and only when one set is overwhelming — a background that leans both ways is left blank
+ * rather than decided by a coin toss, because a wrong set asserted confidently is worse than none.
+ */
+export function inferPronouns(text: string): string | undefined {
+  const blob = String(text ?? "");
+  if (blob.length < 20) return undefined;
+  const fem = (blob.match(/\b(she|her|hers|herself)\b/gi) ?? []).length;
+  const masc = (blob.match(/\b(he|him|his|himself)\b/gi) ?? []).length;
+  const they = (blob.match(/\b(they|them|their|themselves)\b/gi) ?? []).length;
+  const top = Math.max(fem, masc, they);
+  if (top < 3) return undefined;                       // too little evidence to call
+  const rest = fem + masc + they - top;
+  if (top < rest * 2) return undefined;                // not overwhelming — leave it unset
+  return top === fem ? "she/her" : top === masc ? "he/him" : "they/them";
+}
+
 export function tidyPhrase(text: unknown, max = 140): string {
   const t = deLoop(asText(text));
   if (t.length <= max) return t;

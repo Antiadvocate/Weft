@@ -622,7 +622,24 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
   // core memory always counts; so does an importance>=6 beat carrying real emotional charge, or any
   // importance>=7. This keeps trivia out while catching the beats that actually reshape a person.
   const charged = (m: EpisodicMemory) => !!(m.emotional_charge && m.emotional_charge.trim() && !/none|neutral|calm/i.test(m.emotional_charge));
-  const defining = mem.episodic.filter((m) => !m.folded && (m.importance >= 7 || (m.importance >= 6 && charged(m))));
+  // WHAT SOMEBODY ELSE DID IS NOT A CHAPTER OF YOUR LIFE.
+  //
+  // This filtered on importance alone, and the offstage pass files its witness memories at
+  // importance 7 — the raw event text, verbatim, written in the third person about whoever acted.
+  // So every errand a character merely heard about was folded into their life_history, which is the
+  // document that tells the narrator who they ARE and is read on every turn. From one save, this is
+  // the whole of a baker's recorded life:
+  //
+  //   "The stranger asked Marcus about buying slaves, and Sabina felt a cold weight settle...
+  //    Tigellinus sends a boy down toward the Subura with a folded note for the freedman who bought
+  //    the Sosii dealing-house's back-room papers... Marcus catches the landlord's man crossing the
+  //    corner and puts a free cup in front of him..."
+  //
+  // Two thirds of it is other people's afternoons, and the identical text sat in Tigellinus's record
+  // too. A character built from that cannot be played as anyone. The memory stays where it belongs —
+  // she heard it, she can act on it — it simply is not part of who she is.
+  const defining = mem.episodic.filter((m) =>
+    !m.folded && m.source !== "offstage" && (m.importance >= 7 || (m.importance >= 6 && charged(m))));
   if (!defining.length) return log;
   const facts = defining
     .slice()
@@ -631,7 +648,11 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
     .filter((c) => c && !asText(ident.life_history, " ").includes(c) && !asText(ident.background, " ").includes(c));
   if (facts.length) {
     // fold into the ACCRETED layer, never the bedrock forge background
-    ident.life_history = `${ident.life_history ?? ""} ${facts.join(" ")}`.trim();
+    // Each moment ends in a stop before the next begins. Joined on a bare space, two entries ran
+    // together mid-sentence — "…off the Argiletum Before the market crowd thickens…" — which reads
+    // as one garbled clause rather than two things that happened.
+    const ended = facts.map((f) => (/[.!?]["'’”]?$/.test(f) ? f : `${f}.`));
+    ident.life_history = `${ident.life_history ?? ""} ${ended.join(" ")}`.trim();
     // deterministic light trim: keep the most recent ~1100 chars on a sentence boundary
     const SOFT = 1100;
     if (ident.life_history.length > SOFT) {
