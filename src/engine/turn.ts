@@ -1119,7 +1119,25 @@ function emptyDiff(): SimulatorDiff {
   };
 }
 
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel.]`;
+/**
+ * WHO "I" AND "YOU" POINT AT INSIDE THE PLAYER'S SPEECH.
+ *
+ * The channel note below is thorough about WHICH channel a span belongs to and says nothing about
+ * whose mouth its pronouns are anchored in. A player typed, aloud, that he was not a fan of the dish
+ * himself but thought his companion would enjoy it since she had never had it — and she answered
+ * that he kept saying HE had never had it, and then pushed it away. The referents were swapped, and
+ * the character spent her turn arguing with a line nobody spoke and catching the player in a
+ * contradiction he had not made.
+ *
+ * It is not a hard inference; nothing had ever stated it. Every pass that reads the player's raw
+ * input needs it, and the intent pass most of all, because it runs on the cheap model and its output
+ * is the stance the narrator then plays.
+ */
+export function deixisNote(addressee?: string): string {
+  return `Pronouns inside anything the player says in quotes are anchored to the player: I, me, my, mine and myself are the PLAYER; you and your are the person the player is SPEAKING TO${addressee ? `, which in this beat is ${addressee}` : ""}, never the player themselves. Resolve them that way before anyone reacts. Answering as though the player said about themselves what they actually said about the listener puts a line in their mouth they did not speak.`;
+}
+
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel. ${deixisNote()}]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
@@ -1127,7 +1145,7 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
   // narrator which parts of a single message were audible.
   do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I keep reading because I feel ignored"), that feeling is PRIVATE. Use it to shape what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
-  say: (a) => `The player speaks aloud, in their own voice: "${a}"`,
+  say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
 };
@@ -2350,7 +2368,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // thoughts, feelings, and (parenthetical) inner state — is the AUTHORITATIVE signal for the
   // player's own valence, truer than anything inferable from the deliberately-opaque prose. The
   // narrator hides it; the bookkeeper must consume it directly.
-  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the truest evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
+  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. ${deixisNote()} For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the truest evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),

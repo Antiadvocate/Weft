@@ -23,7 +23,7 @@ import type { SaveState } from "./types";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
-import { playerSaysAnswered } from "./turn";
+import { playerSaysAnswered, deixisNote } from "./turn";
 
 export interface NpcIntent {
   char_id: string;
@@ -237,6 +237,10 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       playerSaysAnswered(playerAction)
         ? `THE PLAYER HAS JUST SAID THEY ALREADY ANSWERED THIS AND ARE TIRED OF REPEATING IT. They are right; take it as fact. Whatever this character has been waiting to hear, they have heard it — several beats ago. Do NOT write them still wanting it, still unsure of it, still working out how to get it out of the player, or hurt that it took this long. Write what a person does AFTER they get the answer: they take it and act on it, or they decide plainly that they do not believe it and act on THAT, or they want something else now. The subject is closed and their attention is somewhere new by the end of this beat.`
         : "",
+      // This pass gets the player's raw words with the quotes intact and has to decide what they
+      // meant before it writes the stance the narrator then plays. It is also the only pass that
+      // knows which character is being addressed, so it can be told outright.
+      deixisNote(c.name),
       `WHAT THE PLAYER AUDIBLY SAID / VISIBLY DID: ${perceptibleAction}`,
     ].filter(Boolean).join("\n");
 
