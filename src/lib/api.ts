@@ -14,6 +14,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
+import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback } from "../engine/authored";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
@@ -742,6 +743,50 @@ export const api = {
     s.updated_at = new Date().toISOString();
     await putSave(s);
     return clientView(s);
+  },
+
+  /**
+   * SETTLE A PROMISE BY HAND.
+   *
+   * The ledger is written by the bookkeeper and closed by the bookkeeper, and it does not always
+   * close. Two ways it stalls, both from one save:
+   *
+   *   t5   "Lucia will walk Rabi into the cookshop and stay as his guide in exchange for the gold."
+   *        She walked him into the cookshop on turn 6. Twenty turns later it is still open — the
+   *        deliverable was done and nobody filed it. This is a MISS, and the second half of the
+   *        sentence is why: a compound promise ("walk him in AND stay as his guide") has no single
+   *        moment that satisfies all of it, so no turn ever looks like the one that closed it.
+   *
+   *   t8   "Payment for lodgings through the Ides and past them at five asses a night."
+   *        This is not a promise, it is a standing arrangement. There is no event that can ever be
+   *        the keeping of it, so it can never leave the ledger by any automatic route at all.
+   *
+   * Either way the player is looking at a job they consider done, sitting in their journal as owed,
+   * and being fed to the bookkeeper every turn as an open commitment. So: a manual close.
+   *
+   * `kept` and `broken` go through resolvePromise, which is the same path the bookkeeper uses — the
+   * edge moves, the pattern count updates, the other person forms a memory of it. `retired` does
+   * none of that and is the one for the standing arrangement and the promise the story has simply
+   * moved past: it leaves the ledger and changes nothing between anybody. Nothing is deleted; the
+   * record keeps what was sworn and how it ended.
+   */
+  settlePromise: async (id: string, promise_id: string, outcome: "kept" | "broken" | "retired"): Promise<{ save: ClientSave; log: string }> => {
+    const s = await need(id);
+    const p = (s.world.promises ?? []).find((x) => x.id === promise_id);
+    if (!p) throw new Error("No such promise.");
+    if (p.status !== "open") throw new Error(`That promise is already ${p.status}.`);
+    let log: string;
+    if (outcome === "retired") {
+      p.status = "retired";
+      log = `Retired: "${p.text}" — closed by hand, with no consequence between anyone.`;
+    } else {
+      log = resolvePromise(s, p, outcome, s.world.current_turn) || `Marked ${outcome}: "${p.text}".`;
+    }
+    p.settled_turn = s.world.current_turn;
+    p.settled_by_hand = true;
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return { save: clientView(s), log };
   },
 
   /**

@@ -164,7 +164,7 @@ export default function App() {
               {tab === "cast" && <Cast save={save} setSave={setSave} />}
               {tab === "world" && <World save={save} onSave={setSave} />}
               {tab === "chronicle" && <Chronicle save={save} />}
-              {tab === "journal" && <Journal save={save} />}
+              {tab === "journal" && <Journal save={save} onSave={setSave} />}
               {tab === "settings" && <Settings save={save} setSave={setSave} />}
             </motion.div>
           )}

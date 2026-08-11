@@ -123,7 +123,12 @@ export interface Promise {
   made_turn: number;
   due_time?: string;           // in-world time it comes due, if time-bound
   weight: 1 | 2 | 3;           // 1 small favor · 2 real commitment · 3 a vow / life-stakes
-  status: "open" | "kept" | "broken";
+  /** `retired` is the player closing the ledger by hand on something that was never going to close
+   *  itself, and it carries NO relationship consequence — see settlePromise in lib/api.ts. Kept and
+   *  broken both move edges and write a memory; retired says only that the story is done with it. */
+  status: "open" | "kept" | "broken" | "retired";
+  settled_turn?: number;       // when it stopped being open
+  settled_by_hand?: boolean;   // the player closed this one, not the bookkeeper
 }
 
 /** Directed edge a→b. Axes in [-100, 100]. */
