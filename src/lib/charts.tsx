@@ -275,3 +275,107 @@ export function WeekPips({ on, today, labels = ["S", "M", "T", "W", "T", "F", "S
     </div>
   );
 }
+
+/* ───────────────────────── THE HUD ─────────────────────────
+ *
+ * Every number below already existed in the save and none of it was on screen. The body clock runs
+ * hunger, thirst and sleep pressure every turn and clamps how open a person can be; the relaxation
+ * kernel is the engine's single most load-bearing value. All of it reached the player only as an
+ * occasional sentence in a toast — "your body is limiting you now" — which is the readout arriving
+ * after the fact instead of the gauge that would have shown it coming.
+ *
+ * Bars rather than numbers, because the question is never "what is my thirst" but "am I about to
+ * be in trouble", and because a bar that MOVES between turns is the cheapest way to make a world
+ * feel like it is running rather than being described.
+ */
+export interface Vital { key: string; label: string; /** 0 bad … 1 good */ v: number; note?: string }
+
+/** How a meter reads at a glance: trouble, worn, fine. */
+function vitalColor(v: number): string {
+  return v < 0.28 ? "var(--danger)" : v < 0.55 ? "var(--accent)" : "var(--calm)";
+}
+
+export function Vitals({ vitals }: { vitals: Vital[] }) {
+  return (
+    <div style={{ display: "flex", gap: 8, width: "100%" }}>
+      {vitals.map((t) => (
+        <div key={t.key} style={{ flex: "1 1 0", minWidth: 0 }} title={t.note ?? t.label}>
+          <div style={{
+            fontFamily: "var(--font-mono)", fontSize: 8.5, letterSpacing: 1, textTransform: "uppercase",
+            color: "var(--text-lo)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>{t.label}</div>
+          <div style={{ height: 5, borderRadius: 3, background: "var(--ink-3)", overflow: "hidden" }}>
+            <motion.div
+              initial={false}
+              animate={{ width: `${Math.round(Math.max(0, Math.min(1, t.v)) * 100)}%`, backgroundColor: vitalColor(t.v) }}
+              transition={{ type: "spring", stiffness: 110, damping: 20 }}
+              style={{ height: "100%", borderRadius: 3 }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A PERSON IN THE ROOM, as a face with their state on it.
+ *
+ * The scene strip was a name in a rounded rectangle, which tells the player who is present and
+ * nothing else — while the engine holds, for each of them, how warm they are, how open they are,
+ * and whether they are about to walk out. A party bar in any game carries that on the portrait,
+ * and it is the same information the player would have from being in the room.
+ *
+ * `ring` is warmth toward the player on the same green/amber/red the relationship web uses, so the
+ * two views agree. `openness` fills the ring: a clenched person's arc is short. `flag` is the one
+ * thing about them that is urgent this turn — due to leave, wanting something, newly arrived.
+ */
+export function CastPip({ name, portrait, warmth, openness, flag, size = 38, onClick }: {
+  name: string; portrait?: string; warmth: number; openness: number;
+  flag?: "leaving" | "arrived" | "wants" | null; size?: number; onClick?: () => void;
+}) {
+  const ring = warmth >= 25 ? "var(--calm)" : warmth <= -20 ? "var(--danger)" : "var(--accent)";
+  const r = size / 2 - 1.5;
+  const circ = 2 * Math.PI * r;
+  const open = Math.max(0.06, Math.min(1, (openness + 10) / 20));   // -10..10 → a visible minimum arc
+  return (
+    <motion.button onClick={onClick} title={name}
+      initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
+      transition={{ type: "spring", stiffness: 320, damping: 24 }}
+      style={{ position: "relative", width: size, height: size + 12, background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+      <svg width={size} height={size} style={{ display: "block", position: "absolute", inset: 0 }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--ink-3)" strokeWidth={2} />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ring} strokeWidth={2} strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          initial={false}
+          animate={{ strokeDasharray: `${(circ * open).toFixed(1)} ${circ.toFixed(1)}` }}
+          transition={{ type: "spring", stiffness: 90, damping: 18 }}
+        />
+      </svg>
+      <div style={{
+        position: "absolute", left: 4, top: 4, width: size - 8, height: size - 8, borderRadius: "50%",
+        overflow: "hidden", background: "var(--ink-2)", display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {portrait
+          ? <img src={portrait} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <span style={{ fontFamily: "var(--font-mono)", fontSize: size * 0.32, color: "var(--text-mid)" }}>{name.slice(0, 1)}</span>}
+      </div>
+      {flag && (
+        <motion.span
+          animate={{ opacity: flag === "leaving" ? [0.5, 1, 0.5] : 1 }}
+          transition={{ duration: 1.6, repeat: flag === "leaving" ? Infinity : 0, ease: "easeInOut" }}
+          style={{
+            position: "absolute", right: -1, top: -1, width: 9, height: 9, borderRadius: "50%",
+            background: flag === "leaving" ? "var(--danger)" : flag === "arrived" ? "var(--calm)" : "var(--accent)",
+            border: "1.5px solid var(--ink-0)",
+          }} />
+      )}
+      <div style={{
+        position: "absolute", bottom: 0, left: -6, right: -6, textAlign: "center",
+        fontFamily: "var(--font-mono)", fontSize: 8.5, color: "var(--text-lo)",
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+      }}>{name.split(/\s+/)[0]}</div>
+    </motion.button>
+  );
+}

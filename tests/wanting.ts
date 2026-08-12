@@ -55,9 +55,9 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   const s = world();
   const line = feel(s, -45, 60, -4);   // hostile, clenched: the pull is not owned
   check("hostility and desire are both stated", /cannot stand you/i.test(line) && /60/.test(line), line);
-  check("neither is allowed to cancel the other", /NEITHER cancels the other/i.test(line), line);
+  check("neither is allowed to cancel the other", /Do not let either one cancel the other/i.test(line), line);
   check("it is not written as flirtation", !/flirts|teases/.test(line), line);
-  check("and not as secret tenderness on the way to a bond", /never let it resolve into liking you/i.test(line), line);
+  check("and not as secret tenderness on the way to a bond", /this does not develop into a bond/i.test(line), line);
   check("the behaviour named is contact-as-friction", /stand nearer than the argument needs|needling as a way of making contact/.test(line), line);
 }
 {
@@ -73,7 +73,7 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   const s = world();
   const line = feel(s, 0, 65, 3);
   check("desire at zero warmth is not rendered as fondness", !/flirts, teases, seeks closeness/.test(line), line);
-  check("it is named as a complete state, not an unfinished bond", /complete state and not an incomplete bond/i.test(line), line);
+  check("it is named as a complete state, not an unfinished bond", /Treat that as finished rather than as a bond that has not formed yet/i.test(line), line);
   check("interest in the body, not in the day", /none in your day/i.test(line), line);
   check("and it is not the beginning of caring", /NEVER render this as fondness, tenderness, or the beginning of caring/i.test(line), line);
 }

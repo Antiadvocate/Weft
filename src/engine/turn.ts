@@ -38,6 +38,7 @@ import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
+import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -1982,6 +1983,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
+  const maximNote = maximFix(state.last_maxim);
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2102,7 +2104,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2289,6 +2291,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const sents = prose.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [];
     const leaked = sents.map((x) => x.trim()).filter((x) => x.length > 25 && MOTIVE_LEAK.test(x));
     state.last_leak = leaked.length ? leaked.sort((a, b) => b.length - a.length)[0].slice(0, 180) : null;
+    // AND THE SAME FOR DIALOGUE. The interior leak is the narrator saying what somebody felt; this
+    // is the narrator saying what the world MEANS, through whichever mouth is open. One quoted
+    // example is the whole mechanism — see engine/maxims.ts.
+    {
+      const maxims = findMaxims(prose);
+      state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      if (maxims.length >= 2) {
+        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn were aphorisms rather than speech — the narrator will be shown one next turn`] });
+      }
+    }
     if (leaked.length) {
       ev.onMeta({ shifts: [`the narrator stated someone's interior ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn — it will be corrected next turn`] });
       console.warn(`[interiority] ${leaked.length} leak(s): ${leaked[0].slice(0, 100)}`);

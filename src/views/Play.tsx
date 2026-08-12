@@ -6,7 +6,9 @@ import { api, streamTurn, resumePending, governorState, type ActionMode, type Cl
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
-import { Seismograph } from "../lib/charts";
+import { CastPip, Seismograph, Vitals } from "../lib/charts";
+import { readSchedule } from "../engine/schedule";
+import type { SaveState } from "../engine/types";
 import { AnalogClock, WeatherIcon } from "../lib/format";
 import { estimateSaveWeight, leaveBreadcrumb } from "../lib/crash";
 import Atmosphere from "../lib/Atmosphere";
@@ -945,41 +947,62 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         </div>
       )}
 
-      {/* who's in the scene with you — collapsed to a single tappable chip to save room for narrative */}
-      {save.world.present.length > 0 && (
-        <div className="px-4 pt-0.5 pb-0.5">
-          <button onClick={() => setPresentOpen((v) => !v)} className="inline-flex items-center gap-1.5 text-[11px]"
-            style={{ color: "var(--text-lo)" }} title="tap to see who's here">
-            <span className="font-mono text-[9px] uppercase tracking-wider">here:</span>
-            <span style={{ color: "var(--text-mid)" }}>
-              {presentOpen
-                ? ""
-                : save.world.present.length <= 2
-                  ? save.world.present.map((p) => save.characters[p]?.name).filter(Boolean).join(", ")
-                  : `${save.world.present.length} present`}
-            </span>
-            <span className="font-mono text-[9px]">· {save.world.places[save.world.player_location]?.name ?? ""}</span>
-            <span style={{ fontSize: 8, opacity: 0.6 }}>{presentOpen ? "▲" : "▼"}</span>
+      {/* ── THE HUD ────────────────────────────────────────────────────────────────────────────
+          Who is in the room and what your own body is doing. Both were already in the save and
+          neither was on screen: presence was a name in a rounded rectangle behind a toggle, and the
+          body clock — hunger, thirst, sleep pressure, and the openness ceiling they impose — only
+          ever surfaced as a toast after it had already limited you. A ring that is visibly short,
+          or a bar that visibly drops between turns, is the difference between a world you are told
+          about and one you can see running. See lib/charts.tsx. */}
+      <div className="px-4 pt-1 pb-0.5">
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
+            {save.world.places[save.world.player_location]?.name ?? "somewhere"}
+          </span>
+          <button onClick={() => setPresentOpen((v) => !v)} className="font-mono text-[9px]"
+            style={{ color: "var(--text-lo)", opacity: 0.7 }} title="show or hide your own state">
+            {presentOpen ? "▲" : "▼"}
           </button>
-          {presentOpen && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+        </div>
+        {save.world.present.length > 0 && (
+          <div className="flex items-end gap-3 flex-wrap">
+            <AnimatePresence initial={false}>
               {save.world.present.map((pid) => {
                 const ch = save.characters[pid];
                 if (!ch) return null;
+                const e = save.world.edges.find((x) => x.from === pid && x.to === "char_player");
+                const rel = save.condition[pid]?.psyche?.relaxation ?? 0;
+                // At most one flag, most urgent first. "wants" only when their drive names the
+                // player — every character wants something, so flagging that would flag everyone.
+                const due = readSchedule(save as unknown as SaveState, pid).pending;
+                const arriving = (save.world.arrivals_pending ?? []).includes(ch.name);
+                const aimed = !!ch.drive?.goal && /\bplayer\b/i.test(ch.drive.goal);
                 return (
-                  <button key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--ink-2)", fontSize: 11.5 }}
-                    title={`open ${ch.name}`}
-                    onClick={() => { setDrawerSel(pid); setDrawer("cast"); }}>
-                    {ch.portrait_url && <img src={ch.portrait_url} alt="" className="w-4 h-4 rounded-full object-cover" />}
-                    {ch.name}
-                  </button>
+                  <CastPip key={pid} name={ch.name} portrait={ch.portrait_url}
+                    warmth={e?.warmth ?? 0} openness={rel}
+                    flag={due ? "leaving" : arriving ? "arrived" : aimed ? "wants" : null}
+                    onClick={() => { setDrawerSel(pid); setDrawer("cast"); }} />
                 );
               })}
+            </AnimatePresence>
+          </div>
+        )}
+        {presentOpen && (() => {
+          const c = save.condition["char_player"];
+          if (!c) return null;
+          const cl = (n: number) => Math.max(0, Math.min(1, n));
+          return (
+            <div className="mt-2">
+              <Vitals vitals={[
+                { key: "fed", label: "fed", v: cl(1 - (c.hunger_meter ?? 2) / 10), note: `hunger ${c.hunger}` },
+                { key: "water", label: "water", v: cl(1 - (c.thirst_meter ?? 2) / 10), note: "thirst" },
+                { key: "rest", label: "rest", v: cl(1 - (c.awake_minutes ?? 0) / 1080), note: `${Math.round((c.awake_minutes ?? 0) / 60)}h awake` },
+                { key: "ease", label: "ease", v: cl((c.psyche.relaxation + 10) / 20), note: c.psyche.mood || "even" },
+              ]} />
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
+      </div>
 
       {/* due soon — only what the schedule already holds, never invented dread.
           Appears only when something is actually pending, so it isn't a permanent row. */}
