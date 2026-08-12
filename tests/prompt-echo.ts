@@ -20,7 +20,9 @@
  * quotable lines attached to prohibitions is a RATCHET: it may fall, never rise, so the next rule
  * written in the heat of a bad save cannot reintroduce the failure it is trying to fix.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { templateLiterals } from "../tools/promptlint";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -34,9 +36,9 @@ function check(name: string, c: boolean, extra?: unknown) {
  * made the ratchet below count a fragment like `")}${bodySeverity(c) >= 3 ? "` as a quotable example
  * phrase. A budget that moves when the surrounding code is edited measures the wrong thing.
  */
-const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{40,}`/g) ?? [])
-  .join("\n")
-  .replace(/\$\{[^}]*\}/g, " ");
+const modelFacing = templateLiterals(readFileSync("src/engine/prompts.ts", "utf8"))
+  .filter((t) => t.length >= 40)
+  .join("\n");
 
 /* ── 1. the phrases caught coming back in the prose ───────────────────────────── */
 {
@@ -46,9 +48,17 @@ const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{
     "the way it always was with him",
   ]) check(`no longer supplied: "${phrase.slice(0, 46)}"`, !modelFacing.includes(phrase));
 
-  // ...and the rule they belonged to is still stated
-  check("the rule itself survives without its specimen", /listing what a face was NOT in order to install what it was/.test(modelFacing), "camera rule");
-  check("and so does the accounting-metaphor ban", /sums, ledgers, arithmetic, numbers adding up/.test(modelFacing));
+  // ...and the rule they belonged to is still stated. It used to be a list of banned constructions,
+  // which named four figures of speech in order to forbid them — the failure tools/promptlint.ts
+  // calls literary-vocabulary. It is now one check applied to a finished sentence, and the four
+  // named figures are all excluded by it: none of them is a thing a person in the room could point
+  // at. The assertions below track the check, not the list.
+  check("the rule itself survives without its specimen",
+    /something a person standing in the room could point at/.test(modelFacing), "camera rule");
+  check("...and it is stated as a test on the output, not a catalogue of forbidden figures",
+    /[Ss]trike from each sentence any part a person in the room could not have pointed at|[Ss]trike any part of it that a person in the room could not have pointed at/.test(modelFacing));
+  check("which still covers the private conclusion the accounting metaphor was used for",
+    /what one of them privately concluded/.test(modelFacing));
 }
 
 /* ── 2. the ratchet ───────────────────────────────────────────────────────────── */
@@ -69,6 +79,40 @@ const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{
   const BUDGET = 86;
   console.log(`     (quotable lines attached to a prohibition: ${supplied}, budget ${BUDGET})`);
   check(`the stock of forbidden-but-quotable lines has not grown`, supplied <= BUDGET, supplied);
+}
+
+/* ── 2b. AND THE OTHER THIRTY PROMPTS ─────────────────────────────────────────
+ *
+ * This file only ever measured prompts.ts, and its scanner only ever saw the parts of it that fell
+ * in phase with a backtick-pairing regex (see tools/promptlint.ts). Meanwhile the prompt that writes
+ * the sample lines every character's speech is copied from lives in voiceforge.ts, the one that
+ * writes what a player's own faculties tell them lives in read.ts, and neither was ever read here.
+ * Same rule, same ratchet, applied to all of them.
+ */
+{
+  const NEG = /(never|no |not |ban(ned)?|forbidden|avoid|stop |instead of|rather than|failure|wrong|do not|don't)/i;
+  let supplied = 0;
+  const worst: [string, number][] = [];
+  for (const f of readdirSync("src/engine").filter((x) => x.endsWith(".ts") && x !== "prompts.ts")) {
+    let n = 0;
+    const text = templateLiterals(readFileSync(join("src/engine", f), "utf8")).filter((t) => t.length >= 40).join("\n");
+    for (const sentence of text.split(/(?<=[.;])\s+/)) {
+      for (const ex of sentence.match(/["“][^"”\n]{15,120}["”]/g) ?? []) {
+        if (ex.replace(/["“”]/g, "").split(/\s+/).length < 4) continue;
+        if (NEG.test(sentence.slice(0, sentence.indexOf(ex)))) n++;
+      }
+    }
+    if (n) worst.push([f, n]);
+    supplied += n;
+  }
+  // First measurement of these files, taken after the mystical-perception and comparison bans in
+  // read.ts were rewritten as tests instead of catalogues. Most of what remains is JSON field
+  // descriptions in montage-run.ts and minimal pairs in turn.ts, which are not quotable prose — but
+  // the number may only fall. Same rule as above: lower it, do not nudge it.
+  const BUDGET = 60;
+  console.log(`     (…and in the other prompts: ${supplied}, budget ${BUDGET})`);
+  check("nor has it grown outside prompts.ts", supplied <= BUDGET,
+    worst.sort((a, b) => b[1] - a[1]).slice(0, 4));
 }
 
 /* ── 3. the same text is not pasted into two prompts ──────────────────────────── */

@@ -65,7 +65,7 @@ Each faculty gets:
 - notices: one plain sentence — the concrete class of signal it catches. Faces, hands, money, distance, who eats first, whose voice drops. Filmable inputs.
 - distorts: one plain sentence — the SPECIFIC wrong conclusion it reaches under pressure. Not "it can be inaccurate": name the error. "Reads any pause as contempt." "Turns confusion into rejection." "Credits kindness it hasn't been shown yet."
 
-HARD BANS. Nobody has mystical perception: no "reads the weakness in a room before a word is spoken", no "knows within a breath whether a man is lying", no "sees through people". Cut every metaphor and say the plain thing. THE TEST: could a camera capture what this faculty attends to? If not, rewrite it.
+HARD BANS. A faculty attends to something a camera could record: a hand, a pause, a distance, a change of pitch, where somebody looks. It may not be a faculty for knowing another person's inside on sight, and it may not be stated as a comparison. THE TEST, applied to every faculty you write: could a camera capture what this one attends to? If not, rewrite it until it can.
 
 The set should DISAGREE with itself. A person whose faculties all point the same way has one faculty. At least one should be generous, at least one should be suspicious, and they should be able to look at the same gesture and reach opposite conclusions.
 
@@ -125,7 +125,7 @@ WRITE EACH READ LIKE THIS:
 - FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". A read is a verdict; verdicts are stated. Wrongness comes from BEING wrong, never from hedging — a hedged read is mush and it is the exact failure this channel exists to replace.
 - Under 20 words. Usually well under. A read is a thought, not a paragraph.
 - NO NEW FACTS. You may not invent a gesture, an object, a line of dialogue, or anything the surface did not already contain. You interpret what is there. If the surface is thin, the read is thin.
-- COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION — "the way a physician takes a pulse", "like a man apologizing", "as though sealing a bargain" all import the verdict inside the comparison and are forbidden. Default to no simile at all.
+- COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION: a comparison of that kind states the verdict inside itself, which is the one thing a read must earn rather than assert. Default to no comparison at all.
 - Read the PERSON, not the plot. Never predict events, never name what will happen next in the story, never advise the player.
 - Faculties may CONTRADICT each other outright. Two reads of the same gesture reaching opposite conclusions is correct and desirable — do not reconcile them, do not have the second one defer to the first.
 
@@ -138,7 +138,7 @@ READS ARISE, THEY ARE NOT REACHED. They come already finished, mixed in with the
 
 Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
 
-EXAMPLES. These are the register — never reuse the wording.
+EXAMPLES. These show the form; never reuse the wording.
 
 GOOD (first person or direct address, flat, no figure of speech, a verdict this player could be wrong about):
   "She's already decided. This is the part where she tells me."

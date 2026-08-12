@@ -32,18 +32,70 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-/** Model-facing text only: template literals long enough to be instructions, with the ${...} code
- *  interpolations removed so we lint prose rather than expressions. */
-export function modelFacing(src: string): string {
+/**
+ * Every template literal in the file, nesting handled.
+ *
+ * This used to be `src.match(/`[^`]{40,}`/g)`, and that regex is wrong in a way worth recording,
+ * because it hid most of the corpus it was supposed to be measuring. A nested template —
+ *
+ *     `Period: ${bible.era ? `${bible.era}` : ""} — and the rest of the instruction`
+ *
+ * — has four backticks, and the regex pairs the FIRST with the SECOND. So it returned the fragment
+ * up to the start of the inner template, then paired the inner closer with the outer closer and
+ * returned `: "" } — and the rest…`. Every prompt built with a ternary came out shredded, and
+ * whichever text fell in the shredder's off-phase was never linted at all. voiceforge.ts, which
+ * writes the sample lines the narrator imitates, was being read 204 characters deep out of 4,000.
+ *
+ * So: scan properly. Track template depth and brace depth, collect only the literal parts, and drop
+ * the ${...} expressions on the way past rather than by a second regex afterwards.
+ */
+export function templateLiterals(src: string): string[] {
   // Comments first. A file header explaining WHY a rule exists is written for people and never
   // reaches a model — counting it would inflate every number here and point at the wrong lines.
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
-  return (code.match(/`[^`]{40,}`/g) ?? [])
+  const s = src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+  const out: string[] = [];
+  const stack: { buf: string; depth: number }[] = [];   // one frame per open template literal
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    const top = stack[stack.length - 1];
+    if (c === "\\" && top && top.depth === 0) { top.buf += " "; i += 2; continue; }
+    if (c === "`") {
+      if (top && top.depth === 0) { out.push(stack.pop()!.buf); i++; continue; }
+      stack.push({ buf: "", depth: 0 });                 // opens inside code, or inside an ${expr}
+      i++; continue;
+    }
+    if (top && top.depth === 0 && c === "$" && s[i + 1] === "{") {
+      top.depth = 1; top.buf += " "; i += 2; continue;   // enter interpolation; the code is not prose
+    }
+    if (top && top.depth > 0) {
+      if (c === "{") top.depth++;
+      else if (c === "}") top.depth--;
+      // a quoted string inside the expression can hold braces and backticks — skip it whole
+      else if (c === '"' || c === "'") {
+        const q = c; i++;
+        while (i < s.length && s[i] !== q) i += s[i] === "\\" ? 2 : 1;
+      }
+      i++; continue;
+    }
+    if (top) top.buf += c;
+    i++;
+  }
+  return out;
+}
+
+/** Model-facing text only: template literals long enough to be instructions. */
+export function modelFacing(src: string): string {
+  return templateLiterals(src)
+    .filter((t) => t.length >= 40)
     // ...and template literals that are CODE (regex sources, JSX, expression soup) are not prompts.
     .filter((t) => !/=>|\?\?|\(\)|\\b|\\s\+|<\/|className/.test(t))
     .filter((t) => (t.match(/\s/g) ?? []).length >= 8)
-    .join("\n")
-    .replace(/\$\{[^}]*\}/g, " ");
+    // Terminate each literal. Two adjacent literals are two separate pieces of text a model reads in
+    // different places; joining them with a bare newline let a literal ending without punctuation
+    // run into the next one, and the sentence splitter below then read the pair as one sentence —
+    // which manufactured findings out of words that never appear together in any prompt.
+    .join(".\n");
 }
 
 export interface Finding { kind: string; text: string; why: string }
@@ -53,7 +105,14 @@ export interface Finding { kind: string; text: string; why: string }
  *    definition anywhere in the prompt. The model has to supply the meaning, and its meaning is the
  *    default it already had — which is the thing the instruction was trying to change.
  */
-const ABSTRACT = /\b(register|cadence|shape|texture|tone|energy|quality|feel|flavou?r|vibe|voice)\b/i;
+const ABSTRACT =
+  // words that are quality-nouns wherever they appear...
+  /\b(?:register|cadence|texture|flavou?r|vibe|voice)\b/i.source +
+  // ...and words that are only the problem as NOUNS. "use it to shape what the body does" and
+  // "plainly feeling what they feel" are verbs and were being flagged; "take the SHAPE of speech"
+  // and "match the tone" are the real thing, and every real one carries an article or possessive.
+  "|" + /\b(?:the|its|their|his|her|a|this|that)\s+(?:shape|tone|energy|quality|feel)\b/i.source;
+const ABSTRACT_RE = new RegExp(ABSTRACT, "i");
 /** ...but only when it is being COMMANDED rather than described or named as a data field. */
 const COMMANDED = /\b(take|match|use|keep|hold|find|choose|pick|set|write in|derive|infer|capture)\b/i;
 
@@ -96,7 +155,7 @@ export function lint(src: string): Finding[] {
   for (const raw of modelFacing(src).split(/(?<=[.;!?])\s+/)) {
     const s = raw.trim();
     if (s.length < 25 || s.length > 400) continue;
-    if (ABSTRACT.test(s) && COMMANDED.test(s)) {
+    if (ABSTRACT_RE.test(s) && COMMANDED.test(s)) {
       out.push({ kind: "undefined-abstraction", text: s, why: "commands a quality-noun the prompt never defines; the model substitutes its own default" });
       continue;
     }

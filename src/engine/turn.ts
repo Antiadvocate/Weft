@@ -1190,7 +1190,7 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // turn mixing speech and plain-prose interiority ("I thought I was average height") was read as
   // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
   // narrator which parts of a single message were audible.
-  do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I keep reading because I feel ignored"), that feeling is PRIVATE. Use it to shape what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
+  do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I go on reading because it stings to be ignored"), that feeling is PRIVATE. Let it decide what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it — not even characters present, not even by intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
   story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
@@ -2300,7 +2300,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
       if (maxims.length >= 2) {
-        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn were aphorisms rather than speech — the narrator will be shown one next turn`] });
+        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
       }
     }
     if (leaked.length) {

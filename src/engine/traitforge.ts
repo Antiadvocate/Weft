@@ -40,7 +40,7 @@ HARD CONSTRAINTS:
 2. INVENT NO NEW NATURE. Re-describe only what the background, values, attachment and existing traits already establish. If the original says nothing about how they handle fear, do not decide.
 3. A MOOD IS NOT A TRAIT. If an original is a current state ("homesick and lonely", "exhausted"), name the standing habit that makes them prone to it — again as something filmable.
 4. NO MORAL VERDICTS. "Honorable", "kind", "cruel" are judgements. Write the conduct; let the reader judge.
-5. Plain period language. Nothing clinical, no modern psychology, no poetry. A person who knew them would recognise it instantly and would not call it clever.
+5. USE WORDS THIS WORLD HAS. Name the conduct in the plainest terms available in the setting you were given: no clinical vocabulary, and no term from a body of knowledge this world does not have. A person who knew them would recognise it at once and would not call it clever.
 
 Each trait: one short concrete phrase, under about 14 words. At least one must be INCONVENIENT — something that costs them or is tiring to be near. If the originals are all flattering, the honest version still is not.
 

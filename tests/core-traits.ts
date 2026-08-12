@@ -190,7 +190,12 @@ function world(): SaveState {
     /can talk about one subject, and every scene with them is the same scene/.test(FORGE_SYSTEM));
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: texture is no longer confined to quiet scenes`, !/texture:" quiet scenes only|quiet scenes only\./.test(P), label);
-    check(`${label}: texture is declared conversational range`, /raises? (?:these )?unprompted|conversational range|brings up unprompted/i.test(P), label);
+    // "conversational range" named a quality; both contracts now say what to DO with the field —
+    // it is the list of subjects this person has, and one of them gets used this turn.
+    check(`${label}: texture is the list of subjects this person has`,
+      /the subjects available to this person|raises? (?:these )?unprompted|brings up unprompted/i.test(P), label);
+    check(`${label}: ...and it has to reach the page`,
+      /something to say this turn that is not about the plot and not about the player/i.test(P), label);
   }
 }
 
