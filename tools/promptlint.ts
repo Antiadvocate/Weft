@@ -42,7 +42,11 @@ export function modelFacing(src: string): string {
     // ...and template literals that are CODE (regex sources, JSX, expression soup) are not prompts.
     .filter((t) => !/=>|\?\?|\(\)|\\b|\\s\+|<\/|className/.test(t))
     .filter((t) => (t.match(/\s/g) ?? []).length >= 8)
-    .join("\n")
+    // Terminate each literal. Two adjacent literals are two separate pieces of text a model reads in
+    // different places; joining them with a bare newline let a literal ending without punctuation
+    // run into the next one, and the sentence splitter below then read the pair as one sentence —
+    // which manufactured findings out of words that never appear together in any prompt.
+    .join(".\n")
     .replace(/\$\{[^}]*\}/g, " ");
 }
 

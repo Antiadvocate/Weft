@@ -80,30 +80,42 @@ const gone = (s: string) => !scrubForReplay(s).includes(s.trim().slice(0, 40));
   ]) check(`untouched: ${s.slice(0, 46)}…`, scrubForReplay(s).trim() === s.trim(), scrubForReplay(s));
 }
 
-/* 5. and the contracts forbid it happening in the first place — the scrub only stops the ECHO */
+/* 5. and the contracts forbid it happening in the first place — the scrub only stops the ECHO.
+ *
+ * These assertions used to require that the four lines above were QUOTED in the contract as banned
+ * specimens. They are not any more, and the removal is the fix rather than a regression: a line
+ * pasted into a prompt to be forbidden is a line the model has been handed, and tests/prompt-echo.ts
+ * exists because they come back. Each rule is now a check that can be applied to a finished sentence
+ * and that excludes its specimen without reproducing it, so what is asserted here is the check. */
 {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
-    check(`${label}: the player's interior is declared theirs`, /THE PLAYER'S INTERIOR BELONGS TO THE PLAYER/.test(P));
-    check(`${label}: the lonely line is quoted as forbidden`, /you want a date because you're lonely/i.test(P));
-    check(`${label}: the terrace line too`, /thinking about what you should have done a year ago/i.test(P));
-    check(`${label}: a guess must read as a guess`, /guess is visibly a guess|visibly guessing/i.test(P));
-    check(`${label}: the unnamed demand is banned`, /NOBODY DEMANDS A THING THEY WILL NOT NAME/.test(P));
-    check(`${label}: with the exact line`, /the part you didn't come here to say/i.test(P));
-    check(`${label}: the accounting metaphor is named`, /sums, ledgers, arithmetic, numbers adding up/i.test(P));
+    check(`${label}: nobody may state the player's inside`,
+      /states what the player feels, thinks, wants, fears/i.test(P));
+    check(`${label}: and the specimen is no longer supplied with the rule`,
+      !/you want a date because you're lonely/i.test(P) && !/thinking about what you should have done a year ago/i.test(P));
+    check(`${label}: a belief about the player is acted on or owned as a guess`,
+      /owns it out loud as their own guess and can be told they are wrong/i.test(P));
+    check(`${label}: an unnamed requirement may not be enforced`, /A DEMAND IS NAMED OR DROPPED/.test(P));
+    check(`${label}: stated as what the character must do instead`,
+      /says what it is in plain words this turn/i.test(P));
+    check(`${label}: the private conclusion is still out of the camera's reach`,
+      /what one of them privately concluded/i.test(P));
   }
 }
 
-/* 6. "SAY IT AGAIN" — banned outright, in both contracts.
+/* 6. THE PLAYER'S LINE DOES NOT COME BACK, in both contracts.
  *
  * A player: "I really really hate them saying 'say it again' in general — even in the old save it's
  * non stop. One time she had me say something three times." It is the same move every time: the
  * player typed a line, it landed, and instead of answering it the world hands it back and asks for
- * it louder. */
+ * it louder. The rule used to list the four wordings it had been played in; it now covers any
+ * wording, which is both wider and does not hand the four back. */
 {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
-    check(`${label}: the demand is banned by name`, /NOBODY MAKES THE PLAYER SAY IT TWICE/.test(P));
-    check(`${label}: with the phrasings`, /say it again/i.test(P) && /I want to hear you say it/i.test(P));
-    check(`${label}: and what to do instead`, /what (?:somebody|they) DO(?:ES)?\b/i.test(P), label);
+    check(`${label}: a line once typed is spent`, /WHAT THE PLAYER TYPED IS SPENT/.test(P));
+    check(`${label}: in any wording, rather than four listed ones`,
+      /asks for it again in any wording/i.test(P) && !/I want to hear you say it/i.test(P));
+    check(`${label}: and what to do instead`, /what the listener DOES next/i.test(P), label);
   }
 }
 

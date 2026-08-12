@@ -33,7 +33,7 @@ You are given: their name, the player's action that brought them in (when there 
 
 Where the sources are silent, invent — concretely and consistently with the world, the way the Forge would. A record that stays vague is the failure this exists to fix. Do not write plot function ("mysterious newcomer", "the player's creation"); write a person.
 
-DO NOT SANITIZE. Match the register and maturity of the story you are given. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
+DO NOT SANITIZE. Record this person at the same level of explicitness the story itself has. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
 
 Output ONLY this JSON:
 {

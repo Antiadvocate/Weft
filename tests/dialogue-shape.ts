@@ -40,11 +40,11 @@ for (const lean of [false, true]) {
     /(several exchanges|two, three, four exchanges)/.test(t));
   check(`${tag}: a beat is defined as something happening, not punctuation`, /not as punctuation/.test(t));
 
-  check(`${tag}: the interpretation may not be relocated into dialogue`, /MAY NOT SAY IT FOR YOU/.test(t));
+  check(`${tag}: the interpretation may not be relocated into dialogue`, /WHAT ONE PERSON KNOWS STOPS AT THEIR OWN SKIN/.test(t));
   check(`${tag}: a character may still guess`, /guess/.test(t));
   check(`${tag}: and the guess is allowed to be wrong`, /wrong/.test(t));
   check(`${tag}: nobody delivers an accurate readout of another's interior`,
-    /(accurate summary|accurate readout) of (somebody|someone) else's inner state/.test(t));
+    /accurate account of another person's inside/.test(t));
 
   // the rules this is correcting must still be there — the fix is a release valve, not a repeal
   check(`${tag}: interiority is still forbidden`, /SURFACE ONLY/.test(t) || /never narrated/.test(t));
@@ -55,7 +55,7 @@ for (const lean of [false, true]) {
 {
   const t = narratorSystem(false);
   const beatAt = t.indexOf("A LINE DOES NOT NEED A BEAT");
-  const mouthAt = t.indexOf("MAY NOT SAY IT FOR YOU");
+  const mouthAt = t.indexOf("WHAT ONE PERSON KNOWS STOPS AT THEIR OWN SKIN");
   // the SURFACE ONLY block lives in the per-turn directive (povFilter), not in this contract —
   // which is part of why the interaction was hard to see: the rule that closes the channels and the
   // rule that relieves the pressure were never in the same document.

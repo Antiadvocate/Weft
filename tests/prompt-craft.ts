@@ -95,11 +95,11 @@ const prompt = \`Match the register of the story you are given and keep the tone
 /* ── 5. THE RATCHET ─────────────────────────────────────────────────────────── */
 {
   const total = lintDir("src/engine").reduce((n, r) => n + r.findings.length, 0);
-  // Measured after the dialogue instructions were rewritten as a procedure, and after the fourth
-  // check (literary-vocabulary) was added, which surfaced instructions that name a form in order to
-  // ban it. It may fall freely — that is the point, there is a backlog here.
-  // Raising it means an instruction was written as criticism — rewrite it, do not raise this.
-  const BUDGET = 24;
+  // The backlog is gone: every instruction the four checks found has been rewritten as a procedure
+  // over a named field, a check applicable to a finished sentence, or a positive requirement that
+  // excludes a form without naming it. Zero is now the standing budget, so the next one written as
+  // criticism fails here on the commit that introduces it. Rewrite the instruction; do not raise this.
+  const BUDGET = 0;
   console.log(`     (quality-descriptions where an operation belongs: ${total}, budget ${BUDGET})`);
   check("instructions written as criticism have not increased", total <= BUDGET, total);
 }

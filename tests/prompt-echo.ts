@@ -46,9 +46,17 @@ const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{
     "the way it always was with him",
   ]) check(`no longer supplied: "${phrase.slice(0, 46)}"`, !modelFacing.includes(phrase));
 
-  // ...and the rule they belonged to is still stated
-  check("the rule itself survives without its specimen", /listing what a face was NOT in order to install what it was/.test(modelFacing), "camera rule");
-  check("and so does the accounting-metaphor ban", /sums, ledgers, arithmetic, numbers adding up/.test(modelFacing));
+  // ...and the rule they belonged to is still stated. It used to be a list of banned constructions,
+  // which named four figures of speech in order to forbid them — the failure tools/promptlint.ts
+  // calls literary-vocabulary. It is now one check applied to a finished sentence, and the four
+  // named figures are all excluded by it: none of them is a thing a person in the room could point
+  // at. The assertions below track the check, not the list.
+  check("the rule itself survives without its specimen",
+    /something a person standing in the room could point at/.test(modelFacing), "camera rule");
+  check("...and it is stated as a test on the output, not a catalogue of forbidden figures",
+    /[Ss]trike from each sentence any part a person in the room could not have pointed at|[Ss]trike any part of it that a person in the room could not have pointed at/.test(modelFacing));
+  check("which still covers the private conclusion the accounting metaphor was used for",
+    /what one of them privately concluded/.test(modelFacing));
 }
 
 /* ── 2. the ratchet ───────────────────────────────────────────────────────────── */
