@@ -6,8 +6,10 @@ import { splitLines } from "../engine/turn";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
-import { clockLabel, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
-import { daysLabel, runsOn } from "../engine/schedule";
+import { clockLabel, dayOf, minutesOfDay, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
+import { daysLabel, readSchedule, runsOn } from "../engine/schedule";
+import { DayRibbon, WeekPips, type DaySegment } from "../lib/charts";
+import type { SaveState } from "../engine/types";
 
 function opennessLabel(r: number): string {
   if (r <= -7) return "clenched shut";
@@ -888,17 +890,69 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
     finally { setBusy(false); }
   };
 
-  // Both of these read the engine's own answer rather than a second implementation of it — a UI
-  // that disagrees with the tick about which days a shift runs is worse than no UI.
+  // These read the engine's own answers rather than a second implementation of them — a UI that
+  // disagrees with the tick about which days a shift runs is worse than no UI at all. `read` is
+  // literally the reading the narrator is handed each turn (engine/schedule.ts), which is why the
+  // headline below can never drift from what the character actually believes about their day.
   const dayText = (d: typeof days) => daysLabel(d);
   const runsToday = (d: typeof days) => runsOn(d, today);
+  const read = readSchedule(save as unknown as SaveState, sel);
+  const nowMin = minutesOfDay(save.world.current_time);
+
+  const dur = (m: number) => (m >= 120 ? `${Math.round(m / 60)}h` : `${Math.max(1, Math.round(m))} min`);
+  /* THE ONE SENTENCE THE PLAYER ACTUALLY WANTS. Not "when is her shift" — "how long have I got". */
+  const headline: { text: string; tone: "live" | "due" | "idle" | "off" } = read.pending
+    ? read.pending.lateBy >= 0
+      ? { text: `${dur(read.pending.lateBy)} late for ${read.pending.block.what}`, tone: "due" }
+      : { text: `has to leave for ${read.pending.block.what} now`, tone: "due" }
+    : read.current
+      ? { text: `${read.current.block.what} — until ${clockLabel(read.current.block.end)}`, tone: "live" }
+      : read.next && read.next.day === dayOf(save.world.current_time)
+        ? { text: `free for ${dur(read.next.leaveIn)} — then ${read.next.block.what}`, tone: "idle" }
+        : read.next
+          ? { text: `nothing more today — next is ${read.next.block.what}${read.next.day === dayOf(save.world.current_time) + 1 ? " tomorrow" : ""}`, tone: "off" }
+          : { text: "nothing on their week", tone: "off" };
+
+  /* One segment per block, toned by what it is doing at this exact minute. A block that is not on
+   * today still gets drawn, faintly: knowing that the shift you are about to keep her from does not
+   * exist on a Sunday is the same question as knowing when it starts. */
+  const segments: DaySegment[] = blocks.map((b) => {
+    const live = read.current?.block.id === b.id;
+    const due = read.pending?.block.id === b.id;
+    return {
+      start: b.start,
+      end: b.start + ((b.end - b.start + 1440) % 1440 || 1440),
+      travel: b.travel_min ?? 15,
+      label: b.what,
+      tone: b.paused || !runsToday(b.days) ? "off" : due ? "due" : live ? "live" : "idle",
+    };
+  });
 
   return (
     <Section title={`Their week — it is ${WEEKDAY_FULL[today]}`}>
+      {blocks.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-baseline justify-between gap-2 mb-1">
+            <div className="text-[13px]" style={{
+              color: headline.tone === "due" ? "var(--danger)" : headline.tone === "live" ? "var(--accent)" : "var(--text-mid)",
+            }}>{headline.text}</div>
+            <div className="font-mono text-[10px] shrink-0" style={{ color: "var(--text-lo)" }}>
+              {clockLabel(nowMin)}
+            </div>
+          </div>
+          <DayRibbon segments={segments} now={nowMin} />
+        </div>
+      )}
       {blocks.map((b, i) => (
         <div key={b.id ?? i} className="mb-3 pb-2" style={{ borderBottom: i < blocks.length - 1 ? "1px solid var(--ink-2)" : undefined }}>
           <Row k="does" v={b.what} />
-          <Row k="when" v={`${clockLabel(b.start)}–${clockLabel(b.end)}, ${dayText(b.days)}${runsToday(b.days) && !b.paused ? " — today" : ""}`} />
+          <div className="flex gap-3 py-1 items-center">
+            <span className="font-mono text-[10.5px] uppercase w-16 shrink-0" style={{ color: "var(--text-lo)" }}>when</span>
+            <WeekPips on={(d) => runsOn(b.days, d)} today={today} />
+            <span className="font-mono text-[11px]" style={{ color: "var(--text-mid)" }}>
+              {clockLabel(b.start)}–{clockLabel(b.end)}
+            </span>
+          </div>
           <Row k="where" v={save.world.places[b.where]?.name ?? b.where} />
           {b.how && <Row k="gets there" v={b.how} />}
           {b.why && <Row k="because" v={b.why} />}

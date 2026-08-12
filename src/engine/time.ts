@@ -98,6 +98,12 @@ export function isWeekend(timeStr: string, startDate?: string): boolean {
   return wd === 0 || wd === 6;
 }
 
+/** Minutes since midnight for a "Day N, HH:MM" string — where the needle sits on a day strip. */
+export function minutesOfDay(timeStr: string): number {
+  const t = parseTime(timeStr);
+  return t.hour * 60 + t.minute;
+}
+
 /** The day number alone. */
 export function dayOf(timeStr: string): number {
   return parseTime(timeStr).day;
