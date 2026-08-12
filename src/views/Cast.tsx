@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownToLine, Braces, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { splitLines } from "../engine/turn";
 import { nice, niceCap } from "../lib/format";
@@ -10,6 +10,13 @@ import { clockLabel, dayOf, minutesOfDay, weekdayIndex, WEEKDAY_FULL } from "../
 import { daysLabel, readSchedule, runsOn } from "../engine/schedule";
 import { DayRibbon, WeekPips, type DaySegment } from "../lib/charts";
 import type { SaveState } from "../engine/types";
+
+const CARD_TABS: { k: CardTab; label: string; icon: React.ReactNode }[] = [
+  { k: "now", label: "Now", icon: <Activity size={13} /> },
+  { k: "self", label: "Self", icon: <Fingerprint size={13} /> },
+  { k: "ties", label: "Ties", icon: <Heart size={13} /> },
+  { k: "mind", label: "Mind", icon: <Brain size={13} /> },
+];
 
 function opennessLabel(r: number): string {
   if (r <= -7) return "clenched shut";
@@ -31,6 +38,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [rawErr, setRawErr] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [embodying, setEmbodying] = useState(false);
+  const [tab, setTab] = useState<CardTab>("now");
 
   const toggleFollow = async (cid: string, on: boolean) => {
     setSave(await api.setTracked(save.id, cid, on));
@@ -61,7 +69,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
   const [ivErr, setIvErr] = useState("");
 
-  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setMenu(false); }, [sel]);
+  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setMenu(false); setTab("now"); }, [sel]);
 
   const commitFacts = async (facts: { content: string; quote?: string }[]) => {
     if (!sel) return;
@@ -364,7 +372,32 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
               {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portrait…</span></div>}
               {imgErr && <div className="px-5 pb-1 font-mono text-[10px]" style={{ color: "var(--danger)" }}>{imgErr}</div>}
 
+              <TabCtx.Provider value={tab}>
               <div className="scroll-y px-5 pb-6 space-y-4">
+                {/* FOUR DOORS INSTEAD OF ONE CORRIDOR. Thirteen sections in a single scroll meant
+                    the only way to reach what somebody has been concealing was to travel past their
+                    inventory, their memories and their habits. Nothing moved; they are just not all
+                    on screen at once, which is also where the breathing room comes from. */}
+                {!editing && (
+                  <div className="sticky top-0 z-10 -mx-5 px-5 pt-1 pb-2 flex gap-1"
+                    style={{ background: "var(--ink-1)" }}>
+                    {CARD_TABS.map((t) => {
+                      const on = t.k === tab;
+                      return (
+                        <button key={t.k} onClick={() => setTab(t.k)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] text-[12.5px]"
+                          style={{
+                            background: on ? "var(--accent-soft)" : "transparent",
+                            color: on ? "var(--accent)" : "var(--text-lo)",
+                            fontWeight: on ? 600 : 400,
+                            border: `1px solid ${on ? "var(--accent-glow)" : "transparent"}`,
+                          }}>
+                          {t.icon}{t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {embodyConfirm && (
                   <div className="card p-4" style={{ borderColor: "var(--accent-glow)" }}>
                     <div className="font-display text-[15px] mb-1">Become {c.name}?</div>
@@ -407,7 +440,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
                   </Section>
                 )}
-                <Section title="Now">
+                <Section title="Now" group="now">
                   {(() => {
                     const cusp = ((save as any).undertow?.cusps ?? {})[sel!];
                     return cusp ? (
@@ -438,7 +471,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 {!!sel && sel !== "char_player" && !gone(sel) && <ScheduleEditor save={save} sel={sel} setSave={setSave} />}
 
                 {(c.background || c.life_history) && (
-                  <Section title="Identity">
+                  <Section title="Identity" group="self">
                     <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>Background (who they fundamentally are)</div>
                     {c.background && <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{c.background}</div>}
                     {c.life_history?.trim() && (
@@ -450,7 +483,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   </Section>
                 )}
 
-                <Section title="Knows — verified facts (the Truth panel)">
+                <Section title="Knows — verified facts (the Truth panel)" group="ties">
                   <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
                     Durable facts this character holds — verbatim-checked at write time, never decayed, never paraphrased again. Corrections here are law: the engine treats this list as ground truth in every future turn.
                   </div>
@@ -478,7 +511,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {sel !== "char_player" && c.status !== "dead" && (
-                  <Section title="Interview — a quiet aside (leaves no trace)">
+                  <Section title="Interview — a quiet aside (leaves no trace)" group="mind">
                     <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
                       Talk to {c.name} out of scene. They answer only from what they actually know and feel; nothing here enters the story, their memory, or the world. One cheap call per question.
                     </div>
@@ -498,14 +531,14 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {(cond.inventory.length > 0 || cond.wearing.length > 0) && (
-                  <Section title="Carrying & wearing">
+                  <Section title="Carrying & wearing" group="now">
                     {cond.wearing.length > 0 && <Row k="wearing" v={cond.wearing.map(nice).join(", ")} />}
                     {cond.inventory.length > 0 && <Row k="items" v={cond.inventory.map((i) => niceCap(i.name)).join(", ")} />}
                   </Section>
                 )}
 
                 {traits.length > 0 && (
-                  <Section title="Acquired self">
+                  <Section title="Acquired self" group="self">
                     {traits.map((t) => (
                       <div key={t.id} className="py-1.5">
                         <div className="flex justify-between items-baseline">
@@ -519,7 +552,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {playerEdges.length > 0 && (
-                  <Section title="Bonds">
+                  <Section title="Bonds" group="ties">
                     {/* BOTH DIRECTIONS. Feeling is directional in this engine and the card only ever
                         showed one side, labelled as though it were "the relationship". Opening a
                         woman's card the day after her marriage ended read "warm 74 · trust 18" —
@@ -559,7 +592,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {gmIntents.length > 0 && (
-                  <Section title="GM · what they concealed">
+                  <Section title="GM · what they concealed" group="mind">
                     <div className="text-[11px] mb-1.5" style={{ color: "var(--text-lo)" }}>
                       Private intent behind the prose — the truth the narration deliberately hid. Newest first. This is your verification that {c?.name ?? "they"} act from their own hidden state, not the surface.
                     </div>
@@ -581,7 +614,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {mem && (
-                  <Section title="Memory">
+                  <Section title="Memory" group="mind">
                     {(save.traits[sel!] ?? []).length > 0 && (
                       <div className="pb-1.5">
                         <div className="font-mono text-[9.5px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>becoming</div>
@@ -623,7 +656,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   </Section>
                 )}
 
-                <Section title="Core">
+                <Section title="Core" group="self">
                   <div className="text-[13px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{c.background}</div>
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {c.core_traits.map((t) => <span key={t} className="chip">{nice(t)}</span>)}
@@ -631,7 +664,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {(save.habits?.[sel!] ?? []).length > 0 && (
-                  <Section title="How set their patterns are">
+                  <Section title="How set their patterns are" group="self">
                     <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. Seen clearly as it fires, a pattern loosens; unseen, it deepens. No one changes on purpose.</div>
                     {(save.habits?.[sel!] ?? []).map((h) => (
                       <div key={h.trait} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
@@ -648,6 +681,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   </Section>
                 )}
               </div>
+              </TabCtx.Provider>
             </motion.div>
           </>
         )}
@@ -747,7 +781,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
     a.inhabit_turns ? Math.round(100 * Math.max(0.1, Math.min(1, 0.1 + 0.9 * ((a.turns_live ?? 0) / a.inhabit_turns)))) : null;
 
   return (
-    <Section title="Things going on in their life">
+    <Section title="Things going on in their life" group="now">
       {list.map((a, i) => (
         <div key={i} className="mb-3 pb-2" style={{ borderBottom: i < list.length - 1 ? "1px solid var(--ink-2)" : undefined }}>
           <Row k="doing" v={a.goal} />
@@ -929,7 +963,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
   });
 
   return (
-    <Section title={`Their week — it is ${WEEKDAY_FULL[today]}`}>
+    <Section title={`Their week — it is ${WEEKDAY_FULL[today]}`} group="now">
       {blocks.length > 0 && (
         <div className="mb-3">
           <div className="flex items-baseline justify-between gap-2 mb-1">
@@ -1061,10 +1095,16 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
  * The rules now: labels are quiet and set in the interface face rather than shouted in mono; values
  * get the width; a long value goes UNDER its label instead of being rammed into the column beside
  * it; sections are separated by space and a hairline rather than boxed. */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export type CardTab = "now" | "self" | "ties" | "mind";
+const TabCtx = React.createContext<CardTab>("now");
+
+function Section({ title, group, children }: { title: string; group?: CardTab; children: React.ReactNode }) {
+  const active = React.useContext(TabCtx);
+  // No group = always shown (the edit form, which is a mode rather than a part of the sheet).
+  if (group && group !== active) return null;
   return (
     <div className="pt-4 pb-1" style={{ borderTop: "1px solid var(--line)" }}>
-      <div className="text-[11px] font-medium mb-2.5" style={{ color: "var(--text-lo)", letterSpacing: ".01em" }}>{title}</div>
+      <div className="text-[13.5px] mb-2.5" style={{ color: "var(--text-hi)", fontWeight: 600, letterSpacing: "-.005em" }}>{title}</div>
       {children}
     </div>
   );
