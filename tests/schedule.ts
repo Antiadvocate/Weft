@@ -121,7 +121,7 @@ function world(time = "Day 1, 07:30"): SaveState {
   const d = scheduleDirective(s, s.world.present);
   check("the narrator is told she has to go", /HAS TO SET OUT NOW/.test(d), d);
   check("the leaving is hers to do, not the player's to permit", /without being asked|without waiting for permission/.test(d), d);
-  check("staying stays available, with a price on it", /CHOICE WITH A PRICE/.test(d), d);
+  check("staying stays available, with a price on it", /staying COSTS THEM SOMETHING/.test(d), d);
   check("and the reason it exists comes with it", /only yard that took her back/.test(d), d);
 
   tickSchedule(s);

@@ -350,6 +350,35 @@ export function desireLine(state: SaveState, id: string): string {
   }
   if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
+  /* ── WANTING WITHOUT LIKING ────────────────────────────────────────────────────────────────
+   *
+   * Every line below this point was written for desire that sits INSIDE a bond, and each one says
+   * so in its verbs: flirts, teases, seeks closeness, lets you be. Handed to a character at warmth
+   * 0 that is the behaviour of fondness, and handed to one at warmth −55 it is handed alongside
+   * "resents or hates you — openly cold and antagonistic" from the disposition cue, with nothing
+   * anywhere saying how the two combine. So the narrator got two unrelated instructions and did
+   * what anyone would do with a contradiction: picked the one that was longer, more concrete and
+   * more emphatic, which is always the hostility. The desire was sanded off every scene.
+   *
+   * The premise of this whole module is that liking and wanting are separate channels, and it was
+   * only ever enforced in one direction — warmth must not manufacture desire. The other direction
+   * was never written down, so in practice the engine could not produce the most ordinary thing in
+   * the world: wanting someone you do not like, or wanting someone you have no feelings about at
+   * all. Both are real, both are common, and both have their own behaviour, which is not a cooler
+   * version of flirtation. It is a different register entirely — proximity without warmth, contact
+   * that arrives as friction, an appetite that has no interest in the person's day.
+   *
+   * These sit ABOVE the admissibility lines because warmth outranks texture here: how a pull is
+   * held matters less than whether there is any liking under it at all. */
+  const HOSTILE = -20, COOL = 15;
+  if (a >= 30 && e.warmth <= HOSTILE) {
+    return adm <= 0.4
+      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they keep ending up where you are and are angry about it; they stand nearer than the argument needs; they touch you in ways that are not kind; contempt that keeps coming back for more of you; needling as a way of making contact; punishing you for a pull they will not own. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER narrate the wanting — the hostility is real, the wanting is real, and this does not develop into a bond.`
+      : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: frank, unsentimental appetite with no affection attached — they will say the cold thing and want you in the same breath, seek you out and give you nothing, be unembarrassed about the contradiction. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
+  }
+  if (a >= 30 && e.warmth < COOL && !romantic) {
+    return `desire toward you: real (${a}) with no attachment behind it (warmth ${Math.round(e.warmth)}) — they want you and have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet. SHOW: direct appetite without courtship — interest in your body and your presence, none in your day; they do not ask after you, do not soften, do not seek your company for its own sake, and are unbothered by whether you like them. NEVER render this as fondness, tenderness, or the beginning of caring, and never narrate the wanting outright — it is in what they do.`;
+  }
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
   // convert the desire into a quotable interior sentence ("she resented not having him"). Magnitude (a)
   // is kept for calibration; the interpretation is stripped so it can't be paraphrased into prose.

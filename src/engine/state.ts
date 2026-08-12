@@ -136,9 +136,20 @@ async function gunz(b64: string): Promise<string> {
 export async function pushSnapshot(state: SaveState): Promise<void> {
   if (state.snapshots.some((s) => s.turn === state.world.current_turn)) return;
   const { snapshots, ...rest } = state;
-  const lean = JSON.parse(JSON.stringify(rest)) as Omit<SaveState, "snapshots">;
-  for (const c of Object.values(lean.characters)) if (c.portrait_url?.startsWith("data:")) delete c.portrait_url;
-  for (const h of lean.history) if ((h as any).illustration_url?.startsWith?.("data:")) delete (h as any).illustration_url;
+  // STRIP THE IMAGES WITHOUT COPYING THEM FIRST. This deep-cloned the entire save — base64
+  // portraits and scene illustrations included, tens of megabytes on a long campaign — purely so
+  // that the next two lines could delete those exact fields from the copy. The clone's peak cost
+  // was the whole save twice over, once a turn, to produce something that deliberately excludes
+  // the expensive half. Shallow copies down to just the objects being edited cost nothing and
+  // leave the original untouched, which is all the clone was ever for.
+  const lean: Omit<SaveState, "snapshots"> = {
+    ...rest,
+    characters: Object.fromEntries(Object.entries(rest.characters).map(([id, c]) =>
+      [id, c.portrait_url?.startsWith("data:") ? { ...c, portrait_url: undefined } : c])),
+    history: rest.history.map((h) =>
+      (h as { illustration_url?: string }).illustration_url?.startsWith?.("data:")
+        ? { ...h, illustration_url: undefined } : h),
+  };
   const blob = JSON.stringify(lean);
   const zipped = await gz(blob);
   state.snapshots.push(zipped ? { turn: state.world.current_turn, blob: zipped, z: true } : { turn: state.world.current_turn, blob });

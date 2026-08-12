@@ -23,9 +23,34 @@ function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest):
   }));
 }
 
+/**
+ * WRITE A SAVE — and do not serialise the whole world twice to do it.
+ *
+ * This was `store.put(JSON.parse(JSON.stringify(s)))`, which is two full passes over the entire
+ * save — every memory, every fact ledger, every base64 portrait and scene illustration, plus the
+ * seven snapshot blobs — producing one enormous intermediate string and one complete second copy,
+ * and then handing the result to IndexedDB, which structured-clones it AGAIN internally. Three
+ * copies of a save that can reach tens of megabytes on a long illustrated campaign.
+ *
+ * And it runs on EVERY api call, not once a turn: a single turn writes the save many times over.
+ * On a big save that is seconds of blocked main thread and hundreds of megabytes of garbage per
+ * turn, which is what "it locks up, and then it shuts down" looks like from the outside — the tab
+ * stops painting, and on a phone the OS eventually takes the process.
+ *
+ * The round trip was doing one real job: dropping values structured clone refuses (`undertow` is
+ * typed `unknown` and has held class instances). So try the direct write first — IndexedDB does
+ * its own clone, correctly, without a string in the middle — and pay for the JSON scrub only on
+ * the DataCloneError that says it was needed.
+ */
 export async function putSave(s: SaveState): Promise<void> {
   s.updated_at = new Date().toISOString();
-  await tx("readwrite", (store) => store.put(JSON.parse(JSON.stringify(s))));
+  try {
+    await tx("readwrite", (store) => store.put(s));
+  } catch (err) {
+    if (!(err instanceof DOMException) || err.name !== "DataCloneError") throw err;
+    console.warn("[store] save held a value structured clone refused — falling back to a JSON scrub");
+    await tx("readwrite", (store) => store.put(JSON.parse(JSON.stringify(s))));
+  }
 }
 
 export async function getSave(id: string): Promise<SaveState | null> {

@@ -834,6 +834,12 @@ export interface SaveState {
    *  learn from its own violations) and has never told anyone it caught one — least of all the
    *  narrator, which went on making the same move. Quoted back at it next turn, then cleared. */
   last_leak?: string | null;
+  /** A MAXIM somebody was made to say last turn — a short, closed, portable sentence stating a
+   *  general truth. Same mechanism as `last_leak` and for the same reason: the rules that forbid
+   *  this all live in the cached prefix, where they are reference, and the one thing that has ever
+   *  reliably broken a narrator habit is being shown the sentence at the end of the next turn's
+   *  directive. See engine/maxims.ts. */
+  last_maxim?: string | null;
   // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
   // standing correction injected into every subsequent turn: this did not happen, never refer to it.

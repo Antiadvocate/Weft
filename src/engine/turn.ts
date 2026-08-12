@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -38,6 +38,7 @@ import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
+import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -1982,6 +1983,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
+  const maximNote = maximFix(state.last_maxim);
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2102,7 +2104,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2289,6 +2291,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const sents = prose.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [];
     const leaked = sents.map((x) => x.trim()).filter((x) => x.length > 25 && MOTIVE_LEAK.test(x));
     state.last_leak = leaked.length ? leaked.sort((a, b) => b.length - a.length)[0].slice(0, 180) : null;
+    // AND THE SAME FOR DIALOGUE. The interior leak is the narrator saying what somebody felt; this
+    // is the narrator saying what the world MEANS, through whichever mouth is open. One quoted
+    // example is the whole mechanism — see engine/maxims.ts.
+    {
+      const maxims = findMaxims(prose);
+      state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      if (maxims.length >= 2) {
+        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn were aphorisms rather than speech — the narrator will be shown one next turn`] });
+      }
+    }
     if (leaked.length) {
       ev.onMeta({ shifts: [`the narrator stated someone's interior ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn — it will be corrected next turn`] });
       console.warn(`[interiority] ${leaked.length} leak(s): ${leaked[0].slice(0, 100)}`);
@@ -3030,6 +3042,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // that nobody has touched in a long time go dormant, and any mention wakes them. See threads.ts —
   // this exists because the bookkeeper was never once asked to close one, and never did.
   offscreenLog.push(...sweepThreads(state, prose));
+  // AND THE PROMISE LEDGER, for exactly the same reason threads needed it: nothing ever took an
+  // entry OFF except the bookkeeper choosing to, so small favours the story moved past accumulated
+  // forever — each one holding a slot in the ten shown to the bookkeeper every turn and a line on a
+  // character card. A deadline that passed undone breaks; an untended favour is quietly let go; a
+  // vow stays open. See sweepPromises.
+  for (const line of sweepPromises(state, turn)) { offscreenLog.push(line); shifts.push(line); }
   offscreenLog.push(...returnFromOffscene(state));
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }
