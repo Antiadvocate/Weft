@@ -300,10 +300,14 @@ export function Vitals({ vitals }: { vitals: Vital[] }) {
     <div style={{ display: "flex", gap: 8, width: "100%" }}>
       {vitals.map((t) => (
         <div key={t.key} style={{ flex: "1 1 0", minWidth: 0 }} title={t.note ?? t.label}>
-          <div style={{
-            fontFamily: "var(--font-mono)", fontSize: 8.5, letterSpacing: 1, textTransform: "uppercase",
-            color: "var(--text-lo)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>{t.label}</div>
+          {/* An empty label reserves no height: on the rail's body panel the icons either side say
+              what the bars are, and a blank row of nothing is still a row of something. */}
+          {t.label && (
+            <div style={{
+              fontFamily: "var(--font-mono)", fontSize: 8.5, letterSpacing: 1, textTransform: "uppercase",
+              color: "var(--text-lo)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            }}>{t.label}</div>
+          )}
           <div style={{ height: 5, borderRadius: 3, background: "var(--ink-3)", overflow: "hidden" }}>
             <motion.div
               initial={false}
@@ -330,9 +334,9 @@ export function Vitals({ vitals }: { vitals: Vital[] }) {
  * two views agree. `openness` fills the ring: a clenched person's arc is short. `flag` is the one
  * thing about them that is urgent this turn — due to leave, wanting something, newly arrived.
  */
-export function CastPip({ name, portrait, warmth, openness, flag, size = 38, onClick }: {
+export function CastPip({ name, portrait, warmth, openness, flag, size = 38, label = true, onClick }: {
   name: string; portrait?: string; warmth: number; openness: number;
-  flag?: "leaving" | "arrived" | "wants" | null; size?: number; onClick?: () => void;
+  flag?: "leaving" | "arrived" | "wants" | null; size?: number; label?: boolean; onClick?: () => void;
 }) {
   const ring = warmth >= 25 ? "var(--calm)" : warmth <= -20 ? "var(--danger)" : "var(--accent)";
   const r = size / 2 - 1.5;
@@ -342,7 +346,7 @@ export function CastPip({ name, portrait, warmth, openness, flag, size = 38, onC
     <motion.button onClick={onClick} title={name}
       initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }}
       transition={{ type: "spring", stiffness: 320, damping: 24 }}
-      style={{ position: "relative", width: size, height: size + 12, background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+      style={{ position: "relative", width: size, height: size + (label ? 12 : 0), background: "none", border: "none", padding: 0, cursor: "pointer" }}>
       <svg width={size} height={size} style={{ display: "block", position: "absolute", inset: 0 }}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--ink-3)" strokeWidth={2} />
         <motion.circle
@@ -371,11 +375,13 @@ export function CastPip({ name, portrait, warmth, openness, flag, size = 38, onC
             border: "1.5px solid var(--ink-0)",
           }} />
       )}
-      <div style={{
-        position: "absolute", bottom: 0, left: -6, right: -6, textAlign: "center",
-        fontFamily: "var(--font-mono)", fontSize: 8.5, color: "var(--text-lo)",
-        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-      }}>{name.split(/\s+/)[0]}</div>
+      {label && (
+        <div style={{
+          position: "absolute", bottom: 0, left: -6, right: -6, textAlign: "center",
+          fontFamily: "var(--font-mono)", fontSize: 8.5, color: "var(--text-lo)",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        }}>{name.split(/\s+/)[0]}</div>
+      )}
     </motion.button>
   );
 }
