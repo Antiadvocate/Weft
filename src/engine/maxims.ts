@@ -223,5 +223,6 @@ export function voiceAnchor(
   if (!rows.length) return "";
   return `\n[HOW THESE PEOPLE ACTUALLY TALK — write new lines in these registers, never these lines.
 · ${rows.join("\n· ")}
-Match the diction, the sentence length and the roughness. If what you are about to give one of them is smoother, wiser, more compressed or more quotable than their own lines above, it belongs to nobody and it is wrong — write what THIS person would say about the thing actually in front of them.]`;
+Match the diction, the sentence length and the roughness. If what you are about to give one of them is smoother, wiser, more compressed or more quotable than their own lines above, it belongs to nobody and it is wrong — write what THIS person would say about the thing actually in front of them.
+BUT THIS IS HOW THEY SOUND AT REST, AND A VOICE IS NOT A CAGE. A register is what somebody sounds like on an ordinary afternoon in their own life. It is not what they sound like frightened, or furious, or looking at something they have no word for. When a person is knocked out of their ordinary afternoon their voice BREAKS: they repeat themselves, they stop mid-sentence, they ask the same question twice, they go silent, they swear, they say the wrong thing, they call for somebody else. An innkeeper whose card says she is transactional does not answer a miracle with a room rate — the card describes how she takes a booking, not the ceiling of what she is capable of feeling. Use the register for the ordinary and let the extraordinary break it.]`;
 }

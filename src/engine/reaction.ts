@@ -79,9 +79,30 @@ export function reactionDirective(state: SaveState, action: string, mode: Action
     ? `${present.join(", ")} ${present.length === 1 ? "is" : "are"} in the room and ${present.length === 1 ? "saw" : "each saw"} it.`
     : `Nobody is here to see it, so the world's answer is the place itself and whatever it does in response.`;
 
+  // ── AND WHAT THEY CAN SEE ON HIM ──────────────────────────────────────────────────────────
+  // A player rode a self-balancing electric vehicle up to an inn in iron-age Latium, wearing a
+  // Versace suit, and the innkeeper quoted him a room rate and wondered where he would park it.
+  // Both halves of that contradiction were sitting in the save: `wearing` said "Versace suit,
+  // white shirt open at neck" and `technology_level` said "ox-plows, hand-mills, oil lamps, wax
+  // tablets". Nothing in the engine had ever compared one to the other, so an anachronism became
+  // an ordinary noun the moment it entered state and stayed one forever.
+  const cond = state.condition["char_player"];
+  const carried = [
+    ...(cond?.wearing ?? []),
+    ...(cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[],
+  ].filter((x) => String(x).trim()).slice(0, 6);
+  const look = String(state.characters["char_player"]?.appearance_now ?? "").trim();
+  const tech = String(state.world_bible?.technology_level ?? "").trim();
+  const seen = [look, ...carried].filter(Boolean).join("; ");
+  const anachronism = seen && tech
+    ? `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen.slice(0, 240)}.
+This world can do this and no more: ${tech.slice(0, 240)}
+Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.`
+    : "";
+
   return `\n[WHAT THE PLAYER JUST DID — THE SCENE ANSWERS THIS FIRST.
 "${act.slice(0, 300)}"
-${who}
+${who}${anachronism}
 This is the largest thing that has happened in this scene, and it outranks any standing thread, clock or errand named above: those are the background of the room, and this happened IN the room. Whatever the pressure line says arrives or does not arrive from outside, it does not license writing past this.
 HOW THEY ANSWER IT: each present character reacts out of their own state, their own history with the player, and — this is the part that gets skipped — WHAT THIS WORLD HOLDS TO BE TRUE. Measure the act against the canon and the world bible you were given. If what the player just did is impossible here, or forbidden here, or carries a penalty here, then that is the largest fact in the room and every person in it knows it; they do not absorb it as ordinary and they do not need it explained to them. If it is unremarkable here, it is unremarkable, and a shrug is the honest answer.
 TWO FAILURES, BOTH CAUGHT IN PLAY. Do NOT continue the previous topic as though nothing happened — a scene that was an argument about money before the act must not still be an argument about money after it, with the act as a debating point. And do NOT convert the act into a figure of speech, a lesson, or an occasion for someone's philosophy: they are looking at a thing that just occurred, and what a person does with a thing that just occurred is look at it, name it, back away from it, reach for it, or ask what it is.]`;

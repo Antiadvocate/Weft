@@ -123,5 +123,41 @@ const GOLD = `"Ok then here." I make a cart and a biometric safe next to the hot
   check("a standing tier is refreshed, not promoted", s.power_witnessed.tier === "cosmic" && s.power_witnessed.turn === 40, s.power_witnessed);
 }
 
+
+/* ── 7. what he has ON him, against what this world can build ────────────────────
+ *
+ * The player rode a self-balancing electric vehicle up to an inn in iron-age Latium wearing a
+ * Versace suit. The innkeeper quoted him a room rate and wondered where he would park it. BOTH
+ * halves of that contradiction were already in the save — `wearing` said "Versace suit, white
+ * shirt open at neck", `technology_level` said "ox-plows, hand-mills, oil lamps, wax tablets" —
+ * and nothing in the engine had ever held one against the other. An anachronism became an
+ * ordinary noun the moment it entered state, and stayed one.
+ */
+{
+  const s = world();
+  s.world_bible.technology_level = "Iron-age Mediterranean: ox-plows, hand-mills, oil lamps, wax tablets";
+  s.condition["char_player"].wearing = ["Versace suit, white shirt open at neck"];
+  s.condition["char_player"].inventory = [{ id: "i1", name: "a self-balancing two-wheeled scooter" }];
+  const d = reactionDirective(s, "I ride up to the inn and step off, and walk in", "do");
+  check("what they can see on him is stated", /Versace suit/.test(d), d.slice(0, 200));
+  check("and what this world can build is stated beside it", /ox-plows, hand-mills/.test(d));
+  check("the two are explicitly held against each other", /Hold those two lines against each other/.test(d));
+  check("familiarity does not make it ordinary", /does not become ordinary by having been mentioned before/.test(d));
+  check("they have no word for it and get it wrong", /reaches for the nearest thing they do know, and gets it wrong/.test(d));
+  check("and the exact failure is named", /price it, park it, or fold it into the errand/.test(d));
+}
+{
+  // a world with no stated tech level, or a player carrying nothing, says nothing about it
+  const bare = world();
+  bare.world_bible.technology_level = "";
+  bare.condition["char_player"].wearing = ["a wool cloak"];
+  check("no stated tech level, no comparison", !/Hold those two lines/.test(reactionDirective(bare, "I walk into the inn and sit down", "do")));
+  const empty = world();
+  empty.world_bible.technology_level = "Iron-age Mediterranean";
+  empty.condition["char_player"].wearing = [];
+  empty.condition["char_player"].inventory = [];
+  check("nothing on him, nothing to hold up", !/Hold those two lines/.test(reactionDirective(empty, "I walk into the inn and sit down", "do")));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
