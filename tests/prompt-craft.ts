@@ -99,7 +99,7 @@ const prompt = \`Match the register of the story you are given and keep the tone
   // check (literary-vocabulary) was added, which surfaced instructions that name a form in order to
   // ban it. It may fall freely — that is the point, there is a backlog here.
   // Raising it means an instruction was written as criticism — rewrite it, do not raise this.
-  const BUDGET = 28;
+  const BUDGET = 24;
   console.log(`     (quality-descriptions where an operation belongs: ${total}, budget ${BUDGET})`);
   check("instructions written as criticism have not increased", total <= BUDGET, total);
 }
