@@ -77,9 +77,10 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
 {
   const fix = maximFix("Shock has a price, Rabi.");
   check("it quotes the actual line", /Shock has a price/.test(fix), fix);
-  check("it names the structural fault", /portable|general truth/i.test(fix));
-  check("it says what to write instead", /plain specifics|answer it directly/i.test(fix));
-  check("and it covers the direct-question failure", /answering a direct question with an image/i.test(fix));
+  check("and reports the property rather than naming the form", /NAMED NOTHING THAT WAS IN THE ROOM/.test(fix));
+  check("it names the structural fault", /about the world in general rather than about anything in that room/i.test(fix));
+  check("it says what to write instead, as a positive requirement", /NAMES SOMETHING PHYSICALLY PRESENT/.test(fix));
+  check("and it covers the direct-question failure", /they answer it, or they refuse it in plain words/i.test(fix));
   check("nothing to correct produces nothing", maximFix(null) === "" && maximFix(undefined) === "");
 }
 
@@ -93,7 +94,9 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   const a = voiceAnchor(state, ["char_l", "char_m", "char_x"]);
   check("present speakers get their own lines", /Lucia sounds like this/.test(a) && /Marcus sounds like this/.test(a), a);
   check("a card with no lines contributes nothing", !/Nobody/.test(a));
-  check("and it forbids improving on them", /smoother, wiser, more compressed or more quotable/.test(a));
+  check("the samples are recordings of another day, not a mould", /recordings of each person on some other day/.test(a), a.slice(0, 140));
+  check("and a state can override the recording", /repeats themselves, stops halfway/.test(a));
+  check("with a check that can actually be applied", /would produce the same line in this moment/.test(a));
   check("no cards, no note", voiceAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
 }
 
@@ -144,11 +147,11 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   const defence = "A beetle and a fever and a roof aren't maxims. They're the room we're standing in.";
   check("the defence is caught", caught(defence), findMaxims(said(defence)));
   const fix = maximFix(defence);
-  check("and gets its own correction", /DEFEND YOUR OWN PROSE STYLE/.test(fix));
-  check("which names it as arguing with the player", /arguing with the person playing/.test(fix));
+  check("and gets its own correction", /ARGUED WITH THE PLAYER ABOUT HOW THE CHARACTERS TALK/.test(fix));
+  check("which rules the opinion out of the world", /Nobody in this world has an opinion about how the writing works/.test(fix));
   check("and closes it", /The player is right and the argument is over/.test(fix));
   check("an ordinary maxim still gets the ordinary correction",
-    !/DEFEND YOUR OWN PROSE STYLE/.test(maximFix("Shock has a price, Rabi.")));
+    !/ARGUED WITH THE PLAYER/.test(maximFix("Shock has a price, Rabi.")));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
