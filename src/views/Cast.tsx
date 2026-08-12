@@ -6,6 +6,8 @@ import { splitLines } from "../engine/turn";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
+import { clockLabel, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
+import { daysLabel, runsOn } from "../engine/schedule";
 
 function opennessLabel(r: number): string {
   if (r <= -7) return "clenched shut";
@@ -431,6 +433,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {!!sel && sel !== "char_player" && !gone(sel) && <Authored save={save} sel={sel} setSave={setSave} />}
+                {!!sel && sel !== "char_player" && !gone(sel) && <ScheduleEditor save={save} sel={sel} setSave={setSave} />}
 
                 {(c.background || c.life_history) && (
                   <Section title="Identity">
@@ -812,6 +815,179 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
             <button className="btn-sm" disabled={busy || !goal.trim()} onClick={commit}>
               {editing >= 0 ? "save" : "set it going"}
             </button>
+            <button className="btn-sm" disabled={busy} onClick={() => setEditing(null)}>cancel</button>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/* THE WEEK SOMEBODY ALREADY HAS — see engine/schedule.ts.
+ *
+ * The editor is deliberately the same shape as the authored-want editor above it, because they are
+ * the two halves of the same idea: that one is what a person is coming to want, this one is what a
+ * person already has to do. The difference is that this one has hours on it, and hours are what let
+ * the engine act without being asked. */
+const DAY_PRESETS: { k: "daily" | "weekdays" | "weekends"; label: string }[] = [
+  { k: "daily", label: "every day" },
+  { k: "weekdays", label: "weekdays" },
+  { k: "weekends", label: "weekends" },
+];
+const RIGID: { k: "optional" | "expected" | "mandatory"; label: string; hint: string }[] = [
+  { k: "optional", label: "optional", hint: "the scene always wins" },
+  { k: "expected", label: "expected", hint: "they'd have to be really held up" },
+  { k: "mandatory", label: "can't miss it", hint: "they go, late if they must" },
+];
+
+function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string; setSave: (s: ClientSave) => void }) {
+  const sched = save.characters[sel]?.schedule;
+  const blocks = sched?.blocks ?? [];
+  const [editing, setEditing] = useState<number | null>(null);
+  const [what, setWhat] = useState("");
+  const [why, setWhy] = useState("");
+  const [where, setWhere] = useState("");
+  const [how, setHow] = useState("");
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("17:00");
+  const [days, setDays] = useState<"daily" | "weekdays" | "weekends" | number[]>("weekdays");
+  const [rigidity, setRigidity] = useState<"optional" | "expected" | "mandatory">("expected");
+  const [stakes, setStakes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [forgeMsg, setForgeMsg] = useState("");
+
+  const today = weekdayIndex(save.world.current_time, save.world_bible?.start_date);
+  const run = async (fn: () => Promise<ClientSave>) => {
+    setBusy(true);
+    try { setSave(await fn()); } finally { setBusy(false); }
+  };
+  const startEdit = (i: number) => {
+    const b = i >= 0 ? blocks[i] : undefined;
+    setWhat(b?.what ?? ""); setWhy(b?.why ?? ""); setWhere(b?.where ? (save.world.places[b.where]?.name ?? b.where) : "");
+    setHow(b?.how ?? ""); setStart(clockLabel(b?.start ?? 9 * 60)); setEnd(clockLabel(b?.end ?? 17 * 60));
+    setDays(b?.days ?? "weekdays"); setRigidity(b?.rigidity ?? "expected"); setStakes(b?.stakes ?? "");
+    setEditing(i);
+  };
+  const commit = () => {
+    if (!what.trim() || !where.trim()) return;
+    void run(async () => {
+      const s = await api.setScheduleBlock(save.id, sel,
+        { what, where, why, how, start, end, days, rigidity, stakes },
+        editing !== null && editing >= 0 ? editing : undefined);
+      setEditing(null);
+      return s;
+    });
+  };
+  const readItOff = async () => {
+    setBusy(true); setForgeMsg("");
+    try {
+      const r = await api.forgeSchedule(save.id, sel);
+      if (r) setSave(r.save);
+      else setForgeMsg("nothing usable came back — their card may not imply a week at all");
+    } catch { setForgeMsg("that call didn't go through"); }
+    finally { setBusy(false); }
+  };
+
+  // Both of these read the engine's own answer rather than a second implementation of it — a UI
+  // that disagrees with the tick about which days a shift runs is worse than no UI.
+  const dayText = (d: typeof days) => daysLabel(d);
+  const runsToday = (d: typeof days) => runsOn(d, today);
+
+  return (
+    <Section title={`Their week — it is ${WEEKDAY_FULL[today]}`}>
+      {blocks.map((b, i) => (
+        <div key={b.id ?? i} className="mb-3 pb-2" style={{ borderBottom: i < blocks.length - 1 ? "1px solid var(--ink-2)" : undefined }}>
+          <Row k="does" v={b.what} />
+          <Row k="when" v={`${clockLabel(b.start)}–${clockLabel(b.end)}, ${dayText(b.days)}${runsToday(b.days) && !b.paused ? " — today" : ""}`} />
+          <Row k="where" v={save.world.places[b.where]?.name ?? b.where} />
+          {b.how && <Row k="gets there" v={b.how} />}
+          {b.why && <Row k="because" v={b.why} />}
+          {b.stakes && <Row k="or else" v={b.stakes} />}
+          <Row k="how firm" v={b.paused ? "on hold" : RIGID.find((r) => r.k === b.rigidity)?.hint ?? b.rigidity} />
+          {b.last_missed_day !== undefined && <Row k="missed" v={`day ${b.last_missed_day}`} />}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <button className="btn-sm" disabled={busy} onClick={() => startEdit(i)}>edit</button>
+            <button className="btn-sm" disabled={busy}
+              onClick={() => void run(() => api.setScheduleBlock(save.id, sel, { ...b, start: b.start, end: b.end, paused: !b.paused }, i))}>
+              {b.paused ? "back on" : "on hold"}
+            </button>
+            <button className="btn-sm" disabled={busy || !runsToday(b.days)}
+              onClick={() => void run(() => api.excuseSchedule(save.id, sel, i))}>let them off today</button>
+            <button className="btn-sm" disabled={busy}
+              onClick={() => void run(() => api.setScheduleBlock(save.id, sel, null, i))}>drop it</button>
+          </div>
+        </div>
+      ))}
+
+      {editing === null ? (
+        <div>
+          {!blocks.length && (
+            <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
+              Somewhere they have to be, and when. They'll know it's coming, cut a conversation short
+              for it, and go there on their own — and a night that keeps them past it costs them
+              something. Optional: most people don't need one.
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            <button className="btn-sm" disabled={busy} onClick={() => startEdit(-1)}>{blocks.length ? "add another" : "write one"}</button>
+            <button className="btn-sm" disabled={busy} onClick={() => void readItOff()}>
+              {busy ? "reading…" : "read it off their background"}
+            </button>
+          </div>
+          {forgeMsg && <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>{forgeMsg}</div>}
+          {(blocks.length > 0 || sched?.home || sched?.note) && (
+            <div className="mt-3 pt-2" style={{ borderTop: "1px solid var(--ink-2)" }}>
+              <EditField label="Where they end up otherwise (home)" v={sched?.home ?? ""}
+                set={(v) => void run(() => api.setScheduleFrame(save.id, sel, { home: v }))} />
+              <EditField label="Anything else about the week" v={sched?.note ?? ""}
+                set={(v) => void run(() => api.setScheduleFrame(save.id, sel, { note: v }))} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <EditField label="What they have to do" v={what} set={setWhat} />
+          <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
+            “the early shift at the tannery”, “Thursday lessons with the priest” — a place they have
+            to be, not something they're hoping to get around to.
+          </div>
+          <EditField label="Where" v={where} set={setWhere} />
+          <EditField label="How they get there (optional)" v={how} set={setHow} />
+          <EditField label="Why it's in their life — theirs, not yours (optional)" v={why} set={setWhy} rows={2} />
+          <div className="flex gap-2">
+            <div className="flex-1"><EditField label="From" v={start} set={setStart} /></div>
+            <div className="flex-1"><EditField label="Until" v={end} set={setEnd} /></div>
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>Which days</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {DAY_PRESETS.map((p) => (
+              <button key={p.k} className="btn-sm" onClick={() => setDays(p.k)}
+                style={!Array.isArray(days) && days === p.k ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
+                {p.label}
+              </button>
+            ))}
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, n) => (
+              <button key={d} className="btn-sm" title={`only ${WEEKDAY_FULL[n]}`}
+                onClick={() => setDays(Array.isArray(days) ? (days.includes(n) ? days.filter((x) => x !== n) : [...days, n]) : [n])}
+                style={Array.isArray(days) && days.includes(n) ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>How firm is it</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {RIGID.map((r) => (
+              <button key={r.k} className="btn-sm" onClick={() => setRigidity(r.k)}
+                style={r.k === rigidity ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}>
+                {r.label} <span style={{ color: "var(--text-lo)" }}>· {r.hint}</span>
+              </button>
+            ))}
+          </div>
+          {rigidity === "mandatory" && (
+            <EditField label="What missing it costs them" v={stakes} set={setStakes} />
+          )}
+          <div className="flex gap-1.5 mt-2">
+            <button className="btn-sm" disabled={busy || !what.trim() || !where.trim()} onClick={commit}>save it</button>
             <button className="btn-sm" disabled={busy} onClick={() => setEditing(null)}>cancel</button>
           </div>
         </div>

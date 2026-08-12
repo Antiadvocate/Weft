@@ -17,6 +17,8 @@ import { seedDrive } from "../engine/drives";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback } from "../engine/authored";
+import { excuseElapsedToday, newBlock, placeForBlock, placeForRef, readSchedule } from "../engine/schedule";
+import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
@@ -1299,6 +1301,103 @@ export const api = {
     c.tracked = true;
     await putSave(s);
     return clientView(s);
+  },
+
+  /** THE WEEK SOMEBODY ALREADY HAS. Write, revise, or delete one standing commitment. See
+   *  engine/schedule.ts for what the engine then does with it — briefly: they know it is coming,
+   *  they go there on their own, and a scene that holds them past it costs them something.
+   *
+   *  Tracking comes along with it, for the same reason authoring a want does: an untracked
+   *  character is one the engine spends no upkeep on, and a week nobody runs is a note on a card. */
+  setScheduleBlock: async (id: string, char_id: string, block: null | {
+    what: string; where: string; why?: string; how?: string; travel_min?: number;
+    start?: number | string; end?: number | string;
+    days?: "daily" | "weekdays" | "weekends" | number[];
+    rigidity?: "optional" | "expected" | "mandatory";
+    stakes?: string; paused?: boolean;
+  }, index?: number): Promise<ClientSave> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c) throw new Error("unknown character");
+    if (char_id === "char_player") throw new Error("the player's day is the player's to spend");
+    const sched = (c.schedule ??= { blocks: [] });
+
+    if (!block || !block.what.trim() || !block.where.trim()) {
+      if (typeof index === "number" && index >= 0 && index < sched.blocks.length) sched.blocks.splice(index, 1);
+      else sched.blocks = [];
+      if (!sched.blocks.length && !sched.home && !sched.note) delete c.schedule;
+      await putSave(s);
+      return clientView(s);
+    }
+    const prev = typeof index === "number" ? sched.blocks[index] : undefined;
+    // Rewording a block does not wipe what it has already done — a shift somebody missed on Tuesday
+    // stays missed after the player fixes a typo in its name.
+    const made = newBlock({ ...prev, ...block, what: block.what, where: block.where, id: prev?.id });
+    // A commitment written after its hour has passed starts tomorrow — see excuseElapsedToday.
+    if (made.excused_day === undefined) excuseElapsedToday(s, made, c.location);
+    if (typeof index === "number" && index >= 0 && index < sched.blocks.length) sched.blocks[index] = made;
+    else sched.blocks.push(made);
+    // Mint the place now rather than on the first tick, so the player can see where they have just
+    // sent this person and the gazetteer's one gate has folded a room into its building already.
+    placeForBlock(s, made);
+    c.tracked = true;
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Where they end up when nothing claims them, and the one line about the week the blocks cannot
+   *  hold. Either may be cleared by passing an empty string. */
+  setScheduleFrame: async (id: string, char_id: string, frame: { home?: string; note?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    const c = s.characters[char_id];
+    if (!c) throw new Error("unknown character");
+    const sched = (c.schedule ??= { blocks: [] });
+    if (frame.home !== undefined) sched.home = frame.home.trim().slice(0, 80) || undefined;
+    if (frame.note !== undefined) sched.note = frame.note.trim().slice(0, 200) || undefined;
+    if (sched.home) placeForRef(s, sched.home);
+    if (!sched.blocks.length && !sched.home && !sched.note) delete c.schedule;
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** LET THEM OFF, for today only. The honest button for "she doesn't have to go in, she's with me"
+   *  — it is a decision the player made rather than a shift that quietly stopped existing, so the
+   *  block stays on the card and comes round again tomorrow. */
+  excuseSchedule: async (id: string, char_id: string, index: number): Promise<ClientSave> => {
+    const s = await need(id);
+    const b = s.characters[char_id]?.schedule?.blocks?.[index];
+    if (!b) throw new Error("no such commitment");
+    b.excused_day = parseTime(s.world.current_time).day;
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** READ THE WEEK OFF WHO THEY ALREADY ARE — one cheap model call. Returns null when the model
+   *  gave nothing usable, and the character is left exactly as they were. See scheduleforge.ts. */
+  forgeSchedule: async (id: string, char_id: string): Promise<{ save: ClientSave; blocks: number } | null> => {
+    const s = await need(id);
+    const r = await forgeSchedule(s, char_id, s.model_settings.forge_model);
+    if (!r) return null;
+    for (const b of s.characters[char_id]?.schedule?.blocks ?? []) {
+      placeForBlock(s, b);
+      excuseElapsedToday(s, b, s.characters[char_id]?.location);
+    }
+    await putSave(s);
+    return { save: clientView(s), blocks: r.blocks };
+  },
+
+  /** What this person's week says about right now — for the Cast drawer, which should show the
+   *  same reading the narrator is given rather than a second implementation of it. */
+  scheduleNow: async (id: string, char_id: string) => {
+    const s = await need(id);
+    const r = readSchedule(s, char_id);
+    const name = (ref?: string) => (ref && s.world.places[ref]?.name) || ref || "";
+    return {
+      current: r.current ? { what: r.current.block.what, until: r.current.block.end } : null,
+      pending: r.pending ? { what: r.pending.block.what, lateBy: Math.round(r.pending.lateBy), where: name(r.pending.block.where) } : null,
+      next: r.next ? { what: r.next.block.what, leaveIn: Math.round(r.next.leaveIn), day: r.next.day } : null,
+      free: r.free,
+    };
   },
 
   /** Knock an authored want back a rung — the character was faced down and it cost them. */

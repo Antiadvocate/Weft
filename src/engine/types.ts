@@ -283,6 +283,7 @@ export interface Identity {
   drive?: NPCDrive;           // the ACTIVE pursuit
   drive_queue?: NPCDrive[];   // up to 2 backup goals; promoted when the active one stalls/completes and the scene is calm
   authored?: AuthoredDrive[]; // STANDING wants the player wrote onto this person by hand — see AuthoredDrive
+  schedule?: Schedule;        // OPTIONAL standing week — where this person has to be, and when. See engine/schedule.ts
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
   central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
@@ -373,6 +374,74 @@ export interface AuthoredDrive {
   crystallize?: boolean;
   crystallized_turn?: number;
   added_turn: number;
+}
+
+/** WHICH DAYS A BLOCK RUNS. `weekdays` and `weekends` are the two the player asks for by name;
+ *  an explicit list (0 Sun … 6 Sat) covers everything else — a Tuesday market, a Sunday service,
+ *  four nights on and three off. See engine/time.ts for how a world with no calendar still has a
+ *  week: with no `start_date`, Day 1 is a Monday and the week runs from there. */
+export type ScheduleDays = "daily" | "weekdays" | "weekends" | number[];
+
+/** ONE STANDING COMMITMENT IN SOMEBODY'S WEEK.
+ *
+ *  A drive is what a person is trying to get; a block is where they have to BE, whether they feel
+ *  like it or not, because their life already had a shape before the story started. The engine had
+ *  no representation of that at all: every character stood exactly where the last scene left them
+ *  until a model moved them, so a woman with a job was at home at ten on a Tuesday morning for the
+ *  same reason she was at home at ten on a Sunday — nothing had ever told the world otherwise.
+ *
+ *  The fields divide into four groups, and each is load-bearing for a different failure:
+ *
+ *  · WHAT and WHY. `what` alone gets a character who leaves for "work" and comes back with nothing
+ *    to say about it. `why` is the same field as AuthoredDrive.because and exists for the same
+ *    reason: a commitment with no cause is a puppet-string, so the narrator invents a cause, and a
+ *    different one every turn. It is where the job meets the background — "the only yard that takes
+ *    a man with a record", "she is the one who can read, so she reads the wills".
+ *  · WHERE and HOW. `where` is what makes this more than a note on a card: the engine moves them
+ *    there. `how` is the commute, which is the part of a day people actually talk about, and the
+ *    thing that decides how long before the hour they have to stand up and go.
+ *  · WHEN. Minutes since midnight, so overnight work is expressible (end < start wraps).
+ *  · WHAT IT COSTS. `rigidity` decides whether the world can hold them past the hour and what it
+ *    means when it does; `stakes` is the sentence the miss cashes out as. */
+export interface ScheduleBlock {
+  id: string;
+  what: string;                 // "the early shift at the tannery", "Thursday lessons with the priest"
+  why?: string;                 // why this is in their life at all — ties to background, drives, debts
+  where: string;                // a place id, or a free place name (resolved/created on first use)
+  how?: string;                 // "the 6:40 tram", "walks the towpath", "her brother drives her"
+  travel_min?: number;          // minutes before `start` they have to set out; derived from distance when unset
+  start: number;                // minutes since midnight, 0–1439
+  end: number;                  // minutes since midnight; less than `start` means it runs past midnight
+  days: ScheduleDays;
+  /** How immovable it is, and therefore what the engine is allowed to do about it. `mandatory` — a
+   *  shift, a watch, a court date — the engine will move them itself once the scene has held them
+   *  well past the hour. `expected` gets a far longer leash. `optional` is never forced: the scene
+   *  wins and they simply did not go, which is a thing that happened rather than a rule broken. */
+  rigidity: "optional" | "expected" | "mandatory";
+  stakes?: string;              // what missing it costs them — "the foreman docks a day and remembers"
+  paused?: boolean;             // on the card, off the clock (a leave of absence, a strike, a broken leg)
+  /** BOOKKEEPING, one day-number each, so nothing fires twice for the same day. */
+  last_left_day?: number;       // the day they set out for it
+  last_done_day?: number;       // the day they saw it through to the end
+  last_missed_day?: number;     // the day it came and went without them
+  last_late_day?: number;       // the day the scene held them past the hour
+  /** The day the player's scene was actually holding them while this block's hours ran. It is what
+   *  separates "she missed her shift because she was with you" from "the montage skipped Tuesday" —
+   *  without it, every time-skip would hand out missed shifts to a cast nobody was looking at. */
+  held_day?: number;
+  excused_day?: number;         // the player let them off this one — set from the Cast drawer
+}
+
+/** A PERSON'S WEEK. Optional in every sense: a character without one behaves exactly as before. */
+export interface Schedule {
+  blocks: ScheduleBlock[];
+  /** Where they end up when nothing else claims them — home, the barracks, the room over the shop.
+   *  Without it a character who finishes a shift at midnight stands in the empty tannery until the
+   *  next thing in their week happens to start. */
+  home?: string;
+  /** One line the player can write about the shape of the week that no block captures: "off on
+   *  saints' days", "swaps nights with her sister when the baby is bad". Surfaced, never parsed. */
+  note?: string;
 }
 
 export interface AcquiredTrait {
@@ -628,6 +697,12 @@ export interface WorldState {
   /** People whose journey to the player completed this turn — the narrator has to write them
    *  arriving, or they appear out of nowhere, which is exactly the bug this exists to stop. */
   arrivals_pending?: string[];
+  /** THE OTHER HALF OF THAT. People the engine walked OUT of the player's scene — today only ever
+   *  the schedule, when a live scene has held somebody so far past a shift that waiting for the
+   *  narrator to write the goodbye has become the bug. Omission from a shorter cast list is not a
+   *  statement that somebody left; the narrator has to be told, or the next turn quietly writes
+   *  around a hole where a person was. Rendered once, then cleared with arrivals_pending. */
+  departures_pending?: { name: string; to: string; why: string }[];
   /** THINGS THAT REACH THE PLAYER FROM OFFSTAGE — a text, a call, a letter, a knock. The offstage
    *  world has only ever reached the player through witnesses and rumor, which models a village and
    *  nothing else; a woman in an apartment across the city could not send a message to a man in a
