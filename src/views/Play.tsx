@@ -8,6 +8,7 @@ import World from "./World";
 import Chronicle from "./Chronicle";
 import { Seismograph } from "../lib/charts";
 import { AnalogClock, WeatherIcon } from "../lib/format";
+import { estimateSaveWeight, leaveBreadcrumb } from "../lib/crash";
 import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
 import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel } from "../lib/tone";
@@ -47,7 +48,15 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [tightness, setTightness] = useState<number | undefined>(undefined);
   const [baseline, setBaseline] = useState(false);
   const [running, setRunning] = useState(false);
-  const [phase, setPhase] = useState<string | null>(null);
+  const [phase, setPhaseRaw] = useState<string | null>(null);
+  /* EVERY PHASE CHANGE LEAVES A NOTE, because the failures players actually report here are the
+   * ones with nothing on screen: an async rejection that leaves this component `running` forever,
+   * or a tab the browser kills outright. Neither can draw anything by the time it happens, so what
+   * the app was doing has to already be written down. See lib/crash.ts. */
+  const setPhase = React.useCallback((p: string | null) => {
+    leaveBreadcrumb({ phase: p ?? undefined });
+    setPhaseRaw(p);
+  }, []);
   // The player's own faculties reading the scene while the narrator writes it. Lands seconds
   // into the wait and stays up until the prose starts arriving — the gap is the read.
   const [reads, setReads] = useState<{ faculty: string; line: string }[]>([]);
@@ -187,6 +196,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   // session, and a new session has empty sessionStorage. So the one case this was written for —
   // type a long action, look at something else, come back — was the exact case it did not cover.
   useEffect(() => { try { localStorage.setItem(draftKey, action); } catch { /* quota */ } }, [action, draftKey]);
+  /* Which save, which turn, and how heavy it is — refreshed once a turn rather than once a phase,
+   * since the weight is the expensive half and it barely moves within a turn. A crash nobody
+   * witnessed is answered mostly by this line: a tab dies at a SIZE. */
+  useEffect(() => {
+    const { bytes, images } = estimateSaveWeight(save);
+    leaveBreadcrumb({ save_id: save.id, save_name: save.name, turn: save.world.current_turn, save_bytes: bytes, images });
+  }, [save.id, save.world.current_turn]);
 
   const pushToasts = (lines: string[]) => {
     lines.slice(0, 3).forEach((text, i) => {

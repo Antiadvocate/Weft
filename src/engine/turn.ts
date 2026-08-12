@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -3030,6 +3030,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // that nobody has touched in a long time go dormant, and any mention wakes them. See threads.ts —
   // this exists because the bookkeeper was never once asked to close one, and never did.
   offscreenLog.push(...sweepThreads(state, prose));
+  // AND THE PROMISE LEDGER, for exactly the same reason threads needed it: nothing ever took an
+  // entry OFF except the bookkeeper choosing to, so small favours the story moved past accumulated
+  // forever — each one holding a slot in the ten shown to the bookkeeper every turn and a line on a
+  // character card. A deadline that passed undone breaks; an untended favour is quietly let go; a
+  // vow stays open. See sweepPromises.
+  for (const line of sweepPromises(state, turn)) { offscreenLog.push(line); shifts.push(line); }
   offscreenLog.push(...returnFromOffscene(state));
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }

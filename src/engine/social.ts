@@ -16,6 +16,7 @@
 import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
 import { asText } from "./coerce";
 import { relevance } from "./memory";
+import { absMinutes } from "./time";
 import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
 import { populationOf } from "./population";
@@ -1203,6 +1204,93 @@ export function creditPromiseEvidence(state: SaveState, action: string, prose: s
     console.info(`[promises] closed "${p.text}" as kept — ${seen.length} turns of evidence and the bookkeeper never resolved it`);
   }
   return closed;
+}
+
+/** Turns an untended small favour stays on the ledger before it stops being carried. Roughly a
+ *  session of play: long enough that a favour deferred over an arc is still owed, short enough that
+ *  "I'll grab you a drink" from forty turns ago is not still being served to the bookkeeper as live
+ *  business every single turn. */
+export const PROMISE_STALE_TURNS = 30;
+/** In-world minutes past a stated deadline before an unkept promise is simply broken. */
+const PROMISE_DEADLINE_GRACE_MIN = 12 * 60;
+/** How many promises may be open at once before the oldest small ones are let go regardless. */
+const MAX_OPEN_PROMISES = 20;
+
+/**
+ * THE LEDGER HAS TO EMPTY AS WELL AS FILL.
+ *
+ * Recording commitments is mandatory and the bookkeeper is told so in capitals, which is right — a
+ * commitment that never reaches state gets re-asked for every turn. But nothing ever took one OFF
+ * except the bookkeeper choosing to resolve it, the evidence detector closing a favour it saw done
+ * three times, or the player pressing a button. Everything else accumulated, forever, and open
+ * promises are exempt from the ledger's own 40-entry cap — that cap only ever trims RESOLVED ones.
+ *
+ * What accumulates is not vows. It is "I'll walk you home", "I'll ask around", "I'll bring the
+ * ledger by" — small business the story moved past three days ago and no scene will ever formally
+ * close. Each one keeps costing: a slot in the ten shown to the bookkeeper under an instruction to
+ * check EVERY one of them against this turn, a line on a character card, and a place in the
+ * player's journal reading as a job still owed.
+ *
+ * Three rules, and the distinctions between them are the whole design:
+ *
+ *   · A DEADLINE THAT PASSED UNDONE IS BROKEN. Not stale — broken, with the full relationship
+ *     consequence, because that is what the word means and the bookkeeper is already told so. Doing
+ *     it on the clock rather than hoping the model notices is the same move as firing consequences
+ *     on in-world time instead of on the turn counter.
+ *   · AN UNTENDED SMALL FAVOUR IS RETIRED. `retired` exists precisely for a promise that was never
+ *     going to close itself and it carries NO relationship consequence (see the Promise type). The
+ *     story forgot about it; forgetting is not betrayal.
+ *   · A COMMITMENT OR A VOW WITH NO DEADLINE STAYS OPEN. "Protect your son" does not lapse because
+ *     thirty turns went by. Those are the arc, and the arc is allowed to take its time.
+ */
+export function sweepPromises(state: SaveState, turn: number): string[] {
+  const log: string[] = [];
+  const open = (state.world.promises ?? []).filter((p) => p.status === "open");
+  const now = absMinutes(state.world.current_time);
+
+  for (const p of open) {
+    if (p.due_time) {
+      const due = absMinutes(p.due_time);
+      // absMinutes falls back to Day 1 09:00 on anything it cannot parse, and "unresolved" is a
+      // legal due_time in this engine — never break a promise on a timestamp we did not understand.
+      if (/day\s*\d+/i.test(p.due_time) && now > due + PROMISE_DEADLINE_GRACE_MIN) {
+        const line = resolvePromise(state, p, "broken", turn);
+        p.settled_turn = turn;
+        if (line) log.push(line);
+        console.info(`[promises] "${p.text}" came due at ${p.due_time} and was not kept`);
+        continue;
+      }
+    }
+    const idle = turn - Math.max(p.made_turn, ...(p.evidence_turns ?? [0]));
+    if (p.weight === 1 && !p.due_time && idle >= PROMISE_STALE_TURNS) {
+      p.status = "retired";
+      p.settled_turn = turn;
+      log.push(`the small matter of "${p.text.replace(/\s*[.]\s*$/, "")}" has quietly stopped being owed.`);
+    }
+  }
+
+  // BACKSTOP. A story that generates favours faster than the staleness window retires them would
+  // still creep upward. Oldest small ones go first; a vow is never dropped for being numerous.
+  const stillOpen = (state.world.promises ?? []).filter((p) => p.status === "open");
+  if (stillOpen.length > MAX_OPEN_PROMISES) {
+    const droppable = stillOpen.filter((p) => p.weight === 1).sort((a, b) => a.made_turn - b.made_turn);
+    for (const p of droppable.slice(0, stillOpen.length - MAX_OPEN_PROMISES)) {
+      p.status = "retired";
+      p.settled_turn = turn;
+      console.info(`[promises] retired "${p.text}" — ${stillOpen.length} open at once`);
+    }
+  }
+  return log;
+}
+
+/** The open promises WORTH SHOWING, most load-bearing first: a vow outranks a favour, and among
+ *  equals the freshest wins. The callers all take the first few, and taking the first few of an
+ *  array in insertion order meant a character card could spend all three of its slots on stale
+ *  errands while the vow the whole arc turns on sat below the cut. */
+export function livePromises(state: SaveState, filter?: (p: PromiseRec) => boolean): PromiseRec[] {
+  return (state.world.promises ?? [])
+    .filter((p) => p.status === "open" && (!filter || filter(p)))
+    .sort((a, b) => b.weight - a.weight || b.made_turn - a.made_turn);
 }
 
 export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" | "broken", turn: number): string {
