@@ -22,7 +22,7 @@
  * new instruction was written as criticism rather than as a procedure: rewrite the instruction,
  * do not raise the budget.
  */
-import { lint, lintDir, modelFacing } from "../tools/promptlint";
+import { lint, lintDir, modelFacing, templateLiterals } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
 
 let pass = 0, fail = 0;
@@ -45,6 +45,28 @@ const prompt = \`Match the register of the story you are given and keep the tone
   check("a line comment is not model-facing", !/take the register from the culture/.test(mf));
   check("a regex source is not a prompt", !/\\\\bfoo/.test(mf));
   check("the actual instruction is", /Match the register/.test(mf), mf);
+}
+
+/* ── 1b. A NESTED TEMPLATE DOES NOT HIDE THE PROMPT INSIDE IT ─────────────────
+ *
+ * The scanner used to be a regex pairing backticks in order, so an inner `${x ? `y` : ""}` shifted
+ * the pairing and everything after it fell out of phase. The effect was not a few missed lines: it
+ * silently excluded most of the corpus. voiceforge.ts — the prompt that writes the sample lines the
+ * narrator copies for every word a character speaks — was being read 204 characters deep, and the
+ * measured count that this file ratchets was taken over the fraction that happened to land in
+ * phase. A linter that reports zero because it never looked is worse than no linter.
+ */
+{
+  const src = 'const p = `Alpha instruction text here ${a ? `${b}` : ""} and the tail of it` + `Beta instruction text that must also be seen by the linter`;';
+  const lits = templateLiterals(src);
+  check("the outer literal survives an inner one", lits.some((t) => /Alpha instruction text here/.test(t) && /and the tail of it/.test(t)), lits);
+  check("...and the literal after it is not lost", lits.some((t) => /Beta instruction text/.test(t)), lits);
+  check("the interpolated code is not read as prose", !lits.join("").includes("a ?"));
+
+  // and the real file it was hiding
+  const vf = modelFacing(readFileSync("src/engine/voiceforge.ts", "utf8"));
+  check("voiceforge is actually linted now", vf.length > 2000, vf.length);
+  check("...including the rules for the lines the narrator imitates", /UNSAYABLE BY ANYONE ELSE IN THIS CAST/.test(vf));
 }
 
 /* ── 2. the three shapes ─────────────────────────────────────────────────────── */

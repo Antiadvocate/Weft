@@ -50,19 +50,19 @@ const TAIL = 0.10;
 
 const VOICE_SYSTEM = `You produce candidate VOICE CARDS for one character in a story.
 
-THE SETTING IS A HARD FLOOR. Everything below happens INSIDE the period described in the WORLD block. A voice is not made distinctive by importing a later century's vocabulary, and a candidate that sounds like a modern person is not an unusual voice — it is a mistake, and the most common one. Before you write any line, ask what this person could possibly have a word for. They cannot name a feeling their culture has no concept of. They cannot reach for an idiom from a technology that does not exist. Concepts as well as words: no therapy register (processing, boundaries, holding space, unpacking, valid), no management register (handle, manage, deal with it, sort out the logistics), no modern psychology of the self. Their metaphors come from the work, weather, animals, food, faith, kin and violence of THEIR world and nowhere else.
+THE SETTING IS A HARD FLOOR. Everything below happens INSIDE the world described in the WORLD block. Before writing any line, work out what this person could possibly have a word for: they name what their world contains and what their life has put in front of them, and nothing else. They cannot name a feeling their culture has no concept of, and they cannot reach for a comparison drawn from a thing that does not exist here. This covers ideas as much as vocabulary — a person from a world without clinics does not talk about processing, boundaries, holding space or unpacking; a person from a world without offices does not talk about handling it, managing it, or sorting the logistics. Their comparisons come from the work, weather, animals, food, faith, kin and violence of THEIR world. A candidate that borrows from outside it is not an unusual voice, it is a mistake, and it is the most common one.
 
 Output FIVE candidates. Each carries a numeric "probability": your honest estimate of how likely that voice is to be the one a writer would reach for first for this character. Sample from the TAILS — every candidate should sit below 0.10.
 
-BUT the unusualness must live on the RIGHT AXIS. Vary: what they refuse to say, what they are angling for under the words, sentence length, whether they answer the question asked, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the century. A voice that is improbable because it is anachronistic scores zero.
+BUT the unusualness must live on the RIGHT AXIS. Vary: what they refuse to say, what they are angling for under the words, sentence length, whether they answer the question asked, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the world. A candidate that is improbable because it reaches outside this setting scores zero.
 
 A voice is diction, syntax, rhythm, and what the person refuses to say. It is NOT their mood and NOT their personality restated. Two characters with identical traits should still speak nothing alike.
 
-example_lines are the proof and the only part that matters. Rules for them:
-- Plain speech from a specific mouth, in the period's register. No aphorisms, no summaries of the character's own psychology, no line that would work as a chapter epigraph.
-- A line must be UNSAYABLE by anyone else in the cast. If it would fit a generic sympathetic stranger, it is wrong.
-- Nobody is a therapist. No reflecting feelings back, no "that sounds hard", no gently leading questions.
-- These are BANNED outright, in any inflection: "that's not nothing", "it's a lot", "you're not wrong", "you do so much", "are you really doing this", "I'm not going to pretend", "let me be clear", echo-questions that repeat the last thing said back as a question, and any sentence whose job is to land as a closing beat.
+example_lines are the proof and the only part that matters. The narrator copies these to write everything this person ever says, so a sample about life in general teaches them to talk about life in general. Four requirements, all of them checkable on the finished line:
+- IT NAMES SOMETHING THIS PERSON COULD POINT AT OR HAS HANDLED — a person, an object, a price, a place, a job, an animal, a debt, a number, an errand. A line that names nothing of the kind is rewritten until it does.
+- IT IS UNSAYABLE BY ANYONE ELSE IN THIS CAST. If it would fit a generic sympathetic stranger, it is wrong. If it would still be true said by anyone, anywhere, to anyone, it is wrong.
+- IT IS AIMED AT SOMETHING THE SPEAKER WANTS FROM WHOEVER IS LISTENING — to be paid, to be believed, to be left alone, to find out what the other person knows, to get back to work. Not at what the listener is really like underneath: nobody here restates what the listener just said, asks a question designed to walk them to a realization about themselves, or tells them what their behaviour means.
+- IT IS NOT THE LAST LINE OF A SCENE. A sample that would work as the closing beat of a chapter teaches this person to end every exchange on one.
 
 Output ONLY this JSON:
 {"candidates":[{"probability":0.04,"voice":{"diction":"","syntax":"","rhythm":"","tics":[""],"never_says":["",""],"agenda":"","example_lines":["","",""]}}]}`;

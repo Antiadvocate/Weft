@@ -20,7 +20,9 @@
  * quotable lines attached to prohibitions is a RATCHET: it may fall, never rise, so the next rule
  * written in the heat of a bad save cannot reintroduce the failure it is trying to fix.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { templateLiterals } from "../tools/promptlint";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -34,9 +36,9 @@ function check(name: string, c: boolean, extra?: unknown) {
  * made the ratchet below count a fragment like `")}${bodySeverity(c) >= 3 ? "` as a quotable example
  * phrase. A budget that moves when the surrounding code is edited measures the wrong thing.
  */
-const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{40,}`/g) ?? [])
-  .join("\n")
-  .replace(/\$\{[^}]*\}/g, " ");
+const modelFacing = templateLiterals(readFileSync("src/engine/prompts.ts", "utf8"))
+  .filter((t) => t.length >= 40)
+  .join("\n");
 
 /* ── 1. the phrases caught coming back in the prose ───────────────────────────── */
 {
@@ -77,6 +79,40 @@ const modelFacing = (readFileSync("src/engine/prompts.ts", "utf8").match(/`[^`]{
   const BUDGET = 86;
   console.log(`     (quotable lines attached to a prohibition: ${supplied}, budget ${BUDGET})`);
   check(`the stock of forbidden-but-quotable lines has not grown`, supplied <= BUDGET, supplied);
+}
+
+/* ── 2b. AND THE OTHER THIRTY PROMPTS ─────────────────────────────────────────
+ *
+ * This file only ever measured prompts.ts, and its scanner only ever saw the parts of it that fell
+ * in phase with a backtick-pairing regex (see tools/promptlint.ts). Meanwhile the prompt that writes
+ * the sample lines every character's speech is copied from lives in voiceforge.ts, the one that
+ * writes what a player's own faculties tell them lives in read.ts, and neither was ever read here.
+ * Same rule, same ratchet, applied to all of them.
+ */
+{
+  const NEG = /(never|no |not |ban(ned)?|forbidden|avoid|stop |instead of|rather than|failure|wrong|do not|don't)/i;
+  let supplied = 0;
+  const worst: [string, number][] = [];
+  for (const f of readdirSync("src/engine").filter((x) => x.endsWith(".ts") && x !== "prompts.ts")) {
+    let n = 0;
+    const text = templateLiterals(readFileSync(join("src/engine", f), "utf8")).filter((t) => t.length >= 40).join("\n");
+    for (const sentence of text.split(/(?<=[.;])\s+/)) {
+      for (const ex of sentence.match(/["“][^"”\n]{15,120}["”]/g) ?? []) {
+        if (ex.replace(/["“”]/g, "").split(/\s+/).length < 4) continue;
+        if (NEG.test(sentence.slice(0, sentence.indexOf(ex)))) n++;
+      }
+    }
+    if (n) worst.push([f, n]);
+    supplied += n;
+  }
+  // First measurement of these files, taken after the mystical-perception and comparison bans in
+  // read.ts were rewritten as tests instead of catalogues. Most of what remains is JSON field
+  // descriptions in montage-run.ts and minimal pairs in turn.ts, which are not quotable prose — but
+  // the number may only fall. Same rule as above: lower it, do not nudge it.
+  const BUDGET = 60;
+  console.log(`     (…and in the other prompts: ${supplied}, budget ${BUDGET})`);
+  check("nor has it grown outside prompts.ts", supplied <= BUDGET,
+    worst.sort((a, b) => b[1] - a[1]).slice(0, 4));
 }
 
 /* ── 3. the same text is not pasted into two prompts ──────────────────────────── */
