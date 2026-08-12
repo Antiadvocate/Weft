@@ -275,7 +275,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   {c.portrait_url && <img src={c.portrait_url} alt="" onClick={() => setLightbox(c.portrait_url!)} className="w-16 h-16 rounded-xl object-cover cursor-pointer" style={{ border: "1px solid var(--line-strong)" }} />}
                   <div>
                     <div className="font-display text-[18px]">{c.name}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
+                    <div className="text-[11.5px]" style={{ color: "var(--text-lo)" }}>
                       {c.age} · {c.intelligence}
                     </div>
                   </div>
@@ -439,11 +439,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
                 {(c.background || c.life_history) && (
                   <Section title="Identity">
-                    <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Background (who they fundamentally are)</div>
+                    <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>Background (who they fundamentally are)</div>
                     {c.background && <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{c.background}</div>}
                     {c.life_history?.trim() && (
                       <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--ink-2)" }}>
-                        <div className="font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "var(--accent)" }}>Story so far (what's happened in play)</div>
+                        <div className="text-[11px] mb-1" style={{ color: "var(--accent)" }}>Story so far (what's happened in play)</div>
                         <div className="text-[12.5px] leading-relaxed italic" style={{ color: "var(--text-mid)" }}>{c.life_history}</div>
                       </div>
                     )}
@@ -795,7 +795,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           </div>
           <EditField label="How they go at it (optional)" v={approach} set={setApproach} />
           <EditField label="Why it started — in their life, not yours (optional)" v={because} set={setBecause} rows={2} />
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>How fast it builds</div>
+          <div className="text-[11.5px] mb-1.5" style={{ color: "var(--text-lo)" }}>How fast it builds</div>
           <div className="flex gap-1.5 mb-2">
             {RATES.map((r) => (
               <button key={r.k} className="btn-sm" onClick={() => setRate(r.k)}
@@ -947,7 +947,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
         <div key={b.id ?? i} className="mb-3 pb-2" style={{ borderBottom: i < blocks.length - 1 ? "1px solid var(--ink-2)" : undefined }}>
           <Row k="does" v={b.what} />
           <div className="flex gap-3 py-1 items-center">
-            <span className="font-mono text-[10.5px] uppercase w-16 shrink-0" style={{ color: "var(--text-lo)" }}>when</span>
+            <span className="text-[11px] shrink-0" style={{ color: "var(--text-lo)" }}>when</span>
             <WeekPips on={(d) => runsOn(b.days, d)} today={today} />
             <span className="font-mono text-[11px]" style={{ color: "var(--text-mid)" }}>
               {clockLabel(b.start)}–{clockLabel(b.end)}
@@ -1012,7 +1012,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
             <div className="flex-1"><EditField label="From" v={start} set={setStart} /></div>
             <div className="flex-1"><EditField label="Until" v={end} set={setEnd} /></div>
           </div>
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>Which days</div>
+          <div className="text-[11.5px] mb-1.5" style={{ color: "var(--text-lo)" }}>Which days</div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {DAY_PRESETS.map((p) => (
               <button key={p.k} className="btn-sm" onClick={() => setDays(p.k)}
@@ -1028,7 +1028,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
               </button>
             ))}
           </div>
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>How firm is it</div>
+          <div className="text-[11.5px] mb-1.5" style={{ color: "var(--text-lo)" }}>How firm is it</div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {RIGID.map((r) => (
               <button key={r.k} className="btn-sm" onClick={() => setRigidity(r.k)}
@@ -1050,10 +1050,21 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
   );
 }
 
+/* THE CHARACTER SHEET WAS A SPREADSHEET, and these three primitives are why.
+ *
+ * Every section was a bordered card; every fact inside it was a fixed 64px MONO UPPERCASE label
+ * column with a value beside it; every field label above every input was the same. Stack fifteen of
+ * those and you have a table with a border round each group of rows, in a typewriter face, which is
+ * exactly what it felt like to read. None of that came from the data — a person's traits, their
+ * week, what they want — it came from the primitives the data was poured into.
+ *
+ * The rules now: labels are quiet and set in the interface face rather than shouted in mono; values
+ * get the width; a long value goes UNDER its label instead of being rammed into the column beside
+ * it; sections are separated by space and a hairline rather than boxed. */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="card p-4">
-      <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>{title}</div>
+    <div className="pt-4 pb-1" style={{ borderTop: "1px solid var(--line)" }}>
+      <div className="text-[11px] font-medium mb-2.5" style={{ color: "var(--text-lo)", letterSpacing: ".01em" }}>{title}</div>
       {children}
     </div>
   );
@@ -1061,7 +1072,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function EditField({ label, v, set, rows }: { label: string; v: string; set: (v: string) => void; rows?: number }) {
   return (
     <div className="py-1.5">
-      <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>{label}</div>
+      <div className="text-[11.5px] mb-1.5" style={{ color: "var(--text-lo)" }}>{label}</div>
       {rows ? (
         <textarea className="field" rows={rows} value={v} onChange={(e) => set(e.target.value)} />
       ) : (
@@ -1072,10 +1083,19 @@ function EditField({ label, v, set, rows }: { label: string; v: string; set: (v:
 }
 
 function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex gap-3 py-1 text-[13.5px]">
-      <span className="font-mono text-[10.5px] uppercase pt-0.5 w-16 shrink-0" style={{ color: "var(--text-lo)" }}>{k}</span>
-      <span style={{ color: "var(--text-hi)" }}>{v}</span>
+  // A sentence does not belong in a table cell. Anything long enough to wrap gets its own line
+  // under the label and the full width of the drawer; short values stay on one line where the
+  // label-then-value reading is faster.
+  const long = String(v).length > 52;
+  return long ? (
+    <div className="py-1">
+      <div className="text-[11px] mb-0.5" style={{ color: "var(--text-lo)" }}>{k}</div>
+      <div className="text-[13.5px]" style={{ color: "var(--text-hi)", lineHeight: 1.5 }}>{v}</div>
+    </div>
+  ) : (
+    <div className="flex items-baseline gap-2.5 py-1">
+      <span className="text-[11px] shrink-0" style={{ color: "var(--text-lo)" }}>{k}</span>
+      <span className="text-[13.5px] flex-1 min-w-0" style={{ color: "var(--text-hi)" }}>{v}</span>
     </div>
   );
 }
