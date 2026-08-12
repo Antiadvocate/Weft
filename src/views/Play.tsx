@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Eraser, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Volume2, VolumeX, X , Ban } from "lucide-react";
+import { BookOpen, Eraser, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Hourglass, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Utensils, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
-import { CastPip, Seismograph, Vitals } from "../lib/charts";
+import { CastPip, Vitals } from "../lib/charts";
 import { readSchedule } from "../engine/schedule";
 import type { SaveState } from "../engine/types";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -51,6 +51,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [baseline, setBaseline] = useState(false);
   const [running, setRunning] = useState(false);
   const [phase, setPhaseRaw] = useState<string | null>(null);
+  /** Which rail icon is open, if any. One at a time — a rail that can unfold three panels at once
+   *  is the row of text strips this replaced, wearing a chevron. */
+  const [railPanel, setRailPanel] = useState<"body" | "soon" | "focus" | null>(null);
   /* EVERY PHASE CHANGE LEAVES A NOTE, because the failures players actually report here are the
    * ones with nothing on screen: an async rejection that leaves this component `running` forever,
    * or a tab the browser kills outright. Neither can draw anything by the time it happens, so what
@@ -80,7 +83,6 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [illustrating, setIllustrating] = useState(false);
   const [observing, setObserving] = useState(false);
   const [chaptering, setChaptering] = useState(false);
-  const [presentOpen, setPresentOpen] = useState(false);
   const [proseDone, setProseDone] = useState(false);
   const [armedRollback, setArmedRollback] = useState<number | null>(null);
   const [undoTurn, setUndoTurn] = useState<number | null>(null);
@@ -666,9 +668,75 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 ["--breath-s" as any]: `${tone.breathS}s`, ["--breath-amp" as any]: amp }} />
           );
         })()}
-        <div className="seismo flex-1 px-1">
-          <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => (t.player_mood_valence ?? 0) / 16)} />
-        </div>
+        {/* WHO IS HERE — faces, overlapping, no names. The strip under the prose said the same
+            thing in words and cost a row of the page; a face with a warmth-coloured ring and an arc
+            for how open they are says more of it than the name did. Tap one to open them. */}
+        {save.world.present.length > 0 && (
+          <div className="flex items-center shrink-0" style={{ paddingLeft: 2 }}>
+            <AnimatePresence initial={false}>
+              {save.world.present.slice(0, 4).map((pid, i) => {
+                const ch = save.characters[pid];
+                if (!ch) return null;
+                const e = save.world.edges.find((x) => x.from === pid && x.to === "char_player");
+                const due = readSchedule(save as unknown as SaveState, pid).pending;
+                const arriving = (save.world.arrivals_pending ?? []).includes(ch.name);
+                const aimed = !!ch.drive?.goal && /\bplayer\b/i.test(ch.drive.goal);
+                return (
+                  <div key={pid} style={{ marginLeft: i ? -7 : 0, zIndex: 10 - i }}>
+                    <CastPip name={ch.name} portrait={ch.portrait_url} label={false} size={22}
+                      warmth={e?.warmth ?? 0} openness={save.condition[pid]?.psyche?.relaxation ?? 0}
+                      flag={due ? "leaving" : arriving ? "arrived" : aimed ? "wants" : null}
+                      onClick={() => { setDrawerSel(pid); setDrawer("cast"); }} />
+                  </div>
+                );
+              })}
+            </AnimatePresence>
+            {save.world.present.length > 4 && (
+              <span className="font-mono shrink-0" style={{ fontSize: 9, color: "var(--text-lo)", marginLeft: 3 }}>
+                +{save.world.present.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+        {/* The pressure seismograph used to live here and it is gone. Its overlay was the engine's
+            estimate of the PLAYER'S own mood — a guess about the one person on screen who does not
+            need to be guessed at — and the bars underneath were a controller reading nobody plays
+            by. It is still in the Chronicle, where a read-out of how the story has been running
+            belongs. The rail is for things you act on. */}
+        <div className="flex-1" />
+        {/* THE BODY, as one dot. It only earns attention when something is actually low, so an
+            unremarkable body is a dim mark and a failing one is a red one. Tap for the three bars. */}
+        {(() => {
+          const c = save.condition["char_player"];
+          if (!c) return null;
+          const worst = Math.min(
+            1 - (c.hunger_meter ?? 2) / 10,
+            1 - (c.thirst_meter ?? 2) / 10,
+            1 - (c.awake_minutes ?? 0) / 1080,
+          );
+          if (worst > 0.55 && railPanel !== "body") return null;   // nothing to say: stay off the rail
+          const col = worst < 0.28 ? "var(--danger)" : worst < 0.55 ? "var(--accent)" : "var(--text-lo)";
+          return (
+            <button className="icon-btn shrink-0" title="your body" aria-label="your body"
+              onClick={() => setRailPanel(railPanel === "body" ? null : "body")}>
+              <Utensils size={13} style={{ color: col }} />
+            </button>
+          );
+        })()}
+        {/* ANYTHING COMING DUE — a count, not a list. */}
+        {soon.length > 0 && (
+          <button className="icon-btn shrink-0 relative" title="coming due" aria-label="coming due"
+            onClick={() => setRailPanel(railPanel === "soon" ? null : "soon")}>
+            <Hourglass size={13} style={{ color: soon.some((d) => d.severity === "major") ? "var(--danger)" : "var(--text-lo)" }} />
+            <span className="font-mono" style={{ fontSize: 8, marginLeft: 1, color: "var(--text-lo)" }}>{soon.length}</span>
+          </button>
+        )}
+        {save.world.focus && (
+          <button className="icon-btn shrink-0" title={save.world.focus.label} aria-label="focus"
+            onClick={() => setRailPanel(railPanel === "focus" ? null : "focus")}>
+            <Crosshair size={13} style={{ color: "var(--accent)" }} />
+          </button>
+        )}
         <button className="icon-btn" style={{ maxWidth: 128 }} onClick={correctClock}
           title="in-world time — tap to correct it when the bookkeeper drifts from the prose">
           <span className="truncate" style={{ fontSize: 10 }}>
@@ -932,92 +1000,54 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         </div>
       </div>
 
-      {/* focus banner — only while a focus is actually held. Setting one lives in the "⋯" sheet. */}
-      {save.world.focus && (
-        <div className="px-4 pb-1">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-glow)" }}>
-            <Crosshair size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
-            <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-mid)" }}>
-              {save.world.focus.mode === "active" ? "in:" : "converging on:"} {save.world.focus.label}
-            </span>
-            <button onClick={async () => setSave(await api.setFocus(save.id, null))} className="shrink-0" title="release focus">
-              <X size={14} style={{ color: "var(--text-lo)" }} />
-            </button>
+      {/* WHAT IS OPEN, ON DEMAND. The focus phase and anything coming due were two permanent
+          strips of text between the prose and the composer. They are on the rail above as an icon
+          each now, and this is what those icons open — same information, none of the page. */}
+      {railPanel && (
+        <div className="px-4 pb-1.5">
+          <div className="card p-2.5">
+            {railPanel === "focus" && save.world.focus && (
+              <div className="flex items-center gap-2">
+                <Crosshair size={13} style={{ color: "var(--accent)" }} className="shrink-0" />
+                <span className="text-[12px] truncate flex-1" style={{ color: "var(--text-mid)" }}>
+                  {save.world.focus.mode === "active" ? "in:" : "converging on:"} {save.world.focus.label}
+                </span>
+                <button onClick={async () => { setRailPanel(null); setSave(await api.setFocus(save.id, null)); }}
+                  className="shrink-0" title="release focus">
+                  <X size={14} style={{ color: "var(--text-lo)" }} />
+                </button>
+              </div>
+            )}
+            {railPanel === "soon" && (
+              <div className="flex flex-col gap-1">
+                {soon.map((d) => (
+                  <div key={d.key} className="duesoon-row">
+                    <span className="duesoon-when" style={{ color: d.severity === "major" ? "var(--danger)" : "var(--text-lo)" }}>
+                      {dueLabel(d.hours)}
+                    </span>
+                    <span className="duesoon-text">{d.text}</span>
+                    {d.mine && <span className="duesoon-mine">yours</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {railPanel === "body" && (() => {
+              const c = save.condition["char_player"];
+              if (!c) return null;
+              const cl = (n: number) => Math.max(0, Math.min(1, n));
+              return (
+                <div className="flex items-center gap-3">
+                  <Utensils size={12} style={{ color: "var(--text-lo)" }} className="shrink-0" />
+                  <div className="flex-1"><Vitals vitals={[
+                    { key: "fed", label: "", v: cl(1 - (c.hunger_meter ?? 2) / 10), note: `hunger: ${c.hunger}` },
+                    { key: "water", label: "", v: cl(1 - (c.thirst_meter ?? 2) / 10), note: "thirst" },
+                    { key: "rest", label: "", v: cl(1 - (c.awake_minutes ?? 0) / 1080), note: `${Math.round((c.awake_minutes ?? 0) / 60)}h awake` },
+                  ]} /></div>
+                  <Moon size={12} style={{ color: "var(--text-lo)" }} className="shrink-0" />
+                </div>
+              );
+            })()}
           </div>
-        </div>
-      )}
-
-      {/* ── THE HUD ────────────────────────────────────────────────────────────────────────────
-          Who is in the room and what your own body is doing. Both were already in the save and
-          neither was on screen: presence was a name in a rounded rectangle behind a toggle, and the
-          body clock — hunger, thirst, sleep pressure, and the openness ceiling they impose — only
-          ever surfaced as a toast after it had already limited you. A ring that is visibly short,
-          or a bar that visibly drops between turns, is the difference between a world you are told
-          about and one you can see running. See lib/charts.tsx. */}
-      <div className="px-4 pt-1 pb-0.5">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>
-            {save.world.places[save.world.player_location]?.name ?? "somewhere"}
-          </span>
-          <button onClick={() => setPresentOpen((v) => !v)} className="font-mono text-[9px]"
-            style={{ color: "var(--text-lo)", opacity: 0.7 }} title="show or hide your own state">
-            {presentOpen ? "▲" : "▼"}
-          </button>
-        </div>
-        {save.world.present.length > 0 && (
-          <div className="flex items-end gap-3 flex-wrap">
-            <AnimatePresence initial={false}>
-              {save.world.present.map((pid) => {
-                const ch = save.characters[pid];
-                if (!ch) return null;
-                const e = save.world.edges.find((x) => x.from === pid && x.to === "char_player");
-                const rel = save.condition[pid]?.psyche?.relaxation ?? 0;
-                // At most one flag, most urgent first. "wants" only when their drive names the
-                // player — every character wants something, so flagging that would flag everyone.
-                const due = readSchedule(save as unknown as SaveState, pid).pending;
-                const arriving = (save.world.arrivals_pending ?? []).includes(ch.name);
-                const aimed = !!ch.drive?.goal && /\bplayer\b/i.test(ch.drive.goal);
-                return (
-                  <CastPip key={pid} name={ch.name} portrait={ch.portrait_url}
-                    warmth={e?.warmth ?? 0} openness={rel}
-                    flag={due ? "leaving" : arriving ? "arrived" : aimed ? "wants" : null}
-                    onClick={() => { setDrawerSel(pid); setDrawer("cast"); }} />
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-        {presentOpen && (() => {
-          const c = save.condition["char_player"];
-          if (!c) return null;
-          const cl = (n: number) => Math.max(0, Math.min(1, n));
-          return (
-            <div className="mt-2">
-              <Vitals vitals={[
-                { key: "fed", label: "fed", v: cl(1 - (c.hunger_meter ?? 2) / 10), note: `hunger ${c.hunger}` },
-                { key: "water", label: "water", v: cl(1 - (c.thirst_meter ?? 2) / 10), note: "thirst" },
-                { key: "rest", label: "rest", v: cl(1 - (c.awake_minutes ?? 0) / 1080), note: `${Math.round((c.awake_minutes ?? 0) / 60)}h awake` },
-                { key: "ease", label: "ease", v: cl((c.psyche.relaxation + 10) / 20), note: c.psyche.mood || "even" },
-              ]} />
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* due soon — only what the schedule already holds, never invented dread.
-          Appears only when something is actually pending, so it isn't a permanent row. */}
-      {soon.length > 0 && (
-        <div className="duesoon">
-          {soon.map((d) => (
-            <div key={d.key} className="duesoon-row">
-              <span className="duesoon-when"
-                style={{ color: d.severity === "major" ? "var(--danger)" : "var(--text-lo)" }}>
-                {dueLabel(d.hours)}
-              </span>
-              <span className="duesoon-text">{d.text}</span>
-              {d.mine && <span className="duesoon-mine">yours</span>}
-            </div>
-          ))}
         </div>
       )}
 
