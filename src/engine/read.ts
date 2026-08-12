@@ -138,7 +138,7 @@ READS ARISE, THEY ARE NOT REACHED. They come already finished, mixed in with the
 
 Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
 
-EXAMPLES. These are the register — never reuse the wording.
+EXAMPLES. These show the form; never reuse the wording.
 
 GOOD (first person or direct address, flat, no figure of speech, a verdict this player could be wrong about):
   "She's already decided. This is the part where she tells me."
