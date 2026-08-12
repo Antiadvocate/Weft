@@ -21,6 +21,7 @@ import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
 import { authoredLine, hasAuthored, liveAuthored, settledAuthored } from "./authored";
+import { scheduleLine } from "./schedule";
 import { edgeNote } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
@@ -1437,6 +1438,12 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         // at the end is an instruction. Repeating the whole thing here would pay for it twice.
         lines.push(`  ${lead}: ${a.goal} [see the forming-habits note in the direction below]`);
       });
+      // WHAT THEIR DAY IS DOING WHILE THIS SCENE HAPPENS. A want is open-ended; this is the part of
+      // a life that has an hour on it, and a character who cannot see their own next obligation
+      // cannot cut a conversation short, refuse an errand that will not fit, or say they are free
+      // until five — which between them are most of the ordinary reasons a real person gives for
+      // anything. See engine/schedule.ts; empty for anyone without a week, which is most people.
+      { const sl = scheduleLine(state, id); if (sl) lines.push(sl); }
       const traits = state.traits[id] ?? [];
       if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");

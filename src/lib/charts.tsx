@@ -1,5 +1,6 @@
 /** Tiny dependency-free SVG chart kit. All charts read CSS vars for theming. */
 import React from "react";
+import { motion } from "motion/react";
 
 function pathFrom(points: [number, number][]): string {
   if (!points.length) return "";
@@ -134,6 +135,143 @@ export function Stat({ label, value, sub }: { label: string; value: string; sub?
       <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>{label}</div>
       <div className="font-display text-xl mt-1" style={{ color: "var(--text-hi)" }}>{value}</div>
       {sub && <div className="font-mono text-[10px] mt-0.5" style={{ color: "var(--text-mid)" }}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ───────────────────────── A PERSON'S DAY ─────────────────────────
+ *
+ * The schedule (engine/schedule.ts) is the one piece of character state that is inherently
+ * SHAPED — it is hours on a line, and a list of rows saying "08:00–16:00, weekdays" makes the
+ * reader do in their head the one thing a picture does for free: see where the gaps are. Which is
+ * the actual question the player has. Not "when is her shift", but "how long have I got".
+ *
+ * So: twenty-four hours across the width, the blocks laid on it where they fall, and a needle at
+ * the hour it currently is. Night is shaded, so the strip reads as a day rather than as a bar
+ * chart. The lead-in dashes are the commute — the gap between when she has to stand up and when
+ * she has to be there, which is the number the scene actually runs on.
+ */
+export interface DaySegment {
+  start: number;            // minutes since midnight
+  end: number;              // minutes since midnight; may exceed 1440 (it runs past midnight)
+  travel?: number;          // minutes of lead-in before `start` — drawn as the dashed approach
+  label?: string;
+  tone: "live" | "due" | "idle" | "off";
+}
+
+const TONE: Record<DaySegment["tone"], { fill: string; op: number }> = {
+  live: { fill: "var(--accent)", op: 0.9 },      // happening right now
+  due:  { fill: "var(--danger)", op: 0.95 },     // they should have gone and have not
+  idle: { fill: "var(--text-lo)", op: 0.5 },     // on the books for today, not yet
+  off:  { fill: "var(--text-lo)", op: 0.16 },    // not today
+};
+
+export function DayRibbon({ segments, now, w = 340, h = 52 }: {
+  segments: DaySegment[]; now: number; w?: number; h?: number;
+}) {
+  // SVG ids are document-global, so two ribbons on one screen — which is the normal case, one per
+  // character card — both resolve url(#seg0) to whichever rendered first. The second ribbon's
+  // labels were being clipped to the FIRST ribbon's bar, so a block whose hours did not overlap it
+  // simply had no text and one that partly did showed the middle two letters of its own name.
+  const uid = React.useId().replace(/:/g, "");
+  const x = (m: number) => Math.max(0, Math.min(w, (m / 1440) * w));
+  const trackY = 17, trackH = 13, mid = trackY + trackH / 2;
+  // A block that runs past midnight is drawn as the two pieces it actually occupies on one day.
+  const pieces: { a: number; b: number; s: DaySegment }[] = [];
+  for (const s of segments) {
+    const a = Math.max(0, s.start), b = s.end;
+    pieces.push({ a, b: Math.min(1440, b), s });
+    if (b > 1440) pieces.push({ a: 0, b: b - 1440, s });
+  }
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", overflow: "visible" }}>
+      {/* night, so the strip reads as a day and not as a number line */}
+      <rect x={0} y={trackY - 5} width={x(6 * 60)} height={trackH + 10} rx={3} fill="var(--ink-0)" />
+      <rect x={x(21 * 60)} y={trackY - 5} width={w - x(21 * 60)} height={trackH + 10} rx={3} fill="var(--ink-0)" />
+      <rect x={0} y={trackY} width={w} height={trackH} rx={trackH / 2} fill="var(--ink-3)" />
+
+      {[6, 12, 18].map((hh) => (
+        <g key={hh}>
+          <line x1={x(hh * 60)} x2={x(hh * 60)} y1={trackY - 3} y2={trackY + trackH + 3}
+            stroke="var(--line-strong)" strokeWidth={0.8} />
+          <text x={x(hh * 60)} y={h - 2} textAnchor="middle" fontSize={8.5}
+            fontFamily="var(--font-mono)" fill="var(--text-lo)">{String(hh).padStart(2, "0")}</text>
+        </g>
+      ))}
+
+      {pieces.map(({ a, b, s }, i) => {
+        const t = TONE[s.tone];
+        const bx = x(a), bw = Math.max(3, x(b) - x(a));
+        const lead = s.travel && s.tone !== "off" ? x(a) - x(Math.max(0, a - s.travel)) : 0;
+        return (
+          <g key={i}>
+            {lead > 2 && (
+              <line x1={bx - lead} x2={bx} y1={mid} y2={mid} stroke={t.fill} strokeWidth={1.6}
+                strokeDasharray="2 2.5" opacity={0.6} strokeLinecap="round" />
+            )}
+            {s.tone === "live" || s.tone === "due" ? (
+              <motion.rect
+                x={bx} y={trackY} width={bw} height={trackH} rx={trackH / 2} fill={t.fill}
+                initial={false}
+                animate={{ opacity: s.tone === "due" ? [0.55, 1, 0.55] : [0.72, 0.95, 0.72] }}
+                transition={{ duration: s.tone === "due" ? 1.5 : 3.4, repeat: Infinity, ease: "easeInOut" }}
+              />
+            ) : (
+              <rect x={bx} y={trackY} width={bw} height={trackH} rx={trackH / 2} fill={t.fill} opacity={t.op} />
+            )}
+            {s.label && bw > 38 && (
+              <>
+                <clipPath id={`${uid}seg${i}`}>
+                  <rect x={bx + 5} y={trackY} width={Math.max(0, bw - 9)} height={trackH} />
+                </clipPath>
+                <text x={bx + 6} y={mid + 3.4} fontSize={9} fontFamily="var(--font-mono)"
+                  clipPath={`url(#${uid}seg${i})`}
+                  fill={s.tone === "idle" || s.tone === "off" ? "var(--text-hi)" : "var(--ink-0)"}
+                  opacity={s.tone === "off" ? 0.5 : 0.92}>
+                  {/* Estimated so a long name ends in an ellipsis rather than mid-letter; the clip
+                      above is the safety net for when the estimate is generous. */}
+                  {s.label.length > (bw - 10) / 5 ? `${s.label.slice(0, Math.max(1, Math.floor((bw - 10) / 5) - 1)).trimEnd()}…` : s.label}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+
+      {/* the hour it is. Springs to its new position when the clock moves, so a turn that ate
+          forty minutes is something you SEE happen rather than a number that changed. */}
+      <motion.g initial={false} animate={{ x: x(now) }} transition={{ type: "spring", stiffness: 90, damping: 17 }}>
+        <line x1={0} x2={0} y1={trackY - 7} y2={trackY + trackH + 7} stroke="var(--text-hi)" strokeWidth={1.4} />
+        <motion.circle cx={0} cy={trackY - 8.5} r={3} fill="var(--text-hi)"
+          animate={{ opacity: [0.55, 1, 0.55] }} transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }} />
+      </motion.g>
+    </svg>
+  );
+}
+
+/** The week under the day: which days this runs, and which one it is. Seven pips, because seven
+ *  pips is the whole of the weekday/weekend question and a sentence about it is not. */
+export function WeekPips({ on, today, labels = ["S", "M", "T", "W", "T", "F", "S"] }: {
+  on: (d: number) => boolean; today: number; labels?: string[];
+}) {
+  return (
+    <div style={{ display: "flex", gap: 4 }}>
+      {labels.map((l, d) => {
+        const lit = on(d), isToday = d === today;
+        return (
+          <div key={d} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-mono)", fontSize: 9,
+              width: 17, height: 17, borderRadius: 5, flex: "0 0 auto",
+              background: lit ? "var(--accent-soft)" : "transparent",
+              border: `1px solid ${isToday ? "var(--text-hi)" : lit ? "var(--accent-glow)" : "var(--line)"}`,
+              color: lit ? "var(--accent)" : "var(--text-lo)",
+              fontWeight: isToday ? 700 : 400,
+            }}>
+            {l}
+          </div>
+        );
+      })}
     </div>
   );
 }

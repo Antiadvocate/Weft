@@ -3,6 +3,7 @@ import { factGate, factOverlap } from "./facts";
 import { reconcileStores, migrateToFirstPerson } from "./memory";
 import { ensureHabits } from "./habits";
 import { mergePhantomPlaces } from "./places";
+import { healSchedule } from "./schedule";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
@@ -285,6 +286,15 @@ export function sanitize(state: SaveState): SaveState {
   state.retcons ??= [];
 
   healCharacterTypes(state);
+
+  // A HAND-EDITED WEEK RUNS ARITHMETIC ON EVERY TURN, so it is coerced on load for the same reason
+  // threads are. The failure mode is quiet and total: a start time left as a string makes every
+  // comparison against it false, so the character never goes anywhere again and nothing says why.
+  for (const c of Object.values(state.characters)) {
+    if (!c?.schedule) continue;
+    const healed = healSchedule(c);
+    if (healed) c.schedule = healed; else delete c.schedule;
+  }
 
   // Saves made before places were marked have no founding flag, so the place GC would happily forget
   // the world's original locations. Anything present with no flag is treated as founding: it either

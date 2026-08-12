@@ -64,6 +64,57 @@ export function dateLabel(timeStr: string, startDate?: string): string {
   return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+export const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * WHICH DAY OF THE WEEK "Day N" IS — 0 Sunday … 6 Saturday.
+ *
+ * `dateLabel` already knows how to do this and returns a formatted string, which is no use to a
+ * rule that has to decide whether somebody works today. The same arithmetic, returned as a number.
+ *
+ * AND IT WORKS WITHOUT A CALENDAR, which is the whole point. `start_date` is optional and most
+ * saves do not set one, so keying the week off it would mean the weekday/weekend distinction only
+ * existed in stories that had opted into real dates — i.e. almost none of them. A week is not a
+ * property of the Gregorian calendar; it is a property of how people organise work and rest, and
+ * every setting this engine has ever been pointed at has some version of it. So with no start_date,
+ * DAY 1 IS A MONDAY and the week runs from there: Day 6 is a Saturday, Day 7 a Sunday, Day 8 a
+ * Monday again. Arbitrary, stated plainly, and stable for the life of the save — which is all a
+ * schedule needs from it.
+ */
+export function weekdayIndex(timeStr: string, startDate?: string): number {
+  const t = parseTime(timeStr);
+  const m = startDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate.trim()) : null;
+  if (m) {
+    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (t.day - 1)));
+    if (!isNaN(d.getTime())) return d.getUTCDay();
+  }
+  // No calendar: Day 1 is a Monday (index 1), and the week counts on from there.
+  return ((((t.day - 1) % 7) + 1) % 7 + 7) % 7;
+}
+
+/** Saturday or Sunday, by whichever week the world is actually running on. */
+export function isWeekend(timeStr: string, startDate?: string): boolean {
+  const wd = weekdayIndex(timeStr, startDate);
+  return wd === 0 || wd === 6;
+}
+
+/** Minutes since midnight for a "Day N, HH:MM" string — where the needle sits on a day strip. */
+export function minutesOfDay(timeStr: string): number {
+  const t = parseTime(timeStr);
+  return t.hour * 60 + t.minute;
+}
+
+/** The day number alone. */
+export function dayOf(timeStr: string): number {
+  return parseTime(timeStr).day;
+}
+
+/** "07:30" from minutes since midnight, wrapping past midnight so an overnight end reads right. */
+export function clockLabel(minutes: number): string {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
 // ─────────────────────────── WEATHER CONTINUITY ───────────────────────────
 // Weather is an ordered scale from fair to severe. The bookkeeper often jumps it wildly turn to turn;
 // this smooths it so it evolves at a believable rate — one step per short turn, more as time passes.

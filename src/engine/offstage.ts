@@ -23,6 +23,7 @@ import { uid } from "./state";
 import { minutesBetween } from "./time";
 import { mundaneObjective } from "./knowledge";
 import { placeIntent } from "./places";
+import { scheduleDigestLine } from "./schedule";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 export const OFFSTAGE_INTERVAL_MIN = 360;
@@ -109,7 +110,7 @@ export function worldDigest(state: any): string {
 
   const cast = Object.entries<any>(state.characters ?? {})
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed")
-    .map(([, c]) => {
+    .map(([cid, c]) => {
       const where = state.world.places[c.location]?.name ?? "unknown";
       const wants = wantsOf(c);
       const blocked = c.drive?.blocker ? ` Stuck on: ${c.drive.blocker}.` : "";
@@ -117,7 +118,11 @@ export function worldDigest(state: any): string {
       // can sell for breakfast" and "Clodia asks HIM where Rabi and Lucia have gone" about a woman
       // whose record says she/her. The lines it writes become witness memories, so the error is
       // filed rather than merely read.
-      return `- ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}`;
+      // AND WHAT THEIR WEEK HAS THEM DOING. Without it this pass wrote a woman taking a slow
+      // morning at home during hours the engine had already put her at the bakery — the report and
+      // the ledger describing the same hour differently, and the report is what becomes memory.
+      const due = scheduleDigestLine(state, cid);
+      return `- ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, at ${where}. Wants: ${wants || "nothing pressing"}.${blocked}${due}`;
     }).join("\n");
 
   // Which cast members are standing where, so witnesses can be named rather than guessed at.

@@ -37,6 +37,7 @@ import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emot
 import { frameAttempt, attemptDirective } from "./attempt";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
+import { scheduleDirective, tickSchedule } from "./schedule";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -2005,6 +2006,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const arrivalNote = (state.world.arrivals_pending ?? []).length
     ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")} — they have been travelling to reach the player and get here THIS turn. WRITE THEM ARRIVING, on the page, in the door, off the road: where they came from, what the journey cost, why they came. They do not simply be here; nobody may already be mid-conversation with them. This is their entrance.`
     : "";
+  // AND THE SAME COURTESY IN THE OTHER DIRECTION. Somebody's own week took them out of the scene
+  // between turns — always because a shift had been standing for so long that the engine stopped
+  // waiting. A cast list that is simply one name shorter is not a departure the reader can see, so
+  // it is stated, once, and the next paragraph gets to be continuous with it.
+  const departureNote = (state.world.departures_pending ?? []).length
+    ? `\nALREADY GONE, BETWEEN THE PARAGRAPHS: ${state.world.departures_pending!.map((d) => `${d.name} left for ${d.to} — ${d.why}`).join("; ")}. They are NOT in this scene any more and cannot speak in it. Open by acknowledging the leaving as something that has just happened — the door, the emptied chair, what they said on the way out, what the people still here make of it. Do not rewind and play the departure as though it were still to come, and do not let them linger for one more line.`
+    : "";
   // ── SOMEBODY REACHED THE PLAYER ──────────────────────────────────────────────────────────────
   // The offstage world has only ever reached the player through witnesses and rumor: someone saw
   // it, the news travelled. That models a village. It does not model a phone. A player sat in a
@@ -2094,7 +2102,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3126,6 +3134,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     state.world.scene_started_time = state.world.current_time;
   }
 
+  // ── THE WEEK RUNS ── people with somewhere to be go there. Deliberately AFTER the clock has
+  // moved: a schedule is arithmetic against the current hour, and ticking it against the hour the
+  // turn started at would have everybody permanently one turn late for their own lives. Offscreen
+  // characters simply arrive where they are supposed to be; anybody standing in front of the player
+  // is left alone unless the scene has held them so far past a shift that waiting for the narrator
+  // to write the goodbye has itself become the failure. See engine/schedule.ts.
+  offscreenLog.push(...tickSchedule(state));
+
   // ── PHYSIOLOGY: the clock feeds the body. Player + present cast accrue hunger/thirst/sleep
   // pressure from elapsed time (offscreen people are assumed to feed themselves); then the
   // relaxation CEILING clamps every present psyche — a body running on no sleep or no water
@@ -3666,6 +3682,7 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     .map(([id]) => id);
   state.world.present_prev = before;
   state.world.arrivals_pending = [];   // consumed by the directive that renders the entrance
+  state.world.departures_pending = []; // and the one that renders the exit
   state.world.inbound = [];            // same: delivered once, on the turn after it was sent
   // Stamp the clock for this turn so elapsed in-world time between two turns is knowable. Kept to a
   // short window — this is for travel arithmetic, not a history.
