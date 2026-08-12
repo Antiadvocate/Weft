@@ -897,6 +897,12 @@ export interface SimulatorDiff {
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact
   facts_learned?: { char_id: string; fact: string; quote?: string; corrects?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];
+  /** SOMETHING THE ROOM CANNOT EXPLAIN. Asked of the bookkeeper directly, because the engine's own
+   *  detector for this was a regex over prose hunting for words like "godlike" — and the prose rules
+   *  forbid writing like that, so a man creating half a ton of gold from nothing read as a cart
+   *  arriving. A model can judge "could the people here account for that by ordinary means?" and a
+   *  keyword list cannot. See engine/reaction.ts. */
+  unexplained?: { what: string; witnesses?: string[] };
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string; permanent?: boolean }[]; // default: replaces appearance_now (presentation). permanent:true = ONE sentence APPENDED to the bedrock appearance_facts; bedrock is never replaced by the engine

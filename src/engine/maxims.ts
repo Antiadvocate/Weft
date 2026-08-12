@@ -89,6 +89,48 @@ const SHAPES: { name: string; re: RegExp }[] = [
   { name: "there is no X, only Y", re: /\bthere\s+(?:is|are)\s+no\s+[\w' ]{2,24},\s*(?:only|just)\b/i },
   // "We're just counting the cost of the air." — a metaphor standing in for a plain answer.
   { name: "the cost/weight/price of X", re: /\b(?:the\s+)?(?:cost|price|weight|shape|colour|color|sound|taste)\s+of\s+(?:the\s+)?(?:air|silence|waiting|nothing|everything|it\s+all|living|breathing)\b/i },
+
+  // ── THE SECOND GENERATION ──────────────────────────────────────────────────────────────────
+  // Everything above was reverse-engineered from one save's exact sentences, which is the same
+  // mistake as the power-tier regex in pressure.ts: a detector fitted to how a thing was PHRASED
+  // rather than to what it IS. Measured against the next thirty turns of the same story it caught
+  // seven lines out of a hundred and thirty-eight, every one of them from before it shipped. The
+  // register had simply moved, into these:
+  //
+  //   "A bench that's never been sat on. It's like a loaf that's never been cut."
+  //   "The beetle rolls with its back legs. Everyone knows that."
+  //   "The fever doesn't take a roof off. It takes the hands that hold the roof up."
+  //   "You stay long enough, you'll see."
+  //
+  // Not one is an aphorism by the shapes above. All four are the same behaviour: answering the
+  // person in front of you with a figure instead of an answer.
+
+  // SIMILE AS AN ANSWER. "It's like a loaf that's never been cut." A comparison offered as the
+  // reply, where the thing compared to is not present and has nothing to do with the question.
+  { name: "simile as an answer", re: /\b(?:it['’]?s|that['’]?s|you['’]?re|he['’]?s|she['’]?s|we['’]?re|they['’]?re)\s+like\s+(?:a|an|the)\s+\w+/i },
+
+  // THE PARALLEL FOLK SAYING. "X doesn't take A. It takes B." The two-beat correction structure is
+  // the single most reliable marker of wisdom-voice in this engine's output.
+  // Both apostrophes, everywhere: see the note above about matching spellings.
+  { name: "not this, but that", re: /\b(?:does\s?n['’]?t|do\s?n['’]?t|never)\s+\w+[^.;!?]{2,40}\.\s*(?:It|They|He|She)\s+\w+s?\b/ },
+
+  // THE APPEAL TO COMMON KNOWLEDGE. "Everyone knows that." "That's what they say." Tags that turn a
+  // remark into received wisdom, usually attached to something nobody asked about.
+  { name: "everyone knows", re: /\b(?:everyone|everybody|any\s?one)\s+knows\s+(?:that|it|this)\b|\bthat['’]?s\s+what\s+(?:they|people)\s+say\b/i },
+
+  // THE PROPHECY. "You stay long enough, you'll see." "Give it time and you'll know." Deferring the
+  // answer to the listener's future instead of giving it now.
+  { name: "you'll see in time", re: /\byou(?:['’]ll| will)\s+(?:see|know|learn|find out|understand)\b(?!\s+(?:her|him|them|it|the\s+\w+\s+(?:at|in|on)))/i },
+
+  // AND THE WORST ONE: THE NARRATOR DEFENDING THE REGISTER THROUGH A CHARACTER'S MOUTH.
+  //
+  // The player wrote, in plain words, that the characters were not referencing what was happening
+  // in front of them. The reply: "A beetle and a fever and a roof aren't maxims. They're the room
+  // we're standing in. You keep asking me to say it plain, and I keep saying it plain, and you keep
+  // hearing a lesson." That is the model using a character to tell the player they are wrong about
+  // the model's own failure, and it is worse than the failure. It gets its own shape so the
+  // correction can name it.
+  { name: "arguing that it is not a maxim", re: /\b(?:are\s?n['’]?t|is\s?n['’]?t|not)\s+(?:a\s+)?(?:maxims?|metaphors?|riddles?|lessons?|proverbs?)\b|\bkeep\s+hearing\s+a\s+lesson\b|\bI\s+(?:am|keep)\s+(?:saying|speaking)\s+it\s+plain/i },
 ];
 
 export interface MaximHit { line: string; shape: string }
@@ -133,8 +175,16 @@ export function findMaxims(prose: string): MaximHit[] {
  */
 export function maximFix(last: string | null | undefined): string {
   if (!last) return "";
+  // THE ONE THAT NEEDS ITS OWN CORRECTION. When the caught line is the narrator arguing, through a
+  // character, that its figures are not figures, a general note about aphorism will not reach it —
+  // the model has already constructed a defence and will apply it to the note. Name the move.
+  const defending = SHAPES.find((sh) => sh.name === "arguing that it is not a maxim")!.re.test(last);
+  if (defending) {
+    return `\nSTOP. LAST TURN YOU HAD A CHARACTER DEFEND YOUR OWN PROSE STYLE TO THE PLAYER: "${last}" — the player said, in plain words, that the characters were not answering what was in front of them, and the reply you wrote was a character explaining that the figures of speech are not figures of speech and that the player is the one mishearing. That is not a character disagreeing. It is you arguing with the person playing, through a mouth that belongs to somebody else, about a fault of yours.
+The player is right and the argument is over. THIS TURN nobody in the scene refers to how anybody talks, defends how they talk, or comments on being misunderstood. They answer the actual question in the actual words a person would use: names, numbers, prices, what they will do, what they will not do, what they are afraid of said as the plain thing rather than as an image of the plain thing. If a character genuinely does not want to answer, they refuse in one flat sentence and change the subject to something concrete.`;
+  }
   return `\nYOU PUT A MAXIM IN SOMEBODY'S MOUTH LAST TURN: "${last}" — a short, closed sentence stating a general truth about the world, which could be lifted out of this scene and still mean something. Nobody talks like this. Writing it means you did not know what this specific person would say and reached for wisdom to cover the gap. People answer the question they were asked, about the thing in front of them, using names, prices, and their own business.
-THIS TURN, every character speaks in plain specifics: what they want, what it costs, who they mean, what they are going to do about it. NO aphorism, NO proverb, NO metaphor standing in for a plain answer, NO sentence that could be lifted out of this scene and still mean something. Test each line by printing it on its own: if it still means something out of context, cut it and write what the person actually says. When a character is asked a direct question, they answer it or refuse it in plain words. Answering a direct question with an image is the failure quoted above.`;
+THIS TURN, every character speaks in plain specifics: what they want, what it costs, who they mean, what they are going to do about it. NO aphorism, NO proverb, NO simile offered in place of an answer — do not reach for an absent thing to explain the present one. NO two-beat folk correction, where the first clause denies and the second supplies the wisdom. NO deferring the answer to the listener's future rather than giving it now. NO metaphor standing in for a plain answer, NO sentence that could be lifted out of this scene and still mean something. Test each line by printing it on its own: if it still means something out of context, cut it and write what the person actually says. When a character is asked a direct question, they answer it or refuse it in plain words. Answering a direct question with an image is the failure quoted above.`;
 }
 
 /** How much of this turn's dialogue was pronouncement rather than speech — for the shift toast, so

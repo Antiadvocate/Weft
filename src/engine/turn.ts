@@ -39,6 +39,7 @@ import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { applyUnexplained, reactionDirective } from "./reaction";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
@@ -2104,7 +2105,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const witnessed = witnessRecord(state, state.world.present);
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
-  const fullDirective = directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const actNote = reactionDirective(state, action, mode);
+  const fullDirective = actNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -4408,6 +4410,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     shifts.push(ex.kind === "dead" ? `${c.name} is dead.` : `${c.name} is gone.`);
   }
+
+  // SOMETHING THE ROOM COULD NOT EXPLAIN. Applied before presence is rebuilt so the witnesses are
+  // still the people who were standing there when it happened. See engine/reaction.ts.
+  for (const line of applyUnexplained(state, (diff as { unexplained?: { what: string; witnesses?: string[] } }).unexplained, turn)) shifts.push(line);
 
   syncPresence(state, diff.present);
 

@@ -106,5 +106,50 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   check("no dialogue at all rates zero", maximRate("He crossed the room and sat down.") === 0);
 }
 
+
+
+/* ── the second generation: the register moved and the detector did not ──────────
+ *
+ * Thirty turns after the first fix shipped, the same story produced 138 lines of dialogue and the
+ * detector caught seven — every one of them from turns BEFORE it shipped. Not one of the lines
+ * below is an aphorism by the original shapes. All of them are the same behaviour: answering the
+ * person in front of you with a figure instead of an answer.
+ */
+{
+  const MOVED = [
+    "It's like a loaf that's never been cut.",
+    "It\u2019s like a loaf that\u2019s never been cut.",
+    "The fever doesn't take a roof off. It takes the hands that hold the roof up.",
+    "The beetle rolls with its back legs. Everyone knows that.",
+    "You stay long enough, you'll see.",
+    "That's what they say about the road.",
+  ];
+  for (const line of MOVED) check(`second generation: ${line.slice(0, 44)}`, caught(line), findMaxims(said(line)));
+}
+{
+  // and the plain speech from the SAME save has to survive it
+  const STILL_FINE = [
+    "Five pounds of gold is five pounds of gold. It's under the floor, and it stays under the floor.",
+    "There was a man with a mule before. He may still want a room.",
+    "If you want to keep arguing with her, come inside. The garden will still be here.",
+    "You don't know the first thing about what we're afraid of.",
+    "You've made your point. You don't need to make it out of metal.",
+    "I'd go to the woman who sells them by the fountain and say how much for the white ones.",
+  ];
+  for (const line of STILL_FINE) check(`still fine: ${line.slice(0, 44)}`, !caught(line), findMaxims(said(line)));
+}
+
+/* ── the worst move: the narrator arguing with the player through a character ──── */
+{
+  const defence = "A beetle and a fever and a roof aren't maxims. They're the room we're standing in.";
+  check("the defence is caught", caught(defence), findMaxims(said(defence)));
+  const fix = maximFix(defence);
+  check("and gets its own correction", /DEFEND YOUR OWN PROSE STYLE/.test(fix));
+  check("which names it as arguing with the player", /arguing with the person playing/.test(fix));
+  check("and closes it", /The player is right and the argument is over/.test(fix));
+  check("an ordinary maxim still gets the ordinary correction",
+    !/DEFEND YOUR OWN PROSE STYLE/.test(maximFix("Shock has a price, Rabi.")));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
