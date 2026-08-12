@@ -177,15 +177,6 @@ body {
 .echo-nav:active { background: var(--ink-2); }
 .echo-nav[disabled] { opacity: .3; pointer-events: none; }
 
-/* seismograph strip */
-.seismo {
-  height: 30px;
-  border-radius: 9px;
-  background: var(--ink-1);
-  border: 1px solid var(--line);
-  overflow: hidden;
-}
-
 /* ───────── inputs ───────── */
 .field, .composer-input {
   width: 100%;

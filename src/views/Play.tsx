@@ -6,7 +6,7 @@ import { api, streamTurn, resumePending, governorState, type ActionMode, type Cl
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
-import { CastPip, Seismograph, Vitals } from "../lib/charts";
+import { CastPip, Vitals } from "../lib/charts";
 import { readSchedule } from "../engine/schedule";
 import type { SaveState } from "../engine/types";
 import { AnalogClock, WeatherIcon } from "../lib/format";
@@ -698,9 +698,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             )}
           </div>
         )}
-        <div className="seismo flex-1 px-1" style={{ minWidth: 24 }}>
-          <Seismograph trace={save.pressure_trace} overlay={save.telemetry.map((t) => (t.player_mood_valence ?? 0) / 16)} />
-        </div>
+        {/* The pressure seismograph used to live here and it is gone. Its overlay was the engine's
+            estimate of the PLAYER'S own mood — a guess about the one person on screen who does not
+            need to be guessed at — and the bars underneath were a controller reading nobody plays
+            by. It is still in the Chronicle, where a read-out of how the story has been running
+            belongs. The rail is for things you act on. */}
+        <div className="flex-1" />
         {/* THE BODY, as one dot. It only earns attention when something is actually low, so an
             unremarkable body is a dim mark and a failing one is a red one. Tap for the three bars. */}
         {(() => {
