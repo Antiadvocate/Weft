@@ -61,6 +61,38 @@ export function physicalAct(action: string): string {
 const ACT_FLOOR = 18;
 
 /**
+ * WHAT EVERYONE IN THE ROOM CAN SEE ON THE PLAYER, and what this world is able to make.
+ *
+ * A player rode a self-balancing electric vehicle up to an inn in iron-age Latium, wearing a
+ * Versace suit, and the innkeeper quoted him a room rate and wondered where he would park it. Both
+ * halves of that contradiction were sitting in the save: `wearing` said "Versace suit, white shirt
+ * open at neck" and `technology_level` said "ox-plows, hand-mills, oil lamps, wax tablets". Nothing
+ * had ever compared one against the other, so an anachronism became an ordinary noun the moment it
+ * entered state and stayed one forever.
+ *
+ * This lived inside reactionDirective, which returns nothing at all unless the player's input
+ * contains a physical act of at least ACT_FLOOR characters. So on every turn the player spoke,
+ * thought, or did something short — "I nod", "I sit down", most of a conversation — the narrator
+ * was told nothing about what the player was visibly wearing or carrying, and the comparison it is
+ * supposed to make never happened. What somebody has on them is true on all of those turns too, so
+ * it is its own thing now, and the digest prints it every turn.
+ */
+export function visibleOnPlayer(state: SaveState): string {
+  const cond = state.condition["char_player"];
+  const carried = [
+    ...(cond?.wearing ?? []),
+    ...(cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[],
+  ].filter((x) => String(x).trim()).slice(0, 6);
+  const look = String(state.characters["char_player"]?.appearance_now ?? "").trim();
+  const tech = String(state.world_bible?.technology_level ?? "").trim();
+  const seen = [look, ...carried].filter(Boolean).join("; ");
+  if (!seen || !tech) return "";
+  return `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen.slice(0, 240)}.
+This world can do this and no more: ${tech.slice(0, 240)}
+Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.`;
+}
+
+/**
  * The directive. Deliberately makes no claim about magnitude — it does not know and does not need
  * to. It says what the act was, requires the scene to answer it, and points each present character
  * at their own state and at what this world holds to be true. When the act was ordinary that costs
@@ -79,26 +111,7 @@ export function reactionDirective(state: SaveState, action: string, mode: Action
     ? `${present.join(", ")} ${present.length === 1 ? "is" : "are"} in the room and ${present.length === 1 ? "saw" : "each saw"} it.`
     : `Nobody is here to see it, so the world's answer is the place itself and whatever it does in response.`;
 
-  // ── AND WHAT THEY CAN SEE ON HIM ──────────────────────────────────────────────────────────
-  // A player rode a self-balancing electric vehicle up to an inn in iron-age Latium, wearing a
-  // Versace suit, and the innkeeper quoted him a room rate and wondered where he would park it.
-  // Both halves of that contradiction were sitting in the save: `wearing` said "Versace suit,
-  // white shirt open at neck" and `technology_level` said "ox-plows, hand-mills, oil lamps, wax
-  // tablets". Nothing in the engine had ever compared one to the other, so an anachronism became
-  // an ordinary noun the moment it entered state and stayed one forever.
-  const cond = state.condition["char_player"];
-  const carried = [
-    ...(cond?.wearing ?? []),
-    ...(cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[],
-  ].filter((x) => String(x).trim()).slice(0, 6);
-  const look = String(state.characters["char_player"]?.appearance_now ?? "").trim();
-  const tech = String(state.world_bible?.technology_level ?? "").trim();
-  const seen = [look, ...carried].filter(Boolean).join("; ");
-  const anachronism = seen && tech
-    ? `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen.slice(0, 240)}.
-This world can do this and no more: ${tech.slice(0, 240)}
-Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.`
-    : "";
+  const anachronism = visibleOnPlayer(state);
 
   return `\n[WHAT THE PLAYER JUST DID — THE SCENE ANSWERS THIS FIRST.
 "${act.slice(0, 300)}"

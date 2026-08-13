@@ -11,6 +11,7 @@
  *     is kept and sharpened: computed psyche governs how truly a character
  *     can see, not just how they feel.
  */
+import { visibleOnPlayer } from "./reaction";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { dateLabel, minutesBetween } from "./time";
@@ -1399,7 +1400,18 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond, ident.conscience)}`);
       if (cond.psyche.relaxation <= -3 && ident.attachment?.under_threat) lines.push(`  under stress this person: ${ident.attachment.under_threat}`);
+      // The forge writes soothed_by for every NPC — "one plain sentence: what actually settles
+      // them" — and it reached nobody. This branch printed a generic sentence about avoidant people
+      // instead of the specific one already recorded for THIS person, so a card saying she settles
+      // when somebody works alongside her without talking produced advice about room to breathe.
+      else if (cond.psyche.relaxation >= 4 && ident.attachment?.soothed_by?.trim()) lines.push(`  what settles this person: ${ident.attachment.soothed_by.trim()}`);
       else if (cond.psyche.relaxation >= 4 && ident.attachment?.style === "avoidant") lines.push(`  note: settles alone — warmth lands better with room to breathe; pressing in undoes it`);
+      // WHAT THIS PERSON HAS ON THEM. Rendered for the player (in the directive) and for nobody
+      // else, so the narrator invented what everyone in the room was wearing and holding, and the
+      // simulator then recorded the invention as state.
+      { const worn = [...(cond.wearing ?? []), ...(cond.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[]]
+          .filter((x) => String(x).trim()).slice(0, 5);
+        if (worn.length) lines.push(`  has on them (everyone here can see it): ${worn.join(", ")}`); }
       // GOALS ARE ACTIVE, NOT DECORATION. A present character pursues their own wants in the scene —
       // they raise them in conversation, steer the topic toward what they're after, act to advance
       // them, and grow impatient or leave when the scene gives them nothing. The story is not only
@@ -1637,7 +1649,7 @@ Player carries: ${state.world.money || "—"}${(() => {
 (Characters under OFFSCREEN are NOT in this scene unless the player goes to them or brings them here.)
 
 === PRESENT — LIVE STATE (law) ===
-${presentStr}
+${presentStr}${visibleOnPlayer(state)}
 
 === RECENT TURNS ===
 ${recentStr}${proseTail}${(() => {

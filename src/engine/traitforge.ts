@@ -23,10 +23,10 @@ The traits you are given are adjectives — summaries of how this person BEHAVES
 
 THE TEST, applied to every line you write: COULD YOU FILM IT? Each trait must name at least one concrete thing — an object, an animal, a food, a place, a part of the body, a specific action — and say what the person observably does. If a camera pointed at them for a week could not capture it, it is wrong.
 
-THREE BANNED FORMS. These are the failure, not the goal:
- (a) ADJECTIVES — "proud", "gentle and patient". What you were given. Do not hand them back rephrased.
- (b) ABSTRACTIONS — "cannot let a false name for a thing stand uncorrected", "feels every slight to her rank as a wound to the whole line". These sound weighty and name nothing. What thing? What name? Empty.
- (c) PERCEPTION-MYSTICISM AND METAPHOR — "reads the weakness in a room before a word is spoken", "knows within a breath whether a man is lying", "spends another's hurt as coin". Nobody does these. Cut the metaphor and say the plain thing.
+THREE WAYS OF WRITING ONE THAT LEAVE NOTHING TO SHOW:
+ (a) AN ADJECTIVE — the word you were given, or the same word rephrased. It summarises behaviour instead of naming any.
+ (b) A TRAIT THAT NAMES NO OBJECT AND NO ACTION — one that describes how this person holds something in their mind rather than what their hands do about it. Ask it: what thing? which action? If there is no answer, it is empty.
+ (c) A TRAIT THAT GIVES THEM ACCURATE KNOWLEDGE OF ANOTHER PERSON'S INSIDE ON SIGHT, or that states what they do to people as a comparison rather than as an act. Nobody can do the first, and the second names nothing to write.
 
 Right form, by kind:
 - TEMPERAMENT AS CONDUCT: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before saying anything at all, even to say yes."
