@@ -1648,18 +1648,72 @@ ${recentStr}${proseTail}${(() => {
   // register no matter what the card said. Fionnghuala's card reads "did anyone lay honey to it, or
   // only prayers?" and she was on the page saying "that's not fair to you" and "not a strategy".
   // So the exemplars go LAST — immediately before the model writes, closer than the drift.
+  // WITH THE ANSWERS, NOT JUST THE SAMPLES.
+  //
+  // This block used to carry a name, a diction note and three sample lines, and nothing else. The
+  // dialogue procedure asks the model five questions — how old they are, what life gave them words
+  // for, what their body is doing, who can hear, what they want in the next minute — and the fields
+  // that answer the first three were either hundreds of lines further up (mood, body) or not in the
+  // context at all (age, and an NPC's background, which is rendered only for the player). So the one
+  // block that gets read immediately before a line is written contained no culture, no era, no age
+  // and no current state, and the model answered the five questions from the sample lines alone.
+  //
+  // It also ended with a hardcoded vocabulary — cattle, weather, iron, kin, debt, God, work — which
+  // is one pre-industrial agrarian setting asserted over every world this engine can build, and four
+  // quotable modern lines supplied as things never to write. Both are gone: what a world contains is
+  // already recorded in the bible, and it is read from there.
+  const wb = state.world_bible;
+  const first = (s: string | undefined, n: number) => {
+    const t = String(s ?? "").trim(); if (!t) return "";
+    if (t.length <= n) return t;
+    const cut = t.slice(0, n); const end = cut.lastIndexOf(". ");
+    return end > n * 0.4 ? cut.slice(0, end + 1) : cut.trim() + "…";
+  };
   const lines = state.world.present
     .filter((id) => id !== "char_player")
     .map((id) => {
-      const c = state.characters[id];
+      const c = state.characters[id]; const cond = state.condition[id];
       const ex = c?.voice?.example_lines?.slice(0, 3) ?? [];
-      if (!c || !ex.length) return "";
-      const never = c.voice?.never_says?.length ? ` Never says: ${c.voice.never_says.slice(0, 2).join("; ")}.` : "";
-      return `${c.name} — ${c.voice?.diction ?? ""}\n${ex.map((l) => `   "${l}"`).join("\n")}${never}`;
+      if (!c) return "";
+      // the life that decides which words they reach for at all
+      const life = first(c.background, lvl >= 3 ? 260 : 160);
+      // A character with no recorded lines used to contribute nothing to this block at all, which
+      // meant the one person in the room the model had least information about also got no age, no
+      // background and no state here. The recordings are the best evidence when they exist; they are
+      // not the price of admission.
+      if (!ex.length && !life && !c.age) return "";
+      const out = [`${c.name}${c.age ? `, ${c.age}` : ""}${c.voice?.diction ? ` — ${c.voice.diction}` : ""}`];
+      if (life) out.push(`   the life behind the words: ${life}`);
+      // and the state that overrides it in this minute
+      if (cond) {
+        const body = [
+          cond.fatigue !== "fresh" ? cond.fatigue : "",
+          physioLabel(cond), ...cond.conditions.slice(0, 2),
+          ...cond.injuries.slice(0, 1).map((i) => `hurt: ${i}`),
+        ].filter(Boolean).join(", ");
+        out.push(`   right now: ${cond.psyche.mood || "even"}${body ? `; ${body}` : ""}`);
+      }
+      // what has happened TO THEM lately, which is what they would actually bring up
+      const hist = c.life_history?.trim() ? tailGist(c.life_history.trim(), lvl >= 3 ? 200 : 120) : "";
+      if (hist) out.push(`   lately: ${hist}`);
+      if (ex.length) out.push(...ex.map((l) => `   "${l}"`));
+      else out.push(`   (no recording of this one — build every line they say from the four lines above)`);
+      if (c.voice?.never_says?.length) out.push(`   Never says: ${c.voice.never_says.slice(0, 2).join("; ")}.`);
+      return out.join("\n");
     })
     .filter(Boolean);
   if (!lines.length) return "";
-  return `\n\n=== HOW THESE PEOPLE SPEAK (binding — read this immediately before writing any dialogue) ===\n${lines.join("\n")}\n\nEvery line you write for these characters must be at this register: same vocabulary range, same sentence shapes, same bluntness, same things left unsaid. Write NEW lines, never these. If what you are about to put in a character's mouth would sound ordinary coming from a modern person — "that's not fair to you", "I don't need you to have a plan", "not a strategy", "I need you to tell me whether you want me here" — it is wrong, and the fault is that you reached for a feeling instead of for this person's actual words. They have no vocabulary for strategy, processing, plans, needs, space, or fairness as an abstraction. They speak in cattle, weather, iron, kin, debt, God, and work.`;
+  const world = [
+    wb?.era?.trim() ? `When and where: ${first(wb.era, 200)}` : "",
+    wb?.technology_level?.trim() ? `What exists to be named: ${first(wb.technology_level, 260)}` : "",
+    wb?.cultures_and_languages?.trim() ? `How people here talk to each other: ${first(wb.cultures_and_languages, 260)}` : "",
+  ].filter(Boolean).join("\n");
+  return `\n\n=== HOW THESE PEOPLE SPEAK (binding — read this immediately before writing any dialogue) ===
+${world ? `${world}\nNobody names a thing this world does not contain, and nobody reaches for a comparison drawn from one. Where their world has no word for something, they go around it, use the nearest word they do have, or get it wrong.\n\n` : ""}${lines.join("\n\n")}
+
+BUILD EACH LINE OUT OF THE FOUR THINGS PRINTED ABOVE IT: their age, the life behind the words, what has happened to them lately, and the state they are in right now. The quoted lines are recordings of that person on another day — take their vocabulary and their sentence length from them, and never reuse one.
+WHERE THE STATE AND THE RECORDING DISAGREE, THE STATE WINS. Somebody exhausted, frightened, hurt or drunk repeats themselves, stops halfway, asks for what they want directly, and says less than the recording shows. Somebody who has just had something happen to them raises it, or is visibly not raising it.
+AGE IS NOT DECORATION: a person of sixteen and a person of sixty have been alive for different amounts of time and have different things to compare anything to. What each of them reaches for first is different, and so is what they bother saying at all.`;
 })()}`;
   };
 
