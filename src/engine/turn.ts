@@ -3712,7 +3712,6 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location === ploc)
     .map(([id]) => id);
   state.world.present_prev = before;
-  state.world.arrivals_pending = [];   // consumed by the directive that renders the entrance
   state.world.departures_pending = []; // and the one that renders the exit
   state.world.inbound = [];            // same: delivered once, on the turn after it was sent
   // Stamp the clock for this turn so elapsed in-world time between two turns is knowable. Kept to a

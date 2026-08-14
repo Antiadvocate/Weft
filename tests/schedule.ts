@@ -251,5 +251,49 @@ function world(time = "Day 1, 07:30"): SaveState {
   check("a schedule with nothing in it at all is removed", !bare.characters.char_sera.schedule);
 }
 
+
+/* ── A SCHEDULED MOVE INTO THE PLAYER'S ROOM IS AN ENTRANCE ─────────────────────
+ *
+ * A player: "characters will sometimes evaporate into the scene, where they're just there all of a
+ * sudden, with zero prose about them entering." arrivals_pending was queued in exactly one place —
+ * the drive-pursuit path, where somebody crosses the map hunting the player. A schedule moves far
+ * more people than that and queued nothing, so anybody whose shift started where the player happened
+ * to be standing simply appeared in the next turn's PRESENT block, already in the room.
+ */
+{
+  const s = world("Day 1, 08:10");
+  s.world.present = [];
+  s.characters.char_sera.location = "loc_flat";
+  s.world.player_location = "loc_yard";        // the player is standing where her shift is
+  s.world.arrivals_pending = [];
+  tickSchedule(s);
+  check("her shift moves her to where the player is", s.characters.char_sera.location === "loc_yard");
+  check("and that is queued as an arrival to be written",
+    (s.world.arrivals_pending ?? []).includes("Sera"), s.world.arrivals_pending);
+
+  // going home counts too, when home is where the player is
+  const s2 = world("Day 1, 16:30");
+  s2.world.present = [];
+  s2.characters.char_sera.location = "loc_yard";
+  s2.world.player_location = "loc_flat";
+  s2.world.arrivals_pending = [];
+  tickSchedule(s2);
+  check("coming home to the player's room is an entrance too",
+    (s2.world.arrivals_pending ?? []).includes("Sera"), s2.world.arrivals_pending);
+}
+{
+  // AND WHAT IT MUST NOT DO: queue an arrival for somebody going somewhere else entirely.
+  const s = world("Day 1, 08:10");
+  s.world.present = [];
+  s.characters.char_sera.location = "loc_flat";
+  s.world.player_location = "loc_market";
+  s.world.places.loc_market = { id: "loc_market", name: "the market", description_facts: "", contains: [] } as any;
+  s.world.arrivals_pending = [];
+  tickSchedule(s);
+  check("a move the player cannot see is not an entrance",
+    (s.world.arrivals_pending ?? []).length === 0, s.world.arrivals_pending);
+  check("...though she did move", s.characters.char_sera.location === "loc_yard");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

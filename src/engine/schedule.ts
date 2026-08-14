@@ -392,6 +392,24 @@ function remember(state: SaveState, id: string, content: string, importance: num
  * The player is never moved, never made late, and never given a shift by this — the player's day is
  * the player's to spend. Only their consequences are the world's.
  */
+/**
+ * A SCHEDULED MOVE THAT LANDS SOMEBODY IN THE PLAYER'S ROOM IS AN ENTRANCE.
+ *
+ * arrivals_pending was queued in exactly one place — the drive-pursuit path, where somebody crosses
+ * the map looking for the player. A schedule moves far more people than that, and queued nothing, so
+ * a character whose shift started at the inn simply turned up in the next turn's PRESENT block
+ * having never come through a door. A player: "characters will sometimes evaporate into the scene,
+ * where they're just there all of a sudden, with zero prose about them entering."
+ *
+ * Safe to set here: tickSchedule runs after applyDiff has cleared the queue for this turn, so what
+ * is queued now is read by the next turn's directive, which is the turn the entrance belongs in.
+ */
+function noteArrival(state: SaveState, name: string, dest: string): void {
+  if (!name || dest !== state.world.player_location) return;
+  const q = (state.world.arrivals_pending ??= []);
+  if (!q.includes(name)) state.world.arrivals_pending = [...q, name].slice(-3);
+}
+
 export function tickSchedule(state: SaveState): string[] {
   const log: string[] = [];
   const now = absMinutes(state.world.current_time);
@@ -483,6 +501,7 @@ export function tickSchedule(state: SaveState): string[] {
             } else {
               log.push(`${c.name} is at ${placeName(state, dest)} for ${b.what.trim()}.`);
             }
+            noteArrival(state, c.name, dest);
           }
         }
       }
@@ -504,6 +523,7 @@ export function tickSchedule(state: SaveState): string[] {
         if (justFinished) {
           c.location = home;
           log.push(`${c.name} has gone home to ${placeName(state, home)}.`);
+          noteArrival(state, c.name, home);
         }
       }
     }

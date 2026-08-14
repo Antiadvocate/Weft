@@ -234,7 +234,7 @@ export type Beat =
   | { kind: "none" }
   | { kind: "reminder"; ref: string }
   | { kind: "consequence"; ref: string; consequence: ConsequenceEvent }
-  | { kind: "clock"; ref: string }
+  | { kind: "clock"; ref: string; signs?: string[]; filled?: number; segments?: number }
   | { kind: "thread"; ref: string }
   | { kind: "agent"; ref: string; goal: string }
   | { kind: "exogenous" };
@@ -309,7 +309,18 @@ export function selectBeat(inp: BeatInput): Beat {
     : inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) || sinceBeat < MIN_GAP_TURNS;
   const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.75)
-    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({ kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90) }) });
+    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({
+      kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90),
+      // THE SIGNS TRAVEL WITH THE BEAT. The narrator is deliberately not shown the clock table —
+      // a faction's objective is private bookkeeping and handing it over is the omniscience leak.
+      // But visible_signs is the opposite of private: the forge writes it as what an ordinary
+      // person in this world can SEE of that faction's progress, which is exactly what "advance
+      // this clock into the player's awareness" needs and was never given. Told to advance a clock
+      // with nothing observable attached, the narrator wrote a line of foreboding and moved on,
+      // which is a clock flaring with nothing in the prose to show for it.
+      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 3),
+      filled: c.filled, segments: c.segments,
+    }) });
   // A thread had to reach tension 6 to be pickable, which is a CRISIS threshold. Everything that is
   // merely the world's ordinary business — an upkeep dispute, an office that must be told, a
   // neighbour who now wants the same engineers — opens low and matures slowly, so under the old
@@ -420,7 +431,13 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
         lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
         break;
       case "clock":
-        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}". Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
+        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}"${
+          typeof beat.filled === "number" && beat.segments ? `, ${beat.filled} of ${beat.segments} of the way to happening` : ""
+        }.${
+          beat.signs?.length
+            ? `\nWHAT A PERSON HERE WOULD ACTUALLY SEE OF IT — put at least one of these ON THE PAGE this turn, as a thing that happens where the player is, not as a mood: ${beat.signs.join("; ")}. Nobody in the scene knows what it is FOR; they see the sign and read it however their own life tells them to.`
+            : ""
+        } Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
         break;
       case "thread":
         lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);
