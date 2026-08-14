@@ -154,9 +154,9 @@ function world(): SaveState {
   const d = volatileDigest(s2, "the cave");
   check("texture reaches the narrator", /watches for the first swifts/.test(d), d.match(/ {2}texture[^\n]*/)?.[0]);
   check("and is labelled as something she raises herself", /raises these unprompted/.test(d));
-  check("skills reach the narrator", /reading a scale/.test(d), d.match(/ {2}knows[^\n]*/)?.[0]);
+  check("skills reach the narrator", /reading a scale/.test(d), d.match(/ {2}can talk at length[^\n]*/)?.[0]);
   check("with how she came by them", /learned as a child/.test(d));
-  check("labelled as what she can talk about", /can hold forth on/.test(d));
+  check("labelled as what she can talk about", /can talk at length about/.test(d));
 
   // and they are not gated behind the most generous context budget
   const squeezed = volatileDigest(s2, "the cave", { budgetOverride: 900 });

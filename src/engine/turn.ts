@@ -39,6 +39,7 @@ import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { findEcho, echoFix, stripScaffolding } from "./echo";
 import { applyUnexplained, reactionDirective } from "./reaction";
 import { sweepThreads } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
@@ -1278,19 +1279,23 @@ function deriveDefaultValues(traits: string[], background: string): string[] {
   return out.slice(0, 3);
 }
 
-/** Derive a minimal but non-empty voice so a spawned character can actually speak in-character. */
-function deriveDefaultVoice(traits: string[], age: string): { diction?: string; example_lines?: string[]; never_says?: string[] } {
-  const blob = traits.join(" ").toLowerCase();
-  const young = parseInt(age, 10) <= 16;
-  const rough = /desperate|fading|hard|grim|raider|hungry|feral/.test(blob);
+/**
+ * A spawned character with no voice of their own.
+ *
+ * This used to return one of three canned diction strings — "clipped, plain, spends words like they
+ * cost something", "plain and direct, no flourish" — and a pair of hardcoded two-word sample lines,
+ * for EVERY character the prose introduced. So the engine itself was the source of the terse,
+ * weighty, interchangeable cast: any person who walked into a scene was assigned brevity as a
+ * personality before anyone had written a word for them, and the narrator then had a sample proving
+ * it. Three canned voices cannot tell anyone apart, and a description of how somebody sounds that
+ * was not derived from who they are is worse than no description, because it overrides the card.
+ *
+ * So it derives nothing about sound now. It records only what is actually known — that this person
+ * has not been written yet — and points at the fields that do decide it.
+ */
+function deriveDefaultVoice(_traits: string[], _age: string): { diction?: string; never_says?: string[] } {
   return {
-    diction: young ? "simple, concrete, a child's directness" : rough ? "clipped, plain, spends words like they cost something" : "plain and direct, no flourish",
-    example_lines: young
-      ? ["You have food? Real food?", "I know these woods. You don't."]
-      : rough
-        ? ["I don't want your pity. I want to move.", "You think I haven't seen worse?"]
-        : ["Say what you mean.", "I've got my own troubles."],
-    never_says: ["long philosophical speeches", "clever wordplay they'd have no schooling for"],
+    diction: "not yet observed — take it from their age, background, trade and traits, and let it differ from everyone else already in the scene",
   };
 }
 
@@ -1984,7 +1989,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim);
+  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo);
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2261,6 +2266,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     ev.onMeta?.({ shifts: ["no narration this turn — both models declined. The scene is unchanged; try rephrasing your action."] });
     return;
   }
+  // A reasoning model that puts its working inside the answer. Cheap, conservative, and applied
+  // before anything else reads the prose — the bookkeeper was otherwise recording the model's notes
+  // about the scene as though they were events in it.
+  prose = stripScaffolding(prose);
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
   // and no printed pronouns (a child, a coworker), where the model defaults to "she". Conservative:
@@ -2299,6 +2308,8 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // The player's own words coming back at them, in either of its two forms.
+      state.last_echo = findEcho(prose, mode === "say" ? action : (action.match(/"([^"]{4,})"/)?.[1] ?? ""));
       if (maxims.length >= 2) {
         ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
       }
