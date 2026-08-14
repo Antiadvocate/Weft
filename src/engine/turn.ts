@@ -13,7 +13,7 @@ import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stanc
 import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
-import { detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
+import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
@@ -2914,7 +2914,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // advanced until later (the offstage passes deliberately run against the time the scene happened
   // at), but anything here that moves with time rather than with turns needs the number now.
   const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
-  const offscreenLog = [...(diff.offscreen ?? []).filter((line) =>
+  // asList, not a spread: `offscreen` is typed string[] and written by a model, and one returned
+  // its lines as {char_id, where} objects. They reach the history entry and Play renders each one
+  // as a React child, which throws and then keeps throwing on every load of that save.
+  const offscreenLog = [...asList(diff.offscreen, 64).filter((line) =>
     !recentOffscreen.some((prev) => overlapRatio(prev, line) >= 0.5))];
   // present, named characters the player is actually engaging join the long game
   const capCentral = state.model_settings.max_central_characters ?? 6;

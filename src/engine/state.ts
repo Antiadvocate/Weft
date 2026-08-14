@@ -298,6 +298,24 @@ export function sanitize(state: SaveState): SaveState {
 
   healCharacterTypes(state);
 
+  // ── A MODEL-SHAPED OBJECT WHERE A LINE OF TEXT BELONGS ──────────────────────────────────────
+  //
+  // SimulatorDiff.offscreen is typed string[] and is written by a model, which is not the same
+  // thing as being strings. One returned its world-motion lines as objects — {char_id, where} —
+  // and they went into the log unread, were stored on the history entry, and Play renders each
+  // one directly as a React child. React refuses to render an object, so the save crashed on
+  // every load from then on: the bad turn is persisted, so re-opening it fails the same way.
+  //
+  // Ingestion coerces these now, but that does not help a save already holding one. Repair on
+  // load, which is what this function is for.
+  for (const h of state.history ?? []) {
+    if (Array.isArray(h?.offscreen) && h.offscreen.some((x) => typeof x !== "string")) h.offscreen = asList(h.offscreen, 64);
+    if (Array.isArray(h?.shifts) && h.shifts.some((x) => typeof x !== "string")) h.shifts = asList(h.shifts, 64);
+    if (h && typeof (h as { narrator_prose?: unknown }).narrator_prose !== "string") {
+      (h as { narrator_prose?: unknown }).narrator_prose = asText((h as { narrator_prose?: unknown }).narrator_prose, " ");
+    }
+  }
+
   // A HAND-EDITED WEEK RUNS ARITHMETIC ON EVERY TURN, so it is coerced on load for the same reason
   // threads are. The failure mode is quiet and total: a start time left as a string makes every
   // comparison against it false, so the character never goes anywhere again and nothing says why.

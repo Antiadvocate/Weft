@@ -131,7 +131,10 @@ function fireByHand(s: SaveState, id: string) {
     segments: 6, filled: 5, status: "running", consequence: "the inn is taken",
     visible_signs: ["men counting tiles on the roof", "a notice nailed to the post at the crossroads"],
   }];
-  const beat: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks, consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0 } as any);
+  // selectBeat is randomized — it weighs a threat beat against a lighter reminder — so the rng is
+  // pinned. A test that passes on the draw it happened to get is not a test.
+  const roll = () => 0;
+  const beat: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks, consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0, rng: roll } as any);
   check("a mature clock is picked as the beat", beat?.kind === "clock", beat);
   check("and the beat carries what can be seen of it", beat?.signs?.length === 2, beat);
   check("and how far along it is", beat?.filled === 5 && beat?.segments === 6, beat);
@@ -146,7 +149,7 @@ function fireByHand(s: SaveState, id: string) {
   check("the private consequence is not handed over", !/the inn is taken/.test(d), d);
 
   // a clock with no signs recorded still works, just without the extra
-  const bare: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks: [{ ...clocks[0], visible_signs: [] }], consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0 } as any);
+  const bare: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks: [{ ...clocks[0], visible_signs: [] }], consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0, rng: roll } as any);
   const d2 = pressureDirective({ pressure: 7, band: "high", source: "clock" } as any, undefined, 7, "mortal", bare);
   check("no signs recorded, no empty demand", !/ON THE PAGE this turn/.test(d2), d2.slice(0, 200));
   check("...but the beat still fires", /maturing faction clock/.test(d2));
