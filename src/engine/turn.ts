@@ -4137,7 +4137,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       continue;
     }
     const id = uid("loc");
-    state.world.places[id] = { id, name: np.name, description_facts: np.description_facts ?? "", contains: [] };
+    // A place born mid-story gets its fixed half from the sentence that introduced it — that is the
+    // one moment the description is saying what the place IS rather than what state it is in.
+    const born = String(np.description_facts ?? "").trim();
+    state.world.places[id] = {
+      id, name: np.name, description_facts: born, contains: [],
+      identity: (String((np as { identity?: string }).identity ?? "").trim() || (born.split(/(?<=[.!?])\s+/)[0] ?? "")).trim().slice(0, 200),
+    };
   }
 
   // ── PLACES CHANGE ── A place's description_facts is what the narrator (and the offstage world-sim,

@@ -823,11 +823,14 @@ export const api = {
     return { save: clientView(s), log };
   },
 
-  editPlace: async (id: string, place_id: string, patch: { name?: string; description_facts?: string; population?: { scale: number; who: string } }): Promise<ClientSave> => {
+  editPlace: async (id: string, place_id: string, patch: { name?: string; identity?: string; description_facts?: string; population?: { scale: number; who: string } }): Promise<ClientSave> => {
     const s = await need(id);
     const p = s.world.places[place_id];
     if (!p) throw new Error("No such place.");
     if (patch.name !== undefined && patch.name.trim()) p.name = patch.name.trim().slice(0, 60);
+    // The fixed half. Only ever written here — the simulator is told it is not its to write, and
+    // nothing in the turn loop touches it. See Place.identity.
+    if (patch.identity !== undefined) p.identity = patch.identity.trim().slice(0, 200);
     if (patch.description_facts !== undefined) p.description_facts = patch.description_facts.trim();
     // Explicit population beats inference, including an explicit 0 for "this really is deserted".
     if (patch.population !== undefined) {
@@ -1529,7 +1532,12 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     const nameToId: Record<string, string> = {};
     for (const p of g.places ?? []) {
       const lid = uid("loc");
-      s.world.places[lid] = { id: lid, name: p.name, description_facts: p.description_facts ?? "", contains: [], founding: true, population: p.population && typeof p.population.scale === "number" ? { scale: Math.max(0, Math.round(p.population.scale)), who: String(p.population.who ?? "").slice(0, 200) } : undefined };
+      // The fixed half, written once at the Forge and never again. Falls back to the opening
+      // sentence of the description for a model that skipped the field — that is where a
+      // description says what a place IS before it says what state it is in.
+      const ident = String(p.identity ?? "").trim()
+        || (String(p.description_facts ?? "").trim().split(/(?<=[.!?])\s+/)[0] ?? "").trim();
+      s.world.places[lid] = { id: lid, name: p.name, identity: ident.slice(0, 200), description_facts: p.description_facts ?? "", contains: [], founding: true, population: p.population && typeof p.population.scale === "number" ? { scale: Math.max(0, Math.round(p.population.scale)), who: String(p.population.who ?? "").slice(0, 200) } : undefined };
       nameToId[p.name?.toLowerCase?.() ?? ""] = lid;
     }
     // PRONOUN BACKSTOP. If canon declares this world's people use a non-default pronoun set (a

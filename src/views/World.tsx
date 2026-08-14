@@ -261,6 +261,7 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
   const [editing, setEditing] = React.useState<string | null>(null);
   const [draftName, setDraftName] = React.useState("");
   const [draftDesc, setDraftDesc] = React.useState("");
+  const [draftIdent, setDraftIdent] = React.useState("");
   // Who is ordinarily about here. The engine infers this from a place's name when unset, but the
   // inference is deliberately conservative — a town you built and named yourself needs telling.
   const [draftPop, setDraftPop] = React.useState("");
@@ -298,7 +299,7 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                   style={{ color: "var(--text-lo)" }}
                   onClick={() => {
                     if (editing === p.id) { setEditing(null); return; }
-                    setEditing(p.id); setDraftName(p.name); setDraftDesc(p.description_facts ?? "");
+                    setEditing(p.id); setDraftName(p.name); setDraftIdent(p.identity ?? ""); setDraftDesc(p.description_facts ?? "");
                     setDraftPop(p.population ? String(p.population.scale) : ""); setDraftWho(p.population?.who ?? ""); setErr("");
                   }}>{editing === p.id ? "close" : "edit"}</button>
                 <button disabled={busy} className="font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5"
@@ -314,8 +315,16 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                 <input value={draftName} onChange={(e) => setDraftName(e.target.value)}
                   className="w-full bg-transparent text-[13px] outline-none border-b py-1"
                   style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
+                {/* THE HALF THAT DOES NOT MOVE. description_facts is replaced wholesale every time
+                    the world changes a place, which is right for what burns and wrong for whose
+                    house it is — so the identity is stored apart, the simulator cannot write it,
+                    and this is the only place it can be corrected. */}
+                <input value={draftIdent} onChange={(e) => setDraftIdent(e.target.value)}
+                  placeholder="What this place is and whose it is — fixed, never rewritten by play"
+                  className="w-full bg-transparent text-[12.5px] outline-none border-b py-1"
+                  style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
                 <textarea value={draftDesc} onChange={(e) => setDraftDesc(e.target.value)} rows={7}
-                  placeholder="What is physically here — rooms, contents, who's usually around. The narrator reads this."
+                  placeholder="How it stands NOW — rooms, contents, damage, who is usually around. The world rewrites this when the place changes."
                   className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
                   style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 120 }} />
                 <div className="flex gap-2 items-center">
@@ -336,7 +345,7 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                     style={{ color: "var(--accent)" }}
                     onClick={() => run(async () => {
                       const n = await api.editPlace(save.id, p.id, {
-                        name: draftName, description_facts: draftDesc,
+                        name: draftName, identity: draftIdent, description_facts: draftDesc,
                         ...(draftPop.trim() ? { population: { scale: Number(draftPop), who: draftWho.trim() } } : {}),
                       });
                       setEditing(null); return n;
@@ -347,6 +356,9 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
               </div>
             ) : (
               <>
+                {p.identity && (
+                  <div className="text-[12px]" style={{ color: "var(--text-mid)" }}>{p.identity}</div>
+                )}
                 {p.description_facts && (
                   <div className="text-[12px] whitespace-pre-wrap" style={{ color: "var(--text-lo)" }}>{p.description_facts}</div>
                 )}
