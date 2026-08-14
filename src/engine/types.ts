@@ -840,6 +840,12 @@ export interface SaveState {
    *  reliably broken a narrator habit is being shown the sentence at the end of the next turn's
    *  directive. See engine/maxims.ts. */
   last_maxim?: string | null;
+  /** The narrator handing the player's own line back — either demanding they repeat it, or quoting
+   *  it back at them. Caught in the OUTPUT rather than forbidden with a quoted example in the
+   *  prompt, because a banned line pasted into the context is a line the model has been supplied
+   *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
+   *  as last_maxim and last_leak. See engine/echo.ts. */
+  last_echo?: { line: string; kind: "demand" | "parrot" } | null;
   // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
   // standing correction injected into every subsequent turn: this did not happen, never refer to it.

@@ -209,20 +209,26 @@ export function maximRate(prose: string): number {
  * puts the one concrete sample of how this person talks next to the request to write them talking.
  */
 export function voiceAnchor(
-  state: { characters: Record<string, { name: string; voice?: { example_lines?: string[] } }> },
+  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; voice?: { never_says?: string[] } }> },
   presentIds: string[],
 ): string {
   const rows: string[] = [];
   for (const id of presentIds.slice(0, 4)) {
     const c = state.characters[id];
-    const ex = c?.voice?.example_lines?.filter((l) => l?.trim()).slice(0, 2) ?? [];
-    if (!ex.length) continue;
-    rows.push(`${c.name} sounds like this: ${ex.map((l) => `"${l.trim()}"`).join(" · ")}`);
+    if (!c) continue;
+    const bits = [
+      c.age ? `${c.age}` : "",
+      c.core_traits?.length ? c.core_traits.slice(0, 3).join("; ") : "",
+      c.background?.trim() ? String(c.background).trim().split(/(?<=\.)\s/)[0].slice(0, 120) : "",
+    ].filter(Boolean);
+    if (!bits.length) continue;
+    const never = c.voice?.never_says?.length ? ` Would never say: ${c.voice.never_says.slice(0, 2).join("; ")}.` : "";
+    rows.push(`${c.name} — ${bits.join(" · ")}.${never}`);
   }
   if (!rows.length) return "";
-  return `\n[HOW THESE PEOPLE HAVE TALKED BEFORE — write new lines, never these lines.
+  return `\n[WHO IS TALKING, AND WHY NONE OF THEM SHOULD SOUND ALIKE.
 · ${rows.join("\n· ")}
-These are recordings of each person on some other day, wanting something else. Take from them the words this person reaches for, how much they say at once, and what they never bother to explain.
-TWO THINGS THE RECORDINGS CANNOT TELL YOU. What each of them wants out of THIS exchange, right now — decide that first, and aim the line at it. And what state each of them is in now: someone frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else. A person whose recordings are all prices is someone who takes bookings in prices; it is not the limit of what she can say.
+Decide two things per speaker before writing their line. What do they want out of THIS exchange, right now — aim the line at that. And what state are they in: somebody frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
+LENGTH COMES FROM THAT, NOT FROM A STYLE. Somebody who has explained this a hundred times explains it again at length; somebody who wants to leave uses six words. If everyone in this scene is brief, they have all been written by the same person, which is you.
 If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.]`;
 }

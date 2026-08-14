@@ -109,5 +109,51 @@ function fireByHand(s: SaveState, id: string) {
   check("and queues nothing", !s.world.consequences.some((x) => x.id === "clockfire_clk_other"));
 }
 
+
+/* ── A CLOCK THE NARRATOR CAN ACTUALLY SHOW ─────────────────────────────────────
+ *
+ * A player: "Clocks flare up, tensions, there are TONS of threads popping up where literally
+ * nothing in the prose depicts anything of what is occurring."
+ *
+ * The narrator is deliberately not shown the clock table — a faction's objective and its consequence
+ * are private bookkeeping, and handing them over is the omniscience leak that makes every character
+ * mysteriously aware of what a distant power intends. The selected beat came through the directive
+ * as a title and nothing else. But visible_signs is the opposite of private: the forge writes it as
+ * what an ordinary person in this world can SEE of that faction's progress, and it was withheld
+ * along with the rest. Told to "advance this clock into the player's awareness" with nothing
+ * observable attached, the narrator writes a sentence of foreboding and moves on — which is exactly
+ * a clock flaring with nothing on the page.
+ */
+{
+  const { selectBeat, pressureDirective } = await import("../src/engine/pressure");
+  const clocks: any = [{
+    id: "c1", faction: "The decurio", objective: "seize the inn for the road tax",
+    segments: 6, filled: 5, status: "running", consequence: "the inn is taken",
+    visible_signs: ["men counting tiles on the roof", "a notice nailed to the post at the crossroads"],
+  }];
+  // selectBeat is randomized — it weighs a threat beat against a lighter reminder — so the rng is
+  // pinned. A test that passes on the draw it happened to get is not a test.
+  const roll = () => 0;
+  const beat: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks, consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0, rng: roll } as any);
+  check("a mature clock is picked as the beat", beat?.kind === "clock", beat);
+  check("and the beat carries what can be seen of it", beat?.signs?.length === 2, beat);
+  check("and how far along it is", beat?.filled === 5 && beat?.segments === 6, beat);
+
+  const d = pressureDirective({ pressure: 7, band: "high", source: "clock" } as any, undefined, 7, "mortal", beat);
+  check("the directive names the signs", /men counting tiles on the roof/.test(d), d.slice(0, 300));
+  check("...and requires one of them on the page", /put at least one of these ON THE PAGE this turn/.test(d));
+  check("...as an event, not an atmosphere", /not as a mood/.test(d));
+  check("...and says how close it is", /5 of 6 of the way to happening/.test(d));
+  // AND STILL NOT THE OMNISCIENCE LEAK: nobody in the room learns what the sign is for.
+  check("the scene is told nobody knows what it means", /Nobody in the scene knows what it is FOR/.test(d));
+  check("the private consequence is not handed over", !/the inn is taken/.test(d), d);
+
+  // a clock with no signs recorded still works, just without the extra
+  const bare: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks: [{ ...clocks[0], visible_signs: [] }], consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0, rng: roll } as any);
+  const d2 = pressureDirective({ pressure: 7, band: "high", source: "clock" } as any, undefined, 7, "mortal", bare);
+  check("no signs recorded, no empty demand", !/ON THE PAGE this turn/.test(d2), d2.slice(0, 200));
+  check("...but the beat still fires", /maturing faction clock/.test(d2));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

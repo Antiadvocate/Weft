@@ -32,6 +32,7 @@ import { detectWorldPronoun } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
+import { stripScaffolding } from "../engine/echo";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
 import { refreshDrives } from "../engine/driveforge";
 
@@ -88,7 +89,7 @@ export const api = {
     const msgs = buildMessages(OPENING_SYSTEM, stablePrefix(s), volatileDigest(s, "opening scene where the player arrives") + `\n\nWrite the opening scene now. Present: ${hint || "as the state dictates"}.`, s.model_settings.narrator_model);
     const out = await complete(msgs, s.model_settings.narrator_model, s.model_settings.fallback_model, false, 1200);
     const entry: TurnHistoryEntry = {
-      turn: 0, kind: "opening", player_action: "", narrator_prose: out.text.trim(),
+      turn: 0, kind: "opening", player_action: "", narrator_prose: stripScaffolding(out.text),
       summary: "The opening.", offscreen: [], time_label: s.world.current_time, weather: s.world.weather,
     };
     s.history = [entry, ...s.history.filter((h) => h.kind !== "opening")];

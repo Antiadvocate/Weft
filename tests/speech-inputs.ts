@@ -73,9 +73,17 @@ const anchor = (s: any) => {
   check("CURRENT STATE — the mood is adjacent to the line, not 300 lines up", /tired and short with people/.test(a));
   check("...and the body with it", /exhausted/.test(a), a);
   check("HISTORY — what has happened to her lately", /roof leaked in the night/.test(a));
-  check("and the recordings are still there", /bread that needs trimming/.test(a));
-  check("with the instruction to build from all of it", /BUILD EACH LINE OUT OF THE FOUR THINGS PRINTED ABOVE IT/.test(a));
+  check("their traits are here too", /Counts everything twice/.test(a));
+  check("with the instruction to build from all of it", /BUILD EACH LINE OUT OF WHAT IS PRINTED UNDER THAT SPEAKER/.test(a));
   check("and age called out as load-bearing", /AGE IS NOT DECORATION/.test(a));
+  // NO SAMPLE LINES AT ALL. Three short exemplars per person taught the entire cast to answer in
+  // fragments: a sample of a voice is always compressed, so "match this" reads as "never write
+  // anyone a long sentence" — and a clipped weighty fragment is the shape of an aphorism.
+  check("and NO sample line is handed over", !/bread that needs trimming|The fifteenth/.test(a), a);
+  check("length is named as a property of the moment, not the person",
+    /HOW MUCH SOMEBODY SAYS IS NOT A PROPERTY OF THE PERSON/.test(a));
+  check("a uniformly terse cast is called out as one person",
+    /A CAST WHERE EVERYONE IS BRIEF IS A CAST WITH ONE PERSON IN IT/.test(a));
 }
 
 /* ── 2. the world's own words, from the bible, not from one setting ──────────── */
@@ -107,7 +115,7 @@ const anchor = (s: any) => {
   const { s, m } = fixture();
   s.condition[m].psyche.mood = "frightened";
   const a = anchor(s);
-  check("the precedence is stated", /WHERE THE STATE AND THE RECORDING DISAGREE, THE STATE WINS/.test(a));
+  check("the precedence is stated", /AND THE STATE OVERRIDES THE PERSON/.test(a));
   check("with what it does to the sentences", /repeats themselves, stops halfway/.test(a));
 }
 
@@ -116,10 +124,10 @@ const anchor = (s: any) => {
   const { s, m } = fixture({ voice: {} });
   s.condition[m].psyche.mood = "wary";
   const a = anchor(s);
-  check("someone with no sample lines still appears", /Lucia, 52/.test(a), a.slice(0, 500));
+  check("someone with no voice card still appears", /Lucia, 52/.test(a), a.slice(0, 500));
   check("...with the life the narrator would otherwise invent", /lost its land two generations back/.test(a));
   check("...and their state", /wary/.test(a));
-  check("and is told what to build from instead", /no recording of this one/.test(a));
+  check("...and their traits", /Counts everything twice/.test(a));
 }
 
 /* ── 5. it survives the token-budget step-down; this is the last thing read ──── */
@@ -131,7 +139,7 @@ const anchor = (s: any) => {
   check("the speech block is not the thing that gets cut", i >= 0);
   check("age survives the trim", /Lucia, 52/.test(trimmed.slice(i)));
   check("and it is still the last block before generation",
-    trimmed.slice(i).length < 2600, trimmed.slice(i).length);
+    trimmed.slice(i).length < 3200, trimmed.slice(i).length);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

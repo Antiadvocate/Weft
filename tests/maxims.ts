@@ -86,16 +86,21 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
 
 /* ── the positive half: their own lines, where instructions land ─────────────── */
 {
+  // NO SAMPLE LINES. Three two-word exemplars per character taught the whole cast to answer in
+  // fragments — a sample of a voice is always compressed, and "match this" then reads as "never
+  // write anyone a long sentence". What separates two people is their lives, so that is what goes in.
   const state = { characters: {
-    char_l: { name: "Lucia", voice: { example_lines: ["A crown you keep by murder — is that worship?", "If she wanted blood in her wood she'd have said so plainly."] } },
-    char_m: { name: "Marcus", voice: { example_lines: ["The fifteenth. Not the sixteenth. Bring it then."] } },
-    char_x: { name: "Nobody", voice: {} },
+    char_l: { name: "Lucia", age: 52, core_traits: ["Counts everything twice"], background: "Runs the inn. Owes the decurio." },
+    char_m: { name: "Marcus", age: 19, core_traits: ["Answers before you finish"], background: "Carries water for the temple." },
+    char_x: { name: "Nobody" },
   } };
   const a = voiceAnchor(state, ["char_l", "char_m", "char_x"]);
-  check("present speakers get their own lines", /Lucia sounds like this/.test(a) && /Marcus sounds like this/.test(a), a);
-  check("a card with no lines contributes nothing", !/Nobody/.test(a));
-  check("the samples are recordings of another day, not a mould", /recordings of each person on some other day/.test(a), a.slice(0, 140));
-  check("and a state can override the recording", /repeats themselves, stops halfway/.test(a));
+  check("present speakers are told apart by their lives", /Lucia — 52/.test(a) && /Marcus — 19/.test(a), a);
+  check("a card with nothing on it contributes nothing", !/Nobody/.test(a));
+  check("no sample line is handed over at all", !/"/.test(a.replace(/Would never say[^\n]*/g, "")), a);
+  check("a state can override the person", /repeats themselves, stops halfway/.test(a));
+  check("length is named as coming from the moment, not a style", /LENGTH COMES FROM THAT, NOT FROM A STYLE/.test(a));
+  check("and a uniformly terse cast is called out as one person", /they have all been written by the same person/.test(a));
   check("with a check that can actually be applied", /would produce the same line in this moment/.test(a));
   check("no cards, no note", voiceAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
 }

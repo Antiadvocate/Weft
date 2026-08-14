@@ -5,6 +5,18 @@ import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
 import { nice, niceCap } from "../lib/format";
 
+/** Model-written text, as something React can render. Same reason as Play.tsx's asLine: a persona
+ *  reading comes back from a model, and an object child throws — which, on a persisted reading,
+ *  means the Chronicle stops opening. See tests/render-safety.ts. */
+function asLine(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
+  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
+  return "";
+}
+
 /** Everything here is computed locally from telemetry — zero token cost. */
 export default function Chronicle({ save }: { save: ClientSave }) {
   const [reading, setReading] = useState((save as any).persona_reading as { turn: number; mbti: string; read: string; traits: string[]; arc: string } | undefined);
@@ -230,9 +242,9 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 <div className="mt-2">
                   <span className="font-display text-[18px]" style={{ color: "var(--accent)" }}>{reading.mbti}</span>
                   <span className="font-mono text-[9px] ml-2" style={{ color: "var(--text-lo)" }}>as of turn {reading.turn}</span>
-                  <div className="text-[12.5px] leading-relaxed mt-1">{reading.read}</div>
+                  <div className="text-[12.5px] leading-relaxed mt-1">{asLine(reading.read)}</div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {reading.traits.map((t, i) => <span key={i} className="px-2 py-0.5 rounded-full text-[10.5px]" style={{ background: "var(--ink-2)" }}>{t}</span>)}
+                    {(reading.traits ?? []).map((t, i) => <span key={i} className="px-2 py-0.5 rounded-full text-[10.5px]" style={{ background: "var(--ink-2)" }}>{asLine(t)}</span>)}
                   </div>
                   {reading.arc && <div className="text-[11.5px] italic mt-2" style={{ color: "var(--text-mid)" }}>{reading.arc}</div>}
                 </div>
@@ -255,7 +267,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                         <span className="font-mono text-[10px]" style={{ color: "var(--accent)" }}>{c.persona.mbti}</span>
                         <span className="text-[11.5px] ml-2" style={{ color: "var(--text-mid)" }}>{c.persona.read}</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {c.persona.traits.map((t, i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: "var(--ink-2)", color: "var(--text-lo)" }}>{t}</span>)}
+                          {(c.persona.traits ?? []).map((t, i) => <span key={i} className="px-1.5 py-0.5 rounded-full text-[9.5px]" style={{ background: "var(--ink-2)", color: "var(--text-lo)" }}>{asLine(t)}</span>)}
                         </div>
                         {c.persona.shift && <div className="text-[10.5px] italic mt-1" style={{ color: "var(--text-lo)" }}>↳ {c.persona.shift}</div>}
                       </div>

@@ -1,0 +1,136 @@
+/**
+ * ECHO — a character handing the player's own line back to them.
+ *
+ * Two moves, one failure. A character asks the player to say it again, or a character repeats what
+ * the player just said back at them. Both spend a turn producing nothing: the player already knows
+ * what they typed, and a scene that answers a line by reflecting it has not answered it.
+ *
+ * WHY THIS IS CODE AND NOT A RULE IN THE PROMPT. There was a rule. It listed the four wordings the
+ * failure had been played in — "say it again", "say that again", "tell me again", "I want to hear
+ * you say it" — and that list is four ready-made lines sitting in the context, which is the failure
+ * tests/prompt-echo.ts exists to catch: a vivid phrase attached to a prohibition is still a phrase
+ * the model has been handed. Removing the list was right and the rule got weaker, because the
+ * general statement ("the player's line is spent") does not fire on the specific move the way a
+ * quoted example does.
+ *
+ * So the specimen goes where specimens belong: in a detector that reads the OUTPUT. Nothing is
+ * pasted into the prompt in advance. When the narrator does it, the next turn is told what it wrote
+ * and what to write instead — which is how engine/maxims.ts already works, and it is the only place
+ * a banned line can be quoted safely, because by then the model has already written it.
+ */
+import type { SaveState } from "./types";
+/**
+ * Quoted speech, with NO minimum length. maxims.ts has its own spokenLines with a length floor,
+ * because a two-word line cannot be an aphorism — but it can very easily be "Again." So this reads
+ * every quoted run, however short.
+ */
+function quotedLines(prose: string): string[] {
+  return [...String(prose ?? "").matchAll(/[""]([^""\n]{1,400})[""]/g)].map((m) => m[1].trim()).filter(Boolean);
+}
+
+/** "Say it again" and its family — a demand that the player repeat what they just typed. */
+const REPEAT_DEMAND = [
+  /\bsay (?:it|that|those words|the words) again\b/i,
+  /\b(?:tell|say) (?:it to )?me again\b/i,
+  /\bi want to hear you say (?:it|that)\b/i,
+  /\bsay (?:it|that) (?:one more time|once more|louder|to my face)\b/i,
+  /\brepeat (?:it|that|yourself)\b/i,
+  /\bagain\b[.?!]?$/i,
+];
+
+/** Words too common to count as evidence that a line was copied. */
+const STOP = new Set(
+  ("a an and are as at be been but by can did do for from had has have he her him his i if in is it its me my no not of on or our she so than that the their them then there these they this to too us was we were what when which who will with would you your".split(" ")),
+);
+
+/** Content words, lowercased, in order. */
+function contentWords(s: string): string[] {
+  return String(s ?? "").toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP.has(w));
+}
+
+/** The longest run of the player's content words reproduced, in order, inside one spoken line. */
+export function longestEchoRun(playerLine: string, spoken: string): number {
+  const a = contentWords(playerLine), b = contentWords(spoken);
+  if (!a.length || !b.length) return 0;
+  let best = 0;
+  const prev = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    let diagPrev = 0;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = a[i - 1] === b[j - 1] ? diagPrev + 1 : 0;
+      diagPrev = prev[j];
+      prev[j] = cur;
+      if (cur > best) best = cur;
+    }
+  }
+  return best;
+}
+
+/** Four content words in a row is a quotation, not a coincidence. */
+const RUN_FLOOR = 4;
+
+export interface EchoHit { line: string; kind: "demand" | "parrot" }
+
+/**
+ * What the narrator did with the player's words this turn.
+ *
+ * Only SPOKEN lines are read. Narration that restates the player's action is a different failure
+ * with its own rule, and policing it here would flag every legitimate description of what happened.
+ */
+export function findEcho(prose: string, playerSaid: string): EchoHit | null {
+  for (const line of quotedLines(prose)) {
+    if (REPEAT_DEMAND.some((re) => re.test(line))) return { line: line.slice(0, 180), kind: "demand" };
+  }
+  const said = String(playerSaid ?? "").trim();
+  if (contentWords(said).length < RUN_FLOOR) return null;   // nothing long enough to be copied
+  for (const line of quotedLines(prose)) {
+    if (longestEchoRun(said, line) >= RUN_FLOOR) return { line: line.slice(0, 180), kind: "parrot" };
+  }
+  return null;
+}
+
+/**
+ * The correction, quoting what was actually written. Handed to the next turn, never before.
+ */
+export function echoFix(hit: EchoHit | null | undefined): string {
+  if (!hit?.line) return "";
+  const shared = `\nWHAT TO DO WITH A LINE THE PLAYER HAS ALREADY SAID: nothing. It has been said, everyone in the room heard it, and it does not come back. Whether it landed is shown by what the listener DOES next — closes the distance, sits down, goes quiet, hands something over, answers a different question, leaves. A character who genuinely did not catch it acts on the half they did catch and gets it slightly wrong, which is what actually happens when somebody mishears.`;
+  if (hit.kind === "demand") {
+    return `\nLAST TURN A CHARACTER ASKED THE PLAYER TO SAY IT AGAIN: "${hit.line}"
+The player typed a line, it reached the person it was aimed at, and instead of the world answering it the world handed it back and asked for it louder. Do not write this again in any wording, and not as a tease, a tenderness, a test, or a way to raise the temperature.${shared}`;
+  }
+  return `\nLAST TURN A CHARACTER REPEATED THE PLAYER'S OWN WORDS BACK AT THEM: "${hit.line}"
+The player already knows what they said. A line that returns their words to them — quoted, turned over, weighed, or reframed more kindly — is a line in which nothing happened.${shared}`;
+}
+
+/**
+ * MODEL SCAFFOLDING THAT IS NOT THE STORY.
+ *
+ * Reasoning models emit their working, and some emit it inside the answer: a <thinking> block, a
+ * "Let me consider…" preamble, a markdown header announcing the scene, a trailing note about what
+ * the writer was going for. The opening scene is generated by one call with no turn loop around it,
+ * so nothing had ever cleaned it and the player was deleting the model's notes by hand before they
+ * could start playing.
+ *
+ * Deliberately conservative: it removes only wrappers that are unambiguously scaffolding, and it
+ * never touches the prose itself. If stripping would leave nothing, the original is returned —
+ * showing the player a preamble is better than showing them an empty scene.
+ */
+export function stripScaffolding(raw: string): string {
+  let t = String(raw ?? "");
+  // tagged reasoning blocks, closed or left open
+  t = t.replace(/<(thinking|thought|think|reasoning|scratchpad)>[\s\S]*?<\/\1>/gi, "");
+  t = t.replace(/<(thinking|thought|think|reasoning|scratchpad)>[\s\S]*$/i, "");
+  // a fenced block whose language tag says it is working, not prose
+  t = t.replace(/```(?:thinking|thought|reasoning|scratchpad)[\s\S]*?```/gi, "");
+  // markdown headers announcing the piece ("## The Opening Scene", "**Opening:**")
+  t = t.replace(/^\s{0,3}#{1,6}\s.*$/gm, "");
+  t = t.replace(/^\s*\*\*(?:opening|opening scene|scene|turn \d+)[^*\n]{0,40}\*\*:?\s*$/gim, "");
+  // a leading paragraph that talks about the writing rather than being it
+  t = t.replace(/^\s*(?:okay|alright|let me|i'll|i will|here(?:'s| is))\b[^\n]{0,200}\n+/i, "");
+  // and a trailing note about choices made
+  t = t.replace(/\n+\s*(?:\(|\[)?(?:note|n\.b\.|i (?:kept|tried|aimed|left)|this (?:opening|scene) (?:sets|establishes|leaves))\b[\s\S]{0,400}$/i, "");
+  const out = t.replace(/\n{3,}/g, "\n\n").trim();
+  return out.length >= 40 ? out : String(raw ?? "").trim();
+}
