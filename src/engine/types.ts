@@ -636,6 +636,15 @@ export interface ConsequenceEvent {
 export interface Place {
   id: string;
   name: string;
+  /** WHAT THIS PLACE IS AND WHOSE IT IS — one sentence, written once, never rewritten by play.
+   *
+   *  description_facts is a FULL REPLACEMENT every time the world changes a place, which is correct
+   *  for the things that actually change (burned, flooded, emptied, rebuilt) and wrong for the one
+   *  thing that does not: whose house this is. Each rewrite re-described the ground from scratch, so
+   *  a place drifted a little further from itself every time it was touched, and "Rabi's house"
+   *  stopped being reliably Rabi's house. This half is fixed. The simulator cannot write it and is
+   *  told not to contradict it; only the player can edit it, in the World view. */
+  identity?: string;
   description_facts: string;
   changed_turn?: number;   // last turn this place's description was rewritten by play, not by hand
   /** Engine note that this place's description predates something that happened to it. Kept OUT of

@@ -298,6 +298,21 @@ export function sanitize(state: SaveState): SaveState {
 
   healCharacterTypes(state);
 
+  // ── EVERY PLACE GETS A HALF THAT DOES NOT MOVE ──────────────────────────────────────────────
+  //
+  // Saves written before Place.identity existed have only description_facts, which the world
+  // rewrites wholesale whenever a place materially changes. Seed the fixed half from the opening
+  // sentence of what is already recorded — that is where a place's description says what it IS,
+  // before it goes on to say what state it is in — so an existing story stops drifting from the
+  // next turn rather than the next playthrough. The player can correct it by hand; nothing else
+  // ever writes it again.
+  for (const p of Object.values(state.world?.places ?? {})) {
+    if (!p || p.id === "loc_offscene") continue;
+    if (typeof p.identity === "string" && p.identity.trim()) continue;
+    const first = String(p.description_facts ?? "").trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+    p.identity = first.trim().slice(0, 200);
+  }
+
   // ── A MODEL-SHAPED OBJECT WHERE A LINE OF TEXT BELONGS ──────────────────────────────────────
   //
   // SimulatorDiff.offscreen is typed string[] and is written by a model, which is not the same
