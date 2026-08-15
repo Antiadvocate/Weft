@@ -761,6 +761,296 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
   };
 }
 
+/* ── WHEN THE MODEL EMITS THE ENVELOPE INSTEAD OF THE LETTER ──────────────────────────────────
+ *
+ * From a real save (Rome, 41 AD), turn 1, narrated by a local Q3 quant of a 27B. The whole stored
+ * turn — what the player was shown as their story:
+ *
+ *     [{"role": "assistant", "content": "The mud under his jeans is cold and wet, and the stench
+ *     of the river pulls up from the cracks in the embankment stones. […] A fisherman's boat
+ *     drifts sideways, a fisherman's boat drifts sideways, a fisherman's boat drifts sideways. A
+ *     fisherman's boat drifts"
+ *
+ *     Marcus Valerius: "Hmm where am I... is this ancient times?"
+ *     Titus Aelius Rufus: "May Vulcan see what has been made here. […]"
+ *     Livia Aelia: "When I was small, my father told me […]"
+ *
+ * Three separate failures stacked in one response, and the prose inside the wrapper is genuinely
+ * good, which is what makes throwing the turn away the wrong answer:
+ *
+ *   1. THE CHAT ENVELOPE. It serialized the API message format rather than answering in it. This is
+ *      what a model does when the chat template did not put it in the assistant's turn — it sees a
+ *      transcript of JSON and continues the JSON.
+ *   2. A DEGENERATE LOOP, the classic end state of an over-quantized model with no penalty on the
+ *      sampler: one clause repeating until the token budget ran out.
+ *   3. A SCRIPT TRANSCRIPT, appended after the envelope closed — and its first line is the player's
+ *      own input handed straight back, which is the echo failure in its purest form.
+ *
+ * None of this is recoverable by asking again: it is a formatting failure, not a refusal, and the
+ * fallback here was the SAME local model. So the debris is stripped and the prose kept. Each step
+ * reports itself, because a turn that needed rescuing is a fact about the setup the player should
+ * see rather than something the engine quietly papers over.
+ */
+
+/** The assistant text inside a serialized message envelope, or null if this isn't one. */
+function unwrapChatEnvelope(text: string): string | null {
+  const t = text.trim();
+  if (!/^[[{]/.test(t) || !/"role"\s*:|"content"\s*:/.test(t)) return null;
+  const collect = (v: any): string => {
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v.map(collect).join("");
+    if (v && typeof v === "object") {
+      if (typeof v.content === "string") return v.content;
+      if (Array.isArray(v.content)) return collect(v.content);
+      if (typeof v.text === "string") return v.text;
+    }
+    return "";
+  };
+  // The envelope is usually TRUNCATED — the loop ate the budget — so a plain parse fails and the
+  // repair path is the one that actually runs. Both are tried before falling back to reading the
+  // content strings out by hand.
+  for (const candidate of [t, repairJson(t)]) {
+    try {
+      const got = collect(JSON.parse(candidate)).trim();
+      if (got.length > 40) return got;
+    } catch { /* fall through */ }
+  }
+  const parts: string[] = [];
+  const re = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"?/g;
+  for (let m = re.exec(t); m; m = re.exec(t)) {
+    try { parts.push(JSON.parse(`"${m[1]}"`)); } catch { /* an unterminated tail; skip */ }
+  }
+  const joined = parts.join("\n\n").trim();
+  return joined.length > 40 ? joined : null;
+}
+
+/** How short a repeating unit has to be before it stops being a loop and starts being a refrain. */
+const LOOP_MIN_PERIOD = 12;
+/** Consecutive repeats that mean the sampler has fallen into a cycle rather than made a choice. */
+const LOOP_REPEATS = 3;
+
+/** Cut a response at the point it started saying the same thing forever.
+ *
+ *  Deliberately looks for an EXACT unit repeating back-to-back at least three times. Twice is a
+ *  rhetorical figure people actually write ("she waited, and waited"); three identical runs of a
+ *  whole clause is a model that has stopped generating and started cycling. The first occurrence is
+ *  kept — it was a real sentence before the cycle closed on it. */
+export function cutRepetitionLoop(text: string): { text: string; cut: boolean } {
+  // MATCHED ON A NORMALIZED COPY, CUT ON THE ORIGINAL. The real loop out of the Rome save reads
+  //
+  //     A fisherman's boat drifts sideways, a fisherman's boat drifts sideways, a fisherman's
+  //     boat drifts sideways. A fisherman's boat drifts
+  //
+  // and an exact-match detector finds only TWO consecutive repeats in it, because the model varied
+  // the punctuation and the capital as it cycled: ", a" the first time, ". A" the next. That is
+  // still a loop by any reading, and requiring byte equality would have let this one through. The
+  // normalization is length-preserving on purpose — one character in, one out — so an index into
+  // the normalized copy is the same index in the original, and the text handed back is untouched.
+  const norm = text.toLowerCase().replace(/[,.;:!?]/g, ".").replace(/[’]/g, "'");
+  const n = text.length;
+  for (let i = 0; i < n - LOOP_MIN_PERIOD * LOOP_REPEATS; i++) {
+    for (let p = LOOP_MIN_PERIOD; p <= Math.min(240, Math.floor((n - i) / LOOP_REPEATS)); p++) {
+      const unit = norm.slice(i, i + p);
+      // an all-whitespace or punctuation-only "unit" is not a phrase
+      if (!/[a-z]{3}/i.test(unit)) continue;
+      let reps = 1;
+      while (norm.slice(i + reps * p, i + (reps + 1) * p) === unit) reps++;
+      if (reps >= LOOP_REPEATS) {
+        const kept = text.slice(0, i + p).replace(/[\s,;]+$/, "");
+        return { text: kept + (/[.!?"']$/.test(kept) ? "" : "."), cut: true };
+      }
+    }
+  }
+  return { text, cut: false };
+}
+
+/** A trailing block of `Name: "line"` — screenplay format, never Weft prose, and in the wild its
+ *  first line is the player's own input read back to them. */
+export function stripScriptTranscript(text: string): { text: string; cut: boolean } {
+  const lines = text.split("\n");
+  const isScript = (s: string) => /^\s*[A-Z][\p{L}'’.\- ]{1,40}:\s*["“]/u.test(s);
+  let i = lines.length;
+  while (i > 0 && (!lines[i - 1].trim() || isScript(lines[i - 1]))) i--;
+  // require an actual block, and require prose to survive — a response that is ONLY a transcript
+  // is a different failure and belongs to the empty/refusal path, not to this one
+  const removed = lines.slice(i).filter((l) => isScript(l)).length;
+  if (removed < 2) return { text, cut: false };
+  const kept = lines.slice(0, i).join("\n").trim();
+  return kept.length > 80 ? { text: kept, cut: true } : { text, cut: false };
+}
+
+/* ── THE DELIBERATION THAT NEVER CLOSED ───────────────────────────────────────────────────────
+ *
+ * The llm layer strips `<think>…</think>` and its dozen synonyms out of the stream. That only works
+ * when the model CLOSES the tag. A real turn opened `<analysis>`, wrote nine hundred words working
+ * through the scene — correctly, including "the player's spoken line is ALREADY SAID — I must not
+ * reproduce it" — and then slid into the prose without ever emitting `</analysis>`. There is no tag
+ * to match, so nothing upstream can help.
+ *
+ * What it left behind is the giveaway and the seam:
+ *
+ *     …so it's just the ma(no_think mode: direct output, no reasoning)
+ *
+ *     Titus Aelius Rufus stands near the muddy water's edge, a bent iron nail held between his
+ *     thumb and forefinger.
+ *
+ * The model printed the `/no_think` control token back as TEXT and then narrated its own compliance.
+ * That is a model reading the token as content rather than as a template switch — which means the
+ * switch is doing nothing for it except costing tokens and confusing it.
+ *
+ * So the preamble is found structurally instead: an opening reasoning tag or a plainly analytical
+ * first line, then blocks are dropped from the front while they read as somebody working rather
+ * than somebody narrating, stopping at the first block that is clean. Quoted spans are removed
+ * before testing, so a character saying "let me see it" is never mistaken for the model thinking.
+ * And if too little survives, nothing is cut at all — a wrong guess here would eat the scene.
+ */
+const REASONING_OPEN_TAG = /^\s*<(think|thinking|analysis|analyze|reasoning|reason|thought|thoughts|scratchpad|reflection|deliberation|plan)\b[^>]{0,40}>/i;
+/** A first line that is unmistakably the model addressing itself rather than the reader. */
+const ANALYTICAL_OPENER = /^\s*(let me\b|okay,|alright,|first,? (let|i)\b|i need to\b|i'll start\b|i should\b|breaking (this|it) down\b|here'?s what)/i;
+/** Signals that a block is working-out rather than narration. Tested with quotes removed. */
+const REASONING_SIGNAL: RegExp[] = [
+  /^\s*\d+\.\s/,                                  // numbered analysis
+  /^\s*[-*]\s/,                                   // bulleted analysis
+  /^\s*\*\*[^*]{1,48}\*\*\s*:/,                   // **The scene**:
+  /\b(let me|i must|i should|i'll|i will|i think|i need to|let's|i'm overcomplicating)\b/i,
+  /\b(the direction says|the direction:|the scene:|the player'?s (card|action|question)|key constraints?|the instruction|my draft|re-?read|overcomplicat)/i,
+  /\bno_?think\b/i,                               // the leaked control token
+  /\b(actually,? (wait|you know what)|but wait|hmm,? let)\b/i,
+  /\bwhat (titus|livia|the (npcs?|player|character))[a-z ]* would do\b/i,
+];
+function looksLikeReasoning(block: string): boolean {
+  // Dialogue is not evidence: a character may say "let me see it" and that is scene, not thinking.
+  const bare = block.replace(/"[^"]*"/g, " ").replace(/[“][^”]*[”]/g, " ");
+  return REASONING_SIGNAL.some((re) => re.test(bare));
+}
+
+/** Drop a leading run of deliberation the stream filter could not see. */
+export function stripReasoningPreamble(text: string): { text: string; cut: boolean } {
+  const hasTag = REASONING_OPEN_TAG.test(text);
+  if (!hasTag && !ANALYTICAL_OPENER.test(text)) return { text, cut: false };
+  const body = text.replace(REASONING_OPEN_TAG, "");
+  const blocks = body.split(/\n\s*\n/);
+  // FROM THE BACK, NOT THE FRONT. Dropping blocks while they look like reasoning stops at the first
+  // one that happens to read clean — and deliberation is not uniform. In the real sample, "I think
+  // the most natural convention for this type of story is: the dialogue is rendered in English for
+  // the reader" carries no structural marker at all, so a front-to-back scan halted there and kept
+  // four more paragraphs of the model talking to itself. The ordering is what to lean on instead:
+  // a model deliberates and THEN writes, so the prose is whatever follows the LAST working-out
+  // block, and no amount of clean-looking reasoning in the middle can end the scan early.
+  let last = -1;
+  for (let i = 0; i < blocks.length; i++) if (blocks[i].trim() && looksLikeReasoning(blocks[i])) last = i;
+  const kept = blocks.slice(last + 1).join("\n\n").trim();
+  // NEVER GUESS THE SCENE AWAY. If the surviving text is too short to be a turn, the structural
+  // read was wrong and the raw response goes on to the refusal/empty paths that know what to do.
+  if (kept.length < 200) return { text, cut: false };
+  return { text: kept, cut: last >= 0 || hasTag };
+}
+
+/* ── IT WROTE THE SCENE, ANNOUNCED ITSELF, AND WROTE IT AGAIN ─────────────────────────────────
+ *
+ * A third shape, from a third save. The model produced a complete, good scene — and then:
+ *
+ *     Here is a response to the instruction, written as the scene's next beat:
+ *
+ * followed by the WHOLE SCENE AGAIN, same beats, same blocking, slightly better prose. Neither
+ * draft is broken. There are simply two of them, and the second is the model's own final answer,
+ * which is the same ordering the reasoning preamble follows: whatever comes after the announcement
+ * is what the model meant to hand over.
+ */
+const REDRAFT_MARKER = /^[ \t]*(?:here(?:'s| is)|below is|this is|the following is)\b[^\n]{0,140}?\b(?:response|answer|scene|version|rewrite|redraft|draft|beat|attempt|continuation|revision)\b[^\n]{0,80}:[ \t]*$/gim;
+
+/** Keep only the last draft when the model announced a fresh attempt mid-response. */
+export function dropDiscardedDrafts(text: string): { text: string; cut: boolean } {
+  REDRAFT_MARKER.lastIndex = 0;
+  let end = -1;
+  for (let m = REDRAFT_MARKER.exec(text); m; m = REDRAFT_MARKER.exec(text)) end = m.index + m[0].length;
+  if (end < 0) return { text, cut: false };
+  const kept = text.slice(end).trim();
+  // The announcement can also be the LAST thing a truncated response emitted, with nothing behind
+  // it. Then the draft already written is all there is, and it is a real scene — keep it.
+  if (kept.length < 200) return { text, cut: false };
+  return { text: kept, cut: true };
+}
+
+/* ── THE SAME LINE, TWICE, IN ONE TURN ────────────────────────────────────────────────────────
+ *
+ * From the same response, inside each draft:
+ *
+ *     "May Vulcan see the make of this," he says. […] "You are not from the Subura."
+ *     […]
+ *     "May Vulcan see the make of this," he repeats, the words flat and even […]
+ *     "You are not from the Subura."
+ *
+ * The character-level loop cutter cannot see this: the repeats are not adjacent, and the narration
+ * between them differs, so there is no contiguous unit cycling. What repeats is the SPEECH. A
+ * paragraph whose every quoted line has already been spoken this turn is carrying no new speech,
+ * and the contract has banned exactly this since the beginning ("no scene replayed in new words").
+ * Twenty characters of quoted text is the floor — "Yes." and "Titus?" recur in real dialogue all
+ * the time, and a whole sentence coming back verbatim is never craft.
+ */
+const REPEAT_QUOTE_MIN = 20;
+function speechKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+export function collapseRepeatedSpeech(text: string): { text: string; cut: boolean } {
+  const paras = text.split(/\n\s*\n/);
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  let cut = false;
+  for (const p of paras) {
+    const quotes = [...p.replace(/[“”]/g, '"').matchAll(new RegExp(`"([^"]{${REPEAT_QUOTE_MIN},})"`, "g"))]
+      .map((m) => speechKey(m[1]))
+      .filter(Boolean);
+    if (quotes.length && quotes.every((q) => seen.has(q))) { cut = true; continue; }
+    for (const q of quotes) seen.add(q);
+    kept.push(p);
+  }
+  const out = kept.join("\n\n").trim();
+  if (!cut || out.length < 200) return { text, cut: false };
+  return { text: out, cut: true };
+}
+
+/** The `/no_think` control token, printed back as prose by a model that read it as content. */
+function stripControlTokenEcho(text: string): { text: string; cut: boolean } {
+  const before = text;
+  const t = text
+    .replace(/\(\s*\/?no_?think[^)]{0,60}\)/gi, "")
+    .replace(/^[ \t]*\/no_?think[ \t]*$/gim, "")
+    .replace(/\/no_?think\b/gi, "")
+    .trim();
+  return { text: t, cut: t !== before.trim() };
+}
+
+/** Everything above, in the order the debris nests. Returns the notes for the player. */
+export function salvageProse(raw: string): { prose: string; notes: string[] } {
+  const notes: string[] = [];
+  let t = raw;
+  const unwrapped = unwrapChatEnvelope(t);
+  if (unwrapped) { t = unwrapped; notes.push("narrator returned the raw message envelope — prose recovered from inside it"); }
+  // NOTICED BEFORE THE CUT, STRIPPED AFTER IT. The leaked control token usually sits INSIDE the
+  // deliberation, so removing the preamble takes the evidence with it — and this is the one piece
+  // of debris that is also a diagnosis worth telling the player, because it means the toggle they
+  // have switched on is being read by their model as prose rather than obeyed as a switch.
+  const tokenEchoed = /\/no_?think|\bno_?think mode\b/i.test(t);
+  const preamble = stripReasoningPreamble(t);
+  if (preamble.cut) { t = preamble.text; notes.push("narrator wrote its reasoning into the prose and never closed the block — the scene was cut out of it"); }
+  t = stripControlTokenEcho(t).text;
+  if (tokenEchoed) notes.push("narrator echoed the /no_think control token as text — your model reads it as content rather than obeying it, so turn that toggle off in Tuning → Local AI");
+  const drafts = dropDiscardedDrafts(t);
+  if (drafts.cut) { t = drafts.text; notes.push("narrator wrote the scene twice and announced the second — the earlier draft was dropped"); }
+  const script = stripScriptTranscript(t);
+  if (script.cut) { t = script.text; notes.push("stripped a screenplay-style transcript the narrator appended after the scene"); }
+  const loop = cutRepetitionLoop(t);
+  if (loop.cut) { t = loop.text; notes.push("narrator fell into a repetition loop — the scene was cut where it started repeating"); }
+  // AFTER the drafts are resolved: two drafts of a scene naturally share their lines, so running
+  // this first would read the second draft's dialogue as a repeat of the first's and gut it.
+  const speech = collapseRepeatedSpeech(t);
+  if (speech.cut) { t = speech.text; notes.push("narrator said the same line twice — the repeated speech was dropped"); }
+  // A markdown rule between the scene and its footer is debris, not a scene beat.
+  t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  return { prose: t, notes };
+}
+
 function stripMeta(text: string): string {
   if (!text) return text;
   let t = text.trim();
@@ -1225,7 +1515,7 @@ function looksNamed(name: string): boolean {
  *  rather than storing it as the turn's prose. Catches: a refusal in the model's native language
  *  (unexpected CJK when the story isn't written in an East-Asian language), common English refusal
  *  stems, and a suspiciously tiny response where a full narrator turn was expected. */
-function isRefusal(text: string, bible?: WorldBible): boolean {
+export function isRefusal(text: string, bible?: WorldBible): boolean {
   const t = (text ?? "").trim();
   if (!t) return true; // empty is a failed generation
   // Unexpected CJK: deepseek/qwen/etc emit a native-language refusal. If the world's own language
@@ -1238,9 +1528,23 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
   const low = t.toLowerCase();
   const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
   if (refusalStem && t.length < 400) return true;
+  // THE MODEL WROTE AN INSTRUCTION ABOUT THE ANSWER INSTEAD OF THE ANSWER. One real turn, in full:
+  //
+  //     (Write your response in plain text.
+  //
+  // Nine output tokens, then EOS — and the engine stored it as the scene and ran bookkeeping on it.
+  // It is not a refusal and not a stub of prose; it is the model continuing the PROMPT rather than
+  // answering it, which is the same root as the chat-envelope failure. Caught explicitly, because
+  // the short-response rule below let it through: six words, but it ends in a full stop.
+  const META_STUB = /^[([]?\s*(?:(?:now\s+)?(?:write|writes?|respond|reply|continue|output|produce|provide|generate|begin|start|please)\b[^.!?\n]{0,80}\b(?:response|reply|answer|prose|text|scene|narration|paragraphs?|below|following)\b|your (?:response|reply|answer|output|narration|prose)\b)/i;
+  if (META_STUB.test(t) && t.length < 300) return true;
   // A response under ~12 words is not narration (a refusal, an error echo, or a stub). Guard
   // against storing it. This is a FLOOR and always was — the contract no longer states a ceiling.
-  if (t.split(/\s+/).filter(Boolean).length < 12 && !/[.!?]"?\s*$/.test(t)) return true;
+  // Under EIGHT words it does not matter how cleanly it ends: no turn moves a world in seven words,
+  // and the punctuation escape existed for a terse-but-real beat, which that is not.
+  const words = t.split(/\s+/).filter(Boolean).length;
+  if (words < 8) return true;
+  if (words < 12 && !/[.!?]"?\s*$/.test(t)) return true;
   return false;
 }
 
@@ -2306,6 +2610,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const est = (s: string) => Math.max(1, Math.round((s?.length ?? 0) / 4));
     const promptChars = JSON.stringify(narratorMsgs ?? []).length;
     narratorUsage = { ...narratorUsage, prompt_tokens: est(" ".repeat(promptChars)), completion_tokens: est(prose) };
+  }
+  // MALFORMED OUTPUT COMES OFF FIRST — the scene footer can be INSIDE a chat envelope, so parsing
+  // for it before unwrapping finds nothing and the turn silently loses its presence declaration.
+  {
+    const salvaged = salvageProse(prose);
+    if (salvaged.notes.length) {
+      prose = salvaged.prose;
+      ev.onMeta?.({ shifts: salvaged.notes });
+    }
   }
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);

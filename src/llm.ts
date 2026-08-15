@@ -1,6 +1,6 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
-import { getApiKey, getLocalEndpoint, isLocalModel, localModelId } from "./config";
+import { getApiKey, getLocalEndpoint, isLocalModel, localModelId, LOCAL_SAMPLER_DEFAULTS } from "./config";
 import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -89,33 +89,38 @@ function resolveTarget(model: string): Target {
  *  narrator's deliberation streams into the story pane as prose, gets stored as the turn, and is
  *  then replayed to the model as an example of how it writes. Suppressed for local calls only —
  *  a cloud model that types the literal string is writing dialogue. */
-const THINK_OPEN = "<think>";
-const THINK_CLOSE = "</think>";
+/** `<think>` IS NOT THE ONLY NAME FOR IT. This filter shipped knowing exactly one tag, and the very
+ *  next local model wrote `<analysis>` instead and put nine hundred words of deliberation on the
+ *  page. Finetunes and merges each pick their own; there is no standard, so match a family. */
+export const REASON_TAGS = ["think", "thinking", "analysis", "analyze", "reasoning", "reason", "thought", "thoughts", "scratchpad", "reflection", "deliberation", "plan"];
+const OPEN_RE = new RegExp(`<(${REASON_TAGS.join("|")})\\b[^>]{0,40}>`, "i");
+/** The longest partial tag that could still be completed by the next chunk. */
+const MAX_TAG = 48;
+
 /** Streaming filter: deltas split tags across chunk boundaries, so hold back anything that could
  *  still turn out to be the front of one. */
 function thinkFilter() {
   let pend = "";
-  let inside = false;
+  let inside: string | null = null;   // the tag we are inside of, if any
   const step = (chunk: string, final: boolean): string => {
     pend += chunk;
     let out = "";
     for (;;) {
       if (inside) {
-        const end = pend.indexOf(THINK_CLOSE);
-        if (end === -1) {
+        const close = new RegExp(`</${inside}\\s*>`, "i").exec(pend);
+        if (!close) {
           // keep only enough to recognise a close tag that straddles the boundary
-          pend = pend.slice(Math.max(0, pend.length - (THINK_CLOSE.length - 1)));
+          pend = pend.slice(Math.max(0, pend.length - MAX_TAG));
           break;
         }
-        pend = pend.slice(end + THINK_CLOSE.length);
-        inside = false;
+        pend = pend.slice(close.index + close[0].length);
+        inside = null;
         continue;
       }
-      const open = pend.indexOf(THINK_OPEN);
-      if (open !== -1) { out += pend.slice(0, open); pend = pend.slice(open + THINK_OPEN.length); inside = true; continue; }
+      const open = OPEN_RE.exec(pend);
+      if (open) { out += pend.slice(0, open.index); pend = pend.slice(open.index + open[0].length); inside = open[1].toLowerCase(); continue; }
       if (final) { out += pend; pend = ""; break; }
-      const hold = THINK_OPEN.length - 1;
-      if (pend.length > hold) { out += pend.slice(0, pend.length - hold); pend = pend.slice(pend.length - hold); }
+      if (pend.length > MAX_TAG) { out += pend.slice(0, pend.length - MAX_TAG); pend = pend.slice(pend.length - MAX_TAG); }
       break;
     }
     return out;
@@ -124,12 +129,33 @@ function thinkFilter() {
 }
 /** Whole-response version, for the non-streaming path. */
 export function stripThinking(text: string): string {
-  if (!text.includes(THINK_OPEN) && !text.includes(THINK_CLOSE)) return text;
+  if (!/<\/?[a-z]/i.test(text)) return text;
   const f = thinkFilter();
   const out = f.push(text) + f.flush();
-  // An unterminated <think> ate everything — the model never stopped deliberating. Better to hand
-  // back the raw text and let the caller's repair/refusal path see it than to return "".
-  return out.trim() ? out.replace(/^\s+/, "") : text.replace(THINK_OPEN, "").replace(THINK_CLOSE, "");
+  // An unterminated block ate everything — the model opened its deliberation and never closed it.
+  // Hand back the raw text rather than "": the engine's prose salvage knows how to find where the
+  // scene begins inside an unclosed preamble, and this layer does not.
+  return out.trim() ? out.replace(/^\s+/, "") : text;
+}
+
+
+/** The sampler fields for a local call — standard OpenAI names only, and omitted entirely when set
+ *  to 0 so the server's own configuration wins. See LocalEndpoint for why these exist at all. */
+function localSampler(): Record<string, number> {
+  const ep = getLocalEndpoint();
+  const guard = ep?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard;
+  const topP = ep?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p;
+  // ONE DIAL, BOTH PENALTIES. They answer different halves of the same failure and a player tuning
+  // a local model should not have to know which: frequency_penalty pushes against re-emitting the
+  // same TOKENS, which is what stops a clause cycling until the budget dies, while presence_penalty
+  // pushes against returning to material already used, which is what stops a character delivering
+  // a line and then delivering it again verbatim two paragraphs later. A real save produced both
+  // in one response. Presence is the gentler of the two — it costs novelty when set high, and the
+  // prose has a scene to stay inside.
+  return {
+    ...(guard > 0 ? { frequency_penalty: guard, presence_penalty: Math.round(guard * 50) / 100 } : {}),
+    ...(topP > 0 ? { top_p: topP } : {}),
+  };
 }
 
 /** Qwen3's soft switch. The control token is read by the chat template, not the sampler, so it has
@@ -240,7 +266,7 @@ export const LOCAL_TTFT_MS = 900_000;
 
 async function onceLocal(messages: any[], tgt: Target, slug: string, json: JsonMode, maxTokens: number, opts?: CallOpts): Promise<LLMResult> {
   const ep = getLocalEndpoint();
-  const msgs = ep?.no_think === false ? messages : applyNoThink(messages);
+  const msgs = ep?.no_think === true ? applyNoThink(messages) : messages;
   // json_schema support is patchy across local servers and llama.cpp releases; the ladder in
   // `complete()` already downgrades a rejected schema to plain json_object on the SAME model,
   // which for a local setup is exactly the right recovery (there is nowhere cheaper to fall to).
@@ -254,7 +280,7 @@ async function onceLocal(messages: any[], tgt: Target, slug: string, json: JsonM
     method: "POST",
     signal: opts?.signal,
     headers: tgt.headers,
-    body: JSON.stringify({ model: tgt.model, messages: msgs, max_tokens: maxTokens, temperature: json ? 0.2 : 0.85, ...rf }),
+    body: JSON.stringify({ model: tgt.model, messages: msgs, max_tokens: maxTokens, temperature: json ? 0.2 : 0.85, ...localSampler(), ...rf }),
   });
   if (!res.ok) throw new Error(`local model ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data: any = await res.json();
@@ -429,12 +455,12 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       }
     }
     const localEp = tgt.local ? getLocalEndpoint() : null;
-    if (tgt.local && localEp?.no_think !== false) outMsgs = applyNoThink(outMsgs);
+    if (tgt.local && localEp?.no_think === true) outMsgs = applyNoThink(outMsgs);
     const body: Record<string, unknown> = tgt.local
       // A local server gets the plain OpenAI body and nothing else. Marketplace routing, billing
       // and reasoning switches are not merely useless here — llama.cpp's server rejects some
       // unknown fields outright, which would fail every local turn for a parameter about pricing.
-      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true }
+      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, ...localSampler() }
       : { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.
