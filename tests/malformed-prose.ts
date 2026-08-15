@@ -20,7 +20,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, parseSceneFooter } from "../src/engine/turn";
+import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, parseSceneFooter, isRefusal } from "../src/engine/turn";
 import { stripThinking } from "../src/llm";
 
 let pass = 0, fail = 0;
@@ -235,6 +235,43 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   check("a paragraph with a new line as well is kept",
     !collapseRepeatedSpeech(`${a}\n\n${line} he says.\n\n${b}\n\n${line} he says, "and you will not come back here either."`).cut);
   check("prose with no dialogue at all is never touched", !collapseRepeatedSpeech(`${a}\n\n${b}`).cut);
+}
+
+/* ── AN INSTRUCTION ABOUT THE ANSWER, INSTEAD OF THE ANSWER ──────────────────────
+ *
+ * Fourth save. Turn 3's stored prose, complete and entire:
+ *
+ *     (Write your response in plain text.
+ *
+ * Nine output tokens, then EOS. It is not a refusal and not a truncated scene — it is the model
+ * continuing the PROMPT rather than answering it, the same root as the chat envelope. And the
+ * engine stored it as the scene and ran a full bookkeeping pass against it, because the stub guard
+ * has an escape hatch for a terse-but-real beat and this cleared it on a technicality: six words,
+ * ending in a full stop.
+ */
+{
+  check("the real one is caught", isRefusal("(Write your response in plain text."));
+  for (const stub of [
+    "Write your response below:",
+    "(Now write the scene in plain prose.)",
+    "Please respond with the narration only.",
+    "Continue the scene in the following format:",
+    "Your response should be two to four paragraphs.",
+  ]) check(`stub: ${stub.slice(0, 38)}`, isRefusal(stub), stub);
+
+  // seven words is not a turn however cleanly it ends
+  check("a seven-word 'turn' is not a turn", isRefusal("He set the cup down and left."));
+  // …but real prose of any length is prose
+  const short = "He set the cup down, looked at her once, and walked out into the rain without another word.";
+  check("a terse but real beat survives", !isRefusal(short), short);
+  const full = "The mud sucks at your boots. Titus does not look up from the nail in his fingers, and the river keeps moving behind him, brown and slow and full of the city's leavings.";
+  check("ordinary narration is never a refusal", !isRefusal(full));
+  // the existing guards still hold
+  check("empty is still a failure", isRefusal(""));
+  check("a refusal stem is still a refusal", isRefusal("I'm sorry, but I can't continue that scene."));
+  // a scene that merely CONTAINS an instruction-shaped line is not a stub
+  const embedded = `"Write it down for me," she said, and pushed the wax tablet across the table. He did not touch it. The lamp guttered once between them and neither of them moved to trim it.`;
+  check("dialogue that sounds like an instruction is still a scene", !isRefusal(embedded), embedded);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

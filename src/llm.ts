@@ -266,7 +266,7 @@ export const LOCAL_TTFT_MS = 900_000;
 
 async function onceLocal(messages: any[], tgt: Target, slug: string, json: JsonMode, maxTokens: number, opts?: CallOpts): Promise<LLMResult> {
   const ep = getLocalEndpoint();
-  const msgs = ep?.no_think === false ? messages : applyNoThink(messages);
+  const msgs = ep?.no_think === true ? applyNoThink(messages) : messages;
   // json_schema support is patchy across local servers and llama.cpp releases; the ladder in
   // `complete()` already downgrades a rejected schema to plain json_object on the SAME model,
   // which for a local setup is exactly the right recovery (there is nowhere cheaper to fall to).
@@ -455,7 +455,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       }
     }
     const localEp = tgt.local ? getLocalEndpoint() : null;
-    if (tgt.local && localEp?.no_think !== false) outMsgs = applyNoThink(outMsgs);
+    if (tgt.local && localEp?.no_think === true) outMsgs = applyNoThink(outMsgs);
     const body: Record<string, unknown> = tgt.local
       // A local server gets the plain OpenAI body and nothing else. Marketplace routing, billing
       // and reasoning switches are not merely useless here — llama.cpp's server rejects some

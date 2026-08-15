@@ -1515,7 +1515,7 @@ function looksNamed(name: string): boolean {
  *  rather than storing it as the turn's prose. Catches: a refusal in the model's native language
  *  (unexpected CJK when the story isn't written in an East-Asian language), common English refusal
  *  stems, and a suspiciously tiny response where a full narrator turn was expected. */
-function isRefusal(text: string, bible?: WorldBible): boolean {
+export function isRefusal(text: string, bible?: WorldBible): boolean {
   const t = (text ?? "").trim();
   if (!t) return true; // empty is a failed generation
   // Unexpected CJK: deepseek/qwen/etc emit a native-language refusal. If the world's own language
@@ -1528,9 +1528,23 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
   const low = t.toLowerCase();
   const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
   if (refusalStem && t.length < 400) return true;
+  // THE MODEL WROTE AN INSTRUCTION ABOUT THE ANSWER INSTEAD OF THE ANSWER. One real turn, in full:
+  //
+  //     (Write your response in plain text.
+  //
+  // Nine output tokens, then EOS — and the engine stored it as the scene and ran bookkeeping on it.
+  // It is not a refusal and not a stub of prose; it is the model continuing the PROMPT rather than
+  // answering it, which is the same root as the chat-envelope failure. Caught explicitly, because
+  // the short-response rule below let it through: six words, but it ends in a full stop.
+  const META_STUB = /^[([]?\s*(?:(?:now\s+)?(?:write|writes?|respond|reply|continue|output|produce|provide|generate|begin|start|please)\b[^.!?\n]{0,80}\b(?:response|reply|answer|prose|text|scene|narration|paragraphs?|below|following)\b|your (?:response|reply|answer|output|narration|prose)\b)/i;
+  if (META_STUB.test(t) && t.length < 300) return true;
   // A response under ~12 words is not narration (a refusal, an error echo, or a stub). Guard
   // against storing it. This is a FLOOR and always was — the contract no longer states a ceiling.
-  if (t.split(/\s+/).filter(Boolean).length < 12 && !/[.!?]"?\s*$/.test(t)) return true;
+  // Under EIGHT words it does not matter how cleanly it ends: no turn moves a world in seven words,
+  // and the punctuation escape existed for a terse-but-real beat, which that is not.
+  const words = t.split(/\s+/).filter(Boolean).length;
+  if (words < 8) return true;
+  if (words < 12 && !/[.!?]"?\s*$/.test(t)) return true;
   return false;
 }
 

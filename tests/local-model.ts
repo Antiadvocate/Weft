@@ -83,6 +83,21 @@ async function drain(gen: AsyncGenerator<string, any, unknown>): Promise<{ yield
   check("no endpoint set says so, and says where to set it", /local endpoint/i.test(msg) && /Tuning/.test(msg), msg);
 }
 
+/* ── /no_think DEFAULTS OFF ──────────────────────────────────────────────────── */
+{
+  // It shipped defaulting ON and that was wrong. The token is read by a chat template, not the
+  // sampler, so a model whose template doesn't know it sees a stray line of text in the most
+  // salient position in the prompt — and two real saves show it printed straight back into the
+  // prose ("(no_think)" opening a scene; "(no_think mode: direct output, no reasoning)" closing a
+  // deliberation). Thinking is stripped from the output regardless, so the switch buys nothing to
+  // offset that unless the player knows their model honors it.
+  setLocalEndpoint({ url: "http://localhost:5001/v1" });
+  stubFetch(["ok"]);
+  await drain(completeStream([{ role: "user", content: "go" }], `${LOCAL_PREFIX}q`, "x", 100));
+  check("no control token unless it is explicitly asked for",
+    !/no_?think/i.test(String(lastCall?.body.messages.at(-1)?.content)), lastCall?.body.messages.at(-1));
+}
+
 setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
 
 /* ── the trailing slash is not the player's problem ──────────────────────────── */

@@ -107,7 +107,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
   const cur = getLocalEndpoint();
   const [url, setUrl] = useState(cur?.url ?? "");
   const [lkey, setLkey] = useState(cur?.key ?? "");
-  const [noThink, setNoThink] = useState(cur?.no_think !== false);
+  const [noThink, setNoThink] = useState(cur?.no_think === true);
   const [loopGuard, setLoopGuard] = useState(String(cur?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard));
   const [topP, setTopP] = useState(String(cur?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p));
   const [status, setStatus] = useState<string | null>(null);
@@ -138,7 +138,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       <TextField label="Key (optional — most local servers ignore it)" value={lkey} onChange={setLkey} mono />
       <Toggle on={noThink} onFlip={() => setNoThink((v) => !v)}
         title="Suppress local thinking (/no_think)"
-        desc="Qwen3 and other hybrid GGUFs deliberate out loud before answering — slow, and it lands in the story pane. This appends the control token that turns it off. Any <think> block that appears anyway is stripped before you ever see it." />
+        desc="OFF BY DEFAULT, and leave it off unless you know your model honors it. It appends Qwen3's control token to the last message — but a model that doesn't recognise it reads the token as CONTENT and prints it back into the story, which is worse than the thinking it was meant to prevent. Deliberation is stripped either way: closed <think>/<analysis> blocks never reach the page, and an unclosed one is cut out of the prose." />
       <div className="flex gap-2">
         <div className="flex-1"><TextField label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
         <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>

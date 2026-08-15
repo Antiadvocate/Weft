@@ -36,8 +36,16 @@ export interface LocalEndpoint {
   url: string;
   /** Optional. Most local servers ignore it; LM Studio and some proxies want something. */
   key?: string;
-  /** Qwen3 and other hybrid-reasoning GGUFs think out loud by default, and those tokens are both
-   *  slow and visible. Append the `/no_think` control token to the last user message. */
+  /** Append Qwen3's `/no_think` control token to the last user message.
+   *
+   *  DEFAULTS OFF, and it shipped defaulting on. The token is read by a chat template, not by the
+   *  sampler, so a model whose template does not know it sees a stray line of text at the very end
+   *  of the prompt — the most salient position there is. Two separate saves show what that costs:
+   *  one turn opened with a literal `(no_think)` printed into the prose, and another ended a nine
+   *  hundred word deliberation with "(no_think mode: direct output, no reasoning)" and then
+   *  narrated its own compliance. Both are worse than the thinking the switch was meant to prevent,
+   *  and thinking is stripped from the output anyway. Turn this on only for a model you know
+   *  honors it. */
   no_think?: boolean;
   /* ── SAMPLER ──────────────────────────────────────────────────────────────────────────────────
    *  OpenRouter's providers ship sane sampler defaults; a local server hands you whatever its own
