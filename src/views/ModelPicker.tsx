@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
+import { LOCAL_PREFIX, getLocalEndpoint } from "../config";
 
-interface ORModel { id: string; name: string; created?: number; image?: boolean }
+interface ORModel { id: string; name: string; created?: number; image?: boolean; local?: boolean }
 
 let CACHE: ORModel[] | null = null;
 let CACHE_AT = 0;
@@ -32,6 +33,30 @@ const FALLBACK_IMAGE: ORModel[] = [
   { id: "openai/gpt-image-1", name: "GPT Image 1", image: true },
 ];
 
+/** WHAT THE MACHINE UNDER THE DESK IS SERVING.
+ *
+ *  KoboldCpp loads exactly one GGUF and ignores the `model` field entirely, so `local/default` is
+ *  always a valid choice and is offered even when the listing call fails (the server may be up but
+ *  refusing a cross-origin GET, which says nothing about whether it will answer a POST). Servers
+ *  that do host several models — llama-swap, LM Studio, Ollama — get listed properly. */
+export async function loadLocalModels(): Promise<ORModel[]> {
+  const ep = getLocalEndpoint();
+  if (!ep) return [];
+  const fallback: ORModel[] = [{ id: `${LOCAL_PREFIX}default`, name: "Local — whatever is loaded", local: true }];
+  try {
+    const res = await fetch(`${ep.url}/models`, { headers: ep.key ? { Authorization: `Bearer ${ep.key}` } : undefined });
+    if (!res.ok) throw new Error(String(res.status));
+    const j: any = await res.json();
+    const list: ORModel[] = (j.data ?? []).map((m: any) => {
+      const raw = String(m.id ?? "").replace(/^koboldcpp\//, "");
+      return { id: `${LOCAL_PREFIX}${raw}`, name: raw.split(/[\\/]/).pop() || raw, local: true };
+    }).filter((m: ORModel) => m.id !== LOCAL_PREFIX);
+    return list.length ? [...list, ...fallback.filter((f) => !list.some((l) => l.id === f.id))] : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function loadModels(): Promise<ORModel[]> {
   if (CACHE && Date.now() - CACHE_AT < 1000 * 60 * 30) return CACHE;
   try {
@@ -61,13 +86,16 @@ export function ModelPicker({
   useEffect(() => {
     if (!open || models) return;
     setLoading(true);
-    loadModels().then((m) => { setModels(m); setLoading(false); });
-  }, [open, models]);
+    // The local list is cheap and always first — a player who has set up a local endpoint has done
+    // it on purpose and should not have to scroll past four hundred cloud models to find it.
+    Promise.all([kind === "image" ? Promise.resolve([] as ORModel[]) : loadLocalModels(), loadModels()])
+      .then(([local, cloud]) => { setModels([...local, ...cloud]); setLoading(false); });
+  }, [open, models, kind]);
 
   const filtered = useMemo(() => {
     let list = (models ?? []).filter((m) => (kind === "image" ? m.image : !m.image));
-    // newest first when we have timestamps
-    list = [...list].sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+    // newest first when we have timestamps; local always at the top, whatever the search
+    list = [...list].sort((a, b) => (Number(!!b.local) - Number(!!a.local)) || (b.created ?? 0) - (a.created ?? 0));
     const term = q.trim().toLowerCase();
     if (term) list = list.filter((m) => m.id.toLowerCase().includes(term) || m.name.toLowerCase().includes(term));
     return list.slice(0, 60);
@@ -95,7 +123,7 @@ export function ModelPicker({
                 className="flex-1 bg-transparent outline-none py-2" style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-hi)" }} />
             </div>
             <div className="text-[10.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-              {loading ? "loading live model list…" : `${filtered.length} ${kind === "image" ? "image " : ""}models · newest first`}
+              {loading ? "loading live model list…" : `${filtered.length} ${kind === "image" ? "image " : ""}models · ${filtered.some((m) => m.local) ? "local first, then " : ""}newest first`}
             </div>
           </div>
 
@@ -111,7 +139,10 @@ export function ModelPicker({
                 style={{ background: m.id === value ? "var(--ink-2)" : "transparent" }}
                 onClick={() => { onChange(m.id); setOpen(false); }}>
                 <span className="min-w-0">
-                  <span className="block text-[13.5px] truncate">{m.name}</span>
+                  <span className="block text-[13.5px] truncate">
+                    {m.local && <span className="font-mono text-[9px] mr-1.5 px-1 py-0.5 rounded" style={{ background: "var(--ink-2)", color: "var(--accent)", verticalAlign: "middle" }}>LOCAL</span>}
+                    {m.name}
+                  </span>
                   <span className="block font-mono text-[10px] truncate" style={{ color: "var(--text-lo)" }}>{m.id}</span>
                 </span>
                 {m.id === value && <Check size={15} style={{ color: "var(--accent)" }} className="shrink-0 ml-2" />}

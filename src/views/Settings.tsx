@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { ModelPicker } from "./ModelPicker";
+import { ModelPicker, loadLocalModels } from "./ModelPicker";
 import { Braces, Check, Copy, Download, Wrench, SlidersHorizontal } from "lucide-react";
 import Inspector from "./Inspector";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { splitLines } from "../engine/turn";
-import { getApiKey, setApiKey } from "../config";
+import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint } from "../config";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
@@ -60,6 +60,63 @@ function SectionHeader({ label, blurb }: { label: string; blurb: string }) {
     <div className="px-1 pt-2">
       <div className="font-display text-[16px]">{label}</div>
       <div className="text-[11px]" style={{ color: "var(--text-lo)" }}>{blurb}</div>
+    </div>
+  );
+}
+
+/** LOCAL AI — the model on your own machine.
+ *
+ *  KoboldCpp, llama.cpp's server, LM Studio and Ollama all expose the same OpenAI-shaped endpoint,
+ *  so this is a base URL and nothing more. Once it's set, every model picker grows a LOCAL section
+ *  and any of the four roles can be pointed at it independently — see src/config.ts for why the
+ *  `local/` id prefix is the whole routing mechanism.
+ *
+ *  It says out loud what the other cards say: nothing here leaves the device, and in this case
+ *  nothing leaves the LAN. */
+function LocalAI({ onPreset, presetApplied }: { onPreset: () => void; presetApplied: boolean }) {
+  const cur = getLocalEndpoint();
+  const [url, setUrl] = useState(cur?.url ?? "");
+  const [lkey, setLkey] = useState(cur?.key ?? "");
+  const [noThink, setNoThink] = useState(cur?.no_think !== false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    const clean = url.trim().replace(/\/+$/, "");
+    if (!clean) { setLocalEndpoint(null); setStatus("local AI off — every call goes to OpenRouter"); return; }
+    setLocalEndpoint({ url: clean, key: lkey.trim() || undefined, no_think: noThink });
+    setBusy(true);
+    try {
+      const found = await loadLocalModels();
+      const real = found.filter((m) => !m.id.endsWith("/default"));
+      setStatus(real.length
+        ? `connected — serving ${real.map((m) => m.name).slice(0, 3).join(", ")}${real.length > 3 ? ` +${real.length - 3}` : ""}. Pick it in any model slot below.`
+        : "saved. Couldn't list models (normal for KoboldCpp behind CORS) — choose `local/default` in a model slot and it will use whatever is loaded.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Local AI (your machine)</div>
+      <TextField label="OpenAI-compatible base URL" value={url} onChange={setUrl} mono />
+      <TextField label="Key (optional — most local servers ignore it)" value={lkey} onChange={setLkey} mono />
+      <Toggle on={noThink} onFlip={() => setNoThink((v) => !v)}
+        title="Suppress local thinking (/no_think)"
+        desc="Qwen3 and other hybrid GGUFs deliberate out loud before answering — slow, and it lands in the story pane. This appends the control token that turns it off. Any <think> block that appears anyway is stripped before you ever see it." />
+      <button className="btn w-full mt-2" disabled={busy} onClick={() => void save()}>
+        {busy ? "checking…" : url.trim() ? "Save & test" : "Turn local AI off"}
+      </button>
+      {status && <div className="text-[11px] mt-2" style={{ color: "var(--text-lo)" }}>{status}</div>}
+      <div className="text-[11px] italic mt-2" style={{ color: "var(--text-lo)" }}>
+        KoboldCpp: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:5001/v1</span> · llama-server: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:8080/v1</span> · LM Studio: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:1234/v1</span> · Ollama: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:11434/v1</span>.
+        Nothing leaves your machine. If the page is served over https the browser may refuse a plain-http localhost call — run Weft locally, or use KoboldCpp's <span style={{ fontFamily: "var(--font-mono)" }}>--remotetunnel</span> and paste the https URL it prints.
+      </div>
+      <button className="btn w-full mt-3" onClick={onPreset}>
+        {presetApplied ? <><Check size={14} /> tuned for a small local model</> : "Tune this save for a local model"}
+      </button>
+      <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
+        Sets lean prompts, chat-log context, a slower re-anchor and a tight digest — about 18k tokens a turn instead of 27k, which leaves a 64k model most of its window for the scene itself. Review the sections below, then Save.
+      </div>
     </div>
   );
 }
@@ -152,6 +209,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [saved, setSaved] = useState(false);
   const [orKey, setOrKey] = useState(getApiKey());
   const [keySaved, setKeySaved] = useState(false);
+  const [localPreset, setLocalPreset] = useState(false);
   const [rescueText, setRescueText] = useState<string | null>(null);
   const [worldJson, setWorldJson] = useState<string | null>(null);
   const [inspecting, setInspecting] = useState(false);
@@ -422,9 +480,29 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
 
+      <LocalAI presetApplied={localPreset} onPreset={() => {
+        // THE SHAPE OF A TURN THAT FITS IN 64k. The narrator prompt is a compiled state document,
+        // not a transcript — measured at 26.5k tokens on a long save, of which the rules contract
+        // alone is 14.5k and replayed history is 8%. Lean prompts halve the contract; chat-log mode
+        // makes the prefix append-only so a local server can reuse its KV cache instead of
+        // reprocessing 20k tokens every turn; a slow re-anchor keeps that reuse across many turns.
+        // Nothing here drops state — it drops PHRASING of state.
+        setDraft((d) => ({
+          ...d,
+          lean_mode: true,
+          context_mode: "chatlog",
+          iframe_cadence: 10,
+          history_window: 4,
+          paging: true,
+          token_budget: 3000,
+          narrator_reasoning: false,
+          context_memories_k: Math.min(d.context_memories_k || 6, 4),
+        }));
+        setLocalPreset(true);
+      }} />
       <BackgroundTurns />
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids, or local/…)</div>
         <ModelPicker label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />
         <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
         <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
@@ -434,7 +512,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
-          Two calls per turn. Prefix `anthropic/` models get prompt-cache breakpoints automatically.
+          Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper, which is the short call that has to emit strict JSON — the thing small models fail at most. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
+          Prefix `anthropic/` models get prompt-cache breakpoints automatically.
           Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
       </div>
