@@ -41,7 +41,7 @@ import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding } from "./echo";
 import { applyUnexplained, reactionDirective } from "./reaction";
-import { sweepThreads } from "./threads";
+import { sweepThreads, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
 import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
@@ -5069,6 +5069,23 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // may also be dormant — which is exactly the case being woken here.
       if ((existing.status as string) === "dormant" && tu.status !== "resolved") existing.status = "active";
     } else if (tu.status === "active") {
+      // ── THE LIST IS FULL ──────────────────────────────────────────────────────────────────
+      //
+      // sweepThreads already demoted the surplus to dormant once a turn, which kept the pressure
+      // pool honest and did nothing about the cause: the world opened new questions faster than it
+      // answered old ones, so every turn the newest thread pushed an older one out of sight and
+      // nothing was ever finished. A player counting them: "way too many threads that aren't doing
+      // anything — I need them to go somewhere or close."
+      //
+      // So the cap binds at CREATION. At MAX_LIVE open, a new one is refused outright rather than
+      // opened and immediately buried, and the bookkeeper is told in its own context how many slots
+      // are left and that closing one is how it gets another. A world allowed six live situations
+      // has to finish one to start the seventh, which is the pressure to resolve that nothing in
+      // the loop was applying.
+      if ((state.world.threads ?? []).filter((t) => t.status === "active").length >= MAX_LIVE) {
+        console.info(`[threads] refused "${tu.title}" — ${MAX_LIVE} already open`);
+        continue;
+      }
       // BIRTH CALIBRATION: a thread is born as POTENTIAL, not a mature crisis. New threads cap
       // at tension 6 (5 in the game's first 10 turns — arrivals establish, they don't besiege);
       // a real crisis earns its 9 turn by turn. This is the fix for "the world was born armed":

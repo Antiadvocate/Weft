@@ -26,17 +26,14 @@ import type { Identity, SaveState } from "./types";
 import { isPersonName } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { asList, asText } from "./coerce";
+import { registerCharacter } from "./state";
 
-export const SKETCH_SYSTEM = `You complete a CHARACTER RECORD for someone who has already entered a story but was never written down properly.
 
-You are given: their name, the player's action that brought them in (when there was one), the prose in which they appeared, and the world they are in. Everything in those sources is TRUE and BINDING — if the prose says her eyes are grey-green and her feet are bare, the record says grey-green eyes; if the player said she is more beautiful than a named character, she is strikingly beautiful. You are filling in what was left blank around facts already established, never overwriting them and never contradicting them.
-
-Where the sources are silent, invent — concretely and consistently with the world, the way the Forge would. A record that stays vague is the failure this exists to fix. Do not write plot function ("mysterious newcomer", "the player's creation"); write a person.
-
-DO NOT SANITIZE. Record this person at the same level of explicitness the story itself has. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
-
-Output ONLY this JSON:
-{
+/** THE CHARACTER RECORD, DEFINED ONCE. Two passes produce a full person — completing somebody the
+ *  story introduced without writing them down, and building somebody the player asked for by
+ *  name. They must agree on every field or the two halves of the cast are shaped differently,
+ *  so the schema lives here and both compose it. */
+export const RECORD_FIELDS = `{
 "age": 30,
 "pronouns": "the pronouns the prose used for them, or this world's default",
 "appearance_facts": "COMPLETE physical baseline of the body they actually have — hair colour AND texture, eye colour, skin, face or one distinctive feature, build, apparent age, one unique identifying mark. Every physical detail the prose gave, verbatim; invent the rest consistently. PHYSICAL CONSTANTS ONLY — never clothing.",
@@ -58,6 +55,18 @@ Output ONLY this JSON:
 "soothed_by": "one plain sentence: what actually settles them",
 "drive_goals": ["2-3 distinct wants they carry at once — an immediate aim, a deeper hope or fear, an attachment or grudge. Never only the player."]
 }`;
+
+export const SKETCH_SYSTEM = `You complete a CHARACTER RECORD for someone who has already entered a story but was never written down properly.
+
+You are given: their name, the player's action that brought them in (when there was one), the prose in which they appeared, and the world they are in. Everything in those sources is TRUE and BINDING — if the prose says her eyes are grey-green and her feet are bare, the record says grey-green eyes; if the player said she is more beautiful than a named character, she is strikingly beautiful. You are filling in what was left blank around facts already established, never overwriting them and never contradicting them.
+
+Where the sources are silent, invent — concretely and consistently with the world, the way the Forge would. A record that stays vague is the failure this exists to fix. Do not write plot function ("mysterious newcomer", "the player's creation"); write a person.
+
+DO NOT SANITIZE. Record this person at the same level of explicitness the story itself has. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
+
+Output ONLY this JSON:
+${RECORD_FIELDS}`;
+
 
 /** A record that is a name and little else. Checked on the fields the story actually reads. */
 export function isSketch(c: Identity | undefined): boolean {
@@ -199,4 +208,99 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
   // still hollow. The pass runs again after the next turn, which is what it is for.
   c.provisional = undefined;
   if (isSketch(c)) c.provisional = true;
+}
+
+/**
+ * A PERSON THE PLAYER ASKED FOR, BY DESCRIPTION.
+ *
+ * The story is supposed to introduce people and often does not — a name appears in the prose and no
+ * record follows it, or the player wants somebody specific in the world and has no way to say so.
+ * completeSketch already knows how to build a whole person out of world context; the only thing it
+ * could not do was start from nothing but a sentence the player typed.
+ *
+ * The brief is BINDING in the same way the prose is: whatever it states is true, and everything
+ * around it is invented to fit. What makes this different from the Forge is the context — this
+ * person is joining a story already in progress, so they are given the cast, the open threads and
+ * the places, and asked to arrive already attached to them rather than standing in a vacuum waiting
+ * to be introduced.
+ */
+const BRIEF_SYSTEM = `You write a COMPLETE CHARACTER RECORD for a person the player has just asked to add to a story already in progress.
+
+You are given: the player's description of them, the world, its canon, the people already in the story, the situations currently open, and the places that exist. The description is TRUE AND BINDING — every fact in it holds, and where it is silent you invent, concretely and consistently with this world.
+
+THEY ARE JOINING SOMETHING ALREADY HAPPENING. Do not write a stranger standing in a vacuum waiting to be introduced. Give them a reason to be here that predates this moment: somebody in the cast they already know, owe, resent, work for, are related to, or have been avoiding; and where the description allows it, a stake in one of the open situations. A person with no connection to anybody is a person the story has no way to use.
+
+WHAT YOU MAY NOT DO. Do not resolve an open situation, do not hand them knowledge of a secret the cast does not have, and do not give them a power, rank or resource the world's canon rules out. They arrive as a person, not as an answer.
+
+DO NOT SANITIZE. Record them at the same level of explicitness the story itself has. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
+
+Output ONLY this JSON, which is the record fields plus four more:
+{
+"name": "their name — take it from the description if it gives one, otherwise choose one that fits this world's naming",
+"where": "the EXACT name of one place from the PLACES list where they are right now, or \\"elsewhere\\" if they are not somewhere the player can walk to yet",
+"tie": "one plain sentence: how they are already connected to somebody or something already in this story",
+"relation_to_player": "one plain sentence: what, if anything, stands between this person and the player right now — they may never have met, and that is a real answer",
+${RECORD_FIELDS.slice(1)}`;
+
+export interface BriefResult { id: string; name: string; where: string; tie: string }
+
+/** Build a whole person from one sentence of player description, attached to the story as it stands. */
+export async function characterFromBrief(
+  state: SaveState, brief: string, model: string, fallback: string,
+): Promise<BriefResult | null> {
+  const text = String(brief ?? "").trim();
+  if (!text) return null;
+  const b = state.world_bible;
+  const cast = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c?.name && c.status !== "dead")
+    .slice(0, 12)
+    .map(([, c]) => `- ${c.name}${c.age ? `, ${c.age}` : ""}${c.core_traits?.length ? ` (${c.core_traits.slice(0, 2).join("; ")})` : ""}`);
+  const open = (state.world.threads ?? []).filter((t) => t.status === "active").map((t) => `- ${t.title}`);
+  const places = Object.values(state.world.places ?? {})
+    .filter((p) => p.id !== "loc_offscene")
+    .map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}`);
+
+  const ctx = [
+    `THE PLAYER'S DESCRIPTION OF THEM (binding — everything stated here is true):\n${text.slice(0, 1200)}`,
+    `\nWORLD: ${b?.name ?? ""} — ${b?.era ?? ""}. ${b?.technology_level ?? ""}`,
+    b?.cultures_and_languages ? `CULTURE AND NAMING: ${b.cultures_and_languages}` : "",
+    (state.world.canon ?? []).length ? `CANON (binding law):\n${state.world.canon.map((x) => `- ${x}`).join("\n")}` : "",
+    `\nTHE PLAYER: ${state.characters["char_player"]?.name ?? "the player"}`,
+    cast.length ? `\nPEOPLE ALREADY IN THIS STORY:\n${cast.join("\n")}` : "\nNobody else is in this story yet.",
+    open.length ? `\nSITUATIONS CURRENTLY OPEN (do not resolve one; a stake in one is welcome):\n${open.join("\n")}` : "",
+    places.length ? `\nPLACES — "where" must be one of these names exactly, or elsewhere:\n${places.join("\n")}` : "",
+  ].filter(Boolean).join("\n");
+
+  let g: any = null;
+  try {
+    const out = await complete(buildMessages(BRIEF_SYSTEM, "WRITE THE RECORD:", ctx, model), model, fallback, true, 1400);
+    g = safeJson<any>(out.text, null);
+  } catch { return null; }
+  if (!g) return null;
+
+  const name = asText(g.name).trim().slice(0, 60);
+  if (!name) return null;
+
+  // Register, then fill through the SAME merge rules the sketch pass uses — applySketch only ever
+  // writes empty fields, so a name or pronoun the player pinned in the brief survives the model.
+  const id = registerCharacter(state, { name, central: true });
+  const c = state.characters[id];
+  if (!c) return null;
+  applySketch(state, c, g);
+  c.provisional = false;
+  if (typeof g.relation_to_player === "string" && g.relation_to_player.trim()) {
+    state.world.edges.push({
+      from: id, to: "char_player", warmth: 0, trust: 0, power: 0,
+      updated_turn: state.world.current_turn,
+      notes: asText(g.relation_to_player).trim().slice(0, 200),
+    });
+  }
+
+  // WHERE THEY ARE. A name from the list or nowhere in particular — never an invented place, which
+  // would put somebody in a room the rest of the engine does not believe exists.
+  const wantWhere = asText(g.where).trim().toLowerCase();
+  const match = Object.values(state.world.places ?? {}).find((p) => p.name.toLowerCase().trim() === wantWhere);
+  c.location = match ? match.id : "loc_offscene";
+
+  return { id, name: c.name, where: match ? match.name : "elsewhere", tie: asText(g.tie).trim() };
 }

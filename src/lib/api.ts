@@ -22,7 +22,7 @@ import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
-import { completeSketch, pendingSketches } from "../engine/sketch";
+import { completeSketch, pendingSketches, characterFromBrief } from "../engine/sketch";
 import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { formatTime, parseTime } from "../engine/time";
@@ -1084,6 +1084,30 @@ export const api = {
     }
     if (wrote) { s.updated_at = new Date().toISOString(); await putSave(s); }
     return clientView(s);
+  },
+
+  /** ADD A PERSON, FROM A SENTENCE.
+   *
+   *  The story is meant to introduce people and often does not — a name turns up in the prose with
+   *  no record behind it, and the player has no way to say "there is a woman who runs the ferry and
+   *  she and Greta do not speak". This is that way. The brief is binding; everything around it is
+   *  built from the world, the cast, the open situations and the places, so the person arrives
+   *  already attached to the story rather than standing in it waiting to be introduced.
+   *
+   *  Full fidelity on purpose: this goes through the same record schema and the same merge rules as
+   *  every other character, so somebody the player asked for is not a second-class citizen of the
+   *  cast. See engine/sketch.ts. */
+  addCharacter: async (id: string, brief: string): Promise<{ save: ClientSave; added: { name: string; where: string; tie: string } | null }> => {
+    const s = await need(id);
+    const r = await characterFromBrief(s, brief, s.model_settings.forge_model, s.model_settings.fallback_model);
+    if (!r) return { save: clientView(s), added: null };
+    syncPresence(s);                                   // co-location decides the scene; recompute it
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    // A voice, so they can speak the moment they are in a room. Best-effort: a person with a full
+    // record and no voice card still plays; a failed forge call must not lose the character.
+    try { await refreshVoice(s, r.id, s.model_settings.forge_model); await putSave(s); } catch { /* they can still talk */ }
+    return { save: clientView(s), added: { name: r.name, where: r.where, tie: r.tie } };
   },
 
   /** PLACE DESCRIPTIONS — write the physical record for places the story has played in but never

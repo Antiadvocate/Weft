@@ -57,6 +57,11 @@ function mentioned(t: Thread, prose: string): boolean {
 export function sweepThreads(state: SaveState, prose: string): string[] {
   const turn = state.world.current_turn;
   const log: string[] = [];
+  // Taken BEFORE anything is demoted. A thread must actually spend time dormant — where a single
+  // mention brings it back — before it can be let go. Without this snapshot a long-idle active
+  // thread would pass through dormant and out the other side inside one sweep, and the player would
+  // never get the turn where it was set aside and could still be picked up.
+  const wasDormant = new Set((state.world.threads ?? []).filter((t) => t.status === "dormant").map((t) => t.id));
 
   for (const t of state.world.threads ?? []) {
     if (t.status === "resolved" || t.status === "abandoned") continue;
@@ -83,6 +88,21 @@ export function sweepThreads(state: SaveState, prose: string): string[] {
     if (idle >= DORMANT_AFTER || (t.tension ?? 0) <= COLD) {
       t.status = "dormant";
       log.push(`Nobody has thought about it in a while: ${t.title}.`);
+    }
+  }
+
+  // AND DORMANT IS NOT A RESTING PLACE. A thread that has sat untouched for four times the dormancy
+  // window is not a situation the story is holding in reserve, it is a note nobody has read in fifty
+  // turns. Left alone it stays on the list forever, which is what the list being long actually is.
+  // Abandoned still keeps the text — nothing is deleted, and the player can read it in the Chronicle
+  // — but it stops counting as something the world owes an answer to.
+  for (const t of state.world.threads ?? []) {
+    if (t.status !== "dormant" || !wasDormant.has(t.id)) continue;
+    const idle = turn - (t.last_touched_turn ?? t.turn_started ?? turn);
+    if (idle >= DORMANT_AFTER * 4) {
+      t.status = "abandoned";
+      t.turn_resolved = turn;
+      log.push(`Let go: ${t.title}.`);
     }
   }
   // TOO MANY LIVE THREADS IS THE SAME FAILURE AS NEVER CLOSING ONE. Even with a cooldown, a save
