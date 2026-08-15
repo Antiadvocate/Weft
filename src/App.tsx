@@ -96,8 +96,14 @@ export default function App() {
               onClick={() => { setApiKey(keyInput.trim()); setNeedKey(false); }}>
               Begin
             </button>
+            {/* A KEY IS NOT ACTUALLY A REQUIREMENT ANY MORE. Point the four model slots at a local
+                server and Weft never touches OpenRouter — so this gate must have a door in it, or a
+                fully-local setup can't reach the settings screen that would configure it. */}
+            <button className="btn w-full mt-2" onClick={() => setNeedKey(false)}>
+              Skip — I'll use a local model
+            </button>
             <div className="text-[11px] italic mt-3" style={{ color: "var(--text-lo)" }}>
-              Stored only in this browser (localStorage), sent only to OpenRouter. Free & paid models at openrouter.ai/keys. You can change it later in Tuning.
+              Stored only in this browser (localStorage), sent only to OpenRouter. Free & paid models at openrouter.ai/keys. You can change it later in Tuning — which is also where you point Weft at a local model (KoboldCpp, llama.cpp, LM Studio, Ollama) instead.
             </div>
           </div>
         </div>

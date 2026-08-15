@@ -1,6 +1,6 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
-import { getApiKey } from "./config";
+import { getApiKey, getLocalEndpoint, isLocalModel, localModelId } from "./config";
 import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -52,6 +52,98 @@ function headers() {
     "HTTP-Referer": location.origin,
     "X-Title": "Weaver",
   };
+}
+
+/* ── WHERE A CALL ACTUALLY GOES ───────────────────────────────────────────────────────────────
+ *
+ *  Everything in this file used to POST to one URL with one key. A `local/` model id sends the
+ *  same body to the OpenAI-compatible server on the player's own machine instead, with three
+ *  differences that matter:
+ *
+ *    - NO OPENROUTER PARAMS. `provider`, `plugins`, `reasoning` and `usage:{include}` are routing
+ *      and billing instructions for a marketplace that isn't in the loop. Some local servers
+ *      tolerate unknown fields, some 400 on them; none of them do anything useful with these.
+ *    - NO KEY REQUIRED. `key()` throws when the OpenRouter key is missing, which would make a
+ *      fully-local setup impossible to run.
+ *    - NO RELAY. The relay is a Cloudflare Worker; it cannot reach localhost, and a call that
+ *      never leaves the LAN doesn't need a server holding the socket for it anyway.
+ */
+interface Target { url: string; headers: Record<string, string>; model: string; local: boolean }
+
+function resolveTarget(model: string): Target {
+  if (!isLocalModel(model)) return { url: OR_URL, headers: headers(), model, local: false };
+  const ep = getLocalEndpoint();
+  if (!ep) throw new Error(`"${model}" is a local model but no local endpoint is set — open Tuning → Local AI and give it a base URL (KoboldCpp's is usually http://localhost:5001/v1).`);
+  return {
+    url: `${ep.url}/chat/completions`,
+    headers: { "Content-Type": "application/json", ...(ep.key ? { Authorization: `Bearer ${ep.key}` } : {}) },
+    model: localModelId(model),
+    local: true,
+  };
+}
+
+/** THE MODEL THINKING WHERE THE PLAYER CAN SEE IT.
+ *
+ *  Cloud providers put chain-of-thought in a separate `reasoning` field. A local GGUF has no such
+ *  channel: Qwen3 and friends write `<think>…</think>` straight into `content`, so without this the
+ *  narrator's deliberation streams into the story pane as prose, gets stored as the turn, and is
+ *  then replayed to the model as an example of how it writes. Suppressed for local calls only —
+ *  a cloud model that types the literal string is writing dialogue. */
+const THINK_OPEN = "<think>";
+const THINK_CLOSE = "</think>";
+/** Streaming filter: deltas split tags across chunk boundaries, so hold back anything that could
+ *  still turn out to be the front of one. */
+function thinkFilter() {
+  let pend = "";
+  let inside = false;
+  const step = (chunk: string, final: boolean): string => {
+    pend += chunk;
+    let out = "";
+    for (;;) {
+      if (inside) {
+        const end = pend.indexOf(THINK_CLOSE);
+        if (end === -1) {
+          // keep only enough to recognise a close tag that straddles the boundary
+          pend = pend.slice(Math.max(0, pend.length - (THINK_CLOSE.length - 1)));
+          break;
+        }
+        pend = pend.slice(end + THINK_CLOSE.length);
+        inside = false;
+        continue;
+      }
+      const open = pend.indexOf(THINK_OPEN);
+      if (open !== -1) { out += pend.slice(0, open); pend = pend.slice(open + THINK_OPEN.length); inside = true; continue; }
+      if (final) { out += pend; pend = ""; break; }
+      const hold = THINK_OPEN.length - 1;
+      if (pend.length > hold) { out += pend.slice(0, pend.length - hold); pend = pend.slice(pend.length - hold); }
+      break;
+    }
+    return out;
+  };
+  return { push: (c: string) => step(c, false), flush: () => step("", true) };
+}
+/** Whole-response version, for the non-streaming path. */
+export function stripThinking(text: string): string {
+  if (!text.includes(THINK_OPEN) && !text.includes(THINK_CLOSE)) return text;
+  const f = thinkFilter();
+  const out = f.push(text) + f.flush();
+  // An unterminated <think> ate everything — the model never stopped deliberating. Better to hand
+  // back the raw text and let the caller's repair/refusal path see it than to return "".
+  return out.trim() ? out.replace(/^\s+/, "") : text.replace(THINK_OPEN, "").replace(THINK_CLOSE, "");
+}
+
+/** Qwen3's soft switch. The control token is read by the chat template, not the sampler, so it has
+ *  to ride inside a message; the last user message is where the template looks. */
+function applyNoThink(messages: any[]): any[] {
+  const out = messages.map((m) => ({ ...m }));
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role !== "user") continue;
+    if (typeof out[i].content === "string") {
+      if (!/\/no_?think/.test(out[i].content)) out[i].content = `${out[i].content}\n/no_think`;
+    }
+    return out;
+  }
+  return out;
 }
 
 export function buildMessages(system: string, stable: string, volatile: string, model: string): any[] {
@@ -137,7 +229,54 @@ export function buildChatlogMessages(system: string, anchorDigest: string, pairs
   return msgs;
 }
 
+/** HOW LONG A LOCAL MODEL IS ALLOWED TO SAY NOTHING.
+ *
+ *  TTFT_MS exists to catch a cloud provider that took the request and then queued it forever. A
+ *  local model is not queueing — it is doing the arithmetic, on your GPU, and the first token
+ *  legitimately waits for the entire prompt to be prefilled. Weft's narrator prompt is ~26k tokens;
+ *  on a machine doing 300 tok/s of prefill that is ninety seconds before generation even starts, and
+ *  a cold cache on CPU-only inference is minutes. Forty-five seconds would abort every first turn. */
+export const LOCAL_TTFT_MS = 900_000;
+
+async function onceLocal(messages: any[], tgt: Target, slug: string, json: JsonMode, maxTokens: number, opts?: CallOpts): Promise<LLMResult> {
+  const ep = getLocalEndpoint();
+  const msgs = ep?.no_think === false ? messages : applyNoThink(messages);
+  // json_schema support is patchy across local servers and llama.cpp releases; the ladder in
+  // `complete()` already downgrades a rejected schema to plain json_object on the SAME model,
+  // which for a local setup is exactly the right recovery (there is nowhere cheaper to fall to).
+  const rf = json
+    ? (typeof json === "object"
+        ? { response_format: { type: "json_schema", json_schema: { name: json.name ?? "diff", strict: false, schema: json.schema } } }
+        : { response_format: { type: "json_object" } })
+    : {};
+  if (opts?.signal?.aborted) throw new Cancelled();
+  const res = await fetch(tgt.url, {
+    method: "POST",
+    signal: opts?.signal,
+    headers: tgt.headers,
+    body: JSON.stringify({ model: tgt.model, messages: msgs, max_tokens: maxTokens, temperature: json ? 0.2 : 0.85, ...rf }),
+  });
+  if (!res.ok) throw new Error(`local model ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data: any = await res.json();
+  const msg = data.choices?.[0]?.message ?? {};
+  let text: string = typeof msg.content === "string" ? msg.content : "";
+  if (!text && Array.isArray(msg.content)) text = msg.content.map((p: any) => (typeof p === "string" ? p : p?.text ?? "")).join("");
+  if (!text && typeof msg.reasoning === "string" && /[{[]/.test(msg.reasoning)) text = msg.reasoning;
+  text = stripThinking(text);
+  if (!text.trim()) throw new Error("empty completion");
+  return {
+    text,
+    // A local call costs nothing, and saying 0 is different from saying "unknown" — the ledger
+    // should show a free turn as free rather than as a gap.
+    usage: { prompt_tokens: data.usage?.prompt_tokens ?? 0, completion_tokens: data.usage?.completion_tokens ?? 0, cached_tokens: 0, cost: 0 },
+    model: slug,
+    truncated: data.choices?.[0]?.finish_reason === "length",
+  };
+}
+
 async function once(messages: any[], model: string, json: JsonMode, maxTokens: number, opts?: CallOpts): Promise<LLMResult> {
+  const tgt = resolveTarget(model);
+  if (tgt.local) return onceLocal(messages, tgt, model, json, maxTokens, opts);
   // CONSTRAINED DECODING: when a schema is supplied, ask the provider to enforce it at the
   // decoder (structured outputs). This kills malformed JSON at the source instead of repairing
   // it after. Providers that don't support json_schema reject the request; `complete` catches
@@ -275,9 +414,12 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     // (a) push a single high-salience search line onto the tail of the last user message so it
     // dominates the derived query, and (b) restate it in search_prompt. Both point Exa at the
     // topic we actually want instead of letting it guess from the whole digest.
+    const tgt = resolveTarget(m);
     let outMsgs = messages;
     const q = searchQuery?.trim();
-    if (online && q && !m.endsWith(":online")) {
+    // A local server has no web plugin — grounding is an OpenRouter capability. Skip the steering
+    // line too, so a local turn isn't handed a search instruction nothing is going to act on.
+    if (online && q && !tgt.local && !m.endsWith(":online")) {
       outMsgs = messages.map((x) => ({ ...x }));
       for (let i = outMsgs.length - 1; i >= 0; i--) {
         if (outMsgs[i].role === "user" && typeof outMsgs[i].content === "string") {
@@ -286,7 +428,14 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         }
       }
     }
-    const body: Record<string, unknown> = { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
+    const localEp = tgt.local ? getLocalEndpoint() : null;
+    if (tgt.local && localEp?.no_think !== false) outMsgs = applyNoThink(outMsgs);
+    const body: Record<string, unknown> = tgt.local
+      // A local server gets the plain OpenAI body and nothing else. Marketplace routing, billing
+      // and reasoning switches are not merely useless here — llama.cpp's server rejects some
+      // unknown fields outright, which would fail every local turn for a parameter about pricing.
+      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true }
+      : { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.
       ...(reroute ? { provider: { sort: "throughput", allow_fallbacks: true } } : providerParam(m)),
@@ -294,7 +443,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       // as output. A scene doesn't need deliberation; the directive already carries the design.
       ...(prefs.narratorReasoning ? {} : { reasoning: { enabled: false } }),
     };
-    if (online && !m.endsWith(":online")) {
+    if (online && !tgt.local && !m.endsWith(":online")) {
       const web: Record<string, unknown> = { id: "web", max_results: 3 };
       if (q) web.search_prompt = `Web results for "${q}". Incorporate the factual detail into the prose; do not cite sources or break fiction.`;
       body.plugins = [web];
@@ -310,7 +459,9 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     // A failure here falls through to the direct call below rather than failing the turn. A relay
     // that is down, misconfigured, or out of quota should cost the player a background turn, never
     // the turn itself.
-    const relay = jobId ? getRelay() : null;
+    // …and it cannot take a LOCAL call. The relay is a Cloudflare Worker: `localhost` from its side
+    // is its own sandbox, not the player's desk. A local turn stays in the tab.
+    const relay = jobId && !tgt.local ? getRelay() : null;
     if (relay && jobId) {
       try {
         await startJob(relay, jobId, body, await currentPush());
@@ -351,19 +502,28 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     signal?.addEventListener("abort", onAbort, { once: true });
     let started = false;
     let stalled = false;
-    const ttft = setTimeout(() => { if (!started) { stalled = true; guard.abort(); } }, TTFT_MS);
+    // A local model's silence before the first token is PREFILL, not queueing. See LOCAL_TTFT_MS.
+    const ttftMs = tgt.local ? LOCAL_TTFT_MS : TTFT_MS;
+    const ttft = setTimeout(() => { if (!started) { stalled = true; guard.abort(); } }, ttftMs);
 
     let res: Response;
     try {
-      res = await fetch(OR_URL, { method: "POST", signal: guard.signal, headers: headers(), body: JSON.stringify(body) });
+      res = await fetch(tgt.url, { method: "POST", signal: guard.signal, headers: tgt.headers, body: JSON.stringify(body) });
     } catch (e) {
       clearTimeout(ttft); signal?.removeEventListener("abort", onAbort);
-      if (stalled) throw new Stalled(TTFT_MS);
+      if (stalled) throw new Stalled(ttftMs);
+      // A local endpoint that isn't running fails as an opaque browser network error ("Failed to
+      // fetch"), which tells the player nothing about which of the four model slots reached for a
+      // server that isn't there.
+      if (tgt.local) throw new Error(`could not reach the local model at ${tgt.url} — is the server running, and does it allow requests from ${location.origin}? (${String((e as Error)?.message ?? e).slice(0, 120)})`);
       throw e;
     }
-    if (!res.ok || !res.body) { clearTimeout(ttft); signal?.removeEventListener("abort", onAbort); throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`); }
+    if (!res.ok || !res.body) { clearTimeout(ttft); signal?.removeEventListener("abort", onAbort); throw new Error(`${tgt.local ? "local model" : "OpenRouter"} ${res.status}: ${(await res.text()).slice(0, 300)}`); }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
+    // Local GGUFs stream their deliberation inline; strip it on the way past so it never reaches
+    // the story pane and never gets stored as the turn.
+    const think = tgt.local ? thinkFilter() : null;
     let buf = "", full = "", usage: Usage = { prompt_tokens: 0, completion_tokens: 0 };
     let truncated = false;
     const annotations: { url: string; title?: string }[] = [];
@@ -381,7 +541,11 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         try {
           const j = JSON.parse(payload);
           const delta = j.choices?.[0]?.delta?.content;
-          if (delta) { if (!started) { started = true; clearTimeout(ttft); } full += delta; yield delta; }
+          if (delta) {
+            if (!started) { started = true; clearTimeout(ttft); }
+            const shown = think ? think.push(delta) : delta;
+            if (shown) { full += shown; yield shown; }
+          }
           // hit the output cap mid-generation — the tail (scene footer) was cut. Flag it so the
           // caller can recover rather than silently losing the footer.
           if (j.choices?.[0]?.finish_reason === "length") truncated = true;
@@ -396,8 +560,10 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     }
     clearTimeout(ttft);
     signal?.removeEventListener("abort", onAbort);
-    if (stalled) throw new Stalled(TTFT_MS);
+    if (think) { const tail = think.flush(); if (tail) { full += tail; yield tail; } }
+    if (stalled) throw new Stalled(ttftMs);
     if (!full.trim()) throw new Error("empty stream");
+    if (tgt.local && !usage.cost) usage = { ...usage, cost: 0 };
     return { text: full, usage, model: m, annotations: annotations.length ? annotations : undefined, truncated };
   };
   try { return yield* attempt(model); }
@@ -413,7 +579,11 @@ export async function* completeStream(messages: any[], model: string, fallback: 
     // first-party DeepSeek sends the longest call of the turn to the cheapest, most-queued host
     // there is. The bookkeeper already opts out of price routing because "bookkeeping latency is the
     // felt latency" — which is true, and truer still of the narrator, which is twice the call.
-    if (e?.name === "Stalled") {
+    //
+    // None of that applies to a local model: there is no provider pool to re-route within, so a
+    // second identical request would just spend another fifteen minutes not starting. Fall through
+    // to the fallback model, which for a local narrator is usually a cloud one.
+    if (e?.name === "Stalled" && !isLocalModel(model)) {
       logErr(model, e);
       console.warn(`[llm] ${model} never started; re-routing for throughput`);
       return yield* attempt(model, true);

@@ -28,6 +28,25 @@ Because the key lives in the browser, **don't** hard-code it into the source or 
 
 > Note: calls go from your browser straight to `openrouter.ai`, which permits cross-origin requests. If your network or an extension blocks third-party requests, the model calls won't go through.
 
+## Running a local model
+
+Any of the four model slots can point at a model on your own machine instead of at OpenRouter. In **Tuning → Local AI**, set the OpenAI-compatible base URL of whatever you're running:
+
+| server | base URL |
+| --- | --- |
+| KoboldCpp | `http://localhost:5001/v1` |
+| llama.cpp (`llama-server`) | `http://localhost:8080/v1` |
+| LM Studio | `http://localhost:1234/v1` |
+| Ollama | `http://localhost:11434/v1` |
+
+Every model picker then grows a **LOCAL** section, and picking from it writes a `local/…` id into that slot — the prefix is the whole routing mechanism. Local calls carry no OpenRouter routing, billing, or web-search parameters, need no key, skip the relay, and are allowed a very long time to first token, because a local model's silence before the first word is prompt prefill rather than a queue. `<think>` blocks are stripped from the stream, so a hybrid-reasoning GGUF never narrates its own deliberation into the story.
+
+**What fits in a small context window.** Weft's narrator prompt is a compiled state document, not a transcript — measured on a 121-turn save it was ~26.5k tokens, of which the rules contract alone was 14.5k and replayed history only 8%. So continuity does not come from the model remembering the chat; it comes from the digest, which is rebuilt from the world state every turn. A 64k model has room for a full-fat turn (~31.5k including generation); **Tune this save for a local model** takes it to roughly 18k by switching on lean prompts, chat-log context, a slower re-anchor and a tighter digest.
+
+The useful split is a **local narrator** — the long creative call, and the expensive one — with a **cloud bookkeeper**, since that pass must emit strict JSON against a schema, which is what small models fail at most. Keep the fallback slot cloud-side so a stalled local server costs you a wait rather than the turn.
+
+> Note: a page served over `https` may refuse a plain-`http://localhost` call. Run Weft locally (`npm run dev`), or use KoboldCpp's `--remotetunnel` and paste the `https` URL it prints.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.
