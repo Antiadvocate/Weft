@@ -1184,7 +1184,24 @@ export function deixisNote(addressee?: string): string {
   return `Pronouns inside anything the player says in quotes are anchored to the player: I, me, my, mine and myself are the PLAYER; you and your are the person the player is SPEAKING TO${addressee ? `, which in this beat is ${addressee}` : ""}, never the player themselves. Resolve them that way before anyone reacts. Answering as though the player said about themselves what they actually said about the listener puts a line in their mouth they did not speak.`;
 }
 
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER — it is the PLAYER'S OWN voice and MUST be rendered as the player saying it, NEVER put into another character's mouth, even if the words are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT — render the player speaking those exact words and let the other characters REACT to having heard them; do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel. ${deixisNote()}]`;
+/**
+ * THE INSTRUCTION THAT TOLD THE NARRATOR TO ECHO, AND THEN STOP.
+ *
+ * This note used to say the player's quoted line "MUST be rendered as the player saying it" and, a
+ * clause later, "render the player speaking those exact words". Both were written to fix ATTRIBUTION
+ * — a narrator that took a line addressed to Rabi and put it in Rabi's mouth — and both read, to
+ * anything parsing literally, as an instruction to REPRODUCE the text.
+ *
+ * It is the last thing in the prompt before generation, sitting under a header that said "render
+ * exactly", roughly nine thousand tokens after the contract's "NEVER RESTATE THE PLAYER'S WORDS".
+ * Recency wins that argument. The observed failure was exact: the model wrote out the player's
+ * quoted line, treated the instruction as discharged, and emitted EOS — a turn that was a recital
+ * of the input and nothing else, and short.
+ *
+ * Attribution and repetition were never the same requirement. The line is the player's, and it is
+ * already spoken. Both halves are said here separately.
+ */
+const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER, in the PLAYER'S OWN voice. IT HAS ALREADY BEEN SAID — writing it down again is not your job and never begins a turn. Do not reproduce the quoted line, do not narrate that the player said it, do not have anyone repeat it back or turn it over. START AT THE MOMENT AFTER IT LANDED: the room has heard it, and you write what the people in it now do and say. What this channel protects is ATTRIBUTION, not repetition — those words belong to the PLAYER and are NEVER put into another character's mouth, even if they are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT: everyone proceeds from having heard exactly that, and you do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT that NO ONE in the scene can perceive, react to, or know — not even by intuition; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel. ${deixisNote()}]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
@@ -1221,8 +1238,8 @@ function isRefusal(text: string, bible?: WorldBible): boolean {
   const low = t.toLowerCase();
   const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
   if (refusalStem && t.length < 400) return true;
-  // A full narrator turn is 120–350 words; a response under ~12 words is not narration (a refusal,
-  // an error echo, or a stub). Guard against storing it.
+  // A response under ~12 words is not narration (a refusal, an error echo, or a stub). Guard
+  // against storing it. This is a FLOOR and always was — the contract no longer states a ceiling.
   if (t.split(/\s+/).filter(Boolean).length < 12 && !/[.!?]"?\s*$/.test(t)) return true;
   return false;
 }
@@ -2161,13 +2178,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (render exactly, add no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }

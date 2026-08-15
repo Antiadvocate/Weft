@@ -4,6 +4,7 @@ import { Braces, Check, Copy, Download, Wrench, SlidersHorizontal } from "lucide
 import Inspector from "./Inspector";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
+import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
 import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint } from "../config";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
@@ -73,7 +74,36 @@ function SectionHeader({ label, blurb }: { label: string; blurb: string }) {
  *
  *  It says out loud what the other cards say: nothing here leaves the device, and in this case
  *  nothing leaves the LAN. */
-function LocalAI({ onPreset, presetApplied }: { onPreset: () => void; presetApplied: boolean }) {
+/** THE FIELDS THE LOCAL PRESET TOUCHES, and the two values each of them can take.
+ *
+ *  Defined in one place because a preset you cannot reverse is a trap: the button applied eight
+ *  changes across three cards, and finding them all again by hand — after a save, in a later
+ *  session, with no record of what they had been — is not something anyone should have to do. The
+ *  restore path reads the same list, so the two can never drift apart. */
+const LOCAL_PRESET: Partial<ModelSettings> = {
+  lean_mode: true,
+  context_mode: "chatlog",
+  iframe_cadence: 10,
+  history_window: 4,
+  paging: true,
+  token_budget: 3000,
+  narrator_reasoning: false,
+  context_memories_k: 4,
+};
+/** Where "restore" lands when there is no snapshot to go back to — a save tuned in an earlier
+ *  session has no memory of what it was before, and the engine defaults are the honest answer. */
+const LOCAL_PRESET_DEFAULTS: Partial<ModelSettings> = {
+  lean_mode: DEFAULT_MODELS.lean_mode ?? false,
+  context_mode: DEFAULT_MODELS.context_mode ?? "chatlog",
+  iframe_cadence: DEFAULT_MODELS.iframe_cadence ?? 6,
+  history_window: DEFAULT_MODELS.history_window,
+  paging: true,
+  token_budget: DEFAULT_MODELS.token_budget ?? 0,
+  narrator_reasoning: DEFAULT_MODELS.narrator_reasoning ?? false,
+  context_memories_k: DEFAULT_MODELS.context_memories_k,
+};
+
+function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void; onRestore: () => void; presetApplied: boolean }) {
   const cur = getLocalEndpoint();
   const [url, setUrl] = useState(cur?.url ?? "");
   const [lkey, setLkey] = useState(cur?.key ?? "");
@@ -111,9 +141,17 @@ function LocalAI({ onPreset, presetApplied }: { onPreset: () => void; presetAppl
         KoboldCpp: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:5001/v1</span> · llama-server: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:8080/v1</span> · LM Studio: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:1234/v1</span> · Ollama: <span style={{ fontFamily: "var(--font-mono)" }}>http://localhost:11434/v1</span>.
         Nothing leaves your machine. If the page is served over https the browser may refuse a plain-http localhost call — run Weft locally, or use KoboldCpp's <span style={{ fontFamily: "var(--font-mono)" }}>--remotetunnel</span> and paste the https URL it prints.
       </div>
-      <button className="btn w-full mt-3" onClick={onPreset}>
-        {presetApplied ? <><Check size={14} /> tuned for a local model</> : "Tune this save for a local model"}
-      </button>
+      <div className="flex gap-2 mt-3">
+        <button className="btn flex-1" onClick={onPreset}>
+          {presetApplied ? <><Check size={14} /> tuned for a local model</> : "Tune this save for a local model"}
+        </button>
+        <button className="btn flex-1" onClick={onRestore}>
+          {presetApplied ? "Undo" : "Restore defaults"}
+        </button>
+      </div>
+      <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+        Reversible. <b>Undo</b> puts back exactly what these settings were before you tapped Tune; <b>Restore defaults</b> returns the same eight fields to the engine's own values, which is the one that helps if you tuned a save in an earlier session and want out. Either way, only these fields move — models, keys, and everything else are left alone. Then Save.
+      </div>
       <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
         Sets lean prompts, chat-log context, a slower re-anchor and a tight digest — about 18k tokens a turn instead of 27k. This is a SPEED setting, not a fitting one: a 64k window holds a full turn either way, but every token you cut is prompt the model doesn't ingest before it writes, and KV cache it doesn't hold. If your machine is fast enough, unwind it in this order and keep what reads better — token budget to 0 first, then lean mode off. Chat-log context and the slow re-anchor cost nothing; leave those on. Review the sections below, then Save.
       </div>
@@ -209,7 +247,9 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   const [saved, setSaved] = useState(false);
   const [orKey, setOrKey] = useState(getApiKey());
   const [keySaved, setKeySaved] = useState(false);
-  const [localPreset, setLocalPreset] = useState(false);
+  // What the preset-touched fields were before "Tune for a local model" — null when it hasn't been
+  // tapped this visit, which is also the case where "Restore defaults" is the only sane target.
+  const [prePreset, setPrePreset] = useState<Partial<ModelSettings> | null>(null);
   const [rescueText, setRescueText] = useState<string | null>(null);
   const [worldJson, setWorldJson] = useState<string | null>(null);
   const [inspecting, setInspecting] = useState(false);
@@ -480,25 +520,26 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
 
-      <LocalAI presetApplied={localPreset} onPreset={() => {
+      <LocalAI presetApplied={!!prePreset} onRestore={() => {
+        // Back to the snapshot if this session took one, otherwise to the engine defaults — a save
+        // tuned last week has nothing to roll back TO, and that is the case the button exists for.
+        setDraft((d) => ({ ...d, ...(prePreset ?? LOCAL_PRESET_DEFAULTS) }));
+        setPrePreset(null);
+      }} onPreset={() => {
         // THE SHAPE OF A TURN THAT FITS IN 64k. The narrator prompt is a compiled state document,
         // not a transcript — measured at 26.5k tokens on a long save, of which the rules contract
         // alone is 14.5k and replayed history is 8%. Lean prompts halve the contract; chat-log mode
         // makes the prefix append-only so a local server can reuse its KV cache instead of
         // reprocessing 20k tokens every turn; a slow re-anchor keeps that reuse across many turns.
         // Nothing here drops state — it drops PHRASING of state.
-        setDraft((d) => ({
-          ...d,
-          lean_mode: true,
-          context_mode: "chatlog",
-          iframe_cadence: 10,
-          history_window: 4,
-          paging: true,
-          token_budget: 3000,
-          narrator_reasoning: false,
-          context_memories_k: Math.min(d.context_memories_k || 6, 4),
-        }));
-        setLocalPreset(true);
+        setDraft((d) => {
+          // Snapshot ONLY the fields the preset moves, so undo cannot quietly revert an unrelated
+          // edit the player made in the same visit to this screen.
+          const before: Partial<ModelSettings> = {};
+          for (const k of Object.keys(LOCAL_PRESET) as (keyof ModelSettings)[]) (before as any)[k] = d[k];
+          setPrePreset(before);
+          return { ...d, ...LOCAL_PRESET };
+        });
       }} />
       <BackgroundTurns />
       <div className="card p-4">
