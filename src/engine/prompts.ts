@@ -12,6 +12,7 @@
  *     can see, not just how they feel.
  */
 import { visibleOnPlayer } from "./reaction";
+import { MAX_LIVE } from "./threads";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { dateLabel, minutesBetween } from "./time";
@@ -794,7 +795,14 @@ export function simulatorContext(state: SaveState): string {
   }).filter(Boolean).join("\n");
   parts.push(`CURRENT LEDGER (present characters):\n${ledger}`);
   const threads = state.world.threads.filter((t) => t.status === "active");
-  if (threads.length) parts.push(`OPEN THREADS (update by id, don't duplicate): ${threads.map((t) => `${t.id}:"${t.title}" [tension ${t.tension}]`).join("; ")}`);
+  // THE BUDGET, STATED. The engine refuses a seventh open thread outright; saying so here is what
+  // turns that refusal into a reason to finish one. A bookkeeper that does not know the list is full
+  // keeps proposing threads that are silently dropped, and the story keeps accumulating questions
+  // nobody answers.
+  if (threads.length) parts.push(`OPEN THREADS (update by id, don't duplicate): ${threads.map((t) => `${t.id}:"${t.title}" [tension ${t.tension}]`).join("; ")}
+THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIVE
+  ? ` THE LIST IS FULL — a new thread this turn will be refused. If the prose opened something genuinely new, the way to make room is to mark a thread resolved when the scene has actually settled it: a question that has been answered, a debt paid, a person who has done the thing they were going to do. Do not resolve one that is still open just to free a slot.`
+  : ` You may open ${MAX_LIVE - threads.length} more, and only for something the prose actually raised.`}`);
   // ── THE OPEN PROMISE LEDGER ────────────────────────────────────────────────────────────────
   // The contract tells this pass, in capitals, that recording commitments is mandatory and that an
   // open promise must be resolved when it is made good on. It was never shown WHICH promises are

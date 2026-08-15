@@ -39,6 +39,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [embodying, setEmbodying] = useState(false);
   const [tab, setTab] = useState<CardTab>("now");
+  // adding somebody by description
+  const [adding, setAdding] = useState(false);
+  const [addingBusy, setAddingBusy] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [addErr, setAddErr] = useState("");
+  const [added, setAdded] = useState<{ name: string; where: string; tie: string } | null>(null);
 
   const toggleFollow = async (cid: string, on: boolean) => {
     setSave(await api.setTracked(save.id, cid, on));
@@ -201,6 +207,49 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
             </motion.button>
           );
         })}
+      </div>
+
+      {/* ADD SOMEBODY. The story is meant to introduce people and often does not — a name lands in
+          the prose with no record behind it, and there was no way to say "there is a woman who runs
+          the ferry and she and Greta do not speak". One sentence is enough; the rest is built from
+          the world, the cast, the open situations and the places, so they arrive attached. */}
+      <div className="mt-5">
+        {!adding ? (
+          <button className="w-full font-mono text-[10px] uppercase tracking-widest py-2 rounded border"
+            style={{ borderColor: "var(--ink-3)", color: "var(--text-lo)" }}
+            onClick={() => { setAdding(true); setBrief(""); setAddErr(""); setAdded(null); }}>
+            + add someone
+          </button>
+        ) : (
+          <div className="space-y-2 border rounded p-2.5" style={{ borderColor: "var(--ink-3)" }}>
+            <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} autoFocus
+              placeholder="Who are they? A sentence is enough — a name, what they do, how they fit. Everything you write here is true of them."
+              className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
+              style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 72 }} />
+            {addErr && <div className="text-[11px]" style={{ color: "var(--danger, #c66)" }}>{addErr}</div>}
+            {added && (
+              <div className="text-[11.5px]" style={{ color: "var(--text-mid)" }}>
+                <span style={{ color: "var(--accent)" }}>{added.name}</span> is at {added.where}.{added.tie ? ` ${added.tie}` : ""}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button disabled={addingBusy || !brief.trim()} className="font-mono text-[10px] uppercase tracking-widest py-1"
+                style={{ color: "var(--accent)" }}
+                onClick={async () => {
+                  setAddingBusy(true); setAddErr(""); setAdded(null);
+                  try {
+                    const r = await api.addCharacter(save.id, brief);
+                    setSave(r.save);
+                    if (r.added) { setAdded(r.added); setBrief(""); }
+                    else setAddErr("that did not come back as a person — try naming them, or saying what they do");
+                  } catch (e: any) { setAddErr(e?.message ?? "could not add them"); }
+                  finally { setAddingBusy(false); }
+                }}>{addingBusy ? "writing them…" : "add"}</button>
+              <button disabled={addingBusy} className="font-mono text-[10px] uppercase tracking-widest py-1"
+                style={{ color: "var(--text-lo)" }} onClick={() => setAdding(false)}>done</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {elsewhereIds.length > 0 && (
