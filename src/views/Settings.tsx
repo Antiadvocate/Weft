@@ -144,7 +144,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
         <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>
       </div>
       <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
-        OpenRouter's providers ship sane sampler defaults; a local server gives you its own, and a heavily quantized model on permissive defaults produces the classic failure — one clause repeating until the token budget runs out. Loop guard is the direct counter. Set either to <span style={{ fontFamily: "var(--font-mono)" }}>0</span> to send nothing and let your server's own settings decide.
+        OpenRouter's providers ship sane sampler defaults; a local server gives you its own, and a heavily quantized model on permissive defaults repeats — a clause cycling until the token budget dies, or a character delivering a line and then delivering it again two paragraphs later. Loop guard drives both penalties that counter that (frequency, and presence at half). <b>If you are still seeing repetition, raise it — 0.6 to 0.8 is not too much on a low-bit quant.</b> Set either field to <span style={{ fontFamily: "var(--font-mono)" }}>0</span> to send nothing and let your server's own settings decide.
       </div>
       <button className="btn w-full mt-2" disabled={busy} onClick={() => void save()}>
         {busy ? "checking…" : url.trim() ? "Save & test" : "Turn local AI off"}

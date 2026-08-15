@@ -143,9 +143,19 @@ export function stripThinking(text: string): string {
  *  to 0 so the server's own configuration wins. See LocalEndpoint for why these exist at all. */
 function localSampler(): Record<string, number> {
   const ep = getLocalEndpoint();
-  const freq = ep?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard;
+  const guard = ep?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard;
   const topP = ep?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p;
-  return { ...(freq > 0 ? { frequency_penalty: freq } : {}), ...(topP > 0 ? { top_p: topP } : {}) };
+  // ONE DIAL, BOTH PENALTIES. They answer different halves of the same failure and a player tuning
+  // a local model should not have to know which: frequency_penalty pushes against re-emitting the
+  // same TOKENS, which is what stops a clause cycling until the budget dies, while presence_penalty
+  // pushes against returning to material already used, which is what stops a character delivering
+  // a line and then delivering it again verbatim two paragraphs later. A real save produced both
+  // in one response. Presence is the gentler of the two — it costs novelty when set high, and the
+  // prose has a scene to stay inside.
+  return {
+    ...(guard > 0 ? { frequency_penalty: guard, presence_penalty: Math.round(guard * 50) / 100 } : {}),
+    ...(topP > 0 ? { top_p: topP } : {}),
+  };
 }
 
 /** Qwen3's soft switch. The control token is read by the chat template, not the sampler, so it has

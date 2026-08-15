@@ -946,6 +946,70 @@ export function stripReasoningPreamble(text: string): { text: string; cut: boole
   return { text: kept, cut: last >= 0 || hasTag };
 }
 
+/* ── IT WROTE THE SCENE, ANNOUNCED ITSELF, AND WROTE IT AGAIN ─────────────────────────────────
+ *
+ * A third shape, from a third save. The model produced a complete, good scene — and then:
+ *
+ *     Here is a response to the instruction, written as the scene's next beat:
+ *
+ * followed by the WHOLE SCENE AGAIN, same beats, same blocking, slightly better prose. Neither
+ * draft is broken. There are simply two of them, and the second is the model's own final answer,
+ * which is the same ordering the reasoning preamble follows: whatever comes after the announcement
+ * is what the model meant to hand over.
+ */
+const REDRAFT_MARKER = /^[ \t]*(?:here(?:'s| is)|below is|this is|the following is)\b[^\n]{0,140}?\b(?:response|answer|scene|version|rewrite|redraft|draft|beat|attempt|continuation|revision)\b[^\n]{0,80}:[ \t]*$/gim;
+
+/** Keep only the last draft when the model announced a fresh attempt mid-response. */
+export function dropDiscardedDrafts(text: string): { text: string; cut: boolean } {
+  REDRAFT_MARKER.lastIndex = 0;
+  let end = -1;
+  for (let m = REDRAFT_MARKER.exec(text); m; m = REDRAFT_MARKER.exec(text)) end = m.index + m[0].length;
+  if (end < 0) return { text, cut: false };
+  const kept = text.slice(end).trim();
+  // The announcement can also be the LAST thing a truncated response emitted, with nothing behind
+  // it. Then the draft already written is all there is, and it is a real scene — keep it.
+  if (kept.length < 200) return { text, cut: false };
+  return { text: kept, cut: true };
+}
+
+/* ── THE SAME LINE, TWICE, IN ONE TURN ────────────────────────────────────────────────────────
+ *
+ * From the same response, inside each draft:
+ *
+ *     "May Vulcan see the make of this," he says. […] "You are not from the Subura."
+ *     […]
+ *     "May Vulcan see the make of this," he repeats, the words flat and even […]
+ *     "You are not from the Subura."
+ *
+ * The character-level loop cutter cannot see this: the repeats are not adjacent, and the narration
+ * between them differs, so there is no contiguous unit cycling. What repeats is the SPEECH. A
+ * paragraph whose every quoted line has already been spoken this turn is carrying no new speech,
+ * and the contract has banned exactly this since the beginning ("no scene replayed in new words").
+ * Twenty characters of quoted text is the floor — "Yes." and "Titus?" recur in real dialogue all
+ * the time, and a whole sentence coming back verbatim is never craft.
+ */
+const REPEAT_QUOTE_MIN = 20;
+function speechKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+export function collapseRepeatedSpeech(text: string): { text: string; cut: boolean } {
+  const paras = text.split(/\n\s*\n/);
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  let cut = false;
+  for (const p of paras) {
+    const quotes = [...p.replace(/[“”]/g, '"').matchAll(new RegExp(`"([^"]{${REPEAT_QUOTE_MIN},})"`, "g"))]
+      .map((m) => speechKey(m[1]))
+      .filter(Boolean);
+    if (quotes.length && quotes.every((q) => seen.has(q))) { cut = true; continue; }
+    for (const q of quotes) seen.add(q);
+    kept.push(p);
+  }
+  const out = kept.join("\n\n").trim();
+  if (!cut || out.length < 200) return { text, cut: false };
+  return { text: out, cut: true };
+}
+
 /** The `/no_think` control token, printed back as prose by a model that read it as content. */
 function stripControlTokenEcho(text: string): { text: string; cut: boolean } {
   const before = text;
@@ -972,10 +1036,16 @@ export function salvageProse(raw: string): { prose: string; notes: string[] } {
   if (preamble.cut) { t = preamble.text; notes.push("narrator wrote its reasoning into the prose and never closed the block — the scene was cut out of it"); }
   t = stripControlTokenEcho(t).text;
   if (tokenEchoed) notes.push("narrator echoed the /no_think control token as text — your model reads it as content rather than obeying it, so turn that toggle off in Tuning → Local AI");
+  const drafts = dropDiscardedDrafts(t);
+  if (drafts.cut) { t = drafts.text; notes.push("narrator wrote the scene twice and announced the second — the earlier draft was dropped"); }
   const script = stripScriptTranscript(t);
   if (script.cut) { t = script.text; notes.push("stripped a screenplay-style transcript the narrator appended after the scene"); }
   const loop = cutRepetitionLoop(t);
   if (loop.cut) { t = loop.text; notes.push("narrator fell into a repetition loop — the scene was cut where it started repeating"); }
+  // AFTER the drafts are resolved: two drafts of a scene naturally share their lines, so running
+  // this first would read the second draft's dialogue as a repeat of the first's and gut it.
+  const speech = collapseRepeatedSpeech(t);
+  if (speech.cut) { t = speech.text; notes.push("narrator said the same line twice — the repeated speech was dropped"); }
   // A markdown rule between the scene and its footer is debris, not a scene beat.
   t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
   return { prose: t, notes };

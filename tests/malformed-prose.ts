@@ -20,7 +20,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, parseSceneFooter } from "../src/engine/turn";
+import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, parseSceneFooter } from "../src/engine/turn";
 import { stripThinking } from "../src/llm";
 
 let pass = 0, fail = 0;
@@ -172,6 +172,69 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   check("an unclosed block is passed through for the salvage layer",
     stripThinking("<analysis>going forever").includes("going forever"));
   check("a real tag-shaped word in prose is untouched", stripThinking("She read the plan. It was short.") === "She read the plan. It was short.");
+}
+
+/* ── IT WROTE THE SCENE TWICE, AND SAID EVERY LINE TWICE INSIDE EACH ─────────────
+ *
+ * Third fixture, third save, `/no_think` switched off this time — so no deliberation leaked, and
+ * the failure moved. The model wrote a complete scene, then:
+ *
+ *     Here is a response to the instruction, written as the scene's next beat:
+ *
+ * and wrote the entire scene again. And WITHIN each draft, Titus delivers both his lines, then
+ * delivers both of them again verbatim a paragraph later ("he repeats, the words flat and even").
+ *
+ * Neither draft is broken prose. That is what makes this one different from the envelope and the
+ * deliberation: there is nothing malformed to detect, only too much of something well-formed.
+ */
+{
+  const RAW3 = readFileSync(join(import.meta.dirname, "fixtures/redraft-turn.txt"), "utf8");
+  const { prose, notes } = salvageProse(RAW3);
+
+  check("the redraft is reported", notes.some((n) => /wrote the scene twice/.test(n)), notes);
+  check("the doubled speech is reported", notes.some((n) => /same line twice/.test(n)), notes);
+  check("the announcement itself is gone", !/Here is a response to the instruction/i.test(prose));
+
+  // the LAST draft is the one kept — it is the model's own final answer, and the better prose
+  check("the surviving draft is the second one", prose.includes("the stench of open sewage rides the west wind"), prose.slice(0, 120));
+  check("and the first draft is gone", !prose.includes("the smell of open sewage rolls up from the reeds"));
+
+  // each line survives exactly once
+  check("Vulcan is invoked once, not twice", (prose.match(/May Vulcan see the make of this/g) ?? []).length === 1);
+  check("and the Subura line lands once", (prose.match(/You are not from the Subura/g) ?? []).length === 1);
+  check("the 'he repeats' paragraph is gone", !/he repeats/.test(prose), prose);
+
+  // and the scene is still whole — beginning, action, dialogue, closing beat
+  check("the scene still opens on the river", prose.startsWith("The river mud works up against the hem"));
+  check("the business with the nail survives", prose.includes("He taps the nail against his teeth a second time"));
+  check("and Livia still closes it", prose.includes("drops into the mud with a soft thud"));
+  check("it is still a full turn", prose.length > 900, prose.length);
+}
+
+/* ── the two new pieces, on their own ────────────────────────────────────────── */
+{
+  const a = "She crossed the yard and put the bucket down by the door. The water had gone still by the time she straightened up, and the light was going out of the sky behind the roofline.";
+  // over 200 characters on purpose: the salvage refuses to cut down to less than a turn's worth of
+  // prose, so a fixture shorter than that would test the guard rather than the thing being guarded
+  const b = "He came out with the lamp already lit and did not look at her. The dog followed him as far as the step, then sat down in the cold and would not come further. She heard the latch go and then nothing at all, and the yard stayed dark a long while after.";
+
+  check("a redraft announcement keeps what follows", dropDiscardedDrafts(`${a}\n\nHere is my revised version:\n\n${b}`).text === b);
+  check("and reports the cut", dropDiscardedDrafts(`${a}\n\nHere is my revised version:\n\n${b}`).cut);
+  // a truncated response can end ON the announcement — then the draft already written is all there is
+  check("an announcement with nothing after it keeps the draft", !dropDiscardedDrafts(`${a}\n\nHere is the revised scene:`).cut);
+  check("ordinary prose has no marker", !dropDiscardedDrafts(`${a}\n\n${b}`).cut);
+
+  const line = `"You are not from the Subura, and I will not ask you again,"`;
+  const dup = `${a}\n\n${line} he says.\n\n${b}\n\n${line} he repeats.`;
+  check("a line spoken twice loses its second outing", collapseRepeatedSpeech(dup).cut);
+  check("and the first one stays", collapseRepeatedSpeech(dup).text.includes(line));
+  check("and the narration around it is untouched", collapseRepeatedSpeech(dup).text.includes(b));
+  // short lines genuinely recur — a name, a refusal, a call across a yard
+  check("a short line may repeat", !collapseRepeatedSpeech(`${a}\n\n"No," he said.\n\n${b}\n\n"No," he said again.`).cut);
+  // a paragraph that repeats a line but also carries NEW speech is doing something
+  check("a paragraph with a new line as well is kept",
+    !collapseRepeatedSpeech(`${a}\n\n${line} he says.\n\n${b}\n\n${line} he says, "and you will not come back here either."`).cut);
+  check("prose with no dialogue at all is never touched", !collapseRepeatedSpeech(`${a}\n\n${b}`).cut);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
