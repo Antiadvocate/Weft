@@ -60,11 +60,26 @@ export interface LocalEndpoint {
   loop_guard?: number;
   /** top_p. */
   top_p?: number;
+  /** THE CEILING ON A NARRATOR TURN, IN TOKENS.
+   *
+   *  The cloud path asks for 5000, which is a safety number: it costs nothing when unused, and no
+   *  cloud model is short of room. On a local server both halves of that are false. One real
+   *  session ran `CtxLimit: 15673/20480` with a 15,480-token prompt and max_tokens 5000 — prompt
+   *  plus budget landing exactly on the context limit, with nothing to spare and no way for the
+   *  prompt to grow. And a model that is looping will happily fill every token it is given, so an
+   *  oversized budget converts a small failure into a long one.
+   *
+   *  A turn of prose is a few hundred words. This caps the ask without touching TURN ENDINGS, which
+   *  is still the only thing deciding where a scene actually stops. Prose calls only — a bookkeeping
+   *  diff is JSON and needs its own room. 0 = no cap. */
+  max_output?: number;
 }
 
 /** Sampler values used when the endpoint config doesn't say. Modest on purpose: enough to break a
  *  repetition cycle, not enough to change the voice of the prose. */
 export const LOCAL_SAMPLER_DEFAULTS = { loop_guard: 0.3, top_p: 0.9 };
+/** ~900 words of prose. Generous for a turn, and a third of a 20k window handed back. */
+export const LOCAL_MAX_OUTPUT_DEFAULT = 1200;
 
 export function getLocalEndpoint(): LocalEndpoint | null {
   try {

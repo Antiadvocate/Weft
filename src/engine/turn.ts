@@ -16,7 +16,7 @@ import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } fr
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
-import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel } from "../llm";
+import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
@@ -1010,6 +1010,28 @@ export function collapseRepeatedSpeech(text: string): { text: string; cut: boole
   return { text: out, cut: true };
 }
 
+/** AN UNCLOSED DELIBERATION THAT DOES NOT START THE RESPONSE.
+ *
+ *  stripReasoningPreamble handles a response that OPENS with a tag. This handles the other
+ *  arrangement, from the Kobold log: a line of the model instructing itself, and then
+ *
+ *      <think>
+ *      Let me parse what's happening here. The player (Marcus Valerius) just said …
+ *
+ *  running to the end of the budget with no close tag anywhere. Everything from an unclosed opener
+ *  onward is deliberation by definition — there is nothing after it to be prose. */
+export function dropUnclosedReasoningTail(text: string): { text: string; cut: boolean } {
+  const open = new RegExp(`<(${REASON_TAGS.join("|")})\\b[^>]{0,40}>`, "i").exec(text);
+  if (!open) return { text, cut: false };
+  const after = text.slice(open.index + open[0].length);
+  if (new RegExp(`</${open[1]}\\s*>`, "i").test(after)) return { text, cut: false }; // closed; the filter has it
+  const kept = text.slice(0, open.index).trim();
+  // Nothing usable in front of it means the whole response was thinking. Hand the raw text back so
+  // isRefusal sees it whole and the turn is retried, rather than storing a fragment as the scene.
+  if (kept.length < 200) return { text, cut: false };
+  return { text: kept, cut: true };
+}
+
 /** The `/no_think` control token, printed back as prose by a model that read it as content. */
 function stripControlTokenEcho(text: string): { text: string; cut: boolean } {
   const before = text;
@@ -1034,6 +1056,8 @@ export function salvageProse(raw: string): { prose: string; notes: string[] } {
   const tokenEchoed = /\/no_?think|\bno_?think mode\b/i.test(t);
   const preamble = stripReasoningPreamble(t);
   if (preamble.cut) { t = preamble.text; notes.push("narrator wrote its reasoning into the prose and never closed the block — the scene was cut out of it"); }
+  const tail = dropUnclosedReasoningTail(t);
+  if (tail.cut) { t = tail.text; notes.push("narrator broke off into unclosed deliberation — everything from there was dropped"); }
   t = stripControlTokenEcho(t).text;
   if (tokenEchoed) notes.push("narrator echoed the /no_think control token as text — your model reads it as content rather than obeying it, so turn that toggle off in Tuning → Local AI");
   const drafts = dropDiscardedDrafts(t);
@@ -1536,8 +1560,19 @@ export function isRefusal(text: string, bible?: WorldBible): boolean {
   // It is not a refusal and not a stub of prose; it is the model continuing the PROMPT rather than
   // answering it, which is the same root as the chat-envelope failure. Caught explicitly, because
   // the short-response rule below let it through: six words, but it ends in a full stop.
-  const META_STUB = /^[([]?\s*(?:(?:now\s+)?(?:write|writes?|respond|reply|continue|output|produce|provide|generate|begin|start|please)\b[^.!?\n]{0,80}\b(?:response|reply|answer|prose|text|scene|narration|paragraphs?|below|following)\b|your (?:response|reply|answer|output|narration|prose)\b)/i;
-  if (META_STUB.test(t) && t.length < 300) return true;
+  const META_STUB = /^[([]?\s*(?:(?:now\s+)?(?:write|writes?|respond|reply|continue|output|produce|provide|generate|begin|start|please)\b[^.!?\n]{0,120}\b(?:response|reply|answer|prose|text|scene|narration|monologue|chain of thought|paragraphs?|below|following)\b|your (?:response|reply|answer|output|narration|prose)\b)/i;
+  // TESTED ON THE FIRST LINE, NOT THE WHOLE RESPONSE. A length bound on the whole text was the
+  // wrong shape: the model opens with the instruction and then keeps going for hundreds of tokens
+  // of deliberation behind it, so the response is long while its first line is still a stub. Two
+  // real ones, both from the same session:
+  //
+  //     (continue the existing prose; continue the line after the last prose ended: …
+  //     (Write only the interior monologue / chain of thought that leads to the constraints, …
+  //
+  // The line bound stays, because a scene may legitimately open on a line of dialogue that begins
+  // with an imperative, and those are short.
+  const firstLine = t.split(/\n/)[0].trim();
+  if (META_STUB.test(firstLine) && firstLine.length < 400) return true;
   // A response under ~12 words is not narration (a refusal, an error echo, or a stub). Guard
   // against storing it. This is a FLOOR and always was — the contract no longer states a ceiling.
   // Under EIGHT words it does not matter how cleanly it ends: no turn moves a world in seven words,

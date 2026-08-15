@@ -20,7 +20,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, parseSceneFooter, isRefusal } from "../src/engine/turn";
+import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, dropUnclosedReasoningTail, parseSceneFooter, isRefusal } from "../src/engine/turn";
 import { stripThinking } from "../src/llm";
 
 let pass = 0, fail = 0;
@@ -272,6 +272,53 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   // a scene that merely CONTAINS an instruction-shaped line is not a stub
   const embedded = `"Write it down for me," she said, and pushed the wax tablet across the table. He did not touch it. The lamp guttered once between them and neither of them moved to trim it.`;
   check("dialogue that sounds like an instruction is still a scene", !isRefusal(embedded), embedded);
+}
+
+/* ── THE KOBOLD LOG'S TWO OUTPUTS ────────────────────────────────────────────────
+ *
+ * Straight off the server log, both ending in EOS well under the budget:
+ *
+ *   (continue the existing prose; continue the line after the last prose ended: continue the line
+ *   after ". He spits the nail back onto the mud, his gaze still locked on the /no_think
+ *
+ *   <think>
+ *   Let me parse what's happening here. The player (Marcus Valerius) just said a long, rambling…
+ *
+ * and
+ *
+ *   (Write only the interior monologue / chain of thought that leads to the constraints, then the
+ *   final story prose. Write the outside of the room: the river, the mud, a washerwoman wringing
+ *   linen in the brown water, a washerwoman wringing linen in the chain
+ *
+ * Both are the model writing instructions AT itself rather than answering — and the first carries
+ * an unclosed <think> that does not start the response, so neither the stream filter nor the
+ * preamble stripper can reach it.
+ */
+{
+  const one = `(continue the existing prose; continue the line after the last prose ended: continue the line after ". He spits the nail back onto the mud, his gaze still locked on the /no_think\n\n<think>\nLet me parse what's happening here. The player (Marcus Valerius) just said a long, rambling, modern-sounding speech to Livia Aelia. Now I need to write what happens NEXT. The prose continues from where it left off. Key constraints: the player's words are ALREADY SAID.`;
+  const two = `(Write only the interior monologue / chain of thought that leads to the constraints, then the final story prose. Write the outside of the room: the river, the mud, a washerwoman wringing linen in the brown water, a washerwoman wringing linen in the chain`;
+
+  // A LENGTH BOUND ON THE WHOLE RESPONSE WAS THE WRONG SHAPE: the stub is the first line, and the
+  // deliberation behind it makes the response long. Testing the line is what catches these.
+  check("the self-instruction with a think block behind it is caught", isRefusal(one), one.slice(0, 60));
+  check("the interior-monologue instruction is caught", isRefusal(two), two.slice(0, 60));
+  check("neither is stored as a scene", isRefusal(one) && isRefusal(two));
+
+  // and the tail dropper, for the arrangement where real prose DOES precede the break
+  const scene = "Titus wipes the soot from his palms onto a rag and does not look up. The nail turns over once between his fingers, then again, and he sets it down on the flat of the anvil where the light can reach it. Livia stays where she is, the pot held against her chest.";
+  const broken = `${scene}\n\n<think>\nWait, let me reconsider how Livia would react to that, because her card says`;
+  check("prose followed by an unclosed think block keeps the prose", dropUnclosedReasoningTail(broken).text === scene);
+  check("and reports it", dropUnclosedReasoningTail(broken).cut);
+  check("a CLOSED block is left to the stream filter", !dropUnclosedReasoningTail(`${scene}\n\n<think>hm</think>`).cut);
+  check("no tag at all changes nothing", !dropUnclosedReasoningTail(scene).cut);
+  // all deliberation and no scene: hand it back whole so isRefusal sees it and the turn is retried
+  check("a response that is only a break-off is left for the refusal path",
+    !dropUnclosedReasoningTail("<think>\nLet me reconsider the whole thing from the top.").cut);
+
+  // salvage routes it, and the note says what happened
+  const { prose, notes } = salvageProse(broken);
+  check("salvage cuts the tail", prose === scene, prose);
+  check("and names it", notes.some((n) => /unclosed deliberation/.test(n)), notes);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

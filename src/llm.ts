@@ -1,6 +1,6 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
-import { getApiKey, getLocalEndpoint, isLocalModel, localModelId, LOCAL_SAMPLER_DEFAULTS } from "./config";
+import { getApiKey, getLocalEndpoint, isLocalModel, localModelId, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT } from "./config";
 import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -156,6 +156,13 @@ function localSampler(): Record<string, number> {
     ...(guard > 0 ? { frequency_penalty: guard, presence_penalty: Math.round(guard * 50) / 100 } : {}),
     ...(topP > 0 ? { top_p: topP } : {}),
   };
+}
+
+/** Cap a PROSE budget for a local server. Bookkeeping calls are untouched: a diff is JSON and
+ *  truncating it loses a turn's worth of state, which is a worse failure than a long scene. */
+function localMaxTokens(asked: number): number {
+  const cap = getLocalEndpoint()?.max_output ?? LOCAL_MAX_OUTPUT_DEFAULT;
+  return cap > 0 ? Math.min(asked, cap) : asked;
 }
 
 /** Qwen3's soft switch. The control token is read by the chat template, not the sampler, so it has
@@ -460,7 +467,10 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       // A local server gets the plain OpenAI body and nothing else. Marketplace routing, billing
       // and reasoning switches are not merely useless here — llama.cpp's server rejects some
       // unknown fields outright, which would fail every local turn for a parameter about pricing.
-      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, ...localSampler() }
+      // THE BUDGET IS CAPPED ON THE WAY OUT. See LocalEndpoint.max_output: a local window is small
+      // enough that a 5000-token ask can eat a third of it, and a looping model fills whatever it
+      // is given. TURN ENDINGS still decides where the scene stops; this only bounds the room.
+      ? { model: tgt.model, messages: outMsgs, max_tokens: localMaxTokens(maxTokens), temperature: 0.85, stream: true, ...localSampler() }
       : { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.

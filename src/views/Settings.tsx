@@ -6,7 +6,7 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
-import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS } from "../config";
+import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT } from "../config";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
@@ -110,6 +110,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
   const [noThink, setNoThink] = useState(cur?.no_think === true);
   const [loopGuard, setLoopGuard] = useState(String(cur?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard));
   const [topP, setTopP] = useState(String(cur?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p));
+  const [maxOut, setMaxOut] = useState(String(cur?.max_output ?? LOCAL_MAX_OUTPUT_DEFAULT));
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -120,6 +121,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       url: clean, key: lkey.trim() || undefined, no_think: noThink,
       loop_guard: Math.max(0, Math.min(2, Number(loopGuard) || 0)),
       top_p: Math.max(0, Math.min(1, Number(topP) || 0)),
+      max_output: Math.max(0, Math.min(32000, Number(maxOut) || 0)),
     });
     setBusy(true);
     try {
@@ -142,6 +144,10 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       <div className="flex gap-2">
         <div className="flex-1"><TextField label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
         <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>
+      </div>
+      <TextField label="Max narrator tokens per turn (0 = uncapped)" value={maxOut} onChange={setMaxOut} mono />
+      <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
+        The cloud path asks for 5000, which costs nothing when unused. On a local server it costs context: a 15k prompt plus a 5000-token budget lands exactly on a 20k window with no room to grow, and a model that starts looping fills every token you give it. A turn of prose is a few hundred words. This bounds the ask only — where the scene actually stops is still decided by the turn-endings rule. Bookkeeping calls are never capped.
       </div>
       <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
         OpenRouter's providers ship sane sampler defaults; a local server gives you its own, and a heavily quantized model on permissive defaults repeats — a clause cycling until the token budget dies, or a character delivering a line and then delivering it again two paragraphs later. Loop guard drives both penalties that counter that (frequency, and presence at half). <b>If you are still seeing repetition, raise it — 0.6 to 0.8 is not too much on a low-bit quant.</b> Set either field to <span style={{ fontFamily: "var(--font-mono)" }}>0</span> to send nothing and let your server's own settings decide.
