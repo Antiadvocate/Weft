@@ -128,6 +128,12 @@ const CONTRACTS = {
     check(`the ${which} contract still forbids padding`, /do not pad to fill a length/i.test(body));
     // The failure mode being fixed is stopping EARLY, so this is the half that matters most.
     check(`the ${which} contract forbids stopping early`, /do not stop early/i.test(body));
+    // …AND THE OTHER HALF. Removing the ceiling fixed premature EOS and then bought the opposite
+    // failure: a local model with no upper signal ran to its 5000-token budget, which at 11 tok/s
+    // is a seven-minute turn. The overrun marker is deliberately NOT a band, a cap, or a target —
+    // it points backward, at an ending already written through, so there is nothing to fill.
+    check(`the ${which} contract marks overrunning as the same failure`, /past about 450 words/i.test(body));
+    check(`and points backward rather than setting a target`, /look(?:ing)? BACKWARD/i.test(body));
   }
 }
 
