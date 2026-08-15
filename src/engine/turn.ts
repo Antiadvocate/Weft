@@ -879,16 +879,105 @@ export function stripScriptTranscript(text: string): { text: string; cut: boolea
   return kept.length > 80 ? { text: kept, cut: true } : { text, cut: false };
 }
 
+/* ── THE DELIBERATION THAT NEVER CLOSED ───────────────────────────────────────────────────────
+ *
+ * The llm layer strips `<think>…</think>` and its dozen synonyms out of the stream. That only works
+ * when the model CLOSES the tag. A real turn opened `<analysis>`, wrote nine hundred words working
+ * through the scene — correctly, including "the player's spoken line is ALREADY SAID — I must not
+ * reproduce it" — and then slid into the prose without ever emitting `</analysis>`. There is no tag
+ * to match, so nothing upstream can help.
+ *
+ * What it left behind is the giveaway and the seam:
+ *
+ *     …so it's just the ma(no_think mode: direct output, no reasoning)
+ *
+ *     Titus Aelius Rufus stands near the muddy water's edge, a bent iron nail held between his
+ *     thumb and forefinger.
+ *
+ * The model printed the `/no_think` control token back as TEXT and then narrated its own compliance.
+ * That is a model reading the token as content rather than as a template switch — which means the
+ * switch is doing nothing for it except costing tokens and confusing it.
+ *
+ * So the preamble is found structurally instead: an opening reasoning tag or a plainly analytical
+ * first line, then blocks are dropped from the front while they read as somebody working rather
+ * than somebody narrating, stopping at the first block that is clean. Quoted spans are removed
+ * before testing, so a character saying "let me see it" is never mistaken for the model thinking.
+ * And if too little survives, nothing is cut at all — a wrong guess here would eat the scene.
+ */
+const REASONING_OPEN_TAG = /^\s*<(think|thinking|analysis|analyze|reasoning|reason|thought|thoughts|scratchpad|reflection|deliberation|plan)\b[^>]{0,40}>/i;
+/** A first line that is unmistakably the model addressing itself rather than the reader. */
+const ANALYTICAL_OPENER = /^\s*(let me\b|okay,|alright,|first,? (let|i)\b|i need to\b|i'll start\b|i should\b|breaking (this|it) down\b|here'?s what)/i;
+/** Signals that a block is working-out rather than narration. Tested with quotes removed. */
+const REASONING_SIGNAL: RegExp[] = [
+  /^\s*\d+\.\s/,                                  // numbered analysis
+  /^\s*[-*]\s/,                                   // bulleted analysis
+  /^\s*\*\*[^*]{1,48}\*\*\s*:/,                   // **The scene**:
+  /\b(let me|i must|i should|i'll|i will|i think|i need to|let's|i'm overcomplicating)\b/i,
+  /\b(the direction says|the direction:|the scene:|the player'?s (card|action|question)|key constraints?|the instruction|my draft|re-?read|overcomplicat)/i,
+  /\bno_?think\b/i,                               // the leaked control token
+  /\b(actually,? (wait|you know what)|but wait|hmm,? let)\b/i,
+  /\bwhat (titus|livia|the (npcs?|player|character))[a-z ]* would do\b/i,
+];
+function looksLikeReasoning(block: string): boolean {
+  // Dialogue is not evidence: a character may say "let me see it" and that is scene, not thinking.
+  const bare = block.replace(/"[^"]*"/g, " ").replace(/[“][^”]*[”]/g, " ");
+  return REASONING_SIGNAL.some((re) => re.test(bare));
+}
+
+/** Drop a leading run of deliberation the stream filter could not see. */
+export function stripReasoningPreamble(text: string): { text: string; cut: boolean } {
+  const hasTag = REASONING_OPEN_TAG.test(text);
+  if (!hasTag && !ANALYTICAL_OPENER.test(text)) return { text, cut: false };
+  const body = text.replace(REASONING_OPEN_TAG, "");
+  const blocks = body.split(/\n\s*\n/);
+  // FROM THE BACK, NOT THE FRONT. Dropping blocks while they look like reasoning stops at the first
+  // one that happens to read clean — and deliberation is not uniform. In the real sample, "I think
+  // the most natural convention for this type of story is: the dialogue is rendered in English for
+  // the reader" carries no structural marker at all, so a front-to-back scan halted there and kept
+  // four more paragraphs of the model talking to itself. The ordering is what to lean on instead:
+  // a model deliberates and THEN writes, so the prose is whatever follows the LAST working-out
+  // block, and no amount of clean-looking reasoning in the middle can end the scan early.
+  let last = -1;
+  for (let i = 0; i < blocks.length; i++) if (blocks[i].trim() && looksLikeReasoning(blocks[i])) last = i;
+  const kept = blocks.slice(last + 1).join("\n\n").trim();
+  // NEVER GUESS THE SCENE AWAY. If the surviving text is too short to be a turn, the structural
+  // read was wrong and the raw response goes on to the refusal/empty paths that know what to do.
+  if (kept.length < 200) return { text, cut: false };
+  return { text: kept, cut: last >= 0 || hasTag };
+}
+
+/** The `/no_think` control token, printed back as prose by a model that read it as content. */
+function stripControlTokenEcho(text: string): { text: string; cut: boolean } {
+  const before = text;
+  const t = text
+    .replace(/\(\s*\/?no_?think[^)]{0,60}\)/gi, "")
+    .replace(/^[ \t]*\/no_?think[ \t]*$/gim, "")
+    .replace(/\/no_?think\b/gi, "")
+    .trim();
+  return { text: t, cut: t !== before.trim() };
+}
+
 /** Everything above, in the order the debris nests. Returns the notes for the player. */
 export function salvageProse(raw: string): { prose: string; notes: string[] } {
   const notes: string[] = [];
   let t = raw;
   const unwrapped = unwrapChatEnvelope(t);
   if (unwrapped) { t = unwrapped; notes.push("narrator returned the raw message envelope — prose recovered from inside it"); }
+  // NOTICED BEFORE THE CUT, STRIPPED AFTER IT. The leaked control token usually sits INSIDE the
+  // deliberation, so removing the preamble takes the evidence with it — and this is the one piece
+  // of debris that is also a diagnosis worth telling the player, because it means the toggle they
+  // have switched on is being read by their model as prose rather than obeyed as a switch.
+  const tokenEchoed = /\/no_?think|\bno_?think mode\b/i.test(t);
+  const preamble = stripReasoningPreamble(t);
+  if (preamble.cut) { t = preamble.text; notes.push("narrator wrote its reasoning into the prose and never closed the block — the scene was cut out of it"); }
+  t = stripControlTokenEcho(t).text;
+  if (tokenEchoed) notes.push("narrator echoed the /no_think control token as text — your model reads it as content rather than obeying it, so turn that toggle off in Tuning → Local AI");
   const script = stripScriptTranscript(t);
   if (script.cut) { t = script.text; notes.push("stripped a screenplay-style transcript the narrator appended after the scene"); }
   const loop = cutRepetitionLoop(t);
   if (loop.cut) { t = loop.text; notes.push("narrator fell into a repetition loop — the scene was cut where it started repeating"); }
+  // A markdown rule between the scene and its footer is debris, not a scene beat.
+  t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
   return { prose: t, notes };
 }
 

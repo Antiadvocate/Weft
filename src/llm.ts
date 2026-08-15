@@ -89,33 +89,38 @@ function resolveTarget(model: string): Target {
  *  narrator's deliberation streams into the story pane as prose, gets stored as the turn, and is
  *  then replayed to the model as an example of how it writes. Suppressed for local calls only —
  *  a cloud model that types the literal string is writing dialogue. */
-const THINK_OPEN = "<think>";
-const THINK_CLOSE = "</think>";
+/** `<think>` IS NOT THE ONLY NAME FOR IT. This filter shipped knowing exactly one tag, and the very
+ *  next local model wrote `<analysis>` instead and put nine hundred words of deliberation on the
+ *  page. Finetunes and merges each pick their own; there is no standard, so match a family. */
+export const REASON_TAGS = ["think", "thinking", "analysis", "analyze", "reasoning", "reason", "thought", "thoughts", "scratchpad", "reflection", "deliberation", "plan"];
+const OPEN_RE = new RegExp(`<(${REASON_TAGS.join("|")})\\b[^>]{0,40}>`, "i");
+/** The longest partial tag that could still be completed by the next chunk. */
+const MAX_TAG = 48;
+
 /** Streaming filter: deltas split tags across chunk boundaries, so hold back anything that could
  *  still turn out to be the front of one. */
 function thinkFilter() {
   let pend = "";
-  let inside = false;
+  let inside: string | null = null;   // the tag we are inside of, if any
   const step = (chunk: string, final: boolean): string => {
     pend += chunk;
     let out = "";
     for (;;) {
       if (inside) {
-        const end = pend.indexOf(THINK_CLOSE);
-        if (end === -1) {
+        const close = new RegExp(`</${inside}\\s*>`, "i").exec(pend);
+        if (!close) {
           // keep only enough to recognise a close tag that straddles the boundary
-          pend = pend.slice(Math.max(0, pend.length - (THINK_CLOSE.length - 1)));
+          pend = pend.slice(Math.max(0, pend.length - MAX_TAG));
           break;
         }
-        pend = pend.slice(end + THINK_CLOSE.length);
-        inside = false;
+        pend = pend.slice(close.index + close[0].length);
+        inside = null;
         continue;
       }
-      const open = pend.indexOf(THINK_OPEN);
-      if (open !== -1) { out += pend.slice(0, open); pend = pend.slice(open + THINK_OPEN.length); inside = true; continue; }
+      const open = OPEN_RE.exec(pend);
+      if (open) { out += pend.slice(0, open.index); pend = pend.slice(open.index + open[0].length); inside = open[1].toLowerCase(); continue; }
       if (final) { out += pend; pend = ""; break; }
-      const hold = THINK_OPEN.length - 1;
-      if (pend.length > hold) { out += pend.slice(0, pend.length - hold); pend = pend.slice(pend.length - hold); }
+      if (pend.length > MAX_TAG) { out += pend.slice(0, pend.length - MAX_TAG); pend = pend.slice(pend.length - MAX_TAG); }
       break;
     }
     return out;
@@ -124,13 +129,15 @@ function thinkFilter() {
 }
 /** Whole-response version, for the non-streaming path. */
 export function stripThinking(text: string): string {
-  if (!text.includes(THINK_OPEN) && !text.includes(THINK_CLOSE)) return text;
+  if (!/<\/?[a-z]/i.test(text)) return text;
   const f = thinkFilter();
   const out = f.push(text) + f.flush();
-  // An unterminated <think> ate everything — the model never stopped deliberating. Better to hand
-  // back the raw text and let the caller's repair/refusal path see it than to return "".
-  return out.trim() ? out.replace(/^\s+/, "") : text.replace(THINK_OPEN, "").replace(THINK_CLOSE, "");
+  // An unterminated block ate everything — the model opened its deliberation and never closed it.
+  // Hand back the raw text rather than "": the engine's prose salvage knows how to find where the
+  // scene begins inside an unclosed preamble, and this layer does not.
+  return out.trim() ? out.replace(/^\s+/, "") : text;
 }
+
 
 /** The sampler fields for a local call — standard OpenAI names only, and omitted entirely when set
  *  to 0 so the server's own configuration wins. See LocalEndpoint for why these exist at all. */

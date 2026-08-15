@@ -20,7 +20,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { salvageProse, cutRepetitionLoop, stripScriptTranscript, parseSceneFooter } from "../src/engine/turn";
+import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, parseSceneFooter } from "../src/engine/turn";
+import { stripThinking } from "../src/llm";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -101,6 +102,76 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   // never leave the player with nothing
   check("a response that is ONLY a transcript is left for the refusal path",
     !stripScriptTranscript(`Marcus: "a"\nTitus: "b"\nLivia: "c"`).cut);
+}
+
+/* ── THE DELIBERATION THAT NEVER CLOSED ──────────────────────────────────────────
+ *
+ * Second fixture, same setup, a later turn. The model opened `<analysis>`, worked through the scene
+ * for nine hundred words — correctly; it even wrote "the player's spoken line is ALREADY SAID — I
+ * must not reproduce it", which is the anti-echo fix landing — and then wrote the prose WITHOUT
+ * ever closing the tag. No close tag means the stream filter has nothing to match on, so the whole
+ * thing reached the page.
+ */
+{
+  const RAW2 = readFileSync(join(import.meta.dirname, "fixtures/reasoning-preamble-turn.txt"), "utf8");
+  const { prose, notes } = salvageProse(RAW2);
+
+  check("the unclosed deliberation is reported", notes.some((n) => /never closed the block/.test(n)), notes);
+  check("the prose starts at the scene", prose.startsWith("Titus Aelius Rufus stands near the muddy water's edge"), prose.slice(0, 90));
+  check("no analysis tag survives", !/<analysis/i.test(prose));
+
+  // Every one of these is a phrase from the model's working-out. None may reach the player.
+  for (const leak of ["Let me break down", "Key constraints", "**What Titus would do**", "Let me draft", "you know what, let me just write it", "the language barrier", "at least one beat"]) {
+    check(`no leak: ${leak.slice(0, 34)}`, !prose.includes(leak), prose.slice(0, 200));
+  }
+  check("and no numbered analysis list", !/^\s*\d+\.\s+\*\*/m.test(prose));
+
+  // the whole scene survives — this must not become a fragment
+  check("the dialogue survives", prose.includes("May Vulcan see that no man is lost to the river"));
+  check("the closing beat survives", prose.includes("Livia Aelia stands behind him"));
+  check("the markdown rule before the footer is gone", !/^\s*\*{3,}\s*$/m.test(prose));
+
+  // The footer was truncated mid-attribute by the budget the reasoning ate. It must still parse —
+  // losing it would leave the engine with no declaration of who is in the room.
+  const footer = parseSceneFooter(prose).footer;
+  check("the truncated footer still parses", footer?.place === "The Tiber Embankment", footer);
+  check("with the full roster", footer?.here.length === 3, footer?.here);
+
+  // THE DIAGNOSIS SURVIVES THE CUT. The leaked token sits inside the deliberation, so stripping the
+  // preamble takes the evidence away with it — and this is the one bit of debris that tells the
+  // player something they can act on about their own setup.
+  check("the /no_think leak is still reported after the preamble is cut",
+    notes.some((n) => /no_?think/.test(n) && /Tuning/.test(n)), notes);
+  check("and the token itself never appears in the prose", !/no_?think/i.test(prose));
+}
+
+/* ── the pieces, on their own ────────────────────────────────────────────────── */
+{
+  const scene = "Titus stands near the water's edge, a bent nail between his fingers. He taps it against his teeth, then holds it up so the light catches the metal. His eyes do not blink, and they move slowly over your filthy shirt and torn jeans.";
+  // gated on an opener: prose that merely contains a stray analytical word is never touched
+  check("clean prose is never scanned at all", !stripReasoningPreamble(scene).cut);
+  check("an opener alone is enough to look", stripReasoningPreamble(`<analysis>\nLet me think.\n\n${scene}`).cut);
+  // NEVER GUESS THE SCENE AWAY — if too little survives, the structural read was wrong
+  check("a response that is ALL reasoning is left alone", !stripReasoningPreamble("<think>\nLet me think about this scene.\n\nI should open on the cold.").cut);
+  // dialogue is not evidence of thinking
+  const withQuote = `<analysis>\nLet me think.\n\nHe held out his hand. "Let me see it," he said, and she gave him the nail without a word. The metal was still warm from the forge, and he turned it over twice before he spoke again.`;
+  check("a character saying 'let me' is scene, not deliberation",
+    stripReasoningPreamble(withQuote).text.includes("Let me see it"), stripReasoningPreamble(withQuote).text);
+}
+
+/* ── the stream filter learned more than one name for thinking ───────────────── */
+{
+  check("<think> still works", stripThinking("<think>hm</think>Prose.") === "Prose.");
+  // the tag that produced this fixture
+  check("<analysis> too", stripThinking("<analysis>hm</analysis>Prose.") === "Prose.");
+  for (const tag of ["thinking", "reasoning", "thought", "scratchpad", "reflection"]) {
+    check(`<${tag}> too`, stripThinking(`<${tag}>working</${tag}>Prose.`) === "Prose.");
+  }
+  check("an attribute on the tag doesn't defeat it", stripThinking('<think type="internal">hm</think>Prose.') === "Prose.");
+  // an unclosed block is handed on intact — the prose salvage is the layer that can find the scene
+  check("an unclosed block is passed through for the salvage layer",
+    stripThinking("<analysis>going forever").includes("going forever"));
+  check("a real tag-shaped word in prose is untouched", stripThinking("She read the plan. It was short.") === "She read the plan. It was short.");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
