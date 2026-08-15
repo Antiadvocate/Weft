@@ -761,6 +761,137 @@ function splitAt(text: string, at: number): { prose: string; footer: SceneFooter
   };
 }
 
+/* ── WHEN THE MODEL EMITS THE ENVELOPE INSTEAD OF THE LETTER ──────────────────────────────────
+ *
+ * From a real save (Rome, 41 AD), turn 1, narrated by a local Q3 quant of a 27B. The whole stored
+ * turn — what the player was shown as their story:
+ *
+ *     [{"role": "assistant", "content": "The mud under his jeans is cold and wet, and the stench
+ *     of the river pulls up from the cracks in the embankment stones. […] A fisherman's boat
+ *     drifts sideways, a fisherman's boat drifts sideways, a fisherman's boat drifts sideways. A
+ *     fisherman's boat drifts"
+ *
+ *     Marcus Valerius: "Hmm where am I... is this ancient times?"
+ *     Titus Aelius Rufus: "May Vulcan see what has been made here. […]"
+ *     Livia Aelia: "When I was small, my father told me […]"
+ *
+ * Three separate failures stacked in one response, and the prose inside the wrapper is genuinely
+ * good, which is what makes throwing the turn away the wrong answer:
+ *
+ *   1. THE CHAT ENVELOPE. It serialized the API message format rather than answering in it. This is
+ *      what a model does when the chat template did not put it in the assistant's turn — it sees a
+ *      transcript of JSON and continues the JSON.
+ *   2. A DEGENERATE LOOP, the classic end state of an over-quantized model with no penalty on the
+ *      sampler: one clause repeating until the token budget ran out.
+ *   3. A SCRIPT TRANSCRIPT, appended after the envelope closed — and its first line is the player's
+ *      own input handed straight back, which is the echo failure in its purest form.
+ *
+ * None of this is recoverable by asking again: it is a formatting failure, not a refusal, and the
+ * fallback here was the SAME local model. So the debris is stripped and the prose kept. Each step
+ * reports itself, because a turn that needed rescuing is a fact about the setup the player should
+ * see rather than something the engine quietly papers over.
+ */
+
+/** The assistant text inside a serialized message envelope, or null if this isn't one. */
+function unwrapChatEnvelope(text: string): string | null {
+  const t = text.trim();
+  if (!/^[[{]/.test(t) || !/"role"\s*:|"content"\s*:/.test(t)) return null;
+  const collect = (v: any): string => {
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return v.map(collect).join("");
+    if (v && typeof v === "object") {
+      if (typeof v.content === "string") return v.content;
+      if (Array.isArray(v.content)) return collect(v.content);
+      if (typeof v.text === "string") return v.text;
+    }
+    return "";
+  };
+  // The envelope is usually TRUNCATED — the loop ate the budget — so a plain parse fails and the
+  // repair path is the one that actually runs. Both are tried before falling back to reading the
+  // content strings out by hand.
+  for (const candidate of [t, repairJson(t)]) {
+    try {
+      const got = collect(JSON.parse(candidate)).trim();
+      if (got.length > 40) return got;
+    } catch { /* fall through */ }
+  }
+  const parts: string[] = [];
+  const re = /"content"\s*:\s*"((?:[^"\\]|\\.)*)"?/g;
+  for (let m = re.exec(t); m; m = re.exec(t)) {
+    try { parts.push(JSON.parse(`"${m[1]}"`)); } catch { /* an unterminated tail; skip */ }
+  }
+  const joined = parts.join("\n\n").trim();
+  return joined.length > 40 ? joined : null;
+}
+
+/** How short a repeating unit has to be before it stops being a loop and starts being a refrain. */
+const LOOP_MIN_PERIOD = 12;
+/** Consecutive repeats that mean the sampler has fallen into a cycle rather than made a choice. */
+const LOOP_REPEATS = 3;
+
+/** Cut a response at the point it started saying the same thing forever.
+ *
+ *  Deliberately looks for an EXACT unit repeating back-to-back at least three times. Twice is a
+ *  rhetorical figure people actually write ("she waited, and waited"); three identical runs of a
+ *  whole clause is a model that has stopped generating and started cycling. The first occurrence is
+ *  kept — it was a real sentence before the cycle closed on it. */
+export function cutRepetitionLoop(text: string): { text: string; cut: boolean } {
+  // MATCHED ON A NORMALIZED COPY, CUT ON THE ORIGINAL. The real loop out of the Rome save reads
+  //
+  //     A fisherman's boat drifts sideways, a fisherman's boat drifts sideways, a fisherman's
+  //     boat drifts sideways. A fisherman's boat drifts
+  //
+  // and an exact-match detector finds only TWO consecutive repeats in it, because the model varied
+  // the punctuation and the capital as it cycled: ", a" the first time, ". A" the next. That is
+  // still a loop by any reading, and requiring byte equality would have let this one through. The
+  // normalization is length-preserving on purpose — one character in, one out — so an index into
+  // the normalized copy is the same index in the original, and the text handed back is untouched.
+  const norm = text.toLowerCase().replace(/[,.;:!?]/g, ".").replace(/[’]/g, "'");
+  const n = text.length;
+  for (let i = 0; i < n - LOOP_MIN_PERIOD * LOOP_REPEATS; i++) {
+    for (let p = LOOP_MIN_PERIOD; p <= Math.min(240, Math.floor((n - i) / LOOP_REPEATS)); p++) {
+      const unit = norm.slice(i, i + p);
+      // an all-whitespace or punctuation-only "unit" is not a phrase
+      if (!/[a-z]{3}/i.test(unit)) continue;
+      let reps = 1;
+      while (norm.slice(i + reps * p, i + (reps + 1) * p) === unit) reps++;
+      if (reps >= LOOP_REPEATS) {
+        const kept = text.slice(0, i + p).replace(/[\s,;]+$/, "");
+        return { text: kept + (/[.!?"']$/.test(kept) ? "" : "."), cut: true };
+      }
+    }
+  }
+  return { text, cut: false };
+}
+
+/** A trailing block of `Name: "line"` — screenplay format, never Weft prose, and in the wild its
+ *  first line is the player's own input read back to them. */
+export function stripScriptTranscript(text: string): { text: string; cut: boolean } {
+  const lines = text.split("\n");
+  const isScript = (s: string) => /^\s*[A-Z][\p{L}'’.\- ]{1,40}:\s*["“]/u.test(s);
+  let i = lines.length;
+  while (i > 0 && (!lines[i - 1].trim() || isScript(lines[i - 1]))) i--;
+  // require an actual block, and require prose to survive — a response that is ONLY a transcript
+  // is a different failure and belongs to the empty/refusal path, not to this one
+  const removed = lines.slice(i).filter((l) => isScript(l)).length;
+  if (removed < 2) return { text, cut: false };
+  const kept = lines.slice(0, i).join("\n").trim();
+  return kept.length > 80 ? { text: kept, cut: true } : { text, cut: false };
+}
+
+/** Everything above, in the order the debris nests. Returns the notes for the player. */
+export function salvageProse(raw: string): { prose: string; notes: string[] } {
+  const notes: string[] = [];
+  let t = raw;
+  const unwrapped = unwrapChatEnvelope(t);
+  if (unwrapped) { t = unwrapped; notes.push("narrator returned the raw message envelope — prose recovered from inside it"); }
+  const script = stripScriptTranscript(t);
+  if (script.cut) { t = script.text; notes.push("stripped a screenplay-style transcript the narrator appended after the scene"); }
+  const loop = cutRepetitionLoop(t);
+  if (loop.cut) { t = loop.text; notes.push("narrator fell into a repetition loop — the scene was cut where it started repeating"); }
+  return { prose: t, notes };
+}
+
 function stripMeta(text: string): string {
   if (!text) return text;
   let t = text.trim();
@@ -2306,6 +2437,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const est = (s: string) => Math.max(1, Math.round((s?.length ?? 0) / 4));
     const promptChars = JSON.stringify(narratorMsgs ?? []).length;
     narratorUsage = { ...narratorUsage, prompt_tokens: est(" ".repeat(promptChars)), completion_tokens: est(prose) };
+  }
+  // MALFORMED OUTPUT COMES OFF FIRST — the scene footer can be INSIDE a chat envelope, so parsing
+  // for it before unwrapping finds nothing and the turn silently loses its presence declaration.
+  {
+    const salvaged = salvageProse(prose);
+    if (salvaged.notes.length) {
+      prose = salvaged.prose;
+      ev.onMeta?.({ shifts: salvaged.notes });
+    }
   }
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);

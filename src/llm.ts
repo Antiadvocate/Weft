@@ -1,6 +1,6 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
-import { getApiKey, getLocalEndpoint, isLocalModel, localModelId } from "./config";
+import { getApiKey, getLocalEndpoint, isLocalModel, localModelId, LOCAL_SAMPLER_DEFAULTS } from "./config";
 import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -132,6 +132,15 @@ export function stripThinking(text: string): string {
   return out.trim() ? out.replace(/^\s+/, "") : text.replace(THINK_OPEN, "").replace(THINK_CLOSE, "");
 }
 
+/** The sampler fields for a local call — standard OpenAI names only, and omitted entirely when set
+ *  to 0 so the server's own configuration wins. See LocalEndpoint for why these exist at all. */
+function localSampler(): Record<string, number> {
+  const ep = getLocalEndpoint();
+  const freq = ep?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard;
+  const topP = ep?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p;
+  return { ...(freq > 0 ? { frequency_penalty: freq } : {}), ...(topP > 0 ? { top_p: topP } : {}) };
+}
+
 /** Qwen3's soft switch. The control token is read by the chat template, not the sampler, so it has
  *  to ride inside a message; the last user message is where the template looks. */
 function applyNoThink(messages: any[]): any[] {
@@ -254,7 +263,7 @@ async function onceLocal(messages: any[], tgt: Target, slug: string, json: JsonM
     method: "POST",
     signal: opts?.signal,
     headers: tgt.headers,
-    body: JSON.stringify({ model: tgt.model, messages: msgs, max_tokens: maxTokens, temperature: json ? 0.2 : 0.85, ...rf }),
+    body: JSON.stringify({ model: tgt.model, messages: msgs, max_tokens: maxTokens, temperature: json ? 0.2 : 0.85, ...localSampler(), ...rf }),
   });
   if (!res.ok) throw new Error(`local model ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data: any = await res.json();
@@ -434,7 +443,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       // A local server gets the plain OpenAI body and nothing else. Marketplace routing, billing
       // and reasoning switches are not merely useless here — llama.cpp's server rejects some
       // unknown fields outright, which would fail every local turn for a parameter about pricing.
-      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true }
+      ? { model: tgt.model, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, ...localSampler() }
       : { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.

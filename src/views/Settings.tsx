@@ -6,7 +6,7 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
-import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint } from "../config";
+import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS } from "../config";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
@@ -108,13 +108,19 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
   const [url, setUrl] = useState(cur?.url ?? "");
   const [lkey, setLkey] = useState(cur?.key ?? "");
   const [noThink, setNoThink] = useState(cur?.no_think !== false);
+  const [loopGuard, setLoopGuard] = useState(String(cur?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard));
+  const [topP, setTopP] = useState(String(cur?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p));
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
     const clean = url.trim().replace(/\/+$/, "");
     if (!clean) { setLocalEndpoint(null); setStatus("local AI off — every call goes to OpenRouter"); return; }
-    setLocalEndpoint({ url: clean, key: lkey.trim() || undefined, no_think: noThink });
+    setLocalEndpoint({
+      url: clean, key: lkey.trim() || undefined, no_think: noThink,
+      loop_guard: Math.max(0, Math.min(2, Number(loopGuard) || 0)),
+      top_p: Math.max(0, Math.min(1, Number(topP) || 0)),
+    });
     setBusy(true);
     try {
       const found = await loadLocalModels();
@@ -133,6 +139,13 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       <Toggle on={noThink} onFlip={() => setNoThink((v) => !v)}
         title="Suppress local thinking (/no_think)"
         desc="Qwen3 and other hybrid GGUFs deliberate out loud before answering — slow, and it lands in the story pane. This appends the control token that turns it off. Any <think> block that appears anyway is stripped before you ever see it." />
+      <div className="flex gap-2">
+        <div className="flex-1"><TextField label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
+        <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>
+      </div>
+      <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
+        OpenRouter's providers ship sane sampler defaults; a local server gives you its own, and a heavily quantized model on permissive defaults produces the classic failure — one clause repeating until the token budget runs out. Loop guard is the direct counter. Set either to <span style={{ fontFamily: "var(--font-mono)" }}>0</span> to send nothing and let your server's own settings decide.
+      </div>
       <button className="btn w-full mt-2" disabled={busy} onClick={() => void save()}>
         {busy ? "checking…" : url.trim() ? "Save & test" : "Turn local AI off"}
       </button>
@@ -548,6 +561,15 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
         <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
         <ModelPicker label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} />
+        {isLocalModel(draft.narrator_model) && isLocalModel(draft.fallback_model) && (
+          // A fallback exists to be DIFFERENT. Pointing it at the same local model means a narrator
+          // that returned garbage gets asked again, the same way, by the same weights — and the one
+          // failure a local setup actually produces (a malformed response, not a refusal) is the one
+          // that reproduces perfectly on retry.
+          <div className="text-[11px] mt-1 mb-1" style={{ color: "var(--accent)" }}>
+            Narrator and fallback are the same local model — so a bad turn is retried on the weights that just produced it, and nothing can rescue a local server that is down. Point the fallback at a cloud model.
+          </div>
+        )}
         <ModelPicker label="Images — portraits & scenes" value={draft.image_model} onChange={setM("image_model")} kind="image" />
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
           Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
