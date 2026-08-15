@@ -112,10 +112,10 @@ function LocalAI({ onPreset, presetApplied }: { onPreset: () => void; presetAppl
         Nothing leaves your machine. If the page is served over https the browser may refuse a plain-http localhost call — run Weft locally, or use KoboldCpp's <span style={{ fontFamily: "var(--font-mono)" }}>--remotetunnel</span> and paste the https URL it prints.
       </div>
       <button className="btn w-full mt-3" onClick={onPreset}>
-        {presetApplied ? <><Check size={14} /> tuned for a small local model</> : "Tune this save for a local model"}
+        {presetApplied ? <><Check size={14} /> tuned for a local model</> : "Tune this save for a local model"}
       </button>
       <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
-        Sets lean prompts, chat-log context, a slower re-anchor and a tight digest — about 18k tokens a turn instead of 27k, which leaves a 64k model most of its window for the scene itself. Review the sections below, then Save.
+        Sets lean prompts, chat-log context, a slower re-anchor and a tight digest — about 18k tokens a turn instead of 27k. This is a SPEED setting, not a fitting one: a 64k window holds a full turn either way, but every token you cut is prompt the model doesn't ingest before it writes, and KV cache it doesn't hold. If your machine is fast enough, unwind it in this order and keep what reads better — token budget to 0 first, then lean mode off. Chat-log context and the slow re-anchor cost nothing; leave those on. Review the sections below, then Save.
       </div>
     </div>
   );
@@ -512,7 +512,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
-          Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper, which is the short call that has to emit strict JSON — the thing small models fail at most. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
+          Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
           Prefix `anthropic/` models get prompt-cache breakpoints automatically.
           Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
