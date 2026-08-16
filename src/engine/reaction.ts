@@ -76,6 +76,31 @@ const ACT_FLOOR = 18;
  * was told nothing about what the player was visibly wearing or carrying, and the comparison it is
  * supposed to make never happened. What somebody has on them is true on all of those turns too, so
  * it is its own thing now, and the digest prints it every turn.
+ *
+ * AND THEN IT READ THE WRONG THREE FIELDS AND WENT DARK.
+ *
+ * Rome, 41 AD, every turn of the save. `wearing: []`, `inventory: []`, `appearance_now: ""` — and
+ * `appearance_facts` reading "He wears a modern t-shirt and jeans, now filthy and torn, and carries
+ * an iPhone in an OtterBox case." The three fields this function reads are the ones the Forge does
+ * not fill and the simulator only writes when something CHANGES; the one that is populated at
+ * character creation, always, is the one it never looked at. So the block above — the whole
+ * anachronism comparison, the reason it exists — returned the empty string on every turn of a
+ * playthrough whose entire premise is a man from 2026 standing on the Tiber bank with a phone.
+ *
+ * THE OTHER HALF: A WORD IS AN ANACHRONISM TOO.
+ *
+ * The failure that surfaced it was not an object at all. The player typed "if you have a sheet of
+ * paper and a pencil I can draw it out", and a blacksmith in 41 AD said "Paper and a pencil" and
+ * then added a detail of his own — not here, the muck gets into everything. Neither thing exists:
+ * paper is centuries away and a graphite pencil is fifteen hundred years away. He did not merely
+ * fail to object; by repeating the words back and building on them he made both objects real, and
+ * they stay real for the rest of the story, because the record now shows a Roman who has heard of
+ * them.
+ *
+ * The engine did have a rule aimed at this and it is aimed one way only: "Nobody NAMES a thing this
+ * world does not contain" governs what a character produces. Nothing governed what a character
+ * ACCEPTS. Comprehension is the direction the anachronism actually travels when the player is the
+ * one out of time, and it is the direction that was never covered.
  */
 export function visibleOnPlayer(state: SaveState): string {
   const cond = state.condition["char_player"];
@@ -83,13 +108,27 @@ export function visibleOnPlayer(state: SaveState): string {
     ...(cond?.wearing ?? []),
     ...(cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[],
   ].filter((x) => String(x).trim()).slice(0, 6);
-  const look = String(state.characters["char_player"]?.appearance_now ?? "").trim();
+  const p = state.characters["char_player"];
+  // appearance_now is what CHANGED; appearance_facts is what is always true of this body and what it
+  // is dressed in, written at creation and never blank. Prefer the live field, fall back to the
+  // permanent one — the alternative is the guard reading three fields that are usually empty.
+  //
+  // AND TAKE THE FALLBACK FROM THE END. A Forge-written appearance runs hair, eyes, skin, build,
+  // one distinguishing mark, and THEN what they are wearing and carrying — in that order, every
+  // time. The anachronism is in the tail by construction, so slicing this from the front trims off
+  // the iPhone and keeps the hazel eyes. The save this was found on ran to 295 characters against a
+  // 300-character cap; one more clause about his build and the phone would have been cut.
+  const now = String(p?.appearance_now ?? "").trim();
+  const facts = String(p?.appearance_facts ?? "").trim();
+  const look = now || (facts.length > 320 ? `…${facts.slice(-320)}` : facts);
   const tech = String(state.world_bible?.technology_level ?? "").trim();
-  const seen = [look, ...carried].filter(Boolean).join("; ");
+  const seen = [look.slice(0, 340), ...carried].filter(Boolean).join("; ");
   if (!seen || !tech) return "";
-  return `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen.slice(0, 240)}.
+  const him = String(p?.name ?? "").trim() || "the player";
+  return `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen}.
 This world can do this and no more: ${tech.slice(0, 240)}
-Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.`;
+Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.
+AND HOLD THE SAME TWO LINES AGAINST WHAT HE SAYS. ${him} talks out of a world nobody here has seen, and a word for a thing this world does not contain does not become a thing by being said out loud. When he names one — a material, a tool, a trade, a machine, a measure, a sum, an idea — the people here do not know what he means, because there is nothing in their lives for the word to land on. Each of them does one of these, from who they are: hears the nearest thing their own life holds and answers about THAT instead, asks him what it is, takes it for a word from his own country and lets it go by, or decides he is talking nonsense and says so. What NONE of them does is say yes to it, repeat it back as a thing they know, name a price for it, or add a detail of their own — a single agreement puts that object into this world permanently, and everything written after it inherits a Rome that has the thing in it.`;
 }
 
 /**
