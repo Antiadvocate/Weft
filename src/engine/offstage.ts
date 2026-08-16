@@ -58,6 +58,8 @@ THE ONE RULE: you do not INVENT the player into the world. No event may exist be
 IT IS ALSO NOT A RULE ABOUT REACTING TO WHAT THE PLAYER DID IN PUBLIC. Written as the one rule alone, it reads as a ban on anyone approaching him — and it was obeyed in exactly one direction. Four months into a save the player abolished slavery, built a school out of light in the middle of the Forum, and put a spoken offer into every mind in the city; the four events this pass returned for those hours were a baker's boy deciding not to offer him bread, a freedwoman crossing the lane to avoid his gate, a tradesman hardening a rumour into a warning, and a matron telling her husband that nobody went near the villa and that was the right decision. Every one of those is a stranger developing an opinion about the player. They passed because a stranger turning AWAY reads as the world being busy, while a stranger turning TOWARD reads as staged for him. Nothing in the rule says that, and it is not true: both are reactions and both are the world moving.
 So: when the player has done something in public that people would plainly react to, they react, and the reactions run in every direction that the population supports. A crowd does not reach consensus. If the report has three people avoiding him and nobody approaching him, it has taken a side.
 
+AND THE PLAYER'S OWN HANDS ARE NOT YOURS. He is the one person in this world whose actions are typed, not written, and an event of yours may never contain him doing anything: not drawing, giving, showing, telling, teaching, promising, paying, agreeing, or arriving. This is the failure that made the rule necessary — a smith was reported laying out two iron rims that a foreign hand had sketched for him, and no such drawing was ever made; the player had said thirty turns earlier that he would make one and never had. The event invented his hand, and then a day of forging out of it, and the record kept both. So: if an event only works because the player did something, that event did not happen — write what the person did with what they ALREADY have. A smith with no drawing is a smith waiting, guessing, giving up on it, or making the thing wrong from what he half-heard, and any of those is a better beat than one that quietly forges the player's signature.
+
 IT IS NOT A RULE ABOUT THE CAST'S OWN WANTS. If a named person in the CAST list already wants something that concerns the player — to call him, to stop herself calling him, to get her things back, to say the thing she did not say — then acting on that want IS the world moving, and it is REQUIRED of you, not forbidden. Written as the one rule alone, this pass could not touch the person whose life the story had just taken apart: a woman whose recorded want was "get through the next day without calling him, and fail at it" went unwritten for twenty turns while three background regulars had busy evenings, because every want she had was player-shaped. The player noticed she had simply stopped existing.
 So: never invent a relationship to the player. Always honour one that is already written down.
 
@@ -313,6 +315,28 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
  *  without a model: this is where an event becomes a memory, a rumour seed, a clock step, a place,
  *  a message on the player's phone, and — the part that was missing — a question the story now has
  *  to answer. */
+/** Ways this pass refers to the protagonist when it is about to have him do something: by name, or
+ *  by the epithet the cast would use for a man from nowhere. */
+const PLAYER_HAND = /\b(?:the|a)\s+(?:foreign|foreigner'?s?|strange|stranger'?s?|outsider'?s?|newcomer'?s?)\s*(?:hand|man|one)?\b|\bthe (?:foreigner|stranger|outsider|newcomer)\b/i;
+/** Acts that put something into the world — the ones that leave an object, a promise, or a fact
+ *  behind. A sentence where the player merely appears ("Rufus thinks about Marcus") is untouched. */
+const HAND_OF = /\b(sketch(?:ed|es)?|draw|drew|drawn|design(?:ed)?|gave|given|hand(?:ed)?|show(?:ed|n)?|deliver(?:ed)?|brought|paid|sold|promis(?:ed)|agree(?:d)?|told|taught|wrote|written|made|built|left him|sent)\b/i;
+
+export function playerAuthored(what: string, playerName: string): boolean {
+  const text = String(what ?? "");
+  for (const raw of text.split(/(?<=[.;!?])\s+|—/)) {
+    const s = raw.trim();
+    if (!s) continue;
+    const namesPlayer = (playerName.length >= 3 && new RegExp(`\\b${playerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(s)) || PLAYER_HAND.test(s);
+    if (!namesPlayer) continue;
+    // The player must be the one DOING it: an act verb after the reference, in the same clause.
+    const at = s.search(PLAYER_HAND) >= 0 ? s.search(PLAYER_HAND) : s.toLowerCase().indexOf(playerName.toLowerCase());
+    if (at < 0) continue;
+    if (HAND_OF.test(s.slice(at))) return true;
+  }
+  return false;
+}
+
 export function applyOffstage(state: any, events: OffstageEvent[], retired: string[] = []): string[] {
   const byName = new Map<string, string>();
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
@@ -322,8 +346,27 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
   const log: string[] = [...retired];
   const turn = state.world.current_turn ?? 0;
 
+  const playerName = String(state.characters?.["char_player"]?.name ?? "").split(/\s+/)[0];
+
   for (const ev of events.slice(0, 3)) {
     if (!ev?.what) continue;
+    // THE PLAYER DOES NOT ACT IN THESE EVENTS, and until now nothing said so.
+    //
+    // Turn 43 of a save: "Titus, unable to leave the bicycle riddle alone, lays out the two iron
+    // rims A FOREIGN HAND SKETCHED FOR HIM and finds neither will true against the other — the
+    // axle-mounts he shaped this afternoon…". The player's last word on the subject was thirty-three
+    // turns earlier, "I'll create the design for the bike", and he never did. This pass invented the
+    // drawing, then a smith forging two rims and a set of axle-mounts from it, and the applier filed
+    // the whole thing as a fact in Titus's memory. The player's question was how a man he never gave
+    // a design to came to have one built.
+    //
+    // The prompt's one rule is about events existing BECAUSE of the player. This is the other thing:
+    // an event that quietly writes the player's own hand into the past. Both ends are covered now —
+    // the rule above, and this, which does not need the model to have obeyed it.
+    if (playerAuthored(ev.what, playerName)) {
+      log.push(`offstage: dropped an event that had ${playerName || "the player"} doing something he never did — "${String(ev.what).slice(0, 90)}…"`);
+      continue;
+    }
 
     // SOMEBODY REACHED THE PLAYER. Queued for the next turn's directive rather than applied here:
     // the narrator has to render it arriving, or it is a thing that happened to nobody.
