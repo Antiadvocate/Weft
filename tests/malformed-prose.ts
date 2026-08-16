@@ -20,7 +20,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, collapseRepeatedSpeech, dropUnclosedReasoningTail, parseSceneFooter, isRefusal } from "../src/engine/turn";
+import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, extractLabelledDraft, collapseRepeatedSpeech, dropUnclosedReasoningTail, parseSceneFooter, isRefusal } from "../src/engine/turn";
 import { stripThinking } from "../src/llm";
 
 let pass = 0, fail = 0;
@@ -319,6 +319,51 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   const { prose, notes } = salvageProse(broken);
   check("salvage cuts the tail", prose === scene, prose);
   check("and names it", notes.some((n) => /unclosed deliberation/.test(n)), notes);
+}
+
+/* ── THE DRAFT IN THE MIDDLE, WHICH SHIPPED AS SOMEBODY'S OPENING ─────────────────────────────
+ *
+ * Verbatim shape from a save's turn 0 — 865 words of a model planning out loud, a line reading
+ * `Draft:`, a complete 190-word opening, and then straight back to planning until the budget ran
+ * out mid-sentence. All of it was stored and shown to the player as the first page of their story.
+ *
+ * Neither existing cutter could touch it. stripReasoningPreamble is gated on the response OPENING
+ * with a tag or an analytical opener, and this one opens with a flat declarative statement of the
+ * setup. Ungated it would still find nothing: it keeps what follows the LAST working-out block,
+ * and the last one here is at the very end.
+ */
+{
+  const buried = [
+    "The player is Rabi, in The Velvet Room at 23:47, cold rain outside. Zoe is in his head. Need 2-4 paragraphs, 120-260 words, second person, dialogue in quotes, no headers, no meta.",
+    "Need to render: Rabi checks exits (involuntary), answers Zoe with one-word answers, carries gun waistband. Let's open with him inside, taking in exits, dancers, sound.",
+    "Draft:",
+    "The bass hit you in the chest before the door swung shut behind you, heavy enough to feel in your teeth. Your eyes moved on their own: main entrance, emergency exit left of the bar, stairs to the DJ booth, a steel door marked STAFF behind the velvet rope. Four ways out before you had taken three steps.",
+    "Zoe pressed warm behind your eyes. \"I hear the rain on the roof. Tick tick tick.\" A pause. \"Are you okay?\"",
+    "Linh Tran stood by the bar, counting the room in the mirror behind the bottles. She made a note in a small black notebook and put it away. The club kept moving. Linh watched.",
+    "Maybe too many words? Let me count. That's about 190? Fine.",
+    "Need to ensure no forbidden content. Check world bible: dance clubs are neutral ground. Zoe's anatomy: no body,",
+  ].join("\n\n");
+
+  check("the old cutters cannot see it", !stripReasoningPreamble(buried).cut && !dropDiscardedDrafts(buried).cut);
+
+  const got = extractLabelledDraft(buried);
+  check("the labelled draft is found", got.cut);
+  check("...and it starts at the scene", /^The bass hit you/.test(got.text), got.text.slice(0, 60));
+  check("...and stops where the model goes back to working", !/too many words/.test(got.text) && !/world bible/.test(got.text));
+  check("...keeping every paragraph of the draft itself", /Four ways out/.test(got.text) && /Linh watched/.test(got.text));
+  check("the planning is gone", !/120-260 words/.test(got.text) && !/Need to render/.test(got.text));
+
+  // the brief restated back is itself a reasoning signal now — no scene says "120-260 words"
+  check("a restated word count reads as working-out",
+    stripReasoningPreamble("Okay, so.\n\nNeed 2-4 paragraphs, 120-260 words, no headers, no meta.\n\n" + "The bass hit you in the chest before the door swung shut behind you, heavy enough to feel in your teeth. Your eyes moved on their own: main entrance, emergency exit left of the bar, stairs to the DJ booth, a steel door marked STAFF behind the velvet rope. Four ways out.").cut);
+
+  // and salvage routes it with a note the player can read
+  const { prose, notes } = salvageProse(buried);
+  check("salvage recovers the scene", /^The bass hit you/.test(prose) && prose.length < 900, prose.length);
+  check("and names what happened", notes.some((n) => /labelled a draft/.test(n)), notes);
+
+  // NEVER GUESS THE SCENE AWAY: a marker with nothing usable behind it is left alone
+  check("a bare marker at the end changes nothing", !extractLabelledDraft("Some planning here.\n\nDraft:\n\nToo short.").cut);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
