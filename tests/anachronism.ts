@@ -21,7 +21,7 @@
  * governs what a character produces. Nothing governed what a character ACCEPTS, which is the
  * direction an anachronism travels when the player is the one out of time.
  */
-import { visibleOnPlayer } from "../src/engine/reaction";
+import { visibleOnPlayer, arrivalOrder } from "../src/engine/reaction";
 import { newSave, registerCharacter } from "../src/engine/state";
 import { NARRATOR_SYSTEM, NARRATOR_SYSTEM_LEAN } from "../src/engine/prompts";
 import type { SaveState } from "../src/engine/types";
@@ -102,6 +102,59 @@ function rome(): SaveState {
     check(`${label}: the pencil is the worked example`, /paper and a pencil/i.test(p));
     check(`${label}: agreeing once is named as permanent`, /every later turn inherits it/.test(p));
   }
+}
+
+
+/* ── 4. A THING IN A POCKET IS NOT A THING ON DISPLAY ────────────────────────────
+ *
+ * Turning the guard on was right; the header it turned on under was not. It said WHAT HE HAS ON
+ * HIM, WHICH THEY CAN ALL SEE, over a card ending "…and carries an iPhone in an OtterBox case".
+ * Twelve turns later a woman he had never shown it to was looking at "the phone in his hand" —
+ * which he never took out, the narration produced it — then at "the phone clipped to his belt",
+ * and finally telling him "I saw the light it makes. Any woman with eyes saw it. You think cloth
+ * hides a thing like that?"
+ */
+{
+  const s = rome();
+  const v = visibleOnPlayer(s);
+  check("the clothes are in plain sight", /IN PLAIN SIGHT:[^\n]*jeans/.test(v), v.split("\n")[1]);
+  check("the phone is not", !/IN PLAIN SIGHT:[^\n]*iPhone/.test(v), v.split("\n")[1]);
+  check("...it is on the closed line", /PUT AWAY[^\n]*iPhone/.test(v));
+  check("and nobody can see through cloth", /Nobody's clothes are transparent/.test(v));
+  check("a put-away thing is not in the room", /A thing in a pocket, a case, or a bag is not in the room/.test(v));
+  check("...and having seen it once is not knowing what it is",
+    /they do not know what it does, they never learned what it is called/.test(v));
+
+  const t = rome();
+  t.condition["char_player"].inventory = [
+    { name: "a knife in his boot" } as any,
+    { name: "an iron nail" } as any,
+  ];
+  const w = visibleOnPlayer(t);
+  check("a knife in a boot is put away", /PUT AWAY[^\n]*knife/.test(w), w.split("\n").slice(0,3).join(" | "));
+  check("a nail in the open hand is not", /IN PLAIN SIGHT:[^\n]*iron nail/.test(w));
+}
+
+/* ── 5. WHO CAME TO WHOM ─────────────────────────────────────────────────────── */
+{
+  const s = rome();
+  s.world.places.loc_forum = { id: "loc_forum", name: "The Forum Romanum", description_facts: "", contains: [] } as any;
+  s.world.places.loc_bank = { id: "loc_bank", name: "The Tiber Embankment", description_facts: "", contains: [] } as any;
+  registerCharacter(s, { name: "Claudia Antonia", character_id: "char_c", pronouns: "she/her" } as any);
+  s.world.player_location = "loc_bank";
+  s.world.current_turn = 45;
+  s.travel_log = [{ turn: 31, place: "loc_forum" }, { turn: 36, place: "loc_bank" }] as any;
+  s.world.present = ["char_c"];
+  s.world.present_prev = ["char_c"];
+
+  const n = arrivalOrder(s);
+  check("the movement log reaches the narrator", /the player walked to The Tiber Embankment from The Forum Romanum/.test(n), n);
+  check("...and it is not negotiable", /no line of dialogue may contradict it/.test(n));
+  check("whoever was with him before came after him", /Claudia Antonia/.test(n) && /came after him or alongside him/.test(n));
+  check("and the exact line he got twice is forbidden", /Nobody here says the player followed THEM to this place/.test(n));
+
+  s.world.current_turn = 60;
+  check("a long-settled scene says nothing", arrivalOrder(s) === "", arrivalOrder(s));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

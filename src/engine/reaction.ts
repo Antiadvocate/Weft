@@ -102,12 +102,32 @@ const ACT_FLOOR = 18;
  * ACCEPTS. Comprehension is the direction the anachronism actually travels when the player is the
  * one out of time, and it is the direction that was never covered.
  */
+/* A THING IN A POCKET IS NOT A THING ON DISPLAY — and this block put it there.
+ *
+ * Turning the guard on was right; the header it turns on under was not. It reads WHAT HE HAS ON
+ * HIM, WHICH THEY CAN ALL SEE, and the card it now reads ends "…and carries an iPhone in an
+ * OtterBox case". So from the turn that fix landed, the narrator was told every turn that everyone
+ * in the room could see a phone that was in a pocket. Within a dozen turns a woman he had never
+ * shown it to was looking at "the phone in his hand" — which he had not taken out; the narration
+ * produced it — then at "the phone clipped to his belt", and finally telling him "I saw the light
+ * it makes. Any woman with eyes saw it. You think cloth hides a thing like that?"
+ *
+ * Carried and worn are different states and the block now says which is which. The concealed line
+ * is the one that matters: a thing nobody has seen can still be revealed, and a thing everybody has
+ * seen can never be un-seen, so when the record is ambiguous the safe reading is the closed one.
+ */
+const CARRIED_CLAUSE = /\s*(?:,\s*)?(?:and\s+)?(?:he\s+|she\s+|they\s+)?(?:carries|carrying|keeps|has)\b[^.]*\b(?:pocket|case|pouch|bag|satchel|sheath|holster|belt|inside|under)\b/i;
+/** An inventory line that names where a thing is kept, rather than a thing held in the open. */
+const PUT_AWAY = /\b(?:pocket|case|pouch|bag|satchel|sheath|holster|hidden|concealed|tucked|wrapped|in (?:his|her|their) (?:boot|sock|waistband|shoe|hair)|under (?:his|her|their) (?:cloak|coat|tunic|robe|shirt|clothes)|inside (?:his|her|their) (?:cloak|coat|tunic|robe|shirt|jacket))\b/i;
+
 export function visibleOnPlayer(state: SaveState): string {
   const cond = state.condition["char_player"];
+  const inv = (cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[];
   const carried = [
     ...(cond?.wearing ?? []),
-    ...(cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[],
+    ...inv.filter((n) => !PUT_AWAY.test(n)),
   ].filter((x) => String(x).trim()).slice(0, 6);
+  const stowed = inv.filter((n) => PUT_AWAY.test(n)).slice(0, 4);
   const p = state.characters["char_player"];
   // appearance_now is what CHANGED; appearance_facts is what is always true of this body and what it
   // is dressed in, written at creation and never blank. Prefer the live field, fall back to the
@@ -120,13 +140,21 @@ export function visibleOnPlayer(state: SaveState): string {
   // 300-character cap; one more clause about his build and the phone would have been cut.
   const now = String(p?.appearance_now ?? "").trim();
   const facts = String(p?.appearance_facts ?? "").trim();
-  const look = now || (facts.length > 320 ? `…${facts.slice(-320)}` : facts);
+  const looked = now || (facts.length > 320 ? `…${facts.slice(-320)}` : facts);
+  // Split the appearance at the clause that says where a thing is KEPT. Everything before it is
+  // what a person across the street can see; everything from it on is inside a pocket or a case.
+  const cut = looked.search(CARRIED_CLAUSE);
+  const look = (cut >= 0 ? looked.slice(0, cut) : looked).trim().replace(/[,;\s]+$/, "");
+  const hidden = [cut >= 0 ? looked.slice(cut).trim().replace(/^[,;\s]+|\.$/g, "") : "", ...stowed].filter(Boolean);
   const tech = String(state.world_bible?.technology_level ?? "").trim();
   const seen = [look.slice(0, 340), ...carried].filter(Boolean).join("; ");
-  if (!seen || !tech) return "";
+  if ((!seen && !hidden.length) || !tech) return "";
   const him = String(p?.name ?? "").trim() || "the player";
-  return `\nWHAT HE HAS ON HIM, WHICH THEY CAN ALL SEE: ${seen}.
-This world can do this and no more: ${tech.slice(0, 240)}
+  const away = hidden.length
+    ? `\nON HIM AND PUT AWAY, WHICH NOBODY HERE HAS SEEN: ${hidden.join("; ").slice(0, 240)}.
+A thing in a pocket, a case, or a bag is not in the room. Nobody here knows it exists, nobody looks at it, refers to it, asks about it, or reacts to it, and it does not become seen by being written on this line — only by the prose showing him take it out, this turn or in a turn already written. If he HAS produced it before, they remember having seen a thing they could not name; they do not know what it does, they never learned what it is called, and they cannot describe its workings. Nobody's clothes are transparent.`
+    : "";
+  return `\n${seen ? `WHAT HE HAS ON HIM IN PLAIN SIGHT: ${seen}.\n` : ""}${away ? away.slice(1) + "\n" : ""}This world can do this and no more: ${tech.slice(0, 240)}
 Hold those two lines against each other. Anything on him that this world could not make, has no name for, and has never seen is NOT set dressing and does not become ordinary by having been mentioned before — it is ordinary to HIM and to nobody else here. A person meeting it has no word for it and reaches for the nearest thing they do know, and gets it wrong: they will call it by the closest object in their own life, or by a god, or by a trick, or by an illness. They may refuse to look at it. They may not be able to stop looking at it. What they will not do is price it, park it, or fold it into the errand they were already on.
 AND HOLD THE SAME TWO LINES AGAINST WHAT HE SAYS. ${him} talks out of a world nobody here has seen, and a word for a thing this world does not contain does not become a thing by being said out loud. When he names one — a material, a tool, a trade, a machine, a measure, a sum, an idea — the people here do not know what he means, because there is nothing in their lives for the word to land on. Each of them does one of these, from who they are: hears the nearest thing their own life holds and answers about THAT instead, asks him what it is, takes it for a word from his own country and lets it go by, or decides he is talking nonsense and says so. What NONE of them does is say yes to it, repeat it back as a thing they know, name a price for it, or add a detail of their own — a single agreement puts that object into this world permanently, and everything written after it inherits a Rome that has the thing in it.`;
 }
@@ -158,6 +186,39 @@ ${who}${anachronism}
 This is the largest thing that has happened in this scene, and it outranks any standing thread, clock or errand named above: those are the background of the room, and this happened IN the room. Whatever the pressure line says arrives or does not arrive from outside, it does not license writing past this.
 HOW THEY ANSWER IT: each present character reacts out of their own state, their own history with the player, and — this is the part that gets skipped — WHAT THIS WORLD HOLDS TO BE TRUE. Measure the act against the canon and the world bible you were given. If what the player just did is impossible here, or forbidden here, or carries a penalty here, then that is the largest fact in the room and every person in it knows it; they do not absorb it as ordinary and they do not need it explained to them. If it is unremarkable here, it is unremarkable, and a shrug is the honest answer.
 TWO FAILURES, BOTH CAUGHT IN PLAY. Do NOT continue the previous topic as though nothing happened — a scene that was an argument about money before the act must not still be an argument about money after it, with the act as a debating point. And do NOT convert the act into a figure of speech, a lesson, or an occasion for someone's philosophy: they are looking at a thing that just occurred, and what a person does with a thing that just occurred is look at it, name it, back away from it, reach for it, or ask what it is.]`;
+}
+
+/**
+ * WHO WALKED TO WHOM.
+ *
+ * "You followed me to the docks," she said. "I came because you were walking away from the only
+ * thing I asked of you." The travel log says the player left the Forum on turn 36 and the docks are
+ * where he went; she was in the Forum with him and is at the docks now, which means she came after
+ * him. He typed, twice, that she had followed HIM, and got told twice that he had followed her.
+ *
+ * Nothing was ever wrong in the state — `travel_log` records every place the player moved to and
+ * the turn he moved, and `present_prev` records who was standing with him before. It was simply
+ * never handed to the narrator, so who arrived where was decided fresh each turn by whichever
+ * reading made the current sentence work.
+ */
+export function arrivalOrder(state: SaveState): string {
+  const log = state.travel_log ?? [];
+  const last = log[log.length - 1];
+  if (!last) return "";
+  const turn = state.world.current_turn ?? 0;
+  const since = turn - last.turn;
+  if (since > 12) return "";                    // long settled here; nobody is "newly arrived"
+  const here = state.world.places[state.world.player_location]?.name;
+  if (!here || last.place !== state.world.player_location) return "";
+  // Anyone who was standing with him at the previous place and is standing with him now did not
+  // summon him — they came along, or came after.
+  const camePrev = new Set(state.world.present_prev ?? []);
+  const withHim = (state.world.present ?? [])
+    .filter((id) => camePrev.has(id))
+    .map((id) => state.characters[id]?.name)
+    .filter(Boolean) as string[];
+  const from = log.length > 1 ? state.world.places[log[log.length - 2].place]?.name : "";
+  return `\nWHO CAME TO WHOM (from the movement log — this is settled, and no line of dialogue may contradict it): the player walked to ${here}${from ? ` from ${from}` : ""}${since === 0 ? " this turn" : ` ${since} turn${since === 1 ? "" : "s"} ago`}. He chose the ground.${withHim.length ? ` ${withHim.join(", ")} ${withHim.length === 1 ? "was" : "were"} with him before he moved and ${withHim.length === 1 ? "is" : "are"} here now — ${withHim.length === 1 ? "she or he" : "they"} came after him or alongside him, and may say so. Nobody here says the player followed THEM to this place; he did not.` : ""}`;
 }
 
 /**
