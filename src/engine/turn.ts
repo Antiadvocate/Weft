@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -4991,11 +4991,22 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
   }
 
+  // WHO THE PLAYER JUST SWORE AT. Resolved once, before any of the readings land, because it
+  // constrains both of them: being abused does not open a body and does not warm a bond.
+  const abused = hostileToward(action, (state.world.present ?? [])
+    .map((cid) => state.characters[cid]?.name).filter(Boolean) as string[]);
+  const wasAbused = (cid: string) => abused.has(state.characters[cid]?.name ?? "");
+
   for (const p of diff.psyche ?? []) {
     const id = resolveId(state, p.char_id); if (!id) continue;
     if (!misattributionAllowed(state, id, prose, action)) continue;   // not in this scene, not named in it
     const c = state.condition[id]; if (!c) continue;
-    c.psyche.relaxation = clamp(c.psyche.relaxation + clamp(p.relaxation_delta ?? 0, -6, 6), -10, 10);
+    let raw = clamp(p.relaxation_delta ?? 0, -6, 6);
+    if (raw > 0 && id !== "char_player" && wasAbused(id)) {
+      shifts.push(`${nameOf(id)} was sworn at — that does not settle anybody.`);
+      raw = 0;
+    }
+    c.psyche.relaxation = clamp(c.psyche.relaxation + raw, -10, 10);
     const mood = cleanMood(p.mood);
     if (mood) { c.psyche.mood = mood; c.psyche.mood_set_turn = turn; }
     for (const s of p.states_add ?? []) {
@@ -5009,7 +5020,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
-    const d = clamp(p.relaxation_delta ?? 0, -6, 6);
+    const d = raw;
     // A HARD HIT LOWERS THE RESTING POINT, NOT JUST TODAY'S NUMBER. Relaxation drifts back toward
     // capacity every turn, so without this a big negative delta is erased within a few turns by the
     // drift and the character is at ease again. One save had a woman ten turns past her husband
@@ -5021,6 +5032,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       c.psyche.grief_drag = +drag.toFixed(3);
     }
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
+    // THE DELTA IS THE LAST THING THAT TOUCHES RELAXATION EACH TURN, and tickPsyche ran at the top,
+    // so without this the stored value floats away from capacity forever. See settleAfterDeltas.
+    settleAfterDeltas(c.psyche);
   }
 
   // Idle edges ease toward neutral before this turn's deltas land, so a relationship nobody has
@@ -5030,7 +5044,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   for (const e of diff.edges ?? []) {
     const from = resolveId(state, e.from), to = resolveId(state, e.to);
     if (!from || !to || from === to) continue;
-    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
+    // …and the same guard on the bond. "The insult cut her trust but also confirmed his bluntness,
+    // making it easier to ask for help plainly" was written about a man who had just told her to
+    // fuck herself, and it left her warmth and trust standing. An insult may cost a bond anything;
+    // it may not pay into one.
+    let warmthD = e.warmth_delta ?? 0, trustD = e.trust_delta ?? 0;
+    if (to === "char_player" && wasAbused(from)) {
+      if (warmthD > 0) warmthD = 0;
+      if (trustD > 0) trustD = 0;
+    }
+    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: warmthD, trust_delta: trustD, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
     // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
     // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
     // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.
