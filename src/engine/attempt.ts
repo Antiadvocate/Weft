@@ -119,9 +119,68 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
   return { score: (clamp(raw, -3, 1) + 3) / 4, causes };
 }
 
-/** Read CAPABILITY: token-relevance of the action against everything the character verifiably
- *  IS. The corpus is bedrock-first (background, core traits, skills), then what play has added
- *  (life history, acquired traits, grooved habits), then what's literally in their hands. */
+/* ── A COMPETENCE IS A DOMAIN, NOT A WORD ────────────────────────────────────────────────────
+ *
+ * The reading below was pure cosine over the character card, and cosine is lexical. From a save,
+ * turn 3. Rabi's card:
+ *
+ *     Firearms — Competent; he has trained obsessively for months, but has never killed anyone.
+ *     Can field-strip and reassemble a pistol in the dark, by feel alone.
+ *
+ * He types: "everyone dies tonight except for one. You first" I shoot her. 'Alright Zoe. Let's
+ * murder'. Measured relevance of every entry on his card to that action:
+ *
+ *     0.0000  Firearms Competent — he has trained obsessively for months…
+ *     0.0000  Can field-strip and reassemble a pistol in the dark, by feel alone.
+ *     0.0645  Answers Zoe's cheerful questions with one-word answers, but always answers.
+ *
+ * "Shoot" and "gun" share no token with "firearms" and "pistol", so a trained shooter read as
+ * having no relevant capability at all — while a personality quirk about how he answers questions
+ * scored, because he had said the name Zoe. That quirk cleared the 0.15 naming floor by 0.011,
+ * became "the capability", and carried the verdict: INSUFFICIENT, margin −0.272. The narrator was
+ * then handed law saying the attempt fails, and wrote "The first shot goes wide." Four turns of a
+ * declared massacre went nowhere, and the player left the club and tried to have his AI removed.
+ *
+ * The fix is the one this file already applies to injuries eight lines up: IMPAIRMENT matches an
+ * injury to an activity CLASS rather than to a word, because "a gashed palm fails every gripping
+ * action regardless of how the attempt is phrased". A competence is the same kind of thing. The
+ * table below is the bridge — what an action IS on the left, the words a card uses for being able
+ * to do it on the right — and a card entry that lands in the same domain as the action is a real
+ * match no matter which vocabulary each of them happened to use.
+ */
+const DOMAIN: [RegExp, RegExp][] = [
+  [/\b(shoot|shot|shoots|firing|fire[sd]?|gun|guns|gunshot|pistol|revolver|rifle|shotgun|handgun|sidearm|muzzle|trigger|bullet|round|magazine|holster|aim(?:ing|ed)?|snipe)\b/i,
+   /\b(firearm|gun|pistol|revolver|rifle|shotgun|handgun|sidearm|marksman|sharpshoot|sniper|shoot|gunner|weapon|ballistic|range|holster|trained to shoot)/i],
+  [/\b(fight|fights|fighting|fought|punch|strike|struck|hit|grapple|wrestle|tackle|choke|disarm|stab|knife|blade|sword|spear|axe|swing|slash|parry|block|brawl|beat)\b/i,
+   /\b(fight|combat|martial|boxing|wrestl|brawl|knife|blade|sword|spear|swordsman|soldier|marine|veteran|bouncer|violence|hand[- ]to[- ]hand|self[- ]defen[cs]e|street)/i],
+  [/\b(climb|climbing|climbed|scale|scaled|rope|ledge|rappel|hoist|haul)\b/i,
+   /\b(climb|rope|mountaineer|rappel|parkour|acrobat|athletic|rigger|scaffold|steeplejack|sailor|gymnast)/i],
+  [/\b(sneak|creep|crept|slip past|hide|hid|hiding|stalk|tail|shadow|pickpocket|lift|palm|steal|stole|burgle|lockpick|pick the lock|jimmy|hotwire)\b/i,
+   /\b(thief|thiev|burglar|pickpocket|lockpick|stealth|sneak|smuggl|scout|poach|con artist|grifter|street)/i],
+  [/\b(drive|drove|driving|steer|swerve|ride|rode|gallop|sail|sailed|row|rowed|pilot|fly|flew)\b/i,
+   /\b(driv|driver|wheel|racer|rider|horseman|cavalr|sailor|helm|pilot|aviat|courier|getaway|chauffeur)/i],
+  [/\b(bandage|splint|suture|stitch|cauterize|treat|triage|resuscitate|revive|dress the wound|stop the bleeding)\b/i,
+   /\b(medic|doctor|surgeon|nurse|physician|paramedic|healer|herbal|field medic|first aid|apothecar|midwife)/i],
+  [/\b(repair|fix|mend|rig|jury[- ]rig|wire|solder|weld|forge|build|assemble|dismantle|hack|hotwire|disable)\b/i,
+   /\b(engineer|mechanic|smith|technician|electric|machinist|carpenter|builder|program|hacker|tinker|welder|craft)/i],
+  [/\b(persuade|convince|talk (?:him|her|them) (?:into|round)|negotiate|haggle|bargain|bluff|lie to|deceive|con|charm|seduce|flatter|intimidate|threaten|interrogate)\b/i,
+   /\b(negotiat|diplomat|lawyer|merchant|trader|salesman|politic|spy|interrogat|charm|manipulat|persuas|con artist|courtier|priest|command)/i],
+  [/\b(track|tracking|hunt|hunted|follow the|forage|forage|navigate|orient|read the ground)\b/i,
+   /\b(hunt|tracker|ranger|scout|forester|guide|navigat|survival|woodsman|trapper|poach)/i],
+];
+
+/** Proficiency as the card states it. A skill entry that says "Expert" is not the same capability
+ *  as one that says "Beginner", and the cosine could never tell them apart. */
+function proficiency(fact: string): number {
+  if (/\b(expert|master|world[- ]class|legendary|virtuoso|obsessiv|lifelong|forty years|decades)/i.test(fact)) return 0.95;
+  if (/\b(competent|proficient|strong|skilled|trained|practised|practiced|experienced|solid|good)/i.test(fact)) return 0.78;
+  if (/\b(basic|beginner|amateur|novice|passing|rudimentary|a little|barely|no grammar)/i.test(fact)) return 0.42;
+  return 0.68;   // stated as a fact about them with no grade attached
+}
+
+/** Read CAPABILITY: the action against everything the character verifiably IS — by domain first,
+ *  then by token-relevance. The corpus is bedrock-first (background, core traits, skills), then
+ *  what play has added (life history, acquired traits, grooved habits), then what's in their hands. */
 function readCapability(state: SaveState, action: string): { score: number; fact: string | null } {
   const c = state.characters["char_player"];
   if (!c) return { score: 0.25, fact: null };
@@ -134,15 +193,43 @@ function readCapability(state: SaveState, action: string): { score: number; fact
     ...(state.habits?.["char_player"] ?? []).filter((h) => h.strength >= 40 && !h.dormant).map((h) => h.trait),
     ...(state.condition["char_player"]?.inventory ?? []).map((i) => i.name),
   ].filter((s) => s && s.trim().length >= 3);
+  // DOMAIN FIRST. Whichever domains this action belongs to, any card entry that speaks to one of
+  // them is a genuine competence — scored by how the card grades it, not by shared vocabulary.
+  const domains = DOMAIN.filter(([act]) => act.test(action));
   let best = 0, fact: string | null = null;
   for (const f of corpus) {
-    const rel = relevance(f, action);
-    if (rel > best) { best = rel; fact = f; }
+    if (!domains.some(([, card]) => card.test(f))) continue;
+    const p = proficiency(f);
+    if (p > best) { best = p; fact = f; }
+  }
+  if (fact) return { score: clamp(best, 0, 1), fact: trim(fact) };
+
+  // Otherwise fall back to relevance, which still catches everything the table has no row for.
+  let rel = 0;
+  for (const f of corpus) {
+    const r = relevance(f, action);
+    if (r > rel) { rel = r; fact = f; }
   }
   // cosine on short strings runs low; ×2.5 brings a genuine match into working range
-  const score = clamp(best * 2.5, 0, 1);
-  if (score < 0.15) return { score, fact: null };
-  return { score, fact: (fact ?? "").length > 90 ? (fact ?? "").slice(0, 87) + "…" : fact };
+  const score = clamp(rel * 2.5, 0, 1);
+  // AND A WEAK MATCH IS NOT A CAPABILITY, IT IS A COINCIDENCE. The quirk that decided the shot
+  // scored 0.161 — eleven thousandths over the old floor — and was then printed to the player as
+  // the reason he missed. Below a real match the honest answer is that nothing on the card speaks
+  // to this, which is what the verdict line already knows how to say.
+  if (score < 0.4) return { score, fact: null };
+  return { score, fact: trim(fact) };
+}
+
+const trim = (f: string | null) => ((f ?? "").length > 90 ? (f ?? "").slice(0, 87) + "…" : f);
+
+/** Is the player under a roof? Read from the place's own words — its name and the facts written
+ *  about it — rather than from a flag no save has ever carried. Outdoors is the default: a wrong
+ *  "indoors" only drops a weather penalty, while a wrong "outdoors" invents rain in a cellar. */
+const INTERIOR = /\b(room|hall|club|bar|tavern|inn|pub|house|home|apartment|flat|office|shop|store|kitchen|cellar|basement|attic|chamber|lodge|temple|church|library|archive|warehouse|garage|barracks|cabin|tent|forge|smithy|studio|theatre|theater|station|corridor|stairwell|lobby|vault|den|parlor|parlour|bedroom|bathhouse|baths|hospital|clinic|ward|surgery|infirmary|morgue|school|museum|hotel|casino|restaurant|caf[eé]|diner|factory|mill|mine|tunnel|cave|bunker|lab|laboratory|ship|boat|carriage|cabin|keep|tower|fort|palace|villa|hut|shack|cottage|barn|stable|brothel|gallery|court|jail|prison|cell)\b/i;
+function indoors(state: SaveState): boolean {
+  const p = state.world.places[state.world.player_location];
+  if (!p) return false;
+  return INTERIOR.test(`${p.name ?? ""} ${p.identity ?? ""}`);
 }
 
 /** Read CIRCUMSTANCE: pressure is the difficulty's spine (read separately), so this reading is
@@ -151,7 +238,11 @@ function readCapability(state: SaveState, action: string): { score: number; fact
 function readCircumstance(state: SaveState, action: string, physical: boolean): { score: number; causes: string[] } {
   const causes: string[] = [];
   let score = 0.6;
-  if (physical && /storm|rain|snow|sleet|gale|fog|ice|icy|wind|downpour|blizzard/i.test(state.world.weather ?? "")) {
+  // WEATHER REACHES WHOEVER IS STANDING IN IT. This used to read the sky for every physical
+  // attempt anywhere, so a shot fired inside a nightclub was graded down for the cold rain in the
+  // street — and because the reading came out weakest, "the Cold rain, the kind that soaks through
+  // clothes" was handed to the narrator as the reason the shot went the way it did.
+  if (physical && !indoors(state) && /storm|rain|snow|sleet|gale|fog|ice|icy|wind|downpour|blizzard/i.test(state.world.weather ?? "")) {
     score -= 0.2; causes.push(`the ${state.world.weather}`);
   }
   // social attempts: find the present NPC named in the action and read their edge toward the player

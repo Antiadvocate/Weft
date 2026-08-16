@@ -682,6 +682,90 @@ export function tickPsyche(p: Psyche): void {
   p.mood_valence = clamp(Math.round(p.relaxation * 0.8), -10, 10);
 }
 
+/**
+ * AND IT NEVER GOT TO FINISH.
+ *
+ * tickPsyche above is correct and has been for a long time: drift toward capacity, and above
+ * capacity collapse fast, "so their natural tension reasserts". It runs at the TOP of the turn, in
+ * the undertow phase. The simulator's relaxation_delta is applied at the BOTTOM, in applyDiff. So
+ * the order every turn is: drift, then the scene, then the delta — and the value that gets STORED
+ * is always the post-delta one, which nothing pulls on until the next turn's single drift step,
+ * which is immediately overwritten by the next delta.
+ *
+ * From a save, turn 35. Claudia's capacity is 2. She entered the turn at 4.5, drift took her to
+ * 3.25, and a +2 delta put her at 5.25 — where she was stored. Her open_run read THIRTY-FIVE: she
+ * had been at or above her own resting openness for the entire game, and the narrator was told
+ * every one of those turns that her perception was clear. The player's description of the result
+ * was that everyone in Rome talks like a pompous god.
+ *
+ * The same ratchet runs downward. A companion AI in another save sat at −10 against a capacity of
+ * 2, with the drift pulling up 2.16 a turn and the deltas pushing down harder, for eleven turns.
+ *
+ * So the deltas get a bound. A turn may move somebody a long way — that is what a turn is for —
+ * but it may not leave them parked further from their own resting point than a body goes, and the
+ * distance shrinks the longer they have already been out there. Drift does the rest of the work,
+ * as it always did; it just gets to finish now.
+ */
+/**
+ * HOSTILITY IS NOT CANDOUR.
+ *
+ * Same save, same turn. The player typed a page of abuse at a woman he had met minutes earlier —
+ * "You Romans are such pieces of shit… shut the fuck up… I'd rather Rome burn" — and then, two
+ * turns later, "Hey Claudia. Fuck you". What the bookkeeper wrote down:
+ *
+ *   relaxation_delta  +2          → the shifts feed read "Claudia Antonia relaxed a little."
+ *   edge note         "The insult cut her trust but also confirmed his bluntness, making it
+ *                      easier to ask for help plainly."
+ *   her memory        "Marcus swore at me in the Forum and I let it slide. His cruelty is a kind
+ *                      of honesty — I think I can work with it."
+ *   warmth 1, trust 2, attraction 55.
+ *
+ * A model asked to find what changed will find something positive in almost anything, and being
+ * sworn at reads to it as a person dropping their guard. So there was no state in which she was
+ * angry, and the narrator — correctly rendering the state it was given — wrote her answering a
+ * screamed insult with a poised lecture. Every character in that save is unlikeable for the same
+ * reason: nothing anyone does costs anything, so nobody has a self to defend.
+ *
+ * This is deterministic and it does not ask the bookkeeper's opinion. Being sworn at does not open
+ * a body and it does not warm a bond. The reading may still go DOWN as far as the turn wants; it
+ * may not go up.
+ */
+const SLUR = /\b(fuck you|fuck off|fuck yourself|screw you|shut the fuck up|shut up|piece of shit|pieces of shit|shitface|shit ?face|asshole|assholes|dipshit|dipshits|cunt|bitch|bastard|prick|moron|idiot|idiots|imbecile|scum|worthless|pathetic|disgusting|useless)\b/i;
+const AIMED = /\b(you|your|you're|youre|yours)\b/i;
+/** Curses aimed at a person present, in the player's own typed words. Speech and plain action both
+ *  count — shouting it and writing "I spit at her" are the same event to the person on the end of
+ *  it. Swearing at the sky, at the city, or at nobody is not aimed at anyone and does not count. */
+export function hostileToward(action: string, presentNames: string[]): Set<string> {
+  const hit = new Set<string>();
+  const text = String(action ?? "").replace(/\*[^*]*\*/g, " ");   // private thought reaches nobody
+  for (const raw of text.split(/(?<=[.?!])\s+|\n+/)) {
+    const s = raw.trim();
+    if (!SLUR.test(s)) continue;
+    const named = presentNames.filter((n) => {
+      const first = n.split(/\s+/)[0];
+      return first.length >= 3 && new RegExp(`\\b${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(s);
+    });
+    if (named.length) named.forEach((n) => hit.add(n));
+    else if (AIMED.test(s)) presentNames.forEach((n) => hit.add(n));   // "fuck you" to whoever is here
+  }
+  return hit;
+}
+
+const MAX_ABOVE = 3;    // elation, relief, an evening that went well
+const MAX_BELOW = 4;    // fear and grief run deeper — and grief_drag lowers the point itself
+
+export function settleAfterDeltas(p: Psyche): void {
+  const eff = p.capacity + (p.discharge_lift ?? 0) - (p.grief_drag ?? 0);
+  // A long run out at the edge tightens the leash: the first turn above capacity may sit high, the
+  // tenth may not. This is what stops a cast from living permanently in the open band.
+  const run = Math.min(6, p.open_run ?? 0);
+  const above = Math.max(1, MAX_ABOVE - run * 0.35);
+  if (p.relaxation > eff + above) p.relaxation = +(eff + above).toFixed(3);
+  if (p.relaxation < eff - MAX_BELOW) p.relaxation = +(eff - MAX_BELOW).toFixed(3);
+  p.relaxation = clamp(p.relaxation, -10, 10);
+  p.mood_valence = clamp(Math.round(p.relaxation * 0.8), -10, 10);
+}
+
 /** Trait reinforcement-or-decay. Unreinforced acquired traits fade; identity-integrated ones persist. */
 /** Consolidation — earned, slow identity change. An acquired trait reinforced into deep
  *  integration (high self_weight AND repeatedly reinforced) stops being a "learned" overlay

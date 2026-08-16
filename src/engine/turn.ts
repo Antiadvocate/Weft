@@ -24,7 +24,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -40,7 +40,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./autho
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding } from "./echo";
-import { applyUnexplained, reactionDirective } from "./reaction";
+import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
@@ -918,6 +918,13 @@ const REASONING_SIGNAL: RegExp[] = [
   /\bno_?think\b/i,                               // the leaked control token
   /\b(actually,? (wait|you know what)|but wait|hmm,? let)\b/i,
   /\bwhat (titus|livia|the (npcs?|player|character))[a-z ]* would do\b/i,
+  // THE MODEL RESTATING THE BRIEF BACK AT ITSELF. The opening prompt says "2–4 paragraphs, 120–260
+  // words"; the response that made this rule necessary opened by reciting exactly that, and no
+  // scene in any story contains the phrase "120-260 words" or "2-4 paragraphs".
+  /\b\d{2,4}\s*[-–—]\s*\d{2,4}\s+words\b/i,
+  /\b\d\s*[-–—]\s*\d\s+paragraphs\b/i,
+  /\bno headers?,? no (?:lists?|meta)\b/i,
+  /\bneed (?:to render|dialogue|\d)\b/i,
 ];
 function looksLikeReasoning(block: string): boolean {
   // Dialogue is not evidence: a character may say "let me see it" and that is scene, not thinking.
@@ -945,6 +952,51 @@ export function stripReasoningPreamble(text: string): { text: string; cut: boole
   // read was wrong and the raw response goes on to the refusal/empty paths that know what to do.
   if (kept.length < 200) return { text, cut: false };
   return { text: kept, cut: last >= 0 || hasTag };
+}
+
+/* ── THE DRAFT IS IN THE MIDDLE ───────────────────────────────────────────────────────────────
+ *
+ * A fourth shape, and the one that shipped as somebody's opening scene. The model planned in the
+ * open for six paragraphs, wrote
+ *
+ *     Draft:
+ *
+ * followed by a complete, good, 190-word opening — and then went straight back to deliberating
+ * ("Maybe too many words? Let me count. That's about 190? Fine.") and kept going until it ran out
+ * of budget mid-sentence. All 865 words of it were stored as turn 0 and shown to the player, who
+ * read the model's notes about their own story instead of the story.
+ *
+ * Neither existing cutter could touch it. `stripReasoningPreamble` is gated on the response
+ * OPENING with a reasoning tag or an analytical opener, and this one opens with a flat declarative
+ * ("The player is Rabi, in The Velvet Room at 23:47, cold rain outside") that is a statement of the
+ * setup, not a model saying "let me". And even ungated it would find nothing: its scan keeps what
+ * follows the LAST working-out block, and here the last working-out block is at the very end, so
+ * the salvage would have come back empty and correctly declined to cut.
+ *
+ * The ordering assumption behind that scan — deliberate, then write — is what does not hold. When
+ * a model labels its own draft, the label is better evidence than the ordering: what follows it is
+ * the scene, and it runs until the model starts talking to itself again.
+ */
+const DRAFT_MARKER = /^[ \t]*(?:draft|the draft|draft attempt|attempt|first draft|final draft|scene)\s*(?:\d\s*)?:[ \t]*$/im;
+
+/** Take a labelled draft out of the middle of a deliberation, ending it where the model resumes
+ *  working. Returns uncut when there is no marker, or when what follows it is too short to be a
+ *  scene — the cost of a wrong guess here is the story's first page. */
+export function extractLabelledDraft(text: string): { text: string; cut: boolean } {
+  const m = DRAFT_MARKER.exec(text);
+  if (!m) return { text, cut: false };
+  const after = text.slice(m.index + m[0].length);
+  const blocks = after.split(/\n\s*\n/);
+  const keep: string[] = [];
+  for (const b of blocks) {
+    if (b.trim() && looksLikeReasoning(b)) break;
+    keep.push(b);
+  }
+  const kept = keep.join("\n\n").trim();
+  if (kept.length < 200) return { text, cut: false };
+  // Only claim this when the draft is genuinely buried — if the marker is at the very top and
+  // nothing follows the scene, the other cutters own it and this would just double-report.
+  return { text: kept, cut: kept.length < text.trim().length - 40 };
 }
 
 /* ── IT WROTE THE SCENE, ANNOUNCED ITSELF, AND WROTE IT AGAIN ─────────────────────────────────
@@ -1063,6 +1115,10 @@ export function salvageProse(raw: string): { prose: string; notes: string[] } {
   if (tokenEchoed) notes.push("narrator echoed the /no_think control token as text — your model reads it as content rather than obeying it, so turn that toggle off in Tuning → Local AI");
   const drafts = dropDiscardedDrafts(t);
   if (drafts.cut) { t = drafts.text; notes.push("narrator wrote the scene twice and announced the second — the earlier draft was dropped"); }
+  // AFTER the preamble and tail cutters and BEFORE the repetition ones: this recovers a scene
+  // buried between two stretches of deliberation, which the ordering-based cutters cannot see.
+  const buried = extractLabelledDraft(t);
+  if (buried.cut) { t = buried.text; notes.push("narrator planned out loud, labelled a draft, and kept planning — the draft was taken out of the middle"); }
   const script = stripScriptTranscript(t);
   if (script.cut) { t = script.text; notes.push("stripped a screenplay-style transcript the narrator appended after the scene"); }
   const loop = cutRepetitionLoop(t);
@@ -2472,7 +2528,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // words, the words are what the turn owes them — see engine/consult.ts for the two turns of a
   // save where a phone was consulted twice and the prose described the lit screen both times.
   const consultNote = consultDirective(state, action);
-  const fullDirective = actNote + consultNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
+  const cameNote = arrivalOrder(state);
+  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -4935,11 +4993,22 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
   }
 
+  // WHO THE PLAYER JUST SWORE AT. Resolved once, before any of the readings land, because it
+  // constrains both of them: being abused does not open a body and does not warm a bond.
+  const abused = hostileToward(action, (state.world.present ?? [])
+    .map((cid) => state.characters[cid]?.name).filter(Boolean) as string[]);
+  const wasAbused = (cid: string) => abused.has(state.characters[cid]?.name ?? "");
+
   for (const p of diff.psyche ?? []) {
     const id = resolveId(state, p.char_id); if (!id) continue;
     if (!misattributionAllowed(state, id, prose, action)) continue;   // not in this scene, not named in it
     const c = state.condition[id]; if (!c) continue;
-    c.psyche.relaxation = clamp(c.psyche.relaxation + clamp(p.relaxation_delta ?? 0, -6, 6), -10, 10);
+    let raw = clamp(p.relaxation_delta ?? 0, -6, 6);
+    if (raw > 0 && id !== "char_player" && wasAbused(id)) {
+      shifts.push(`${nameOf(id)} was sworn at — that does not settle anybody.`);
+      raw = 0;
+    }
+    c.psyche.relaxation = clamp(c.psyche.relaxation + raw, -10, 10);
     const mood = cleanMood(p.mood);
     if (mood) { c.psyche.mood = mood; c.psyche.mood_set_turn = turn; }
     for (const s of p.states_add ?? []) {
@@ -4953,7 +5022,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     for (const s of p.states_remove ?? []) c.psyche.active_states = c.psyche.active_states.filter((x) => x !== s);
     if (c.psyche.active_states.length > 5) c.psyche.active_states = c.psyche.active_states.slice(-5);
-    const d = clamp(p.relaxation_delta ?? 0, -6, 6);
+    const d = raw;
     // A HARD HIT LOWERS THE RESTING POINT, NOT JUST TODAY'S NUMBER. Relaxation drifts back toward
     // capacity every turn, so without this a big negative delta is erased within a few turns by the
     // drift and the character is at ease again. One save had a woman ten turns past her husband
@@ -4965,6 +5034,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       c.psyche.grief_drag = +drag.toFixed(3);
     }
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
+    // THE DELTA IS THE LAST THING THAT TOUCHES RELAXATION EACH TURN, and tickPsyche ran at the top,
+    // so without this the stored value floats away from capacity forever. See settleAfterDeltas.
+    settleAfterDeltas(c.psyche);
   }
 
   // Idle edges ease toward neutral before this turn's deltas land, so a relationship nobody has
@@ -4974,7 +5046,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   for (const e of diff.edges ?? []) {
     const from = resolveId(state, e.from), to = resolveId(state, e.to);
     if (!from || !to || from === to) continue;
-    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: e.warmth_delta ?? 0, trust_delta: e.trust_delta ?? 0, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
+    // …and the same guard on the bond. "The insult cut her trust but also confirmed his bluntness,
+    // making it easier to ask for help plainly" was written about a man who had just told her to
+    // fuck herself, and it left her warmth and trust standing. An insult may cost a bond anything;
+    // it may not pay into one.
+    let warmthD = e.warmth_delta ?? 0, trustD = e.trust_delta ?? 0;
+    if (to === "char_player" && wasAbused(from)) {
+      if (warmthD > 0) warmthD = 0;
+      if (trustD > 0) trustD = 0;
+    }
+    applyEdgeDelta(state.world.edges, { from, to, warmth_delta: warmthD, trust_delta: trustD, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
     // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
     // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
     // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.

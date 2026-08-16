@@ -9,7 +9,7 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, heal
 import { relevance } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
-import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -89,7 +89,13 @@ export const api = {
     const msgs = buildMessages(OPENING_SYSTEM, stablePrefix(s), volatileDigest(s, "opening scene where the player arrives") + `\n\nWrite the opening scene now. Present: ${hint || "as the state dictates"}.`, s.model_settings.narrator_model);
     const out = await complete(msgs, s.model_settings.narrator_model, s.model_settings.fallback_model, false, 1200);
     const entry: TurnHistoryEntry = {
-      turn: 0, kind: "opening", player_action: "", narrator_prose: stripScaffolding(out.text),
+      // THE OPENING GOT THE WEAK CLEANER. `stripScaffolding` removes tagged blocks, markdown
+      // headers, and a leading "Okay, here's…" line; every other turn in the engine runs
+      // `salvageProse`, which is the whole apparatus built for models that plan in the open. The
+      // opening — the first page anyone reads, and the one turn a player cannot retry into
+      // existence — was the only prose in the app that never saw it. One save's turn 0 is 865
+      // words of a model talking to itself about word counts.
+      turn: 0, kind: "opening", player_action: "", narrator_prose: salvageProse(stripScaffolding(out.text)).prose,
       summary: "The opening.", offscreen: [], time_label: s.world.current_time, weather: s.world.weather,
     };
     s.history = [entry, ...s.history.filter((h) => h.kind !== "opening")];
