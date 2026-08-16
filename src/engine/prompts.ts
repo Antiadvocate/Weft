@@ -1386,7 +1386,19 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         const size = [ident.height_cm ? `${ident.height_cm} cm tall` : "", ident.weight_kg ? `${ident.weight_kg} kg` : ""].filter(Boolean).join(", ");
         lines.push(`  form: NOT a human — ${plan.kind || (ident.appearance_facts ?? "").split(/[.;]/)[0].trim()}. Render only this anatomy this turn: every action, gesture, expression, and perception comes from the parts it actually has, never from arms, hands, legs, a face, or eyes it does not.${size ? ` Resting size: ${size} — hold this scale unless canon or the prose changes it; before writing any contact with this body, work out what can actually reach what and where a head, hand, or arm would land.` : ""}`);
       } }
-    if (isPlayer && ident.background) lines.push(`  who they are (PRIVATE authorial background — this is for YOU, not known to anyone in the world; no character knows the player's job, history, hometown, or anatomy until the player reveals it aloud in play): ${ident.background.split(/[.!?]/)[0].trim()}.${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
+    // THE LABEL COVERED ONE SENTENCE OF SIX.
+    //
+    // This printed `background.split(/[.!?]/)[0]` — the first sentence only — under a warning that
+    // the text is private and known to nobody. Eight lines further down, the same block printed the
+    // player's memory CORE, which is the WHOLE background verbatim, under a bare `CORE:` that reads
+    // like established fact. So the sentence "He arrived in Rome three days ago, disoriented and
+    // terrified, and has been sleeping rough near the Tiber" existed in the narrator's context
+    // exactly once, in the unlabelled copy. On turn 33 of that save a woman he had just met opened
+    // with "You have been in Rome three days." She was reading it off the card.
+    //
+    // The whole thing goes under the label now, and the duplicate below is suppressed for the
+    // player: one copy, marked.
+    if (isPlayer && ident.background) lines.push(`  who they are (PRIVATE authorial background — this is for YOU, not known to anyone in the world; no character knows the player's job, history, origin, hometown, how long they have been here, or anatomy until the player states it aloud in play): ${ident.background.trim().slice(0, 600)}${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
     // CORE TRAITS ARE BEHAVIOUR, NOT DECORATION, AND THE PLAYER HAS THEM TOO.
     //
     // These were rendered for NPCs and skipped entirely for the player, who got one truncated
@@ -1552,7 +1564,12 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       if (mem) {
         const memK = detail >= 2 ? (isPlayer ? Math.min(4, k) : k) : Math.min(2, k);
         const digest = compactMemoryDigest(mem, query, turn, memK, state.world.current_time, cond?.psyche?.relaxation ?? 0, goneMap(state));
-        if (digest) lines.push(digest.split("\n").map((l) => "  " + l).join("\n"));
+        // The player's CORE is their background, already printed above under the privacy label.
+        // Printed here a second time it arrives unlabelled, and that is the copy the cast reads
+        // off. Drop it, and mark what remains as the player's own knowledge rather than the room's.
+        const body = isPlayer ? digest.split("\n").filter((l) => !/^CORE:/.test(l.trim())).join("\n").trim() : digest;
+        if (body && isPlayer) lines.push(`  WHAT THE PLAYER HIMSELF KNOWS AND REMEMBERS (his, not the room's — nobody here has access to any of it unless he said it out loud in play):\n${body.split("\n").map((l) => "    " + l).join("\n")}`);
+        else if (body) lines.push(body.split("\n").map((l) => "  " + l).join("\n"));
       }
     }
     return lines.join("\n");
