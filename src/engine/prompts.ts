@@ -743,10 +743,15 @@ export function simulatorContext(state: SaveState): string {
       // That went into her episodic memory AND her life_history, which is permanent and read every
       // turn thereafter. The same blindness wrote "Rabi conducts herself like a soldier" into
       // another save's belief store.
-      return `${c.name}=${id}${c.pronouns ? ` (${c.pronouns})` : ""}${tag} @${loc}${c.central === false ? " (background)" : ""}`;
+      // AGE, for the same reason as the pronouns. The bookkeeper writes memories, facts, edge notes
+      // and life_history — every store from which a character's age is later read back — and it was
+      // never told how old anybody is. So it took the age from the prose, which is where a stale one
+      // lives after the player corrects a profile, and wrote it into the ledger as settled knowledge.
+      return `${c.name}=${id}${c.pronouns || typeof c.age === "number" ? ` (${[c.pronouns, typeof c.age === "number" ? `age ${c.age}` : ""].filter(Boolean).join(", ")})` : ""}${tag} @${loc}${c.central === false ? " (background)" : ""}`;
     }).join("; ");
   parts.push(`CHARACTERS (use these exact ids): ${roster}`);
   parts.push(`The pronouns above are BINDING for every line you write — memories, life_history, edge notes, rumors, offscreen lines. The narration you are reading addresses the player in the second person and never genders them, so this list is the only place their gender appears: take it from here and never guess it from the scene.`);
+  parts.push(`The ages above are BINDING in the same way and are current as of this turn: they outrank any age stated in the prose you are reading, in an older memory, or in anything you wrote before. Never record an age that disagrees with this list, and never carry one forward out of the text.`);
   // Places ranked by relevance, not raw recency — the player's location, present characters'
   // locations, and anything named in the last two turns of prose always survive the cap, so
   // "reuse exact names" keeps working deep into a long save instead of silently spawning duplicates.
@@ -1329,7 +1334,9 @@ Calendar & money: ${b.calendar_and_currency}
 Politics: ${b.political_situation}
 
 === CAST (stable identities) ===
-${cast}`;
+${cast}
+
+THE NUMBER PRINTED AFTER EACH NAME IS THAT PERSON'S AGE, AND IT IS THE RECORD AS OF THIS TURN. It outranks every other source of an age in this context, without exception: a description that calls someone a fifteen-year-old, a memory or a rumor that states an age, a line of earlier prose, a birthday somebody once counted. Where any of those disagrees with the number here, that text is stale and the number is right. Nobody states, guesses, or implies an age for themselves or for anyone else that contradicts it — and if the story has been saying a different number, it stops this turn, quietly, with no announcement and no scene about the correction.`;
 }
 
 /** VOLATILE DIGEST: present-character live state, memories, world snapshot. */
@@ -1776,7 +1783,7 @@ ${world ? `${world}\nNobody names a thing this world does not contain, and nobod
 EVERYONE LISTED HERE IS IN THE SAME ROOM AND CAN HEAR EACH OTHER. BUILD EACH LINE OUT OF WHAT IS PRINTED UNDER THAT SPEAKER: their age, the traits under "as:", the life behind the words, what has happened to them lately, what they hold to be true, and the state they are in right now. You are given no sample of anyone's speech and you are not owed one — these people are different from each other because their lives are, and the difference has to come out in what they say, what they will not say, what they keep going back to, and how much of it they use.
 
 HOW MUCH SOMEBODY SAYS IS NOT A PROPERTY OF THE PERSON. It is a property of the person at this moment. The same woman refuses in four words and then spends ninety explaining how the levy is worked out, because she has been explaining it for thirty years and the explaining is the part she likes. Decide the length of every line from what that speaker wants out of the next minute and how much the listener already knows — never from a house style, and never from how the last person spoke. A CAST WHERE EVERYONE IS BRIEF IS A CAST WITH ONE PERSON IN IT: somebody in this scene talks too much, somebody answers a question that was not asked, somebody explains a thing at length to a person who did not want to know, somebody will not stop telling a story they have told before.
-AGE IS NOT DECORATION: a person of sixteen and a person of sixty have been alive for different amounts of time and have different things to compare anything to. What each of them reaches for first is different, and so is what they bother saying at all.
+AGE IS NOT DECORATION: a person of sixteen and a person of sixty have been alive for different amounts of time and have different things to compare anything to. What each of them reaches for first is different, and so is what they bother saying at all. The number printed beside each name here is the current record: if anything else you have been given implies a different one, that is stale and this is right, and nobody in the scene says the stale number out loud.
 AND THE STATE OVERRIDES THE PERSON. Somebody exhausted, frightened, hurt or drunk repeats themselves, stops halfway, asks for what they want directly, and hears about half of what was said to them. Somebody who has just had something happen to them raises it, or is visibly not raising it.`;
 })()}`;
   };

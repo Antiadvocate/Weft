@@ -35,8 +35,11 @@ import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voi
 import { stripScaffolding } from "../engine/echo";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
 import { refreshDrives } from "../engine/driveforge";
+import { reconcileAge, summarizeAgeReport } from "../engine/age";
 
-export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[] };
+/** `edit_notice` is transient — never stored, set only on the value an edit hands straight back, so
+ *  the view that made the change can tell the player what the engine did behind it. */
+export type ClientSave = Omit<SaveState, "snapshots"> & { snapshot_turns: number[]; edit_notice?: string };
 export type {
   ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
@@ -666,16 +669,27 @@ export const api = {
       }
       s.world_bible = { ...s.world_bible, ...patch.world_bible };
     }
+    // AGE IS STORED TWICE — as the number on the card, and as prose in every description, memory and
+    // rumor that ever stated it. Editing the number alone left the second copy standing, and prose
+    // outshouts a field: the profile said 20 and the whole cast went on saying fifteen. See engine/age.
+    const notices: string[] = [];
     for (const [cid, p] of Object.entries(patch.characters ?? {})) {
       if (!s.characters[cid]) continue;
+      const wasAge = s.characters[cid].age;
       s.characters[cid] = { ...s.characters[cid], ...p, character_id: cid };
+      const nowAge = s.characters[cid].age;
+      if (typeof wasAge === "number" && typeof nowAge === "number" && wasAge !== nowAge) {
+        const rep = reconcileAge(s, cid, wasAge, nowAge);
+        const line = summarizeAgeReport(rep, s.characters[cid].name);
+        if (line) notices.push(line);
+      }
     }
     if (Array.isArray(patch.canon)) s.world.canon = patch.canon.map(String).filter(Boolean).slice(0, 20);
     for (const [cid, core] of Object.entries(patch.memory_core ?? {})) {
       if (s.memory[cid] && Array.isArray(core)) s.memory[cid].core = core.filter(Boolean).slice(0, 8);
     }
     await putSave(s);
-    return clientView(s);
+    return { ...clientView(s), edit_notice: notices.join(" ") || undefined };
   },
 
   /** Deterministic warnings for a montage direction. Zero tokens, zero writes. */
@@ -902,6 +916,7 @@ export const api = {
   rawEditCharacter: async (id: string, char_id: string, raw: any): Promise<ClientSave> => {
     const s = await need(id);
     if (!s.characters[char_id]) throw new Error("unknown character");
+    const wasAge = s.characters[char_id].age;
     if (raw && typeof raw === "object") {
       if (raw.identity && typeof raw.identity === "object") {
         s.characters[char_id] = { ...s.characters[char_id], ...raw.identity, character_id: char_id };
@@ -919,8 +934,14 @@ export const api = {
         if (Array.isArray(raw.memory.knows)) m.knows = raw.memory.knows;
       }
     }
+    // same reconciliation as the profile editor: the number and the prose copies of it move together
+    const nowAge = s.characters[char_id].age;
+    let notice = "";
+    if (typeof wasAge === "number" && typeof nowAge === "number" && wasAge !== nowAge) {
+      notice = summarizeAgeReport(reconcileAge(s, char_id, wasAge, nowAge), s.characters[char_id].name);
+    }
     await putSave(s);
-    return clientView(s);
+    return { ...clientView(s), edit_notice: notice || undefined };
   },
 
   /** The editable slice of one character, for the raw editor. */
@@ -956,6 +977,7 @@ export const api = {
    */
   applySavePatches: async (id: string, patches: { path: (string | number)[]; value: unknown }[]): Promise<ClientSave> => {
     const s = await need(id);
+    const agesBefore = new Map(Object.entries(s.characters).map(([cid, c]) => [cid, c.age]));
     for (const { path, value } of patches) {
       if (!Array.isArray(path) || !path.length) continue;
       if (path[0] === "id" || path[0] === "snapshots") continue;   // identity and rollback are not editable
@@ -974,9 +996,18 @@ export const api = {
     healCharacterTypes(s);
     sanitize(s);
     syncPresence(s);
+    // an age edited by hand in the raw editor is the same edit as one made in the profile
+    const notices: string[] = [];
+    for (const [cid, c] of Object.entries(s.characters)) {
+      const was = agesBefore.get(cid);
+      if (typeof was === "number" && typeof c.age === "number" && was !== c.age) {
+        const line = summarizeAgeReport(reconcileAge(s, cid, was, c.age), c.name);
+        if (line) notices.push(line);
+      }
+    }
     s.updated_at = new Date().toISOString();
     await putSave(s);
-    return clientView(s);
+    return { ...clientView(s), edit_notice: notices.join(" ") || undefined };
   },
 
   /** The editable world slice for the raw world editor (no per-character data — use the character editor for that). */
