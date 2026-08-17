@@ -67,6 +67,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [retraiting, setRetraiting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
+  const [editNote, setEditNote] = useState("");
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
   const [blBusy, setBlBusy] = useState(false);
@@ -75,7 +76,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
   const [ivErr, setIvErr] = useState("");
 
-  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setMenu(false); setTab("now"); }, [sel]);
+  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now"); }, [sel]);
 
   const commitFacts = async (facts: { content: string; quote?: string }[]) => {
     if (!sel) return;
@@ -121,6 +122,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       } },
     });
     setSave(s); setEditing(false);
+    // an age change rewrites the prose copies of the old number wherever the engine stored them;
+    // it says what it touched and what it deliberately left for a human to read (see engine/age)
+    setEditNote(s.edit_notice ?? "");
   };
   const paint = async () => {
     if (!sel || painting) return;
@@ -461,6 +465,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       </button>
                       <button className="btn btn-ghost flex-1" onClick={() => setEmbodyConfirm(false)}>Stay</button>
                     </div>
+                  </div>
+                )}
+                {editNote && (
+                  <div className="card p-3 text-[12px] leading-relaxed" style={{ borderColor: "var(--accent-glow)", color: "var(--text-mid)" }}>
+                    {editNote}
+                    <button className="btn btn-ghost w-full mt-2" onClick={() => setEditNote("")}>dismiss</button>
                   </div>
                 )}
                 {editing && (

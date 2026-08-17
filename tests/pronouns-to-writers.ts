@@ -56,8 +56,12 @@ function world(): { s: SaveState; her: string } {
   const { s } = world();
   const ctx = simulatorContext(s);
   const roster = ctx.split("\n").find((l) => l.startsWith("CHARACTERS")) ?? "";
-  check("the player's pronouns are on the roster", /Rabi=char_player \(he\/him\)/.test(roster), roster);
-  check("and every NPC's", /Marcella=\S+ \(she\/her\)/.test(roster), roster);
+  check("the player's pronouns are on the roster", /Rabi=char_player \(he\/him[,)]/.test(roster), roster);
+  check("and every NPC's", /Marcella=\S+ \(she\/her[,)]/.test(roster), roster);
+  // and their ages, for the same reason and after the same failure: an age the bookkeeper took from
+  // the prose instead of the record is how a corrected profile gets un-corrected in the ledger
+  check("so is everyone's age", /Rabi=char_player \(he\/him, age 30\)/.test(roster) && /Marcella=\S+ \(she\/her, age 30\)/.test(roster), roster);
+  check("and the ages bind what it writes too", /ages above are BINDING/.test(ctx));
   check("the ids the diff must write to are still there", /char_player/.test(roster) && /=char_/.test(roster), roster);
   check("it is told they bind what it writes", /BINDING for every line you write/.test(ctx));
   check("...and told why the prose cannot supply the player's", /second person and never genders them/.test(ctx));
@@ -70,8 +74,8 @@ function world(): { s: SaveState; her: string } {
   const anon = registerCharacter(s, { name: "The slaver" } as any)!;
   s.characters[anon].location = "loc_forum";
   const roster = simulatorContext(s).split("\n").find((l) => l.startsWith("CHARACTERS")) ?? "";
-  check("an unrecorded set is simply absent, not invented", /The slaver=\S+ \[/.test(roster), roster);
-  check("and the ones that are recorded still print", /\(she\/her\)/.test(roster), roster);
+  check("an unrecorded set is simply absent, not invented", /The slaver=\S+ \(age \d+\) \[/.test(roster), roster);
+  check("and the ones that are recorded still print", /\(she\/her, age \d+\)/.test(roster), roster);
 }
 
 /* ── 3. the other two writing passes ──────────────────────────────────────────── */
