@@ -40,6 +40,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./autho
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding } from "./echo";
+import { findMute, muteFix } from "./dialogue";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, MAX_LIVE } from "./threads";
@@ -162,7 +163,24 @@ export function lastWord(state: SaveState): string {
   return `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`;
 }
 
-const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
+/** THE LAST NOTE THE MODEL READS, AND UNTIL NOW EVERY CLAUSE OF IT WAS A PROHIBITION.
+ *
+ *  This closes the interiority channel, and so do povFilter, the CAMERA REPORTS rule, and the ban on
+ *  captioning and comparison — correctly, all of them. But they are the last thing in the request,
+ *  they are all NO, and the cheapest output that satisfies every one of them at once is a paragraph
+ *  of bodies and weather. tests/dialogue-shape.ts found the first consequence (every line arriving
+ *  bolted to a gesture) and the save behind engine/dialogue.ts found the second, which is worse:
+ *  the prose stops containing lines at all. Twelve percent spoken across forty-eight turns, five of
+ *  them at zero, in a house with two people in it.
+ *
+ *  So the tail names the channel that IS open. "Spoken words" was already in the list of permitted
+ *  material, sitting fourth in a clause whose other three items are all physical, in a note that
+ *  otherwise says nothing but no — which is not an instruction, it is a permission nobody reads.
+ *  This does not add a quota (see engine/dialogue.ts for why a quota is the wrong instrument, and
+ *  for the detector that handles a sustained failure). It says the one positive thing that has to
+ *  survive to this position: the interpretation you may not narrate is available out loud, from a
+ *  person, in their own words, and it may be wrong. */
+const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, and — the channel that stays wide open when the others close — SPOKEN WORDS. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing. What you may not narrate about a person, a person in the room may still SAY, in their own words, from their own state, as their own guess, and be wrong. These people talk to each other; write them talking.]`;
 
 function sovereignty(state: SaveState): string {
   const n = state.characters["char_player"]?.name ?? "the player";
@@ -2403,6 +2421,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
   const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo);
+  // MUTE: unlike the three above, this is not a single sentence caught last turn — it is a pattern
+  // measured across a window of them, so it is read live off state.history rather than stored. See
+  // engine/dialogue.ts for why the prompt alone cannot hold this line.
+  const muteNote = muteFix(findMute(state));
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2530,7 +2552,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const consultNote = consultDirective(state, action);
   // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
   const cameNote = arrivalOrder(state);
-  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state) + muteNote;
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
