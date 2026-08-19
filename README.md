@@ -47,6 +47,33 @@ The useful split is a **local narrator** — the long creative call, and the exp
 
 > Note: a page served over `https` may refuse a plain-`http://localhost` call. Run Weft locally (`npm run dev`), or use KoboldCpp's `--remotetunnel` and paste the `https` URL it prints.
 
+## Running a local image model
+
+The same idea one slot down: point **Tuning → Local images** at ComfyUI or an A1111-style WebUI, then set the image slot to a `local/…` id. Portraits and scene art are then drawn on your own GPU.
+
+| Backend | URL | Start it with |
+|---|---|---|
+| ComfyUI | `http://127.0.0.1:8188` | `python main.py --enable-cors-header '*'` |
+| A1111 / Forge / SD.Next | `http://127.0.0.1:7860` | `--api --cors-allow-origins=http://localhost:5173` |
+
+The CORS flag is not optional — a browser calling a local server from a page it was not told to allow gets a failure indistinguishable from the server being down. **Paint a test** in that panel makes one picture and reports exactly what came back.
+
+**Why bother.** Because it makes the picture free, and a free picture can arrive on its own. **Paint the scene every turn** (Tuning → Models) repaints the moment after every message — the story gets a moving illustration instead of a button you remember to press. It runs after the turn has committed, so the prose never waits on the GPU, and a picture that fails to paint is silent: the turn stands either way. The same toggle exists on the cloud path and will tell you what it costs there (~4¢ a message), which is the reason it was never the default.
+
+**How the same person keeps coming back.** A diffusion model has no idea who anyone is; it has the words you give it, and it is far more literal than the multimodal models the cloud path uses. So three things hold the cast still:
+
+1. **Locked descriptions.** When a portrait is generated, the exact words that drew it are written onto the character as their *image words* and then reused verbatim in every scene — visible and editable in **Cast → Edit**. Clothing, mood and injuries are added per scene as separate clauses, so changing a shirt never changes the face. A description re-derived from live state each turn drifts a few words at a time and returns a stranger by the tenth message; this is the single biggest lever.
+2. **The portraits themselves, as reference images.** Put `%ref1%` in your ComfyUI workflow and Weft stitches the portraits of everyone in the scene into one reference sheet, uploads it, and wires it in — so any single-image reference mechanism carries the whole cast. **Flux Kontext** is the easiest (there is a ready template behind *Load Flux Kontext*); IP-Adapter, PuLID and InstantID all take the same one image. Without a `%ref%` token nothing is uploaded and consistency rests on the locked words alone.
+3. **Held seeds.** A character's portrait seed follows them; a scene's seed is derived from the place and who is in it, so one room keeps its framing and palette across a dozen messages while the action changes. Asking again for a turn that already has a picture deliberately breaks that lock — "another take" means another take.
+
+**The workflow.** Leave it blank and a plain txt2img graph is used, which needs only a checkpoint name. For anything else, export yours from ComfyUI with **Workflow → Export (API)** and replace the values Weft should fill with `%prompt%`, `%negative%`, `%seed%`, `%width%`, `%height%`, `%steps%`, `%cfg%`, `%sampler%`, `%scheduler%`, `%checkpoint%`, `%ref1%`–`%ref4%`. Numbers are substituted through their quotes, so `"seed": "%seed%"` arrives as a real number — ComfyUI rejects the string, and that is the most common way a hand-edited workflow fails.
+
+**Prompt dialect matters.** Flux, SD3 and anything with a T5 text encoder read sentences; SD1.5, SDXL and Pony parse comma-separated tags and stop attending past roughly seventy tokens. The **Tag-style prompts** switch picks which one is built. Either way the negations go where a sampler can actually read them: a sampler has no "not", so "no watermark, no crowd, not a person" in the positive prompt is three votes *for* those things — Weft builds a negative prompt instead, and adds to it per picture (a cast of two bars the crowd; a scene with nobody human in it bars people outright).
+
+**Storage.** A picture a turn is a save that grows by a couple of hundred kilobytes a message, and the save is rewritten on every engine call. Images are re-encoded to a 1280px JPEG on the way in, and past **Illustrations that keep their pixels** (default 12) older turns keep the record of having been illustrated and lose the bytes.
+
+> Note: as with a local text model, a page served over `https` will refuse a plain-`http://localhost` call — run Weft locally (`npm run dev`) when you use this.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.
@@ -91,7 +118,7 @@ The full engine ported to the browser:
 - **Canon** — world-altering public events every mind remembers forever.
 - **Park-style memory** with reflection, a social fabric of edges + rumor cascades, faction clocks, deterministic pressure control, the full world-bible & character editors, God Mode, dark/light, image generation, and the Chronicle's arcs, records, and regime read-outs.
 
-**Art direction you control** (Tuning → Art direction): set the visual style once — "muted painterly chiaroscuro", "90s cel anime", "gritty photoreal" — and it governs all images. Portraits are full-body, head-to-toe, on a white studio background, and the prompt reads the *whole* character (appearance, core + acquired traits, current bearing, even a guiding belief) so the figure looks like who they actually are. Those portraits are then fed as reference images when illustrating a scene, so the cast stays visually consistent (on image models that accept multimodal input, e.g. the Gemini flash-image family).
+**Art direction you control** (Tuning → Art direction): set the visual style once — "muted painterly chiaroscuro", "90s cel anime", "gritty photoreal" — and it governs all images. Portraits are full-body, head-to-toe, on a white studio background, and the prompt reads the *whole* character (appearance, core + acquired traits, current bearing, even a guiding belief) so the figure looks like who they actually are. Those portraits are then fed as reference images when illustrating a scene, so the cast stays visually consistent (on image models that accept multimodal input, e.g. the Gemini flash-image family — and on a local ComfyUI workflow with a `%ref1%` node, see *Running a local image model*).
 
 You can choose any OpenRouter image model for portraits and scene art in **Tuning → Images** (Gemini, FLUX, GPT-Image, etc.), and tap any portrait or scene illustration to view it full-screen.
 

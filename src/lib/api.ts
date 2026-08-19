@@ -24,7 +24,9 @@ import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
 import { completeSketch, pendingSketches, characterFromBrief } from "../engine/sketch";
 import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
-import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, buildPortraitDiffusion, buildSceneDiffusion, visualSignature, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
+import { generateLocalImage, shrinkDataUrl } from "./diffusion";
+import { getLocalImage, isLocalModel, localModelId } from "../config";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
@@ -64,6 +66,30 @@ function trackImageSpend(s: SaveState, realCost?: number): void {
   a.images++;
   a.cost += realCost ?? 0.039;
 }
+/** KEEP THE LAST FEW PICTURES, NOT ALL OF THEM.
+ *
+ *  Illustration was a button, so a long campaign held a handful of images and nobody had to think
+ *  about it. Automatic illustration makes it one per turn, and each one is a couple of hundred
+ *  kilobytes of base64 living INSIDE the save object — which store.ts writes on every api call and
+ *  IndexedDB structured-clones on every write. Two hundred turns of that is a save that takes
+ *  seconds to write and eventually takes the tab with it.
+ *
+ *  So older turns keep the record of having been illustrated and lose the bytes: the picture is
+ *  gone from the scrollback, the turn is not. Only inline data URLs are dropped — an http URL from
+ *  a cloud model costs nothing to keep. */
+function forgetOldPictures(s: SaveState): void {
+  const keep = s.model_settings.illustration_keep ?? 12;
+  if (keep <= 0) return;
+  let seen = 0;
+  for (let i = s.history.length - 1; i >= 0; i--) {
+    const h = s.history[i] as { illustration_url?: string; illustrated?: boolean };
+    if (!h.illustration_url?.startsWith("data:")) continue;
+    if (++seen <= keep) continue;
+    h.illustration_url = undefined;
+    h.illustrated = true;
+  }
+}
+
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
@@ -1508,17 +1534,36 @@ export const api = {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
-    const img = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
-    c.portrait_url = img.url;
+    if (isLocalModel(s.model_settings.image_model)) {
+      // THE SAMPLER UNDER THE DESK. Different prompt dialect, different plumbing, no bill — but the
+      // same job, and the same body-plan stamp at the end of it.
+      const ep = getLocalImage();
+      const d = buildPortraitDiffusion(s, char_id, ep?.prompt_style ?? "natural");
+      const img = await generateLocalImage({
+        prompt: d.prompt, negative: d.negative, seed: d.seed, aspect: "portrait",
+        checkpoint: localModelId(s.model_settings.image_model),
+      });
+      c.portrait_url = img.url;
+      c.portrait_seed = img.seed;
+      trackImageSpend(s, 0);
+    } else {
+      const img = await generateImage(buildPortraitPrompt(s, char_id), s.model_settings.image_model, [], "portrait");
+      c.portrait_url = img.url;
+      trackImageSpend(s, img.cost);
+    }
+    // LOCK THE WORDS THAT DREW THIS FACE. Written on whichever path made the portrait, because the
+    // scene path may well be the other one — a cloud portrait with local scenes is an ordinary
+    // setup, and it is exactly the case where the scenes need to know what the face was made from.
+    // Never overwritten: a signature that moves is a character who stops being themselves.
+    if (!c.visual_signature?.trim()) c.visual_signature = visualSignature(s, char_id);
     // stamp the body plan this portrait was made under, so scene illustrations never attach a
     // stale person-shaped portrait as a reference for a non-human character (see prompts.ts)
     c.portrait_plan = portraitBodyPlan(s, c).humanoid ? "humanoid" : "nonhuman";
-    trackImageSpend(s, img.cost);
     await putSave(s);
     return { url: c.portrait_url, save: clientView(s) };
   },
 
-  illustrate: async (id: string, turn: number): Promise<{ url: string; save: ClientSave }> => {
+  illustrate: async (id: string, turn: number, signal?: AbortSignal): Promise<{ url: string; save: ClientSave }> => {
     const s = await need(id);
     const entry = [...s.history].reverse().find((h) => h.turn === turn) ?? s.history[s.history.length - 1];
     if (!entry) throw new Error("no turn to illustrate");
@@ -1529,9 +1574,29 @@ export const api = {
     // after the scene ended must render that scene's cast, not whoever is around today.
     const castIds = [...new Set(["char_player", ...(entry.present ?? s.world.present)])];
     const refs = sceneReferencePortraits(s, castIds);
-    const img = await generateImage(buildScenePrompt(s, entry.summary, entry.present), s.model_settings.image_model, refs, "landscape");
-    entry.illustration_url = img.url;
-    trackImageSpend(s, img.cost);
+    if (isLocalModel(s.model_settings.image_model)) {
+      const ep = getLocalImage();
+      // Asking again for a turn that already has a picture means "another take", so the seed lock
+      // that keeps a scene looking like itself is broken on purpose for that one call.
+      const d = buildSceneDiffusion(s, entry.summary, entry.present, ep?.prompt_style ?? "natural", {
+        lockSeed: ep?.lock_seed !== false,
+        vary: entry.illustration_url ? 1 + Math.floor(Math.random() * 100000) : 0,
+      });
+      const img = await generateLocalImage({
+        prompt: d.prompt, negative: d.negative, seed: d.seed, aspect: "landscape", refs, signal,
+        checkpoint: localModelId(s.model_settings.image_model),
+      });
+      entry.illustration_url = img.url;
+      trackImageSpend(s, 0);
+    } else {
+      const img = await generateImage(buildScenePrompt(s, entry.summary, entry.present), s.model_settings.image_model, refs, "landscape");
+      // Re-encoded on the way in for the same reason the local path is (see forgetOldPictures): a
+      // returned image is a megabyte or two of base64 that lives inside the save from here on, and
+      // a 1280px JPEG of the same frame is a fifth of that at the size it is ever displayed.
+      entry.illustration_url = await shrinkDataUrl(img.url, 1280);
+      trackImageSpend(s, img.cost);
+    }
+    forgetOldPictures(s);
     await putSave(s);
     return { url: entry.illustration_url, save: clientView(s) };
   },

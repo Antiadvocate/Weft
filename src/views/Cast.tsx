@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { splitLines } from "../engine/turn";
+import { visualSignature } from "../engine/prompts";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
@@ -66,7 +67,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [revoicing, setRevoicing] = useState(false);
   const [retraiting, setRetraiting] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "" });
   const [editNote, setEditNote] = useState("");
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -96,7 +97,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const startEdit = () => {
     if (!c) return;
     setDraft({
-      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", height_ft: c.height_cm ? String(Math.floor(Math.round(c.height_cm / 2.54) / 12)) : "", height_in: c.height_cm ? String(Math.round(c.height_cm / 2.54) % 12) : "", weight_lb: c.weight_kg ? String(Math.round(c.weight_kg * 2.20462)) : "",
+      name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", visual_signature: c.visual_signature ?? "", height_ft: c.height_cm ? String(Math.floor(Math.round(c.height_cm / 2.54) / 12)) : "", height_in: c.height_cm ? String(Math.round(c.height_cm / 2.54) % 12) : "", weight_lb: c.weight_kg ? String(Math.round(c.weight_kg * 2.20462)) : "",
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join("\n"),
     });
     setEditing(true);
@@ -111,6 +112,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         life_history: draft.life_history,
         appearance_facts: draft.appearance_facts,
         appearance_now: draft.appearance_now,
+        // blank clears it, and a cleared signature is re-derived from the appearance the next time
+        // a portrait is drawn — which is the whole undo for having edited this by hand
+        visual_signature: draft.visual_signature.trim() || undefined,
         height_cm: (Number(draft.height_ft) || Number(draft.height_in)) ? Math.round(((Number(draft.height_ft) || 0) * 12 + (Number(draft.height_in) || 0)) * 2.54) : undefined,
         weight_kg: Number(draft.weight_lb) ? Math.round(Number(draft.weight_lb) / 2.20462) : undefined,
         current_goal: draft.current_goal,
@@ -487,6 +491,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       {blBusy ? "completing…" : "complete baseline gaps (hair, eyes, face — one cheap call; review before weaving in)"}
                     </button>
                     <EditField label="Presenting now (clothes, grime, visible state — freely rewritten in play)" v={draft.appearance_now} set={(v) => setDraft((d) => ({ ...d, appearance_now: v }))} rows={2} />
+                    <EditField label="Image words — the locked description every picture draws them from" v={draft.visual_signature} set={(v) => setDraft((d) => ({ ...d, visual_signature: v }))} rows={3} />
+                    <div className="text-[11px] -mt-1 mb-2" style={{ color: "var(--text-lo)" }}>
+                      Read by the local sampler only, and it is what keeps the person in the scene the same person as the portrait. A diffusion model has no memory of who this is — it has these words, so the same words return roughly the same face and words that drift a little each turn return a stranger by the tenth message. Written once when the portrait is generated, then held still: clothes, mood and injuries are added per scene and do not belong here. Leave it blank to have it derived from the appearance above.
+                      {!draft.visual_signature.trim() && (
+                        <> Currently: <span style={{ fontFamily: "var(--font-mono)" }}>{visualSignature(save as unknown as SaveState, sel!) || "—"}</span></>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <EditField label="Height (ft)" v={draft.height_ft} set={(v) => setDraft((d) => ({ ...d, height_ft: v }))} rows={1} />
                       <EditField label="(in)" v={draft.height_in} set={(v) => setDraft((d) => ({ ...d, height_in: v }))} rows={1} />

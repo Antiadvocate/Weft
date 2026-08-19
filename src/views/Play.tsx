@@ -98,6 +98,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [tip, setTip] = useState<Tip | null>(null);
   const [illustrating, setIllustrating] = useState(false);
+  // guards the auto-painter against overlapping with the manual button (and with itself, when a
+  // turn commits while the previous picture is still on the GPU)
+  const illustratingRef = useRef(false);
   const [observing, setObserving] = useState(false);
   const [chaptering, setChaptering] = useState(false);
   const [proseDone, setProseDone] = useState(false);
@@ -280,7 +283,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     } catch { /* non-critical; retried after the next turn */ }
   };
 
-  const flushPostTurn = (s: ClientSave) => { void flushBeautyRescore(s); void flushSketches(s); void flushPlaceDescriptions(s); };
+  const flushPostTurn = (s: ClientSave) => { void flushBeautyRescore(s); void flushSketches(s); void flushPlaceDescriptions(s); void flushIllustration(s); };
 
   const runAction = async (a: string) => {
     if (!a) return;
@@ -492,12 +495,36 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     observingRef.current = false; setObserving(false);
   };
 
-  const illustrateLatest = async () => {    if (illustrating || !history.length) return;
-    setIllustrating(true); setError(null);
+  const illustrateLatest = async () => {    if (illustratingRef.current || !history.length) return;
+    illustratingRef.current = true; setIllustrating(true); setError(null);
     try {
       const { save: s } = await api.illustrate(save.id, history[history.length - 1].turn);
       setSave(s);
-    } catch (e: any) { setError(e.message); } finally { setIllustrating(false); }
+    } catch (e: any) { setError(e.message); } finally { illustratingRef.current = false; setIllustrating(false); }
+  };
+
+  /** THE PICTURE THAT ARRIVES BY ITSELF.
+   *
+   *  Off unless the save asks for it, and it is meant for the local sampler (Settings → Local
+   *  images), where a picture a turn costs seconds and no money. Three rules make it safe to run
+   *  after every turn:
+   *
+   *  - it runs AFTER the turn has committed, so nothing about the prose waits on the GPU;
+   *  - a failure is swallowed. A picture that didn't paint must never look like a turn that
+   *    didn't happen — the error would land in the same red bar the engine's own failures use;
+   *  - it only writes the save back if no NEWER turn has started meanwhile. The illustration is
+   *    already persisted by then either way, so the next commit brings it to the page; setting
+   *    stale state over a running turn is the one thing here that could actually lose work. */
+  const flushIllustration = async (s: ClientSave) => {
+    if (!s.model_settings.auto_illustrate || illustratingRef.current) return;
+    const last = s.history[s.history.length - 1];
+    if (!last || last.illustration_url || last.kind === "interlude") return;
+    illustratingRef.current = true; setIllustrating(true);
+    try {
+      const { save: after } = await api.illustrate(s.id, last.turn);
+      if (!runningRef.current) setSave(after);
+    } catch { /* the turn stands whether or not it got a picture */ }
+    finally { illustratingRef.current = false; setIllustrating(false); }
   };
 
   const setNarratorDirection = async () => {
