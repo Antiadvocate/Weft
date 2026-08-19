@@ -6,28 +6,12 @@ import { api, streamTurn, resumePending, governorState, type ActionMode, type Cl
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
-
-/**
- * Anything a model wrote, as a line the browser can actually display.
- *
- * React throws on an object child, and a throw during render of a persisted history entry is
- * permanent: the save fails to open, every time, and the story is gone as far as the player is
- * concerned. A save that shows one odd-looking line is strictly better than a save that will not
- * load, so nothing on this path is allowed to be trusted for its type.
- */
-function asLine(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (v == null) return "";
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
-  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
-  return "";
-}
 import { CastPip, Vitals } from "../lib/charts";
 import { readSchedule } from "../engine/schedule";
 import type { SaveState } from "../engine/types";
-import { AnalogClock, WeatherIcon } from "../lib/format";
+import { AnalogClock, WeatherIcon, asLine } from "../lib/format";
 import { estimateSaveWeight, leaveBreadcrumb } from "../lib/crash";
+import { Sheet, Field } from "../lib/ui";
 import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
 import { sceneTone, reducedMotion, getAmbience, setAmbience, type AmbienceLevel } from "../lib/tone";
@@ -84,16 +68,17 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [reads, setReads] = useState<{ faculty: string; line: string }[]>([]);
   const [liveProse, setLiveProse] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [rollbackOpen, setRollbackOpen] = useState(false);
   const [rerunning, setRerunning] = useState<number | null>(null);
-  const [skipOpen, setSkipOpen] = useState(false);
+  // MONTAGE INPUTS — what you typed into the "direct the montage" sub-view of the skip sheet.
+  // These outlive the sheet on purpose: closing the sheet without running one and reopening it
+  // should land you back where you left off, not blank. Only which sheet is ON THE SCREEN lives
+  // in `overlay` below; what you've typed into it lives here.
   const [montageMode, setMontageMode] = useState(false);
   const [mDirection, setMDirection] = useState("");
   const [mDays, setMDays] = useState(30);
   const [mGran, setMGran] = useState<"quick" | "standard" | "full">("standard");
   const [mWarnings, setMWarnings] = useState<string[]>([]);
   const [scorecard, setScorecard] = useState<{ item: string; landed: boolean }[] | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [tip, setTip] = useState<Tip | null>(null);
@@ -105,8 +90,6 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [undoTurn, setUndoTurn] = useState<number | null>(null);
   const [rolledTo, setRolledTo] = useState<number | null>(null);
   const pendingRef = useRef<string | null>(null);
-  const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
-  const [drawerSel, setDrawerSel] = useState<string | null>(null);
   const observingRef = useRef(false);
   const runningRef = useRef(false);
   const [hasPending, setHasPending] = useState(false);
@@ -118,9 +101,27 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [cancelling, setCancelling] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastId = useRef(0);
+  /** ONE OVERLAY AT A TIME — the menu sheet, the skip sheet, the rollback sheet, the lightbox and
+   *  the cast/world/chronicle side-peek each hand-roll (or hand-rolled) a full-screen veil that
+   *  swallows every click behind it. That veil is what actually made them mutually exclusive —
+   *  you cannot reach the trigger for a second one while the first is up — so six separate states
+   *  (rollbackOpen, skipOpen, menuOpen, lightbox, drawer, drawerSel) were encoding one fact six
+   *  times, and nothing stopped them from drifting out of sync with each other. This union makes
+   *  "at most one of these is open" true by construction instead of by convention. Things that are
+   *  NOT full-screen (the rail panel, the name tooltip, the montage scorecard) stay as their own
+   *  state below — they have no veil, so they genuinely can coexist with whichever of these is
+   *  open. */
+  type Overlay =
+    | { k: "none" }
+    | { k: "menu" }
+    | { k: "rollback" }
+    | { k: "skip" }
+    | { k: "lightbox"; url: string }
+    | { k: "peek"; which: "cast" | "world" | "chronicle"; sel: string | null };
+  const [overlay, setOverlay] = useState<Overlay>({ k: "none" });
+  const closeOverlay = () => setOverlay({ k: "none" });
   // the two summoning states of the decluttered surface: the "⋯" sheet of rare
   // actions, and the compose extras (mode / web / tightness) behind the "+"
-  const [menuOpen, setMenuOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   // YOUR OWN WORDS — the in-flight action shows as a bubble the instant you send it (before the
   // turn commits and it lands in history), and the echo-nav arrows walk you back through your
@@ -233,6 +234,29 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
       }, i * 900);
     });
+  };
+
+  /** ONE PROMPT SHEET, ONE CONFIRM SHEET — this view used to call window.prompt() four times and
+   *  confirm()/alert() three more, each a copy of the same "ask, then act" shape. Native prompts
+   *  are unusable on iOS (no visible keyboard-safe layout) and look nothing like the rest of the
+   *  app. askText/askConfirm return a Promise exactly like prompt()/confirm() do, so every call
+   *  site below reads the same as it always did — `const x = await askText(...)` — the only change
+   *  is what answers it. */
+  const [promptReq, setPromptReq] = useState<{ message: string; def: string; label: string } | null>(null);
+  const [promptVal, setPromptVal] = useState("");
+  const promptResolve = useRef<((v: string | null) => void) | null>(null);
+  const askText = (message: string, def = "", label = "your answer"): Promise<string | null> =>
+    new Promise((resolve) => { promptResolve.current = resolve; setPromptVal(def); setPromptReq({ message, def, label }); });
+  const closePrompt = (v: string | null) => {
+    promptResolve.current?.(v); promptResolve.current = null; setPromptReq(null);
+  };
+
+  const [confirmReq, setConfirmReq] = useState<string | null>(null);
+  const confirmResolve = useRef<((v: boolean) => void) | null>(null);
+  const askConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => { confirmResolve.current = resolve; setConfirmReq(message); });
+  const closeConfirm = (v: boolean) => {
+    confirmResolve.current?.(v); confirmResolve.current = null; setConfirmReq(null);
   };
 
   /** PIPELINE OVERLAP — the prose is the part you read; the bookkeeping is the part you wait
@@ -383,7 +407,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     // ARMED CONFIRM: any rollback erasing more than 10 turns takes two deliberate taps, with
     // the cost stated. One mistap must never eat a campaign.
     if (loss > 10 && armedRollback !== turn) { setArmedRollback(turn); return; }
-    setArmedRollback(null); setRollbackOpen(false);
+    setArmedRollback(null); closeOverlay();
     const before = save.world.current_turn;
     setSave(await api.rollback(save.id, turn));
     setUndoTurn(before); setRolledTo(turn);
@@ -410,8 +434,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   /** THE VETO. Strike what the narrator invented — roll back past it and forbid it forever. */
   const doStrike = async (turn: number) => {
-    const what = prompt(
-      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing, not the rule it broke — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`
+    const what = await askText(
+      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing, not the rule it broke — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`,
+      "", "what to strike",
     );
     if (!what?.trim()) return;
     const before = save.world.current_turn;
@@ -428,8 +453,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   /** THE CORRECTION. The narrator ignored or explained away a rule that IS true — affirm the rule
    *  as world law. Nothing rolls back, nothing is purged; the law simply binds from here on. */
   const doCorrect = async () => {
-    const what = prompt(
-      `Correct the record — what is TRUE that the narrator got wrong?\n\nState the rule as law. It is affirmed as supreme truth and canonized immediately: the fiction adapts to it, consequences assert themselves, and the narrator can never explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
+    const what = await askText(
+      `Correct the record — what is TRUE that the narrator got wrong?\n\nState the rule as law. It is affirmed as supreme truth and canonized immediately: the fiction adapts to it, consequences assert themselves, and the narrator can never explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`,
+      "", "the rule",
     );
     if (!what?.trim()) return;
     try {
@@ -440,7 +466,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const doSkip = async (days: number) => {
     if (skipping) return;
-    setSkipOpen(false); setSkipping(true); setError(null); setPhase("world-turning");
+    closeOverlay(); setSkipping(true); setError(null); setPhase("world-turning");
     try {
       const s = await api.advance(save.id, days);
       setSave(s);
@@ -452,7 +478,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const doMontage = async () => {
     if (skipping || !mDirection.trim()) return;
-    setSkipOpen(false); setSkipping(true); setError(null); setScorecard(null);
+    closeOverlay(); setSkipping(true); setError(null); setScorecard(null);
     setPhase("planning the montage");
     try {
       const { save: s, scorecard: sc } = await api.montage(
@@ -502,7 +528,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
   const setNarratorDirection = async () => {
     const cur = save.world_bible.narrator_direction ?? "";
-    const next = window.prompt("Standing direction for the narrator — takes effect on the next turn, overrides everything. What is this story about, or how should it be told? (blank to clear)", cur);
+    const next = await askText("Standing direction for the narrator — takes effect on the next turn, overrides everything. What is this story about, or how should it be told? (blank to clear)", cur, "direction");
     if (next === null) return; // cancelled
     setSave(await api.edit(save.id, { world_bible: { narrator_direction: next.trim() } }));
   };
@@ -512,9 +538,9 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
    *  written by something other than the player was invisible and permanent. */
   const setTone = async () => {
     const cur = save.world_bible.tone ?? "";
-    const next = window.prompt(
+    const next = await askText(
       "GENRE & REGISTER — the key this whole story is written in. The narrator reads this every turn, above almost everything else. (blank to clear)",
-      cur,
+      cur, "tone",
     );
     if (next === null) return; // cancelled
     setSave(await api.edit(save.id, { world_bible: { tone: next.trim() } }));
@@ -523,13 +549,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const setFocusPrompt = async () => {
     const hottest = [...save.world.threads].sort((a, b) => b.tension - a.tension)[0];
     const suggest = save.world.consequences.find((c) => c.status === "pending")?.description || hottest?.title || "";
-    const ev = window.prompt("Drive toward which event? The story will build toward it (no new chaos), then automatically shift into it when it arrives.", suggest);
+    const ev = await askText("Drive toward which event? The story will build toward it (no new chaos), then automatically shift into it when it arrives.", suggest, "event");
     if (ev && ev.trim()) setSave(await api.setFocus(save.id, ev.trim()));
   };
 
   const correctClock = async () => {
     const cur = save.world.current_time;
-    const next = window.prompt("Set the in-world time (e.g. \"Day 2, 08:00\" or \"Day 3, 14:30\"):", cur.replace(/\s*\(.*\)$/, ""));
+    const next = await askText("Set the in-world time (e.g. \"Day 2, 08:00\" or \"Day 3, 14:30\"):", cur.replace(/\s*\(.*\)$/, ""), "time");
     if (next && next.trim() && next.trim() !== cur) setSave(await api.setTime(save.id, next.trim()));
   };
 
@@ -537,21 +563,21 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const clearLog = async () => {
     const cleared = save.world.context_from_turn ?? 0;
     if (cleared) {
-      if (!confirm("Let the narrator see the whole log again? Nothing was deleted — this just moves the line back.")) return;
+      if (!(await askConfirm("Let the narrator see the whole log again? Nothing was deleted — this just moves the line back."))) return;
       try { setSave(await api.clearLog(save.id, { restore: true })); }
-      catch (e: any) { alert(`Failed: ${e.message}`); }
+      catch (e: any) { pushToasts([`Failed: ${e.message}`]); }
       return;
     }
-    if (!confirm("Clear the log?\n\nThe narrator and every other pass stop reading the turns before this one, so context and repetition drop. The last beat is kept so the next turn is not written blind.\n\nNothing is deleted: the whole story stays on this page, in the Chronicle and in the export, and you can undo this from the same menu. Memories, relationships and the world are untouched.")) return;
+    if (!(await askConfirm("Clear the log?\n\nThe narrator and every other pass stop reading the turns before this one, so context and repetition drop. The last beat is kept so the next turn is not written blind.\n\nNothing is deleted: the whole story stays on this page, in the Chronicle and in the export, and you can undo this from the same menu. Memories, relationships and the world are untouched."))) return;
     try { setSave(await api.clearLog(save.id)); }
-    catch (e: any) { alert(`Failed: ${e.message}`); }
+    catch (e: any) { pushToasts([`Failed: ${e.message}`]); }
   };
 
   const refreshMemory = async () => {
-    if (!confirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character.")) return;
+    if (!(await askConfirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character."))) return;
     setChaptering(true);
     try { setSave(await api.refreshContext(save.id)); }
-    catch (e: any) { alert(`Refresh failed: ${e.message}`); }
+    catch (e: any) { pushToasts([`Refresh failed: ${e.message}`]); }
     finally { setChaptering(false); }
   };
 
@@ -703,7 +729,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     <CastPip name={ch.name} portrait={ch.portrait_url} label={false} size={22}
                       warmth={e?.warmth ?? 0} openness={save.condition[pid]?.psyche?.relaxation ?? 0}
                       flag={due ? "leaving" : arriving ? "arrived" : aimed ? "wants" : null}
-                      onClick={() => { setDrawerSel(pid); setDrawer("cast"); }} />
+                      onClick={() => setOverlay({ k: "peek", which: "cast", sel: pid })} />
                   </div>
                 );
               })}
@@ -760,7 +786,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             <Odometer text={shortTime} />
           </span>
         </button>
-        <button className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="more actions" title="more actions"
+        <button className="icon-btn" onClick={() => setOverlay({ k: "menu" })} aria-label="more actions" title="more actions"
           style={{ border: "1px solid var(--line)" }}>
           <MoreHorizontal size={16} />
         </button>
@@ -837,7 +863,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 {h.action_mode === "say" ? `“${h.player_action}”` : h.player_action}
               </div>
               )}
-              {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
+              {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setOverlay({ k: "lightbox", url: h.illustration_url! })} style={{ cursor: "zoom-in" }} />}
               {h.kind !== "interlude" && h.narrator_prose.trim() ? (
                 <div
                   onClick={(e) => {
@@ -1182,145 +1208,132 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* THE "⋯" SHEET — every option you only need occasionally, in one calm list.
           The play surface stays prose; the machinery lives here. */}
-      <AnimatePresence>
-        {menuOpen && (
-          <>
-            <motion.div className="drawer-veil fixed inset-0 z-40"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setMenuOpen(false)} />
-            <motion.div className="drawer fixed bottom-0 left-0 right-0 z-50 px-3"
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 380, damping: 38 }}>
-              <div className="grab" />
-
-              <div className="sheet-cap">the story</div>
-              <button className="sheet-item" disabled={running} onClick={() => { setMenuOpen(false); runObserve(); }}>
-                <span className="sheet-ic"><PlayIcon size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Watch a turn</span>
-                  <span className="sheet-hint block">the world and your character act on their own</span>
-                </span>
-              </button>
-              <button className="sheet-item" onClick={() => { setMenuOpen(false); setTone(); }}>
-                <span className={save.world_bible.tone ? "sheet-ic lit" : "sheet-ic"}><Feather size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Genre & register</span>
-                  <span className="sheet-hint block truncate">
-                    {save.world_bible.tone ? `set — ${save.world_bible.tone}` : "the key the whole story is written in"}
-                  </span>
-                </span>
-              </button>
-              <button className="sheet-item" onClick={() => { setMenuOpen(false); setNarratorDirection(); }}>
-                <span className={save.world_bible.narrator_direction ? "sheet-ic lit" : "sheet-ic"}><Compass size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Narrator direction</span>
-                  <span className="sheet-hint block truncate">
-                    {save.world_bible.narrator_direction ? `set — ${save.world_bible.narrator_direction}` : "standing orders for how the story is told"}
-                  </span>
-                </span>
-              </button>
-              {save.world.focus ? (
-                <button className="sheet-item" onClick={async () => { setMenuOpen(false); setSave(await api.setFocus(save.id, null)); }}>
-                  <span className="sheet-ic lit"><Crosshair size={15} /></span>
-                  <span className="flex-1 min-w-0">
-                    <span className="sheet-label block">Release focus</span>
-                    <span className="sheet-hint block truncate">{save.world.focus.label}</span>
-                  </span>
-                </button>
-              ) : (
-                <button className="sheet-item" onClick={() => { setMenuOpen(false); setFocusPrompt(); }}>
-                  <span className="sheet-ic"><Crosshair size={15} /></span>
-                  <span className="flex-1 min-w-0">
-                    <span className="sheet-label block">Drive toward an event</span>
-                    <span className="sheet-hint block">the story builds toward it, then shifts into it</span>
-                  </span>
-                </button>
-              )}
-              <button className="sheet-item" disabled={illustrating || !history.length}
-                onClick={() => { setMenuOpen(false); illustrateLatest(); }}>
-                <span className={illustrating ? "sheet-ic lit" : "sheet-ic"}><ImageIcon size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">{illustrating ? "Painting…" : "Illustrate the latest turn"}</span>
-                  <span className="sheet-hint block">a scene image, painted from the prose</span>
-                </span>
-              </button>
-
-              <div className="sheet-rule" />
-              <div className="sheet-cap">time & memory</div>
-              <button className="sheet-item" disabled={running || skipping}
-                onClick={() => { setMenuOpen(false); setSkipOpen(true); }}>
-                <span className="sheet-ic"><Moon size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Let the world turn</span>
-                  <span className="sheet-hint block">skip hours or days — or direct a montage</span>
-                </span>
-              </button>
-              <button className="sheet-item" disabled={!save.snapshot_turns.length}
-                onClick={() => { setMenuOpen(false); setRollbackOpen(true); }}>
-                <span className="sheet-ic"><RotateCcw size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Roll back</span>
-                  <span className="sheet-hint block">turn {save.world.current_turn} · return to an earlier snapshot</span>
-                </span>
-              </button>
-              {undoTurn !== null && (
-                <button className="sheet-item" onClick={() => { setMenuOpen(false); doUndoRollback(); }}>
-                  <span className="sheet-ic lit"><RotateCcw size={15} style={{ transform: "scaleX(-1)" }} /></span>
-                  <span className="flex-1 min-w-0">
-                    <span className="sheet-label block" style={{ color: "var(--accent)" }}>Undo rollback</span>
-                    <span className="sheet-hint block">return to turn {undoTurn}</span>
-                  </span>
-                </button>
-              )}
-              <button className="sheet-item" disabled={running} onClick={() => { setMenuOpen(false); clearLog(); }}>
-                <span className={save.world.context_from_turn ? "sheet-ic lit" : "sheet-ic"}><Eraser size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">{save.world.context_from_turn ? "Restore the log" : "Clear the log"}</span>
-                  <span className="sheet-hint block">
-                    {save.world.context_from_turn
-                      ? `the narrator is reading from turn ${save.world.context_from_turn} — tap to let it see everything again`
-                      : "the narrator stops reading earlier turns — nothing is deleted, the story stays on the page"}
-                  </span>
-                </span>
-              </button>
-              <button className="sheet-item" disabled={running || chaptering}
-                onClick={() => { setMenuOpen(false); refreshMemory(); }}>
-                <span className="sheet-ic"><BookOpen size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">{chaptering ? "Refreshing…" : "Refresh memory"}</span>
-                  <span className="sheet-hint block">condense memory drift, clear runaway threads — same moment, same people</span>
-                </span>
-              </button>
-
-              <div className="sheet-rule" />
-              <div className="sheet-cap">feel</div>
-              <button className="sheet-item" onClick={cycleAmbience}>
-                <span className={ambience === "full" ? "sheet-ic lit" : "sheet-ic"}><Sparkles size={15} /></span>
-                <span className="flex-1 min-w-0">
-                  <span className="sheet-label block">Ambience — {ambience}</span>
-                  <span className="sheet-hint block">tap to cycle subtle / full / off</span>
-                </span>
-              </button>
-
-              {/* the session meter, demoted from a permanent line to a footer readout */}
-              <div className="font-mono text-[9.5px] uppercase tracking-wider flex items-center gap-2 px-2.5 pt-3 pb-2"
-                style={{ color: "var(--text-lo)", opacity: 0.85 }}>
-                <span>
-                  {spend.cost > 0 || spend.aux.cost > 0
-                    ? `$${(spend.cost + spend.aux.cost).toFixed(2)} · ${spend.hit}% cached`
-                      + (spend.aux.images > 0 ? ` · ${spend.aux.images} img` : "")
-                      + (spend.aux.montage_calls > 0 ? ` · ${spend.aux.montage_calls} montage` : "")
-                    : "no spend yet"}
-                </span>
-                {spend.gov.budget > 0 && spend.gov.eco && (
-                  <span className="flex items-center gap-1" style={{ color: "var(--accent)" }}><Leaf size={9} /> eco</span>
-                )}
-                {save.model_settings.lean_mode && <span>· lean</span>}
-              </div>
-            </motion.div>
-          </>
+      <Sheet open={overlay.k === "menu"} onClose={closeOverlay} className="px-3">
+        <div className="sheet-cap">the story</div>
+        <button className="sheet-item" disabled={running} onClick={() => { closeOverlay(); runObserve(); }}>
+          <span className="sheet-ic"><PlayIcon size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Watch a turn</span>
+            <span className="sheet-hint block">the world and your character act on their own</span>
+          </span>
+        </button>
+        <button className="sheet-item" onClick={() => { closeOverlay(); setTone(); }}>
+          <span className={save.world_bible.tone ? "sheet-ic lit" : "sheet-ic"}><Feather size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Genre & register</span>
+            <span className="sheet-hint block truncate">
+              {save.world_bible.tone ? `set — ${save.world_bible.tone}` : "the key the whole story is written in"}
+            </span>
+          </span>
+        </button>
+        <button className="sheet-item" onClick={() => { closeOverlay(); setNarratorDirection(); }}>
+          <span className={save.world_bible.narrator_direction ? "sheet-ic lit" : "sheet-ic"}><Compass size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Narrator direction</span>
+            <span className="sheet-hint block truncate">
+              {save.world_bible.narrator_direction ? `set — ${save.world_bible.narrator_direction}` : "standing orders for how the story is told"}
+            </span>
+          </span>
+        </button>
+        {save.world.focus ? (
+          <button className="sheet-item" onClick={async () => { closeOverlay(); setSave(await api.setFocus(save.id, null)); }}>
+            <span className="sheet-ic lit"><Crosshair size={15} /></span>
+            <span className="flex-1 min-w-0">
+              <span className="sheet-label block">Release focus</span>
+              <span className="sheet-hint block truncate">{save.world.focus.label}</span>
+            </span>
+          </button>
+        ) : (
+          <button className="sheet-item" onClick={() => { closeOverlay(); setFocusPrompt(); }}>
+            <span className="sheet-ic"><Crosshair size={15} /></span>
+            <span className="flex-1 min-w-0">
+              <span className="sheet-label block">Drive toward an event</span>
+              <span className="sheet-hint block">the story builds toward it, then shifts into it</span>
+            </span>
+          </button>
         )}
-      </AnimatePresence>
+        <button className="sheet-item" disabled={illustrating || !history.length}
+          onClick={() => { closeOverlay(); illustrateLatest(); }}>
+          <span className={illustrating ? "sheet-ic lit" : "sheet-ic"}><ImageIcon size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">{illustrating ? "Painting…" : "Illustrate the latest turn"}</span>
+            <span className="sheet-hint block">a scene image, painted from the prose</span>
+          </span>
+        </button>
+
+        <div className="sheet-rule" />
+        <div className="sheet-cap">time & memory</div>
+        <button className="sheet-item" disabled={running || skipping}
+          onClick={() => setOverlay({ k: "skip" })}>
+          <span className="sheet-ic"><Moon size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Let the world turn</span>
+            <span className="sheet-hint block">skip hours or days — or direct a montage</span>
+          </span>
+        </button>
+        <button className="sheet-item" disabled={!save.snapshot_turns.length}
+          onClick={() => setOverlay({ k: "rollback" })}>
+          <span className="sheet-ic"><RotateCcw size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Roll back</span>
+            <span className="sheet-hint block">turn {save.world.current_turn} · return to an earlier snapshot</span>
+          </span>
+        </button>
+        {undoTurn !== null && (
+          <button className="sheet-item" onClick={() => { closeOverlay(); doUndoRollback(); }}>
+            <span className="sheet-ic lit"><RotateCcw size={15} style={{ transform: "scaleX(-1)" }} /></span>
+            <span className="flex-1 min-w-0">
+              <span className="sheet-label block" style={{ color: "var(--accent)" }}>Undo rollback</span>
+              <span className="sheet-hint block">return to turn {undoTurn}</span>
+            </span>
+          </button>
+        )}
+        <button className="sheet-item" disabled={running} onClick={() => { closeOverlay(); clearLog(); }}>
+          <span className={save.world.context_from_turn ? "sheet-ic lit" : "sheet-ic"}><Eraser size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">{save.world.context_from_turn ? "Restore the log" : "Clear the log"}</span>
+            <span className="sheet-hint block">
+              {save.world.context_from_turn
+                ? `the narrator is reading from turn ${save.world.context_from_turn} — tap to let it see everything again`
+                : "the narrator stops reading earlier turns — nothing is deleted, the story stays on the page"}
+            </span>
+          </span>
+        </button>
+        <button className="sheet-item" disabled={running || chaptering}
+          onClick={() => { closeOverlay(); refreshMemory(); }}>
+          <span className="sheet-ic"><BookOpen size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">{chaptering ? "Refreshing…" : "Refresh memory"}</span>
+            <span className="sheet-hint block">condense memory drift, clear runaway threads — same moment, same people</span>
+          </span>
+        </button>
+
+        <div className="sheet-rule" />
+        <div className="sheet-cap">feel</div>
+        <button className="sheet-item" onClick={cycleAmbience}>
+          <span className={ambience === "full" ? "sheet-ic lit" : "sheet-ic"}><Sparkles size={15} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="sheet-label block">Ambience — {ambience}</span>
+            <span className="sheet-hint block">tap to cycle subtle / full / off</span>
+          </span>
+        </button>
+
+        {/* the session meter, demoted from a permanent line to a footer readout */}
+        <div className="font-mono text-[9.5px] uppercase tracking-wider flex items-center gap-2 px-2.5 pt-3 pb-2"
+          style={{ color: "var(--text-lo)", opacity: 0.85 }}>
+          <span>
+            {spend.cost > 0 || spend.aux.cost > 0
+              ? `$${(spend.cost + spend.aux.cost).toFixed(2)} · ${spend.hit}% cached`
+                + (spend.aux.images > 0 ? ` · ${spend.aux.images} img` : "")
+                + (spend.aux.montage_calls > 0 ? ` · ${spend.aux.montage_calls} montage` : "")
+              : "no spend yet"}
+          </span>
+          {spend.gov.budget > 0 && spend.gov.eco && (
+            <span className="flex items-center gap-1" style={{ color: "var(--accent)" }}><Leaf size={9} /> eco</span>
+          )}
+          {save.model_settings.lean_mode && <span>· lean</span>}
+        </div>
+      </Sheet>
 
       {/* DE-style name tooltip */}
       <AnimatePresence>
@@ -1398,170 +1411,181 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       </AnimatePresence>
 
       {/* skip drawer — let the world turn */}
-      <AnimatePresence>
-        {skipOpen && (
+      <Sheet open={overlay.k === "skip"} onClose={closeOverlay} className="px-5">
+        <div className="py-2">
+          <div className="font-display text-[16px]">Let the world turn.</div>
+          <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+            Step away. Drives advance, rumors saturate, clocks fill and fire, bodies heal. You return to whatever it became.
+          </div>
+        </div>
+        {!montageMode ? (
           <>
-            <motion.div className="drawer-veil fixed inset-0 z-40"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setSkipOpen(false)} />
-            <motion.div className="drawer fixed bottom-0 left-0 right-0 z-50 px-5"
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 380, damping: 38 }}>
-              <div className="grab" />
-              <div className="py-2">
-                <div className="font-display text-[16px]">Let the world turn.</div>
-                <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                  Step away. Drives advance, rumors saturate, clocks fill and fire, bodies heal. You return to whatever it became.
-                </div>
+            <div className="pb-3 grid grid-cols-2 gap-2">
+              {[["Overnight", 1], ["Three days", 3], ["A week", 7], ["A fortnight", 14]].map(([label, d]) => (
+                <button key={d} className="card card-press p-3.5 text-left" onClick={() => doSkip(d as number)}>
+                  <div className="font-display text-[14px]">{label}</div>
+                  <div className="font-mono text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>{d}d · 1 small call</div>
+                </button>
+              ))}
+            </div>
+            <button className="card card-press p-3.5 text-left w-full mb-5"
+              onClick={() => { setMontageMode(true); setMWarnings([]); }}>
+              <div className="font-display text-[14px]">Direct the montage…</div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+                Say what should be true by the end. The engine writes the middle in beats — the decision, the friction, the settling.
               </div>
-              {!montageMode ? (
-                <>
-                  <div className="pb-3 grid grid-cols-2 gap-2">
-                    {[["Overnight", 1], ["Three days", 3], ["A week", 7], ["A fortnight", 14]].map(([label, d]) => (
-                      <button key={d} className="card card-press p-3.5 text-left" onClick={() => doSkip(d as number)}>
-                        <div className="font-display text-[14px]">{label}</div>
-                        <div className="font-mono text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>{d}d · 1 small call</div>
-                      </button>
-                    ))}
-                  </div>
-                  <button className="card card-press p-3.5 text-left w-full mb-5"
-                    onClick={() => { setMontageMode(true); setMWarnings([]); }}>
-                    <div className="font-display text-[14px]">Direct the montage…</div>
-                    <div className="text-[11.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                      Say what should be true by the end. The engine writes the middle in beats — the decision, the friction, the settling.
-                    </div>
-                  </button>
-                </>
-              ) : (
-                <div className="pb-5">
-                  <textarea className="composer-input w-full mb-2" rows={3}
-                    placeholder="thirty days — we move in together, fall deeper, adopt two cats, argue about tacos"
-                    value={mDirection}
-                    onChange={(e) => { setMDirection(e.target.value); setMWarnings([]); }}
-                    onBlur={async () => {
-                      if (!mDirection.trim()) return;
-                      try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
-                    }} />
-                  {mWarnings.map((w, i) => (
-                    <div key={i} className="text-[11.5px] mb-1.5 px-2.5 py-1.5 rounded-lg"
-                      style={{ background: "var(--ink-2)", color: "var(--text-mid)" }}>⚠ {w}</div>
-                  ))}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>days</span>
-                    <input type="range" min={3} max={120} value={mDays} className="flex-1"
-                      onChange={(e) => setMDays(Number(e.target.value))}
-                      onPointerUp={async () => {
-                        if (!mDirection.trim()) return;
-                        try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
-                      }} />
-                    <span className="font-mono text-[12px]" style={{ minWidth: 34, textAlign: "right" }}>{mDays}</span>
-                  </div>
-                  <div className="flex gap-1.5 mb-3">
-                    {(["quick", "standard", "full"] as const).map((g) => (
-                      <button key={g} className={g === mGran ? "chip chip-accent" : "chip"}
-                        onClick={() => setMGran(g)}>{g}</button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="chip" onClick={() => setMontageMode(false)}>back</button>
-                    <button className="chip chip-accent flex-1" disabled={!mDirection.trim()}
-                      onClick={doMontage}>run the montage</button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+            </button>
           </>
+        ) : (
+          <div className="pb-5">
+            <textarea className="composer-input w-full mb-2" rows={3}
+              placeholder="thirty days — we move in together, fall deeper, adopt two cats, argue about tacos"
+              value={mDirection}
+              onChange={(e) => { setMDirection(e.target.value); setMWarnings([]); }}
+              onBlur={async () => {
+                if (!mDirection.trim()) return;
+                try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
+              }} />
+            {mWarnings.map((w, i) => (
+              <div key={i} className="text-[11.5px] mb-1.5 px-2.5 py-1.5 rounded-lg"
+                style={{ background: "var(--ink-2)", color: "var(--text-mid)" }}>⚠ {w}</div>
+            ))}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>days</span>
+              <input type="range" min={3} max={120} value={mDays} className="flex-1"
+                onChange={(e) => setMDays(Number(e.target.value))}
+                onPointerUp={async () => {
+                  if (!mDirection.trim()) return;
+                  try { setMWarnings(await api.montagePreflight(save.id, mDirection.trim(), mDays)); } catch {}
+                }} />
+              <span className="font-mono text-[12px]" style={{ minWidth: 34, textAlign: "right" }}>{mDays}</span>
+            </div>
+            <div className="flex gap-1.5 mb-3">
+              {(["quick", "standard", "full"] as const).map((g) => (
+                <button key={g} className={g === mGran ? "chip chip-accent" : "chip"}
+                  onClick={() => setMGran(g)}>{g}</button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button className="chip" onClick={() => setMontageMode(false)}>back</button>
+              <button className="chip chip-accent flex-1" disabled={!mDirection.trim()}
+                onClick={doMontage}>run the montage</button>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
+      </Sheet>
 
       {/* rollback drawer */}
-      <AnimatePresence>
-        {rollbackOpen && (
-          <>
-            <motion.div className="drawer-veil fixed inset-0 z-40"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => { setRollbackOpen(false); setArmedRollback(null); }} />
-            <motion.div className="drawer fixed bottom-0 left-0 right-0 z-50 px-5"
-              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 380, damping: 38 }}>
-              <div className="grab" />
-              <div className="flex items-center justify-between py-2">
-                <div className="font-display text-[16px]">Roll back to…</div>
-                <button onClick={() => setRollbackOpen(false)}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
-              </div>
-              <div className="pb-4 space-y-2">
-                {undoTurn !== null && (
-                  <button className="card card-press w-full p-3.5 text-left flex justify-between items-center"
-                    style={{ borderColor: "var(--accent-glow)" }}
-                    onClick={() => { setRollbackOpen(false); doUndoRollback(); }}>
-                    <span className="font-display text-[14px]" style={{ color: "var(--accent)" }}>⟳ Undo last rollback</span>
-                    <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>return to turn {undoTurn}</span>
-                  </button>
-                )}
-                {[...save.snapshot_turns].reverse().filter((t) => t !== 1).map((t) => (
-                  // Snapshot t holds the state BEFORE turn t ran, so restoring it lands at the end
-                  // of turn t-1 — the label shows the landing point, not the snapshot's own number.
-                  <button key={t} className="card card-press w-full p-3.5 text-left flex justify-between items-center"
-                    style={armedRollback === t ? { borderColor: "var(--danger)" } : undefined}
-                    onClick={() => doRollback(t)}>
-                    <span className="font-display text-[14px]" style={armedRollback === t ? { color: "var(--danger)" } : undefined}>
-                      {armedRollback === t ? `Erases ${save.world.current_turn - t} turns — tap again` : `Turn ${t - 1}`}
-                    </span>
-                    <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>
-                      {save.history.find((h) => h.turn === t - 1)?.time_label ?? ""}
-                    </span>
-                  </button>
-                ))}
-                {save.snapshot_turns.includes(1) && (
-                  <button className="w-full p-2.5 text-left flex justify-between items-center rounded-xl"
-                    style={{ border: `1px dashed ${armedRollback === 1 ? "var(--danger)" : "var(--ink-3)"}`, opacity: 0.85 }}
-                    onClick={() => doRollback(1)}>
-                    <span className="font-mono text-[11px]" style={{ color: armedRollback === 1 ? "var(--danger)" : "var(--text-lo)" }}>
-                      {armedRollback === 1 ? `⟲ ERASES ALL ${save.world.current_turn - 1} TURNS — tap again to confirm` : "⟲ the very beginning (erases the whole story)"}
-                    </span>
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <Sheet open={overlay.k === "rollback"} onClose={() => { closeOverlay(); setArmedRollback(null); }} className="px-5">
+        <div className="flex items-center justify-between py-2">
+          <div className="font-display text-[16px]">Roll back to…</div>
+          <button onClick={closeOverlay}><X size={18} style={{ color: "var(--text-lo)" }} /></button>
+        </div>
+        <div className="pb-4 space-y-2">
+          {undoTurn !== null && (
+            <button className="card card-press w-full p-3.5 text-left flex justify-between items-center"
+              style={{ borderColor: "var(--accent-glow)" }}
+              onClick={() => { closeOverlay(); doUndoRollback(); }}>
+              <span className="font-display text-[14px]" style={{ color: "var(--accent)" }}>⟳ Undo last rollback</span>
+              <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>return to turn {undoTurn}</span>
+            </button>
+          )}
+          {[...save.snapshot_turns].reverse().filter((t) => t !== 1).map((t) => (
+            // Snapshot t holds the state BEFORE turn t ran, so restoring it lands at the end
+            // of turn t-1 — the label shows the landing point, not the snapshot's own number.
+            <button key={t} className="card card-press w-full p-3.5 text-left flex justify-between items-center"
+              style={armedRollback === t ? { borderColor: "var(--danger)" } : undefined}
+              onClick={() => doRollback(t)}>
+              <span className="font-display text-[14px]" style={armedRollback === t ? { color: "var(--danger)" } : undefined}>
+                {armedRollback === t ? `Erases ${save.world.current_turn - t} turns — tap again` : `Turn ${t - 1}`}
+              </span>
+              <span className="font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>
+                {save.history.find((h) => h.turn === t - 1)?.time_label ?? ""}
+              </span>
+            </button>
+          ))}
+          {save.snapshot_turns.includes(1) && (
+            <button className="w-full p-2.5 text-left flex justify-between items-center rounded-xl"
+              style={{ border: `1px dashed ${armedRollback === 1 ? "var(--danger)" : "var(--ink-3)"}`, opacity: 0.85 }}
+              onClick={() => doRollback(1)}>
+              <span className="font-mono text-[11px]" style={{ color: armedRollback === 1 ? "var(--danger)" : "var(--text-lo)" }}>
+                {armedRollback === 1 ? `⟲ ERASES ALL ${save.world.current_turn - 1} TURNS — tap again to confirm` : "⟲ the very beginning (erases the whole story)"}
+              </span>
+            </button>
+          )}
+        </div>
+      </Sheet>
 
       {/* ONE PLAY SURFACE, THREE DRAWERS — the full Cast/World/Chronicle views mount as
           slide-overs so the loop of "check something, keep playing" never leaves the scene.
-          The bottom tabs still work; these are the fast path. */}
+          The bottom tabs still work; these are the fast path. This one slides in from the RIGHT,
+          not up from the bottom, so it stays a hand-rolled veil+panel rather than the bottom-sheet
+          Sheet component above. */}
       <AnimatePresence>
-        {drawer && (
+        {overlay.k === "peek" && (
           <>
             <motion.div className="drawer-veil fixed inset-0 z-40"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setDrawer(null)} />
+              onClick={closeOverlay} />
             <motion.div className="fixed inset-y-0 right-0 z-50 flex flex-col"
               style={{ width: "min(560px, 94vw)", background: "var(--ink-0)", borderLeft: "1px solid var(--line-strong)", boxShadow: "-24px 0 60px rgba(0,0,0,.45)" }}
               initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 360, damping: 40 }}>
               <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>
-                  {drawer === "cast" ? "cast" : drawer === "world" ? "world" : "chronicle"}
+                  {overlay.which}
                 </div>
-                <button onClick={() => setDrawer(null)}><X size={16} style={{ color: "var(--text-lo)" }} /></button>
+                <button onClick={closeOverlay}><X size={16} style={{ color: "var(--text-lo)" }} /></button>
               </div>
               <div className="flex-1 min-h-0">
-                {drawer === "cast" && <Cast key={drawerSel ?? "none"} save={save} setSave={setSave} initialSel={drawerSel} />}
-                {drawer === "world" && <World save={save} />}
-                {drawer === "chronicle" && <Chronicle save={save} />}
+                {overlay.which === "cast" && <Cast key={overlay.sel ?? "none"} save={save} setSave={setSave} initialSel={overlay.sel} />}
+                {overlay.which === "world" && <World save={save} />}
+                {overlay.which === "chronicle" && <Chronicle save={save} />}
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {lightbox && (
-        <div onClick={() => setLightbox(null)}
+      {overlay.k === "lightbox" && (
+        <div onClick={closeOverlay}
           style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
+          <img src={overlay.url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
         </div>
       )}
+
+      {/* ONE PROMPT SHEET — every "ask for a line of text, prefilled, then act on it" flow in this
+          view routes through here instead of window.prompt(). */}
+      <Sheet open={!!promptReq} onClose={() => closePrompt(null)} className="px-5">
+        {promptReq && (
+          <div className="pb-5 pt-1">
+            <div className="text-[13px] leading-relaxed whitespace-pre-line mb-3" style={{ color: "var(--text-mid)" }}>
+              {promptReq.message}
+            </div>
+            <Field label={promptReq.label} value={promptVal} onChange={setPromptVal} rows={3} />
+            <div className="flex gap-2 mt-1">
+              <button className="chip flex-1" onClick={() => closePrompt(null)}>cancel</button>
+              <button className="chip chip-accent flex-1" onClick={() => closePrompt(promptVal)}>ok</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
+
+      {/* ONE CONFIRM SHEET — every yes/no gate (clear the log, refresh memory, restore the log)
+          routes through here instead of window.confirm(). */}
+      <Sheet open={!!confirmReq} onClose={() => closeConfirm(false)} className="px-5">
+        {confirmReq && (
+          <div className="pb-5 pt-1">
+            <div className="text-[13px] leading-relaxed whitespace-pre-line mb-3" style={{ color: "var(--text-mid)" }}>
+              {confirmReq}
+            </div>
+            <div className="flex gap-2">
+              <button className="chip flex-1" onClick={() => closeConfirm(false)}>cancel</button>
+              <button className="chip chip-accent flex-1" onClick={() => closeConfirm(true)}>ok</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }

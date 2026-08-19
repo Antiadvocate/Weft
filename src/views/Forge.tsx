@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Hammer } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import { ModelPicker } from "./ModelPicker";
+import { Kicker } from "../lib/ui";
 
 const SPARKS = [
   "A lighthouse town where the keeper has been dead three weeks and no one will say it",
@@ -71,9 +73,9 @@ export default function Forge({ onBack, onCreated }: {
         </div>
 
         <div className="mt-5">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+          <Kicker className="mb-1.5">
             Destination — where this story ends <span style={{ opacity: 0.6 }}>(optional)</span>
-          </div>
+          </Kicker>
           <textarea className="field" rows={2}
             placeholder="He learns to feed himself through winter and builds a shelter that holds…"
             value={destination} onChange={(e) => setDestination(e.target.value)} />
@@ -82,9 +84,9 @@ export default function Forge({ onBack, onCreated }: {
           </div>
           {!!destination.trim() && (
             <div className="mt-3">
-              <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+              <Kicker className="mb-1.5">
                 Turn budget <span style={{ opacity: 0.6 }}>(blank = no clock)</span>
-              </div>
+              </Kicker>
               <input className="field" inputMode="numeric" placeholder="60"
                 style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
                 value={destTurns} onChange={(e) => setDestTurns(e.target.value.replace(/[^0-9]/g, ""))} />
@@ -99,9 +101,9 @@ export default function Forge({ onBack, onCreated }: {
         </div>
 
         <div className="mt-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+          <Kicker className="mb-1.5">
             Genre &amp; tone <span style={{ opacity: 0.6 }}>(optional — sets the register)</span>
-          </div>
+          </Kicker>
           <input className="field" type="text"
             placeholder={"e.g. action-horror survival, lethal and fast, romance under threat"}
             value={tone} onChange={(e) => setTone(e.target.value)} />
@@ -111,9 +113,9 @@ export default function Forge({ onBack, onCreated }: {
         </div>
 
         <div className="mt-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+          <Kicker className="mb-1.5">
             Chronicle threads — story beats to seed <span style={{ opacity: 0.6 }}>(optional)</span>
-          </div>
+          </Kicker>
           <textarea className="field" rows={4}
             placeholder={"One beat per line. Title — optional detail.\nThe Rite of Voidbirth cult is smuggling artifacts through the Expanse\nAn old debt to Rogue Trader Vaicis comes due\nThe ship's Navigator is slowly going mad"}
             value={chronicle} onChange={(e) => setChronicle(e.target.value)} />
@@ -123,9 +125,7 @@ export default function Forge({ onBack, onCreated }: {
         </div>
 
         <div className="mt-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Forge model (OpenRouter id — pick the smith)</div>
-          <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
-            value={model} onChange={(e) => setModel(e.target.value)} />
+          <ModelPicker label="Forge model (OpenRouter id — pick the smith)" value={model} onChange={setModel} />
           <button className="chip mt-2.5" onClick={() => setGrounded((v) => !v)}
             style={grounded ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
             {grounded ? "◉" : "○"} ground with web search

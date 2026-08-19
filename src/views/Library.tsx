@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ClipboardPaste, Hammer, Sprout, Trash2, Play as PlayIcon, Plus, Upload } from "lucide-react";
 import { api, type ClientSave, type PresetInfo, type SaveListing } from "../lib/api";
+import { Kicker, Sheet } from "../lib/ui";
 
 export default function Library({ onOpen, onForge, onCreated }: {
   onOpen: (id: string) => void;
@@ -12,12 +13,20 @@ export default function Library({ onOpen, onForge, onCreated }: {
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  // RESULT NOTICE — replaces the native alert()s that used to report an import or fork failure.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Which save is pending a delete confirmation — replaces window.confirm, which a stray tap could
+  // no longer accidentally dismiss the wrong way on mobile.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // Paste-a-chronicle draft text. null = sheet closed; "" or more = open with that draft. Only shown
+  // when the clipboard read comes back empty — the common case still imports silently.
+  const [pasteText, setPasteText] = useState<string | null>(null);
 
   const importFile = async (f: File) => {
     try {
       const data = JSON.parse(await f.text());
       onCreated(await api.importSave(data));
-    } catch (e: any) { alert(`Import failed: ${e.message}`); }
+    } catch (e: any) { setNotice(`Import failed: ${e.message}`); }
   };
 
   const refresh = () => { api.saves().then(setSaves).catch(() => {}); };
@@ -38,11 +47,10 @@ export default function Library({ onOpen, onForge, onCreated }: {
     setComposing(null);
     setForking(id);
     try { onCreated(await api.forkNewSeason(id, direction)); }
-    catch (e: any) { alert(`New chapter failed: ${e.message}`); }
+    catch (e: any) { setNotice(`New chapter failed: ${e.message}`); }
     finally { setForking(null); }
   };
   const remove = async (id: string) => {
-    if (!confirm("Delete this chronicle? No rollback past this.")) return;
     await api.remove(id); refresh();
   };
 
@@ -71,7 +79,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
                   <Sprout size={15} style={{ color: forking === s.id || composing === s.id ? "var(--accent)" : "var(--text-lo)" }} />
                 </button>
                 <button className="p-2" style={{ color: "var(--text-lo)" }}
-                  onClick={(e) => { e.stopPropagation(); remove(s.id); }}>
+                  onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(s.id); }}>
                   <Trash2 size={15} />
                 </button>
                 <PlayIcon size={16} style={{ color: "var(--accent)" }} />
@@ -143,11 +151,16 @@ export default function Library({ onOpen, onForge, onCreated }: {
           transition={{ delay: 0.23, duration: 0.3 }}
           onClick={async () => {
             let text = "";
-            try { text = await navigator.clipboard.readText(); } catch { /* will prompt */ }
-            if (!text) text = window.prompt("Paste your saved chronicle text here:") ?? "";
-            if (!text.trim()) return;
-            try { onCreated(await api.importSave(JSON.parse(text))); }
-            catch (e: any) { alert(`Import failed: ${e.message}`); }
+            try { text = await navigator.clipboard.readText(); } catch { /* falls through to the paste sheet */ }
+            if (text.trim()) {
+              try { onCreated(await api.importSave(JSON.parse(text))); }
+              catch (e: any) { setNotice(`Import failed: ${e.message}`); }
+              return;
+            }
+            // Clipboard read was empty or blocked (common off HTTPS, or without a user gesture on
+            // some browsers) — a multi-kilobyte save doesn't fit in a native prompt() box, so it gets
+            // a real textarea instead.
+            setPasteText("");
           }}>
           <ClipboardPaste size={17} style={{ color: "var(--text-mid)" }} />
           <div>
@@ -169,6 +182,48 @@ export default function Library({ onOpen, onForge, onCreated }: {
           <Plus size={16} className="ml-auto" style={{ color: "var(--text-lo)" }} />
         </motion.div>
       </div>
+
+      <Sheet open={confirmDeleteId !== null} onClose={() => setConfirmDeleteId(null)}>
+        <div className="p-4">
+          <div className="text-[14px]" style={{ color: "var(--text-hi)" }}>Delete this chronicle? No rollback past this.</div>
+          <div className="flex gap-2 mt-3">
+            <button className="btn flex-1" style={{ color: "var(--danger)" }}
+              onClick={() => { const id = confirmDeleteId; setConfirmDeleteId(null); if (id) remove(id); }}>
+              Delete
+            </button>
+            <button className="btn btn-ghost flex-1" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+
+      <Sheet open={pasteText !== null} onClose={() => setPasteText(null)} fill>
+        <div className="p-4 flex flex-col" style={{ flex: 1, minHeight: 0 }}>
+          <Kicker className="mb-2">Paste your saved chronicle text here</Kicker>
+          <textarea
+            className="field flex-1"
+            style={{ minHeight: 160, fontFamily: "var(--font-mono)", fontSize: 12 }}
+            value={pasteText ?? ""}
+            onChange={(e) => setPasteText(e.target.value)}
+            autoFocus
+          />
+          <div className="flex gap-2 mt-3">
+            <button className="btn btn-accent flex-1" onClick={async () => {
+              const text = (pasteText ?? "").trim();
+              if (!text) { setPasteText(null); return; }
+              try { onCreated(await api.importSave(JSON.parse(text))); setPasteText(null); }
+              catch (e: any) { setNotice(`Import failed: ${e.message}`); }
+            }}>Import</button>
+            <button className="btn btn-ghost flex-1" onClick={() => setPasteText(null)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+
+      <Sheet open={notice !== null} onClose={() => setNotice(null)}>
+        <div className="p-4">
+          <div className="text-[13.5px] leading-relaxed whitespace-pre-line" style={{ color: "var(--text-hi)" }}>{notice}</div>
+          <button className="btn w-full mt-3" onClick={() => setNotice(null)}>Done</button>
+        </div>
+      </Sheet>
     </div>
   );
 }

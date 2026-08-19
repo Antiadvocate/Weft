@@ -8,6 +8,7 @@ import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
 import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT } from "../config";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
+import { Field, Kicker, Sheet, Toggle } from "../lib/ui";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
 
@@ -22,38 +23,6 @@ export function applyProseFont(id: string) {
   const f = PROSE_FONTS.find((x) => x.id === id) ?? PROSE_FONTS[0];
   document.documentElement.style.setProperty("--font-prose", f.stack);
   localStorage.setItem("weft-prose-font", f.id);
-}
-
-/* Field components live at MODULE level — defining them inside the component
-   recreates the type every render, React remounts the input, and the keyboard
-   dies after one keystroke. Never again. */
-function TextField({ label, value, onChange, mono, rows }: {
-  label: string; value: string; onChange: (v: string) => void; mono?: boolean; rows?: number;
-}) {
-  const style = mono ? { fontFamily: "var(--font-mono)", fontSize: 13 } : undefined;
-  return (
-    <div className="py-1.5">
-      <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-lo)" }}>{label}</div>
-      {rows && rows > 1
-        ? <textarea className="field" style={style} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
-        : <input className="field" style={style} value={value} onChange={(e) => onChange(e.target.value)} />}
-    </div>
-  );
-}
-
-
-function Toggle({ on, onFlip, title, desc }: { on: boolean; onFlip: () => void; title: string; desc: string }) {
-  return (
-    <button className="w-full flex items-center justify-between py-2" onClick={onFlip}>
-      <span className="text-left">
-        <span className="block text-[14px]">{title}</span>
-        <span className="block text-[11px]" style={{ color: "var(--text-lo)" }}>{desc}</span>
-      </span>
-      <span style={{ width: 42, height: 24, borderRadius: 999, background: on ? "var(--accent)" : "var(--ink-3)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
-        <span style={{ position: "absolute", top: 2, left: on ? 20 : 2, width: 20, height: 20, borderRadius: 999, background: "var(--ink-0)", transition: "left .2s" }} />
-      </span>
-    </button>
-  );
 }
 
 function SectionHeader({ label, blurb }: { label: string; blurb: string }) {
@@ -135,17 +104,17 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
 
   return (
     <div className="card p-4">
-      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Local AI (your machine)</div>
-      <TextField label="OpenAI-compatible base URL" value={url} onChange={setUrl} mono />
-      <TextField label="Key (optional — most local servers ignore it)" value={lkey} onChange={setLkey} mono />
+      <Kicker className="mb-1">Local AI (your machine)</Kicker>
+      <Field label="OpenAI-compatible base URL" value={url} onChange={setUrl} mono />
+      <Field label="Key (optional — most local servers ignore it)" value={lkey} onChange={setLkey} mono />
       <Toggle on={noThink} onFlip={() => setNoThink((v) => !v)}
         title="Suppress local thinking (/no_think)"
         desc="OFF BY DEFAULT, and leave it off unless you know your model honors it. It appends Qwen3's control token to the last message — but a model that doesn't recognise it reads the token as CONTENT and prints it back into the story, which is worse than the thinking it was meant to prevent. Deliberation is stripped either way: closed <think>/<analysis> blocks never reach the page, and an unclosed one is cut out of the prose." />
       <div className="flex gap-2">
-        <div className="flex-1"><TextField label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
-        <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>
+        <div className="flex-1"><Field label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
+        <div className="flex-1"><Field label="top_p" value={topP} onChange={setTopP} mono /></div>
       </div>
-      <TextField label="Max narrator tokens per turn (0 = uncapped)" value={maxOut} onChange={setMaxOut} mono />
+      <Field label="Max narrator tokens per turn (0 = uncapped)" value={maxOut} onChange={setMaxOut} mono />
       <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
         The cloud path asks for 5000, which costs nothing when unused. On a local server it costs context: a 15k prompt plus a 5000-token budget lands exactly on a 20k window with no room to grow, and a model that starts looping fills every token you give it. A turn of prose is a few hundred words. This bounds the ask only — where the scene actually stops is still decided by the turn-endings rule. Bookkeeping calls are never capped.
       </div>
@@ -222,7 +191,7 @@ function BackgroundTurns() {
   const installed = isInstalled();
   return (
     <div className="card p-4 mt-3">
-      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Background turns (optional)</div>
+      <Kicker className="mb-1">Background turns (optional)</Kicker>
       <div className="text-[12px] leading-relaxed mb-3" style={{ color: "var(--text-mid)" }}>
         Without this, a turn is written by this tab — so if the app is closed or killed while the
         narrator is working, the turn dies with it. On iOS that happens within seconds of switching
@@ -233,9 +202,9 @@ function BackgroundTurns() {
         What the relay sees: the narrator prompt (world digest and recent prose) and what comes back.
         Your save never leaves this device — bookkeeping still runs here.
       </div>
-      <TextField label="Relay URL" value={url} onChange={setUrl} mono />
-      <TextField label="Relay token" value={token} onChange={setToken} mono />
-      <TextField label="VAPID public key (for notifications)" value={vapid} onChange={setVapid} mono />
+      <Field label="Relay URL" value={url} onChange={setUrl} mono />
+      <Field label="Relay token" value={token} onChange={setToken} mono />
+      <Field label="VAPID public key (for notifications)" value={vapid} onChange={setVapid} mono />
       <div className="flex gap-2 mt-2">
         <button className="btn flex-1" disabled={busy} onClick={() => void save()}>
           {busy ? "checking…" : "Save & test"}
@@ -270,6 +239,14 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
   // tapped this visit, which is also the case where "Restore defaults" is the only sane target.
   const [prePreset, setPrePreset] = useState<Partial<ModelSettings> | null>(null);
   const [rescueText, setRescueText] = useState<string | null>(null);
+  // RESULT NOTICE — every native alert() in this screen used to block the tab waiting on a tap; this
+  // is the one place that now surfaces "the thing you just did finished, here's what happened" for
+  // both one-line confirmations and the multi-line repair log.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Feedback for the copy button INSIDE the rescue panel below — that panel is already a full-screen
+  // overlay above the notice sheet's z-index, so its own outcome is shown inline rather than stacking
+  // a second overlay on top of the first.
+  const [rescueCopyStatus, setRescueCopyStatus] = useState<string | null>(null);
   const [worldJson, setWorldJson] = useState<string | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const [worldErr, setWorldErr] = useState("");
@@ -338,7 +315,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
       <SectionHeader label="The story" blurb="How this world behaves — tension, direction, canon." />
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World tension</div>
+        <Kicker className="mb-1">World tension</Kicker>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[14px]">How much the world throws at you</span>
           <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{draft.tension ?? 5}</span>
@@ -361,37 +338,35 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, yours (live next turn)</div>
+        <Kicker className="mb-1">World bible — every rule, yours (live next turn)</Kicker>
 
         <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
           style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
           {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to what it has seen you do
         </button>
 
-        <TextField label="Name" value={bible.name} onChange={setB("name")} />
-        <TextField label="Era" value={bible.era} onChange={setB("era")} />
-        <TextField label="Art direction (portraits & scenes — style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
+        <Field label="Name" value={bible.name} onChange={setB("name")} />
+        <Field label="Era" value={bible.era} onChange={setB("era")} />
+        <Field label="Art direction (portraits & scenes — style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
           e.g. "muted painterly chiaroscuro, oil texture" · "90s cel anime, hard ink lines" · "gritty photoreal, 35mm film grain". Portraits are full-body on white studio; scenes use this same style.
         </div>
-        <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
-        <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
-        <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
-        <TextField label="Start date of Day 1 (YYYY-MM-DD — unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
-        <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
-        <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
-        <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
-        <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
-        <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
-        <TextField label="Pressure palette (one per line — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={3} />
-        <TextField label="Never the primary engine of a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
-        <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
-        <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
+        <Field label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
+        <Field label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
+        <Field label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
+        <Field label="Start date of Day 1 (YYYY-MM-DD — unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
+        <Field label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
+        <Field label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
+        <Field label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
+        <Field label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
+        <Field label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
+        <Field label="Pressure palette (one per line — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={3} />
+        <Field label="Never the primary engine of a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
+        <Field label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
+        <Field label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
         {!!bible.destination?.trim() && (
           <div className="mt-2">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
-              Turn budget — 0 = no clock (gravity, not fate)
-            </div>
+            <Kicker className="mb-1.5">Turn budget — 0 = no clock (gravity, not fate)</Kicker>
             <input className="field" inputMode="numeric" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
               value={String(bible.destination_turns || "")}
               onChange={(e) => setB("destination_turns")(e.target.value.replace(/[^0-9]/g, ""))} />
@@ -404,7 +379,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
         {!!save.retcons?.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Player overrides — vetoes void an invention; corrections affirm world law</div>
+            <Kicker className="mb-1.5">Player overrides — vetoes void an invention; corrections affirm world law</Kicker>
             <div className="space-y-1.5">
               {save.retcons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
@@ -418,9 +393,9 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             </div>
           </div>
         )}
-        <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
+        <Field label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
 
-        <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>
+        <Kicker className="mt-3 mb-1.5">Difficulty profile</Kicker>
         {(Object.keys(DIFF_OPTIONS) as (keyof typeof DIFF_OPTIONS)[]).map((k) => (
           <div key={k} className="flex items-center gap-2 py-1 flex-wrap">
             <span className="font-mono text-[9.5px] uppercase tracking-wider w-32 shrink-0" style={{ color: "var(--text-lo)" }}>{k.replace(/_/g, " ")}</span>
@@ -450,13 +425,13 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Opening scene</div>
+        <Kicker className="mb-1">Opening scene</Kicker>
         <div className="text-[12px] mb-2" style={{ color: "var(--text-mid)" }}>The scene you start in, before turn 1. Generate one, edit it, or clear it.</div>
         <div className="flex gap-2">
           <button className="btn btn-ghost flex-1" disabled={openingBusy} onClick={async () => {
             setOpeningBusy(true);
             try { const v = await api.generateOpening(save.id); setSave(v); const op = v.history.find((h: any) => h.kind === "opening"); setOpeningText(op?.narrator_prose ?? ""); }
-            catch (e: any) { alert(`Opening failed: ${e.message}`); }
+            catch (e: any) { setNotice(`Opening failed: ${e.message}`); }
             finally { setOpeningBusy(false); }
           }}>{openingBusy ? "writing…" : "Generate"}</button>
           <button className="btn btn-ghost flex-1" onClick={() => {
@@ -476,7 +451,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live — save to keep)</div>
+        <Kicker className="mb-2.5">Palette (previews live — save to keep)</Kicker>
         <div className="flex flex-wrap gap-2">
           {THEMES.map((t) => (
             <button key={t} className="chip" onClick={() => previewTheme(t)}
@@ -486,7 +461,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           ))}
         </div>
 
-        <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Narrator's typeface</div>
+        <Kicker className="mt-4 mb-2.5">Narrator's typeface</Kicker>
         <div className="flex flex-wrap gap-2">
           {PROSE_FONTS.map((f) => (
             <button key={f.id} className="chip" style={{
@@ -504,7 +479,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
         {ttsAvailable() && (
           <>
-            <div className="font-mono text-[10px] uppercase tracking-widest mt-4 mb-2.5" style={{ color: "var(--text-lo)" }}>Reader (system voice — device setting)</div>
+            <Kicker className="mt-4 mb-2.5">Reader (system voice — device setting)</Kicker>
             <select className="field" value={tts.voiceURI ?? ""} onChange={(e) => updTts({ voiceURI: e.target.value || undefined })}>
               <option value="">System default voice</option>
               {listVoices().map((v) => (
@@ -528,7 +503,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       </div>
       <SectionHeader label="The machine" blurb="Keys, models, and token economics. Set once, forget mostly." />
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>OpenRouter key (stored on this device only)</div>
+        <Kicker className="mb-1">OpenRouter key (stored on this device only)</Kicker>
         <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
           placeholder="sk-or-..." value={orKey} onChange={(e) => setOrKey(e.target.value)} />
         <button className="btn w-full mt-2" onClick={() => { setApiKey(orKey); setKeySaved(true); setTimeout(() => setKeySaved(false), 1400); }}>
@@ -562,7 +537,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       }} />
       <BackgroundTurns />
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids, or local/…)</div>
+        <Kicker className="mb-1">Models (OpenRouter ids, or local/…)</Kicker>
         <ModelPicker label="Narrator — the voice" value={draft.narrator_model} onChange={setM("narrator_model")} />
         <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
         <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
@@ -587,12 +562,12 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Context engine</div>
+        <Kicker className="mb-1">Context engine</Kicker>
         <Toggle on={draft.context_mode === "chatlog"} onFlip={() => setDraft((d) => ({ ...d, context_mode: d.context_mode === "chatlog" ? "digest" : "chatlog" }))}
           title="Chat-log context (cache-first)"
           desc="The conversation becomes the context: a full state snapshot is anchored every few turns and each turn only appends. Providers with prefix caching (DeepSeek ~0.1x, Gemini ~0.25x) then bill nearly all input at the cached rate. Off = classic per-turn digest (maximum state fidelity)." />
         {draft.context_mode === "chatlog" && (
-          <TextField label="Re-anchor cadence (turns between full state snapshots)" value={String(draft.iframe_cadence ?? 6)} onChange={(v) => setDraft((d) => ({ ...d, iframe_cadence: Math.max(2, Number(v) || 6) }))} mono />
+          <Field label="Re-anchor cadence (turns between full state snapshots)" value={String(draft.iframe_cadence ?? 6)} onChange={(v) => setDraft((d) => ({ ...d, iframe_cadence: Math.max(2, Number(v) || 6) }))} mono />
         )}
         <Toggle on={draft.paging !== false} onFlip={() => setDraft((d) => ({ ...d, paging: d.paging === false ? true : false }))}
           title="Page out cold characters"
@@ -614,36 +589,30 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           desc="Let the narrator deliberate before writing. Reasoning-tier models bill thinking as output tokens — thousands of invisible tokens per turn — and prose rarely improves enough to pay it. Off = thinking disabled on the narrator stream. Try a session each way and keep what reads better to you." />
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Token economy</div>
-        <button className="w-full flex items-center justify-between py-2" onClick={() => setDraft((d) => ({ ...d, lean_mode: !d.lean_mode }))}>
-          <span className="text-left">
-            <span className="block text-[14px]">Lean mode</span>
-            <span className="block text-[11px]" style={{ color: "var(--text-lo)" }}>Compressed instructions + only present/tracked cast in context. ~Half the input tokens, slightly less prose richness.</span>
-          </span>
-          <span style={{ width: 42, height: 24, borderRadius: 999, background: draft.lean_mode ? "var(--accent)" : "var(--ink-3)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
-            <span style={{ position: "absolute", top: 2, left: draft.lean_mode ? 20 : 2, width: 20, height: 20, borderRadius: 999, background: "var(--ink-0)", transition: "left .2s" }} />
-          </span>
-        </button>
+        <Kicker className="mb-1">Token economy</Kicker>
+        <Toggle on={!!draft.lean_mode} onFlip={() => setDraft((d) => ({ ...d, lean_mode: !d.lean_mode }))}
+          title="Lean mode"
+          desc="Compressed instructions + only present/tracked cast in context. ~Half the input tokens, slightly less prose richness." />
         <div className="mt-2">
-          <TextField label="Token budget per turn (0 = off; e.g. 4000 to cap context)" value={String(draft.token_budget ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, token_budget: Number(v) || 0 }))} mono />
+          <Field label="Token budget per turn (0 = off; e.g. 4000 to cap context)" value={String(draft.token_budget ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, token_budget: Number(v) || 0 }))} mono />
           <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
             When set, the per-turn context is trimmed toward this many input tokens — shedding offscreen detail, old memories, and rumors first, collapsing only the least-involved present characters as a last resort. People in your scene are never dropped.
           </div>
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Cost governor</div>
-        <TextField label="Daily budget in USD (0 = off)" value={String(draft.daily_budget_usd ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, daily_budget_usd: Number(v) || 0 }))} mono />
+        <Kicker className="mb-1">Cost governor</Kicker>
+        <Field label="Daily budget in USD (0 = off)" value={String(draft.daily_budget_usd ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, daily_budget_usd: Number(v) || 0 }))} mono />
         <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
           Soft ceiling, never a wall: past 70% of today's budget the engine quietly shifts to eco — lean prompts and a tightened context — for the rest of the day. Play is never blocked. The Play screen shows spend, the eco state, and cache hit rate live.
         </div>
-        <TextField label="Auto-chapter every N turns (0 = off)" value={String(draft.chapter_cadence ?? 25)} onChange={(v) => setDraft((d) => ({ ...d, chapter_cadence: Number(v) || 0 }))} mono />
+        <Field label="Auto-chapter every N turns (0 = off)" value={String(draft.chapter_cadence ?? 25)} onChange={(v) => setDraft((d) => ({ ...d, chapter_cadence: Number(v) || 0 }))} mono />
         <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
           One cheap call per chapter distills the last stretch into a titled summary — shown in Chronicle, carried as one line each in context — so the verbatim history window can stay small without losing the arc.
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Cast</div>
+        <Kicker className="mb-1">Cast</Kicker>
         <div className="flex items-center justify-between">
           <span className="text-[14px]">Central characters</span>
           <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{draft.max_central_characters ?? 6}</span>
@@ -656,15 +625,11 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       </div>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Memory economy</div>
-        <TextField label="Memories per NPC in context (top-k)" value={String(draft.context_memories_k)} onChange={setM("context_memories_k")} mono />
-        <TextField label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />
-        <TextField label="Verbatim history window (turns)" value={String(draft.history_window)} onChange={setM("history_window")} mono />
+        <Kicker className="mb-1">Memory economy</Kicker>
+        <Field label="Memories per NPC in context (top-k)" value={String(draft.context_memories_k)} onChange={setM("context_memories_k")} mono />
+        <Field label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />
+        <Field label="Verbatim history window (turns)" value={String(draft.history_window)} onChange={setM("history_window")} mono />
       </div>
-
-
-
-
 
 
 
@@ -706,7 +671,6 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         </div>
       )}
 
-
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);
         const filename = `${name}.weaver.json`;
@@ -728,8 +692,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           return;
         } catch { /* fall through */ }
         // 3) last resort: clipboard (paste into Notes/email; Import accepts pasted text)
-        try { await navigator.clipboard.writeText(json); alert("Couldn't open a download here, so your save was copied to the clipboard. Paste it into Notes or email to keep it — you can re-import it later."); }
-        catch { alert("Export failed on this browser. Try Copy save instead."); }
+        try { await navigator.clipboard.writeText(json); setNotice("Couldn't open a download here, so your save was copied to the clipboard. Paste it into Notes or email to keep it — you can re-import it later."); }
+        catch { setNotice("Export failed on this browser. Try Copy save instead."); }
       }}>
         <Download size={14} /> Export save (share / download)
       </button>
@@ -740,8 +704,8 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         try {
           const { save: fresh, log } = await api.repairSave(save.id);
           setSave(fresh);
-          alert(log.length ? `Repaired:\n\n${log.join("\n")}` : "Nothing to repair — the cast and the scene are consistent.");
-        } catch (e: any) { alert(`Repair failed: ${e?.message ?? e}`); }
+          setNotice(log.length ? `Repaired:\n\n${log.join("\n")}` : "Nothing to repair — the cast and the scene are consistent.");
+        } catch (e: any) { setNotice(`Repair failed: ${e?.message ?? e}`); }
       }}>
         <Wrench size={14} /> Repair this save
         <span className="block text-[10.5px] font-normal normal-case tracking-normal" style={{ color: "var(--text-lo)" }}>
@@ -751,10 +715,12 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
 
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { json } = await api.exportSave(save.id);
-        try { await navigator.clipboard.writeText(json); alert("Save copied to clipboard. Paste it somewhere safe (Notes, email). Re-import it later via Library → paste."); }
+        try { await navigator.clipboard.writeText(json); setNotice("Save copied to clipboard. Paste it somewhere safe (Notes, email). Re-import it later via Library → paste."); }
         catch {
-          // clipboard blocked: drop the text into a prompt so it can be selected/copied manually
-          window.prompt("Select all and copy your save:", json.slice(0, 100000));
+          // clipboard blocked: fall back to the same selectable-textarea panel "Show save text" uses,
+          // instead of a native prompt() — pasting a multi-kilobyte save into a one-line prompt box
+          // does not work on most browsers.
+          setRescueText(json);
         }
       }}>
         <Copy size={14} /> Copy save as text
@@ -776,11 +742,14 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
             </div>
             <div className="flex gap-2 mt-2.5">
               <button className="btn btn-accent" style={{ flex: 1 }} onClick={async () => {
-                try { await navigator.clipboard.writeText(rescueText); alert("Copied to clipboard."); }
-                catch { alert("Couldn't auto-copy — long-press the text and choose Select All → Copy."); }
+                // This panel already sits above the notice sheet's z-index, so its own result is
+                // shown right here rather than opening a second overlay on top of the first.
+                try { await navigator.clipboard.writeText(rescueText); setRescueCopyStatus("Copied to clipboard."); }
+                catch { setRescueCopyStatus("Couldn't auto-copy — long-press the text and choose Select All → Copy."); }
               }}>Try auto-copy</button>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setRescueText(null)}>Done</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setRescueText(null); setRescueCopyStatus(null); }}>Done</button>
             </div>
+            {rescueCopyStatus && <div className="text-[11.5px] mt-2" style={{ color: "var(--accent)" }}>{rescueCopyStatus}</div>}
           </div>
           <textarea
             readOnly
@@ -794,6 +763,13 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
       <button className="btn btn-accent w-full" style={{ height: 48 }} onClick={commit}>
         {saved ? <><Check size={15} /> saved</> : "Save tuning"}
       </button>
+
+      <Sheet open={notice !== null} onClose={() => setNotice(null)}>
+        <div className="p-4">
+          <div className="text-[13.5px] leading-relaxed whitespace-pre-line" style={{ color: "var(--text-hi)" }}>{notice}</div>
+          <button className="btn w-full mt-3" onClick={() => setNotice(null)}>Done</button>
+        </div>
+      </Sheet>
     </div>
   );
 }

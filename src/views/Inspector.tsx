@@ -5,6 +5,7 @@ import {
   classify, labelFor, getPath, setPath, deletePath, matchesQuery, sectionsFor, fieldOrder,
   isImageData, approxBytes, humanBytes, type Section, type FieldKind,
 } from "../lib/inspector";
+import { Sheet } from "../lib/ui";
 
 /**
  * THE INSPECTOR — every field in the save, typed, labelled, grouped and searchable.
@@ -16,6 +17,8 @@ import {
  */
 
 const L = { line: "1px solid var(--line)" };
+// The boxed-input look every editable control below shares — only the text color changes per kind.
+const BOX = { background: "var(--ink-1)", border: L.line };
 
 export default function Inspector({ save, setSave, onClose }: { save: ClientSave; setSave: (s: ClientSave) => void; onClose?: () => void }) {
   const [raw, setRaw] = useState<any>(null);
@@ -26,6 +29,7 @@ export default function Inspector({ save, setSave, onClose }: { save: ClientSave
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [closeConfirm, setCloseConfirm] = useState(false);
 
   const load = async () => {
     const r = await api.getSaveRaw(save.id);
@@ -83,7 +87,7 @@ export default function Inspector({ save, setSave, onClose }: { save: ClientSave
     if (!dirty) { onClose?.(); return; }
     const ok = await commit();
     if (ok) { onClose?.(); return; }
-    if (confirm("Those changes could not be written. Close anyway and lose them?")) onClose?.();
+    setCloseConfirm(true);
   };
 
   if (!draft || !active) return <div className="px-4 pt-6 text-[13px]" style={{ color: "var(--text-lo)" }}>Reading the save…</div>;
@@ -138,6 +142,18 @@ export default function Inspector({ save, setSave, onClose }: { save: ClientSave
         />
       </div>
 
+      <Sheet open={closeConfirm} onClose={() => setCloseConfirm(false)}>
+        <div className="px-4 pt-3 pb-5">
+          <div className="text-[13px] leading-relaxed mb-3" style={{ color: "var(--text-mid)" }}>
+            Those changes could not be written. Close anyway and lose them?
+          </div>
+          <div className="flex gap-2">
+            <button className="btn btn-ghost flex-1" onClick={() => setCloseConfirm(false)}>Keep editing</button>
+            <button className="btn flex-1" style={{ color: "var(--danger)" }}
+              onClick={() => { setCloseConfirm(false); onClose?.(); }}>Close anyway</button>
+          </div>
+        </div>
+      </Sheet>
     </div>
   );
 }
@@ -199,13 +215,13 @@ function Node({ path, value, query, open, setOpen, onEdit, depth }: {
               </Collapsible>
             );
           }
-          return <Field key={p.join(".")} path={p} label={labelFor(k)} kind={kind} value={v} onEdit={onEdit} />;
+          return <NodeField key={p.join(".")} path={p} label={labelFor(k)} kind={kind} value={v} onEdit={onEdit} />;
         })}
       </div>
     );
   }
 
-  return <Field path={path} label={labelFor(String(path[path.length - 1]))} kind={classify(String(path[path.length - 1]), value)} value={value} onEdit={onEdit} />;
+  return <NodeField path={path} label={labelFor(String(path[path.length - 1]))} kind={classify(String(path[path.length - 1]), value)} value={value} onEdit={onEdit} />;
 }
 
 function Collapsible({ id, label, badge, open, setOpen, depth, children, onDelete }: {
@@ -232,7 +248,7 @@ function Collapsible({ id, label, badge, open, setOpen, depth, children, onDelet
   );
 }
 
-function Field({ path, label, kind: initialKind, value, onEdit }: {
+function NodeField({ path, label, kind: initialKind, value, onEdit }: {
   path: (string | number)[]; label: string; kind: FieldKind; value: unknown;
   onEdit: (p: (string | number)[], v: unknown) => void;
 }) {
@@ -255,7 +271,7 @@ function Field({ path, label, kind: initialKind, value, onEdit }: {
        kind === "number" ? (
         <input type="number" value={Number(value)} onChange={(e) => set(e.target.value === "" ? 0 : Number(e.target.value))}
           className="w-full bg-transparent outline-none text-[13px] font-mono px-2 py-1.5 rounded"
-          style={{ color: "var(--text-hi)", background: "var(--ink-1)", border: L.line }} />
+          style={{ color: "var(--text-hi)", ...BOX }} />
       ) :
        kind === "list" ? <ListField path={path} value={(value as string[]) ?? []} onEdit={onEdit} /> :
        kind === "map" ? <MapField path={path} value={value as Record<string, string>} onEdit={onEdit} /> :
@@ -263,16 +279,16 @@ function Field({ path, label, kind: initialKind, value, onEdit }: {
         <textarea value={String(value ?? "")} onChange={(e) => set(e.target.value)} rows={Math.min(14, Math.max(2, String(value ?? "").split("\n").length + 1))}
           spellCheck={false}
           className="w-full outline-none text-[13px] leading-relaxed px-2 py-1.5 rounded resize-y"
-          style={{ color: "var(--text-hi)", background: "var(--ink-1)", border: L.line }} />
+          style={{ color: "var(--text-hi)", ...BOX }} />
       ) : kind === "unknown" ? (
         <textarea value={JSON.stringify(value, null, 1)} spellCheck={false} rows={4}
           onChange={(e) => { try { set(JSON.parse(e.target.value)); } catch { /* keep typing */ } }}
           className="w-full outline-none text-[11px] font-mono px-2 py-1.5 rounded resize-y"
-          style={{ color: "var(--text-mid)", background: "var(--ink-1)", border: L.line }} />
+          style={{ color: "var(--text-mid)", ...BOX }} />
       ) : (
         <input value={String(value ?? "")} onChange={(e) => set(e.target.value)} spellCheck={false}
           className="w-full bg-transparent outline-none text-[13px] px-2 py-1.5 rounded"
-          style={{ color: "var(--text-hi)", background: "var(--ink-1)", border: L.line }} />
+          style={{ color: "var(--text-hi)", ...BOX }} />
       )}
     </div>
   );
@@ -282,7 +298,7 @@ function Field({ path, label, kind: initialKind, value, onEdit }: {
 function ImageField({ value, onClear }: { value: string; onClear: () => void }) {
   const empty = !value;
   return (
-    <div className="flex items-center gap-3 p-2 rounded" style={{ background: "var(--ink-1)", border: L.line }}>
+    <div className="flex items-center gap-3 p-2 rounded" style={{ ...BOX }}>
       {empty ? (
         <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>none</div>
       ) : (
@@ -319,7 +335,7 @@ function ListField({ path, value, onEdit }: { path: (string | number)[]; value: 
       rows={Math.min(12, Math.max(2, value.length + 1))}
       placeholder="one per line"
       className="w-full outline-none text-[13px] leading-relaxed px-2 py-1.5 rounded resize-y"
-      style={{ color: "var(--text-hi)", background: "var(--ink-1)", border: L.line }} />
+      style={{ color: "var(--text-hi)", ...BOX }} />
   );
 }
 
@@ -337,11 +353,11 @@ function MapField({ path, value, onEdit }: { path: (string | number)[]; value: R
               onEdit(path, next);
             }}
             className="bg-transparent outline-none text-[12px] font-mono px-2 py-1 rounded"
-            style={{ width: "38%", color: "var(--accent)", background: "var(--ink-1)", border: L.line }} />
+            style={{ width: "38%", color: "var(--accent)", ...BOX }} />
           <input value={String(v ?? "")} spellCheck={false}
             onChange={(e) => onEdit(path, { ...value, [k]: e.target.value })}
             className="flex-1 bg-transparent outline-none text-[12px] px-2 py-1 rounded"
-            style={{ color: "var(--text-hi)", background: "var(--ink-1)", border: L.line }} />
+            style={{ color: "var(--text-hi)", ...BOX }} />
           <button onClick={() => { const { [k]: _d, ...rest } = value; onEdit(path, rest); }} title="remove">
             <Trash2 size={12} style={{ color: "var(--text-lo)" }} />
           </button>
