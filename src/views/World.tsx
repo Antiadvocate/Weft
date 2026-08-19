@@ -1,11 +1,10 @@
 import React from "react";
-import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
 import { RelationshipWeb } from "./RelationshipWeb";
 import StoryMap from "../lib/StoryMap";
-import { nice } from "../lib/format";
 import { api } from "../lib/api";
 import { readFate } from "../engine/fate";
+import { Card, Muted, Sheet } from "../lib/ui";
 
 export default function World({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
   const w = save.world;
@@ -24,10 +23,21 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
   const openColor = (r: number) => r <= -7 ? "var(--danger)" : r <= -3 ? "var(--accent)" : r >= 4 ? "var(--calm)" : "var(--text-mid)";
   const openWord = (r: number, st: string) => st === "broken" || st === "shattered" ? "broken" : st === "fracturing" ? "fracturing" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : r >= 4 ? "open" : "level";
 
+  // ── ONE SHEET FOR BOTH DESTRUCTIVE CONFIRMS ─────────────────────────────
+  // Retiring a thread and force-firing a clock both used to block on a native confirm(), then a
+  // native alert() for the fire's result — dialogs that look like the browser, not the app, and
+  // that a test harness cannot drive. Both actions now route through this one drawer.
+  const [panel, setPanel] = React.useState<
+    | { kind: "retireThread"; id: string; title: string }
+    | { kind: "fireClock"; id: string; faction: string; consequence: string }
+    | { kind: "fireLog"; lines: string[] }
+    | null
+  >(null);
+
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
       {weather.length > 0 && (
-        <Block title="Emotional weather" delay={0}>
+        <Card title="Emotional weather" delay={0}>
           <div className="space-y-2 py-1">
             {weather.map((c) => (
               <div key={c.id}>
@@ -56,18 +66,18 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
           <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
             Openness bends perception: the clenched misread warmth as threat; the open see clearly. Each line is filtered through this.
           </div>
-        </Block>
+        </Card>
       )}
-      <Block title="The web" delay={0.03}>
+      <Card title="The web" delay={0.03}>
         <RelationshipWeb save={save} />
-      </Block>
+      </Card>
 
-      <Block title="The map" delay={0.035}>
+      <Card title="The map" delay={0.035}>
         <StoryMap save={save} />
         <div className="text-[10.5px] italic pt-1" style={{ color: "var(--text-lo)" }}>
           The world as you've walked it — every place you've stood, every path between.
         </div>
-      </Block>
+      </Card>
 
       {/* ── WHERE THIS IS HEADED ────────────────────────────────────────────
           A player set a specific ending, played to turn 87, and watched the engine do nothing with
@@ -87,7 +97,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
           arrival: "arrival — the ending is being written",
         };
         return (
-          <Block title="Where this is headed" delay={0.036}>
+          <Card title="Where this is headed" delay={0.036}>
             <div className="py-1.5">
               <div className="text-[13px] leading-relaxed">{f.destination}</div>
               <div className="flex justify-between items-baseline gap-2 mt-2">
@@ -107,12 +117,12 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 The act comes from turns spent against the budget, nothing else. To make the world start bending sooner, shorten the budget in Tuning.
               </div>
             </div>
-          </Block>
+          </Card>
         );
       })()}
 
-      <Block title="Threads" delay={0.04}>
-        {activeThreads.length === 0 && <Empty>No active threads yet.</Empty>}
+      <Card title="Threads" delay={0.04}>
+        {activeThreads.length === 0 && <Muted className="text-[12.5px] py-1">No active threads yet.</Muted>}
         {activeThreads.map((t) => (
           <div key={t.id} className="py-2">
             <div className="flex justify-between items-baseline gap-2">
@@ -127,21 +137,17 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 className="font-mono text-[9.5px] shrink-0 opacity-60 hover:opacity-100"
                 style={{ color: "var(--text-lo)" }}
                 title="Close this thread — the narrator stops carrying it"
-                onClick={async () => {
-                  if (!confirm(`Retire "${t.title}"?\n\nThe narrator stops carrying this storyline. It stays in the record as resolved.`)) return;
-                  const s = await api.retireThread(save.id, t.id);
-                  onSave?.(s);
-                }}
+                onClick={() => setPanel({ kind: "retireThread", id: t.id, title: t.title })}
               >retire</button>
             </div>
             <div className="text-[12.5px] mt-0.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{t.description}</div>
             <div className="meter mt-2"><div style={{ width: `${t.tension * 10}%`, background: t.tension >= 7 ? "var(--danger)" : "var(--accent)" }} /></div>
           </div>
         ))}
-      </Block>
+      </Card>
 
-      <Block title="Clocks" delay={0.05}>
-        {w.clocks.length === 0 && <Empty>No factions on the move.</Empty>}
+      <Card title="Clocks" delay={0.05}>
+        {w.clocks.length === 0 && <Muted className="text-[12.5px] py-1">No factions on the move.</Muted>}
         {w.clocks.map((c) => (
           <div key={c.id} className="py-2">
             <div className="flex justify-between items-baseline gap-2">
@@ -178,21 +184,16 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                   className="font-mono text-[9.5px] shrink-0 opacity-60 hover:opacity-100"
                   style={{ color: "var(--danger)" }}
                   title="fill this clock now — its consequence lands in the next scene"
-                  onClick={async () => {
-                    if (!confirm(`Fire ${c.faction}'s clock now?\n\n${c.consequence || "Its consequence lands in the next scene."}`)) return;
-                    const { save: s2, log } = await api.fireClock(save.id, c.id);
-                    onSave?.(s2);
-                    if (log.length) alert(log.join("\n"));
-                  }}
+                  onClick={() => setPanel({ kind: "fireClock", id: c.id, faction: c.faction, consequence: c.consequence || "Its consequence lands in the next scene." })}
                 >fire now</button>
               </div>
             )}
           </div>
         ))}
-      </Block>
+      </Card>
 
-      <Block title="What people are saying" delay={0.1}>
-        {liveRumors.length === 0 && <Empty>No rumors circulating yet.</Empty>}
+      <Card title="What people are saying" delay={0.1}>
+        {liveRumors.length === 0 && <Muted className="text-[12.5px] py-1">No rumors circulating yet.</Muted>}
         {liveRumors.map((r) => (
           <div key={r.id} className="py-2">
             <div className="text-[13px] leading-relaxed italic">"{r.content}"</div>
@@ -210,39 +211,85 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
             )}
           </div>
         ))}
-      </Block>
+      </Card>
 
-      <Block title="Norms" delay={0.15}>
-        {w.norms.length === 0 && <Empty>No social rules recorded.</Empty>}
+      <Card title="Norms" delay={0.15}>
+        {w.norms.length === 0 && <Muted className="text-[12.5px] py-1">No social rules recorded.</Muted>}
         {w.norms.map((n) => (
           <div key={n.id} className="py-1.5 text-[13px]">
             <span style={{ color: "var(--text-hi)" }}>{n.rule}</span>
             <span className="font-mono text-[9.5px] ml-2" style={{ color: "var(--text-lo)" }}>({n.enforcement} — {n.holders})</span>
           </div>
         ))}
-      </Block>
+      </Card>
 
-      <Block title="Places" delay={0.2}>
+      <Card title="Places" delay={0.2}>
         <Places save={save} onSave={onSave} />
-      </Block>
+      </Card>
+
+      <Sheet open={!!panel} onClose={() => setPanel(null)}>
+        <div className="p-4">
+          {panel?.kind === "retireThread" && (
+            <>
+              <div className="text-[14px]">Retire "{panel.title}"?</div>
+              <div className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                The narrator stops carrying this storyline. It stays in the record as resolved.
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                  style={{ color: "var(--danger)" }}
+                  onClick={async () => {
+                    const { id } = panel;
+                    setPanel(null);
+                    const s = await api.retireThread(save.id, id);
+                    onSave?.(s);
+                  }}
+                >retire</button>
+                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                  style={{ color: "var(--text-lo)" }} onClick={() => setPanel(null)}>cancel</button>
+              </div>
+            </>
+          )}
+          {panel?.kind === "fireClock" && (
+            <>
+              <div className="text-[14px]">Fire {panel.faction}'s clock now?</div>
+              <div className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                {panel.consequence}
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                  style={{ color: "var(--danger)" }}
+                  onClick={async () => {
+                    const { id } = panel;
+                    const { save: s2, log } = await api.fireClock(save.id, id);
+                    onSave?.(s2);
+                    setPanel(log.length ? { kind: "fireLog", lines: log } : null);
+                  }}
+                >fire now</button>
+                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                  style={{ color: "var(--text-lo)" }} onClick={() => setPanel(null)}>cancel</button>
+              </div>
+            </>
+          )}
+          {panel?.kind === "fireLog" && (
+            <>
+              <div className="text-[14px] mb-2">The clock fired</div>
+              <div className="space-y-1.5">
+                {panel.lines.map((l, i) => (
+                  <div key={i} className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>{l}</div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-4">
+                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                  style={{ color: "var(--accent)" }} onClick={() => setPanel(null)}>close</button>
+              </div>
+            </>
+          )}
+        </div>
+      </Sheet>
     </div>
   );
 }
-
-function Block({ title, delay, children }: { title: string; delay: number; children: React.ReactNode }) {
-  return (
-    <motion.div className="card p-4"
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
-      <div className="font-mono text-[10px] uppercase tracking-widest mb-1.5" style={{ color: "var(--text-lo)" }}>{title}</div>
-      {children}
-    </motion.div>
-  );
-}
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>{children}</div>;
-}
-
 
 /** PLACE MANAGER — build a location by hand, and put anyone anywhere.
  *

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ScrollText, HandshakeIcon, CircleHelp, Users2 } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import { Sheet } from "../lib/ui";
 
 /**
  * The PLAYER JOURNAL — a near-zero-LLM view derived entirely from state the engine already tracks:
@@ -25,11 +26,13 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
 
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const settle = async (id: string, outcome: "kept" | "broken" | "retired", text: string) => {
-    const ask = outcome === "retired"
-      ? `Retire "${text}"?\n\nIt leaves the ledger and changes nothing between anyone. Use this for a standing arrangement, or something the story has moved past.`
-      : `Mark "${text}" as ${outcome}?\n\nThe relationship moves and the other person will remember it — the same as if the engine had noticed.`;
-    if (!confirm(ask)) return;
+  // Settling a promise by hand moves a relationship the same as if the engine had noticed it —
+  // worth a beat of friction before it fires. A native confirm() blocked the render thread and
+  // looked like a browser dialog stapled onto the app, so this drawer carries the same two
+  // messages instead.
+  const [ask, setAsk] = useState<{ id: string; outcome: "kept" | "broken" | "retired"; text: string } | null>(null);
+  const settle = async (id: string, outcome: "kept" | "broken" | "retired") => {
+    setAsk(null);
     setBusy(id);
     try {
       const r = await api.settlePromise(save.id, id, outcome);
@@ -77,7 +80,7 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
                 style={o === "kept" ? { borderColor: "var(--good, #6b9e78)", color: "var(--good, #6b9e78)" }
                      : o === "broken" ? { borderColor: "var(--bad, #b56c6c)", color: "var(--bad, #b56c6c)" }
                      : { borderColor: "var(--line)", color: "var(--text-mid)" }}
-                onClick={() => settle(p.id, o, p.text)}
+                onClick={() => setAsk({ id: p.id, outcome: o, text: p.text })}
               >{o}</button>
             ))}
             {stale && <span className="text-[10px] ml-0.5" style={{ color: "var(--text-lo)" }}>open since turn {p.made_turn}</span>}
@@ -207,6 +210,27 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
           </div>
         ))}
       </section>
+
+      <Sheet open={!!ask} onClose={() => setAsk(null)}>
+        {ask && (
+          <div className="p-4">
+            <div className="text-[14px]">
+              {ask.outcome === "retired" ? `Retire "${ask.text}"?` : `Mark "${ask.text}" as ${ask.outcome}?`}
+            </div>
+            <div className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+              {ask.outcome === "retired"
+                ? "It leaves the ledger and changes nothing between anyone. Use this for a standing arrangement, or something the story has moved past."
+                : "The relationship moves and the other person will remember it — the same as if the engine had noticed."}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                style={{ color: "var(--danger, #b56c6c)" }} onClick={() => settle(ask.id, ask.outcome)}>{ask.outcome}</button>
+              <button className="font-mono text-[10px] uppercase tracking-widest py-1"
+                style={{ color: "var(--text-lo)" }} onClick={() => setAsk(null)}>cancel</button>
+            </div>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }

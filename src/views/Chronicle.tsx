@@ -1,21 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { motion } from "motion/react";
 import { api, type ClientSave } from "../lib/api";
 import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
-import { nice, niceCap } from "../lib/format";
-
-/** Model-written text, as something React can render. Same reason as Play.tsx's asLine: a persona
- *  reading comes back from a model, and an object child throws — which, on a persisted reading,
- *  means the Chronicle stops opening. See tests/render-safety.ts. */
-function asLine(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (v == null) return "";
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
-  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
-  return "";
-}
+import { asLine, nice, niceCap } from "../lib/format";
+import { Fade, Kicker, Muted } from "../lib/ui";
 
 /** Everything here is computed locally from telemetry — zero token cost. */
 export default function Chronicle({ save }: { save: ClientSave }) {
@@ -193,7 +181,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {!!save.world_bible.destination?.trim() && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>Destination</Title>
+            <Kicker className="mb-2.5">Destination</Kicker>
             {(() => {
               const dest = save.world_bible.destination!.trim();
               const p = save.destination_progress;
@@ -229,7 +217,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {!!chapters?.length && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>The story so far — chapters</Title>
+            <Kicker className="mb-2.5">The story so far — chapters</Kicker>
             <div className="mb-3 p-3 rounded-xl" style={{ background: "var(--ink-1)" }}>
               <div className="flex items-center justify-between">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>the player, as played</div>
@@ -282,7 +270,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {marginalia.length > 0 && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>Marginalia — what the world noted</Title>
+            <Kicker className="mb-2.5">Marginalia — what the world noted</Kicker>
             <div className="space-y-1.5 mt-1 max-h-64 overflow-y-auto scroll-y">
               {marginalia.map((m, i) => (
                 <div key={i} className="flex gap-2.5 items-baseline">
@@ -358,7 +346,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
 
       <Fade delay={0.05}>
         <div className="card p-4">
-          <Title>Pressure across the chronicle</Title>
+          <Kicker className="mb-2.5">Pressure across the chronicle</Kicker>
           <Seismograph trace={stats.pressures} overlay={tel.map((t) => (t.player_mood_valence ?? 0) / 16)} max={Math.max(stats.pressures.length, 24)} h={44} />
           <div className="flex gap-px mt-2 rounded overflow-hidden" style={{ height: 5 }}>
             {tel.map((t, i) => {
@@ -367,22 +355,22 @@ export default function Chronicle({ save }: { save: ClientSave }) {
               return <div key={i} className="flex-1" style={{ background: col }} />;
             })}
           </div>
-          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather — red is clenched, amber guarded, green open.</Note>
+          <Muted className="mt-2 text-[11px]">Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather — red is clenched, amber guarded, green open.</Muted>
         </div>
       </Fade>
 
       <Fade delay={0.1}>
         <div className="card p-4">
-          <Title>Your inner weather</Title>
+          <Kicker className="mb-2.5">Your inner weather</Kicker>
           <MoodArc values={stats.moods} />
-          <Note>Mood valence per turn, −10 to +10. The line above the dashes is the good days.</Note>
+          <Muted className="mt-2 text-[11px]">Mood valence per turn, −10 to +10. The line above the dashes is the good days.</Muted>
         </div>
       </Fade>
 
       {stats.bonds.length > 0 && (
         <Fade delay={0.15}>
           <div className="card p-4">
-            <Title>Bonds in motion</Title>
+            <Kicker className="mb-2.5">Bonds in motion</Kicker>
             <div className="space-y-2.5 mt-1">
               {stats.bonds.map(([id, vals]) => {
                 const delta = vals[vals.length - 1] - vals[0];
@@ -398,7 +386,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 );
               })}
             </div>
-            <Note>How others' warmth toward you moved. They remember why.</Note>
+            <Muted className="mt-2 text-[11px]">How others' warmth toward you moved. They remember why.</Muted>
           </div>
         </Fade>
       )}
@@ -406,7 +394,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {arcs.length > 0 && (
         <Fade delay={0.18}>
           <div className="card p-4">
-            <Title>Arcs — how people changed</Title>
+            <Kicker className="mb-2.5">Arcs — how people changed</Kicker>
             <div className="space-y-4 mt-1">
               {arcs.map((a) => (
                 <div key={a.id} className="pb-3" style={{ borderBottom: "1px solid var(--line)" }}>
@@ -453,7 +441,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {records.length > 0 && (
         <Fade delay={0.2}>
           <div className="card p-4">
-            <Title>Records of this chronicle</Title>
+            <Kicker className="mb-2.5">Records of this chronicle</Kicker>
             <div className="space-y-2 mt-1">
               {records.map((r) => (
                 <div key={r.label} className="flex gap-3 items-baseline">
@@ -469,7 +457,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {stats.screenTime.length > 0 && (
         <Fade delay={0.22}>
           <div className="card p-4">
-            <Title>Who shared your scenes</Title>
+            <Kicker className="mb-2.5">Who shared your scenes</Kicker>
             <Bars data={stats.screenTime} />
           </div>
         </Fade>
@@ -477,7 +465,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
 
       <Fade delay={0.25}>
         <div className="card p-4">
-          <Title>Things to know about the game you've been playing</Title>
+          <Kicker className="mb-2.5">Things to know about the game you've been playing</Kicker>
           <div className="space-y-2 mt-1">
             {facts.map((f, i) => (
               <div key={i} className="text-[13px] leading-relaxed flex gap-2">
@@ -492,17 +480,3 @@ export default function Chronicle({ save }: { save: ClientSave }) {
   );
 }
 
-function Fade({ delay, children }: { delay: number; children: React.ReactNode }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}>
-      {children}
-    </motion.div>
-  );
-}
-function Title({ children }: { children: React.ReactNode }) {
-  return <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>{children}</div>;
-}
-function Note({ children }: { children: React.ReactNode }) {
-  return <div className="text-[11px] italic mt-2" style={{ color: "var(--text-lo)" }}>{children}</div>;
-}
