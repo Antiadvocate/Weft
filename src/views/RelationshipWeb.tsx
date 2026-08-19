@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { ClientSave } from "../lib/api";
+import { warmthColor, warmthSign } from "../lib/charts";
 
 /** The social web. Player at center, cast around a ring. Edges colored by warmth
  *  (green warm ↔ red hostile), thickness by strength. Tap a node to focus its ties. */
@@ -17,9 +18,6 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
     const a = (i / others.length) * Math.PI * 2 - Math.PI / 2;
     pos[id] = { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R };
   });
-
-  const warmthColor = (w: number) =>
-    w >= 25 ? "var(--calm)" : w <= -25 ? "var(--danger)" : w < 0 ? "#a8743f" : "var(--text-lo)";
 
   const edges = save.world.edges.filter((e) => pos[e.from] && pos[e.to]);
   const shown = focus ? edges.filter((e) => e.from === focus || e.to === focus) : edges;
@@ -75,7 +73,7 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
           <div className="mt-2 text-[12px]" style={{ color: "var(--text-mid)" }}>
             <span style={{ color: "var(--text-hi)" }}>{ch.name}</span> feels:
             {ties.length ? ties.map((e, i) => (
-              <span key={i}> {save.characters[e.to]?.name?.split(/\s+/)[0]}{e.roles?.length ? ` (${e.roles.join(", ")})` : ""} <span className="font-mono text-[10px]" style={{ color: e.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>({e.warmth > 0 ? "+" : ""}{e.warmth})</span>{i < ties.length - 1 ? "," : ""}</span>
+              <span key={i}> {save.characters[e.to]?.name?.split(/\s+/)[0]}{e.roles?.length ? ` (${e.roles.join(", ")})` : ""} <span className="font-mono text-[10px]" style={{ color: warmthSign(e.warmth) }}>({e.warmth > 0 ? "+" : ""}{e.warmth})</span>{i < ties.length - 1 ? "," : ""}</span>
             )) : <span style={{ color: "var(--text-lo)" }}> no recorded ties yet</span>}
           </div>
         );

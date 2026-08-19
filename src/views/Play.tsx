@@ -6,7 +6,7 @@ import { api, streamTurn, resumePending, governorState, type ActionMode, type Cl
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
-import { CastPip, Vitals } from "../lib/charts";
+import { CastPip, Vitals, warmthSign } from "../lib/charts";
 import { readSchedule } from "../engine/schedule";
 import type { SaveState } from "../engine/types";
 import { AnalogClock, WeatherIcon, asLine } from "../lib/format";
@@ -1352,7 +1352,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 </div>
               </div>
               {tipEdge && (
-                <div className="font-mono text-[10.5px] mt-2" style={{ color: tipEdge.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
+                <div className="font-mono text-[10.5px] mt-2" style={{ color: warmthSign(tipEdge.warmth) }}>
                   {tipEdge.warmth >= 20 ? "warm toward you" : tipEdge.warmth <= -20 ? "cold toward you" : "unresolved about you"} · trust {tipEdge.trust}
                   {tipEdge.notes ? <span style={{ color: "var(--text-lo)" }}> — {tipEdge.notes}</span> : null}
                 </div>

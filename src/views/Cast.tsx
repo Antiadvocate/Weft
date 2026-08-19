@@ -4,11 +4,10 @@ import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff,
 import { api, type ClientSave } from "../lib/api";
 import { splitLines } from "../engine/turn";
 import { nice, niceCap } from "../lib/format";
-import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
 import { clockLabel, dayOf, minutesOfDay, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
 import { daysLabel, readSchedule, runsOn } from "../engine/schedule";
-import { DayRibbon, WeekPips, type DaySegment } from "../lib/charts";
+import { CuspGlyph, DayRibbon, WeekPips, warmthSign, type DaySegment } from "../lib/charts";
 import type { SaveState } from "../engine/types";
 import { Field, KV, Sheet } from "../lib/ui";
 
@@ -35,6 +34,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [painting, setPainting] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
+  const [awayConfirm, setAwayConfirm] = useState(false);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [rawErr, setRawErr] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -77,7 +77,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
   const [ivErr, setIvErr] = useState("");
 
-  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now"); }, [sel]);
+  // Everything here is about the character currently open, so it has to be dropped when a
+  // different one is selected — an armed confirmation left over from the last character would
+  // otherwise reappear pointed at this one.
+  useEffect(() => {
+    setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now");
+    setEmbodyConfirm(false); setAwayConfirm(false);
+  }, [sel]);
 
   const commitFacts = async (facts: { content: string; quote?: string }[]) => {
     if (!sel) return;
@@ -409,7 +415,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                             {npc && alive && (
                               <Item icon={<DoorOpen size={15} style={{ color: "var(--danger)" }} />} label="Send away" danger
                                 note="they leave the story and this scene — reversible from the Gone list"
-                                on={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} />
+                                on={() => setAwayConfirm(true)} />
                             )}
                           </>
                         );
@@ -461,6 +467,19 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       {embodying ? "switching…" : "Become them"}
                     </button>
                     <button className="btn btn-ghost flex-1" onClick={() => setEmbodyConfirm(false)}>Stay</button>
+                  </div>
+                </div>
+              )}
+              {awayConfirm && (
+                <div className="card p-4" style={{ borderColor: "var(--accent-glow)" }}>
+                  <div className="font-display text-[15px] mb-1">Send {c.name} away for good?</div>
+                  <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                    They leave the story and the current scene. You can bring them back later from the Gone list.
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button className="btn btn-danger flex-1"
+                      onClick={() => { setAwayConfirm(false); changeStatus(sel!, "away"); }}>Send away</button>
+                    <button className="btn btn-ghost flex-1" onClick={() => setAwayConfirm(false)}>Keep them</button>
                   </div>
                 </div>
               )}
@@ -619,7 +638,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     const other = save.characters[e.to]?.name ?? e.to;
                     const back = (save.world.edges ?? []).find((x) => x.from === e.to && x.to === sel);
                     const line = (edge: typeof e) => (
-                      <span className="font-mono text-[10px]" style={{ color: edge.warmth >= 0 ? "var(--calm)" : "var(--danger)" }}>
+                      <span className="font-mono text-[10px]" style={{ color: warmthSign(edge.warmth) }}>
                         {edge.warmth >= 0 ? "warm" : "cold"} {Math.abs(Math.round(edge.warmth))} · trust {Math.round(edge.trust)}{edge.attraction !== undefined ? ` · ${attractionWord(edge.attraction)}` : ""}
                       </span>
                     );

@@ -167,3 +167,22 @@ export function KV({ k, v }: { k: React.ReactNode; v: string }) {
     </div>
   );
 }
+
+/** SMALL MONO ACTION — the text button that sits at the foot of a confirmation panel
+ *  ("retire" / "cancel"), and next to inline editors. It is not `.btn`: no border, no
+ *  fill, just a tinted mono label, because at this size a bordered button reads as
+ *  heavier than the thing it is confirming.
+ *
+ *  This one arrived late. The confirmation panels that replaced the app's native
+ *  confirm() dialogs were written in parallel across several views, and each of them
+ *  hand-wrote this same class string with its own colour expression — one of them even
+ *  carried a `var(--danger, #b56c6c)` fallback the others did without. */
+export function MonoBtn({ tone = "muted", className = "", style, ...rest }: {
+  tone?: "danger" | "accent" | "muted";
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const color = tone === "danger" ? "var(--danger)" : tone === "accent" ? "var(--accent)" : "var(--text-lo)";
+  return (
+    <button className={`font-mono text-[10px] uppercase tracking-widest py-1 ${className}`}
+      style={{ color, ...style }} {...rest} />
+  );
+}

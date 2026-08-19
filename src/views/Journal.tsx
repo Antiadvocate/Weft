@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ScrollText, HandshakeIcon, CircleHelp, Users2 } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
-import { Sheet } from "../lib/ui";
+import { MonoBtn, Sheet } from "../lib/ui";
 
 /**
  * The PLAYER JOURNAL — a near-zero-LLM view derived entirely from state the engine already tracks:
@@ -223,10 +223,8 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
                 : "The relationship moves and the other person will remember it — the same as if the engine had noticed."}
             </div>
             <div className="flex gap-3 mt-4">
-              <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                style={{ color: "var(--danger, #b56c6c)" }} onClick={() => settle(ask.id, ask.outcome)}>{ask.outcome}</button>
-              <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                style={{ color: "var(--text-lo)" }} onClick={() => setAsk(null)}>cancel</button>
+              <MonoBtn tone="danger" onClick={() => settle(ask.id, ask.outcome)}>{ask.outcome}</MonoBtn>
+              <MonoBtn onClick={() => setAsk(null)}>cancel</MonoBtn>
             </div>
           </div>
         )}

@@ -330,15 +330,33 @@ export function Vitals({ vitals }: { vitals: Vital[] }) {
  * and whether they are about to walk out. A party bar in any game carries that on the portrait,
  * and it is the same information the player would have from being in the room.
  *
- * `ring` is warmth toward the player on the same green/amber/red the relationship web uses, so the
- * two views agree. `openness` fills the ring: a clenched person's arc is short. `flag` is the one
+ * `ring` is warmth toward the player through the shared `warmthColor`, the same scale the
+ * relationship web paints its edges with, so the two views genuinely agree. `openness` fills the ring: a clenched person's arc is short. `flag` is the one
  * thing about them that is urgent this turn — due to leave, wanting something, newly arrived.
  */
+/** WARMTH → COLOUR. The scene strip and the relationship web both paint warmth toward the
+ *  player, and they used to do it with two separate expressions whose thresholds had drifted
+ *  apart: a character at -22 read as hostile in one view and merely cool in the other. One
+ *  function now, used by both. */
+export function warmthColor(w: number): string {
+  if (w >= 25) return "var(--calm)";
+  if (w <= -25) return "var(--danger)";
+  if (w < 0) return "#a8743f";
+  return "var(--text-lo)";
+}
+
+/** The signed readout tint — a warmth *number* shown as text reads warm or cold by its sign
+ *  alone, which is a coarser question than the four-band `warmthColor` a graph edge answers.
+ *  Two bands on purpose; it was written out by hand in three separate views. */
+export function warmthSign(w: number): string {
+  return w >= 0 ? "var(--calm)" : "var(--danger)";
+}
+
 export function CastPip({ name, portrait, warmth, openness, flag, size = 38, label = true, onClick }: {
   name: string; portrait?: string; warmth: number; openness: number;
   flag?: "leaving" | "arrived" | "wants" | null; size?: number; label?: boolean; onClick?: () => void;
 }) {
-  const ring = warmth >= 25 ? "var(--calm)" : warmth <= -20 ? "var(--danger)" : "var(--accent)";
+  const ring = warmthColor(warmth);
   const r = size / 2 - 1.5;
   const circ = 2 * Math.PI * r;
   const open = Math.max(0.06, Math.min(1, (openness + 10) / 20));   // -10..10 → a visible minimum arc

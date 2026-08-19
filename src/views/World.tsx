@@ -4,7 +4,7 @@ import { RelationshipWeb } from "./RelationshipWeb";
 import StoryMap from "../lib/StoryMap";
 import { api } from "../lib/api";
 import { readFate } from "../engine/fate";
-import { Card, Muted, Sheet } from "../lib/ui";
+import { Card, MonoBtn, Muted, Sheet } from "../lib/ui";
 
 export default function World({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
   const w = save.world;
@@ -236,17 +236,15 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 The narrator stops carrying this storyline. It stays in the record as resolved.
               </div>
               <div className="flex gap-3 mt-4">
-                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                  style={{ color: "var(--danger)" }}
+                <MonoBtn tone="danger"
                   onClick={async () => {
                     const { id } = panel;
                     setPanel(null);
                     const s = await api.retireThread(save.id, id);
                     onSave?.(s);
                   }}
-                >retire</button>
-                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                  style={{ color: "var(--text-lo)" }} onClick={() => setPanel(null)}>cancel</button>
+                >retire</MonoBtn>
+                <MonoBtn onClick={() => setPanel(null)}>cancel</MonoBtn>
               </div>
             </>
           )}
@@ -257,17 +255,15 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 {panel.consequence}
               </div>
               <div className="flex gap-3 mt-4">
-                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                  style={{ color: "var(--danger)" }}
+                <MonoBtn tone="danger"
                   onClick={async () => {
                     const { id } = panel;
                     const { save: s2, log } = await api.fireClock(save.id, id);
                     onSave?.(s2);
                     setPanel(log.length ? { kind: "fireLog", lines: log } : null);
                   }}
-                >fire now</button>
-                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                  style={{ color: "var(--text-lo)" }} onClick={() => setPanel(null)}>cancel</button>
+                >fire now</MonoBtn>
+                <MonoBtn onClick={() => setPanel(null)}>cancel</MonoBtn>
               </div>
             </>
           )}
@@ -280,8 +276,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 ))}
               </div>
               <div className="flex justify-end mt-4">
-                <button className="font-mono text-[10px] uppercase tracking-widest py-1"
-                  style={{ color: "var(--accent)" }} onClick={() => setPanel(null)}>close</button>
+                <MonoBtn tone="accent" onClick={() => setPanel(null)}>close</MonoBtn>
               </div>
             </>
           )}
