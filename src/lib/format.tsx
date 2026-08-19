@@ -63,3 +63,15 @@ export function WeatherIcon({ weather, size = 12 }: { weather?: string; size?: n
   const Icon = hit?.[1] ?? Cloud;
   return <Icon size={size} />;
 }
+
+/** Flatten whatever the model handed back into one readable line. Models return a
+ *  string where the schema asked for one, but also arrays, and objects whose values
+ *  are the sentence. Rendering `[object Object]` at the reader is not an option. */
+export function asLine(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
+  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
+  return "";
+}

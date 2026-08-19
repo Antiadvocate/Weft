@@ -24,6 +24,24 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number 
   { id: "settings", label: "Tuning", icon: Settings2 },
 ];
 
+/* SCREEN — the same rise-and-fade on every top-level swap.
+   The `key` belongs on <Screen> at the call site, not in here: AnimatePresence
+   reads the keys of its own children, and the motion.div inside picks up the exit
+   through PresenceContext.
+   Tab changes inside a game use `quick`: you switch tabs far more often than you
+   switch modes, and a transition you see fifty times an hour has to get out of
+   the way faster. */
+function Screen({ quick, children }: { quick?: boolean; children: React.ReactNode }) {
+  const d = quick ? 6 : 8;
+  return (
+    <motion.div className="absolute inset-0"
+      initial={{ opacity: 0, y: d + 2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -d }}
+      transition={{ duration: quick ? 0.22 : 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
+      {children}
+    </motion.div>
+  );
+}
+
 export default function App() {
   const [save, setSave] = useState<ClientSave | null>(null);
   const [tab, setTab] = useState<Tab>("play");
@@ -149,30 +167,24 @@ export default function App() {
       <main className="flex-1 min-h-0 relative">
         <AnimatePresence mode="wait">
           {mode === "library" && (
-            <motion.div key="library" className="absolute inset-0"
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
+            <Screen key="library">
               <Library onOpen={openSave} onForge={() => setMode("forge")} onCreated={(s) => { setSave(s); setMode("game"); setTab("play"); }} />
-            </motion.div>
+            </Screen>
           )}
           {mode === "forge" && (
-            <motion.div key="forge" className="absolute inset-0"
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
+            <Screen key="forge">
               <Forge onBack={() => setMode("library")} onCreated={(s) => { setSave(s); setMode("game"); setTab("play"); }} />
-            </motion.div>
+            </Screen>
           )}
           {mode === "game" && save && (
-            <motion.div key={`game-${tab}`} className="absolute inset-0"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}>
+            <Screen key={`game-${tab}`} quick>
               {tab === "play" && <Play save={save} setSave={setSave} />}
               {tab === "cast" && <Cast save={save} setSave={setSave} />}
               {tab === "world" && <World save={save} onSave={setSave} />}
               {tab === "chronicle" && <Chronicle save={save} />}
               {tab === "journal" && <Journal save={save} onSave={setSave} />}
               {tab === "settings" && <Settings save={save} setSave={setSave} />}
-            </motion.div>
+            </Screen>
           )}
         </AnimatePresence>
       </main>
