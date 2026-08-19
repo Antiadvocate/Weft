@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
-import { LOCAL_PREFIX, getLocalEndpoint } from "../config";
+import { LOCAL_PREFIX, getLocalEndpoint, getLocalImage } from "../config";
+import { listLocalCheckpoints } from "../lib/diffusion";
 
 interface ORModel { id: string; name: string; created?: number; image?: boolean; local?: boolean }
 
@@ -57,6 +58,22 @@ export async function loadLocalModels(): Promise<ORModel[]> {
   }
 }
 
+/** WHAT THE SAMPLER UNDER THE DESK HAS ON DISK.
+ *
+ *  The image slot's local half. A checkpoint the server lists becomes `local/<file>`; the always-
+ *  offered `local/default` means "whatever the endpoint settings or the pasted workflow already
+ *  say", which is the right answer for a workflow that names its own model and for a server that
+ *  will not answer a cross-origin listing call. */
+export async function loadLocalImageModels(): Promise<ORModel[]> {
+  if (!getLocalImage()) return [];
+  const fallback: ORModel[] = [{ id: `${LOCAL_PREFIX}default`, name: "Local — as configured in Settings", image: true, local: true }];
+  const found = await listLocalCheckpoints();
+  const list: ORModel[] = found.map((f) => ({
+    id: `${LOCAL_PREFIX}${f}`, name: f.split(/[\\/]/).pop() || f, image: true, local: true,
+  }));
+  return [...list, ...fallback];
+}
+
 async function loadModels(): Promise<ORModel[]> {
   if (CACHE && Date.now() - CACHE_AT < 1000 * 60 * 30) return CACHE;
   try {
@@ -88,7 +105,7 @@ export function ModelPicker({
     setLoading(true);
     // The local list is cheap and always first — a player who has set up a local endpoint has done
     // it on purpose and should not have to scroll past four hundred cloud models to find it.
-    Promise.all([kind === "image" ? Promise.resolve([] as ORModel[]) : loadLocalModels(), loadModels()])
+    Promise.all([kind === "image" ? loadLocalImageModels() : loadLocalModels(), loadModels()])
       .then(([local, cloud]) => { setModels([...local, ...cloud]); setLoading(false); });
   }, [open, models, kind]);
 

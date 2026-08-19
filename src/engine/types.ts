@@ -37,6 +37,18 @@ export interface ModelSettings {
   habit_engine?: boolean;         // EXPERIMENTAL: core traits become probabilistic firing habits that loosen when seen (dzogchen self-liberation) and deepen when unseen. Inert unless true.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
+  /** PAINT THE SCENE EVERY TURN, without being asked.
+   *
+   *  Off by default and deliberately so on the cloud path, where every turn would be a few cents.
+   *  The setting exists for the local one (Settings -> Local images): on your own GPU a picture per
+   *  message costs nothing but the seconds it takes, so the story can simply have a moving
+   *  illustration instead of a button you remember to press. Runs AFTER the turn commits and never
+   *  blocks the prose. */
+  auto_illustrate?: boolean;
+  /** How many scene illustrations keep their pixels in the save. Older turns keep the record of
+   *  having been illustrated but drop the bytes — one picture a turn is tens of megabytes a
+   *  session otherwise, and store.ts documents exactly what that does to the tab. 0 = keep all. */
+  illustration_keep?: number;
   paging?: boolean;               // MemGPT-style paging: cold central characters' identity cards page out of the prefix to one-line stubs until they matter again
 }
 
@@ -291,6 +303,19 @@ export interface Identity {
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
+  /** THE EXACT WORDS THAT DREW THIS PERSON — written when the portrait is generated, then reused
+   *  verbatim in every scene image forever after.
+   *
+   *  Only the local diffusion path reads it, and it exists because that path is literal in a way
+   *  the cloud one is not: a multimodal model is handed the portrait and told to match it, while a
+   *  sampler is handed words and nothing else. The same clause returns roughly the same face; a
+   *  clause re-derived from live state each turn drifts a few words at a time and returns a
+   *  stranger by the tenth message. Bedrock only — clothes, mood and injuries are added as their
+   *  own clauses per scene, never folded in here. Editable by hand: this is the one field that
+   *  says what a character looks like to the image model. */
+  visual_signature?: string;
+  /** Seed the portrait was drawn at, reused when this character is the subject again. */
+  portrait_seed?: number;
   /** Body plan the portrait was generated under. Scene illustrations attach portraits as reference
    *  images only when this matches the character's CURRENT plan — a stale person-shaped portrait
    *  attached as a reference outvotes every "not a person" the prompt can write. */
@@ -787,6 +812,9 @@ export interface TurnHistoryEntry {
   directive?: string;          // the exact direction the narrator received — nothing hidden
   present?: string[];          // who was in the scene THIS turn — illustrations render the paragraph's own cast, not today's
   illustration_url?: string;
+  /** This turn WAS illustrated, and the pixels have since been dropped to keep the save small
+   *  (see forgetOldPictures). The record survives; the picture does not. */
+  illustrated?: boolean;
   narrator_prose: string;
   /** Bookkeeping health for this turn. "thin" = the diff parsed but recorded nothing that changed the
    *  world; "failed" = the simulator returned nothing usable. Either way the prose happened but the
@@ -944,6 +972,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   forge_model: "anthropic/claude-opus-4.8",
   fallback_model: "google/gemini-3.1-flash-lite",
   image_model: "google/gemini-2.5-flash-image",
+  illustration_keep: 12,            // pictures that keep their bytes; older turns keep the record only
   context_memories_k: 6,
   reflection_cadence: 10,
   history_window: 5,

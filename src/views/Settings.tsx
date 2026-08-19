@@ -6,7 +6,9 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
-import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT } from "../config";
+import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT,
+  getLocalImage, setLocalImage, LOCAL_IMAGE_DEFAULTS, LOCAL_PREFIX, type LocalImageEndpoint } from "../config";
+import { generateLocalImage, listLocalCheckpoints, defaultWorkflow, KONTEXT_WORKFLOW, WORKFLOW_TOKENS, DEFAULT_NEGATIVE } from "../lib/diffusion";
 import { currentPush, getRelay, isInstalled, relayHealth, setRelay, subscribePush } from "../relay";
 
 const THEMES = ["auto", "ember", "verdigris", "rust", "frost"];
@@ -173,6 +175,163 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       </div>
       <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
         Sets lean prompts, chat-log context, a slower re-anchor and a tight digest — about 18k tokens a turn instead of 27k. This is a SPEED setting, not a fitting one: a 64k window holds a full turn either way, but every token you cut is prompt the model doesn't ingest before it writes, and KV cache it doesn't hold. If your machine is fast enough, unwind it in this order and keep what reads better — token budget to 0 first, then lean mode off. Chat-log context and the slow re-anchor cost nothing; leave those on. Review the sections below, then Save.
+      </div>
+    </div>
+  );
+}
+
+/** LOCAL IMAGES — the diffusion model on your own machine.
+ *
+ *  The point of this screen is the last toggle on it: a picture of the scene, repainted every
+ *  message. That has always been possible and has never been sensible, because on the cloud path
+ *  it is a few cents a turn and an API round trip. On your own GPU it is neither, so illustration
+ *  stops being a button you remember to press and becomes something the story just does.
+ *
+ *  Two backends, because those are the two APIs every local image stack speaks. ComfyUI runs a
+ *  graph, which is what makes reference images — and therefore recognisable people — possible.
+ *  A1111/Forge takes one POST and needs no setup at all. See src/lib/diffusion.ts. */
+function LocalImages() {
+  const cur = getLocalImage();
+  const [url, setUrl] = useState(cur?.url ?? "");
+  const [backend, setBackend] = useState<"comfy" | "a1111">(cur?.backend ?? "comfy");
+  const [checkpoint, setCheckpoint] = useState(cur?.checkpoint ?? "");
+  const [workflow, setWorkflow] = useState(cur?.workflow ?? "");
+  const [steps, setSteps] = useState(String(cur?.steps ?? LOCAL_IMAGE_DEFAULTS.steps));
+  const [cfg, setCfg] = useState(String(cur?.cfg ?? LOCAL_IMAGE_DEFAULTS.cfg));
+  const [sampler, setSampler] = useState(cur?.sampler ?? LOCAL_IMAGE_DEFAULTS.sampler);
+  const [scheduler, setScheduler] = useState(cur?.scheduler ?? LOCAL_IMAGE_DEFAULTS.scheduler);
+  const [longEdge, setLongEdge] = useState(String(cur?.width ?? ""));
+  const [negative, setNegative] = useState(cur?.negative ?? "");
+  const [timeout, setTimeoutS] = useState(String(cur?.timeout_s ?? LOCAL_IMAGE_DEFAULTS.timeout_s));
+  const [style, setStyle] = useState<"natural" | "tags">(cur?.prompt_style ?? "natural");
+  const [lockSeed, setLockSeed] = useState(cur?.lock_seed !== false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [test, setTest] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
+
+  const build = (): LocalImageEndpoint | null => {
+    const clean = url.trim().replace(/\/+$/, "");
+    if (!clean) return null;
+    const edge = Math.max(0, Number(longEdge) || 0);
+    return {
+      url: clean, backend,
+      checkpoint: checkpoint.trim() || undefined,
+      workflow: backend === "comfy" && workflow.trim() ? workflow.trim() : undefined,
+      steps: Math.max(1, Number(steps) || LOCAL_IMAGE_DEFAULTS.steps),
+      cfg: Math.max(0, Number(cfg) || LOCAL_IMAGE_DEFAULTS.cfg),
+      sampler: sampler.trim() || undefined,
+      scheduler: scheduler.trim() || undefined,
+      width: edge || undefined, height: edge || undefined,
+      negative: negative.trim() || undefined,
+      timeout_s: Math.max(15, Number(timeout) || LOCAL_IMAGE_DEFAULTS.timeout_s),
+      prompt_style: style, lock_seed: lockSeed,
+    };
+  };
+
+  const save = async () => {
+    const cfgOut = build();
+    if (!cfgOut) { setLocalImage(null); setStatus("local images off — the image slot goes to OpenRouter"); setTest(null); return; }
+    setLocalImage(cfgOut);
+    setBusy(true); setStatus(null);
+    try {
+      const found = await listLocalCheckpoints();
+      setStatus(found.length
+        ? `connected — ${found.length} checkpoint${found.length === 1 ? "" : "s"} on disk. Pick one in the image slot below as a local/… id, or leave it on local/default to use the one named here.`
+        : `saved. Couldn't list checkpoints — normal if the server hasn't been told to allow this page. ${backend === "comfy" ? "Start ComfyUI with --enable-cors-header" : "Start the WebUI with --api --cors-allow-origins"} and try Paint a test.`);
+    } finally { setBusy(false); }
+  };
+
+  /** ONE PICTURE, NOW. Every failure mode of this feature — wrong port, no CORS header, a
+   *  checkpoint name that doesn't exist, a workflow with an unresolved token — produces a specific
+   *  error from the server, and the only way to see it is to make it draw something. */
+  const paint = async () => {
+    const cfgOut = build();
+    if (!cfgOut) { setStatus("enter the server URL first"); return; }
+    setLocalImage(cfgOut);
+    setBusy(true); setStatus("painting a test image…"); setTest(null);
+    try {
+      const r = await generateLocalImage({
+        prompt: style === "tags"
+          ? "oil painting, a lit window in a stone wall at dusk, rain, moody chiaroscuro, muted palette"
+          : "An oil painting of a single lit window in a stone wall at dusk, rain falling past it. Moody chiaroscuro, muted palette.",
+        aspect: "landscape", seed: 12345,
+        onProgress: (n) => setStatus(`${n}…`),
+      });
+      setTest(r.url);
+      setStatus(`painted in ${(r.took_ms / 1000).toFixed(1)}s — this is what a turn will cost you in time, and nothing in money.`);
+    } catch (e: any) {
+      setStatus(e?.message ?? "the test failed");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Local images (your GPU)</div>
+      <div className="flex gap-2 py-1.5">
+        {(["comfy", "a1111"] as const).map((b) => (
+          <button key={b} className="btn flex-1" style={{ background: backend === b ? "var(--ink-2)" : undefined }}
+            onClick={() => { setBackend(b); if (b === "a1111") setWorkflow(""); }}>
+            {b === "comfy" ? "ComfyUI" : "A1111 / Forge"}
+          </button>
+        ))}
+      </div>
+      <TextField label={backend === "comfy" ? "ComfyUI URL" : "WebUI URL"} value={url} onChange={setUrl} mono />
+      <TextField label="Checkpoint filename (blank = whatever the workflow or server already has)" value={checkpoint} onChange={setCheckpoint} mono />
+      <div className="flex gap-2">
+        <div className="flex-1"><TextField label="Steps" value={steps} onChange={setSteps} mono /></div>
+        <div className="flex-1"><TextField label="CFG" value={cfg} onChange={setCfg} mono /></div>
+        <div className="flex-1"><TextField label="Long edge px" value={longEdge} onChange={setLongEdge} mono /></div>
+      </div>
+      <Toggle on={style === "tags"} onFlip={() => setStyle((v) => (v === "tags" ? "natural" : "tags"))}
+        title="Tag-style prompts (SD1.5 / SDXL / Pony)"
+        desc="OFF writes sentences, which is what Flux, SD3 and anything with a T5 text encoder actually read. ON writes short comma-separated clauses and keeps them brief, because a CLIP-only checkpoint stops attending past roughly seventy tokens — everything after that is decoration. Get this wrong in either direction and the prompt is half-ignored." />
+      <Toggle on={lockSeed} onFlip={() => setLockSeed((v) => !v)}
+        title="Hold the seed still within a scene"
+        desc="The seed is derived from the place and who is in it, so a conversation in one room keeps its framing and palette across a dozen messages while the action changes. Off rolls fresh every turn — more variety, and the world is redecorated every time you speak. Asking again for a turn that already has a picture breaks the lock either way, so 'another take' still means another take." />
+      <button className="w-full text-left text-[11px] py-1" style={{ color: "var(--text-lo)" }} onClick={() => setAdvanced((v) => !v)}>
+        {advanced ? "▾" : "▸"} sampler, negative prompt{backend === "comfy" ? ", workflow" : ""}
+      </button>
+      {advanced && (
+        <>
+          <div className="flex gap-2">
+            <div className="flex-1"><TextField label="Sampler" value={sampler} onChange={setSampler} mono /></div>
+            <div className="flex-1"><TextField label="Scheduler" value={scheduler} onChange={setScheduler} mono /></div>
+            <div className="flex-1"><TextField label="Timeout s" value={timeout} onChange={setTimeoutS} mono /></div>
+          </div>
+          <TextField label="Negative prompt (blank = the built-in one)" value={negative} onChange={setNegative} rows={3} mono />
+          <div className="text-[11px] mb-1" style={{ color: "var(--text-lo)" }}>
+            Built in: <span style={{ fontFamily: "var(--font-mono)" }}>{DEFAULT_NEGATIVE}</span>. The scene builder adds to this per picture — a cast of two gets "crowd, extra person", a scene with nobody human in it gets "human, person, arms, legs". That is where negations belong: a sampler has no "not", so every noun in the positive prompt is a vote FOR that noun, which is why asking for "no people" produces people.
+          </div>
+          {backend === "comfy" && (
+            <>
+              <TextField label="Workflow (API format) — blank uses a built-in txt2img graph" value={workflow} onChange={setWorkflow} rows={8} mono />
+              <div className="flex gap-2 mt-1">
+                <button className="btn flex-1" onClick={() => setWorkflow(defaultWorkflow())}>Load plain txt2img</button>
+                <button className="btn flex-1" onClick={() => setWorkflow(KONTEXT_WORKFLOW)}>Load Flux Kontext</button>
+                <button className="btn flex-1" onClick={() => setWorkflow("")}>Clear</button>
+              </div>
+              <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+                Export from ComfyUI with <b>Workflow → Export (API)</b>, then replace the values you want Weft to fill with these tokens: <span style={{ fontFamily: "var(--font-mono)" }}>{WORKFLOW_TOKENS.join(" ")}</span>. Numbers are substituted through their quotes, so <span style={{ fontFamily: "var(--font-mono)" }}>"seed": "%seed%"</span> becomes a real number.
+              </div>
+              <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
+                <b>%ref1% is what makes a character look like themselves.</b> Weft stitches the portraits of everyone in the scene into one reference sheet, uploads it, and puts the filename there — so any single-image reference workflow carries the whole cast. Flux Kontext (the template above) is the easiest; IP-Adapter, PuLID and InstantID all take the same one image. Without a %ref% token in the graph nothing is uploaded and consistency rests on the locked descriptions alone, which is weaker but not nothing.
+              </div>
+            </>
+          )}
+        </>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button className="btn flex-1" disabled={busy} onClick={() => void save()}>{url.trim() ? "Save" : "Turn local images off"}</button>
+        <button className="btn flex-1" disabled={busy || !url.trim()} onClick={() => void paint()}>{busy ? "…" : "Paint a test"}</button>
+      </div>
+      {status && <div className="text-[11px] mt-2" style={{ color: "var(--text-lo)" }}>{status}</div>}
+      {test && <img src={test} alt="" className="mt-2 w-full" style={{ borderRadius: 8 }} />}
+      <div className="text-[11px] italic mt-2" style={{ color: "var(--text-lo)" }}>
+        Then set the image slot below to a <span style={{ fontFamily: "var(--font-mono)" }}>{LOCAL_PREFIX}…</span> id — that is the switch that sends portraits and scenes here instead of to OpenRouter. Nothing leaves your machine. The browser will refuse a plain-http call from an https page, so run Weft locally when you use this.
+      </div>
+      <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
+        ComfyUI: <span style={{ fontFamily: "var(--font-mono)" }}>python main.py --enable-cors-header {"'*'"}</span> · A1111/Forge: <span style={{ fontFamily: "var(--font-mono)" }}>--api --cors-allow-origins=http://localhost:5173</span>.
       </div>
     </div>
   );
@@ -560,6 +719,7 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
           return { ...d, ...LOCAL_PRESET };
         });
       }} />
+      <LocalImages />
       <BackgroundTurns />
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Models (OpenRouter ids, or local/…)</div>
@@ -578,7 +738,21 @@ export default function Settings({ save, setSave }: { save: ClientSave; setSave:
         )}
         <ModelPicker label="Images — portraits & scenes" value={draft.image_model} onChange={setM("image_model")} kind="image" />
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
-          Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models.
+          Live list from OpenRouter, newest first — search or type a custom id. Image field shows image-capable models. A <span style={{ fontFamily: "var(--font-mono)" }}>local/…</span> id here sends portraits and scenes to your own GPU instead (set the server up above).
+        </div>
+        <Toggle on={!!draft.auto_illustrate} onFlip={() => setDraft((d) => ({ ...d, auto_illustrate: !d.auto_illustrate }))}
+          title="Paint the scene every turn"
+          desc="The picture stops being a button and becomes something the story does. It runs after the turn has landed, so the prose never waits on it, and a picture that fails to paint is silent — the turn stands either way. Meant for a local sampler: on a cloud image model this is a few cents a message, and it will say so below." />
+        {draft.auto_illustrate && !isLocalModel(draft.image_model) && (
+          <div className="text-[11px] mb-1" style={{ color: "var(--accent)" }}>
+            The image slot is a cloud model, so this bills roughly ${(0.039).toFixed(3)} a turn — about $4 per hundred messages. That is the number; it is your call. Point the slot at a local/… id and it is free.
+          </div>
+        )}
+        <TextField label="Illustrations that keep their pixels (0 = keep every one)"
+          value={String(draft.illustration_keep ?? 12)}
+          onChange={(v) => setDraft((d) => ({ ...d, illustration_keep: Math.max(0, Number(v) || 0) }))} mono />
+        <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
+          Every picture lives inside the save as base64, and the save is written to IndexedDB on every call the engine makes. A handful of them is nothing; one per turn for two hundred turns is a save that takes seconds to write and eventually takes the tab with it. Past this many, older turns keep the record of having been illustrated and lose the bytes.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
           Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.

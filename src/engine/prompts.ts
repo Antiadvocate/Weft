@@ -1799,3 +1799,207 @@ AND THE STATE OVERRIDES THE PERSON. Somebody exhausted, frightened, hurt or drun
   }
   return assemble(0);
 }
+
+/* ══ DIFFUSION PROMPTS ═══════════════════════════════════════════════════════════════════════════
+ *
+ *  The prompts above are written for a MULTIMODAL LANGUAGE MODEL: full sentences, negations
+ *  ("no text, no watermark", "NOT a person"), and reference images the model reasons about. A
+ *  diffusion model reads none of that the same way. It has no notion of "not" — every noun in the
+ *  prompt is a vote FOR that noun, which is why "no people" reliably produces people — and past
+ *  roughly seventy tokens a CLIP-conditioned checkpoint stops attending to the tail entirely.
+ *
+ *  So the local path builds its own prompt: the subject first, the negations moved to where a
+ *  sampler actually reads them (the negative prompt), and two dialects, because SDXL and Flux
+ *  want genuinely different things.
+ *
+ *  AND IT LOCKS THE WORDS. The cloud path can afford to re-derive a character's look from live
+ *  state every turn, because it is also handed the portrait and told to match it. A diffusion
+ *  model is far more literal: the same clause returns roughly the same face, and a clause that
+ *  drifts a few words each turn returns a stranger. `visualSignature` is written ONCE — when the
+ *  portrait is made — and then reused verbatim forever, which is the single largest thing keeping
+ *  the person in the scene the same person as the one in the cast list. */
+
+export type PromptStyle = "natural" | "tags";
+export interface DiffusionPrompt { prompt: string; negative: string; seed: number }
+
+/** Deterministic 32-bit hash → seed. Same inputs, same seed, same framing. */
+export function stableSeed(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return Math.abs(h | 0) % 2147483647;
+}
+
+/** Squeeze a written field down to one clause. Parentheticals go (they are almost always authorial
+ *  asides, not visible facts), then it is cut on a sentence or comma boundary. */
+function clause(text: string | undefined, max: number): string {
+  const t = String(text ?? "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().replace(/[.;]+$/, "");
+  if (!t) return "";
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(", "));
+  return (stop > max * 0.5 ? cut.slice(0, stop) : cut).trim().replace(/[.,;]+$/, "");
+}
+
+/** THE LOCKED LOOK OF ONE PERSON — the exact words that will be used for them in every image.
+ *
+ *  Deliberately built from BEDROCK only (appearance_facts, age, body plan) and not from anything
+ *  that moves turn to turn. Mood, clothing and injuries do belong in a scene image, but they
+ *  belong as their own clauses; folding them into the identity clause is what makes the face
+ *  change when the character changes their shirt. */
+export function visualSignature(state: SaveState, id: string): string {
+  const c = state.characters[id];
+  if (!c) return "";
+  if (c.visual_signature?.trim()) return c.visual_signature.trim();
+  const { humanoid, kind } = portraitBodyPlan(state, c);
+  const look = clause(c.appearance_facts, 200);
+  if (!humanoid) return [kind || "creature", look].filter(Boolean).join(", ");
+  const age = Number.isFinite(c.age) ? `${c.age} years old` : "";
+  const frame = [ftIn(c.height_cm) ? `${ftIn(c.height_cm)} tall` : "", lbs(c.weight_kg) ? `${lbs(c.weight_kg)} lbs` : ""].filter(Boolean).join(", ");
+  return [age, look, frame].filter(Boolean).join(", ");
+}
+
+/** What the character looks like RIGHT NOW on top of the locked signature — the clauses that are
+ *  supposed to move: what they are wearing, what they are carrying in their body, how they hold
+ *  themselves. Kept separate so the identity half stays byte-identical between turns. */
+function presentLook(state: SaveState, id: string): string {
+  const c = state.characters[id];
+  const cond = state.condition[id];
+  const bits: string[] = [];
+  const now = clause(c?.appearance_now, 90);
+  if (now) bits.push(now);
+  if (cond?.wearing?.length) bits.push(`wearing ${cond.wearing.slice(0, 4).join(", ")}`);
+  if (cond?.injuries?.length) bits.push(cond.injuries.slice(0, 2).map((i) => i.type).join(", "));
+  // "even" is the engine's own placeholder mood, and a placeholder in an image prompt is a word the
+  // sampler weights as if it meant something. Only a mood that names something visible goes in.
+  const mood = clause(cond?.psyche.mood, 60);
+  if (mood && !/^(even|neutral|normal|fine|ok|okay|stable)$/i.test(mood)) bits.push(mood);
+  else if (cond) bits.push(cond.psyche.relaxation <= -7 ? "tense, guarded" : cond.psyche.relaxation >= 6 ? "at ease" : "");
+  return bits.filter(Boolean).join(", ");
+}
+
+/** WHAT IS VISIBLE IN THE SUMMARY, and nothing else. A turn summary is mostly speech and interior
+ *  state, neither of which a picture can hold; quoted dialogue in an image prompt is a direct
+ *  request for a speech bubble with garbled letters in it. */
+function visualBeat(summary: string, max: number): string {
+  const t = String(summary ?? "")
+    .replace(/[""][^""]*[""]/g, " ")     // curly-quoted speech
+    .replace(/"[^"]*"/g, " ")            // straight-quoted speech
+    .replace(/\s+/g, " ").trim();
+  const sentences = t.split(/(?<=[.!?])\s+/).filter((s) => s.length > 12);
+  let out = "";
+  for (const s of sentences) {
+    if (out.length + s.length > max) break;
+    out += (out ? " " : "") + s;
+  }
+  return (out || clause(t, max)).trim();
+}
+
+/** Rough daylight from the world clock, because "night" changes an image far more than any adjective
+ *  in the place description and the clock already knows it. */
+function lightOf(state: SaveState): string {
+  const m = /(\d{1,2}):(\d{2})/.exec(state.world.current_time ?? "");
+  if (!m) return "";
+  const h = Number(m[1]);
+  if (h < 5) return "deep night, darkness, artificial light sources";
+  if (h < 8) return "dawn light, low sun";
+  if (h < 11) return "morning light";
+  if (h < 16) return "daylight";
+  if (h < 19) return "late afternoon light, long shadows";
+  if (h < 22) return "dusk, failing light";
+  return "night, artificial light sources";
+}
+
+/** The bars that belong in a NEGATIVE prompt rather than in the prose. A sampler told "not a
+ *  person" in the positive prompt draws a person; told "person" in the negative, it does not. Only
+ *  applied when nobody in the scene is human — a mixed cast needs people. */
+function bodyPlanNegative(state: SaveState, castIds: string[]): string {
+  const present = castIds.map((id) => state.characters[id]).filter(Boolean);
+  if (!present.length || present.some((c) => portraitBodyPlan(state, c).humanoid)) return "";
+  return "human, person, human face, human body, arms, legs, humanoid, anthropomorphic animal, mascot";
+}
+
+/** THE PORTRAIT, for a local sampler. Same subject as buildPortraitPrompt, said in a way a
+ *  diffusion model parses: subject and framing first, style attached, everything the image must
+ *  NOT contain moved to the negative. The seed is derived from the character id, so regenerating a
+ *  portrait after an appearance edit returns the same person rather than a new one. */
+export function buildPortraitDiffusion(state: SaveState, id: string, style: PromptStyle = "natural"): DiffusionPrompt {
+  const c = state.characters[id];
+  const art = state.world_bible.art_direction?.trim() || "painterly, moody chiaroscuro, muted palette";
+  const { humanoid } = portraitBodyPlan(state, c);
+  const sig = visualSignature(state, id);
+  const now = presentLook(state, id);
+  const traits = (state.traits[id] ?? []).filter((t) => t.intensity >= 4).slice(0, 2).map((t) => t.label);
+  const framing = humanoid
+    ? "full body portrait, head to toe, single figure standing, plain white studio background, even studio lighting"
+    : "full view of the whole being, single subject, plain white studio background, even studio lighting";
+  const parts = style === "tags"
+    ? [art, framing, sig, now, traits.join(", "), state.world_bible.era]
+    : [
+        `${framing}. ${art}.`,
+        humanoid ? `A person, ${sig}.` : `${sig}.`,
+        now ? `${now}.` : "",
+        traits.length ? `Their bearing reads ${traits.join(" and ")}.` : "",
+        `Setting: ${state.world_bible.era}.`,
+      ];
+  const negative = [
+    "text, watermark, signature, letters, logo, frame, border, multiple people, crowd, collage, cropped head, cropped feet",
+    "extra limbs, extra fingers, deformed hands, mutated, disfigured, blurry, lowres",
+    humanoid ? "" : "human, person, human face, human body, arms, legs, humanoid",
+  ].filter(Boolean).join(", ");
+  return { prompt: parts.filter(Boolean).join(style === "tags" ? ", " : " "), negative, seed: stableSeed(`portrait:${state.id}:${id}`) };
+}
+
+/** THE SCENE, for a local sampler.
+ *
+ *  Cast clauses carry each character's LOCKED signature plus their present state, so the same
+ *  people recur; the beat carries what they are doing; the place and the clock carry where and
+ *  when. The seed is derived from the place and the cast rather than rolled fresh, so a
+ *  conversation in one room keeps one room's framing and palette across a dozen turns instead of
+ *  redecorating the world every message. `vary` breaks that lock when the player asks for another
+ *  take of the same moment. */
+export function buildSceneDiffusion(
+  state: SaveState, summary: string, presentIds?: string[],
+  style: PromptStyle = "natural", opts?: { lockSeed?: boolean; vary?: number },
+): DiffusionPrompt {
+  const art = state.world_bible.art_direction?.trim() || "painterly cinematic, moody atmospheric light, muted palette";
+  const loc = state.world.places[state.world.player_location];
+  const castIds = [...new Set(["char_player", ...(presentIds ?? state.world.present)])].filter((id) => state.characters[id]);
+  const trimmed = castIds.slice(0, 4);   // past four figures a sampler stops binding attributes to bodies at all
+  const cast = trimmed.map((id) => {
+    const c = state.characters[id];
+    const sig = visualSignature(state, id);
+    const now = presentLook(state, id);
+    return style === "tags"
+      ? [sig, now].filter(Boolean).join(", ")
+      : `${c.name}: ${[sig, now].filter(Boolean).join(", ")}.`;
+  });
+  const place = [loc?.name, clause(loc?.identity, 60), clause(loc?.description_facts, 140)].filter(Boolean).join(", ");
+  const beat = visualBeat(summary, style === "tags" ? 130 : 240);
+  const light = lightOf(state);
+  const weather = clause(state.world.weather, 60);
+  const people = trimmed.length === 1 ? "one figure" : `${["", "one", "two", "three", "four"][trimmed.length] ?? trimmed.length} figures`;
+
+  const prompt = style === "tags"
+    ? [art, "cinematic wide shot", place, weather, light, ...cast, beat].filter(Boolean).join(", ")
+    : [
+        `Cinematic wide shot. ${art}.`,
+        place ? `Place: ${place}.` : "",
+        [weather, light].filter(Boolean).length ? `${[weather, light].filter(Boolean).join(", ")}.` : "",
+        cast.length ? `In frame, ${people}. ${cast.join(" ")}` : "",
+        beat ? `They are: ${beat}` : "",
+      ].filter(Boolean).join(" ");
+
+  // Everyone the scene does NOT contain is named here rather than in the prompt, plus a bar on the
+  // extra bodies a sampler invents whenever a scene reads crowded.
+  const negative = [
+    "text, watermark, signature, caption, letters, logo, ui, frame, border, split panel, collage, speech bubble",
+    "extra limbs, extra fingers, deformed hands, mutated, disfigured, blurry, lowres, jpeg artifacts",
+    trimmed.length <= 2 ? "crowd, background people, extra person" : "crowd",
+    bodyPlanNegative(state, trimmed),
+  ].filter(Boolean).join(", ");
+
+  const lock = opts?.lockSeed !== false;
+  const key = `scene:${state.id}:${state.world.player_location}:${trimmed.join(",")}`;
+  const seed = lock ? stableSeed(key) + (opts?.vary ?? 0) : Math.floor(Math.random() * 2147483647);
+  return { prompt, negative, seed };
+}
