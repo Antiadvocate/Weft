@@ -109,6 +109,75 @@ function sameTrait(a: string, b: string): boolean {
   return inter / Math.min(aw.size, bw.size) >= 0.6;
 }
 
+/* ── MANNERISMS ────────────────────────────────────────────────────────────────
+ *
+ * A trait can be a SUBJECT (loves basketball, cannot let a half-told story go) or a MANNER (a laugh
+ * that starts as a sharp "Ha!", straightens a picture frame without noticing). The forge produces
+ * both by design — the card spec's "PHYSICAL SIGNATURE" category asks for the second in as many
+ * words, and the could-you-film-it test rewards it — and until now nothing downstream told them
+ * apart. Both mishandled the manner kind, in opposite directions:
+ *
+ *   · habits.ts could never FIRE one. Opportunity is lexical relevance against the beat, and a laugh
+ *     has no subject to appear in the player's typed action, so a mannerism sat at forge strength
+ *     for the whole game with last_fired_turn -1: never fired, therefore never seen, therefore never
+ *     weakened. The recognition mechanic could not reach the traits that most needed it.
+ *
+ *   · novelty.ts DID see them (it measures the prose, not the beat) and correctly called them
+ *     ground — then handed over the wrong remedy. "Do not write a scene ABOUT these; write a scene
+ *     that HAPPENS during them" is right for basketball and a no-op for a tic: the model reads it as
+ *     keep doing the laugh, just stop commenting on it, which is exactly what a laugh in every one of
+ *     twenty turns looks like. Grounding a subject reduces COMMENTARY. Grounding a manner has to
+ *     reduce FREQUENCY, and nothing was reducing frequency.
+ *
+ * From the save that found this: one character's two mannerisms at expressions 8 and 9 over twenty
+ * turns, strength frozen at 92 and 97, seen_fires 0. Every scene had the laugh and the straightening
+ * in it, uncommented, as texture, because the card asserts them and nothing ever said enough. */
+
+/** Words that mean a trait is about HOW a body moves rather than WHAT a person cares about. */
+const MANNER = new RegExp([
+  // the body itself
+  "laugh|laughter|giggl|smil|grin|smirk|frown|wince|blink|nod|shrug|squint",
+  "eyes?|eyebrows?|hands?|fingers?|thumbs?|knuckles?|jaw|shoulders?|chin|throat|posture|breath",
+  // what it does to objects and to itself
+  "straighten|re-?fold|folds?|adjusts?|smooth(?:s|es|ing)?|align(?:s|ed|ing)?|taps?|drums?|fidget",
+  "twirl|picks? at|rubs?|chews?|bites?|hums?|whistl|wipes?|turns? it over|grip",
+  // the framing a mannerism is written in
+  "has a laugh|has a way of|without (?:realizing|realising|noticing)|under (?:his|her|their) breath",
+].join("|"), "i");
+
+/** Is this trait a manner rather than a subject? */
+export function isMannerism(trait: string): boolean {
+  return MANNER.test(String(trait ?? ""));
+}
+
+/** Turns that must pass before a mannerism is worth putting on the page again.
+ *
+ *  Not a ban: a tic the reader has never seen is characterisation, and the third time is still
+ *  recognition. It is the ninth time in twenty turns that is wallpaper. The gap widens as the thing
+ *  becomes known, which is the same figure→ground curve the subject traits ride, expressed in the
+ *  axis a mannerism actually has. */
+export function mannerismGap(h: CoreHabit): number {
+  const n = h.expressions ?? 0;
+  if (n < FAMILIAR_AT) return 0;   // still new — let it land
+  if (n < GROUND_AT) return 3;
+  return 6;
+}
+
+/** Has this mannerism been on the page too recently to be worth it again? */
+export function mannerismSuppressed(h: CoreHabit, turn: number): boolean {
+  if (h.dormant || !isMannerism(h.trait)) return false;
+  const gap = mannerismGap(h);
+  if (gap <= 0) return false;
+  const last = h.last_expressed_turn;
+  return typeof last === "number" && turn - last < gap;
+}
+
+/** The mannerisms of one character that this turn should leave alone. */
+export function suppressedMannerisms(state: SaveState, id: string): string[] {
+  const turn = state.world.current_turn;
+  return (state.habits?.[id] ?? []).filter((h) => mannerismSuppressed(h, turn)).map((h) => h.trait);
+}
+
 export function noveltyStage(h: CoreHabit): NoveltyStage {
   const n = h.expressions ?? 0;
   if (n < FAMILIAR_AT) return "fresh";
@@ -159,11 +228,25 @@ export function noveltyNote(state: SaveState, id: string): string {
   const c = state.characters[id];
   if (!c) return "";
 
-  const ground = list.filter((h) => !h.dormant && noveltyStage(h) === "ground").map((h) => h.trait);
-  const familiar = list.filter((h) => !h.dormant && noveltyStage(h) === "familiar").map((h) => h.trait);
-  if (!ground.length && !familiar.length) return "";
+  const turn = state.world.current_turn;
+  // Mannerisms are handled on their own axis (frequency, below) and must NOT go into the grounding
+  // paragraphs — those tell the narrator to keep doing the thing without commenting on it, which for
+  // a tic is the instruction that produced the problem.
+  const subject = (h: CoreHabit) => !h.dormant && !isMannerism(h.trait);
+  const ground = list.filter((h) => subject(h) && noveltyStage(h) === "ground").map((h) => h.trait);
+  const familiar = list.filter((h) => subject(h) && noveltyStage(h) === "familiar").map((h) => h.trait);
+  const resting = list.filter((h) => mannerismSuppressed(h, turn)).map((h) => h.trait);
+  if (!ground.length && !familiar.length && !resting.length) return "";
 
   const parts: string[] = [];
+  if (resting.length)
+    parts.push(
+      `${c.name} has already shown these on the page recently, and they are established: ${resting.join("; ")}. ` +
+      `DO NOT render any of them this turn — not as a beat, not as a gesture under a line of dialogue, not as ` +
+      `a half-sentence of business while someone else talks. A physical signature is characterisation the first ` +
+      `time and wallpaper by the ninth; the reader has it. ${c.name} is in this scene doing something else with ` +
+      `their hands and their face, and what that something is comes from what they want right now.`,
+    );
   if (ground.length)
     parts.push(
       `${c.name} has lived these a long time: ${ground.join("; ")}. ` +

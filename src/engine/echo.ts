@@ -25,7 +25,7 @@ import type { SaveState } from "./types";
  * every quoted run, however short.
  */
 function quotedLines(prose: string): string[] {
-  return [...String(prose ?? "").matchAll(/[""]([^""\n]{1,400})[""]/g)].map((m) => m[1].trim()).filter(Boolean);
+  return [...String(prose ?? "").matchAll(/["\u201C\u201D]([^"\u201C\u201D\n]{1,400})["\u201C\u201D]/g)].map((m) => m[1].trim()).filter(Boolean);
 }
 
 /** "Say it again" and its family — a demand that the player repeat what they just typed. */
@@ -67,8 +67,37 @@ export function longestEchoRun(playerLine: string, spoken: string): number {
   return best;
 }
 
-/** Four content words in a row is a quotation, not a coincidence. */
-const RUN_FLOOR = 4;
+/** Three content words in a row is a quotation, not a coincidence.
+ *
+ *  This was four, and four is one too many. Content words are what survives STOP, so a line built
+ *  mostly of small words reduces further than it looks: "Thanks for sharing about your day", handed
+ *  back verbatim to a player who had just typed it, reduces to thanks/sharing/day — a run of three,
+ *  under the floor, undetected. The lines that read most hollow when parroted are exactly the
+ *  courteous ones, and courtesy is made of stopwords. A false positive here costs one advisory line
+ *  in the next prompt; a false negative costs the turn. */
+const RUN_FLOOR = 3;
+
+/** Normalized for a literal-quotation test: case, punctuation and spacing folded away, words kept
+ *  — stopwords included, because in a verbatim lift the stopwords are part of the evidence. */
+function flatten(s: string): string {
+  return ` ${String(s ?? "").toLowerCase().replace(/[^a-z0-9\s']/g, " ").replace(/\s+/g, " ").trim()} `;
+}
+
+/** A spoken line that appears INSIDE the player's own line, word for word.
+ *
+ *  The content-run test measures how much distinctive vocabulary two lines share, which is the right
+ *  question for a paraphrase and the wrong one for a lift. A lift needs no distinctive vocabulary at
+ *  all: it is the player's sentence, returned. So this asks the simpler question directly — is what
+ *  the character said a contiguous span of what the player just said — and it does not care how many
+ *  of the words were small ones. Floored at five words so an ordinary "come here" or "I know" is not
+ *  a quotation of anybody. */
+const VERBATIM_WORD_FLOOR = 5;
+
+export function verbatimParrot(playerLine: string, spoken: string): boolean {
+  const said = flatten(playerLine), line = flatten(spoken);
+  if (line.trim().split(" ").filter(Boolean).length < VERBATIM_WORD_FLOOR) return false;
+  return said.includes(line.trim());
+}
 
 export interface EchoHit { line: string; kind: "demand" | "parrot" }
 
@@ -83,6 +112,11 @@ export function findEcho(prose: string, playerSaid: string): EchoHit | null {
     if (REPEAT_DEMAND.some((re) => re.test(line))) return { line: line.slice(0, 180), kind: "demand" };
   }
   const said = String(playerSaid ?? "").trim();
+  if (!said) return null;
+  // a literal span of the player's own sentence, whatever it is made of
+  for (const line of quotedLines(prose)) {
+    if (verbatimParrot(said, line)) return { line: line.slice(0, 180), kind: "parrot" };
+  }
   if (contentWords(said).length < RUN_FLOOR) return null;   // nothing long enough to be copied
   for (const line of quotedLines(prose)) {
     if (longestEchoRun(said, line) >= RUN_FLOOR) return { line: line.slice(0, 180), kind: "parrot" };

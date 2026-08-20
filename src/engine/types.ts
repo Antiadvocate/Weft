@@ -884,6 +884,13 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** Distinctive props the DIALOGUE has already spent — the invented proper noun, the odd piece of
+   *  trade vocabulary, the specific colour — with the turns they were said on. A subject on the page
+   *  in consecutive turns is handed back to the narrator as used up, so a character who is written to
+   *  deflect deflects with something new instead of the same anecdote three scenes running. Cast and
+   *  place names are never tracked: a scene must always be able to say who is in it. See
+   *  engine/spent.ts. */
+  spent_subjects?: { word: string; turns: number[] }[];
   // RETCONS — the player's veto. When the narrator invents something that breaks the world (a person
   // who cannot exist, an event that contradicts canon), the player strikes it. Each entry is a
   // standing correction injected into every subsequent turn: this did not happen, never refer to it.
