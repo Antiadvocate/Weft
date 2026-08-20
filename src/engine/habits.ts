@@ -28,6 +28,7 @@
 
 import type { SaveState, CoreHabit, Identity } from "./types";
 import { relevance } from "./memory";
+import { isMannerism, mannerismSuppressed } from "./novelty";
 
 // ── tuning (calibrated to ~4–6 arcs per 200 turns when opportunities are frequent; see design) ──
 const FORGE_STRENGTH = 95;        // a new core habit is a wall
@@ -40,6 +41,9 @@ const REGROOVE_EVERY = 5;         // turns between re-groove ticks (when not rec
 const DORMANT_BELOW = 30;         // at/under this, the habit is ready to go dormant at next reflection
 const NOTICE_DROP = 18;           // an observer notices once strength falls this far below the watermark
 const OPPORTUNITY_THRESHOLD = 0.34; // relevance(trait, beat) above which the trigger context is "live"
+/** Turns between chances for a mannerism to fire. A tic recurs; it does not recur every beat, and
+ *  firing it every turn would groove it upward forever in any body that is not settled. */
+const MANNERISM_REFRACTORY = 2;
 const BARE_SEEING = 0.04;         // seeing is never impossible, at any state — the floor under both roads
 const INTENSITY_SEEING = 0.22;    // additional chance at full volume: a loud arising in a gripped body
 
@@ -134,10 +138,28 @@ export function tickHabits(
 
     // OPPORTUNITY DETECTION — is any habit's trigger context live this beat? Cap 1 fire/char/beat:
     // pick the single most-relevant live habit so a character doesn't discharge their whole sheet.
+    //
+    // TWO KINDS OF TRIGGER, because there are two kinds of trait. A SUBJECT trait ("loves
+    // basketball", "cannot let a half-told story go") is live when the beat is about its subject,
+    // which lexical relevance measures well. A MANNER trait — a laugh, a straightened picture frame,
+    // a thumb worrying a drawstring — has no subject to appear in the player's typed action, scores
+    // ~0 against every beat ever written, and so never fired at all: in one twenty-turn save both of
+    // a character's mannerisms sat at last_fired_turn -1 and seen_fires 0 while the prose rendered
+    // them eight and nine times. The recognition path could not reach the traits most in need of it,
+    // for a purely lexical reason. A mannerism's trigger context is simply BEING IN THE SCENE, so it
+    // gets a non-lexical opportunity — rate-limited by the same frequency budget that governs
+    // whether it should be on the page, so this does not just fire one every turn instead.
     let best: CoreHabit | null = null;
     let bestRel = OPPORTUNITY_THRESHOLD;
     for (const h of habits) {
       if (h.dormant) continue;
+      if (isMannerism(h.trait)) {
+        if (mannerismSuppressed(h, turn)) continue;      // resting: not on the page, not fired
+        if (turn - (h.last_fired_turn ?? -99) < MANNERISM_REFRACTORY) continue;
+        // scored just over the lexical bar so a genuinely on-subject trait still wins the slot
+        if (bestRel <= OPPORTUNITY_THRESHOLD) { bestRel = OPPORTUNITY_THRESHOLD + 0.01; best = h; }
+        continue;
+      }
       const rel = relevance(h.trait, beatText);
       if (rel > bestRel) { bestRel = rel; best = h; }
     }

@@ -179,8 +179,23 @@ const balanced = (s: string) => (s.match(/["“”]/g) ?? []).length % 2 === 0;
   check("an unrelated line scores low", liftedFraction("then eat it yourself i have work in the morning", act) < 0.35);
   check("a fragment under four words is not measured", liftedFraction("sous vide", act) === 0);
   check("an empty action never accuses anybody", liftedFraction("I am not a big fan of it", "") === 0);
-  check("length gates the verdict, not the ratio",
-    liftedFraction("I am not a big fan", act) === 1 && !isParrot("I am not a big fan", act));
+  // THE FLOOR MOVED, AND THIS IS THE CASE THAT MOVED IT. It used to sit at eight words, on the
+  // reasoning that a short lift is somebody checking they heard right. Then a save produced
+  // "Thanks for sharing about your day," said back to a player who had typed exactly that in the
+  // same turn — six words, legal at eight, and the hollowest line on the page. Length was never
+  // what made the Temple-of-Venus case legitimate; asking was. So the floor is five, a question is
+  // exempt at any length, and a short line has to be lifted ENTIRELY rather than mostly.
+  check("a short line lifted whole is a parrot now",
+    liftedFraction("I am not a big fan", act) === 1 && isParrot("I am not a big fan", act));
+  check("...but a fragment under the floor still is not",
+    !isParrot("not a big fan", act));
+  check("...and checking back is never a parrot, however much it lifted",
+    liftedFraction("I am not a big fan?", act) === 1 && !isParrot("I am not a big fan?", act));
+  check("...while a partly-lifted short line is just two people talking about one thing",
+    !isParrot("not a big fan today", act));
+  check("the six-word courtesy that started this is caught",
+    isParrot("Thanks for sharing about your day",
+      "well i hope someday you tell me thanks for sharing about your day my love"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -23,6 +23,7 @@ import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
+import { recordSpokenSubjects, spentSubjectsNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
@@ -393,8 +394,24 @@ function cleanName(raw: string): string {
 
 /** At or above this, a spoken line is not a reply that uses the player's words — it is made of them. */
 export const PARROT_RATIO = 0.6;
-/** Below this many words, a lifted line is a clarification, not a parrot. */
-export const PARROT_MIN_WORDS = 8;
+/** Below this many words, a lifted line is a clarification, not a parrot.
+ *
+ *  This was 8, calibrated on a long line of the player's own reasoning coming back as dialogue. The
+ *  short lift slips under it: "Thanks for sharing about your day," returned to a player who had
+ *  typed exactly that four clauses earlier, is six words — legal at 8, and the emptiest line in the
+ *  scene. Length was never the thing that made the Temple-of-Venus case legitimate; MOOD was. A
+ *  short lift that is CHECKING something is a question, and questions are exempted below. */
+export const PARROT_MIN_WORDS = 5;
+
+/** Is this lifted line somebody checking they heard right, rather than handing the line back?
+ *
+ *  A person repeating a fragment to confirm it — a name, a place, a term they do not have — asks.
+ *  "The Temple of Venus and Rome?" scores 1.0 on lift and is exactly what should happen when a
+ *  player names an unfamiliar thing. The parrot is a DECLARATIVE: the player's sentence returned
+ *  flat, as though saying it again were an answer. */
+function isCheckingBack(spoken: string): boolean {
+  return /[?][""']*\s*$/.test(String(spoken).trim());
+}
 
 /**
  * How much of a spoken line was lifted straight out of what the player typed.
@@ -429,7 +446,13 @@ export function liftedFraction(spoken: string, actionLine: string): number {
 export function isParrot(spoken: string, actionLine: string): boolean {
   const words = String(spoken).replace(/[^A-Za-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).length;
   if (words < PARROT_MIN_WORDS) return false;
-  return liftedFraction(spoken, actionLine) >= PARROT_RATIO;
+  if (isCheckingBack(spoken)) return false;
+  // A short line has to be the player's sentence ENTIRELY to count. At eight words and up, most of
+  // it is enough — there is room in a long line for the character to have added something of their
+  // own. Under that there is no room, so partial overlap is just two people using the same words
+  // about the same thing, which is what talking is.
+  const need = words < 8 ? 1 : PARROT_RATIO;
+  return liftedFraction(spoken, actionLine) >= need;
 }
 
 /**
@@ -1940,6 +1963,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // commentary) instead of the habit becoming the floor the scene stands on.
   const novelty = noveltyDigest(state);
   const noveltyNote = novelty ? `\n\n=== LONG-WORN BEHAVIOR ===\n${novelty}` : "";
+  // ALREADY SPENT — the prop this scene has used up. Sits next to novelty because it is the same
+  // question one level down: novelty asks how much airtime a TRAIT still deserves, this asks whether
+  // the specific thing a character reached for last turn is still worth reaching for.
+  const spentNote = spentSubjectsNote(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
@@ -2580,13 +2607,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -2737,7 +2764,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
       // The player's own words coming back at them, in either of its two forms.
-      state.last_echo = findEcho(prose, mode === "say" ? action : (action.match(/"([^"]{4,})"/)?.[1] ?? ""));
+      state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       if (maxims.length >= 2) {
         ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
       }
@@ -3650,6 +3677,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     for (const pid of state.world.present)
       recordExpressions(state, pid, prose, turn, reportedBy.get(pid));
   }
+
+  // ALREADY SPENT — the distinctive props this turn's DIALOGUE put on the page. Deliberately not
+  // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
+  // a failure whether or not habits are running, and this measures the prose either way.
+  recordSpokenSubjects(state, prose, turn);
 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,

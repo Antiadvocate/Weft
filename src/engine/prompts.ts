@@ -15,6 +15,7 @@ import { visibleOnPlayer } from "./reaction";
 import { MAX_LIVE } from "./threads";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
+import { suppressedMannerisms } from "./novelty";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue } from "./desire";
 import { bodySeverity } from "./body";
@@ -380,7 +381,7 @@ export function simulatorSystem(lean?: boolean): string { return lean ? SIMULATO
 
 export function simulatorSchemaHint(): string {
   return `JSON shape. Emit scene_summary and elapsed_minutes ALWAYS; every other key is OPTIONAL — include a key ONLY when it has content this turn (omit empty arrays/strings entirely; the engine treats missing keys as "no change"):
-{"scene_summary":"one sentence","elapsed_minutes":30,"weather":"","player_location":"a name from the LOCATIONS list","locations":[{"char_id":"","place":"a name from LOCATIONS, or elsewhere","said":"the words in the prose that say they moved"}],"money":"","present":["optional hint; co-location decides the real scene"],
+{"scene_summary":"ONE SENTENCE, AND NAME EVERY PERSON IN IT — \"Miranda handed Vin the towel\", never \"she handed him the towel\". This is the same rule the memories field carries and it is here for the same reason: a bare she/he/him/his/hers belongs to whoever reads it later, and this sentence is fed back into the following turns AS the record of what happened, so a scrambled one teaches the next turn the wrong scene. POSSESSIVES NAME THEIR OWNER: when the turn turns on WHOSE something is — whose body, whose words, whose money, whose idea, whose fault — write the owner's name into the possessive (\"Miranda's\", \"Vin's\"), never a bare his or hers. Two people in one scene routinely share a pronoun, and where they do the pronoun carries NONE of the meaning: the summary then silently reverses who did what to whom, and the reversal becomes canon.","elapsed_minutes":30,"weather":"","player_location":"a name from the LOCATIONS list","locations":[{"char_id":"","place":"a name from LOCATIONS, or elsewhere","said":"the words in the prose that say they moved"}],"money":"","present":["optional hint; co-location decides the real scene"],
 "facts":[{"char_id":"","field":"fatigue|hunger|thirst|slept|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"attraction_delta":0,"note":"","roles_set":[]}],
@@ -841,11 +842,30 @@ THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIV
   if (rumors.length) parts.push(`LIVE RUMORS (don't re-add): ${rumors.map((r) => `"${r.content.slice(0, 70)}"`).join("; ")}`);
   if (state.world.focus) parts.push(`FOCUS ${state.world.focus.mode.toUpperCase()}: ${state.world.focus.label}`);
   parts.push(`TENSION DIAL: ${state.model_settings.tension ?? 5}/10`);
-  const recent = contextHistory(state).slice(-2).map((h) => `T${h.turn}: ${h.player_action.slice(0, 90)} → ${h.summary.slice(0, 110)}`).join("\n");
+  const recent = contextHistory(state).slice(-2).map((h) => `T${h.turn}: ${clipRecord(h.player_action, 220)} → ${clipRecord(h.summary, 260)}`).join("\n");
   parts.push(`NOW: turn ${state.world.current_turn}, ${state.world.current_time}, weather ${state.world.weather || "—"}, player @${state.world.places[state.world.player_location]?.name ?? "?"}${recent ? `\nLAST TURNS:\n${recent}` : ""}`);
   return parts.join("\n\n");
 }
 
+
+/** Clip a recorded turn to a length without cutting mid-clause.
+ *
+ *  LAST TURNS used a hard 110-character slice on the summary, and a hard slice takes the END of the
+ *  sentence — which is exactly where a summary says whose it was. "Miranda accepts Vin's request to
+ *  keep his cum on his penis instead of" is not a shorter record of the turn; it is a different and
+ *  wrong one, and it goes back into the next narrator prompt reading as complete. Prefer the last
+ *  clause boundary inside the budget, fall back to the last whole word, and mark the cut. */
+function clipRecord(t: string, max: number): string {
+  const s = String(t ?? "").replace(/\s+/g, " ").trim();
+  if (s.length <= max) return s;
+  const head = s.slice(0, max);
+  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  if (stop >= max * 0.5) return head.slice(0, stop + 1).trim();
+  const clause = Math.max(head.lastIndexOf("; "), head.lastIndexOf(", "));
+  if (clause >= max * 0.6) return head.slice(0, clause).trim() + "…";
+  const sp = head.lastIndexOf(" ");
+  return (sp > 0 ? head.slice(0, sp) : head).trim().replace(/[,;:]$/, "") + "…";
+}
 
 function describeOpenness(c: Condition, conscience?: number): string {
   const r = c.psyche.relaxation;
@@ -1425,8 +1445,14 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     // reflexes and involuntary reactions; it does not write their decisions. A trait says how this
     // person is BUILT — what their hands do before they have decided anything — and that is the
     // narrator's to render. What they then choose to do about it stays the player's.
-    if (!isPlayer) lines.push(`  as: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
-    else if (ident.core_traits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${ident.core_traits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
+    // A mannerism that has just been on the page is dropped from the trait line for this turn. The
+    // CARD still carries it — the card is the cached prefix and cannot vary per turn — so this is
+    // the only place the every-turn assertion can be quieted, and the novelty note names it as
+    // resting on top. Subject traits are never dropped: they are what the person cares about.
+    const restingNow = new Set(suppressedMannerisms(state, id));
+    const shownTraits = ident.core_traits.filter((t) => !restingNow.has(t));
+    if (!isPlayer) lines.push(`  as: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
+    else if (shownTraits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
     // ── AND THE LOG DOES NOT GET TO BURY THEM ────────────────────────────────────────────────
     // `life_history` accretes a line per significant beat and was rendered here in full, every
     // turn. One character's had reached 1,100 characters — eight times the length of her trait
