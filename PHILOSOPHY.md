@@ -16,9 +16,17 @@ Relaxation sets how accurately a person reads other people. Clenched bodies see 
 
 An emotion is an event, not a possession. When one lands (an active state like "anger at the verdict"), what happens next depends on the body holding it:
 
-- **Settled body:** after a couple of turns the state dissolves on its own — felt fully, not fed. It leaves its information behind: anger settles into a clear view of what was actually wrong, fear into alertness to what matters, grief into plain love for what was lost. The charge goes; the knowledge stays.
+- **Settled body:** after a couple of turns the state dissolves on its own — felt fully, not fed. It leaves its information behind: anger settles into a clear view of what was actually wrong, fear into alertness to what matters, grief into plain love for what was lost, envy into the plain energy to go and do the thing, contempt into seeing the other person standing on the same ground. The charge goes; the knowledge stays.
 - **Clenched body:** the state gets re-told instead of felt. After a few turns it starts feeding on itself — a small ongoing drain on relaxation, because the reaction to the pain has become its own pain. The first hit is the event. The second hit is the story about the event, and the second one is self-inflicted. The oldest fed emotion also colonizes the mood.
 - **Moods are weather:** a mood set turns ago fades once the body settles. Nothing emotional is permanent unless a body keeps it alive.
+
+## Seeing yourself: the two roads
+
+A person's habits fire whether or not they notice. Noticing is what loosens one — not deciding to stop, not replacing it with something better; the pattern simply weakens a little each time it is seen while it happens, and the weakening is never available to the person it happens to. Only somebody who knew the old pattern can ever notice the new absence.
+
+There are **two ways the noticing happens**, and for a long time the engine knew only one. The first is ease: a settled body can watch itself. The second is volume — the thing arising so hard it cannot be looked past, in a body with no ease anywhere in it. That road runs *against* the grip, not with it, and it is where most people who ever caught themselves actually caught themselves. A body at the bottom is no longer blind by construction; at full intensity it sees roughly one firing in five.
+
+This matters beyond the mechanic. Gated on calm alone, the engine was quietly asserting that regulated people are the ones who get free, which is both false and the most flattering thing a story can tell a comfortable reader. It also made the best scene in fiction — somebody catching themselves mid-pattern on the worst day of their life — impossible for exactly the people it happens to.
 
 ## Wanting: desire as its own channel
 
@@ -38,6 +46,14 @@ Nervous systems are not closed. A settled person you trust, present in the room,
 When someone is clenched, the narrator gets their under-threat behavior as a line of law — so two scared people in the same scene do visibly different things.
 
 Beyond the pairwise, there is **the room itself**. Bodies lean toward the aggregate state of whoever is present — a weak pull, never an override — and the pull strengthens when the room is lopsided. A unanimous calm holds a frightened stranger; a unanimous bracing sweeps a crowd into panic. This is why a scene can "flip": not because anyone decided, but because the weather hit a threshold.
+
+## Being sure of someone
+
+Each person carries a private model of whoever matters to them, and it can be wrong — that gap is where misreadings come from. But the model can also be *right*, and staying right has a cost the engine used to ignore entirely.
+
+Hold an accurate read of somebody long enough and it stops being a read and becomes a picture. What gets perceived after that is the picture; the person becomes the noise around it. Real change in them arrives attenuated — not disbelieved, just not quite registered, the way you stop hearing a clock — and it takes a much larger event than it used to for anything to get through at all. This is not hostility and not a misunderstanding: it fires hardest on people who are correct about each other, which is the point. Being right about someone is not the same as looking at them.
+
+When something finally does break through, it does not arrive as one turn's news. Everything that went unregistered while the looking was suspended lands at once, the certainty halves, and the person is being seen again. The engine will never let a settled picture *seal* a mind — a mind nothing can reach can't have that turn, and that turn is the whole reason the mechanic exists.
 
 ## Breaking
 

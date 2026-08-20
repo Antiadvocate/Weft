@@ -52,6 +52,8 @@ here so you can see the whole skeleton at once.
 |---|---|---|
 | r ≥ +4 | Play UI | breath orb reads "open" |
 | r ≥ +3 | emotions.ts | gripped emotions **self-liberate** after 2 turns — felt fully, leaving their residue |
+| sigmoid(r × 0.7) | habits.ts | the **calm road** to seeing a habit as it fires — clear at +3, near-blind at −3 |
+| 0.04 + 0.22·loud·gripped | habits.ts | the **second road**: intensity, not ease. Loud = pressure above 4; gripped = r below −2, full by −8. The two are independent doors, so a deep clench at full volume sees about one firing in five instead of one in a hundred and forty |
 | r ≥ +2 | emotions.ts, social | stale moods fade; you count as someone's safe person |
 | r ≤ −2 | physiology.ts | visible tension cue rendered for the narrator (shoulders/jaw/breath, never interior) |
 | r ≤ −3 | emotions.ts | "threatened": the **second hit** — a held emotion older than 3 turns starts draining −0.2/turn and colonizes the mood; avoidant attachment stops taking comfort |

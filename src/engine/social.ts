@@ -1475,6 +1475,21 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
           e1.warmth = clampWarmth(e1.warmth + dir);
           e2.warmth = clampWarmth(e2.warmth + dir);
         }
+        // TRUST WAS NEVER IN HERE AT ALL. Warmth drifted between offscreen pairs and trust sat where
+        // the forge left it for the whole game, so the cast's bonds only ever moved on one of the two
+        // numbers the engine actually reads — and every consumer that gates on trust (co-regulation's
+        // safe-person search wants trust ≥ 15, the narrator's lateral-edge block, confiding) went on
+        // treating a decade of shared living as the day they met. Trust moves at HALF warmth's rate
+        // toward HALF its ceiling: living alongside somebody agreeable earns a little of it slowly,
+        // and never as much as fondness. Only on alternate rounds, which is what the half-rate means
+        // for an integer step.
+        if ((state.world.current_turn + (a < b ? 0 : 1)) % 2 === 0) {
+          const tCeil = Math.round(ceil / 2);
+          if ((dir > 0 && e1.trust < tCeil) || (dir < 0 && e1.trust > tCeil)) {
+            e1.trust = clampWarmth(e1.trust + dir);
+            e2.trust = clampWarmth(e2.trust + dir);
+          }
+        }
         // occasional shift line when a bond crosses a round number (a felt change)
         const crossed = (t: number) => (before < t && e1.warmth >= t) || (before > t && e1.warmth <= t);
         if (dir > 0 && crossed(20)) log.push(`${state.characters[a].name} and ${state.characters[b].name} have been growing closer.`);

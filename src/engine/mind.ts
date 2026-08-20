@@ -119,6 +119,35 @@ function perceivedValence(objective: number, edge: PerceptEdge, turn: number): n
   return clamp(objective + bend, -100, 100);
 }
 
+// ── REIFICATION ─────────────────────────────────────────────────────────────
+// A model that KEEPS BEING RIGHT costs nothing here, and that was the layer's blind spot. It
+// treated being wrong about someone as the only failure mode, so a converged, high-confidence,
+// zero-surprise model meant the character was simply correct and the machinery went quiet. But a
+// settled picture of a person is not the same thing as seeing them, and the longer it holds the
+// less looking is going on: what gets perceived is the picture, and the person becomes the noise
+// around it. This is the ordinary form of not-knowing — not a misreading anyone could correct with
+// better information, but the mode of holding that stopped taking information at all. Accuracy is
+// no protection from it. It is, if anything, how it starts.
+//
+// So confidence has a clock on it. Hold a model above REIFY_CONFIDENCE and `settled_turns` runs;
+// past REIFY_AFTER the picture starts standing in front of the person:
+//   • the percept is DAMPED toward the prediction — real change arrives attenuated, as noise
+//   • the breakthrough wall rises — truth has to hit harder to get in at all
+//   • and when something finally does land, the collapse is proportional to how long the looking
+//     had been suspended. Everything that was not seen arrives in one turn.
+// Deliberately NOT gated on the model being wrong, or hostile, or on any bad trait: this fires on
+// people who are right about each other, which is the whole point.
+const REIFY_CONFIDENCE = 0.85;  // above this, the picture counts as settled
+const REIFY_AFTER = 6;          // turns of settledness before it starts standing in front of them
+const REIFY_FULL = 20;          // turns to reach maximum: 80% of what changes no longer registers
+
+/** 0..1 — how much of this belief has become a picture the believer looks at instead of a person. */
+function reification(b: BeliefAbout): number {
+  const settled = b.settled_turns ?? 0;
+  if (settled <= REIFY_AFTER) return 0;
+  return clamp((settled - REIFY_AFTER) / (REIFY_FULL - REIFY_AFTER), 0, 1);
+}
+
 // ── BREAKTHROUGH THRESHOLD ──────────────────────────────────────────────────
 // The one knob separating "misreads that repair" with sustained contradiction from a mind
 // that "cannot be reached." When THIS turn's raw prediction error is large enough, the
@@ -129,13 +158,20 @@ function perceivedValence(objective: number, edge: PerceptEdge, turn: number): n
 // negative edge is the hard case. A sealed mind's cutoff sits above the max achievable error,
 // so nothing bypasses; the player's only counters are distance (stop generating misreadable
 // events) and the record (other minds' accurate models in minds[].about).
-function breakthroughCutoff(edge: PerceptEdge): number {
+function breakthroughCutoff(edge: PerceptEdge, reified = 0): number {
   let cut = 0.62; // baseline: a strong single-turn violation punches through
   // hostility raises the wall — the more negative the edge, the harder truth must hit.
   if (edge.warmth < 0) cut += (-edge.warmth / 100) * 0.3;
   if (edge.style === "avoidant") cut += 0.12;
   if (edge.style === "disorganized") cut += 0.18; // instability itself resists correction
   if (edge.style === "secure") cut -= 0.15;       // secure minds are cheaply reached
+  // A settled picture is its own wall, and this one is built out of being RIGHT rather than out of
+  // fear. Two limits on it, both load-bearing. It is deliberately SMALLER than the hostility term —
+  // a long marriage is harder to interrupt than a good week, not harder than an enemy. And it must
+  // never SEAL: a mind nothing can reach cannot have the collapse, and the collapse is the entire
+  // point of the mechanic. Sealing stays what it always was, a function of hostility and a guarded
+  // style; certainty on its own only ever means the event has to be bigger.
+  if (reified > 0) cut = Math.min(Math.max(cut, cut + reified * 0.12), 0.85);
   // sealed: extreme negative edge + guarded style pushes the cutoff past 1.0 (unreachable by error∈[0,1])
   return clamp(cut, 0.2, 1.2);
 }
@@ -178,11 +214,20 @@ export function updateMind(
     const readerStyle = (state.characters[id]?.attachment?.style ?? "secure") as AttachStyle;
     const pEdge: PerceptEdge = { warmth: trueEdge?.warmth ?? 0, attraction: trueEdge?.attraction ?? 0, style: readerStyle };
     // raw single-turn error (truth vs model) decides whether reality BREAKS THROUGH the filter.
+    const reified = reification(b);
     const rawWarmthErr = Math.abs(rawWarmth - b.predicted_warmth) / 200;
-    const broughtThrough = rawWarmthErr >= breakthroughCutoff(pEdge);
-    // if breakthrough: take the objective act straight. otherwise: perceive it through the edge.
-    const seenWarmth = broughtThrough ? rawWarmth : perceivedValence(rawWarmth, pEdge, turn);
-    const seenStanceHint = broughtThrough ? rawStanceHint : perceivedValence(rawStanceHint * 7, pEdge, turn) / 7;
+    const broughtThrough = rawWarmthErr >= breakthroughCutoff(pEdge, reified);
+    // if breakthrough: take the objective act straight. otherwise: perceive it through the edge,
+    // and then — if the picture has been standing a while — through the picture, which is the
+    // heavier filter of the two. What contradicts a settled read arrives attenuated: not disbelieved,
+    // just not quite registered, the way you stop hearing a clock. At full reification four fifths
+    // of whatever changed does not land.
+    const expectedStance = b.predicted_stance === "ally" ? 6 : b.predicted_stance === "rival" ? -6 : 0;
+    const throughPicture = (v: number, anchor: number) => anchor + (v - anchor) * (1 - reified * 0.8);
+    const seenWarmth = broughtThrough ? rawWarmth
+      : throughPicture(perceivedValence(rawWarmth, pEdge, turn), b.predicted_warmth);
+    const seenStanceHint = broughtThrough ? rawStanceHint
+      : throughPicture(perceivedValence(rawStanceHint * 7, pEdge, turn) / 7, expectedStance);
 
     // ── PREDICTION ERROR ── computed on the PERCEPT, not the truth.
     // warmth error: how far the agent's model was from what it PERCEIVED, normalized to 0..1
@@ -195,8 +240,13 @@ export function updateMind(
     }
     const err = clamp(warmthErr * 0.7 + stanceErr * 0.3, 0, 1);
 
+    // THE COLLAPSE. When something finally gets through a picture that has been standing for a long
+    // time, it does not arrive as one turn's news. The looking had been suspended, and everything
+    // that went unseen while it was suspended lands in the same moment — which is why these are the
+    // turns people describe as not recognising someone they have known for years.
+    const collapse = broughtThrough && reified > 0.25;
     // precision-weighting: a confident model is more surprised by the same error (it expected to be right)
-    const weightedErr = clamp(err * (0.6 + b.confidence * 0.8), 0, 1);
+    const weightedErr = clamp(err * (0.6 + b.confidence * 0.8) * (collapse ? 1 + reified : 1), 0, 1);
     // surprise is a leaky accumulator — decays in calm, spikes on violation
     b.surprise = clamp(b.surprise * 0.55 + weightedErr, 0, 1);
     peakSurprise = Math.max(peakSurprise, b.surprise);
@@ -231,6 +281,20 @@ export function updateMind(
     // perfectly. This is what breaks the omniscient-chorus fixed point — confidence can no longer
     // ratchet to 0.98 and stay there. Strongest on the most certain models; scales with diversification.
     b.confidence = clamp(b.confidence - dispersion * 0.22 * b.confidence, 0.05, 0.98);
+
+    // ── THE CLOCK ON CERTAINTY ── settledness accrues while the model stays confident and resets the
+    // moment something real gets through it. A collapse does not merely interrupt the count; it ends
+    // the picture, and the believer is looking at a person again — which is the only thing in this
+    // layer that ever restores sight.
+    if (collapse) {
+      const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
+      const sname = state.characters[id]?.name ?? id;
+      lines.push(`${sname} is looking at ${tname} for the first time in a long while — the settled picture doesn't survive it.`);
+      b.settled_turns = 0;
+      b.confidence = clamp(b.confidence * 0.5, 0.05, 0.98);
+    } else {
+      b.settled_turns = b.confidence >= REIFY_CONFIDENCE ? (b.settled_turns ?? 0) + 1 : 0;
+    }
     b.updated_turn = turn;
 
     // a large, sustained PERCEIVED warmth gap that the agent keeps NOT resolving crystallizes into a
@@ -272,6 +336,7 @@ export function mindDigest(state: SaveState, id: string): string {
     if (b.held_false) out.push(`acts as if the player ${b.held_false} — let this false read drive their behavior and word choice; NEVER state the belief in prose, only show them acting on it`);
     else if (divergence > 25) out.push(`treats the player as ${b.predicted_stance === "unknown" ? "an unknown quantity" : b.predicted_stance === "ally" ? "warmer than they truly are" : "more hostile than they truly are"} — behavior follows their read; do not narrate the misjudgment`);
     if (b.surprise > 0.45) out.push(`is freshly thrown — the player just did something against their expectation; SHOW the recalibration, don't state it`);
+    else if (reification(b) > 0.4) out.push(`stopped actually looking at the player some time ago — responds to the person they have long since decided the player is, so new or contrary behavior gets met with the old read, absently, without hostility or any sense of missing anything; NEVER state that they are not paying attention`);
     if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't get a clean read on the player — SHOW it as watchfulness or probing, never as narrated confusion`);
   }
   return out.length ? `how they read you (behavior only, never stated in prose): ${out.join("; ")}` : "";
