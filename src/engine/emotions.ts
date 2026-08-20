@@ -65,7 +65,17 @@ const TRANSMUTE: { match: RegExp; residue: string }[] = [
   { match: /anger|angry|rage|furious|fury|resent/i, residue: "settles into a clear view of what was actually wrong" },
   { match: /fear|afraid|dread|terrif|anxious|anxiety|worry/i, residue: "settles into plain alertness to what matters" },
   { match: /grief|griev|mourn|loss|bereft|devastat/i, residue: "softens into plain love for what was lost" },
-  { match: /jealous|envy|envious/i, residue: "settles into knowing what they actually want" },
+  // Envy released is not an insight, it is a discharge of stalled motion: what the wanting was
+  // doing all along was pointing at something, and pointing is all it was ever able to do. Let go
+  // of, the same charge is simply available to move with — the residue of envy is ENERGY, not
+  // understanding, which is why the person who stops envying tends to go and do the thing.
+  { match: /jealous|envy|envious/i, residue: "turns into the plain energy to go and do it themselves" },
+  // Pride and contempt were missing entirely, and they are the commonest states a settled body
+  // holds without noticing it holds anything — nothing about them hurts, so nothing asks to be put
+  // down. What they cost is the ability to see anyone as standing on the same ground; released,
+  // that is exactly what comes back.
+  { match: /\bpride\b|prideful|contempt|disdain|scorn|smug|condescen|superior/i,
+    residue: "levels out into seeing them standing on the same ground" },
   { match: /shame|humiliat|embarrass|guilt/i, residue: "loosens into honesty about what happened" },
   { match: /hurt|betray|wounded/i, residue: "settles into knowing exactly where the line is now" },
 ];

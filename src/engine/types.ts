@@ -617,6 +617,7 @@ export interface BeliefAbout {
   held_false?: string;         // ONE concrete thing A wrongly believes about B ("thinks I betrayed them") — the misunderstanding that can drive a scene
   surprise: number;            // 0..1 running prediction-error magnitude; decays in calm, spikes on violated expectation
   confidence: number;          // 0..1 how sure A is of this model; low confidence + high stakes → epistemic drive
+  settled_turns?: number;      // consecutive turns this model has been CONFIDENT — the clock reification runs on
   updated_turn: number;
 }
 

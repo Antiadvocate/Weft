@@ -6,9 +6,14 @@
 // never sees the mechanic.
 //
 // The change mechanic is dzogchen self-liberation, grounded and directionless:
-//   • A habit fires. If it fires SEEN (clarity of sight, gated by relaxation), its automaticity drops
-//     a little — recognition loosens the grip. No suppression, no antidote, no self doing work, and
-//     NOTHING written to the character's memory. Self-liberation leaves no trace of a "self improving".
+//   • A habit fires. If it fires SEEN, its automaticity drops a little — recognition loosens the
+//     grip. No suppression, no antidote, no self doing work, and NOTHING written to the character's
+//     memory. Self-liberation leaves no trace of a "self improving".
+//   • SEEING HAS TWO ROADS IN, and the engine used to know only one. The settled body watching
+//     itself is the first. The second is the arising so loud it cannot be looked past, in a body
+//     with no ease anywhere in it — which is where most people who ever caught themselves actually
+//     caught themselves. Calm is not the price of admission; grip is what is being seen, not what
+//     prevents seeing. See seenProbability / intensityProbability below.
 //   • If it fires UNSEEN (clenched, blind), it DEEPENS — strength ticks up — and seeds a dwelling
 //     (a replay) that, in a clenched body, grooves a second-order habit. The chain of delusion.
 //   • Change is never chosen. The alternative never has to occur. Weakening happens DURING firing,
@@ -35,12 +40,45 @@ const REGROOVE_EVERY = 5;         // turns between re-groove ticks (when not rec
 const DORMANT_BELOW = 30;         // at/under this, the habit is ready to go dormant at next reflection
 const NOTICE_DROP = 18;           // an observer notices once strength falls this far below the watermark
 const OPPORTUNITY_THRESHOLD = 0.34; // relevance(trait, beat) above which the trigger context is "live"
+const BARE_SEEING = 0.04;         // seeing is never impossible, at any state — the floor under both roads
+const INTENSITY_SEEING = 0.22;    // additional chance at full volume: a loud arising in a gripped body
 
 /** sigmoid over relaxation → probability the character SEES the habit as it fires. Clear at +3,
  *  blind at −3. This is the corrected use of the relaxation kernel: it gates CLARITY OF SIGHT of
- *  one's own loop, NOT kindness. The mapping the narrator kept corrupting now lives engine-side. */
+ *  one's own loop, NOT kindness. The mapping the narrator kept corrupting now lives engine-side.
+ *
+ *  THE CALM ROAD. It is one of two, and on its own it was a false claim about how seeing works —
+ *  see intensityProbability below. */
 export function seenProbability(relaxation: number): number {
   return 1 / (1 + Math.exp(-(relaxation) * 0.7));
+}
+
+/** THE SECOND ROAD — seeing that does not come through calm.
+ *
+ *  The calm road alone says a settled body sees its own loop and a clenched one cannot. At −7 the
+ *  sigmoid returns 0.7%: a character in real trouble was mechanically incapable of the moment where
+ *  they catch themselves doing it, and that moment is the most powerful scene fiction has. It was
+ *  also a claim the engine had no business making. Regulation is not recognition; a calm person can
+ *  be thoroughly asleep, and seeing has been known to arrive at the worst moment of someone's life —
+ *  not despite the intensity, because of it. The louder the thing is, the more of it there is to
+ *  see. That is why the instruction is always "look at the anger", never "wait until it passes".
+ *
+ *  So: a small floor that holds at any state, plus a bump that scales with how LOUD the arising is
+ *  (beat salience) times how GRIPPED the body holding it is. Nothing above r = −2 and nothing below
+ *  salience 4 — an ordinary moment in an ordinary body gets the floor and no more. At the bottom, at
+ *  full volume, it reaches about one turn in four.
+ *
+ *  The two roads are independent doors: P(seen) = 1 − (1−calm)(1−intensity). The calm road loses
+ *  nothing; the clenched body stops being blind by construction. */
+export function intensityProbability(relaxation: number, salience: number): number {
+  const loud = Math.max(0, Math.min(1, (salience - 4) / 6));       // silent below salience 4
+  const gripped = Math.max(0, Math.min(1, (-relaxation - 2) / 6)); // nothing above r = −2, full by −8
+  return BARE_SEEING + INTENSITY_SEEING * loud * gripped;
+}
+
+/** The whole probability of seeing a fire as it happens, across both roads. */
+export function recognitionProbability(relaxation: number, salience: number): number {
+  return 1 - (1 - seenProbability(relaxation)) * (1 - intensityProbability(relaxation, salience));
 }
 
 /** Backfill habits from a character's existing core_traits at forge strength, with small per-trait
@@ -114,8 +152,9 @@ export function tickHabits(
       continue;
     }
 
-    // it fired. SEEN ROLL — clarity of one's own loop, gated by relaxation.
-    const seen = rng() < seenProbability(relax);
+    // it fired. SEEN ROLL — clarity of one's own loop. Two roads in: the settled body that can
+    // watch itself, and the arising loud enough to be unmissable in a body with no ease at all.
+    const seen = rng() < recognitionProbability(relax, salience);
     best.last_fired_turn = turn;
     fires.push({ char_id: id, trait: best.trait, seen });
 

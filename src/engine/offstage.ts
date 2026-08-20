@@ -18,6 +18,7 @@
 // what the existing systems do with the event once it exists.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { applyEdgeDelta } from "./social";
 import { authoredLine, hasAuthored } from "./authored";
 import { uid } from "./state";
 import { minutesBetween } from "./time";
@@ -337,6 +338,36 @@ export function playerAuthored(what: string, playerName: string): boolean {
   return false;
 }
 
+/**
+ * WHAT WATCHING SOMEBODY DO SOMETHING DOES TO WHAT YOU THINK OF THEM.
+ *
+ * Offstage events reached witnesses as a memory and stopped there. A character could stand in a
+ * yard and watch a neighbour turn a starving family away, file the memory, and feel exactly the
+ * same about that neighbour afterwards as before — because the only thing in the engine that ever
+ * moved an NPC-to-NPC bond was `tickBonds`, which drifts on how alike two CARDS are and knows
+ * nothing whatever about what either person has done. So the cast warmed and cooled toward each
+ * other on temperament alone, for the whole length of a game, while the world's own events washed
+ * over them without leaving a mark. That is the mechanism behind "their relationships never move":
+ * the events were real, the witnesses were real, and nothing connected the two.
+ *
+ * Read lexically, in the house style — zero tokens, no save migration. NARROW on purpose, and
+ * narrow in a specific direction: this is not the rumor field's dread/warm question ("would a town
+ * retell this?"). A plague is dread and tells you nothing about the person who caught it. The
+ * question here is only ever AGENTIVE — did this person do something to somebody, or for them.
+ * Everything else scores zero and moves nothing.
+ */
+const ACTOR_CRUEL = /\b(struck|beat|stabbed|shot|killed|murdered|attacked|robbed|stole|cheated|swindled|betrayed|denounced|informed on|turned (?:\w+ ){0,3}(?:away|out)|evicted|refused (?:to )?(?:help|pay|feed|shelter|open)|broke (?:his|her|their|the) (?:word|promise|oath)|lied to|humiliated|threatened|blackmail\w*|seized|burned (?:down )?(?:the|his|her|their)|drove (?:\w+ ){0,3}off (?:the|his|her|their) land|left (?:\w+ ){0,3}to (?:die|starve)|abandoned)\b/i;
+const ACTOR_KIND = /\b(helped|paid|repaid|fed|sheltered|took (?:\w+ ){0,2}in|nursed|tended|carried|defended|protected|warned|hid|freed|rescued|saved|mended|repaired|gave|forgave|stood up for|spoke for|vouched for|kept (?:his|her|their) (?:word|promise|oath)|sat with|buried|delivered|brought (?:\w+ ){0,3}(?:food|water|medicine|word))\b/i;
+
+/** −1 cruel / +1 kind / 0 nothing anyone's opinion should move on. */
+export function actorValence(what: string): number {
+  const t = String(what ?? "");
+  const cruel = ACTOR_CRUEL.test(t);
+  const kind = ACTOR_KIND.test(t);
+  if (cruel === kind) return 0; // neither, or an ambiguous both — move nothing
+  return cruel ? -1 : 1;
+}
+
 export function applyOffstage(state: any, events: OffstageEvent[], retired: string[] = []): string[] {
   const byName = new Map<string, string>();
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
@@ -440,9 +471,28 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
           .map(([, c]) => c.name.toLowerCase());
       }
     }
+    // Who did it, if the cast contains them — needed for the edge pass below.
+    const actorId = byName.get(String(ev.actor ?? "").toLowerCase().trim()) ?? null;
+    const valence = actorValence(ev.what);
+
     for (const w of witnessNames) {
       const id = byName.get(w);
       if (!id) continue;                        // never invent a witness the cast doesn't contain
+
+      // SEEING IT CHANGES WHAT YOU THINK OF THEM. Small — this is one thing glimpsed offstage, not a
+      // scene the player watched — and asymmetric in the ordinary way: cruelty costs more than
+      // kindness earns, and trust moves at a fraction of warmth in both directions. applyEdgeDelta
+      // carries the rest (obduracy, trust's own asymmetry, rupture-repair).
+      if (actorId && actorId !== id && valence !== 0) {
+        applyEdgeDelta(state.world.edges, {
+          from: id, to: actorId,
+          warmth_delta: valence > 0 ? 3 : -5,
+          trust_delta: valence > 0 ? 2 : -4,
+          power_delta: 0,
+          note: `${valence > 0 ? "saw them do right by someone" : "saw what they did"}: ${ev.what.slice(0, 70)}`,
+        }, turn, { chars: state.characters, traits: state.traits });
+      }
+
       const mem = (state.memory[id] ??= { character_id: id, core: [], episodic: [], beliefs: [], facts: [], knows: [] });
       mem.episodic.push({
         id: uid("mem"),
