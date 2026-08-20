@@ -36,6 +36,7 @@ import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeInten
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
+import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1758,7 +1759,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   let searchTarget = "";
   const cleanedAction = action.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
   action = cleanedAction;
-  const framedAction = MODE_FRAME[mode](action);
+  // THE PRIVATE CHANNEL IS NOT HANDED OVER. The narrator writes what the room can see, and it
+  // cannot leak a thought it never received. What replaces the words is a bearing computed from the
+  // player's own grip — see engine/interior.ts. The bookkeeper still gets the action whole, because
+  // the interior is the truest evidence for the player's OWN state and the only honest source for it.
+  const { outward: outwardAction, interior: playerInterior } = splitInterior(action);
+  const framedAction = MODE_FRAME[mode](mode === "do" ? outwardAction : action)
+    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -3549,11 +3556,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
     const healed = healMinorInjuries(cc, turn);
     if (healed.length) offscreenLog.push(`${state.characters[id].name}: ${healed.join(", ")} — healed.`);
-    if (id === "char_player") continue;
+    // THE PLAYER USED TO BE SKIPPED ENTIRELY HERE, and that is why nothing a player ever felt
+    // became anything. The bookkeeper has always been able to write them a trait — it reads their
+    // stated interior as authoritative for char_player — but with no decay and no consolidation
+    // those traits just piled up unchanged, and identity never formed out of them. Sovereignty was
+    // implemented as "the player is not modelled", when what it actually forbids is the ENGINE
+    // deciding who the player is. A trait grown from what the player themselves reported feeling,
+    // repeatedly, is not the engine's verdict; it is their own account, kept. So they consolidate
+    // now, like anyone. Two things stay off: their background is not rewritten from play (it is
+    // authored, and it is the one field the narrator reads as the player's private truth), and
+    // their habits are not dissolved (they never fire, so there is nothing to dissolve). And the
+    // resulting traits never reach the narrator — see volatileDigest, which withholds `learned:`
+    // for the player. What they become is theirs to read in the Cast panel, not something the
+    // story tells them about themselves.
+    const isThePlayer = id === "char_player";
     const { kept, log } = decayTraits(state.traits[id] ?? [], turn);
     state.traits[id] = kept;
     offscreenLog.push(...log.map((l) => `${state.characters[id].name}: ${l}`));
     // earned identity change: only on the reflection cadence, never per-turn
+    if (isThePlayer) {
+      if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
+        const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+        state.traits[id] = ck;
+        // logged to the player's own shift feed, never pushed at the narrator
+        for (const l of clog) offscreenLog.push(l);
+      }
+      continue;
+    }
     if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
       const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;

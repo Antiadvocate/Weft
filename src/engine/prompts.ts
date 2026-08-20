@@ -16,6 +16,7 @@ import { MAX_LIVE } from "./threads";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { suppressedMannerisms } from "./novelty";
+import { outwardOnly } from "./interior";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue } from "./desire";
 import { bodySeverity } from "./body";
@@ -1538,9 +1539,15 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       // anything. See engine/schedule.ts; empty for anyone without a week, which is most people.
       { const sl = scheduleLine(state, id); if (sl) lines.push(sl); }
       const traits = state.traits[id] ?? [];
-      if (traits.length) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
+      // THE PLAYER'S ACQUIRED TRAITS ARE NOT THE NARRATOR'S. They consolidate now (see turn.ts) so
+      // that what the player reports feeling, over and over, becomes something they are — but
+      // handing the narrator "learned: hardened toward her" is handing it a characterisation of the
+      // player, and a narrator holding one WILL narrate it back at them. That is the exact move the
+      // point-of-view law forbids: no verdict about who the player is. Their core_traits still go
+      // over, as the body they were built with; what they have BECOME stays theirs to read.
+      if (traits.length && !isPlayer) lines.push(`  learned: ${traits.slice(0, 4).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ")}`);
       const pedgeForVoice = state.world.edges.find((e) => e.from === id && e.to === "char_player");
-      lines.push(`  voice now: ${deriveVoice(ident, cond, traits, pedgeForVoice)}`);
+      lines.push(`  voice now: ${deriveVoice(ident, cond, isPlayer ? [] : traits, pedgeForVoice)}`);
       // CONVERSATIONAL RANGE — moved out of detail>=2, which only ever fires at the top context
       // level. These two lines are the only thing on the card that says what this person can talk
       // about when the scene is not about the plot; gating them behind the most generous budget is
@@ -1655,7 +1662,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     // per-turn offscreen world-motion lines are cut — same leak: they tell the narrator what happened
     // elsewhere that no one present witnessed.
     const recentStr = (lvl >= 2 ? recent : recent.slice(-1))
-      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${h.player_action} → ${h.summary}`)
+      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${outwardOnly(h.player_action)} → ${h.summary}`)
       .join("\n") || "This is the opening.";
     // CONTINUITY, NOT STYLE. This block used to say "keep voices consistent with it", which made every
     // turn imitate the turn before it — turn 36 copying 35's copy of 34. Voice drift compounded one hop
