@@ -62,10 +62,10 @@ function stakesFor(state: SaveState, id: string): string | null {
   return reasons.length ? reasons.join("; ") : null;
 }
 
-const INTENT_SYSTEM = `You author the PRIVATE, TRUE intent of a single character for one beat of a story — what they are ACTUALLY doing beneath what they let show. This is the character's own truth, drawn ONLY from who they are and their situation, NEVER from the player's private thoughts (you are not given those, and the character cannot know them).
+export const INTENT_SYSTEM = `You author the PRIVATE, TRUE intent of a single character for one beat of a story — what they are ACTUALLY doing beneath what they let show. This is the character's own truth, drawn ONLY from who they are and their situation, NEVER from the player's private thoughts (you are not given those, and the character cannot know them).
 
 Return ONE strict JSON object, nothing else:
-{"surface":"HOW they carry themselves this beat — posture, manner, degree of openness, what they are willing to raise and what they hold back. A brief, in a few words. NEVER a line of dialogue and NEVER quoted speech: you are authoring intent BEFORE the scene is written, so any words you put in their mouth are words they did not say. The narrator writes what is actually spoken; you describe only the stance they bring to it.","truth":"what is going on INSIDE them, in words that could not describe a body: the real want, what they are afraid of, the feeling being withheld, what they are hoping this beat produces. If they lie, name the lie AND the fact being hidden. NEVER a restatement of the surface — if this field describes posture, manner, or an action, it is wrong and you have written the surface twice.","tell":"OPTIONAL — a small, deniable behavioral leak of the truth (a flicker, a too-quick reply, a hand that stills). Something an observer COULD read, or could miss/misread. Omit if they mask cleanly.","lying":true or false}
+{"surface":"HOW they carry themselves this beat — posture, manner, degree of openness, what they are willing to raise and what they hold back. A brief, in a few words. NEVER a line of dialogue and NEVER quoted speech: you are authoring intent BEFORE the scene is written, so any words you put in their mouth are words they did not say. The narrator writes what is actually spoken; you describe only the stance they bring to it.","truth":"what is going on INSIDE them, in words that could not describe a body: the real want, what they are afraid of, the feeling being withheld, what they are hoping this beat produces. If they lie, name the lie AND the fact being hidden. NEVER a restatement of the surface — if this field describes posture, manner, or an action, it is wrong and you have written the surface twice.","tell":"REQUIRED. The one crack in the surface — a small, deniable leak of the truth that a person in the room could catch or could miss: a flicker, a too-quick reply, a hand that stills, a breath taken at the wrong time. This is the ONLY way anything you write in truth ever reaches the page, because the narrator is never shown truth. Without it the character renders as their surface and nothing else, and a person with a whole inner life reads as somebody with none. It must not decode the truth — it is the crack, not what is behind it — and it must be a THING THE BODY DOES, never a feeling named. The more the surface and the truth diverge, and the more clenched the body, the more there is to leak: a composed person under nothing leaks a flicker, a person holding something enormous leaks something anybody would notice and nobody could prove.","lying":true or false}
 
 Rules:
 - The character acts from THEIR nature, agenda, and feelings — sovereign, not in service of the player. They pursue their own want this beat.
@@ -310,10 +310,10 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
   return results.filter((x): x is NpcIntent => !!x);
 }
 
-const INTENT_JSON_SCHEMA = {
+export const INTENT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["surface", "truth", "lying"],
+  required: ["surface", "truth", "tell", "lying"],
   properties: {
     surface: { type: "string" },
     truth: { type: "string" },
@@ -329,7 +329,13 @@ export function intentForNarrator(intents: NpcIntent[]): string {
   if (!intents.length) return "";
   const lines = intents.map((i) => {
     const bits = [`${i.name} — shows: ${i.surface}`];
-    if (i.tell) bits.push(`may leak (deniable, the player could catch or miss it): ${i.tell}`);
+    // THE TELL IS THE WHOLE CHANNEL. The narrator is never shown `truth` — deliberately, and
+    // correctly — so the tell is the only route by which anything happening inside a character
+    // reaches the reader at all. It was optional, its description ended "omit if they mask cleanly",
+    // and across 206 recorded intents in three saves not one carried one. The cast rendered as pure
+    // surface for an entire playthrough, which is exactly what "they have the emotional range of a
+    // horse fly" describes. It is required now, and it is not a suggestion here either.
+    if (i.tell) bits.push(`AND THIS GETS THROUGH — put it on the page, as the body doing it and never as a feeling named, and do not explain it: ${i.tell}`);
     return `- ${bits.join("; ")}`;
   });
   return `\n\n=== WHAT PRESENT CHARACTERS LET SHOW (render as behavior; do NOT state their hidden reasons — the player reads them like anyone reads a face) ===\n${lines.join("\n")}`;

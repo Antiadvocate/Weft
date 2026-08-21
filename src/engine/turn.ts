@@ -3802,7 +3802,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
-    gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
+    gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, tell: i.tell, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
     // "partial" = the diff was salvaged from output that hit the cap. It applied, but incompletely,

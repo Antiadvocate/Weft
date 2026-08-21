@@ -848,7 +848,7 @@ export interface TurnHistoryEntry {
    *  is why it cannot leak one. Kept on the entry so the Chronicle can replay a scene as it was
    *  actually experienced rather than as it actually was. */
   reads?: { faculty: string; line: string }[];
-  gm_intents?: { char_id: string; name: string; surface: string; truth: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
+  gm_intents?: { char_id: string; name: string; surface: string; truth: string; tell?: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
   weather?: string;
   time_label: string;
   /** Set on every beat of a directed montage, so the Chronicle can render one run as a
