@@ -1023,7 +1023,7 @@ export interface SimulatorDiff {
 export const DEFAULT_MODELS: ModelSettings = {
   narrator_model: "deepseek/deepseek-v4-pro",
   simulator_model: "google/gemini-3.1-flash-lite",
-  forge_model: "anthropic/claude-opus-4.8",
+  forge_model: "anthropic/claude-opus-5",
   fallback_model: "google/gemini-3.1-flash-lite",
   image_model: "google/gemini-2.5-flash-image",
   illustration_keep: 12,            // pictures that keep their bytes; older turns keep the record only

@@ -8,18 +8,24 @@ interface ORModel { id: string; name: string; created?: number; image?: boolean;
 let CACHE: ORModel[] | null = null;
 let CACHE_AT = 0;
 
-// curated fallback if the live fetch is blocked/offline — kept reasonably current
+/* CURATED FALLBACK, used only when the live fetch is blocked or offline.
+ *
+ *  This list going stale is not cosmetic: a retired id offered here is a model slot that fails on
+ *  the first call, and the player has no way to tell a dead id from a bad key. Prune anything
+ *  OpenRouter has dropped when you touch this — `deepseek/deepseek-chat-v3-0324` sat here (and was
+ *  the Forge's hardcoded default) for a while after it was delisted. */
 const FALLBACK: ORModel[] = [
+  { id: "anthropic/claude-opus-5", name: "Claude Opus 5" },
+  { id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5" },
+  { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8" },
   { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
-  { id: "anthropic/claude-opus-4.1", name: "Claude Opus 4.1" },
+  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5" },
   { id: "openai/gpt-5", name: "GPT-5" },
   { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
-  { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8" },
   { id: "google/gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite" },
   { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
   { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
   { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro" },
-  { id: "deepseek/deepseek-chat-v3-0324", name: "DeepSeek V3 0324" },
   { id: "deepseek/deepseek-r1", name: "DeepSeek R1" },
   { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick" },
   { id: "x-ai/grok-4", name: "Grok 4" },

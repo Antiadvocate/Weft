@@ -5,6 +5,7 @@ import type {
   SaveState, ModelSettings, WorldBible, WorldState, Identity, AcquiredTrait,
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
+import { DEFAULT_MODELS } from "../engine/types";
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
@@ -1621,7 +1622,7 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = "deepseek/deepseek-chat-v3-0324", destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string): Promise<ClientSave> => {
+  forge: async (seed: string, model = DEFAULT_MODELS.forge_model, destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string): Promise<ClientSave> => {
     // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
     // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
     // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and

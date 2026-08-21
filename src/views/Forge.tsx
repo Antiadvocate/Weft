@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, Hammer } from "lucide-react";
+import { ArrowLeft, BookOpen, Hammer } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import { ModelPicker } from "./ModelPicker";
+import { DEFAULT_MODELS } from "../engine/types";
+import { guidesOff, setGuidesOff } from "../lib/tour";
 
 const SPARKS = [
   "A lighthouse town where the keeper has been dead three weeks and no one will say it",
@@ -10,19 +13,23 @@ const SPARKS = [
   "A river port the week the fish stopped coming",
 ];
 
-export default function Forge({ onBack, onCreated }: {
+export default function Forge({ onBack, onCreated, onGuide }: {
   onBack: () => void;
   onCreated: (s: ClientSave) => void;
+  /** Opens the full primer. Optional so the Forge still mounts anywhere it is used bare. */
+  onGuide?: () => void;
 }) {
   const [seed, setSeed] = useState("");
   const [destination, setDestination] = useState("");
   const [destTurns, setDestTurns] = useState("");
-  const [model, setModel] = useState("deepseek/deepseek-chat-v3-0324");
+  const [model, setModel] = useState(DEFAULT_MODELS.forge_model);
   const [grounded, setGrounded] = useState(false);
   const [tone, setTone] = useState("");
   const [chronicle, setChronicle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The veteran's escape hatch, put where a new player is guaranteed to stand at least once.
+  const [veteran, setVeteran] = useState(() => guidesOff());
 
   const go = async () => {
     if (!seed.trim() || busy) return;
@@ -58,10 +65,10 @@ export default function Forge({ onBack, onCreated }: {
           One idea. The engine builds the place, the people, their grudges, their clocks. One LLM call, then the world runs itself.
         </div>
 
-        <textarea className="field" rows={4} placeholder="A fishing village the winter the ice came early…"
+        <textarea className="field" rows={4} data-tour="forge-seed" placeholder="A fishing village the winter the ice came early…"
           value={seed} onChange={(e) => setSeed(e.target.value)} />
 
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div className="flex flex-wrap gap-1.5 mt-3" data-tour="forge-sparks">
           {SPARKS.map((s) => (
             <button key={s} className="chip text-left" style={{ textTransform: "none", letterSpacing: 0 }}
               onClick={() => setSeed(s)}>
@@ -70,7 +77,7 @@ export default function Forge({ onBack, onCreated }: {
           ))}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-5" data-tour="forge-destination">
           <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
             Destination — where this story ends <span style={{ opacity: 0.6 }}>(optional)</span>
           </div>
@@ -98,7 +105,7 @@ export default function Forge({ onBack, onCreated }: {
           )}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4" data-tour="forge-tone">
           <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
             Genre &amp; tone <span style={{ opacity: 0.6 }}>(optional — sets the register)</span>
           </div>
@@ -110,7 +117,7 @@ export default function Forge({ onBack, onCreated }: {
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4" data-tour="forge-threads">
           <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
             Chronicle threads — story beats to seed <span style={{ opacity: 0.6 }}>(optional)</span>
           </div>
@@ -122,16 +129,50 @@ export default function Forge({ onBack, onCreated }: {
           </div>
         </div>
 
-        <div className="mt-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Forge model (OpenRouter id — pick the smith)</div>
-          <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
-            value={model} onChange={(e) => setModel(e.target.value)} />
-          <button className="chip mt-2.5" onClick={() => setGrounded((v) => !v)}
+        <div className="mt-4" data-tour="forge-model">
+          {/* THE SMITH, FROM THE LIVE LIST. This was a bare text input holding a hardcoded model id,
+              which meant that the day that id left OpenRouter the first thing a new player met was
+              a forge that failed and no way to fix it but to know another id by heart and type it.
+              Same picker as Tuning: live list, searchable, local models first, custom ids still
+              accepted by typing one in. */}
+          <ModelPicker label="Forge model — who builds the world" value={model} onChange={setModel} />
+          <button className="chip mt-1.5" data-tour="forge-web" onClick={() => setGrounded((v) => !v)}
             style={grounded ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
             {grounded ? "◉" : "○"} ground with web search
           </button>
           <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
             The forge searches the web while building, so worlds seeded from real media, places, or history come back canon-accurate. Add ((exact topic)) anywhere in your seed to aim the search precisely; otherwise it uses the seed itself. Costs a little more.
+          </div>
+        </div>
+
+        {/* ── FOR PEOPLE WHO ALREADY KNOW ── The guides open themselves once per screen, which is
+            right the first time and an obstacle every time after. This is the switch, sitting on
+            the one screen everybody passes through, next to the door to the long version. */}
+        <div className="card p-3 mt-5 flex items-start gap-3" data-tour="forge-veteran">
+          <button
+            className="shrink-0 mt-0.5 rounded flex items-center justify-center"
+            role="checkbox" aria-checked={veteran}
+            style={{ width: 18, height: 18,
+              border: `1px solid ${veteran ? "var(--accent)" : "var(--line-strong)"}`,
+              background: veteran ? "var(--accent)" : "transparent",
+              color: "var(--ink-0)", fontSize: 12, lineHeight: 1 }}
+            onClick={() => { const v = !veteran; setVeteran(v); setGuidesOff(v); }}>
+            {veteran ? "✓" : ""}
+          </button>
+          <div className="min-w-0 flex-1">
+            <button className="text-left block w-full"
+              onClick={() => { const v = !veteran; setVeteran(v); setGuidesOff(v); }}>
+              <div className="text-[13px]" style={{ color: "var(--text-hi)" }}>I'm used to this — skip the guides</div>
+              <div className="text-[11.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-lo)" }}>
+                No screen opens its own walkthrough. The <strong>?</strong> in the title bar still brings one back
+                whenever you want it, and this switch also lives in Tuning.
+              </div>
+            </button>
+            {onGuide && (
+              <button className="chip mt-2" onClick={onGuide}>
+                <BookOpen size={11} /> read the full guide
+              </button>
+            )}
           </div>
         </div>
 
@@ -141,7 +182,7 @@ export default function Forge({ onBack, onCreated }: {
           </div>
         )}
 
-        <motion.button className="btn btn-accent w-full mt-5" style={{ height: 50 }}
+        <motion.button className="btn btn-accent w-full mt-5" style={{ height: 50 }} data-tour="forge-go"
           whileTap={{ scale: 0.97 }} onClick={go} disabled={busy || !seed.trim()}>
           <Hammer size={15} />
           {busy ? "forging — this takes a minute…" : "Forge the world"}
