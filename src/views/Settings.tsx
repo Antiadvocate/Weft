@@ -504,7 +504,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--text-lo)" }}>Learning Weft</div>
         <div className="flex gap-2">
           <button className="btn flex-1" onClick={() => onGuide?.()} disabled={!onGuide}>
-            <BookOpen size={14} /> The full guide
+            <BookOpen size={14} /> Cheat sheet
           </button>
           <button className="btn flex-1" onClick={() => {
             resetGuides(); setGuides(true); setGuidesReset(true); setTimeout(() => setGuidesReset(false), 1600);

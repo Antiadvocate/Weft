@@ -228,21 +228,14 @@ export default function App() {
               <div className="font-display text-[23px] leading-tight mb-2" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
                 A world that reacts.
               </div>
-              <div className="text-[13.5px] leading-relaxed space-y-2.5" style={{ color: "var(--text-mid)" }}>
-                <p>
-                  You describe a place and the engine builds it — the people, what each of them wants, the grudges
-                  they already carry, the clocks already running. Then you live in it, one turn at a time.
-                </p>
-                <p>
-                  Nothing is on rails. What you <em>do</em> always happens; what follows is the world working out
-                  what that cost.
-                </p>
+              <div className="text-[13.5px] leading-relaxed space-y-2" style={{ color: "var(--text-mid)" }}>
+                <p>Describe a place. The engine builds the people, what they want, and the trouble already coming.</p>
+                <p>Then you live in it. Nothing is on rails.</p>
                 <p style={{ color: "var(--text-lo)" }}>
-                  One thing worth knowing before you start: in the message box,
-                  {" "}<span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>"quotes"</span> are spoken aloud,
-                  {" "}<span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>*asterisks*</span> are a private thought nobody can hear,
-                  {" "}<span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>(parentheses)</span> are how you feel about doing it,
-                  and everything else is what you physically do.
+                  The one thing to know: in the message box{" "}
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>"quotes"</span> are spoken,{" "}
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>*asterisks*</span> are private thoughts,
+                  and the rest is what you do.
                 </p>
               </div>
 
@@ -250,15 +243,11 @@ export default function App() {
                 onClick={() => { markVisited(); setWelcome(false); }}>
                 Build a world
               </button>
-              <button className="btn w-full mt-2" onClick={() => setPrimer(true)}>
-                Read the full guide first
-              </button>
-              <button className="w-full mt-3 text-[11.5px]" style={{ color: "var(--text-lo)" }}
-                onClick={() => { markVisited(); setGuidesOff(true); setWelcome(false); }}>
-                I've played this sort of thing — skip the guides
-              </button>
-              <div className="text-[10.5px] italic mt-2 text-center" style={{ color: "var(--text-lo)" }}>
-                Either way, the <strong>?</strong> in the title bar explains whatever screen you're on.
+              <div className="flex gap-2 mt-2">
+                <button className="btn flex-1" onClick={() => setPrimer(true)}>Cheat sheet</button>
+                <button className="btn flex-1" onClick={() => { markVisited(); setGuidesOff(true); setWelcome(false); }}>
+                  Skip the guides
+                </button>
               </div>
             </motion.div>
           </motion.div>
