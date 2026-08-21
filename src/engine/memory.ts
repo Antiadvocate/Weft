@@ -676,8 +676,12 @@ export function applyReflection(mem: CharMemory, beliefs: Belief[], currentTurn:
   // thing and updates it; they don't hold three drafts of it. Merge in place, keeping the newer
   // wording and the higher confidence.
   for (const nb of beliefs) {
-    const content = compactGist(nb.content, 130);
-    const prior = mem.beliefs.find((x) => relevance(x.content, content) >= 0.5 || relevance(content, x.content) >= 0.5);
+    // A conviction is a sentence. The pass sometimes returns the scaffolding around one — a
+    // confidence, a turn, an empty evidence list — and nothing to believe; storing that put an
+    // unreadable entry in the ledger which then broke every digest built from it.
+    const content = compactGist(typeof nb?.content === "string" ? nb.content : "", 130);
+    if (!content.trim()) continue;
+    const prior = mem.beliefs.find((x) => relevance(x?.content ?? "", content) >= 0.5 || relevance(content, x?.content ?? "") >= 0.5);
     if (prior) {
       prior.content = content;                                   // the newer phrasing is the current belief
       prior.confidence = Math.max(prior.confidence ?? 0.7, nb.confidence ?? 0.7);
@@ -753,7 +757,16 @@ function fuzzedWhen(m: EpisodicMemory, full: boolean): string {
  * them. `gone` maps lowercase name → "dead" | "departed".
  */
 export function beliefLine(content: string, gone: Map<string, string>): string {
-  const text = content.length > 180 ? content.slice(0, 178).trimEnd() + "…" : content;
+  // A BELIEF WITH NOTHING IN IT. One save carried {confidence: 0.7, formed_turn: 15,
+  // evidence_turns: []} and no content field at all — the reflection pass returned a belief object
+  // with no sentence in it, `content` came through undefined, and JSON.stringify dropped the key on
+  // the way to disk. From then on this line read `undefined.length` on EVERY turn, because the
+  // digest is rebuilt every turn, and the save could not be played again. The write path refuses
+  // these now (see applyReflection) and loading repairs old ones (see pruneEmptyMemories); this is
+  // the third layer, because a bad entry from any source must not be able to end a playthrough.
+  const raw = typeof content === "string" ? content : "";
+  if (!raw.trim()) return "";
+  const text = raw.length > 180 ? raw.slice(0, 178).trimEnd() + "…" : raw;
   const hits: string[] = [];
   for (const [name, how] of gone) {
     if (name.length < 3) continue;
@@ -787,7 +800,8 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
       parts.push(`ONCE BELIEVED, NOW KNOWS BETTER (never state the old version as true): ${corrected.map((f) => `"${clipF(f.content)}" → ${clipF(f.superseded_by!)}`).join(" | ")}`);
     }
   }
-  if (mem.beliefs.length) parts.push(`BELIEFS: ${mem.beliefs.slice(-6).map((b) => beliefLine(b.content, gone)).join(" | ")}`);
+  const beliefLines = (mem.beliefs ?? []).slice(-6).map((b) => beliefLine(b?.content, gone)).filter((l) => l.trim());
+  if (beliefLines.length) parts.push(`BELIEFS: ${beliefLines.join(" | ")}`);
   const top = retrieveScored(mem, query, currentTurn, k, recallerRelaxation, nowLabel);
   // ── RECENCY FLOOR ──────────────────────────────────────────────────────────
   // Retrieval is relevance-ranked, and word-overlap relevance is nearly flat across a long
@@ -841,4 +855,37 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
   }).join(" | ")}`);
   }
   return parts.join("\n");
+}
+
+
+/**
+ * ENTRIES WITH NOTHING IN THEM, TAKEN BACK OUT.
+ *
+ * Run once when a save is loaded. A single contentless belief made a sixteen-turn save unplayable —
+ * every turn rebuilds the memory digest, the digest read `.length` on the missing sentence, and the
+ * throw arrived after every response with no way for the player to clear it from inside the game.
+ * Nothing else in the engine ever revisits a stored memory's SHAPE, so this is where that happens.
+ *
+ * Returns how many entries it removed, so the load path can say so rather than repairing silently.
+ */
+export function pruneEmptyMemories(state: { memory?: Record<string, CharMemory> }): number {
+  let removed = 0;
+  const hasText = (v: unknown): boolean => typeof v === "string" && v.trim().length > 0;
+  for (const mem of Object.values(state.memory ?? {})) {
+    if (!mem) continue;
+    for (const key of ["episodic", "beliefs", "facts"] as const) {
+      const arr = (mem as any)[key];
+      if (!Array.isArray(arr)) { (mem as any)[key] = []; continue; }
+      const kept = arr.filter((e: any) => hasText(key === "facts" ? (e?.fact ?? e?.content) : e?.content));
+      removed += arr.length - kept.length;
+      (mem as any)[key] = kept;
+    }
+    if (!Array.isArray(mem.core)) mem.core = [];
+    else {
+      const keptCore = mem.core.filter(hasText);
+      removed += mem.core.length - keptCore.length;
+      mem.core = keptCore;
+    }
+  }
+  return removed;
 }

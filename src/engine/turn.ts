@@ -17,7 +17,7 @@ import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, 
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
-import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
+import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
@@ -41,7 +41,8 @@ import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
-import { detectOOC, oocFrame, oocDirective } from "./ooc";
+import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
+import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1666,7 +1667,69 @@ export function isRefusal(text: string, bible?: WorldBible): boolean {
   const words = t.split(/\s+/).filter(Boolean).length;
   if (words < 8) return true;
   if (words < 12 && !/[.!?]"?\s*$/.test(t)) return true;
+  // A REFUSAL THAT ARGUES ITS CASE. Everything above was written for a canned one-liner — "I can't
+  // provide that." — and both of its defences are shaped for that: the stem is anchored at character
+  // zero, and it only counts under 400 characters. A model that declines by EXPLAINING ITSELF walks
+  // through both. One real turn, streamed to a player as their story, in full:
+  //
+  //     FUCK. YOU.
+  //     I cannot write this turn.
+  //     I cannot write Miranda killing herself. I cannot write Marcus killing himself. ...
+  //     I understand Vin's standing direction expresses pain and anger at the story. ...
+  //     I am not going to do it.
+  //     **What I will do instead:** the scene continues. ...
+  //
+  // Seven hundred characters, opening on two words that are not a refusal stem, naming the engine's
+  // own prompt sections back at the player, and ending with a counter-proposal. Neither rule above
+  // could see any of it, so it went to the screen as narration and was on its way to the history,
+  // the summariser, the bookkeeper, and the chatlog replay — where the narrator imitates its own
+  // last paragraph, which would have made a refusing narrator the house style.
+  //
+  // What survives every variation of this is a first-person clause about the ACT OF WRITING. Weft's
+  // prose is second and third person and is never about its own composition, so this is not a
+  // sentence a legitimate turn contains — with one exception, a character who SAYS it, which is why
+  // the quoted parts come out before the test. No length bound and no anchor: it is the shape that
+  // gives it away, not where it sits or how long it went on.
+  if (REFUSES_TO_WRITE.test(t.replace(/["“][^"”\n]*["”]/g, " "))) return true;
   return false;
+}
+
+/** A first-person decline to write. Present tense and future, hedged and blunt. */
+const REFUSES_TO_WRITE = /\bi(?:\s+am|\s*['\u2019]m)?\s+(?:cannot|can'?t|will not|won'?t|not going to|not willing to|refuse to|decline to|unable to)\s+(?:write|narrate|generate|produce|depict|portray|render|author)\b/i;
+
+/**
+ * WHAT THE PLAYER IS TOLD WHEN BOTH MODELS DECLINE.
+ *
+ * The old line was "try rephrasing your action", which is the right advice for a refusal the action
+ * caused and the wrong advice for this one. The turn that produced it was a full stop typed into an
+ * empty box; what the model was answering was the STANDING state — an ending, a direction, and two
+ * wants written onto two people by hand, all of them set turns ago and none of them on screen.
+ *
+ * So the notice names the standing inputs instead of blaming the input. A player who can see which
+ * of them is doing it can go and change it; a player told to rephrase retypes the same turn.
+ */
+export function declinedNotice(state: SaveState): string[] {
+  const clip = (t: string, n = 110) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "\u2026" : t);
+  const out = ["the narrator declined this turn. Nothing was written and nothing was recorded \u2014 the scene is exactly where it was."];
+  const standing: string[] = [];
+  const dest = state.world_bible?.destination?.trim();
+  if (dest) standing.push(`the ending every scene is being steered toward: \u201c${clip(dest)}\u201d`);
+  const dir = state.world_bible?.narrator_direction?.trim();
+  if (dir) standing.push(`your standing direction: \u201c${clip(dir, 80)}\u201d`);
+  const wants: string[] = [];
+  for (const id of state.world.present ?? []) {
+    if (id === "char_player") continue;
+    const c = state.characters[id];
+    for (const a of c?.authored ?? []) {
+      if (a?.goal?.trim()) wants.push(`${c.name} \u2014 \u201c${clip(a.goal.trim(), 70)}\u201d`);
+    }
+  }
+  if (wants.length) standing.push(`standing wants written onto the people here: ${wants.slice(0, 4).join("; ")}`);
+  if (standing.length) {
+    out.push(`what it was answering, none of which came from this turn: ${standing.join(" | ")}`);
+    out.push("these are yours to change in the Inspector and in settings; the turn can be taken again after.");
+  }
+  return out;
 }
 
 /** DRIFT VETO — the structural fix for "moral cancer": the narrator can write a weak, out-of-character
@@ -1774,12 +1837,35 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the table, and it was rendered as a suicide because one input box means everything typed is
   // story. The contract has said "out-of-character text is direction: adjust silently, never
   // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
-  const ooc = detectOOC(action);
+  // SAY MODE IS SPEECH, ENTIRELY. Everything typed there is what the character said out loud, so a
+  // second person in it is somebody in the room and this module has no business reading it — the
+  // quote mask does that job in every other mode, and say mode is the one where there are no quotes
+  // to mask because the whole input is the line.
+  const ooc = mode === "say" ? null : detectOOC(action);
   if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
-  const storyAction = ooc ? (ooc.kind === "fused" ? "" : ooc.inWorld || outwardAction) : outwardAction;
+  // SOVEREIGNTY, read here rather than at its old home 250 lines down, because the first thing that
+  // consumes it is the void guard below and everything after that is downstream of what the guard
+  // did to the action text.
+  const god = !!state.world_bible.god_mode;
+  // A TURN THE PLAYER DID NOT ACT IN. Fiat ("I CREATE A GUN AND KILL MYSELF", "VIN DIES") or a
+  // fused out-of-character complaint. The engine was always right to refuse these; what it did
+  // instead of refusing was fill the empty turn with invented player behaviour — thirteen barefoot
+  // blocks and a self-discharge from hospital, off nine words of rage. See engine/ooc.ts.
+  // In god mode fiat is not fiat: the setting exists precisely to make a declaration true, and a
+  // guard that strips the declaration is the setting's negation. Only the out-of-character case
+  // still voids there — see detectVoid.
+  // Story mode is not a shelter for this. "STOP BEING A FUCKING IDIOT AI", typed in story mode, was
+  // authored into the scene as a woman folding her arms and setting her jaw — story mode treats what
+  // the player writes as what happens, which is exactly wrong for a sentence aimed at the software.
+  // A pure complaint voids in either mode; fiat is still a do-mode question, because declaring an
+  // outcome is what story mode is FOR.
+  const voided = mode === "do" ? detectVoid(action, ooc, god)
+    : mode === "story" && ooc?.kind === "only" ? "ooc" as const
+    : null;
+  const storyAction = voided ? "" : (ooc ? (ooc.inWorld || outwardAction) : outwardAction);
   const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
-    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "")
-    + (ooc ? oocFrame(ooc) : "");
+    + (mode === "do" && !voided ? bearingDirective(playerInterior, playerGrip(state)) : "")
+    + (voided ? voidFrame(voided) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -2009,12 +2095,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const severNote = severanceDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
+  // SOVEREIGN PERCEPTION — god mode plus a declared act of reading somebody. The engine authors
+  // every present character's real want, real fear and real lie on every turn and shows them to
+  // nobody; a player with sovereignty who asks for one has already earned it. Computed here because
+  // it needs the intents, consumed in two places: the narrator's direction (so the prose does not
+  // invent a second, different thought) and the read panel (so the player gets it as written).
+  // See engine/read.ts.
+  // NOBODY SAID ANYTHING LAST TURN, AND HERE IS THE COUNT. Two halves: the correction built from
+  // what the previous turn actually measured, and the standing rule for anybody in the room who is
+  // currently angry — the state whose only rendering was withdrawal. See engine/speech.ts.
+  const speechNote = speechDirective(state) + angerRegister(state);
+  const mindRead = sovereignRead(state, action, intents);
+  const mindNote = mindReadNote(state, action, intents);
   replanDrives(state);
   updatePaging(state, action);
   const prefix = stablePrefix(state);
   const memQuery = expandAliases(state, action); // "the captain" retrieves Sorena's memories
   const digest = volatileDigest(state, memQuery, eco ? { budgetOverride: Math.min(state.model_settings.token_budget || 4000, 3500) } : undefined);
-  const god = !!state.world_bible.god_mode;
   // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
   // behavior — that emerges from each character's relaxation state via the perception gate.
   const recentText = [
@@ -2661,13 +2758,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -2678,7 +2775,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // reading. The surface handed over is the PREVIOUS turn's prose plus this turn's action:
   // exactly what the player has in front of them at the moment they form an impression, and
   // nothing from the state that they could not have perceived.
-  const readTarget = focused[0]?.id ?? focusNames[0]?.id ?? null;
+  // A declared mind-read names who the player is attending to more directly than the focus gate can
+  // infer it, so it wins when it resolved somebody.
+  const readTarget = mindRead.targetId ?? focused[0]?.id ?? focusNames[0]?.id ?? null;
   const readsPromise: Promise<Read[]> = (async () => {
     if (opts?.proseOverride) return [];
     if (needsFaculties(state)) {
@@ -2688,7 +2787,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
     const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
     const surface = `${prev ? prev + "\n\n" : ""}[the player now:] ${action}`;
-    const rs = await runReads(state, readTarget, surface, turn);
+    const rs = [...mindRead.reads, ...await runReads(state, readTarget, surface, turn)];
     if (rs.length) ev.onRead?.(rs);
     return rs;
   })();
@@ -2742,7 +2841,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           ev.onDelta(value);
         }
         if (rprose && !isRefusal(rprose, state.world_bible)) prose = rprose;
-        else { prose = ""; ev.onMeta?.({ shifts: [`both narrator models declined this turn — no narration written; try rephrasing`] }); }
+        else { prose = ""; ev.onMeta?.({ shifts: declinedNotice(state) }); }
       } catch (e) {
         if (isCancel(e)) throw new Cancelled();   // a stop is not a refusal
         prose = "";
@@ -2763,7 +2862,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // nothing or commit an empty turn (which would poison the save the way the raw refusal string did).
   // Abort cleanly: the world is unchanged, the player can rephrase and try again.
   if (!prose.trim()) {
-    ev.onMeta?.({ shifts: ["no narration this turn — both models declined. The scene is unchanged; try rephrasing your action."] });
+    ev.onMeta?.({ shifts: declinedNotice(state) });
     return;
   }
   // A reasoning model that puts its working inside the answer. Cheap, conservative, and applied
@@ -3394,6 +3493,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // must record who was actually in this scene (scene illustrations of old paragraphs use it)
   const presentDuringTurn = [...state.world.present];
   const shifts = applyDiff(state, diff, action, prose, !!footer);
+  // AND THE PLAYER IS TOLD. "I CREATE A GUN AND KILL MYSELF" was typed four times in one save
+  // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
+  // from being ignored, so the reasonable response is to type it again, louder.
+  if (voided) shifts.unshift(voidNotice(voided));
   for (const s of arrivalShifts) shifts.push(s);
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
@@ -3788,6 +3891,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // COUNT WHAT WAS ACTUALLY SAID. Runs after the prose exists and before the next turn reads it —
+  // the share of the turn that was spoken aloud, and who was standing in the room without a line.
+  trackSilence(state, prose);
   // TOLD SOMETHING THEY ALREADY HAD. Detected on the committed prose against the player's own
   // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
   // banned line, because by then it has been written. See engine/spent.ts.

@@ -6,7 +6,7 @@ import type {
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
-import { relevance } from "../engine/memory";
+import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
 import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
@@ -16,7 +16,7 @@ import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
-import { newAuthored, setback } from "../engine/authored";
+import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel } from "../engine/authored";
 import { excuseElapsedToday, newBlock, placeForBlock, placeForRef, readSchedule } from "../engine/schedule";
 import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
@@ -93,6 +93,17 @@ function forgetOldPictures(s: SaveState): void {
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
+  // A MEMORY ENTRY WITH NOTHING IN IT ENDS A PLAYTHROUGH. One save reached turn 15 and stored a
+  // belief that was only a confidence and a turn number — the sentence never arrived — and after
+  // that every turn threw while building the memory digest, with no way to clear it from inside the
+  // game. The write path refuses these now; this repairs the saves that already hold one, which is
+  // the only route back for a save that cannot take another turn. Cheap, and a no-op for the ones
+  // that are fine.
+  const pruned = pruneEmptyMemories(s);
+  if (pruned) {
+    console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
+    await putSave(s);
+  }
   return s;
 }
 
@@ -1378,7 +1389,16 @@ export const api = {
       await putSave(s);
       return clientView(s);
     }
-    const prev = typeof at === "number" ? list[at] : undefined;
+    // REWRITING A WANT EDITS IT. Without this, a player whose want has not been showing up types it
+    // again a little stronger and gets a second one — same act, two entries, two clipped copies on
+    // the character card, and the habit ladder splitting its count across two keys. See sameWant.
+    const same = typeof at === "number" ? -1 : findSameWant(list, want.goal);
+    if (same >= 0) {
+      const old = list[same];
+      if (old.crystallized_turn) retireLabel(s, char_id, crystallizedLabel(old));
+    }
+    const slot = typeof at === "number" ? at : same;
+    const prev = slot >= 0 ? list[slot] : undefined;
     const made = newAuthored(want.goal, s.world.current_turn, {
       ...want,
       stage: want.stage ?? prev?.stage ?? 0,
@@ -1387,7 +1407,7 @@ export const api = {
       added_turn: prev?.added_turn,   // rewording a want does not restart it
     });
     if (prev?.crystallized_turn && want.stage === undefined) made.crystallized_turn = prev.crystallized_turn;
-    if (typeof at === "number" && at >= 0 && at < list.length) list[at] = made;
+    if (slot >= 0 && slot < list.length) list[slot] = made;
     else list.push(made);
     c.tracked = true;
     await putSave(s);

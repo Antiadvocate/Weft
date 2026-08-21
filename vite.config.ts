@@ -8,5 +8,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   base: "./",
   plugins: [react(), tailwindcss()],
-  build: { outDir: "dist", chunkSizeWarningLimit: 1200 },
+  // SOURCEMAPS ON. A production error arrives as `undefined is not an object (evaluating
+  // 'e.length')` without them, which names no file, no line and no variable — the maps cost nothing
+  // at runtime (browsers fetch them only when devtools is open) and turn the next one into a place.
+  build: { outDir: "dist", chunkSizeWarningLimit: 1200, sourcemap: true },
 });
