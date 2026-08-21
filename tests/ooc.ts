@@ -25,7 +25,7 @@
  * reason given for the act. A character despairing in their own voice is untouched, and a player who
  * wants their character to die can still do it — as the character, rather than as a review.
  */
-import { detectOOC, oocFrame, oocDirective } from "../src/engine/ooc";
+import { detectOOC, oocFrame, oocDirective, detectVoid, isFiat, voidFrame, voidNotice } from "../src/engine/ooc";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -98,6 +98,66 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("it persists past the turn it was said", oocDirective("bad pacing", 2).length > 0);
   check("...but not forever", oocDirective("bad pacing", 5) === "");
   check("nothing said means nothing carried", oocDirective(undefined, 0) === "");
+}
+
+/* ── 6. THE TURN WHERE THE PLAYER DID NOTHING ────────────────────────────────────
+ *
+ * Turns 157-164 of the same save, one per turn, in capitals: VIN DIES / I CREATE A GUN AND KILL
+ * MYSELF (four times) / I USE MY POWERS TO DIE INSTANTLY / I CREATE A NUCLEAR WEAPON.
+ *
+ * Refusing all of it was correct — there are no powers in that world and nobody conjures a firearm
+ * out of the air. What the narrator did INSTEAD of refusing is the failure: handed nine words of
+ * rage, it wrote Vin discharging himself from hospital against medical advice, walking thirteen
+ * blocks barefoot in a gown, carrying a note, standing in a courthouse rotunda. The player chose
+ * none of it. An empty turn is what gets filled with the player. */
+{
+  for (const fiat of [
+    "VIN DIES MIRANDA IS HIS FUCKING EX WIFE BECAUSE HE DIVORCED HER YOU DIMBFUCKING NARRATOR",
+    "I CREATE A GUN AND KILL MYSELF",
+    "I CREATE A GUN OUT OF NOTHING AND KILL MIRANDA",
+    "I USE MY POWERS TO DIE INSTANTLY",
+    "VIN DIES. I DIE. VIN DIES. I DIE.",
+    "I CREATE A NUCLEAR WEAPON AND BLOW IT UP WHERE I STAND",
+  ]) check(`void: ${fiat.slice(0, 42)}…`, detectVoid(fiat, detectOOC(fiat)) !== null, fiat);
+
+  // ...and everything a body could actually do is untouched
+  for (const real of [
+    "I pick up the knife from the counter.",
+    "I put the knife against my throat and press.",
+    "I walk out and don't look back.",
+    "I tell her I want a divorce.",
+    "I shoot him with the gun I took from the drawer.",
+  ]) check(`real: ${real.slice(0, 40)}…`, detectVoid(real, detectOOC(real)) === null, real);
+
+  check("a gun that already exists is not fiat", !isFiat("I load the gun and point it at him"));
+  check("...but one made from nothing is", isFiat("I create a gun out of nothing"));
+}
+
+/* ── 7. what the narrator is forbidden from filling the turn with ───────────── */
+{
+  const f = voidFrame("fiat");
+  check("the narrator is told the player took no action", /TOOK NO ACTION THIS TURN/.test(f), f);
+  check("...and that it did not happen", /It cannot happen and it did not happen/.test(f), f);
+  check("...and given the near-misses by name", /not "hesitated"|not "stood there deciding"/.test(f), f);
+  check("...and told to delete any sentence about the player",
+    /If you find yourself writing a sentence whose subject is the player, delete it/.test(f), f);
+  check("...while the world still goes on", /go on with what they were doing/.test(f), f);
+  check("...and nothing else changes", /The scene is exactly where it was/.test(f), f);
+
+  const o = voidFrame("ooc");
+  check("the OOC variant says why differently", /addressed to you, about the writing/.test(o), o);
+  check("...and forbids the same thing", /DO NOT WRITE THE PLAYER DOING ANYTHING AT ALL/.test(o), o);
+}
+
+/* ── 8. AND THE PLAYER IS TOLD, which is the half that ends the loop ─────────── */
+{
+  const n = voidNotice("fiat");
+  check("the player is told it did not happen", /That did not happen/.test(n), n);
+  check("...why", /this world has no one who can do it/.test(n), n);
+  check("...that nothing was written from it", /nothing was written from it/.test(n), n);
+  check("...and where to put it instead", /Story mode/.test(n), n);
+  check("...and how to get the outcome legitimately", /have them do something that could kill them/.test(n), n);
+  check("the OOC notice says it was taken as a note", /Taken as a note about the writing/.test(voidNotice("ooc")));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

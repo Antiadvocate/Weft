@@ -41,7 +41,7 @@ import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
-import { detectOOC, oocFrame, oocDirective } from "./ooc";
+import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1776,10 +1776,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
   const ooc = detectOOC(action);
   if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
-  const storyAction = ooc ? (ooc.kind === "fused" ? "" : ooc.inWorld || outwardAction) : outwardAction;
+  // A TURN THE PLAYER DID NOT ACT IN. Fiat ("I CREATE A GUN AND KILL MYSELF", "VIN DIES") or a
+  // fused out-of-character complaint. The engine was always right to refuse these; what it did
+  // instead of refusing was fill the empty turn with invented player behaviour — thirteen barefoot
+  // blocks and a self-discharge from hospital, off nine words of rage. See engine/ooc.ts.
+  const voided = mode === "do" ? detectVoid(action, ooc) : null;
+  const storyAction = voided ? "" : (ooc ? (ooc.inWorld || outwardAction) : outwardAction);
   const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
-    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "")
-    + (ooc ? oocFrame(ooc) : "");
+    + (mode === "do" && !voided ? bearingDirective(playerInterior, playerGrip(state)) : "")
+    + (voided ? voidFrame(voided) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -3394,6 +3399,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // must record who was actually in this scene (scene illustrations of old paragraphs use it)
   const presentDuringTurn = [...state.world.present];
   const shifts = applyDiff(state, diff, action, prose, !!footer);
+  // AND THE PLAYER IS TOLD. "I CREATE A GUN AND KILL MYSELF" was typed four times in one save
+  // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
+  // from being ignored, so the reasonable response is to type it again, louder.
+  if (voided) shifts.unshift(voidNotice(voided));
   for (const s of arrivalShifts) shifts.push(s);
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established

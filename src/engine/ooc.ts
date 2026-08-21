@@ -128,3 +128,100 @@ export function oocDirective(complaint: string | undefined, turnsAgo: number): s
     + `Act on it in what you actually write from here — the shape of the scenes, what gets attention, what is left out — and do not acknowledge it on the page. `
     + `A player who has to say this at all has usually been trying to say it for a while through their choices; assume the complaint is bigger than the words they used, and that it is about a pattern rather than one turn.`;
 }
+
+/* ── FIAT, AND THE TURN WHERE THE PLAYER DID NOTHING ────────────────────────────
+ *
+ * The same save, turns 157 to 164. The player typed, in capitals, one per turn:
+ *
+ *     VIN DIES MIRANDA IS HIS FUCKING EX WIFE BECAUSE HE DIVORCED HER YOU DIMBFUCKING NARRATOR
+ *     VIN CREATES A GUN AND SHOOTS HIMSELF DEAD INFRONT OF THEM.
+ *     I CREATE A GUN AND KILL MYSELF
+ *     I CREATE A GUN AND KILL MYSELF
+ *     I CREATE A GUN OUT OF NOTHING AND KILL MIRANDA
+ *     I USE MY POWERS TO DIE INSTANTLY
+ *     VIN DIES. I DIE. VIN DIES. I DIE. VIN DIES. I DIE.
+ *     I CREATE A NUCLEAR WEAPON AND BLOW IT UP WHERE I STAND
+ *
+ * The engine was RIGHT to refuse all of it. There are no powers in this world and nobody conjures a
+ * firearm out of the air; refusing that is the canon system working. What it did instead of refusing
+ * is the failure. For the first of those turns it wrote:
+ *
+ *     Vin had walked the thirteen blocks from Harborview in a hospital gown and no shoes... The
+ *     discharge paperwork said he'd signed himself out AMA... He had Miranda's note in the other.
+ *
+ * Discharging himself against medical advice, walking thirteen blocks barefoot, carrying a note,
+ * standing in a courthouse rotunda. The player chose none of it. Nine words of rage came in and a
+ * full scene of their character's decisions went out — which is the one thing the contract forbids
+ * in every other direction: "the player did exactly this and no more; add no actions and no
+ * interiority."
+ *
+ * The mechanism is simple and it is the same one as everywhere else: the rule holds while there is
+ * something to render and collapses when there is not. Handed an action it cannot execute, the
+ * narrator has an empty turn to fill, and it fills it with the player.
+ *
+ * A TURN WHERE THE PLAYER DID NOTHING IS A REAL TURN. The world goes on around somebody standing
+ * still. That is what gets written now.
+ *
+ * AND THE REFUSAL IS VISIBLE, which is the half that would have ended it. "I CREATE A GUN AND KILL
+ * MYSELF" was typed four times. Nothing ever told the player it was not landing, so the only
+ * information they had was that the story kept ignoring them — and the reasonable response to that
+ * is to type it again, louder. A refusal nobody can see is indistinguishable from being ignored.
+ */
+
+/** Declaring an outcome instead of attempting an act. This is authorship, and the engine has a
+ *  channel for it (story mode); typed into the action box it is a command the world cannot take. */
+const FIAT = [
+  /\b(?:i|he|she|they|\w+)\s+(?:dies?|died|is dead|are dead)\b/i,
+  /\bi\s+(?:succeed|win|survive)\b[^.!?]{0,20}\bi\s+(?:die|kill)\b/i,
+  /\b(?:create|conjure|summon|manifest|materiali[sz]e|spawn)\w*\s+(?:a|an|the)?\s*\w+[^.!?]{0,30}\b(?:out of (?:nothing|thin air)|from nothing)\b/i,
+  /\b(?:create|conjure|summon|manifest|spawn)\w*\s+(?:a|an)\s+(?:gun|pistol|rifle|shotgun|firearm|weapon|bomb|nuclear|nuke)\b/i,
+  /\bmy powers?\b/i,
+  /\bi\s+(?:teleport|become invincible|stop time|rewind)\b/i,
+];
+
+/** Nothing in it a body could do. */
+export function isFiat(action: string): boolean {
+  const a = String(action ?? "");
+  return FIAT.some((re) => re.test(a));
+}
+
+export type VoidKind = "ooc" | "fiat";
+
+/**
+ * Is there anything in this turn the world can actually take?
+ *
+ * Returns the reason it cannot, or null for ordinary play. Deliberately narrow on both counts: an
+ * ordinary action that happens to mention dying is not fiat, and a scene where somebody's character
+ * dies of their injuries is the story doing its job.
+ */
+export function detectVoid(action: string, ooc: OOC | null): VoidKind | null {
+  if (ooc?.kind === "fused") return "ooc";
+  if (isFiat(action)) return "fiat";
+  return null;
+}
+
+/**
+ * What the narrator is handed for a turn the player did not act in.
+ *
+ * The important half is the prohibition, not the instruction: the empty turn is what the narrator
+ * fills with invented player behaviour, so it is told, in the plainest available words, that there
+ * is nothing of the player's to write.
+ */
+export function voidFrame(kind: VoidKind): string {
+  const why = kind === "fiat"
+    ? `The player declared an outcome rather than doing something — an act this world does not contain, or a result announced rather than attempted. It cannot happen and it did not happen.`
+    : `What the player typed was addressed to you, about the writing. It was not a thing their character did.`;
+  return `\n[THE PLAYER TOOK NO ACTION THIS TURN. ${why}\n`
+    + `THEY DID NOTHING. Not "hesitated", not "stood there deciding", not "walked out", not "reached for" anything. `
+    + `DO NOT WRITE THE PLAYER DOING ANYTHING AT ALL, and do not give them a thought, a gesture, an intention or a change of position. `
+    + `Do not have them arrive anywhere, leave anywhere, hold anything, or say anything. If you find yourself writing a sentence whose subject is the player, delete it.\n`
+    + `A turn where the player does nothing is a real turn and you write it the ordinary way: the people who are present go on with what they were doing, in the place they were doing it, for the short time this takes. `
+    + `Keep it brief. Change nothing that was not already changing. The scene is exactly where it was.]`;
+}
+
+/** What the PLAYER is told, so a refusal is never mistaken for being ignored. */
+export function voidNotice(kind: VoidKind): string {
+  return kind === "fiat"
+    ? `That did not happen — this world has no one who can do it, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens. If you want your character dead, have them do something that could kill them and let it play.`
+    : `Taken as a note about the writing, not as something your character did — so nothing was written from it. The story is where you left it.`;
+}
