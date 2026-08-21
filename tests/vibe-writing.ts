@@ -34,7 +34,8 @@
  * two clipped copies and the habit ladder counted expressions under two keys and found none.
  */
 import { detectOOC, detectVoid } from "../src/engine/ooc";
-import { clipWords, labelFor, sameWant, findSameWant, newAuthored, crystallizedLabel } from "../src/engine/authored";
+import { labelFor, sameWant, findSameWant, newAuthored, crystallizedLabel } from "../src/engine/authored";
+import { clipWords } from "../src/engine/coerce";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {

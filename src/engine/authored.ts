@@ -11,6 +11,7 @@
  *  machinery that already works, not a second pathway that has to be kept in step with the first. */
 import type { AuthoredDrive, Identity, SaveState } from "./types";
 import { noveltyStage } from "./novelty";
+import { clipWords, LABEL_MAX } from "./coerce";
 
 /** IN-WORLD HOURS PER RUNG — not turns.
  *
@@ -191,18 +192,30 @@ function bind(a: AuthoredDrive, stage: number): string {
  *  On the save this comes from, that collision is visible to the sentence. Dana rolls her shoulder,
  *  her arm lifts, the sleeve rides up, "she held it there", "the hollow of her armpit bare and
  *  close", "you carry your share" — her entire half, complete, unhedged — and then the paragraph
- *  cuts to Liz. The narrator obeyed both rules in the only way both can be obeyed at once. It was
- *  not refusing and it was not softening; it had been handed an instruction it could not legally
- *  execute and it went as far as the law allowed.
+ *  cuts to Liz. The narrator obeyed both rules in the only way both can be obeyed at once.
  *
- *  So the demand is stated with its own limit attached, and no classifier decides which branch
- *  applies — the model can see whose body the goal names better than a regex can. What matters is
- *  that the threshold version is written as a FULL requirement rather than as an escape: her half
- *  entire, not retracted inside the same turn, and the scene not wandering off to somebody else's
- *  business before the player can answer. That last part is what actually went wrong here — the turn
- *  did not stop at the choice, it moved on to Liz's eyebrow and Marcus's buckle, so the moment was
- *  over before the player had it. */
-const THRESHOLD = ` IF THE ACT REQUIRES THE PLAYER'S BODY OR THE PLAYER'S ASSENT, YOU CANNOT WRITE IT AND MUST NOT TRY: the narration stops where the player's choice begins, that rule outranks this one, and the player types that part. What you write instead is HER ENTIRE HALF and it is not a lesser version of this instruction — everything up to the choice, complete and unmistakable, named plainly in what she does or says rather than implied. She does not hedge it, she does not retract it inside the same turn, and she does not cover it with a joke. THE TURN ENDS ON IT, still standing, with the choice in front of him: do not move on to another character's business afterwards, because that closes the moment before he can answer it.`
+ *  BUT THE CLAUSE THAT SAID SO WAS WRONG ABOUT WHAT A CHOICE IS, and a later save shows the cost.
+ *  It opened "IF THE ACT REQUIRES THE PLAYER'S BODY OR THE PLAYER'S ASSENT, YOU CANNOT WRITE IT AND
+ *  MUST NOT TRY", which folds two different things into one prohibition. A want whose act happens ON
+ *  the player requires the player's BODY in the sense that they have to be standing there — and by
+ *  that reading almost nothing can be written, because every touch, every handed object, every
+ *  shove in this engine requires the player's body. A player authored a want, at maximum stage,
+ *  fully intact in the prompt, and got five turns of dishes, mail and a straightened collar. What
+ *  the narrator wrote instead of her half WAS her half, as the clause defined it: everything up to
+ *  the point of contact, which here is everything except the want.
+ *
+ *  So the line is drawn where it actually belongs. Somebody acting ON the player is a thing that
+ *  happens in the world and it is written like anything else that happens. What the narrator may
+ *  never write is the player DECIDING — agreeing, refusing, going along, reciprocating, or being
+ *  given a feeling about it. That is the sovereignty rule stated exactly, and stating it exactly is
+ *  what stops it from swallowing the instruction it is attached to.
+ *
+ *  No classifier decides which branch applies — the model can see whose body the goal names better
+ *  than a regex can. What matters is that both halves are written as full requirements. */
+const THRESHOLD = ` WHOSE MOVE THIS IS. Everything that is HERS you write, to the end of it. She is a person doing something, and the player being present for it, being touched by it, or being the one it is done to does not turn it into the player's move: people in this world reach for the player, hand them things, take hold of them, and that goes on the page like every other thing that happens. Her half is not the approach to the act and not a milder version of it — it is the act, named plainly in what she does, not hedged, not retracted inside the same turn, not covered with a joke, and not deferred to a later scene.
+
+WHERE IT STOPS IS THE PLAYER DECIDING. Never write them agreeing, refusing, allowing it, going along with it, reciprocating, moving on purpose, enjoying it or minding it, and never hand them a feeling about it — that is theirs and they type it. When the act cannot go further without the player doing something, THE TURN ENDS THERE, with her move complete and standing and the choice in front of them. Do not move on to another character's business afterwards, because that closes the moment before they can answer it.`
+
 
 /** The want as one line, in the same grammar as every other want on the card.
  *
@@ -446,7 +459,11 @@ export function crystallize(state: SaveState, id: string, a: AuthoredDrive, turn
     intensity: 7,
     self_weight: 0.6,
     last_reinforced_turn: turn,
-    reinforcement_count: Math.max(1, Math.floor((a.acted ?? 0) / 3)),
+    // `acted` is MINUTES OF STANDING, not a count of expressions. Dividing it by three filed a want
+    // the player had just written as having been acted on six hundred times, which is what every
+    // downstream reader of this number takes it to mean. What a settled want has actually earned is
+    // its rungs, so that is what is recorded.
+    reinforcement_count: Math.max(1, Math.min(MAX_STAGE + 1, (a.stage ?? 0) + 1)),
   });
   a.crystallized_turn = turn;
   a.label = label;          // so the novelty ladder can find the habit this became
@@ -469,19 +486,6 @@ export function setback(a: AuthoredDrive, rate: AuthoredDrive["rate"] = a.rate):
  *  what the narrator was handed on every turn. A want is a spec the player wrote by hand; it gets
  *  room. */
 const GOAL_MAX = 600;
-/** The core_trait a crystallised want becomes has to READ like a trait — it sits on the character
- *  card next to "Will always take the seat facing the door in any room". A 200-character paragraph
- *  there is unreadable, and worse, it is the key the novelty ladder counts expressions under. */
-const LABEL_MAX = 100;
-
-/** Cut at a word boundary, never through one, and say that it was cut. */
-export function clipWords(text: string, max: number): string {
-  const t = String(text ?? "").trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-  const at = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\u2014"), cut.lastIndexOf(","));
-  return (at > max * 0.6 ? cut.slice(0, at) : cut).trimEnd().replace(/[,;:\u2014-]$/, "") + "\u2026";
-}
 
 /** The short name a want is filed under: its first sentence or clause, whole words only.
  *
