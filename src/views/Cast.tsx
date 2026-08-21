@@ -186,7 +186,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--accent)" }}>
         In the scene
       </div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5" data-tour="cast-list">
         {sceneIds.map((id, i) => {
           const ch = save.characters[id];
           const p = save.condition[id]?.psyche;
@@ -224,7 +224,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       <div className="mt-5">
         {!adding ? (
           <button className="w-full font-mono text-[10px] uppercase tracking-widest py-2 rounded border"
-            style={{ borderColor: "var(--ink-3)", color: "var(--text-lo)" }}
+            style={{ borderColor: "var(--ink-3)", color: "var(--text-lo)" }} data-tour="cast-add"
             onClick={() => { setAdding(true); setBrief(""); setAddErr(""); setAdded(null); }}>
             + add someone
           </button>
@@ -300,7 +300,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       {goneIds.length > 0 && (
         <>
           <button className="font-mono text-[10px] uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5"
-            style={{ color: "var(--text-lo)" }} onClick={() => setShowGone((v) => !v)}>
+            style={{ color: "var(--text-lo)" }} data-tour="cast-gone" onClick={() => setShowGone((v) => !v)}>
             <span style={{ display: "inline-block", transition: "transform .2s", transform: showGone ? "rotate(90deg)" : "none" }}>▸</span>
             Gone ({goneIds.length})
           </button>

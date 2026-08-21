@@ -295,7 +295,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         </Fade>
       )}
       <Fade delay={0}>
-        <div className="card p-4">
+        <div className="card p-4" data-tour="chron-spend">
           {(() => {
             // TELEMETRY IS A WINDOW, NOT A LEDGER. It keeps the last 300 turns and a new chapter
             // starts it over, so a 264-turn run showed 60 rows — and this card, labelled "this

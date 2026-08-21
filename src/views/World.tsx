@@ -58,7 +58,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
           </div>
         </Block>
       )}
-      <Block title="The web" delay={0.03}>
+      <Block title="The web" delay={0.03} tour="world-web">
         <RelationshipWeb save={save} />
       </Block>
 
@@ -140,7 +140,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
         ))}
       </Block>
 
-      <Block title="Clocks" delay={0.05}>
+      <Block title="Clocks" delay={0.05} tour="world-clocks">
         {w.clocks.length === 0 && <Empty>No factions on the move.</Empty>}
         {w.clocks.map((c) => (
           <div key={c.id} className="py-2">
@@ -222,16 +222,16 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
         ))}
       </Block>
 
-      <Block title="Places" delay={0.2}>
+      <Block title="Places" delay={0.2} tour="world-places">
         <Places save={save} onSave={onSave} />
       </Block>
     </div>
   );
 }
 
-function Block({ title, delay, children }: { title: string; delay: number; children: React.ReactNode }) {
+function Block({ title, delay, children, tour }: { title: string; delay: number; children: React.ReactNode; tour?: string }) {
   return (
-    <motion.div className="card p-4"
+    <motion.div className="card p-4" data-tour={tour}
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}>
       <div className="font-mono text-[10px] uppercase tracking-widest mb-1.5" style={{ color: "var(--text-lo)" }}>{title}</div>

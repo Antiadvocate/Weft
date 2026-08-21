@@ -20,6 +20,16 @@ npm run build    # produces dist/ — the exact static bundle Pages serves
 npm run preview  # serve the built dist/ locally
 ```
 
+## Handing it to someone who has never played
+
+The app teaches itself, so there is nothing to send along with the link.
+
+A first-time player gets a welcome card — three sentences on what this is, plus the one piece of syntax that is not guessable — and then lands **in the Forge**, not in a list of somebody else's worlds. From there every screen explains itself the first time it is opened: a spotlight over one control at a time, with a card saying what it does. That runs once per screen, ever. The **?** in the title bar re-opens the current screen's guide at any point afterwards.
+
+The long version — the four input channels with worked examples, what the world will and will not take from you, the four different repairs for a turn that went wrong, and what a turn costs — is one scroll behind **Tuning → Learning Weft → The full guide**, and behind *Read the full guide* on the welcome card.
+
+Anyone who already knows the game ticks **"I'm used to this — skip the guides"** at the bottom of the Forge (or the equivalent line on the welcome card) and no walkthrough ever opens on its own again; the **?** still works. The same switch, and a **Replay guides** button that forgets every screen, live at the top of **Tuning**.
+
 ## The OpenRouter key
 
 Weft has no server to hold a secret, so it uses **your** key, entered once and stored in your browser's `localStorage` on that device only. It is sent directly to OpenRouter and to nowhere else. Get one (free and paid models available) at <https://openrouter.ai/keys>. You can change it anytime in **Tuning**.
@@ -82,6 +92,7 @@ Saves (including any AI-generated portraits and scene art) are stored in your br
 
 The full engine ported to the browser:
 
+- **It explains itself** — a welcome card on first run, a one-control-at-a-time spotlight guide on every screen the first time you open it (the **?** in the title bar brings it back), and a full in-app primer covering the four input channels, what is and isn't binding on the world, and the four repairs for a turn that went wrong. One checkbox at the Forge turns the automatic guides off for good.
 - **Two-call turn loop** — a streamed narrator and a single strict-JSON simulator; everything else is deterministic and free.
 - **The Undertow** — the continuous substrate: logit Quantal Response Equilibrium stances, a frustrated Kuramoto network with a Benettin Lyapunov estimate of the world's regime, cusp-catastrophe psyches that home to each person's set point, and Scheffer early-warning signals.
 - **Time-and-place-stamped memory** — every memory records *when* (in-world time) and *where* it happened, and the narrator sees lived distance ("Day 5, ≈3 weeks ago, at the Loom") so old events read as old, not as fresh shocks. Moving somewhere auto-writes a "left X for Y" memory, so a companion of a thousand turns actually remembers where she's been.

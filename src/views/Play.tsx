@@ -707,7 +707,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           const color = r <= -7 ? "var(--danger)" : r <= -3 ? "var(--accent)" : r >= 4 ? "var(--calm)" : "var(--text-lo)";
           const amp = 1.04 + ((r + 10) / 20) * 0.14; // clenched breathes shallow, open breathes deep
           return (
-            <div className="breath-orb" title={`openness: ${r >= 4 ? "open" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : "level"}`}
+            <div className="breath-orb" data-tour="play-orb" title={`openness: ${r >= 4 ? "open" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : "level"}`}
               style={{ background: color, boxShadow: `0 0 10px ${color}`, opacity: 0.85,
                 ["--breath-s" as any]: `${tone.breathS}s`, ["--breath-amp" as any]: amp }} />
           );
@@ -716,7 +716,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             thing in words and cost a row of the page; a face with a warmth-coloured ring and an arc
             for how open they are says more of it than the name did. Tap one to open them. */}
         {save.world.present.length > 0 && (
-          <div className="flex items-center shrink-0" style={{ paddingLeft: 2 }}>
+          <div className="flex items-center shrink-0" data-tour="play-present" style={{ paddingLeft: 2 }}>
             <AnimatePresence initial={false}>
               {save.world.present.slice(0, 4).map((pid, i) => {
                 const ch = save.characters[pid];
@@ -781,20 +781,20 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             <Crosshair size={13} style={{ color: "var(--accent)" }} />
           </button>
         )}
-        <button className="icon-btn" style={{ maxWidth: 128 }} onClick={correctClock}
+        <button className="icon-btn" style={{ maxWidth: 128 }} onClick={correctClock} data-tour="play-clock"
           title="in-world time — tap to correct it when the bookkeeper drifts from the prose">
           <span className="truncate" style={{ fontSize: 10 }}>
             <Odometer text={shortTime} />
           </span>
         </button>
-        <button className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="more actions" title="more actions"
+        <button className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="more actions" title="more actions" data-tour="play-more"
           style={{ border: "1px solid var(--line)" }}>
           <MoreHorizontal size={16} />
         </button>
       </div>
 
       {/* prose scroll — ambient layers (seeded backdrop + tone-driven particles) sit beneath it */}
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0" data-tour="play-prose">
         {ambience !== "off" && <Backdrop tone={tone} locale={locale} level={ambience} />}
         {ambience !== "off" && <Atmosphere tone={tone} level={ambience} />}
         {ambience !== "off" && <div className="prose-scrim" aria-hidden />}
@@ -1180,13 +1180,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
             )}
             <motion.button className="icon-btn" style={{ height: 44, width: 40, padding: 0, border: "1px solid var(--line)" }}
               animate={{ rotate: extrasOpen ? 45 : 0 }} transition={{ duration: 0.18 }}
-              onClick={() => setExtrasOpen((v) => !v)}
+              onClick={() => setExtrasOpen((v) => !v)} data-tour="play-extras"
               aria-label="compose options — mode, web grounding, body tightness" title="compose options — mode, web grounding, body tightness">
               <Plus size={16} />
             </motion.button>
           </div>
           <textarea
             className="field flex-1"
+            data-tour="play-composer"
             rows={focused || action.includes("\n") || action.length > 60 ? 3 : 1}
             style={{ transition: "height .18s ease", padding: focused ? undefined : "11px 14px" }}
             placeholder=""
@@ -1199,7 +1200,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
             }}
           />
-          <motion.button className="btn btn-accent" style={{ height: 44, width: 46, padding: 0 }}
+          <motion.button className="btn btn-accent" style={{ height: 44, width: 46, padding: 0 }} data-tour="play-send"
             whileTap={{ scale: 0.92 }} onClick={submit} disabled={(running && !proseDone) || !action.trim() || hasPending}
             aria-label="send">
             <CornerDownLeft size={16} />
