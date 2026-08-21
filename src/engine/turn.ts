@@ -38,6 +38,7 @@ import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emot
 import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
+import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -2441,7 +2442,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo);
+  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + (() => {
+    // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
+    // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
+    // quoting what was actually written, never pasted in advance.
+    const recent = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "");
+    if (recent.length < 3) return "";
+    const names = Object.values(state.characters).map((c) => c?.name ?? "").filter(Boolean);
+    const over = overusedAmbient(recent, names);
+    return over.length ? ambientFix(over, ambientExample(recent[recent.length - 1] ?? "", over[0])) : "";
+  })();
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2732,6 +2742,19 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // the machinery naming itself on the page — see stripMetaPlayer
     const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
     if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
+  }
+  {
+    // THE WIND, EVERY TURN. A free-standing sentence with nobody in it, about the weather or the
+    // building, past the one-per-turn allowance — or repeating what last turn already used. Clauses
+    // hung off a person's sentence are NOT cut (that is how the tic guard once stranded a quotation
+    // mark); those are reported to the next turn instead. See engine/ambient.ts.
+    const castNames = Object.values(state.characters).map((c) => c?.name ?? "").filter(Boolean);
+    const prevProse = contextHistory(state).slice(-1)[0]?.narrator_prose ?? "";
+    const trimmed = trimAmbient(prose, castNames, prevProse);
+    if (trimmed.cuts) {
+      prose = trimmed.prose;
+      console.warn(`[turn] ambient guard: cut ${trimmed.cuts} setting sentence(s) — ${trimmed.motifs.join(", ")}`);
+    }
   }
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
