@@ -6,7 +6,7 @@ import type {
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
-import { relevance } from "../engine/memory";
+import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
 import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
@@ -93,6 +93,17 @@ function forgetOldPictures(s: SaveState): void {
 async function need(id: string): Promise<SaveState> {
   const s = await getSave(id);
   if (!s) throw new Error("save not found");
+  // A MEMORY ENTRY WITH NOTHING IN IT ENDS A PLAYTHROUGH. One save reached turn 15 and stored a
+  // belief that was only a confidence and a turn number — the sentence never arrived — and after
+  // that every turn threw while building the memory digest, with no way to clear it from inside the
+  // game. The write path refuses these now; this repairs the saves that already hold one, which is
+  // the only route back for a save that cannot take another turn. Cheap, and a no-op for the ones
+  // that are fine.
+  const pruned = pruneEmptyMemories(s);
+  if (pruned) {
+    console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
+    await putSave(s);
+  }
   return s;
 }
 
