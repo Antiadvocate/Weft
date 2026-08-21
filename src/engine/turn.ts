@@ -44,7 +44,7 @@ import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { regenerateDrives, magnetPull } from "./drives";
-import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
+import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
@@ -2708,7 +2708,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const consultNote = consultDirective(state, action);
   // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
   const cameNote = arrivalOrder(state);
-  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3885,6 +3885,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
     for (const pid of state.world.present)
       recordExpressions(state, pid, prose, turn, reportedBy.get(pid));
+    // AND WAS THE ORDERED ACT AMONG THEM? Read straight off what recordExpressions just filed —
+    // the simulator judges expression by meaning, which is the only instrument that can answer this
+    // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
+    // here because it needs the habit rows this loop has just written. See engine/authored.ts.
+    for (const line of noteWantMisses(state, turn, state.world.present)) shifts.push(line);
   }
 
   // ALREADY SPENT — the distinctive props this turn's DIALOGUE put on the page. Deliberately not

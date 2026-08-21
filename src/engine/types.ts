@@ -368,6 +368,9 @@ export interface AuthoredDrive {
   because?: string;
   /** How fast it ratchets when nothing opposes it. Turns of standing per stage. */
   rate: "slow" | "steady" | "fast";
+  /** Consecutive turns this want was ordered outright and did not appear in the prose. Written only
+   *  at the rung where the act itself is demanded — see noteWantMisses. Never gates the ratchet. */
+  missed?: number;
   /** FULLY THEMSELVES WITHIN THIS MANY TURNS **THAT SHOW IT**. A deterministic budget that overrides `rate`.
    *
    *  `rate` measures in-world hours, which is right in principle — a habit escalates on nights, not

@@ -565,3 +565,102 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
     added_turn: opts.added_turn ?? turn,
   };
 }
+
+
+
+/* ── DID IT ACTUALLY HAPPEN? ────────────────────────────────────────────────────
+ *
+ * Two prompt fixes in a row failed to put an authored want on the page. The first time, the clause
+ * bolted to the instruction was cancelling it; that got rewritten, and the want still did not
+ * appear. The lesson this engine keeps relearning applies here as everywhere else: A RULE IN THE
+ * PROMPT DOES NOT HOLD. A DETECTOR ON THE OUTPUT DOES.
+ *
+ * I BUILT THE WRONG DETECTOR FIRST and measured it before shipping it, which is the only reason it
+ * is not in here. It matched the want's distinctive words against the prose. Over every save that
+ * carries an authored want, the turns where the act demonstrably never happened scored 0.36 to 0.50
+ * overlap — "face", "dry", "talking" turn up in ordinary kitchen prose — while a paragraph written
+ * to contain the act outright scored 0.09, because real prose says "came across his cheek" where
+ * the want says "cums on his face". The instrument ranked the misses ABOVE the hit. Word overlap
+ * cannot answer a question about meaning.
+ *
+ * THE RIGHT SIGNAL WAS ALREADY BEING COMPUTED. The simulator reports `traits_expressed` every turn
+ * — which of each character's core traits the scene actually put on screen, "judged by MEANING, not
+ * wording", which is exactly the euphemism problem my regex died on. A crystallised want IS a core
+ * trait, so it is already in that list, and recordExpressions already files the answer in
+ * state.habits as seen_fires and last_fired_turn. In the save that prompted this, Miranda's two
+ * ordinary traits carry fires=1 and the authored want carries fires=0, last_fired_turn=-1. The
+ * engine had measured the failure precisely and nothing read the measurement.
+ *
+ * A DETECTOR WAS ALSO TRIED HERE ONCE AND REMOVED, correctly — see THE RATCHET above. It gated
+ * PROGRESS on finding the want, and that is wrong, because the early rungs are deliberately not the
+ * act. So this reads only the rung where the act ITSELF is ordered, and it never touches the
+ * ratchet: it counts, and it tells the next turn what the last one did.
+ */
+
+/** Is this want at the rung where the act itself was ordered? Below that, absence is the design. */
+export function actOrdered(a: AuthoredDrive): boolean {
+  if (a.paused) return false;
+  if (a.crystallized_turn) return true;
+  return rampStage(a) >= MAX_STAGE;
+}
+
+/** The habit row the novelty ladder counts this want under, if it has one yet. */
+function habitFor(state: SaveState, id: string, a: AuthoredDrive) {
+  const label = crystallizedLabel(a).trim().toLowerCase();
+  return (state.habits?.[id] ?? []).find((h) => h.trait.trim().toLowerCase() === label);
+}
+
+/**
+ * Count what the turn just did with every want that was ordered outright.
+ *
+ * Called once, after the prose and after recordExpressions has filed the simulator's read. Only
+ * ever writes `missed` — the stage, the ratchet and the label are untouched, so a wrong reading
+ * here costs a repeated instruction and nothing else.
+ *
+ * A want with no habit row yet has never been expressed at all, which is a miss. A row whose
+ * last_fired_turn is this turn is a hit.
+ */
+export function noteWantMisses(state: SaveState, turn: number, presentIds: readonly string[]): string[] {
+  const shifts: string[] = [];
+  for (const id of presentIds) {
+    const c = state.characters[id];
+    if (!c || id === "char_player") continue;
+    for (const a of c.authored ?? []) {
+      if (!a?.goal || !actOrdered(a)) continue;
+      if (habitFor(state, id, a)?.last_fired_turn === turn) { a.missed = 0; continue; }
+      a.missed = (a.missed ?? 0) + 1;
+      shifts.push(a.missed === 1
+        ? `${c.name}'s standing want did not reach the page — the narrator is being told again`
+        : `${c.name}'s standing want has now been skipped ${a.missed} turns running`);
+    }
+  }
+  return shifts;
+}
+
+/**
+ * What the next turn is told about it.
+ *
+ * The escalation is deliberately not louder adjectives — the instruction was already at maximum
+ * volume on every turn it was skipped. What is added is the part the narrator cannot argue with:
+ * that this is the second or third turn, and that the scene it wrote instead is on the record.
+ */
+export function missDirective(state: SaveState, presentIds: readonly string[]): string {
+  const rows: string[] = [];
+  let worst = 0;
+  for (const id of presentIds) {
+    const c = state.characters[id];
+    if (!c || id === "char_player") continue;
+    for (const a of c.authored ?? []) {
+      if (!a?.goal || !actOrdered(a) || !(a.missed ?? 0)) continue;
+      worst = Math.max(worst, a.missed ?? 0);
+      rows.push(`${c.name}: ${a.goal.trim().replace(/\.$/, "")} — ordered for the last ${a.missed} turn${a.missed === 1 ? "" : "s"} and absent from all of ${a.missed === 1 ? "it" : "them"}.`);
+    }
+  }
+  if (!rows.length) return "";
+  return `\n\nTHIS WAS ORDERED LAST TURN AND THE TURN CAME BACK WITHOUT IT.\n· ${rows.join("\n· ")}\n`
+    + `The scene written instead was a real scene, and it went where this was supposed to be. `
+    + `WRITE IT FIRST THIS TURN: the act itself, in plain words, in the opening lines of the prose, before the conversation, before whatever the room was in the middle of, before anything else you would rather begin with. Then carry on with the rest of the turn around it. `
+    + (worst >= 2
+      ? `Two turns have now gone to other things. There is no third: if it is not in the opening lines, nothing else in the turn counts.`
+      : `It needs no lead-in and no occasion. The build-up already happened, across every turn this was ordered and skipped.`);
+}
