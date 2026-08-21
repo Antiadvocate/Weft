@@ -516,6 +516,23 @@ export interface Psyche {
    *  temporary lift for good news and nothing at all for bad. Subtracted from capacity; decays. */
   grief_drag?: number;
                                // per turn in tickPsyche — an opening, not a personality change
+  /** FAULT — what this person DID, which nothing in the engine used to read. Every other mechanic
+   *  here measures what was done TO somebody; there was no cost to being the one who caused it, so
+   *  cruelty was free and nobody in this world had ever been in the wrong and known it. Gated by
+   *  conscience: at ≤0.35 it registers as information and carries no weight, which is the Rudra
+   *  branch and stays law. Never set on the player — telling somebody they feel guilty is the
+   *  authorship the tightness anchor exists to prevent. See engine/fault.ts. */
+  fault?: { toward: string; about: string; turn: number };
+  /** Turns spent trying to fix it — the appeasement road, the counterpart to rumination. A body that
+   *  runs its pain outward into activity never sits still long enough to feel it, so while this is
+   *  running the lifecycle does NOT self-liberate their states however settled they look. */
+  repairing?: number;
+  repair_toward?: string;
+  /** The other person's warmth toward them when the loop began. Landing is a MOVEMENT from here,
+   *  never an absolute level — in a close bond the level is already high and nothing would be waited for. */
+  repair_baseline?: number;
+  /** What the running is costing them, stored up. When the repairing stops, this arrives. */
+  unfelt?: number;
   betrayals?: number;          // recent self-betrayals: times this character gave in under pressure AGAINST an
                                // active want of their own. Each one dips relaxation (agreeing while holding a want
                                // is a clench, whatever its social shape); 3+ shows as a "swallowing resentment"
@@ -958,7 +975,11 @@ export interface SimulatorDiff {
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string; permanent?: boolean }[]; // default: replaces appearance_now (presentation). permanent:true = ONE sentence APPENDED to the bedrock appearance_facts; bedrock is never replaced by the engine
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want
-  stances?: { character: string; stance: "yielded" | "refused" | "countered"; about: string; toward?: string }[]; // how a character answered real pressure (a request, demand, proposal) — yielded against their will, refused, or negotiated. Willing agreement is not recorded
+  stances?: { character: string; stance: "yielded" | "refused" | "countered"; about: string; toward?: string }[];
+  /** Who was in the WRONG this turn, and toward whom. The counterpart to stances: stances record how
+   *  somebody answered pressure, this records somebody having caused harm. Deliberately narrow — a
+   *  disagreement is not a fault, and being disliked is not a fault. See engine/fault.ts. */
+  faults?: { character: string; toward: string; about: string }[]; // how a character answered real pressure (a request, demand, proposal) — yielded against their will, refused, or negotiated. Willing agreement is not recorded
   promises_new?: { from: string; to: string; text: string; weight?: 1 | 2 | 3; due_time?: string }[];
   promises_resolved?: { id?: string; from?: string; to?: string; text?: string; outcome: "kept" | "broken" }[];
   threads_update: { id?: string; title: string; status: "active" | "resolved"; description?: string; tension?: number }[];

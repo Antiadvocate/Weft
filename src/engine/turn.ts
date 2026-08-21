@@ -37,6 +37,7 @@ import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from ".
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
+import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1974,6 +1975,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // question one level down: novelty asks how much airtime a TRAIT still deserves, this asks whether
   // the specific thing a character reached for last turn is still worth reaching for.
   const spentNote = spentSubjectsNote(state);
+  // WHAT THEY KNOW THEY DID — behavioral direction for anybody carrying a fault or running a repair
+  // loop. Never "X feels guilty": the interior stays off the page here as everywhere else, and what
+  // goes over is what the room would see them DO about it.
+  const faultNote = faultDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
@@ -2614,13 +2619,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -3461,6 +3466,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // (what the body does with what it is carrying) reads the post-company relaxation.
   safeTick("co-regulation", () => tickCoRegulation(state));
   safeTick("emotions", () => tickEmotions(state));
+  // repair AFTER the lifecycle, because it is the thing the lifecycle could not account for: a body
+  // that looks settled and is holding on anyway, by moving. It reads the post-company relaxation and
+  // decides whether somebody has started running, is still running, or has finally stopped.
+  safeTick("repair", () => tickRepair(state));
   // discharge LAST of the psyche ticks: it reads the fully settled relaxation after company and
   // the lifecycle have had their say, against the start-of-turn baseline captured above.
   safeTick("discharge", () => tickDischarge(state));
@@ -5526,6 +5535,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     return charId ? { charId, towardId, stance: st.stance, about: st.about ?? "" } : null;
   }).filter((x): x is NonNullable<typeof x> => !!x && !!x.about);
   for (const line of applyStances(state, resolvedStances, turn)) shifts.push(line);
+  // ── FAULT ── the other half of stances, and the half that never existed. Stances record how a
+  // person answered pressure; this records a person having CAUSED something. Applied after the edges
+  // so the bond weight reads the relationship as it now stands, and gated by conscience inside — a
+  // cold character does the same harm and carries none of it.
+  {
+    const reported = (diff.faults ?? []).map((f) => {
+      const charId = resolveId(state, f.character);
+      const towardId = (f.toward ? resolveId(state, f.toward) : null) ?? "char_player";
+      return charId && towardId ? { character: charId, toward: towardId, about: f.about ?? "" } : null;
+    }).filter((x): x is NonNullable<typeof x> => !!x);
+    for (const line of applyFaults(state, faultsThisTurn(state, diff, reported), turn)) shifts.push(line);
+  }
   for (const pr of diff.promises_resolved ?? []) {
     let target = pr.id ? (state.world.promises ?? []).find((p) => p.id === pr.id && p.status === "open") : undefined;
     if (!target) {
