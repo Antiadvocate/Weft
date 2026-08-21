@@ -303,3 +303,40 @@ export function doorFromVoice(c: { voice?: { agenda?: string; tics?: string[] } 
   const parts = [agenda, tics.join("; ")].filter(Boolean);
   return `their usual way of getting at anything — ${parts.join(", by ")}`;
 }
+
+/**
+ * THE ROLES NOBODY EVER SET.
+ *
+ * A role is a standing fact about a relationship — husband, sister, employer, neighbour — and the
+ * engine reads them for a dozen things: how a scene addresses somebody, what a severance costs, what
+ * the narrator may assume. Nothing ever created one. The forge writes `relation_to_player` as a
+ * sentence and drops it into the edge's NOTES, which is prose nobody parses, and the only other
+ * writer is the bookkeeper's `roles_set` — which was erasing them (see social.ts).
+ *
+ * So a world whose canon reads "Vin and Miranda have a strong, loving, and stable marriage that is
+ * the bedrock" reached turn 114 with not one role on any edge anywhere in it.
+ *
+ * The sentence is right there and it says the thing. "His wife of six years" contains "wife".
+ */
+const RELATION_WORDS = [
+  "wife", "husband", "spouse", "partner", "fiancé", "fiancée", "fiancee", "girlfriend", "boyfriend",
+  "mother", "father", "mom", "mum", "dad", "parent", "son", "daughter", "child",
+  "sister", "brother", "sibling", "aunt", "uncle", "niece", "nephew", "cousin", "grandmother", "grandfather",
+  "friend", "best friend", "neighbour", "neighbor", "colleague", "coworker", "co-worker", "boss",
+  "employer", "employee", "landlord", "tenant", "teacher", "student", "doctor", "patient",
+  "lawyer", "client", "mentor", "apprentice", "rival", "ex-wife", "ex-husband", "ex",
+];
+
+/** The standing roles a relation sentence actually names. Longest first, so "best friend" wins over
+ *  "friend", and capped at two because a person is not a list of labels. */
+export function rolesFromRelation(relation: unknown): string[] {
+  const t = String(relation ?? "").toLowerCase();
+  if (!t.trim()) return [];
+  const found: string[] = [];
+  for (const w of [...RELATION_WORDS].sort((a, b) => b.length - a.length)) {
+    if (found.some((f) => f.includes(w))) continue;                 // "friend" inside "best friend"
+    if (new RegExp(`\\b${w.replace(/[-]/g, "[- ]?")}\\b`, "i").test(t)) found.push(w);
+    if (found.length >= 2) break;
+  }
+  return found;
+}

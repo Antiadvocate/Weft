@@ -40,6 +40,7 @@ import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
 import { tickSeverance, severanceDirective } from "./severance";
+import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -2458,7 +2459,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + (() => {
+  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3779,6 +3780,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
   // banned line, because by then it has been written. See engine/spent.ts.
   state.last_retold = retoldToPlayer(state, prose);
+  // A DOOR IS A DOOR. Somebody standing inside the player's private space who was not in the scene,
+  // with nothing on the page that let them in. Reported next turn rather than cut — by the time it
+  // is visible the scene is built on it. See engine/threshold.ts.
+  state.last_intrusion = findIntrusion(state, prose, new Set(presentDuringTurn));
 
   // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
   // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out

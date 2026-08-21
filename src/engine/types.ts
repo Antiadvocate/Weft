@@ -908,6 +908,9 @@ export interface SaveState {
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */
   last_retold?: { line: string; known: string } | null;
+  /** Somebody found inside the player's private space last turn with no door on the page. Corrected
+   *  at the end of the next turn's direction, same mechanism as last_maxim. See engine/threshold.ts. */
+  last_intrusion?: { name: string; line: string; place: string } | null;
   /** AN ENDING IN PROGRESS. The player has said it is over and the other person has not been got
    *  past yet. `needed` is bought by what they actually have in the bond — a marriage of forty
    *  remembered scenes costs more scenes to end than an acquaintance does. Never a veto: the player

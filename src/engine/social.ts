@@ -258,7 +258,18 @@ export function applyEdgeDelta(
       }
     }
   }
-  if (d.roles_set) {
+  // AN EMPTY LIST IS NOTHING TO SAY, NOT AN ERASURE — and this cost the engine every role it ever
+  // had. `roles_set` is documented as "the full current list", so an empty array reads as "they hold
+  // no roles now"; an empty array is also TRUTHY in JavaScript; and the schema template the model
+  // copies from is literally `"roles_set":[]`. Put those three together and every turn the
+  // bookkeeper echoed the default — which is most turns — silently wiped the relationship's roles.
+  // A save at turn 114 had not one role on any edge in the world, on a world whose own canon reads
+  // "Vin and Miranda have a strong, loving, and stable marriage that is the bedrock". The severance
+  // stake calculation had to infer a marriage from how many scenes she remembered him in.
+  //
+  // Removal still works the way the contract says: emit the full list as it now stands. A divorce
+  // sends ["ex-husband"], not [].
+  if (d.roles_set?.length) {
     // A VERDICT IS NOT A ROLE. This contract's own line is "roles are facts; warmth and trust are
     // feelings" — and then the bookkeeper writes ["neighbor", "enemy"] after one bad evening, and
     // "enemy" renders on her card as a standing fact every turn thereafter, next to a want that still
