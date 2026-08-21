@@ -183,8 +183,11 @@ export default function Coach({ steps, onDone }: { steps: TourStep[]; onDone: ()
             <div className="font-display text-[16px] leading-tight flex-1" style={{ color: "var(--text-hi)" }}>
               {step.title}
             </div>
-            <button onClick={onDone} aria-label="close the guide" className="shrink-0 -mr-1 -mt-0.5 p-1">
-              <X size={15} style={{ color: "var(--text-lo)" }} />
+            {/* A real tap target. Escape and "got it" also close, but this is the one a thumb
+                reaches for and it has to be hittable without aiming. */}
+            <button onClick={onDone} aria-label="close the guide" className="shrink-0 -mr-2.5 -mt-2"
+              style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <X size={16} style={{ color: "var(--text-mid)" }} />
             </button>
           </div>
 

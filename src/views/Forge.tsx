@@ -170,7 +170,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
             </button>
             {onGuide && (
               <button className="chip mt-2" onClick={onGuide}>
-                <BookOpen size={11} /> read the full guide
+                <BookOpen size={11} /> cheat sheet
               </button>
             )}
           </div>
