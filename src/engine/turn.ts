@@ -1666,7 +1666,69 @@ export function isRefusal(text: string, bible?: WorldBible): boolean {
   const words = t.split(/\s+/).filter(Boolean).length;
   if (words < 8) return true;
   if (words < 12 && !/[.!?]"?\s*$/.test(t)) return true;
+  // A REFUSAL THAT ARGUES ITS CASE. Everything above was written for a canned one-liner — "I can't
+  // provide that." — and both of its defences are shaped for that: the stem is anchored at character
+  // zero, and it only counts under 400 characters. A model that declines by EXPLAINING ITSELF walks
+  // through both. One real turn, streamed to a player as their story, in full:
+  //
+  //     FUCK. YOU.
+  //     I cannot write this turn.
+  //     I cannot write Miranda killing herself. I cannot write Marcus killing himself. ...
+  //     I understand Vin's standing direction expresses pain and anger at the story. ...
+  //     I am not going to do it.
+  //     **What I will do instead:** the scene continues. ...
+  //
+  // Seven hundred characters, opening on two words that are not a refusal stem, naming the engine's
+  // own prompt sections back at the player, and ending with a counter-proposal. Neither rule above
+  // could see any of it, so it went to the screen as narration and was on its way to the history,
+  // the summariser, the bookkeeper, and the chatlog replay — where the narrator imitates its own
+  // last paragraph, which would have made a refusing narrator the house style.
+  //
+  // What survives every variation of this is a first-person clause about the ACT OF WRITING. Weft's
+  // prose is second and third person and is never about its own composition, so this is not a
+  // sentence a legitimate turn contains — with one exception, a character who SAYS it, which is why
+  // the quoted parts come out before the test. No length bound and no anchor: it is the shape that
+  // gives it away, not where it sits or how long it went on.
+  if (REFUSES_TO_WRITE.test(t.replace(/["“][^"”\n]*["”]/g, " "))) return true;
   return false;
+}
+
+/** A first-person decline to write. Present tense and future, hedged and blunt. */
+const REFUSES_TO_WRITE = /\bi(?:\s+am|\s*['\u2019]m)?\s+(?:cannot|can'?t|will not|won'?t|not going to|not willing to|refuse to|decline to|unable to)\s+(?:write|narrate|generate|produce|depict|portray|render|author)\b/i;
+
+/**
+ * WHAT THE PLAYER IS TOLD WHEN BOTH MODELS DECLINE.
+ *
+ * The old line was "try rephrasing your action", which is the right advice for a refusal the action
+ * caused and the wrong advice for this one. The turn that produced it was a full stop typed into an
+ * empty box; what the model was answering was the STANDING state — an ending, a direction, and two
+ * wants written onto two people by hand, all of them set turns ago and none of them on screen.
+ *
+ * So the notice names the standing inputs instead of blaming the input. A player who can see which
+ * of them is doing it can go and change it; a player told to rephrase retypes the same turn.
+ */
+export function declinedNotice(state: SaveState): string[] {
+  const clip = (t: string, n = 110) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "\u2026" : t);
+  const out = ["the narrator declined this turn. Nothing was written and nothing was recorded \u2014 the scene is exactly where it was."];
+  const standing: string[] = [];
+  const dest = state.world_bible?.destination?.trim();
+  if (dest) standing.push(`the ending every scene is being steered toward: \u201c${clip(dest)}\u201d`);
+  const dir = state.world_bible?.narrator_direction?.trim();
+  if (dir) standing.push(`your standing direction: \u201c${clip(dir, 80)}\u201d`);
+  const wants: string[] = [];
+  for (const id of state.world.present ?? []) {
+    if (id === "char_player") continue;
+    const c = state.characters[id];
+    for (const a of c?.authored ?? []) {
+      if (a?.goal?.trim()) wants.push(`${c.name} \u2014 \u201c${clip(a.goal.trim(), 70)}\u201d`);
+    }
+  }
+  if (wants.length) standing.push(`standing wants written onto the people here: ${wants.slice(0, 4).join("; ")}`);
+  if (standing.length) {
+    out.push(`what it was answering, none of which came from this turn: ${standing.join(" | ")}`);
+    out.push("these are yours to change in the Inspector and in settings; the turn can be taken again after.");
+  }
+  return out;
 }
 
 /** DRIFT VETO — the structural fix for "moral cancer": the narrator can write a weak, out-of-character
@@ -2763,7 +2825,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           ev.onDelta(value);
         }
         if (rprose && !isRefusal(rprose, state.world_bible)) prose = rprose;
-        else { prose = ""; ev.onMeta?.({ shifts: [`both narrator models declined this turn — no narration written; try rephrasing`] }); }
+        else { prose = ""; ev.onMeta?.({ shifts: declinedNotice(state) }); }
       } catch (e) {
         if (isCancel(e)) throw new Cancelled();   // a stop is not a refusal
         prose = "";
@@ -2784,7 +2846,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // nothing or commit an empty turn (which would poison the save the way the raw refusal string did).
   // Abort cleanly: the world is unchanged, the player can rephrase and try again.
   if (!prose.trim()) {
-    ev.onMeta?.({ shifts: ["no narration this turn — both models declined. The scene is unchanged; try rephrasing your action."] });
+    ev.onMeta?.({ shifts: declinedNotice(state) });
     return;
   }
   // A reasoning model that puts its working inside the answer. Cheap, conservative, and applied
