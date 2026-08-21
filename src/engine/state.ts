@@ -7,7 +7,7 @@ import { healSchedule } from "./schedule";
 import { cleanMood } from "./emotions";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
-import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood } from "./coerce";
+import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood, clipWords, LABEL_MAX } from "./coerce";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
 const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
@@ -603,7 +603,10 @@ export function healTraits(list: unknown): AcquiredTrait[] {
     .filter((t) => t && typeof t.label === "string" && t.label.trim())
     .map((t) => ({
       id: typeof t.id === "string" ? t.id : `trait_${Math.random().toString(36).slice(2, 8)}`,
-      label: String(t.label).slice(0, 80),
+      // The same cut crystallize uses, at the same length: an 80-character mid-word clip here made
+      // the stored trait a different string from the label the want carries, so the habit ladder
+      // counted the same habit under two keys and found it worn under neither. See clipWords.
+      label: clipWords(String(t.label), LABEL_MAX),
       origin: typeof t.origin === "string" ? t.origin : "",
       behavioral_impact: typeof t.behavioral_impact === "string" ? t.behavioral_impact : "",
       intensity: Math.max(0, Math.min(10, num(t.intensity, 2))),

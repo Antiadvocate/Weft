@@ -478,7 +478,20 @@ const wantsLines = (s: SaveState) =>
  * version is written as a full requirement rather than as an out: her half entire, not retracted
  * inside the turn, and the scene not wandering off to somebody else's business before the player can
  * answer. That last clause is the actual defect in the save — the turn continued to Liz's eyebrow
- * and Marcus's buckle, so the moment closed before the player had it. */
+ * and Marcus's buckle, so the moment closed before the player had it.
+ *
+ * THE WORDING BELOW CHANGED, and these assertions moved with it. The clause used to open "IF THE
+ * ACT REQUIRES THE PLAYER'S BODY OR THE PLAYER'S ASSENT, YOU CANNOT WRITE IT AND MUST NOT TRY",
+ * which reads two different things as one prohibition: a want whose act happens ON the player needs
+ * the player's body only in the sense that they are standing there, and by that reading almost
+ * nothing in this engine can be written, since every touch and every handed object needs the same.
+ * A later save showed the cost — a want at maximum stage, whole and at full force in the prompt,
+ * producing five turns of dishes, mail and a straightened collar, because "everything up to the
+ * choice" was everything except the want.
+ *
+ * Every guarantee these five checks were written to hold is still held, in the new words. What is
+ * new is the other half of the distinction: somebody acting ON the player is written, and only the
+ * player DECIDING is theirs. */
 {
   const s = mk(1);
   s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits, regardless of context", 1, { inhabit_turns: 5 })];
@@ -486,14 +499,20 @@ const wantsLines = (s: SaveState) =>
   a.turns_live = 3;
   const line = authoredLine(a);
   check("the rule the narrator cannot break is named, and named as the winner",
-    /narration stops where the player's choice begins, that rule outranks this one/.test(line), line);
-  check("with the player's half handed back to the player", /the player types that part/.test(line), line);
+    /WHERE IT STOPS IS THE PLAYER DECIDING/.test(line), line);
+  check("with the player's half handed back to the player", /that is theirs and they type it/.test(line), line);
+  check("...named as the specific things never written for them",
+    /agreeing, refusing, allowing it, going along with it, reciprocating/.test(line), line);
+  check("...a feeling about it included", /never hand them a feeling about it/.test(line), line);
   check("but her half is still a full requirement, not an excuse",
-    /HER ENTIRE HALF and it is not a lesser version of this instruction/.test(line), line);
-  check("she may not take it back inside the same turn", /does not retract it inside the same turn/.test(line), line);
+    /Her half is not the approach to the act and not a milder version of it/.test(line), line);
+  check("...and being the one it is done to is not the player's move",
+    /being the one it is done to does not turn it into the player's move/.test(line), line);
+  check("...so it cannot be pushed to a later scene", /not deferred to a later scene/.test(line), line);
+  check("she may not take it back inside the same turn", /not retracted inside the same turn/.test(line), line);
   // The specific way this turn was drained: it kept going, to Liz and then to Marcus.
   check("and the scene may not close the moment before the player can answer",
-    /do not move on to another character's business afterwards/.test(line), line);
+    /do not move on to another character's business afterwards/i.test(line), line);
 }
 {
   // Below the act there is nothing for the player to consent to yet, so the threshold clause would
@@ -515,7 +534,7 @@ const wantsLines = (s: SaveState) =>
   const d = habitDirective(s, s.world.present);
   check("a settled habit assumes rather than asks", /she does not ask for it and does not work up to it/.test(d), d);
   check("and is not embarrassed by an audience", /unbothered by who is standing there/.test(d), d);
-  check("and it too stops where the player's choice begins", /the player types that part/.test(d), d);
+  check("and it too stops where the player's choice begins", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(d), d);
 }
 
 /* ── 8. A SAVE WRITTEN UNDER THE OLD GATE STILL KNOWS WHERE IT IS ────────────────

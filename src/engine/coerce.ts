@@ -367,3 +367,23 @@ export function filmableTrait(trait: string): boolean {
 export function unfilmableTraits(traits: readonly string[] | undefined): string[] {
   return (traits ?? []).map((t) => String(t ?? "").trim()).filter((t) => t && !filmableTrait(t));
 }
+
+/** The core_trait a crystallised want becomes has to READ like a trait — it sits on the character
+ *  card next to "Will always take the seat facing the door in any room". A 200-character paragraph
+ *  there is unreadable, and it is also the key the novelty ladder counts expressions under. */
+export const LABEL_MAX = 100;
+
+/** Cut at a word boundary, never through one, and say that it was cut.
+ *
+ *  Lives in the leaf because two places cut the same strings and were doing it differently: a want
+ *  crystallises into a label at one length, and loading a save clipped every trait label at another
+ *  — 100 characters against 80, both mid-word. So the label the novelty ladder counts a habit under
+ *  stopped matching the label stored on the want the moment the save was reopened, and the two
+ *  halves of one habit were filed under two different keys. */
+export function clipWords(text: string, max: number): string {
+  const t = String(text ?? "").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\u2014"), cut.lastIndexOf(","));
+  return (at > max * 0.6 ? cut.slice(0, at) : cut).trimEnd().replace(/[,;:\u2014-]$/, "") + "\u2026";
+}
