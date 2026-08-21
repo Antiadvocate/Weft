@@ -23,7 +23,7 @@ import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
-import { recordSpokenSubjects, spentSubjectsNote } from "./spent";
+import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
@@ -1975,7 +1975,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // ALREADY SPENT — the prop this scene has used up. Sits next to novelty because it is the same
   // question one level down: novelty asks how much airtime a TRAIT still deserves, this asks whether
   // the specific thing a character reached for last turn is still worth reaching for.
-  const spentNote = spentSubjectsNote(state);
+  const spentNote = spentSubjectsNote(state) + (() => {
+    // ONE SUBJECT. The prop tracker exempts the cast so a scene can always say who is in it, which
+    // aimed it away from the commonest version of the complaint: a character whose every scene is
+    // about the same absent third party. Measured separately, and it never suppresses the name.
+    const recent = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "");
+    if (recent.length < 3) return "";
+    const cast = Object.entries(state.characters).filter(([id]) => id !== "char_player").map(([, c]) => c?.name ?? "").filter(Boolean);
+    const here = state.world.present.map((pid) => state.characters[pid]?.name ?? "").filter(Boolean);
+    const subject = monopolisedSubject(recent, cast, here);
+    return monopolyNote(subject, here[0] ?? null);
+  })();
   // WHAT THEY KNOW THEY DID — behavioral direction for anybody carrying a fault or running a repair
   // loop. Never "X feels guilty": the interior stays off the page here as everywhere else, and what
   // goes over is what the room would see them DO about it.
@@ -2442,7 +2452,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + (() => {
+  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3756,6 +3766,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // TOLD SOMETHING THEY ALREADY HAD. Detected on the committed prose against the player's own
+  // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
+  // banned line, because by then it has been written. See engine/spent.ts.
+  state.last_retold = retoldToPlayer(state, prose);
 
   // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
   // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out
