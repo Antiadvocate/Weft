@@ -25,7 +25,8 @@
 import type { Identity, SaveState } from "./types";
 import { isPersonName } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
-import { asList, asText } from "./coerce";
+import { asList, asText, unfilmableTraits } from "./coerce";
+import { TRAIT_CONTRACT } from "./prompts";
 import { registerCharacter } from "./state";
 
 
@@ -40,7 +41,7 @@ export const RECORD_FIELDS = `{
 "height_cm": 170,
 "weight_kg": 65,
 "background": "WHO THEY ARE APART FROM THE SCENE THEY ENTERED IN. Three or four plain sentences, and the test is whether a stranger could hold four different conversations with them: where they are from and what that place was like; who raised them or who they have lost; the trade or body of knowledge they actually hold, named specifically; one formative thing with nothing to do with the player or the story; and one ordinary strong opinion about something small. If the player created them outright, say so plainly and say what they were made to be \u2014 then give them the rest of a self anyway, because a person made yesterday still has to be able to talk about something other than the person who made them.",
-"core_traits": ["2-4 real personality traits, not plot function"],
+"core_traits": ["2-4 traits, each written to the TRAIT CONTRACT stated below the schema \u2014 a thing this person does, which a camera would catch. The engine reads this field and sends adjectives back"],
 "values": ["2-3 things they actually care about"],
 "speech_pattern": "how they talk — register, rhythm, what they refuse to say",
 "texture": ["2-4 standing interests and enthusiasms they raise unprompted when a scene gives them room \u2014 at least two with nothing to do with their trade, their rank, or the player. One physical tell is allowed among them, never more."],
@@ -51,7 +52,7 @@ export const RECORD_FIELDS = `{
 "taste": "ONE STRING: what their conditioning makes them find attractive",
 "gregariousness": 0.5,
 "attachment_style": "secure / anxious / avoidant / disorganized — most people are secure; pick an insecure style only when this person\u2019s history actually produced one",
-"under_threat": "one plain sentence: what they DO when scared or hurt",
+"under_threat": "one plain sentence: what they DO when scared or hurt, and it must be an ACT the room can see. Going still, going quiet, going flat, going procedural and dropping the voice are ONE way a person does this and they are massively over-produced here \u2014 five people built by this pass in one save all answered fear by getting quieter, and a cast that all falls silent under pressure is a horror film. Most people under threat get LOUDER and more insistent: they push, they follow the other person into the next room, they repeat themselves, they raise it, they demand an answer now, they say the thing they will regret. Match the style above \u2014 anxious pursues and escalates and protests, avoidant flattens and distances, secure stays engaged and keeps talking in the same voice \u2014 and vary it across the cast: after a withdrawer, write a pusher.",
 "soothed_by": "one plain sentence: what actually settles them",
 "drive_goals": ["2-3 distinct wants they carry at once — an immediate aim, a deeper hope or fear, an attachment or grudge. Never only the player."]
 }`;
@@ -65,7 +66,9 @@ Where the sources are silent, invent — concretely and consistently with the wo
 DO NOT SANITIZE. Record this person at the same level of explicitness the story itself has. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
 
 Output ONLY this JSON:
-${RECORD_FIELDS}`;
+${RECORD_FIELDS}
+
+${TRAIT_CONTRACT}`;
 
 
 /** A record that is a name and little else. Checked on the fields the story actually reads. */
@@ -134,6 +137,26 @@ export async function completeSketch(state: SaveState, id: string, model: string
     g = safeJson<any>(out.text, null);
   } catch { return false; }
   if (!g) return false;
+
+  // ONE RETRY, AND ONLY FOR THE TRAITS. The contract is in the prompt now, which is where it was
+  // for the world forge all along, and a contract in a prompt is a request. The pass that produced
+  // sixteen adjectives in one save had the request; what it did not have was anything reading the
+  // answer. So the answer is read, and if the traits came back as temperatures rather than acts
+  // they go back with the specific ones named. Traits only — everything else in the record was
+  // fine, and re-rolling a whole person to fix one field is how a good background gets lost.
+  const bad = unfilmableTraits(asList(g.core_traits));
+  if (bad.length) {
+    try {
+      const again = await complete(buildMessages(
+        SKETCH_SYSTEM, "REWRITE THE TRAITS ONLY:",
+        `${ctx}\n\nThese came back as descriptions of what ${c.name} is like rather than things ${c.name} does, so they give a scene nothing to show: ${bad.map((t) => `\u201c${t}\u201d`).join(", ")}.\n`
+        + `Return the same JSON object with core_traits rewritten to the contract and every other field byte-identical. Each trait opens on something ${c.name} does — a habit, a refusal, a thing their hands are always doing — and names a concrete object, place, body part or act that a camera would catch.`,
+        model), model, fallback, true, 1200);
+      const g2 = safeJson<any>(again.text, null);
+      if (g2 && unfilmableTraits(asList(g2.core_traits)).length < bad.length) g.core_traits = g2.core_traits;
+      else console.warn(`[sketch] ${c.name}: traits still unfilmable after a retry — keeping ${JSON.stringify(bad)}`);
+    } catch { /* the first answer stands */ }
+  }
 
   applySketch(state, c, g);
   return true;
@@ -240,7 +263,9 @@ Output ONLY this JSON, which is the record fields plus four more:
 "where": "the EXACT name of one place from the PLACES list where they are right now, or \\"elsewhere\\" if they are not somewhere the player can walk to yet",
 "tie": "one plain sentence: how they are already connected to somebody or something already in this story",
 "relation_to_player": "one plain sentence: what, if anything, stands between this person and the player right now — they may never have met, and that is a real answer",
-${RECORD_FIELDS.slice(1)}`;
+${RECORD_FIELDS.slice(1)}
+
+${TRAIT_CONTRACT}`;
 
 export interface BriefResult { id: string; name: string; where: string; tie: string }
 

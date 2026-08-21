@@ -904,6 +904,13 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** Consecutive turns each present character has been in the room without a line. Cleared for
+   *  anybody who is not present, so it never accumulates across a scene change. See speech.ts. */
+  speech_silence?: Record<string, number>;
+  /** What the last turn's prose actually measured: the share of its words that were spoken aloud,
+   *  and the share of its lines that were fragments. The evidence the next turn's correction is
+   *  built from — nothing else in the engine was counting either. */
+  last_speech?: { share: number; short: number; turn: number };
   /** A line last turn that delivered something the player's own record already held. Corrected at
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */

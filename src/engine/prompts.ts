@@ -556,6 +556,46 @@ Output ONLY the JSON.`;
 
 
 
+/** THE TRAIT CONTRACT — the difference between a person and a temperature.
+ *
+ *  This was written for the world forge and lived inside its prompt, where it works: the cast a
+ *  world opens with gets "Re-folds a napkin or straightens a picture frame in a restaurant without
+ *  realising she's doing it" and "Has a laugh that starts as a surprised, sharp Ha! before
+ *  dissolving into silent giggles". Things a camera catches. Things that make a scene happen.
+ *
+ *  Every character introduced AFTER the opening went through a different pass, whose entire
+ *  instruction for this field was "2-4 real personality traits, not plot function". From one save,
+ *  the four people it built:
+ *
+ *      'patient to the point of immovability', 'observant of small physical tells', 'quietly weary'
+ *      'level-headed under pressure', 'watchful, reads people before rooms', 'quietly stubborn'
+ *      'procedurally exact', 'flatly unshockable', 'quietly humane', 'conserving her energy'
+ *      'unflappable', 'guarded', 'quietly kind under a bureaucratic surface', 'stubborn'
+ *
+ *  Sixteen adjectives. Not one of them names a thing a hand does. The contract below already has a
+ *  word for this — failure mode (a), ADJECTIVES, "what a neighbour says after a month; they
+ *  summarise behaviour and generate nothing" — and the pass that needed it most had never read it.
+ *
+ *  A character built out of adjectives has nothing to do in a scene, so they stand in it. Four of
+ *  them standing in it reads as a horror film, which is what the player called it.
+ *
+ *  It is stated once, here, and both passes compose it. */
+export const TRAIT_CONTRACT = `core_traits: each one is a thing this person's hands do, stated so that a scene could show it. Three ways of writing them that produce nothing to show:
+ (a) ADJECTIVES — "proud", "loyal", "gentle and patient". These are what a neighbour says after a month. They summarise behaviour and generate nothing.
+ (b) ABSTRACTIONS — "cannot let a false name for a thing stand uncorrected", "feels every slight to her rank as a wound to the whole line". These sound weighty and mean nothing you could act on. What thing? What name? A trait naming no object and no action is empty.
+ (c) UNCANNY PERCEPTION — a trait that gives somebody accurate knowledge of another person's inside on sight, or that states what they do to people in a figure of speech instead of an action. Nobody can do the first, and the second names no action to write.
+
+THE TEST, applied to every trait: COULD YOU FILM IT? A trait must name at least one concrete thing — an object, an animal, a food, a place, a part of the body, a specific action — and describe what the person observably DOES. If a camera pointed at this person for a week could not capture it, rewrite it. If it contains a metaphor, cut the metaphor and say the plain thing.
+
+Right form, by kind:
+- TEMPERAMENT, shown as conduct: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before she says anything at all, even to say yes."
+- AVERSION OR PULL WITH NO CAUSE, naming the actual thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather." "Will not be behind a closed door with a man she doesn't know."
+- UNEARNED APTITUDE, naming the skill: "Could untangle any knot before she could read; still does it while thinking." "Mimics any accent she hears within a day, badly at first, then perfectly."
+- PHYSICAL SIGNATURE, naming the body and the object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath when she is waiting: steps, coins, sheep."
+- AFFINITY, naming the place or thing: "Goes to the water when anything goes wrong, and only then." "Cannot pass a dog without stopping."
+
+Give 2–4 per person, never more. They must PULL AGAINST EACH OTHER — a real person is a contradiction they stopped noticing. At least one must be INCONVENIENT: something that costs them or is tiring to be near. The cast must not all be pleasant.`;
+
 export const FORGE_SYSTEM = `You are the Forge — a world-building assistant. Given a seed idea, produce a complete starting world as ONE strict JSON object. Invent a coherent, specific, lived-in place: a player character, 2–4 NPCs with real wants and frictions BETWEEN each other (not just toward the player), 2–3 places, 1–2 faction clocks (seeded clocks start at 0-1 filled and seeded threads at tension ≤5 — the world begins with loaded potential, never a mature crisis already at the player's throat), 1–2 norms, an opening time and weather. HONOR THE SEED'S GENRE CONTRACT in the machinery, not just the flavor text: if the seed implies romance or eroticism, at least half the NPCs' drive_goals must be desire-flavored wants (wanting someone, wanting to be wanted, jealousy, curiosity, loneliness reaching outward) — a romance where every character's goal is logistics will drift into procedure within twenty turns. EVERY NPC needs SELF-PROPELLED goals — give each 2–3 distinct wants they carry at once (an immediate aim, a deeper hope or fear, an attachment or grudge), as drive_goals, not one monomaniacal objective — something they want in the world that would drive them even if the player did nothing — including devoted companions: a bodyguard, lover, or protector must want something beyond "keep the player safe" (their own vengeance, freedom, a secret to recover, a place to reach, a person to become), with the player as someone they pursue it alongside, not the entire goal. A companion whose only drive is protecting the player cannot steer a scene and will leave the player doing all the work; give them a fire of their own. A character with a single goal becomes a broken record who repeats it every turn; several live wants make a person. If a character has a defining power or skill, one of their goals should USE it. Names concrete, no genre mush. Output ONLY JSON, shape:
 {"world_bible":{"name":"","era":"","technology_level":"","magic_rules":"","forbidden":"","absent":"NEGATIVE CANON — REQUIRED whenever the people or the world are not human-default. What does NOT exist here, one per line, phrased as an absolute absence. Absence cannot be inferred from description: a body described by its disc, column and toes still gets a mouth, a face, and hair supplied by default the moment it speaks, and a theater still gets chairs. So state it outright: the body parts these beings do NOT have (and what does that job instead), the acts they do NOT perform (eating, sitting, grasping, facial expression), the objects their world does NOT contain (furniture, cutlery, vehicles), and the human idioms that assume any of it. If the beings ARE human and the world is human-default, leave this an empty string.","what_people_fear":"","cultures_and_languages":"","climate_and_geography":"","calendar_and_currency":"","political_situation":"","destination":"","pressure_palette":["3-6 allowed pressure sources true to this genre"],"forbidden_as_primary":["2-4 things never the main engine of a scene"]},
 "player":{"name":"","age":30,"pronouns":"the player's own pronouns from the seed","height_cm":"the being's real resting height in cm — never defaulted to the human range when the being is not human-sized","weight_kg":"the being's real weight in kg","appearance_facts":"COMPLETE physical baseline of the body they actually have — for a human: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark; for any other kind of being: the parts, surfaces, and proportions that define its form, in the same concrete detail. Constants only — no clothing.","background":"","core_traits":[],"values":[],"speech_pattern":"","texture":[],"skills":{},"beauty":"0-100 from the player's physical form alone, scored on the SAME scale as the NPCs (50 ordinary, 75+ head-turning, below 35 plain) — read it off the appearance and the seed, and do not default to 50 out of politeness. REQUIRED: every character in this world is judged on sight against this number, so leaving it off does not make the player unjudged, it makes them the only person in the story with no face."},
@@ -580,21 +620,7 @@ clocks and threads: THE WORLD IS NOT ABOUT THE PLAYER YET. Every NPC is required
 Threads follow the same rule: an open question the world is already carrying, not a question about the player. "Who killed the smith" is a thread. "Whether the village accepts the stranger" is not — that has no content until the player has done something for them to accept or reject.
 The player intersects these later, by walking into them. That collision is the player's doing and the story's; it is never the premise. A world that begins already pointed at the protagonist has nowhere to go but toward them, and the player can feel it from the first scene.
 
-core_traits: each one is a thing this person's hands do, stated so that a scene could show it. Three ways of writing them that produce nothing to show:
- (a) ADJECTIVES — "proud", "loyal", "gentle and patient". These are what a neighbour says after a month. They summarise behaviour and generate nothing.
- (b) ABSTRACTIONS — "cannot let a false name for a thing stand uncorrected", "feels every slight to her rank as a wound to the whole line". These sound weighty and mean nothing you could act on. What thing? What name? A trait naming no object and no action is empty.
- (c) UNCANNY PERCEPTION — a trait that gives somebody accurate knowledge of another person's inside on sight, or that states what they do to people in a figure of speech instead of an action. Nobody can do the first, and the second names no action to write.
-
-THE TEST, applied to every trait: COULD YOU FILM IT? A trait must name at least one concrete thing — an object, an animal, a food, a place, a part of the body, a specific action — and describe what the person observably DOES. If a camera pointed at this person for a week could not capture it, rewrite it. If it contains a metaphor, cut the metaphor and say the plain thing.
-
-Right form, by kind:
-- TEMPERAMENT, shown as conduct: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before she says anything at all, even to say yes."
-- AVERSION OR PULL WITH NO CAUSE, naming the actual thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather." "Will not be behind a closed door with a man she doesn't know."
-- UNEARNED APTITUDE, naming the skill: "Could untangle any knot before she could read; still does it while thinking." "Mimics any accent she hears within a day, badly at first, then perfectly."
-- PHYSICAL SIGNATURE, naming the body and the object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath when she is waiting: steps, coins, sheep."
-- AFFINITY, naming the place or thing: "Goes to the water when anything goes wrong, and only then." "Cannot pass a dog without stopping."
-
-Give 2–4 per person, never more. They must PULL AGAINST EACH OTHER — a real person is a contradiction they stopped noticing. At least one must be INCONVENIENT: something that costs them or is tiring to be near. The cast must not all be pleasant.
+${TRAIT_CONTRACT}
 
 voices: build each npc's voice block out of what that person's life gave them words for — their trade, their rank, where they were raised, who they answer to, what they handle all day. CHECK THE EXAMPLE_LINES ACROSS THE WHOLE CAST: if a line on one npc's card could be moved to another npc's card without looking wrong, rewrite one of them until it could not.
 regulation styles: vary how people handle being scared or hurt. Roughly half a real population is secure (settles near safe people); the rest split between anxious (pursues, escalates, re-checks, protests — needs the person), avoidant (goes flat, distances, handles it alone — closeness under threat is pressure), and a few disorganized (reaches for comfort and flinches from it in the same motion). Write under_threat as observable BEHAVIOR, not diagnosis.
@@ -1047,7 +1073,7 @@ export function buildPortraitPrompt(state: SaveState, id: string): string {
   // (a character who became "a dick" stands and smirks like one; a wounded arm is favored).
   const acquired = (state.traits[id] ?? []).filter((t) => t.intensity >= 4).slice(0, 4);
   const { humanoid, kind } = portraitBodyPlan(state, c);
-  const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense, guarded, braced" : cond.psyche.relaxation >= 6 ? "at ease, open, relaxed" : "composed") : "";
+  const bearing = cond ? (cond.psyche.relaxation <= -7 ? "tense and braced, with it showing in what they say" : cond.psyche.relaxation >= 6 ? "at ease, open, relaxed" : "composed") : "";
   const wear = cond?.wearing?.length ? `Wearing: ${cond.wearing.join(", ")}.` : "";
   const injuries = cond?.injuries?.length ? `Visibly carries: ${cond.injuries.map((i) => `${i.type} (${i.functional_impact})`).join(", ")} — let it show in how they hold the body.` : "";
   const belief = state.memory[id]?.beliefs?.slice(-1)[0]?.content;
@@ -1172,7 +1198,14 @@ export function deriveVoice(
   for (const t of strong) parts.push(`speech now carries: ${t.label}`);
   // present openness/mood
   const rel = cond.psyche.relaxation;
-  if (rel <= -7) parts.push("right now: clipped, guarded, or barbed — they are clenched");
+  // CLENCH IS PRESSURE, NOT A VOLUME KNOB. This line read "clipped, guarded, or barbed", and every
+  // one of those words means says less — so the engine's answer to a character being angry was that
+  // they stop talking, on a card the narrator reads every turn. Measured over one save: somebody
+  // goes very still 100 times across 80 turns, and the character present for 136 turns has no line
+  // in 87 of them. Two fields down the same record, the attachment model says half of all people
+  // ESCALATE under threat — pursue, re-check, protest. The band was overriding the model, so the
+  // band now defers to it.
+  if (rel <= -7) parts.push(`right now: clenched — under pressure and it is going somewhere. ${ident?.attachment?.style === "avoidant" ? "Short and hard rather than silent: the flat sentence that ends the subject, said out loud, and then they are doing something else." : ident?.attachment?.style === "anxious" ? "It comes out AT the other person: asking again, following it across the room, repeating the part that was not answered, raising it." : "It stays in the room and in their voice: the plain naming of the thing, the direct question, what they will and will not do."} Not stillness and not one clipped line — those are one person's way of being angry and are being written as everybody's`);
   else if (rel >= 6) parts.push("right now: easier, more open and warm than usual");
   // relationship to the person being addressed
   if (addresseeEdge) {

@@ -340,3 +340,30 @@ export function rolesFromRelation(relation: unknown): string[] {
   }
   return found;
 }
+
+
+/** IS THIS A TRAIT OR A TEMPERATURE?
+ *
+ *  The contract above states the test in words the model can act on. This is the same test in code,
+ *  because a contract in a prompt is a request and this pass had been ignoring the request for the
+ *  whole life of the codebase.
+ *
+ *  It answers one narrow question — does this trait name something a person DOES — and it answers
+ *  it the crude way, by looking at how the phrase opens. A filmable trait opens on an act: a verb,
+ *  a refusal, a habit stated as a thing that happens. A temperature opens on what somebody is like.
+ *  That single distinction separates the sixteen adjectives one save's mid-game pass produced from
+ *  the twelve behaviours its opening cast got, with nothing in between, which is the only claim
+ *  made for it. It is a filter on generated text, not a grammar. */
+const ACTION_OPENER = /^(?:will|won'?t|would|cannot|can'?t|never|always|has|have|had|does|doesn'?t|do|is\s+the\s+kind|keeps?|kept|goes|go|went|gets?|got|takes?|took|gives?|gave|holds?|held|answers?|asks?|counts?|calls?|carries|carried|checks?|cuts?|drinks?|eats?|finds?|folds?|hands?|hears?|leaves?|left|likes?|listens?|looks?|makes?|made|mimics?|moves?|names?|opens?|pays?|paid|picks?|puts?|reaches?|reads?|refuses?|repeats?|re-?\w+s|says?|said|sets?|shows?|sits?|sleeps?|speaks?|spoke|stands?|starts?|stops?|talks?|tells?|touches?|turns?|uses?|walks?|wants?|watches?|wears?|works?|writes?|apologi[sz]es?|could|might|used\s+to|argues?|corrects?|drives?|finishes?|follows?|forgets?|interrupts?|laughs?|remembers?|smiles?|steals?|straightens?|waits?|wakes?)\b/i;
+
+/** Does this trait name an act? See ACTION_OPENER — this is the whole of the test. */
+export function filmableTrait(trait: string): boolean {
+  const t = String(trait ?? "").trim();
+  if (!t) return false;
+  return ACTION_OPENER.test(t);
+}
+
+/** The ones that are only a temperature, so a caller can say which. */
+export function unfilmableTraits(traits: readonly string[] | undefined): string[] {
+  return (traits ?? []).map((t) => String(t ?? "").trim()).filter((t) => t && !filmableTrait(t));
+}

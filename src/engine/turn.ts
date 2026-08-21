@@ -42,6 +42,7 @@ import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambi
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
+import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -2089,6 +2090,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // it needs the intents, consumed in two places: the narrator's direction (so the prose does not
   // invent a second, different thought) and the read panel (so the player gets it as written).
   // See engine/read.ts.
+  // NOBODY SAID ANYTHING LAST TURN, AND HERE IS THE COUNT. Two halves: the correction built from
+  // what the previous turn actually measured, and the standing rule for anybody in the room who is
+  // currently angry — the state whose only rendering was withdrawal. See engine/speech.ts.
+  const speechNote = speechDirective(state) + angerRegister(state);
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);
   replanDrives(state);
@@ -2742,13 +2747,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -3875,6 +3880,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // COUNT WHAT WAS ACTUALLY SAID. Runs after the prose exists and before the next turn reads it —
+  // the share of the turn that was spoken aloud, and who was standing in the room without a line.
+  trackSilence(state, prose);
   // TOLD SOMETHING THEY ALREADY HAD. Detected on the committed prose against the player's own
   // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
   // banned line, because by then it has been written. See engine/spent.ts.
