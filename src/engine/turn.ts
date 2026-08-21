@@ -39,6 +39,7 @@ import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
+import { tickSeverance, severanceDirective } from "./severance";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1990,6 +1991,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // loop. Never "X feels guilty": the interior stays off the page here as everywhere else, and what
   // goes over is what the room would see them DO about it.
   const faultNote = faultDirective(state);
+  // ENDING A BOND IS AN ATTEMPT, resolved before the prose the way attempt.ts resolves a physical
+  // one: what the other person has invested buys them rounds, and until those are spent the scene
+  // cannot answer "I am done with this marriage" with "okay". See engine/severance.ts.
+  tickSeverance(state, action, state.world.present);
+  const severNote = severanceDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
@@ -2642,13 +2648,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }

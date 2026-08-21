@@ -908,6 +908,11 @@ export interface SaveState {
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */
   last_retold?: { line: string; known: string } | null;
+  /** AN ENDING IN PROGRESS. The player has said it is over and the other person has not been got
+   *  past yet. `needed` is bought by what they actually have in the bond — a marriage of forty
+   *  remembered scenes costs more scenes to end than an acquaintance does. Never a veto: the player
+   *  leaves regardless, it just takes the turns it would really take. See engine/severance.ts. */
+  severance?: { toward: string; rounds: number; needed: number; started_turn: number };
   /** Distinctive props the DIALOGUE has already spent — the invented proper noun, the odd piece of
    *  trade vocabulary, the specific colour — with the turns they were said on. A subject on the page
    *  in consecutive turns is handed back to the narrator as used up, so a character who is written to
