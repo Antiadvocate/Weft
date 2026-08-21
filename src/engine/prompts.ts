@@ -17,6 +17,7 @@ import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
+import { doorFromVoice } from "./coerce";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue } from "./desire";
 import { bodySeverity } from "./body";
@@ -1500,7 +1501,9 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         // The want is what they are after; this is how they go at it. Rendered on its own line
         // because it is the instruction that actually governs their dialogue this turn — the want
         // is not something they say, it is something they work toward sideways.
-        if (drv?.approach?.trim()) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${drv.approach.trim()}`);
+        // same fallback as the intent pass: a want with no door still has a PERSON with one
+        { const door = drv?.approach?.trim() || doorFromVoice(ident);
+          if (door) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${door}`); }
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
       } else if (!hasAuthored(ident) && !settledAuthored(ident).length) {

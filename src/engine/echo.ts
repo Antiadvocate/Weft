@@ -168,3 +168,46 @@ export function stripScaffolding(raw: string): string {
   const out = t.replace(/\n{3,}/g, "\n\n").trim();
   return out.length >= 40 ? out : String(raw ?? "").trim();
 }
+
+/**
+ * THE WORD "PLAYER" ON THE PAGE.
+ *
+ * From a save, turn 46, mid-paragraph:
+ *
+ *     The trembling Vin's player couldn't see was not trembling — her fingers were still...
+ *
+ * Vin is the point-of-view character. "Vin's player" is the person holding the keyboard, and for one
+ * sentence the prose addressed the machinery instead of the story. Nothing caught it, and it sits in
+ * the save as canon.
+ *
+ * This is not a lapse the narrator can be talked out of. Its own instructions say "the player"
+ * several hundred times — the point-of-view law, the sovereignty block, the channel note — so the
+ * phrase is the single most common noun in its context window, and a model reaching for a way to say
+ * "the person whose view this is" has it right there. A rule against writing it would add one more
+ * instance of the phrase to the same context.
+ *
+ * So it is repaired on the output. Deliberately narrow: a world can contain a piano player, a card
+ * player, a player in a company of players, and none of those are this. Only the two forms that can
+ * only ever be the machinery are touched — the meta-possessive ("Vin's player"), and a BARE "the
+ * player" with no qualifier in front of it, which is a phrase prose has no other use for.
+ */
+const QUALIFIED_PLAYER = /\b(piano|card|chess|lute|horn|fiddle|flute|dice|ball|team|other|fellow|travelling|traveling|strolling|stage|company|game|instrument|record|music|tape|cd|dvd)\s+players?\b/i;
+
+export function stripMetaPlayer(prose: string, playerName: string): { prose: string; fixed: number } {
+  const name = String(playerName ?? "").trim();
+  let fixed = 0;
+  let out = String(prose ?? "");
+  if (name) {
+    // "Vin's player" — the possessive can only be the machinery
+    const poss = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}'s\\s+player\\b`, "gi");
+    out = out.replace(poss, () => { fixed++; return name; });
+  }
+  // a BARE "the player" — leave every qualified player alone
+  out = out.replace(/\bthe\s+players?\b/gi, (m, offset: number, whole: string) => {
+    const window = whole.slice(Math.max(0, offset - 24), offset + m.length);
+    if (QUALIFIED_PLAYER.test(window)) return m;
+    fixed++;
+    return name || "they";
+  });
+  return { prose: out, fixed };
+}

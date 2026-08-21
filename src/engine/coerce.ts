@@ -271,3 +271,35 @@ export function normalizeDiffArrays<T extends Record<string, unknown>>(diff: T):
   }
   return diff;
 }
+
+/**
+ * THE DOOR, WHEN THE WANT DOES NOT COME WITH ONE.
+ *
+ * A drive's `approach` is how somebody goes at a want — the sideways move, the adjacent subject, the
+ * small deniable version floated first. Without it the intent pass has nothing to make a surface out
+ * of except the want itself, and a surface that IS the want is an announcement: the character walks
+ * in and states their business, every time, which is exactly what a 47-turn save read like when all
+ * three of its people carried `approach: null`.
+ *
+ * They go missing constantly and legitimately. The approach only survives a bookkeeper rewrite while
+ * the GOAL is unchanged, and goals change often — so any turn a want moves on, the door is gone
+ * unless the bookkeeper wrote a new one, which it usually does not.
+ *
+ * But the door was never really a property of the want. It is a property of the PERSON, and the
+ * forge already wrote it down twice: `voice.agenda` is what they are angling for under the words,
+ * and `voice.tics` are the moves they make to get there. One character's card carried "to steer any
+ * conversation off the closed door and back to something she can point at", "swerves to the physical
+ * environment when pressed", and "asks about logistics to stop a personal question" — a complete
+ * account of how she approaches anything, sitting unused while she announced her feelings in plain
+ * sentences for forty turns.
+ *
+ * Derived at the point of use and never written into state: this is not the bookkeeper's authorship
+ * and must not come to look like it.
+ */
+export function doorFromVoice(c: { voice?: { agenda?: string; tics?: string[] } } | undefined): string | undefined {
+  const agenda = c?.voice?.agenda?.trim();
+  const tics = (c?.voice?.tics ?? []).map((t) => String(t ?? "").trim()).filter(Boolean).slice(0, 2);
+  if (!agenda && !tics.length) return undefined;
+  const parts = [agenda, tics.join("; ")].filter(Boolean);
+  return `their usual way of getting at anything — ${parts.join(", by ")}`;
+}

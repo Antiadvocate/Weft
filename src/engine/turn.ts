@@ -42,7 +42,7 @@ import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, stripScaffolding } from "./echo";
+import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, MAX_LIVE } from "./threads";
@@ -2728,6 +2728,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // before anything else reads the prose — the bookkeeper was otherwise recording the model's notes
   // about the scene as though they were events in it.
   prose = stripScaffolding(prose);
+  {
+    // the machinery naming itself on the page — see stripMetaPlayer
+    const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
+    if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
+  }
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
   // and no printed pronouns (a child, a coworker), where the model defaults to "she". Conservative:
@@ -3497,7 +3502,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const observedStances: Record<string, Stance> = {};
     for (const pid of presentReal) observedStances[pid] = stanceOf(pid);
     for (const id of presentReal) {
-      if (!state.characters[id]?.central) continue; // only central characters carry full theory-of-mind
+      // ONE CHARACTER'S DIFFERENCE, AND THE WHOLE LAYER WAS DEAD. Everywhere else in this engine
+      // non-central is written `central === false`, so a character whose flag was never set counts
+      // as central — and the forge does not set it, so in practice nobody has it. This line asked
+      // for TRUTHY instead, which meant it skipped every character in every save: one at turn 47
+      // had `minds: {}` and three people who had never once been wrong about each other. Everything
+      // downstream went with it — no held_false beliefs, no surprise, no MINDS block for the
+      // narrator, and intent.ts quietly lost its richest source of stakes ("wrongly believes: …"),
+      // which is most of why that save reads as people with no interior.
+      if (state.characters[id]?.central === false) continue; // only central characters carry full theory-of-mind
       const r = updateMind(state, id, observedStances, turn, dispersion);
       if (r.lines.length) shifts.push(...r.lines.slice(0, 1)); // surface at most one belief-shift line
     }
