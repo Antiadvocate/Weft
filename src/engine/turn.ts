@@ -48,7 +48,7 @@ import { consultDirective } from "./consult";
 import { sweepThreads, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
-import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
+import { reflectionDue, cleanMemoryContent, sweepMemories, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
@@ -3733,6 +3733,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+
+  // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
+  // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out
+  // of fields authored in other voices — a drive goal is a directive, a promise line is a report
+  // about a third party — so a first-person bank filled with third-person accounts of its own owner
+  // and with the player's typed words. Swept here, after every writer for this turn has run.
+  {
+    const dropped = sweepMemories(state, action);
+    if (dropped) console.warn(`[turn] memory sweep: dropped ${dropped} malformed entr(ies)`);
+  }
 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,

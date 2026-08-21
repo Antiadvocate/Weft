@@ -569,6 +569,9 @@ export type MemorySource =
   | { told_by: string };        // a specific character conveyed it (char id), e.g. via memory_recohere
 
 export interface EpisodicMemory {
+  /** Set once the entry has been through sweepMemories, so the pass never reprocesses a bank and
+   *  an existing save is repaired the first time it loads. See engine/memory.ts. */
+  swept?: boolean;
   turn: number;                // the turn this memory was FILED (when the character formed/recorded it)
   event_turn?: number;         // in-fiction turn the event actually happened at; defaults to `turn`. Earlier than `turn` for a recalled/backstory event. Used only for chronological sort, not for display precision.
   anchor_rel?: string;         // STICKY landmark-relative placement ("before the outbreak", "after Marie arrived") — does NOT decay. This is the ordinal guardrail: even when the exact time dissolves, the memory keeps its before/after relation to a major event, so a faded memory can't drift into the wrong point in the timeline. Gist survives; precision fuzzes.

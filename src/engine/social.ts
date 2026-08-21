@@ -1005,7 +1005,7 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random, el
       log.push(`${c.name} stopped waiting on: ${c.drive.goal}`);
       state.memory[id]?.episodic.push({
         turn: state.world.current_turn,
-        content: `Stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")} — no answer was coming, so it stopped being a question.`,
+        content: `I stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")} — no answer was coming, so it stopped being a question.`,
         importance: 6, emotional_charge: "resignation",
         last_accessed_turn: state.world.current_turn,
       } as never);
@@ -1021,7 +1021,7 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random, el
       log.push(`${c.name} got what they wanted: ${c.drive.goal}. It shows.`);
       state.memory[id]?.episodic.push({
         turn: state.world.current_turn,
-        content: `Achieved: ${c.drive.goal}.`,
+        content: `I got what I wanted: ${c.drive.goal}.`,
         importance: 7, emotional_charge: "satisfaction",
         last_accessed_turn: state.world.current_turn,
       });
@@ -1162,6 +1162,13 @@ function promiseHistory(state: SaveState, from: string, to: string): { kept: num
  *  reads small (a quick favor) or huge (a vow / life-stakes). */
 export function addPromise(state: SaveState, from: string, to: string, text: string, weight?: 1 | 2 | 3, due_time?: string): PromiseRec | null {
   if (!state.characters[from] || !state.characters[to] || !text.trim()) return null;
+  // A PROMISE TO YOURSELF IS NOT A PROMISE. The whole system is a debt between two people — it
+  // moves an edge, it files a memory in the OTHER person's bank, and it renders as "X broke a
+  // promise to Y". With from and to the same person that came out as "Miranda broke their promise
+  // to Miranda: Miranda told herself she is not ready to talk about it yet", five times in one
+  // save, sitting in her own memory as an accusation from herself about herself. A resolution is
+  // not a promise; when the bookkeeper files one, drop it.
+  if (from === to) return null;
   state.world.promises ??= [];
   // don't double-log a near-identical open promise between the same pair
   const dup = state.world.promises.find((p) => p.from === from && p.to === to && p.status === "open" && relevance(p.text, text) >= 0.6);
