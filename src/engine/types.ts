@@ -848,7 +848,7 @@ export interface TurnHistoryEntry {
    *  is why it cannot leak one. Kept on the entry so the Chronicle can replay a scene as it was
    *  actually experienced rather than as it actually was. */
   reads?: { faculty: string; line: string }[];
-  gm_intents?: { char_id: string; name: string; surface: string; truth: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
+  gm_intents?: { char_id: string; name: string; surface: string; truth: string; tell?: string; lying: boolean }[]; // GM VIEW: the private intent each staked NPC authored this turn — the lie/hidden want the prose deliberately concealed. Never shown in prose; visible only in the GM/character panel for verification.
   weather?: string;
   time_label: string;
   /** Set on every beat of a directed montage, so the Chronicle can render one run as a
@@ -904,6 +904,21 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** A line last turn that delivered something the player's own record already held. Corrected at
+   *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
+   *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */
+  last_retold?: { line: string; known: string } | null;
+  /** The player addressing the machine rather than the world — a note about the writing. Carried
+   *  for a few turns as standing direction, never dramatised. See engine/ooc.ts. */
+  last_ooc?: { complaint: string; turn: number } | null;
+  /** Somebody found inside the player's private space last turn with no door on the page. Corrected
+   *  at the end of the next turn's direction, same mechanism as last_maxim. See engine/threshold.ts. */
+  last_intrusion?: { name: string; line: string; place: string } | null;
+  /** AN ENDING IN PROGRESS. The player has said it is over and the other person has not been got
+   *  past yet. `needed` is bought by what they actually have in the bond — a marriage of forty
+   *  remembered scenes costs more scenes to end than an acquaintance does. Never a veto: the player
+   *  leaves regardless, it just takes the turns it would really take. See engine/severance.ts. */
+  severance?: { toward: string; rounds: number; needed: number; started_turn: number };
   /** Distinctive props the DIALOGUE has already spent — the invented proper noun, the odd piece of
    *  trade vocabulary, the specific colour — with the turns they were said on. A subject on the page
    *  in consecutive turns is handed back to the narrator as used up, so a character who is written to

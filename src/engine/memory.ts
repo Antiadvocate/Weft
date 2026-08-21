@@ -511,7 +511,12 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
       // follows a sentence end, or follows a conjunction that starts a fresh clause; anywhere else
       // — after a verb, after a preposition — it is an object, and "Rabi took Tessa aside" must not
       // become "Rabi took I aside".
-      const SUBJECT_BEFORE = /(?:^|[.!?;:]["”')\]]?\s+|\b(?:and|but|then|or|so|because|which|that|while|when|if|though|although|yet|however|before|after|until|once)\s+)$/i;
+      // A FRONTED PHRASE ENDS IN A COMMA, AND THE SUBJECT COMES AFTER IT. Without that case the
+      // heuristic read "Eight a.m., Sarah is already at a corner table" as Sarah being an OBJECT,
+      // because the only thing before her is a comma, and wrote "Eight a.m., me is already at a
+      // corner table". Three of one character's four stored facts were ungrammatical that way. A
+      // comma at the start of the string, or after an opening adverbial, is a subject position.
+      const SUBJECT_BEFORE = /(?:^|[.!?;:]["”')\]]?\s+|^[^.!?]{0,40},\s+|\b(?:and|but|then|or|so|because|which|that|while|when|if|though|although|yet|however|before|after|until|once)\s+)$/i;
       const selfPronoun = (offset: number, s: string) => (SUBJECT_BEFORE.test(s.slice(0, offset)) ? "I" : "me");
       t = t
         .replace(new RegExp(`\\b${full}(?:'s|’s)\\b`, "g"), "my")
@@ -522,6 +527,12 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
         .replace(/\bI\s+(?:is|are)\b/g, "I am")
         .replace(/\bI\s+(?:has)\b/g, "I have")
         .replace(/\bI\s+(?:does)\b/g, "I do")
+        .replace(/\bI\s+(?:was)\b/g, "I was").replace(/\bI\s+(?:were)\b/g, "I was")
+        // ...and every other third-person verb the swap leaves stranded: "Sarah lets herself in"
+        // became "I lets myself in". Strip the agreement -s from the verb that immediately follows
+        // a converted subject, sparing the handful that are not third-person singular forms at all.
+        .replace(/\bI\s+([a-z]+)s\b(?!\s*')/g, (m, v: string) =>
+          /^(?:i|thi|hi|alway|perhap|sometime|toward|upstair|downstair|need|guess|pas|mis|dres|addres|posses)$/.test(v) ? m : `I ${v}`)
         .replace(/\bI\s+herself\b/g, "I myself").replace(/\bI\s+himself\b/g, "I myself").replace(/\bI\s+themselves\b/g, "I myself")
         // A REFLEXIVE IS SAFE WHERE A FREE PRONOUN IS NOT. Rule 4 refuses to touch "she" mid-
         // sentence because it may belong to somebody introduced earlier, and that caution is right.

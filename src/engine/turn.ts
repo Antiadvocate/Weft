@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
-import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
+import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
@@ -23,7 +23,7 @@ import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
-import { recordSpokenSubjects, spentSubjectsNote } from "./spent";
+import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
@@ -38,6 +38,10 @@ import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emot
 import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
+import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
+import { tickSeverance, severanceDirective } from "./severance";
+import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
+import { detectOOC, oocFrame, oocDirective } from "./ooc";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1765,8 +1769,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // player's own grip — see engine/interior.ts. The bookkeeper still gets the action whole, because
   // the interior is the truest evidence for the player's OWN state and the only honest source for it.
   const { outward: outwardAction, interior: playerInterior } = splitInterior(action);
-  const framedAction = MODE_FRAME[mode](mode === "do" ? outwardAction : action)
-    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "");
+  // OUT OF CHARACTER. The player addressing the writing rather than the world — "I kill myself
+  // because you're a fucking terrible writer" is not a character's decision, it is somebody hitting
+  // the table, and it was rendered as a suicide because one input box means everything typed is
+  // story. The contract has said "out-of-character text is direction: adjust silently, never
+  // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
+  const ooc = detectOOC(action);
+  if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
+  const storyAction = ooc ? (ooc.kind === "fused" ? "" : ooc.inWorld || outwardAction) : outwardAction;
+  const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
+    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "")
+    + (ooc ? oocFrame(ooc) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -1974,11 +1987,26 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // ALREADY SPENT — the prop this scene has used up. Sits next to novelty because it is the same
   // question one level down: novelty asks how much airtime a TRAIT still deserves, this asks whether
   // the specific thing a character reached for last turn is still worth reaching for.
-  const spentNote = spentSubjectsNote(state);
+  const spentNote = spentSubjectsNote(state) + (() => {
+    // ONE SUBJECT. The prop tracker exempts the cast so a scene can always say who is in it, which
+    // aimed it away from the commonest version of the complaint: a character whose every scene is
+    // about the same absent third party. Measured separately, and it never suppresses the name.
+    const recent = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "");
+    if (recent.length < 3) return "";
+    const cast = Object.entries(state.characters).filter(([id]) => id !== "char_player").map(([, c]) => c?.name ?? "").filter(Boolean);
+    const here = state.world.present.map((pid) => state.characters[pid]?.name ?? "").filter(Boolean);
+    const subject = monopolisedSubject(recent, cast, here);
+    return monopolyNote(subject, here[0] ?? null);
+  })();
   // WHAT THEY KNOW THEY DID — behavioral direction for anybody carrying a fault or running a repair
   // loop. Never "X feels guilty": the interior stays off the page here as everywhere else, and what
   // goes over is what the room would see them DO about it.
   const faultNote = faultDirective(state);
+  // ENDING A BOND IS AN ATTEMPT, resolved before the prose the way attempt.ts resolves a physical
+  // one: what the other person has invested buys them rounds, and until those are spent the scene
+  // cannot answer "I am done with this marriage" with "okay". See engine/severance.ts.
+  tickSeverance(state, action, state.world.present);
+  const severNote = severanceDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
@@ -2441,7 +2469,18 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo);
+  const oocNote = state.last_ooc?.complaint
+    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn) : "";
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+    // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
+    // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
+    // quoting what was actually written, never pasted in advance.
+    const recent = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "");
+    if (recent.length < 3) return "";
+    const names = Object.values(state.characters).map((c) => c?.name ?? "").filter(Boolean);
+    const over = overusedAmbient(recent, names);
+    return over.length ? ambientFix(over, ambientExample(recent[recent.length - 1] ?? "", over[0])) : "";
+  })();
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -2542,7 +2581,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     : "";
   // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
   // does not get to be asleep. Everything above may shape the scene; fate decides that it happens.
-  const fateNote = fateDirective(fate, state.destination_progress?.missing);
+  // fate when there is a clock; gravity when there is not. The second used to be nothing at all,
+  // while the Settings panel promised "the ending pulls but never forces" — see fate.ts.
+  const fateNote = fateDirective(fate, state.destination_progress?.missing)
+    || gravityDirective(fate, state.world_bible, state.destination_progress?.missing);
   // PRONOUN LOCK. When canon declares the world's people all use one non-default set (xe/xem etc.),
   // the narration tag on each sheet isn't enough: characters keep saying "him"/"her" in DIALOGUE,
   // because the player has their own pronouns and the narrator sees those words as valid nearby. So
@@ -2619,13 +2661,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -2732,6 +2774,19 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // the machinery naming itself on the page — see stripMetaPlayer
     const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
     if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
+  }
+  {
+    // THE WIND, EVERY TURN. A free-standing sentence with nobody in it, about the weather or the
+    // building, past the one-per-turn allowance — or repeating what last turn already used. Clauses
+    // hung off a person's sentence are NOT cut (that is how the tic guard once stranded a quotation
+    // mark); those are reported to the next turn instead. See engine/ambient.ts.
+    const castNames = Object.values(state.characters).map((c) => c?.name ?? "").filter(Boolean);
+    const prevProse = contextHistory(state).slice(-1)[0]?.narrator_prose ?? "";
+    const trimmed = trimAmbient(prose, castNames, prevProse);
+    if (trimmed.cuts) {
+      prose = trimmed.prose;
+      console.warn(`[turn] ambient guard: cut ${trimmed.cuts} setting sentence(s) — ${trimmed.motifs.join(", ")}`);
+    }
   }
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
@@ -3733,6 +3788,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // TOLD SOMETHING THEY ALREADY HAD. Detected on the committed prose against the player's own
+  // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
+  // banned line, because by then it has been written. See engine/spent.ts.
+  state.last_retold = retoldToPlayer(state, prose);
+  // A DOOR IS A DOOR. Somebody standing inside the player's private space who was not in the scene,
+  // with nothing on the page that let them in. Reported next turn rather than cut — by the time it
+  // is visible the scene is built on it. See engine/threshold.ts.
+  state.last_intrusion = findIntrusion(state, prose, new Set(presentDuringTurn));
 
   // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
   // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out
@@ -3751,7 +3814,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
-    gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, lying: i.lying })) : undefined,
+    gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, tell: i.tell, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
     // (short prose) legitimately change nothing — only flag a dead diff when the scene had substance.
     // "partial" = the diff was salvaged from output that hit the cap. It applied, but incompletely,
@@ -3899,7 +3962,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const beats = state.history.filter((h) => h.kind !== "opening" && h.turn >= fromTurn)
         .map((h) => `T${h.turn}: [did: ${(h.player_action || "").slice(0, 90)}] ${h.summary}`).join("\n");
       if (beats.trim()) {
-        const contract = state.world_bible.narrator_direction?.trim() || "";
+        // THE CONTRACT IS NOT ONLY THE STANDING DIRECTION, and reading it as though it were is how
+        // an auditor came back on_contract three times running while a romance became a thriller.
+        // That save's narrator_direction was empty — most are — so the one question the auditor
+        // exists to answer, "has this drifted into something else", was asked against "none given".
+        // It could only say yes. Meanwhile the player HAD stated the contract, in the three fields
+        // they actually filled: the genre, the pressures this story is allowed to run on, and the
+        // things that are never to be its engine. Two of that save's four forbidden-as-primary
+        // entries — a villain with malicious intent, a breakup plot — are what it turned into.
+        const bibleC = state.world_bible;
+        const contract = [
+          bibleC.tone?.trim() ? `GENRE: ${bibleC.tone.trim()}` : "",
+          bibleC.narrator_direction?.trim() ? `THE PLAYER'S STANDING DIRECTION: ${bibleC.narrator_direction.trim()}` : "",
+          bibleC.pressure_palette?.length ? `PRESSURES THIS STORY RUNS ON: ${bibleC.pressure_palette.join("; ")}` : "",
+          bibleC.forbidden_as_primary?.length ? `NEVER THE ENGINE OF THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
+        ].filter(Boolean).join("\n");
         const destination = state.world_bible.destination?.trim() || "";
         const priorPct = state.destination_progress?.pct;
         const destLine = destination
@@ -3907,7 +3984,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           : "DESTINATION: none — this is an open story with no stated ending. Omit the destination object.\n";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
-          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
         const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});

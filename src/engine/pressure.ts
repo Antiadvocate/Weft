@@ -532,7 +532,14 @@ export function detectPowerTier(recentText: string): PowerTier {
     // a bare "teleport" occur in ordinary prose and used to false-stamp every NPC as awestruck and inject
     // the EARNED_RESPONSE block. Removed: /with a (thought|gesture|wave|word)/, /with (a|his|her|their)
     // (mind|hand|will)/, bare /teleport\w*/. Kept only phrasings that can't be innocent.
-    /(other side of|across) the (planet|world|continent|country)/, /teleported (him|her|them|it|across|away|to)/,
+    // NOT A BARE "ACROSS THE COUNTRY". People fly. A save whose entire plot was a man taking a
+    // commercial flight to his mother's house tripped this on the line "You flew across the country
+    // in a towel, Vin" — and every character present was stamped "shaken by the player's impossible
+    // power", which then persisted on their cards for the rest of the story. The distance is not the
+    // impossible part; the MANNER is, so the manner has to be in the pattern.
+    /(?:teleport\w*|blink\w*|step(?:ped|s)?|vanish\w*|reappear\w*|will\w*|fold\w*)[^.]{0,30}\b(?:other side of|across) the (planet|world|continent|country)\b/,
+    /\b(?:instantly|in an instant|between one (?:breath|heartbeat|blink) and the next)[^.]{0,40}\b(?:other side of|across) the (planet|world|continent|country)\b/,
+    /teleported (him|her|them|it|across|away|to)/,
     /(banish\w*|sent?) (him|her|them|\w+) (away|elsewhere|to the) (void|nether|other side|realm)/, /(summon\w*|recall\w*) (him|her|them) (back )?across/,
     /(vanish\w*|disappear\w*) (him|her|them|\w+) (from (existence|the world|sight))/, /snap\w* (his|her|their) fingers and (\w+ )?(vanish|disappear|die|fall|burn)/,
     /out of (existence|the world|reality)/, /with (a|his|her|their) (mind|will) alone/,

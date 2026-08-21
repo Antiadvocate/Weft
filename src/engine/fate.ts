@@ -53,6 +53,40 @@ export function readFate(state: SaveState): Fate {
   return { active, destination: dest, act, turnsUsed, turnsLeft, budget, pct, authority: active ? fraction : 0, forceArrival: active && turnsLeft <= 0 };
 }
 
+/**
+ * GRAVITY, FOR A DESTINATION WITH NO CLOCK.
+ *
+ * A turn budget of 0 is a documented mode, not a mistake — the Settings panel calls it "gravity, not
+ * fate" and promises "the ending pulls but never forces". The engine delivered the second half of
+ * that sentence and not the first. With `active` false, fateDirective returns nothing at all, and
+ * the only thing left pointing at the ending was one passive line in the digest: "This story is
+ * written toward: X." PHILOSOPHY.md says exactly why that is not enough — "Fate changes threads,
+ * clocks, and pressure rather than only instructing the narrator, because a directive leaves the
+ * machinery pulling elsewhere."
+ *
+ * From a 92-turn save whose stated ending was two people restoring their intimacy, and whose genre
+ * was "Love, erotica, romantic": with no clock, `act` stayed "open" — the ending is far, the player
+ * is free — for the entire story, while the auditor was quietly recording, correctly, that the gap
+ * was "no physical or emotional focus on Miranda's body or Vin's loving attention to it". It ended
+ * with a restraining order.
+ *
+ * So gravity is written as gravity: a standing pull, named, with the current gap in it, and no
+ * escalation and no deadline anywhere in it. It does not force an arrival, and it must not read like
+ * one — what it does is stop every OTHER pull in the engine from being the only one in the room.
+ */
+export function gravityDirective(f: Fate, bible: { destination?: string }, missing?: string): string {
+  if (f.active) return "";                                  // the clock has it
+  const dest = (bible.destination ?? "").trim();
+  if (!dest) return "";
+  return `
+
+THIS STORY IS WRITTEN TOWARD: "${dest}"
+There is no deadline on it and you must not manufacture one — nobody is running out of time and no scene should feel like it is being hurried somewhere. `
+    + `What this is is GRAVITY: of the several directions a scene could go, the one that goes toward this is the one to take, and a turn that moves further away from it needs a reason the story actually supplies. `
+    + (missing ? `Between here and it, right now: ${missing}. ` : "")
+    + `That does not mean writing it this turn, and it does not mean anyone talking about it. It means the wants, the pressure and the attention of this scene bend toward that and not away from it.`;
+}
+
 /** The narrator's orders this turn. Empty when there is no destination or no clock, so open play is
  *  untouched. `missing` is the auditor's description of the remaining gap, when it has one. */
 export function fateDirective(f: Fate, missing?: string): string {

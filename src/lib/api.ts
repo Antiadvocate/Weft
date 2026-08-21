@@ -30,7 +30,7 @@ import { getLocalImage, isLocalModel, localModelId } from "../config";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
-import { detectWorldPronoun } from "../engine/coerce";
+import { detectWorldPronoun, rolesFromRelation } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
@@ -1676,7 +1676,11 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
       const cid = registerCharacter(s, { ...n, drive: n.drive_goal ? { goal: n.drive_goal, progress: 10, updated_turn: 1 } : undefined });
       if (worldPronoun && s.characters[cid]) s.characters[cid].pronouns = worldPronoun;
       s.memory[cid].core = [n.background].filter(Boolean);
-      s.world.edges.push({ from: cid, to: "char_player", warmth: Math.max(-100, Math.min(100, n.warmth ?? 0)), trust: Math.max(-100, Math.min(100, n.trust ?? 0)), power: 0, notes: n.relation_to_player ?? "", updated_turn: 1 });
+      // relation_to_player is a sentence and it names the standing fact: "his wife of six years"
+      // contains "wife". Until now it went into notes, which is prose nobody parses, and the edge
+      // was born with no roles — see coerce.rolesFromRelation.
+      const seededRoles = rolesFromRelation(n.relation_to_player);
+      s.world.edges.push({ from: cid, to: "char_player", warmth: Math.max(-100, Math.min(100, n.warmth ?? 0)), trust: Math.max(-100, Math.min(100, n.trust ?? 0)), power: 0, notes: n.relation_to_player ?? "", roles: seededRoles.length ? seededRoles : undefined, updated_turn: 1 });
     }
     for (const c of g.clocks ?? []) {
       s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], status: "running" });
