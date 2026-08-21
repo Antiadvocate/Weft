@@ -17,7 +17,7 @@ import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, 
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
-import { runReads, needsFaculties, deriveFaculties, type Read } from "./read";
+import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
@@ -1776,11 +1776,18 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
   const ooc = detectOOC(action);
   if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
+  // SOVEREIGNTY, read here rather than at its old home 250 lines down, because the first thing that
+  // consumes it is the void guard below and everything after that is downstream of what the guard
+  // did to the action text.
+  const god = !!state.world_bible.god_mode;
   // A TURN THE PLAYER DID NOT ACT IN. Fiat ("I CREATE A GUN AND KILL MYSELF", "VIN DIES") or a
   // fused out-of-character complaint. The engine was always right to refuse these; what it did
   // instead of refusing was fill the empty turn with invented player behaviour — thirteen barefoot
   // blocks and a self-discharge from hospital, off nine words of rage. See engine/ooc.ts.
-  const voided = mode === "do" ? detectVoid(action, ooc) : null;
+  // In god mode fiat is not fiat: the setting exists precisely to make a declaration true, and a
+  // guard that strips the declaration is the setting's negation. Only the out-of-character case
+  // still voids there — see detectVoid.
+  const voided = mode === "do" ? detectVoid(action, ooc, god) : null;
   const storyAction = voided ? "" : (ooc ? (ooc.inWorld || outwardAction) : outwardAction);
   const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
     + (mode === "do" && !voided ? bearingDirective(playerInterior, playerGrip(state)) : "")
@@ -2014,12 +2021,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const severNote = severanceDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
+  // SOVEREIGN PERCEPTION — god mode plus a declared act of reading somebody. The engine authors
+  // every present character's real want, real fear and real lie on every turn and shows them to
+  // nobody; a player with sovereignty who asks for one has already earned it. Computed here because
+  // it needs the intents, consumed in two places: the narrator's direction (so the prose does not
+  // invent a second, different thought) and the read panel (so the player gets it as written).
+  // See engine/read.ts.
+  const mindRead = sovereignRead(state, action, intents);
+  const mindNote = mindReadNote(state, action, intents);
   replanDrives(state);
   updatePaging(state, action);
   const prefix = stablePrefix(state);
   const memQuery = expandAliases(state, action); // "the captain" retrieves Sorena's memories
   const digest = volatileDigest(state, memQuery, eco ? { budgetOverride: Math.min(state.model_settings.token_budget || 4000, 3500) } : undefined);
-  const god = !!state.world_bible.god_mode;
   // tier is a light gate (blocks the "throw troops at a god" category error); it does NOT script
   // behavior — that emerges from each character's relaxation state via the perception gate.
   const recentText = [
@@ -2666,13 +2680,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -2683,7 +2697,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // reading. The surface handed over is the PREVIOUS turn's prose plus this turn's action:
   // exactly what the player has in front of them at the moment they form an impression, and
   // nothing from the state that they could not have perceived.
-  const readTarget = focused[0]?.id ?? focusNames[0]?.id ?? null;
+  // A declared mind-read names who the player is attending to more directly than the focus gate can
+  // infer it, so it wins when it resolved somebody.
+  const readTarget = mindRead.targetId ?? focused[0]?.id ?? focusNames[0]?.id ?? null;
   const readsPromise: Promise<Read[]> = (async () => {
     if (opts?.proseOverride) return [];
     if (needsFaculties(state)) {
@@ -2693,7 +2709,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
     const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
     const surface = `${prev ? prev + "\n\n" : ""}[the player now:] ${action}`;
-    const rs = await runReads(state, readTarget, surface, turn);
+    const rs = [...mindRead.reads, ...await runReads(state, readTarget, surface, turn)];
     if (rs.length) ev.onRead?.(rs);
     return rs;
   })();

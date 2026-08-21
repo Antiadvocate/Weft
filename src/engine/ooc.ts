@@ -169,7 +169,9 @@ export function oocDirective(complaint: string | undefined, turnsAgo: number): s
  */
 
 /** Declaring an outcome instead of attempting an act. This is authorship, and the engine has a
- *  channel for it (story mode); typed into the action box it is a command the world cannot take. */
+ *  channel for it (story mode); typed into the action box it is a command a mundane world cannot
+ *  take. GOD MODE IS THE WORLD WHERE IT CAN — see detectVoid, which is where that is decided. This
+ *  function answers only "is anything here beyond an ordinary body", never "is it allowed". */
 const FIAT = [
   /\b(?:i|he|she|they|\w+)\s+(?:dies?|died|is dead|are dead)\b/i,
   /\bi\s+(?:succeed|win|survive)\b[^.!?]{0,20}\bi\s+(?:die|kill)\b/i,
@@ -193,9 +195,23 @@ export type VoidKind = "ooc" | "fiat";
  * Returns the reason it cannot, or null for ordinary play. Deliberately narrow on both counts: an
  * ordinary action that happens to mention dying is not fiat, and a scene where somebody's character
  * dies of their injuries is the story doing its job.
+ *
+ * `god` IS THE WHOLE POINT OF THE THIRD ARGUMENT. This guard shipped without it and immediately did
+ * the thing it was built to stop, in reverse: a player who had switched god mode on — the setting
+ * whose own directive reads "THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares
+ * happens, completely, immediately" — typed a declaration, and the fiat patterns stripped it before
+ * the narrator ever saw it. Two blocks then went out in the same request, one saying whatever they
+ * declare happens and one saying they did nothing, and the deterministic one won, because it had
+ * already deleted the words. A world with no powers in it is a fact about THAT world, and this
+ * function had it hardcoded as a fact about all of them.
+ *
+ * The out-of-character case is NOT gated on god mode and is not an oversight. Sovereignty is power
+ * over the world; it is not a claim that a sentence addressed to the writing, giving the prose as
+ * its reason, was something the character did.
  */
-export function detectVoid(action: string, ooc: OOC | null): VoidKind | null {
+export function detectVoid(action: string, ooc: OOC | null, god = false): VoidKind | null {
   if (ooc?.kind === "fused") return "ooc";
+  if (god) return null;
   if (isFiat(action)) return "fiat";
   return null;
 }
@@ -222,6 +238,6 @@ export function voidFrame(kind: VoidKind): string {
 /** What the PLAYER is told, so a refusal is never mistaken for being ignored. */
 export function voidNotice(kind: VoidKind): string {
   return kind === "fiat"
-    ? `That did not happen — this world has no one who can do it, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens. If you want your character dead, have them do something that could kill them and let it play.`
+    ? `That did not happen — this world has no one who can do it, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens, or switch on god mode in settings, where what you declare is simply true. If you want your character dead inside the world as it stands, have them do something that could kill them and let it play.`
     : `Taken as a note about the writing, not as something your character did — so nothing was written from it. The story is where you left it.`;
 }

@@ -1323,6 +1323,24 @@ There is no deadline. The player can refuse, detour, fail, or walk away, and the
 
 `
     : "";
+  // GOD MODE IN THE CACHED PREFIX. The setting had exactly one home in the engine — a per-turn
+  // directive several thousand tokens further down — while the block the narrator is handed every
+  // single turn, under a header reading "WORLD BIBLE (LAW...)", went on saying "Forces/Magic: None.
+  // The world operates on mundane, physical laws." Nothing reconciled the two, so a sovereign player
+  // in a mundane world sent the narrator a flat contradiction and the older, more concrete, more
+  // repeated line won. Say it here, once, where the law is stated, and name the lines it displaces.
+  //
+  // Cache-safe: this varies with a settings toggle, not with the turn, exactly like the standing
+  // direction above it. Flipping the switch costs one cache miss.
+  const sovereign = b.god_mode
+    ? `=== THE PLAYER IS SOVEREIGN HERE (they set this; it governs every line below) ===
+What the player declares is what happened — completely, immediately, at the scale and intensity they state, and at no cost they did not narrate themselves.
+This covers acts a body could not perform, acts nothing in this world has ever done, and acts the world bible rules out. The "Forces/Magic" line, the "Forbidden" line, and every limit implied by the era and the technology below describe THE WORLD'S ORDINARY INHABITANTS. They do not bind the player. Where one of those lines and the player's declaration disagree, the declaration is what happened and the line remains true of everybody else.
+Write the act as already done, then write what the world honestly does about it. Never downscale, soften, delay, deflect, reinterpret, or substitute a smaller version of it; never have a character or a physical law prevent it; never let the reaction run backwards into undoing it.
+This includes acts the player aims at themselves. A player who declares their own death is dead on the page this turn, at the moment and by the means they gave.
+
+`
+    : "";
   const vetoes = (state.retcons ?? []).filter((r) => r.kind !== "correction");
   const corrections = (state.retcons ?? []).filter((r) => r.kind === "correction");
   const retcons = vetoes.length
@@ -1346,7 +1364,7 @@ ${(b as any).absent.trim()}
 
 `
     : "";
-  return `${supreme}${genre}${retcons}${correctBlock}${absent}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
+  return `${supreme}${sovereign}${genre}${retcons}${correctBlock}${absent}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}

@@ -41,6 +41,7 @@
 
 import type { SaveState } from "./types";
 import { buildMessages, complete, safeJson } from "../llm";
+import type { NpcIntent } from "./intent";  // type-only: erased at compile, no runtime cycle
 
 /** One faculty of the player's perception — derived from their card, not a fixed skill list.
  *  Stable across a playthrough so the player learns to distrust specific ones by name. */
@@ -259,4 +260,127 @@ export async function runReads(
   } catch {
     return [];
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOVEREIGN PERCEPTION — the one gate in the seal, and why it is there
+//
+// Everything above this line is built on withholding. `lens()` is sealed from the
+// target's psyche, drive, mind model and authored intent, and the seal is the
+// whole guarantee: the channel cannot leak what it was never handed. The intent
+// pass is sealed in the other direction — "the narrator is never shown truth" —
+// so a character's real want, real fear and real lie are computed every single
+// turn and read by nobody but the bookkeeper.
+//
+// That is correct for a person in a room. It stops being correct the moment the
+// player switches on god mode and declares that they are reading somebody's mind,
+// because then the engine is holding the exact answer to a question the player has
+// sovereign authority to ask, and refusing it on a rule written for mortals. From
+// a save: ninety-three authored intents for one character — "she is terrified, but
+// the terror is buried under exhaustion and a last-second calculation", "she wants
+// to shake you awake, to tell you that is a lie she has been telling herself for
+// years" — every one of them computed, filed, and never once shown to the player
+// whose story it was.
+//
+// SO THE GATE IS NARROW AND IT IS TWO CONDITIONS, both required: god mode is on,
+// and the player DECLARED the act this turn. God mode by itself does not open it —
+// a sovereign player who never asks keeps the fallible faculties and keeps the
+// game, which is the point of the faculties. Declaring it opens it completely,
+// because that is what sovereignty means.
+//
+// The truth is passed through VERBATIM and deterministically. No model rewrites it
+// on the way out: a mind-read that arrives paraphrased is a mind-read the player
+// has to trust somebody about, and there is nobody left to trust.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The faculty a sovereign read is attributed to. Deliberately not one of the player's five —
+ *  those are named for how they are WRONG, and this one is never wrong. Owning the line still
+ *  matters (unowned interpretation is the failure this whole channel exists to fix); what changes
+ *  is that this owner cannot be discredited. */
+export const SOVEREIGN_FACULTY = "WHAT IS ACTUALLY THERE";
+
+/** A declared act of perception. Conservative on purpose — a false positive hands over an interior
+ *  the player did not ask for, which is the exact failure the seal was built against. Every pattern
+ *  needs an explicit object (a mind, a thought, a head) or an explicit "what they are really/
+ *  actually X" construction; nothing fires off a bare "I look at her". */
+const MINDREAD = [
+  /\b(?:read|reads|reading|hear|hears|hearing|listen(?:s|ing)? to|sense|senses|scan|scans|see|sees|look(?:s|ing)? (?:in|into|inside)|peer(?:s|ing)? (?:in|into|inside)|reach(?:es|ing)? into|dip(?:s|ping)? into|search(?:es|ing)?)\b[^.!?]{0,40}\b(?:mind|minds|thoughts?|head|inner voice)\b/i,
+  /\b(?:mind|thoughts?)\b[^.!?]{0,30}\b(?:open to me|laid bare|bare to me|mine to read|are mine|is mine)\b/i,
+  /\b(?:know|knows|see|sees|hear|hears|find out|learn)\b[^.!?]{0,30}\bwhat\b[^.!?]{0,30}\b(?:really|actually|truly)\b[^.!?]{0,20}\b(?:think\w*|feel\w*|want\w*|mean\w*)\b/i,
+  /\b(?:know|knows|see|sees|hear|hears|find out|learn)\b[^.!?]{0,30}\bwhat\b[^.!?]{0,40}\b(?:hiding|not saying|isn'?t saying|holding back|won'?t say|concealing|keeping from me)\b/i,
+];
+
+/** Whose interior is the object of the sentence. "She reads my mind" trips every pattern above and
+ *  is the opposite act — somebody reading the PLAYER — so it must not open the player's channel. */
+const OWN_MIND = /\b(?:my|mine|my own)\s+(?:mind|thoughts?|head|inner voice)\b/i;
+const OTHER_MIND = /\b(?:his|her|their|its|\w+'s|\w+s')\s+(?:mind|thoughts?|head|inner voice)\b/i;
+
+/** Did the player declare that they are reading somebody this turn? */
+export function declaresMindRead(action: string): boolean {
+  const a = String(action ?? "");
+  if (OWN_MIND.test(a) && !OTHER_MIND.test(a)) return false;
+  return MINDREAD.some((re) => re.test(a));
+}
+
+/**
+ * Who is being read.
+ *
+ * A named person present in the scene, or — when the action carries only a pronoun and exactly one
+ * other person is in the room — that person. Two people and a bare "her" resolves to nobody, and
+ * nothing opens: guessing which of them to expose is the one mistake this must not make.
+ */
+export function mindReadTarget(state: SaveState, action: string): string | null {
+  const a = String(action ?? "").toLowerCase();
+  const present = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
+  for (const id of present) {
+    const first = (state.characters[id]?.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+    if (first.length >= 3 && a.includes(first)) return id;
+  }
+  return present.length === 1 ? present[0] : null;
+}
+
+/** The intent pass writes for the bookkeeper and says "the player" out loud. Shown to the player it
+ *  is an engine artifact in the middle of their own perception, so it becomes the name. */
+function inPlainWords(truth: string, state: SaveState): string {
+  const name = (state.characters["char_player"]?.name ?? "").split(/\s+/)[0] || "them";
+  return String(truth ?? "").replace(/\bthe player\b/g, name).replace(/\bThe player\b/g, name);
+}
+
+/**
+ * The read itself: the character's authored truth for THIS turn, handed over as written.
+ *
+ * Returns nothing at all unless both conditions hold, and nothing when the intent pass produced no
+ * intent for this person — an empty result is a quiet turn, never an invented one.
+ */
+export function sovereignRead(
+  state: SaveState, action: string, intents: NpcIntent[],
+): { reads: Read[]; targetId: string | null } {
+  if (!state.world_bible?.god_mode || !declaresMindRead(action)) return { reads: [], targetId: null };
+  const targetId = mindReadTarget(state, action);
+  if (!targetId) return { reads: [], targetId: null };
+  const it = intents.find((i) => i.char_id === targetId);
+  if (!it?.truth?.trim()) return { reads: [], targetId };
+  const first = (state.characters[targetId]?.name ?? "").split(/\s+/)[0] || "they";
+  const line = inPlainWords(it.truth.trim(), state)
+    + (it.lying ? ` What ${first} is showing is chosen, and it is not this.` : "");
+  return { reads: [{ faculty: SOVEREIGN_FACULTY, line }], targetId };
+}
+
+/**
+ * What the NARRATOR is told when a mind is being read.
+ *
+ * The seal normally keeps `truth` away from the narrator entirely, and it stays that way in every
+ * other turn. Here it has to cross, because the alternative is worse than the leak: the narrator is
+ * about to write a scene in which the player reads somebody's mind, and with nothing in hand it
+ * invents the thought — so the player gets the real answer in the read panel and a different,
+ * fabricated one in the prose, and has no way to know which is theirs.
+ */
+export function mindReadNote(state: SaveState, action: string, intents: NpcIntent[]): string {
+  const { reads, targetId } = sovereignRead(state, action, intents);
+  if (!reads.length || !targetId) return "";
+  const name = state.characters[targetId]?.name ?? "";
+  const first = name.split(/\s+/)[0] || name;
+  return `\nTHE PLAYER IS READING ${name.toUpperCase()}'S MIND THIS TURN, and in this world they can. What is actually there, exactly, is this: "${reads[0].line}"\n`
+    + `The player has it now, in those terms, without ${first} saying a word. Write it as something the player simply KNOWS: no asking, no deducing, no half-catching it in a gesture, and no version that differs from the sentence above. `
+    + `${first} does not feel it happen and has no way to tell that anyone is in there, so ${first} goes on exactly as someone whose inside is still private — because it is still private from everybody else in the room.`;
 }
