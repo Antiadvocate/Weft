@@ -908,6 +908,9 @@ export interface SaveState {
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */
   last_retold?: { line: string; known: string } | null;
+  /** The player addressing the machine rather than the world — a note about the writing. Carried
+   *  for a few turns as standing direction, never dramatised. See engine/ooc.ts. */
+  last_ooc?: { complaint: string; turn: number } | null;
   /** Somebody found inside the player's private space last turn with no door on the page. Corrected
    *  at the end of the next turn's direction, same mechanism as last_maxim. See engine/threshold.ts. */
   last_intrusion?: { name: string; line: string; place: string } | null;

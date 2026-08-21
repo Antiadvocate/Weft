@@ -41,6 +41,7 @@ import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
+import { detectOOC, oocFrame, oocDirective } from "./ooc";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -1768,8 +1769,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // player's own grip — see engine/interior.ts. The bookkeeper still gets the action whole, because
   // the interior is the truest evidence for the player's OWN state and the only honest source for it.
   const { outward: outwardAction, interior: playerInterior } = splitInterior(action);
-  const framedAction = MODE_FRAME[mode](mode === "do" ? outwardAction : action)
-    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "");
+  // OUT OF CHARACTER. The player addressing the writing rather than the world — "I kill myself
+  // because you're a fucking terrible writer" is not a character's decision, it is somebody hitting
+  // the table, and it was rendered as a suicide because one input box means everything typed is
+  // story. The contract has said "out-of-character text is direction: adjust silently, never
+  // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
+  const ooc = detectOOC(action);
+  if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
+  const storyAction = ooc ? (ooc.kind === "fused" ? "" : ooc.inWorld || outwardAction) : outwardAction;
+  const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
+    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "")
+    + (ooc ? oocFrame(ooc) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -2459,7 +2469,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // CAUGHT LAST TURN, QUOTED BACK THIS TURN. The scrubber removes leaks from the replayed history
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
-  const maximNote = maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const oocNote = state.last_ooc?.complaint
+    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn) : "";
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
