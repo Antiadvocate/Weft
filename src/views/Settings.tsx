@@ -794,7 +794,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
           Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
           Prefix `anthropic/` models get prompt-cache breakpoints automatically.
-          Append ":online" to any model id (e.g. deepseek/deepseek-chat-v3-0324:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
+          Append ":online" to any model id (e.g. anthropic/claude-opus-5:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
       </div>
       <div className="card p-4">

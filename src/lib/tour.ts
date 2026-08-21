@@ -184,7 +184,8 @@ export const TOURS: Record<TourId, TourStep[]> = {
       target: "forge-model",
       title: "The smith",
       body: [
-        "Which model builds the world — an OpenRouter id. The default is cheap and good at this. The models that narrate your turns are set separately in **Tuning → Models**.",
+        "Which model builds the world. Tap it for the live model list — searchable, newest first, with any local server you've set up at the top. Or type a full id to use one that isn't listed.",
+        "This one call decides the whole world, so the default is a strong model. The models that narrate your turns afterwards are set separately in **Tuning → Models**.",
       ],
     },
     {

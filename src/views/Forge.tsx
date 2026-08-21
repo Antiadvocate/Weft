@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, BookOpen, Hammer } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import { ModelPicker } from "./ModelPicker";
+import { DEFAULT_MODELS } from "../engine/types";
 import { guidesOff, setGuidesOff } from "../lib/tour";
 
 const SPARKS = [
@@ -20,7 +22,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
   const [seed, setSeed] = useState("");
   const [destination, setDestination] = useState("");
   const [destTurns, setDestTurns] = useState("");
-  const [model, setModel] = useState("deepseek/deepseek-chat-v3-0324");
+  const [model, setModel] = useState(DEFAULT_MODELS.forge_model);
   const [grounded, setGrounded] = useState(false);
   const [tone, setTone] = useState("");
   const [chronicle, setChronicle] = useState("");
@@ -128,10 +130,13 @@ export default function Forge({ onBack, onCreated, onGuide }: {
         </div>
 
         <div className="mt-4" data-tour="forge-model">
-          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Forge model (OpenRouter id — pick the smith)</div>
-          <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
-            value={model} onChange={(e) => setModel(e.target.value)} />
-          <button className="chip mt-2.5" data-tour="forge-web" onClick={() => setGrounded((v) => !v)}
+          {/* THE SMITH, FROM THE LIVE LIST. This was a bare text input holding a hardcoded model id,
+              which meant that the day that id left OpenRouter the first thing a new player met was
+              a forge that failed and no way to fix it but to know another id by heart and type it.
+              Same picker as Tuning: live list, searchable, local models first, custom ids still
+              accepted by typing one in. */}
+          <ModelPicker label="Forge model — who builds the world" value={model} onChange={setModel} />
+          <button className="chip mt-1.5" data-tour="forge-web" onClick={() => setGrounded((v) => !v)}
             style={grounded ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
             {grounded ? "◉" : "○"} ground with web search
           </button>
