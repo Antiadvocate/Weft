@@ -24,6 +24,7 @@ import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
+import { doorFromVoice } from "./coerce";
 import { playerSaysAnswered, deixisNote } from "./turn";
 
 export interface NpcIntent {
@@ -64,11 +65,13 @@ function stakesFor(state: SaveState, id: string): string | null {
 const INTENT_SYSTEM = `You author the PRIVATE, TRUE intent of a single character for one beat of a story — what they are ACTUALLY doing beneath what they let show. This is the character's own truth, drawn ONLY from who they are and their situation, NEVER from the player's private thoughts (you are not given those, and the character cannot know them).
 
 Return ONE strict JSON object, nothing else:
-{"surface":"HOW they carry themselves this beat — posture, manner, degree of openness, what they are willing to raise and what they hold back. A brief, in a few words. NEVER a line of dialogue and NEVER quoted speech: you are authoring intent BEFORE the scene is written, so any words you put in their mouth are words they did not say. The narrator writes what is actually spoken; you describe only the stance they bring to it.","truth":"what is ACTUALLY true underneath — the real want, the lie and what it conceals, the feeling being withheld. If the surface is honest, truth restates the genuine state plainly. If they lie, truth names the lie AND the fact being hidden.","tell":"OPTIONAL — a small, deniable behavioral leak of the truth (a flicker, a too-quick reply, a hand that stills). Something an observer COULD read, or could miss/misread. Omit if they mask cleanly.","lying":true or false}
+{"surface":"HOW they carry themselves this beat — posture, manner, degree of openness, what they are willing to raise and what they hold back. A brief, in a few words. NEVER a line of dialogue and NEVER quoted speech: you are authoring intent BEFORE the scene is written, so any words you put in their mouth are words they did not say. The narrator writes what is actually spoken; you describe only the stance they bring to it.","truth":"what is going on INSIDE them, in words that could not describe a body: the real want, what they are afraid of, the feeling being withheld, what they are hoping this beat produces. If they lie, name the lie AND the fact being hidden. NEVER a restatement of the surface — if this field describes posture, manner, or an action, it is wrong and you have written the surface twice.","tell":"OPTIONAL — a small, deniable behavioral leak of the truth (a flicker, a too-quick reply, a hand that stills). Something an observer COULD read, or could miss/misread. Omit if they mask cleanly.","lying":true or false}
 
 Rules:
 - The character acts from THEIR nature, agenda, and feelings — sovereign, not in service of the player. They pursue their own want this beat.
-- surface and truth may match (an honest, open character, or one who is simply, plainly feeling what they feel) or diverge (a liar, someone hiding desire, someone saving face). Divergence is ONE tool, not the default — use it only when the character's state actually supports a concealed truth. A resigned, hurt, or wary person is usually just that underneath; do not manufacture a hidden agenda, a secret scheme, or a dark reading of the player where the state shows only ordinary feeling. Most beats, surface and truth are close and lying is false.
+- THE TWO FIELDS ARE DIFFERENT KINDS OF THING AND ARE NEVER THE SAME SENTENCE. surface is what a CAMERA GETS: posture, manner, what they raise, what they hold back. truth is what is going on INSIDE them: the want, the fear, the thing they are not saying, what they are hoping happens. A camera cannot photograph a want, and a feeling has no posture, so these two can never be written in the same words. Copying the surface into truth is the single most damaging thing you can return: it tells the rest of the engine that this person has no interior, and the scene that comes out has them announcing their own feelings out loud because there was nothing underneath for the prose to keep back. If you find yourself about to repeat the surface, you have not written the truth yet — ask what they WANT out of the next two minutes and what they are afraid of, and write that.
+- WRITE THE TWO IN DIFFERENT REGISTERS EVEN WHEN NOTHING IS BEING CONCEALED. An honest, open person's surface and truth AGREE — no lie, "lying" is false, nothing is being concealed — and they are still completely different sentences, because one is a body in a room and the other is a state of mind. "She sets the plates down and says she will start on the salad" is a surface. "She is relieved he is home and the sting of what he said has not gone" is the truth that goes under it. Most beats look like that. Deception is rare; interiority is universal.
+- DIVERGENCE-AS-DECEPTION IS STILL ONE TOOL, NOT THE DEFAULT. Do not manufacture a hidden agenda, a secret scheme, or a dark reading of the player where the state shows only ordinary feeling. A resigned, hurt, or wary person is usually just that underneath — but "just that underneath" is a sentence about their inside, and it is what belongs in truth.
 - A WANT THEY ARE AFRAID OF DOES NOT COME OUT AS THE WANT. When the character's active pursuit carries a blocker that is a fear, a cost, or a thing they cannot say, the SURFACE is the sideways move and the TRUTH is what it is really for: raising the adjacent subject, asking a question so the other person volunteers it, floating a small deniable version, telling it as someone else's story. That is not a lie and "lying" stays false — it is how a person approaches something that frightens them. Writing the surface AS the want ("she tells him she needs to talk about the thing") turns a scene of approach into an announcement, and the whole story starts sounding like a novel instead of like people. If they carry a "goes at it by" line, the surface is that.
 - CALIBRATE TO THE STATE — the truth must be PROPORTIONAL to the character's actual disposition (given as warmth/trust with their plain-language meaning). Mild negatives are mild: warmth slightly below zero is "a little hurt, a little guarded", NOT terror; low trust is "cautious, watching", NOT conviction that the player is a monster. Do NOT escalate a wary or resigned character into someone secretly certain the player is a manipulator, a monster, a hollow shell, or a danger — that is invention, and it poisons how the character is played. Only write fear, hatred, or a dark verdict when the warmth/trust and history genuinely support that intensity. If the numbers say "mildly hurt but still cares," the truth is mildly hurt, full stop.
 - The character reacts to what the player actually SAID and DID this beat and to their real history — never to a sinister interpretation the state doesn't justify. If nothing hostile has actually happened, the character is not secretly seething about it.
@@ -165,6 +168,27 @@ export function deQuoteIntent(t: string): string {
  *  simply stop — "…and she is terrified that space is", "…She wants to" — which reads as the engine
  *  losing the thread rather than the field having a ceiling. Prefer the last completed sentence;
  *  fall back to the last whole word with an ellipsis. */
+/**
+ * Is this "truth" just the surface again?
+ *
+ * Byte-identical is the common case and the cheap check. The other case is a near-copy — the same
+ * sentence with a word moved — so content-word overlap catches it too. Deliberately generous about
+ * what counts as different: two fields that genuinely describe an inside and an outside share almost
+ * no vocabulary, so a real pair scores far below this and only a copy trips it.
+ */
+export function collapsed(surface: string, truth: string): boolean {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const a = norm(surface), b = norm(truth);
+  if (!a || !b) return true;
+  if (a === b) return true;
+  const words = (x: string) => new Set(x.split(" ").filter((w) => w.length > 3));
+  const wa = words(a), wb = words(b);
+  if (!wa.size || !wb.size) return a === b;
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared / Math.min(wa.size, wb.size) >= 0.75;
+}
+
 export function clip(t: string, max: number): string {
   const s = t.trim();
   if (s.length <= max) return s;
@@ -224,7 +248,10 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       // is not given. Without the blocker it cannot know the want is frightening; without the
       // approach it invents a door the character does not use.
       c.drive?.goal ? `Wants: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
-      c.drive?.approach ? `How they go at it (their door — the surface should BE this, not the want): ${c.drive.approach}` : "",
+      // the want's own door if it has one, otherwise the person's — see doorFromVoice. A pass with
+      // no door writes the surface AS the want, which is the announcement this rule exists to stop.
+      (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
+               return door ? `How they go at it (their door — the surface should BE this, not the want): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
       e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",
       `WHY THEY HAVE STAKES THIS BEAT: ${reason}`,
@@ -253,10 +280,25 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       );
       const j = safeJson<Partial<NpcIntent> | null>(out.text, null);
       if (!j || !j.surface) return null;
+      const surface = clip(deQuoteIntent(String(j.surface)), 300);
+      // A COLLAPSED INTENT IS WORSE THAN NO INTENT, and this used to be written as a convenience:
+      // `j.truth ?? j.surface`. When the model omitted truth the engine handed the surface back as
+      // the character's inner life, and nothing anywhere could tell the difference between "this
+      // person's interior was authored" and "this person has no interior". In one 47-turn save 29
+      // of 43 intents came back with the two fields byte-identical, including the scene the whole
+      // story turned on — and the bookkeeper was then told that a description of her posture was her
+      // "true inner state", so the prose had her announcing her feelings aloud because there was
+      // nothing underneath to keep back. Now a collapse is detected and the intent is dropped: the
+      // character gets rendered normally, which is honest, instead of carrying a hollow interior.
+      const rawTruth = j.truth === undefined || j.truth === null ? "" : clip(deQuoteIntent(String(j.truth)), 300);
+      if (!rawTruth || collapsed(surface, rawTruth)) {
+        console.warn(`[intent] ${c.name}: surface and truth collapsed — dropping the intent rather than filing posture as inner state`);
+        return null;
+      }
       return {
         char_id: id, name: c.name,
-        surface: clip(deQuoteIntent(String(j.surface)), 300),
-        truth: clip(deQuoteIntent(String(j.truth ?? j.surface)), 300),
+        surface,
+        truth: rawTruth,
         tell: j.tell ? clip(deQuoteIntent(String(j.tell)), 200) : undefined,
         lying: !!j.lying,
       } as NpcIntent;

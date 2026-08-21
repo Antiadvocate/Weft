@@ -153,7 +153,14 @@ export function tickEmotions(state: SaveState): string[] {
 
     for (const st of emotional) {
       const age = turn - (p.state_ages?.[st] ?? turn);
-      const settledOut = r >= 3 && age >= 2;   // nothing is gripping it, so it goes
+      // RUNNING IS ALSO GRIPPING, and it is the one the relaxation number cannot see. Self-liberation
+      // asks "is anything holding this?" and reads the answer off the body being settled. A person
+      // pouring themselves into fixing things with somebody looks settled — busy, warm, agreeable,
+      // relaxation fine — and is holding on hard: the feeling is not being felt, it is being outrun,
+      // and a feeling nobody sits still with never completes. So while the repair loop runs, nothing
+      // of theirs releases, however open the body reads. What they outran is stored in `unfelt` and
+      // arrives when they finally stop (see engine/fault.ts).
+      const settledOut = r >= 3 && age >= 2 && !p.repairing;
       const outlived = age >= STATE_MAX_TURNS; // nothing has touched it in a very long time
       if (settledOut || outlived) {
         // SELF-LIBERATION: released, and it leaves its information behind.

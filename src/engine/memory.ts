@@ -14,7 +14,7 @@ import { factGate, factOverlap } from "./facts";
  * O(core + beliefs + k) — constant in total turn count. See verify.ts for
  * the geometric-series bound and Monte Carlo precision checks.
  */
-import type { CharMemory, EpisodicMemory, Belief } from "./types";
+import type { CharMemory, EpisodicMemory, Belief, SaveState } from "./types";
 
 export const HALF_LIFE_TURNS = 24;       // recency half-life
 export const ALPHA = 1.0, BETA = 1.0, GAMMA = 1.5;
@@ -522,7 +522,15 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
         .replace(/\bI\s+(?:is|are)\b/g, "I am")
         .replace(/\bI\s+(?:has)\b/g, "I have")
         .replace(/\bI\s+(?:does)\b/g, "I do")
-        .replace(/\bI\s+herself\b/g, "I myself").replace(/\bI\s+himself\b/g, "I myself").replace(/\bI\s+themselves\b/g, "I myself");
+        .replace(/\bI\s+herself\b/g, "I myself").replace(/\bI\s+himself\b/g, "I myself").replace(/\bI\s+themselves\b/g, "I myself")
+        // A REFLEXIVE IS SAFE WHERE A FREE PRONOUN IS NOT. Rule 4 refuses to touch "she" mid-
+        // sentence because it may belong to somebody introduced earlier, and that caution is right.
+        // A reflexive is different in kind: grammar requires it to corefer with the subject of its
+        // own clause, so once that subject is "I" the reflexive is "myself" as a matter of syntax
+        // rather than of guessing. Without this, "Miranda told herself she is not ready" repaired to
+        // "I told herself", which is worse than what it started as. Guarded the same way the verb
+        // agreement above is: no other named person may stand between the "I" and the reflexive.
+        .replace(/\bI\b((?:(?!\b[A-Z][a-z])[^.!?])*?)\b(?:herself|himself|themselves)\b/g, (_m, mid: string) => `I${mid}myself`);
       // ...and for a coordinated clause whose subject was elided: "Tessa is terrified and has not
       // said a word" carries its subject across the "and", so the swap has to reach it too. Only
       // when the conjunction is followed IMMEDIATELY by the verb (an elided subject) and no other
@@ -536,8 +544,81 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
       // a memory that is now nothing but "I" and a verb lost its content to the rewrite
       if (t.split(/\s+/).filter(Boolean).length < 5) return null;
     }
+    // 5. AN OPENING PRONOUN HAS NO ANTECEDENT, so in this bank it can only be the owner.
+    //
+    //    Rule 4 rewrites the NAME and deliberately never a pronoun, because a pronoun in the middle
+    //    of a sentence may belong to somebody introduced earlier in it — that reasoning is right and
+    //    stands. It does not apply to the FIRST word. A memory that opens "She reached past him and
+    //    folded the corner of his book page down" has nothing before the "She" to refer to, and it
+    //    was sitting in that woman's own bank describing her own hands from outside. Only the
+    //    opening subject is touched, and only when the memory does not name somebody else first.
+    //    AND ONLY WHEN NOTHING DOWNSTREAM DEPENDS ON IT. Converting the opener to "I" re-points
+    //    every later pronoun that was coreferring with it: "She told Rabi she wouldn't punch him —
+    //    she'd just sit and wait" becomes "I told Rabi she wouldn't punch him", and the two later
+    //    "she"s now read as a different woman. That is turning one ambiguity into two, which is the
+    //    precise failure rule 4 refuses to commit and tests/memory-voice.ts pins. So the opener moves
+    //    only when it is the ONLY pronoun of its family in the memory — nothing is left to strand.
+    //    Otherwise the entry stays third-person and merely vague, which is the safe direction: a
+    //    legacy memory left alone is unclear, and one rewritten on a guess is false.
+    const FAMILY: Record<string, RegExp> = {
+      she: /\b(?:she|her|hers|herself)\b/gi,
+      he: /\b(?:he|him|his|himself)\b/gi,
+      they: /\b(?:they|them|their|theirs|themselves)\b/gi,
+    };
+    const openerMatch = t.match(/^(She|He|They)\s+(?=[a-z])/);
+    const fam = openerMatch ? FAMILY[openerMatch[1].toLowerCase()] : undefined;
+    const lone = !!fam && (t.match(fam) ?? []).length === 1;
+    const opener = lone ? openerMatch : null;
+    if (opener) {
+      t = t.slice(opener[0].length);
+      t = "I " + t.replace(/^(is|are|was|were|has|have)\b/, (v) => ({ is: "am", are: "am", was: "was", were: "was", has: "have", have: "have" } as Record<string, string>)[v.toLowerCase()] ?? v);
+      t = t.replace(/^I\s+(\w+)s\b(?!\s*')/, (m, verb: string) => (/^(wa|ha|i|thi|ga|le|clo|dre)/i.test(verb) ? m : `I ${verb}`));
+      t = t.replace(/\bherself\b/g, "myself").replace(/\bhimself\b/g, "myself").replace(/\bthemselves\b/g, "myself");
+    }
   }
   return t.slice(0, 400);
+}
+
+/**
+ * EVERY DOOR, NOT JUST THE BOOKKEEPER'S.
+ *
+ * cleanMemoryContent guards one entrance — the `memories` the bookkeeper files. There are twelve
+ * writers into the episodic store, across eight modules: promises kept and broken, drives that
+ * stalled or completed, schedule misses, offstage events, montage vignettes, habit observations,
+ * time skips, witnessed reactions. Eleven of them wrote straight past it, and what they wrote was
+ * built by string interpolation out of fields authored in other voices — a drive goal is a
+ * directive ("Tell Vin she understands he felt uncared for"), a promise line is a report about a
+ * third party — so a first-person bank filled up with things like:
+ *
+ *   Miranda broke their promise to Miranda: Miranda told herself she is not ready to talk about it.
+ *   Miranda agreed: Tell Vin she understands he felt uncared for and that she wants to fix it.
+ *   Stopped asking about Lean into this morning of tenderness with Vin, let herself be fully…
+ *   She reached past him and folded the corner of his book page down.
+ *
+ * Rather than thread the guard through twelve call sites — where the thirteenth would miss it — the
+ * bank is swept. Each entry is marked once so this never reprocesses, which also means an existing
+ * save is cleaned the first time it is loaded rather than carrying its corruption forever.
+ */
+export function sweepMemories(state: SaveState, playerAction?: string): number {
+  let dropped = 0;
+  for (const [id, mem] of Object.entries(state.memory ?? {}) as [string, CharMemory][]) {
+    if (!mem?.episodic?.length) continue;
+    const name = state.characters?.[id]?.name ?? "";
+    if (!name) continue;
+    const isPlayer = id === "char_player";
+    const kept: typeof mem.episodic = [];
+    for (const m of mem.episodic) {
+      const e = m as typeof m & { swept?: boolean };
+      if (e.swept) { kept.push(m); continue; }
+      e.swept = true;
+      const cleaned = cleanMemoryContent(m.content, { name, isPlayer, playerAction });
+      if (!cleaned) { dropped++; continue; }
+      m.content = cleaned;
+      kept.push(m);
+    }
+    mem.episodic = kept;
+  }
+  return dropped;
 }
 
 /**

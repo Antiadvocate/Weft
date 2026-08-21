@@ -36,17 +36,19 @@ import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeInten
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
 import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emotions";
 import { frameAttempt, attemptDirective } from "./attempt";
+import { splitInterior, bearingDirective, playerGrip } from "./interior";
+import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, stripScaffolding } from "./echo";
+import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
-import { reflectionDue, cleanMemoryContent, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
+import { reflectionDue, cleanMemoryContent, sweepMemories, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
 import { knownNameWhitelist, groundMemoryContent, addFact, supersedeFact, filterSuspectBeliefs, factOverlap, engagedLaw } from "./facts";
 import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
@@ -1758,7 +1760,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   let searchTarget = "";
   const cleanedAction = action.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
   action = cleanedAction;
-  const framedAction = MODE_FRAME[mode](action);
+  // THE PRIVATE CHANNEL IS NOT HANDED OVER. The narrator writes what the room can see, and it
+  // cannot leak a thought it never received. What replaces the words is a bearing computed from the
+  // player's own grip — see engine/interior.ts. The bookkeeper still gets the action whole, because
+  // the interior is the truest evidence for the player's OWN state and the only honest source for it.
+  const { outward: outwardAction, interior: playerInterior } = splitInterior(action);
+  const framedAction = MODE_FRAME[mode](mode === "do" ? outwardAction : action)
+    + (mode === "do" ? bearingDirective(playerInterior, playerGrip(state)) : "");
   const turn = state.world.current_turn;
   setLLMPrefs({
     routeByPrice: !!state.model_settings.route_by_price,
@@ -1967,6 +1975,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // question one level down: novelty asks how much airtime a TRAIT still deserves, this asks whether
   // the specific thing a character reached for last turn is still worth reaching for.
   const spentNote = spentSubjectsNote(state);
+  // WHAT THEY KNOW THEY DID — behavioral direction for anybody carrying a fault or running a repair
+  // loop. Never "X feels guilty": the interior stays off the page here as everywhere else, and what
+  // goes over is what the room would see them DO about it.
+  const faultNote = faultDirective(state);
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   replanDrives(state);
@@ -2607,13 +2619,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -2716,6 +2728,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // before anything else reads the prose — the bookkeeper was otherwise recording the model's notes
   // about the scene as though they were events in it.
   prose = stripScaffolding(prose);
+  {
+    // the machinery naming itself on the page — see stripMetaPlayer
+    const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
+    if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
+  }
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
   // and no printed pronouns (a child, a coworker), where the model defaults to "she". Conservative:
@@ -3454,6 +3471,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // (what the body does with what it is carrying) reads the post-company relaxation.
   safeTick("co-regulation", () => tickCoRegulation(state));
   safeTick("emotions", () => tickEmotions(state));
+  // repair AFTER the lifecycle, because it is the thing the lifecycle could not account for: a body
+  // that looks settled and is holding on anyway, by moving. It reads the post-company relaxation and
+  // decides whether somebody has started running, is still running, or has finally stopped.
+  safeTick("repair", () => tickRepair(state));
   // discharge LAST of the psyche ticks: it reads the fully settled relaxation after company and
   // the lifecycle have had their say, against the start-of-turn baseline captured above.
   safeTick("discharge", () => tickDischarge(state));
@@ -3481,7 +3502,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const observedStances: Record<string, Stance> = {};
     for (const pid of presentReal) observedStances[pid] = stanceOf(pid);
     for (const id of presentReal) {
-      if (!state.characters[id]?.central) continue; // only central characters carry full theory-of-mind
+      // ONE CHARACTER'S DIFFERENCE, AND THE WHOLE LAYER WAS DEAD. Everywhere else in this engine
+      // non-central is written `central === false`, so a character whose flag was never set counts
+      // as central — and the forge does not set it, so in practice nobody has it. This line asked
+      // for TRUTHY instead, which meant it skipped every character in every save: one at turn 47
+      // had `minds: {}` and three people who had never once been wrong about each other. Everything
+      // downstream went with it — no held_false beliefs, no surprise, no MINDS block for the
+      // narrator, and intent.ts quietly lost its richest source of stakes ("wrongly believes: …"),
+      // which is most of why that save reads as people with no interior.
+      if (state.characters[id]?.central === false) continue; // only central characters carry full theory-of-mind
       const r = updateMind(state, id, observedStances, turn, dispersion);
       if (r.lines.length) shifts.push(...r.lines.slice(0, 1)); // surface at most one belief-shift line
     }
@@ -3549,11 +3578,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     }
     const healed = healMinorInjuries(cc, turn);
     if (healed.length) offscreenLog.push(`${state.characters[id].name}: ${healed.join(", ")} — healed.`);
-    if (id === "char_player") continue;
+    // THE PLAYER USED TO BE SKIPPED ENTIRELY HERE, and that is why nothing a player ever felt
+    // became anything. The bookkeeper has always been able to write them a trait — it reads their
+    // stated interior as authoritative for char_player — but with no decay and no consolidation
+    // those traits just piled up unchanged, and identity never formed out of them. Sovereignty was
+    // implemented as "the player is not modelled", when what it actually forbids is the ENGINE
+    // deciding who the player is. A trait grown from what the player themselves reported feeling,
+    // repeatedly, is not the engine's verdict; it is their own account, kept. So they consolidate
+    // now, like anyone. Two things stay off: their background is not rewritten from play (it is
+    // authored, and it is the one field the narrator reads as the player's private truth), and
+    // their habits are not dissolved (they never fire, so there is nothing to dissolve). And the
+    // resulting traits never reach the narrator — see volatileDigest, which withholds `learned:`
+    // for the player. What they become is theirs to read in the Cast panel, not something the
+    // story tells them about themselves.
+    const isThePlayer = id === "char_player";
     const { kept, log } = decayTraits(state.traits[id] ?? [], turn);
     state.traits[id] = kept;
     offscreenLog.push(...log.map((l) => `${state.characters[id].name}: ${l}`));
     // earned identity change: only on the reflection cadence, never per-turn
+    if (isThePlayer) {
+      if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
+        const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+        state.traits[id] = ck;
+        // logged to the player's own shift feed, never pushed at the narrator
+        for (const l of clog) offscreenLog.push(l);
+      }
+      continue;
+    }
     if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
       const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;
@@ -3682,6 +3733,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+
+  // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
+  // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out
+  // of fields authored in other voices — a drive goal is a directive, a promise line is a report
+  // about a third party — so a first-person bank filled with third-person accounts of its own owner
+  // and with the player's typed words. Swept here, after every writer for this turn has run.
+  {
+    const dropped = sweepMemories(state, action);
+    if (dropped) console.warn(`[turn] memory sweep: dropped ${dropped} malformed entr(ies)`);
+  }
 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
@@ -5497,6 +5558,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     return charId ? { charId, towardId, stance: st.stance, about: st.about ?? "" } : null;
   }).filter((x): x is NonNullable<typeof x> => !!x && !!x.about);
   for (const line of applyStances(state, resolvedStances, turn)) shifts.push(line);
+  // ── FAULT ── the other half of stances, and the half that never existed. Stances record how a
+  // person answered pressure; this records a person having CAUSED something. Applied after the edges
+  // so the bond weight reads the relationship as it now stands, and gated by conscience inside — a
+  // cold character does the same harm and carries none of it.
+  {
+    const reported = (diff.faults ?? []).map((f) => {
+      const charId = resolveId(state, f.character);
+      const towardId = (f.toward ? resolveId(state, f.toward) : null) ?? "char_player";
+      return charId && towardId ? { character: charId, toward: towardId, about: f.about ?? "" } : null;
+    }).filter((x): x is NonNullable<typeof x> => !!x);
+    for (const line of applyFaults(state, faultsThisTurn(state, diff, reported), turn)) shifts.push(line);
+  }
   for (const pr of diff.promises_resolved ?? []) {
     let target = pr.id ? (state.world.promises ?? []).find((p) => p.id === pr.id && p.status === "open") : undefined;
     if (!target) {
