@@ -170,6 +170,18 @@ const VERDICT_ROLE = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|
 
 const RUPTURE_NOTE = /\b(contempt|disgust(ed|s)?|revulsion|revolted|loath(es|ing|ed)?|hatred|despises?|betray(ed|al)|estranged?)\b|\b(emotional withdrawal|withdrawn from|withdrawing from|cannot forgive|will not forgive|can never forgive|wants nothing (more )?to do with|done with (him|her|them)|hardened against)\b/i;
 
+/** …AND THE EVENTS THAT END A BOND, WHICH THE FEELINGS LIST HAD NONE OF.
+ *
+ *  A woman was served a restraining order, told to leave before the police were called, and had the
+ *  friendship ended in as many words. Her note read "The restraining order is the final door; she
+ *  knows it is over and is not chasing" — not one word of which is contempt, hatred or betrayal — so
+ *  nothing above matched, and her warmth toward the man who did it stayed at +4. The card read as
+ *  somebody quite glad it was over.
+ *
+ *  A bond can end without anybody feeling a listed feeling about it. What ends it is a THING THAT
+ *  HAPPENED, and the note names that instead. */
+const RUPTURE_EVENT = /\b(restraining order|protection order|call(ed|ing)? the (cops|police)|ended (the|their|our) (friendship|marriage|relationship)|breaking off|broke it off|cut (him|her|them) off|cut off contact|no(?:-| )contact|never (speak|see|contact)|not welcome|thrown out|threw (him|her|them) out|told (him|her|them) to leave|walked out (on|for good)|final door|it is over|it's over|the end of (the|their|our))\b/i;
+
 /** …and the same words in a sentence about GETTING OVER it. "Moving past her immediate hatred" is a
  *  note about reconciliation that happens to contain the word hatred, and reading the keyword alone
  *  inverted a bond that had been warming for seventeen straight turns. */
@@ -232,11 +244,16 @@ export function applyEdgeDelta(
     //   · SCOPE. A rupture word inside a sentence about getting over it is not a rupture.
     //   · SIZE. It amplifies, never sets, and never past the ±15 ceiling every other delta obeys.
     //     One turn cannot invert a marriage; several consecutive ones can, which is correct.
-    if (RUPTURE_NOTE.test(e.notes) && !RECONCILING_NOTE.test(e.notes)) {
-      if (d.warmth_delta < 0 && Math.abs(warmthDelta) < RUPTURE_STEP) {
+    //   · AND ZERO IS NOT WARMING. The direction rule read `delta < 0`, so it fired only where the
+    //     numbers were ALREADY moving the right way and merely too little. The case it was written
+    //     for is the one it excluded: a rupture note with warmth_delta 0 — or omitted, which parses
+    //     as 0 — is exactly the words and the numbers disagreeing, and the guard sat it out. A
+    //     genuinely POSITIVE delta still blocks it, which is all the direction rule ever needed.
+    if ((RUPTURE_NOTE.test(e.notes) || RUPTURE_EVENT.test(e.notes)) && !RECONCILING_NOTE.test(e.notes)) {
+      if (d.warmth_delta <= 0 && Math.abs(warmthDelta) < RUPTURE_STEP) {
         e.warmth = clamp(e.warmth - (RUPTURE_STEP - Math.abs(warmthDelta)), -100, 100);
       }
-      if (d.trust_delta < 0 && Math.abs(trustDelta) < RUPTURE_STEP) {
+      if (d.trust_delta <= 0 && Math.abs(trustDelta) < RUPTURE_STEP) {
         e.trust = clamp(e.trust - (RUPTURE_STEP - Math.abs(trustDelta)), -100, 100);
       }
     }
