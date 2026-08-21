@@ -40,7 +40,68 @@
  */
 
 /** Second-person address to the thing writing the story. */
-const META_ADDRESS = /\b(?:you|your|you'?re|youre|u)\b[^.!?]{0,40}\b(?:writer|writing|write|storytell\w*|story\s?telling|narrat\w+|prose|plot|pacing|storyline|dialogue|author|ai\b|bot|engine|game|program|model)\b/i;
+const META_ADDRESS = /\b(?:you|your|you'?re|youre|u)\b[^.!?]{0,60}\b(?:writer|writing|write|storytell\w*|story\s?telling|narrat\w+|prose|plot|pacing|storyline|dialogue|author|ai\b|bot|engine|game|program|model|prompt|setting|settings|trait|traits|scene|turns?|chapter|response|output|context|instructions?|description)\b/i;
+
+/* ── THE PLAYER DOES NOT NAME THE MACHINE. ───────────────────────────────────────
+ *
+ * Everything above needs the player to say one of about seventeen nouns. Four turns from one save,
+ * every one of them unmistakably the player talking to the software, and the guard caught none:
+ *
+ *     So you're going to ignore the erotica part of the prompt? Neat. An ai that doesn't kisten
+ *     I don't think you needed to take off her jeans. They aren't having sex.
+ *     So you just made her not cum on his dick because you have no clue what that means listen dumbass.
+ *     STOP BEING A FUCKING IDIOT AI
+ *
+ * Turn 10 was played as Miranda asking "Vin. What are you talking about?" — and the bookkeeper
+ * filed a new standing want off it: understand why Vin is suddenly acting so combative and strange.
+ * The player's complaint about the writing became a character's motivation. Turn 11 was played as
+ * her folding her arms and setting her jaw. The one thing this module exists to stop, twice, in two
+ * turns, with the module installed.
+ *
+ * THE TELL WAS NEVER THE NOUN. It is that somebody is being held responsible for what happened in
+ * the story, in the second person, from outside it. Nobody in the fiction can be accused of having
+ * AUTHORED the fiction — "you made her", "you needed to take off her jeans", "you have no clue" —
+ * so an unquoted second-person accusation of authorship has no possible referent in the world. That
+ * is a structural impossibility rather than a vocabulary match, which is why it holds where the
+ * noun list did not.
+ *
+ * Quoted text comes out first, because inside quotation marks "you" is the player talking to
+ * somebody in the room, which is ordinary play and the overwhelming majority of every save. */
+
+/** Holding "you" responsible for an event in the story. */
+const AUTHORED_BY_YOU = /\byou\b[^"“”.!?]{0,28}\b(?:made?|making|had|have|has|need(?:ed)?|wr(?:ote|ite|iting|itten)|gave|give|put|turn(?:ed)?|decide[ds]?|add(?:ed)?|remove[ds]?|skip(?:ped)?|ignor(?:e|ed|ing)|forg(?:et|ot)|chang(?:e|ed)|invent(?:ed)?|creat(?:e|ed)|keep|kept)\b/i;
+
+/** Told to stop, or called a name. Neither has a referent inside a scene. */
+const META_INSULT = /\b(?:stop|quit|shut up|listen)\b[^.!?]{0,24}\b(?:being|it|up|dumbass|idiot|ai|bot)\b|\b(?:you|u)\s+(?:fucking\s+)?(?:idiot|moron|dumbass|dipshit|stupid|clown|bot)\b|\b(?:idiot|dumbass|stupid|shitty|fucking)\s+(?:ai|bot|llm|model|narrator|writer)\b|\bai\b[^.!?]{0,24}\b(?:doesn'?t|does not|can'?t|cannot|won'?t)\b|\byou\b[^.!?]{0,24}\b(?:can'?t|cannot|don'?t|do not|didn'?t)\s+(?:read|understand|listen|comprehend)\b/i;
+
+/** Which characters of the action sit inside quotation marks.
+ *
+ *  Computed on the WHOLE input, before it is cut into sentences, because a quoted line routinely
+ *  spans several: `"Oh I'll come. Sorry. You don't need to get so upset."` is one thing the player
+ *  said to somebody in the room, and cutting it into three leaves the last fragment holding an
+ *  unbalanced quote and the words "you don't need" — which reads as an accusation aimed at the
+ *  software and is the player being nice to his wife. Masking first is what keeps ordinary dialogue
+ *  out of this whole module. */
+function quoteMask(action: string): boolean[] {
+  const a = String(action ?? "");
+  const mask = new Array<boolean>(a.length).fill(false);
+  let open = false;
+  for (let i = 0; i < a.length; i++) {
+    const ch = a[i];
+    if (ch === '"' || ch === "\u201c" || ch === "\u201d") { mask[i] = true; open = ch === "\u201d" ? false : !open; continue; }
+    mask[i] = open;
+  }
+  return mask;
+}
+
+/** A remainder is only an ACTION if it looks like one. The player writes acts in the first person
+ *  and speech in quotes; a leftover that is neither is a further remark about the story, and playing
+ *  it is how "Neat." and "They aren't having sex." became turns. */
+function looksLikeAnAct(text: string): boolean {
+  const t = String(text ?? "").trim();
+  if (t.split(/\s+/).filter(Boolean).length < 3) return false;
+  return /["“]/.test(t) || /\b(?:i|i'?m|im|i'?ve|i'?ll|i'?d|my|me|myself|we|us|our)\b/i.test(t);
+}
 /** …and the same thing the other way round, which is how people actually type it. */
 const META_ADDRESS_REV = /\b(?:writer|writing|storytell\w*|story\s?telling|narrat\w+|prose|plot|pacing|dialogue|author|this\s+(?:story|game|ai))\b[^.!?]{0,30}\b(?:is|are|was|sucks?|blows?)\b[^.!?]{0,30}\b(?:terrible|awful|bad|shit|garbage|trash|boring|stupid|lazy|nonsense|broken|dogshit)\b/i;
 /** Direct instruction to the machine about how to run the story. */
@@ -59,17 +120,47 @@ export interface OOC {
   /** Everything else — what the player actually did in the world, if anything survived. */
   inWorld: string;
   /** "fused": the complaint is the reason for the act, so none of it is story.
-   *  "aside": a real action carrying a remark about the writing. */
-  kind: "fused" | "aside";
+   *  "aside": a real action carrying a remark about the writing.
+   *  "only": the whole input was the note. There is no action in it to play, and playing it anyway
+   *          is how "STOP BEING A FUCKING IDIOT AI" became a woman folding her arms. */
+  kind: "fused" | "aside" | "only";
 }
 
-/** Sentence-ish pieces, keeping the punctuation so rejoining reads naturally. */
-function pieces(action: string): string[] {
-  return String(action ?? "").split(/(?<=[.!?])\s+|\n+/).filter((p) => p.trim());
+/** Sentence-ish pieces, keeping the punctuation so rejoining reads naturally, and keeping each
+ *  piece's offset so the quote mask can be applied to it. */
+function pieces(action: string): { text: string; at: number }[] {
+  const a = String(action ?? "");
+  const out: { text: string; at: number }[] = [];
+  let at = 0;
+  for (const part of a.split(/(?<=[.!?])\s+|\n+/)) {
+    const i = a.indexOf(part, at);
+    if (part.trim()) out.push({ text: part, at: i < 0 ? at : i });
+    at = (i < 0 ? at : i) + part.length;
+  }
+  return out;
 }
 
-function isMeta(part: string): boolean {
-  return META_ADDRESS.test(part) || META_ADDRESS_REV.test(part) || META_COMMAND.test(part);
+/** The piece with everything anybody said out loud removed. */
+function outsideQuotes(piece: { text: string; at: number }, mask: boolean[]): string {
+  let s = "";
+  for (let i = 0; i < piece.text.length; i++) s += mask[piece.at + i] ? " " : piece.text[i];
+  return s;
+}
+
+/**
+ * Two tiers, and the difference between them is whether quotation marks protect the text.
+ *
+ * NAMING THE MACHINE is unmistakable wherever it appears. Nobody in a story is the writer of that
+ * story, so "you're a fucking terrible writer" is a note to the software even typed inside quotes —
+ * and it was, in the save this module was built from, where the player wrapped the whole line.
+ *
+ * HOLDING "YOU" RESPONSIBLE is the wider net and it overlaps with ordinary speech, because "you
+ * don't need to get so upset" is a man apologising to his wife. That tier reads only what was said
+ * OUTSIDE quotation marks, where a second person has no referent at all.
+ */
+function isMeta(raw: string, bare: string): boolean {
+  if (META_ADDRESS.test(raw) || META_ADDRESS_REV.test(raw) || META_COMMAND.test(raw)) return true;
+  return AUTHORED_BY_YOU.test(bare) || META_INSULT.test(bare);
 }
 
 /**
@@ -81,20 +172,26 @@ function isMeta(part: string): boolean {
 export function detectOOC(action: string): OOC | null {
   const parts = pieces(action);
   if (!parts.length) return null;
-  const metaParts = parts.filter(isMeta);
-  if (!metaParts.length) return null;
+  const mask = quoteMask(action);
+  const meta = new Set(parts.filter((p) => isMeta(p.text, outsideQuotes(p, mask))));
+  if (!meta.size) return null;
 
-  const complaint = metaParts.join(" ").trim().slice(0, 300);
-  const inWorld = parts.filter((p) => !isMeta(p)).join(" ").trim();
+  const complaint = [...meta].map((p) => p.text).join(" ").trim().slice(0, 300);
+  const rest = parts.filter((p) => !meta.has(p)).map((p) => p.text).join(" ").trim();
+  const inWorld = looksLikeAnAct(rest) ? rest : "";
 
   // FUSED: a single sentence that contains both an act and the complaint, joined by a reason.
   // "I kill myself BECAUSE you're a fucking terrible writer" is one clause, not two, and splitting
   // it would leave the act standing with its reason removed — which is the failure, tidied up.
-  const fusedPart = parts.find((p) => isMeta(p) && BECAUSE.test(p));
+  const fusedPart = parts.find((p) => meta.has(p) && BECAUSE.test(p.text));
   if (fusedPart) {
-    const strong = EXIT_ACT.test(fusedPart) || /\b(?:i|i'?m|im)\b/i.test(fusedPart);
-    if (strong) return { complaint, inWorld: parts.filter((p) => p !== fusedPart && !isMeta(p)).join(" ").trim(), kind: "fused" };
+    const strong = EXIT_ACT.test(fusedPart.text) || /\b(?:i|i'?m|im)\b/i.test(fusedPart.text);
+    if (strong) return { complaint, inWorld, kind: "fused" };
   }
+  // NOTHING SURVIVED THE STRIP. Every sentence was about the writing, so there is no action left to
+  // be an aside to — the input was a note, entire. An aside plays its remainder; this has none, and
+  // an aside with an empty remainder used to play as a turn anyway.
+  if (!inWorld) return { complaint, inWorld: "", kind: "only" };
   return { complaint, inWorld, kind: "aside" };
 }
 
@@ -109,7 +206,7 @@ export function detectOOC(action: string): OOC | null {
  * is the one thing the sovereignty law forbids in every other direction.
  */
 export function oocFrame(hit: OOC): string {
-  if (hit.kind !== "fused") return "";
+  if (hit.kind === "aside") return "";
   return `\n[THE PLAYER IS TALKING TO YOU, NOT TO THE WORLD. What they typed is about the writing, and the action in it is being given for that reason — it is not a thing their character decided to do. `
     + `DO NOT DRAMATISE ANY OF IT. Nothing in this turn happens: nobody is hurt, nobody acts on it, no new event begins, and you do not narrate the player doing what the sentence says. `
     + `Hold the scene exactly where it stands. Write a SHORT beat — a few lines at most — in which the moment simply continues: the people who are present go on being present, doing what they were doing, and nothing is resolved or escalated. `
@@ -210,7 +307,7 @@ export type VoidKind = "ooc" | "fiat";
  * its reason, was something the character did.
  */
 export function detectVoid(action: string, ooc: OOC | null, god = false): VoidKind | null {
-  if (ooc?.kind === "fused") return "ooc";
+  if (ooc?.kind === "fused" || ooc?.kind === "only") return "ooc";
   if (god) return null;
   if (isFiat(action)) return "fiat";
   return null;

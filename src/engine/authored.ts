@@ -320,7 +320,7 @@ Each line below gets a beat in THIS scene, at the strength named and no more. Yo
  *  so an authored want can be matched to the habit the novelty ladder tracks it under. Saves written
  *  before the label was stored recompute it. */
 export function crystallizedLabel(a: AuthoredDrive): string {
-  return (a.label ?? a.goal ?? "").trim().replace(/^(start|starts|begin|begins|try to|tries to)\s+/i, "").replace(/\.$/, "");
+  return a.label?.trim() ? a.label.trim().replace(/[.\u2026]+$/, "") : labelFor(a.goal ?? "");
 }
 
 /** How worn a settled want is, read off the habit the novelty ladder has been counting. A want with
@@ -432,7 +432,7 @@ export function crystallize(state: SaveState, id: string, a: AuthoredDrive, turn
   const c = state.characters[id];
   if (!c || !a?.goal || a.crystallized_turn) return null;
 
-  const label = a.goal.trim().replace(/^(start|starts|begin|begins|try to|tries to)\s+/i, "").replace(/\.$/, "");
+  const label = labelFor(a.goal);
   const traits = (c.core_traits ??= []);
   if (!traits.some((t) => t.toLowerCase() === label.toLowerCase())) traits.push(label);
 
@@ -463,6 +463,79 @@ export function setback(a: AuthoredDrive, rate: AuthoredDrive["rate"] = a.rate):
   a.acted = a.stage * step;
 }
 
+/** How much of a written want is kept. The old ceiling was 200 characters and it cut mid-word: one
+ *  save holds a want ending "regardless of context or situation and doesn't ev", which is the
+ *  sentence carrying the actual instruction, stopped in the middle of a word, and that fragment is
+ *  what the narrator was handed on every turn. A want is a spec the player wrote by hand; it gets
+ *  room. */
+const GOAL_MAX = 600;
+/** The core_trait a crystallised want becomes has to READ like a trait — it sits on the character
+ *  card next to "Will always take the seat facing the door in any room". A 200-character paragraph
+ *  there is unreadable, and worse, it is the key the novelty ladder counts expressions under. */
+const LABEL_MAX = 100;
+
+/** Cut at a word boundary, never through one, and say that it was cut. */
+export function clipWords(text: string, max: number): string {
+  const t = String(text ?? "").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\u2014"), cut.lastIndexOf(","));
+  return (at > max * 0.6 ? cut.slice(0, at) : cut).trimEnd().replace(/[,;:\u2014-]$/, "") + "\u2026";
+}
+
+/** The short name a want is filed under: its first sentence or clause, whole words only.
+ *
+ *  Splitting on the first sentence is deliberate. A written want usually opens with the act and
+ *  then qualifies it, so the opening IS the name — and the qualifications, which are the part that
+ *  varies between two attempts at the same want, are exactly what should not be in the key. */
+export function labelFor(goal: string): string {
+  const t = String(goal ?? "").trim().replace(/^(start|starts|begin|begins|try to|tries to)\s+/i, "");
+  const firstSentence = t.split(/(?<=[.!?])\s+/)[0] ?? t;
+  const base = firstSentence.length >= 24 ? firstSentence : t;
+  return clipWords(base, LABEL_MAX).replace(/[.\u2026]+$/, "");
+}
+
+/** The distinctive words of a want, for telling two of them apart. */
+function keyWords(goal: string): Set<string> {
+  return new Set(String(goal ?? "").toLowerCase().match(/[a-z']{4,}/g) ?? []);
+}
+
+/**
+ * IS THIS THE SAME WANT, WRITTEN AGAIN?
+ *
+ * A player whose want has not been showing up rewrites it — a little longer, a word stronger, an
+ * "always" on the front. One save holds two: the same act, the same person, one opening "Without
+ * having sex" and the other "Always and without sex". The engine stacked them, so the character
+ * card carried the instruction twice, both copies cut off mid-word at different points, and the
+ * habit ladder counted expressions under two different keys and so found none under either.
+ *
+ * Rewriting is the ordinary way somebody uses this feature, and it should edit the want rather than
+ * grow a second one. The bar is deliberately high — most of the distinctive words in common, both
+ * ways — so two genuinely different wants that happen to share a subject stay separate.
+ */
+export function sameWant(a: string, b: string): boolean {
+  const x = keyWords(a), y = keyWords(b);
+  if (x.size < 3 || y.size < 3) return false;
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared++;
+  return shared / Math.min(x.size, y.size) >= 0.7 && shared / Math.max(x.size, y.size) >= 0.5;
+}
+
+/** Where the same want already sits in this person's list, if it does. */
+export function findSameWant(list: readonly AuthoredDrive[] | undefined, goal: string): number {
+  return (list ?? []).findIndex((a) => a?.goal && sameWant(a.goal, goal));
+}
+
+/** Take a crystallised want's trait back off the record, so replacing it does not leave the old
+ *  wording behind on the card forever. */
+export function retireLabel(state: SaveState, id: string, label: string): void {
+  const key = String(label ?? "").trim().toLowerCase();
+  if (!key) return;
+  const c = state.characters[id];
+  if (c?.core_traits) c.core_traits = c.core_traits.filter((t) => t.trim().toLowerCase() !== key);
+  if (state.traits?.[id]) state.traits[id] = state.traits[id].filter((t) => t.label.trim().toLowerCase() !== key);
+}
+
 /** A fresh authored want, with the fields the UI does not ask for filled in.
  *
  *  `acted` defaults to the floor of whatever stage was asked for rather than to zero. Starting a
@@ -473,8 +546,8 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
   const rate = opts.rate ?? "steady";
   const stage = Math.max(0, Math.min(MAX_STAGE, opts.stage ?? 0));
   return {
-    goal: goal.trim().slice(0, 200),
-    approach: opts.approach?.trim().slice(0, 200) || undefined,
+    goal: clipWords(goal, GOAL_MAX),
+    approach: opts.approach?.trim() ? clipWords(opts.approach, GOAL_MAX) : undefined,
     because: opts.because?.trim().slice(0, 240) || undefined,
     rate,
     stage,

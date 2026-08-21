@@ -1837,7 +1837,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the table, and it was rendered as a suicide because one input box means everything typed is
   // story. The contract has said "out-of-character text is direction: adjust silently, never
   // dramatize" for as long as it has existed, with nothing enforcing it. See engine/ooc.ts.
-  const ooc = detectOOC(action);
+  // SAY MODE IS SPEECH, ENTIRELY. Everything typed there is what the character said out loud, so a
+  // second person in it is somebody in the room and this module has no business reading it — the
+  // quote mask does that job in every other mode, and say mode is the one where there are no quotes
+  // to mask because the whole input is the line.
+  const ooc = mode === "say" ? null : detectOOC(action);
   if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
   // SOVEREIGNTY, read here rather than at its old home 250 lines down, because the first thing that
   // consumes it is the void guard below and everything after that is downstream of what the guard
@@ -1850,7 +1854,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // In god mode fiat is not fiat: the setting exists precisely to make a declaration true, and a
   // guard that strips the declaration is the setting's negation. Only the out-of-character case
   // still voids there — see detectVoid.
-  const voided = mode === "do" ? detectVoid(action, ooc, god) : null;
+  // Story mode is not a shelter for this. "STOP BEING A FUCKING IDIOT AI", typed in story mode, was
+  // authored into the scene as a woman folding her arms and setting her jaw — story mode treats what
+  // the player writes as what happens, which is exactly wrong for a sentence aimed at the software.
+  // A pure complaint voids in either mode; fiat is still a do-mode question, because declaring an
+  // outcome is what story mode is FOR.
+  const voided = mode === "do" ? detectVoid(action, ooc, god)
+    : mode === "story" && ooc?.kind === "only" ? "ooc" as const
+    : null;
   const storyAction = voided ? "" : (ooc ? (ooc.inWorld || outwardAction) : outwardAction);
   const framedAction = MODE_FRAME[mode](mode === "do" ? storyAction : action)
     + (mode === "do" && !voided ? bearingDirective(playerInterior, playerGrip(state)) : "")
