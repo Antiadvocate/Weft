@@ -12,7 +12,7 @@
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
-import { readFate, enforceFate, fateDirective, fatePressureFloor, outcomeOf } from "./fate";
+import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
@@ -2562,7 +2562,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     : "";
   // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
   // does not get to be asleep. Everything above may shape the scene; fate decides that it happens.
-  const fateNote = fateDirective(fate, state.destination_progress?.missing);
+  // fate when there is a clock; gravity when there is not. The second used to be nothing at all,
+  // while the Settings panel promised "the ending pulls but never forces" — see fate.ts.
+  const fateNote = fateDirective(fate, state.destination_progress?.missing)
+    || gravityDirective(fate, state.world_bible, state.destination_progress?.missing);
   // PRONOUN LOCK. When canon declares the world's people all use one non-default set (xe/xem etc.),
   // the narration tag on each sheet isn't enough: characters keep saying "him"/"her" in DIALOGUE,
   // because the player has their own pronouns and the narrator sees those words as valid nearby. So
@@ -3936,7 +3939,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const beats = state.history.filter((h) => h.kind !== "opening" && h.turn >= fromTurn)
         .map((h) => `T${h.turn}: [did: ${(h.player_action || "").slice(0, 90)}] ${h.summary}`).join("\n");
       if (beats.trim()) {
-        const contract = state.world_bible.narrator_direction?.trim() || "";
+        // THE CONTRACT IS NOT ONLY THE STANDING DIRECTION, and reading it as though it were is how
+        // an auditor came back on_contract three times running while a romance became a thriller.
+        // That save's narrator_direction was empty — most are — so the one question the auditor
+        // exists to answer, "has this drifted into something else", was asked against "none given".
+        // It could only say yes. Meanwhile the player HAD stated the contract, in the three fields
+        // they actually filled: the genre, the pressures this story is allowed to run on, and the
+        // things that are never to be its engine. Two of that save's four forbidden-as-primary
+        // entries — a villain with malicious intent, a breakup plot — are what it turned into.
+        const bibleC = state.world_bible;
+        const contract = [
+          bibleC.tone?.trim() ? `GENRE: ${bibleC.tone.trim()}` : "",
+          bibleC.narrator_direction?.trim() ? `THE PLAYER'S STANDING DIRECTION: ${bibleC.narrator_direction.trim()}` : "",
+          bibleC.pressure_palette?.length ? `PRESSURES THIS STORY RUNS ON: ${bibleC.pressure_palette.join("; ")}` : "",
+          bibleC.forbidden_as_primary?.length ? `NEVER THE ENGINE OF THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
+        ].filter(Boolean).join("\n");
         const destination = state.world_bible.destination?.trim() || "";
         const priorPct = state.destination_progress?.pct;
         const destLine = destination
@@ -3944,7 +3961,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           : "DESTINATION: none — this is an open story with no stated ending. Omit the destination object.\n";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
-          { role: "user", content: `STANDING DIRECTION (the contract): "${contract || "none given"}"\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
         const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
