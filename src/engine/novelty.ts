@@ -231,9 +231,27 @@ export function recordExpressions(
   const list = state.habits?.[id];
   if (!list?.length) return;
   const haveReport = Array.isArray(reported);
+  // A WANT THE PLAYER WROTE IS NEVER CREDITED BY GUESSWORK.
+  //
+  // The fallback below is string containment, and string containment cannot answer a question about
+  // meaning: prose says "came across his cheek" where a want says "cums on his face", and it says
+  // "his face" a hundred times for reasons that have nothing to do with either. It is tolerable for
+  // a forged trait, where a wrong credit costs a quieter beat. It is not tolerable here, because the
+  // costs are not symmetric — a false credit walks the want to "ground" and habitDirective then
+  // stops demanding it AT ALL, permanently, with no way back from inside the game, while a missed
+  // credit costs one repeated instruction. Twenty wants across eleven saves died of the first.
+  //
+  // So on a turn where the simulator did not answer, an authored want scores nothing rather than
+  // something. The miss detector reads the same field and will say so out loud.
+  const authored = new Set(
+    ((state.characters?.[id]?.authored ?? []) as { goal?: string; label?: string }[])
+      .map((a) => (a.label ?? a.goal ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
   for (const h of list) {
     if (h.dormant) continue;
     if (h.last_expressed_turn === turn) continue;
+    if (!haveReport && authored.has(h.trait.trim().toLowerCase())) continue;
     // The simulator READ the prose and knows a gelato expresses "loves ice cream".
     // Trust it when it reported; only fall back to string matching when it didn't,
     // since that fallback is blind to synonym, category, and paraphrase.

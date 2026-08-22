@@ -620,7 +620,13 @@ function habitFor(state: SaveState, id: string, a: AuthoredDrive) {
  * A want with no habit row yet has never been expressed at all, which is a miss. A row whose
  * last_expressed_turn is this turn is a hit.
  */
-export function noteWantMisses(state: SaveState, turn: number, presentIds: readonly string[]): string[] {
+export function noteWantMisses(
+  state: SaveState, turn: number, presentIds: readonly string[], simAnswered = true,
+): string[] {
+  // UNKNOWN IS NOT A MISS. When the bookkeeping pass returned no trait report at all, nothing can
+  // credit the want and nothing can convict it either — counting that as a skip would nag the
+  // narrator to repeat a beat it may well have just written. The count holds where it is.
+  if (!simAnswered) return [];
   const shifts: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];

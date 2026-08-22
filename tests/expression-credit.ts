@@ -99,6 +99,24 @@ const WANT = "Always Splatters Vin's face with her cum regardless of context or 
   recordExpressions(s3, "m", PROSE, 4, undefined);
   check("with no report at all the fallback runs", true);
   check("...and still does not credit one word", (s3.habits.m[0].expressions ?? 0) === 0, s3.habits.m[0]);
+
+  // AND FOR AN AUTHORED WANT IT DOES NOT RUN AT ALL. The costs are not symmetric: a false credit
+  // walks the want to "ground" and it stops being demanded, permanently; a missed credit costs one
+  // repeated instruction. Even prose that WOULD satisfy the string test scores nothing here.
+  const REAL = "She took hold of his jaw and turned his face up and splattered his cheek with her cum, and cleaning it off was not allowed.";
+  const s4: any = { characters: { m: { authored: [{ goal: WANT, label: WANT, crystallized_turn: 3 }] } }, habits: { m: habits() } };
+  recordExpressions(s4, "m", REAL, 4, undefined);
+  check("an authored want is never credited by guesswork", (s4.habits.m[0].expressions ?? 0) === 0, s4.habits.m[0]);
+  check("...the string test would have said yes", expressionCoverage(WANT, REAL) === 1);
+  const s5: any = { characters: { m: { authored: [{ goal: WANT, label: WANT, crystallized_turn: 3 }] } }, habits: { m: habits() } };
+  recordExpressions(s5, "m", REAL, 4, [WANT]);
+  check("...but the simulator naming it still counts", s5.habits.m[0].expressions === 1);
+
+  // an ordinary forged trait keeps the fallback, where a wrong credit is only a quieter beat
+  const DOG = "Cannot pass a dog without stopping.";
+  const s6: any = { habits: { m: [{ trait: DOG, strength: 90, baseline: 90, seen_fires: 0, last_fired_turn: -1, noticed_watermark: 90 }] } };
+  recordExpressions(s6, "m", "A dog came around the corner and she stopped dead.", 4, undefined);
+  check("a forged trait still has its fallback", s6.habits.m[0].expressions === 1);
 }
 
 /* ── 5. what it cost: five phantom credits and the want goes quiet ────────────── */

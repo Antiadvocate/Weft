@@ -3894,7 +3894,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // the simulator judges expression by meaning, which is the only instrument that can answer this
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
     // here because it needs the habit rows this loop has just written. See engine/authored.ts.
-    for (const line of noteWantMisses(state, turn, state.world.present)) shifts.push(line);
+    for (const line of noteWantMisses(state, turn, state.world.present, simAnswered)) shifts.push(line);
   }
 
   // ALREADY SPENT — the distinctive props this turn's DIALOGUE put on the page. Deliberately not

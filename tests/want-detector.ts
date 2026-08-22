@@ -118,6 +118,15 @@ const mannerismOnly = (s: any, m: string, label: string, turn: number) => {
   // and never advance for a want like this; reading them called every turn a miss, hits included.
   mannerismOnly(s, m, label, 10);
   check("the mannerism counter moving is not the want happening", noteWantMisses(s, 10, [m]).length === 1);
+
+  // UNKNOWN IS NOT A MISS. With no trait report at all, nothing can credit the want and nothing can
+  // convict it — counting it would nag the narrator to repeat a beat it may have just written.
+  const { s: s9, m: m9, a: a9 } = scene();
+  crystallize(s9, m9, a9, 3);
+  noteWantMisses(s9, 4, [m9]);
+  const held = a9.missed;
+  check("a turn the bookkeeper did not answer reports nothing", noteWantMisses(s9, 5, [m9], false).length === 0);
+  check("...and does not move the count", a9.missed === held, a9.missed);
 }
 
 /* ── 4. what the narrator is handed ───────────────────────────────────────────── */
