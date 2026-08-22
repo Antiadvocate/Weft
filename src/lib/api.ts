@@ -16,7 +16,7 @@ import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
-import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel } from "../engine/authored";
+import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel, repairAuthoredHabitCounts } from "../engine/authored";
 import { excuseElapsedToday, newBlock, placeForBlock, placeForRef, readSchedule } from "../engine/schedule";
 import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
@@ -100,10 +100,13 @@ async function need(id: string): Promise<SaveState> {
   // the only route back for a save that cannot take another turn. Cheap, and a no-op for the ones
   // that are fine.
   const pruned = pruneEmptyMemories(s);
-  if (pruned) {
-    console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
-    await putSave(s);
-  }
+  // AND THE HABIT COUNTS THE BROKEN CREDIT PATH INVENTED. A want scored past "ground" on phantom
+  // expressions stops being demanded, and nothing can bring it back from inside the game, because
+  // the count only rises and the want can no longer be expressed to correct it. See authored.ts.
+  const reset = repairAuthoredHabitCounts(s);
+  if (reset) console.warn(`[authored] reset ${reset} phantom expression count${reset === 1 ? "" : "s"} on load — the wants are being asked for again`);
+  if (pruned) console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
+  if (pruned || reset) await putSave(s);
   return s;
 }
 

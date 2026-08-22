@@ -51,8 +51,24 @@ function scene(opts: Partial<Parameters<typeof newAuthored>[2]> = {}) {
   s.characters[m].authored = [a];
   return { s, m, a };
 }
+/** A habit row that HAS been expressed this turn. `expressions`/`last_expressed_turn` is the pair
+ *  novelty.ts writes off the simulator's read; `seen_fires`/`last_fired_turn` is habits.ts's
+ *  separate mannerism axis, which never advances for a want like this. Both are set here so the
+ *  test pins which one the detector reads. */
 const fired = (s: any, m: string, label: string, turn: number) => {
-  (s.habits ??= {})[m] = [{ trait: label, strength: 90, baseline: 90, seen_fires: 1, last_fired_turn: turn, noticed_watermark: 90 }];
+  (s.habits ??= {})[m] = [{
+    trait: label, strength: 90, baseline: 90, noticed_watermark: 90,
+    expressions: 1, last_expressed_turn: turn,
+    seen_fires: 0, last_fired_turn: -1,
+  }];
+};
+/** The mannerism counter moving on its own must NOT read as the want having happened. */
+const mannerismOnly = (s: any, m: string, label: string, turn: number) => {
+  (s.habits ??= {})[m] = [{
+    trait: label, strength: 90, baseline: 90, noticed_watermark: 90,
+    expressions: 0, last_expressed_turn: undefined,
+    seen_fires: 4, last_fired_turn: turn,
+  }];
 };
 
 /* ── 1. which rung is allowed to be judged ────────────────────────────────────── */
@@ -97,6 +113,11 @@ const fired = (s: any, m: string, label: string, turn: number) => {
   // stale: it fired, but three turns ago
   fired(s, m, label, 6);
   check("a fire from an older turn does not count for this one", noteWantMisses(s, 9, [m]).length === 1);
+
+  // THE OTHER COUNTER IS NOT THIS COUNTER. seen_fires/last_fired_turn belong to the mannerism axis
+  // and never advance for a want like this; reading them called every turn a miss, hits included.
+  mannerismOnly(s, m, label, 10);
+  check("the mannerism counter moving is not the want happening", noteWantMisses(s, 10, [m]).length === 1);
 }
 
 /* ── 4. what the narrator is handed ───────────────────────────────────────────── */

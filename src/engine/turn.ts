@@ -3883,8 +3883,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       const cid = resolveId(state, r.char_id);
       if (cid && Array.isArray(r.traits)) reportedBy.set(cid, r.traits.map(String));
     }
+    // Whether the simulator ANSWERED the question at all, which is not the same as whether it named
+    // this character. Its contract is to omit anybody whose traits did not surface, so once it has
+    // answered, an omission means none fired — and `[]` says that, where `undefined` sends
+    // recordExpressions to a blind string fallback that credited a want on the word "face".
+    const simAnswered = Array.isArray(diff.traits_expressed);
     for (const pid of state.world.present)
-      recordExpressions(state, pid, prose, turn, reportedBy.get(pid));
+      recordExpressions(state, pid, prose, turn, simAnswered ? (reportedBy.get(pid) ?? []) : undefined);
     // AND WAS THE ORDERED ACT AMONG THEM? Read straight off what recordExpressions just filed —
     // the simulator judges expression by meaning, which is the only instrument that can answer this
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs

@@ -45,6 +45,20 @@ const STOP = new Set([
   "to", "the", "a", "an", "and", "or", "of", "in", "on", "at", "for", "with", "is", "are",
   "was", "were", "be", "being", "very", "always", "often", "when", "his", "her", "their",
   "they", "she", "he", "it", "about", "good", "really", "quite", "too", "playing", "play",
+  // The second half was added from measurement, not taste. A trait written as a whole sentence
+  // contributes its function words as "distinctive" ones, and those turn up in every paragraph
+  // ever written — so a want was scored as expressed on turns whose only connection to it was the
+  // word "always" or "doing". These carry no subject and must never be the evidence for one.
+  "but", "not", "no", "from", "into", "onto", "over", "under", "by", "as", "if", "so", "than",
+  "this", "that", "these", "those", "there", "here", "what", "who", "whom", "whose", "where",
+  "why", "how", "all", "any", "some", "none", "each", "every", "never", "ever", "still", "just",
+  "only", "even", "also", "again", "much", "more", "most", "less", "without", "needing", "doing",
+  "does", "did", "done", "have", "has", "had", "do", "them", "him", "up", "down", "out", "off",
+  "away", "back", "one", "two", "both", "same", "other", "make", "makes", "made", "let", "lets",
+  "get", "gets", "got", "getting", "go", "goes", "going", "come", "comes", "came", "take",
+  "takes", "took", "sure", "time", "way", "thing", "things", "person", "people", "said", "say",
+  "says", "will", "would", "could", "should", "regardless", "context", "situation", "anything",
+  "everything", "something", "matter", "reason", "even", "already", "then", "now",
 ]);
 
 /** The words in a trait that actually identify its subject ("basketball", "pens", "hums"). */
@@ -78,16 +92,34 @@ function distinctiveWords(trait: string): string[] {
  *    people's pens" averages to 0.25 and would be missed).
  */
 export function expressionCoverage(trait: string, prose: string): number {
-  const words = distinctiveWords(trait);
+  // 3, not 4: the subject of a short trait is routinely a short noun — dog, cat, bar, gun — and
+  // dropping those threw away the one word that mattered. distinctiveWords has already removed the
+  // stopwords, which is what the length floor was standing in for.
+  const words = distinctiveWords(trait).filter((w) => w.length >= 3);
   if (!words.length) return 0;
   const hay = ` ${prose.toLowerCase().replace(/[^a-z0-9\s']/g, " ")} `;
+  let hits = 0;
   for (const w of words) {
-    if (w.length < 4) continue;
     const stem = w.replace(/'s$/, "").replace(/(ing|ed|es|s)$/, "");
     if (stem.length < 3) continue;
-    if (new RegExp(`\\b${stem}`, "i").test(hay)) return 1;
+    if (new RegExp(`\\b${stem}`, "i").test(hay)) hits++;
   }
-  return 0;
+  // ONE WORD IS NOT AN EXPRESSION, and treating it as one is what broke this whole subsystem.
+  //
+  // This used to `return 1` on the FIRST distinctive word of four or more characters that turned up
+  // anywhere in the prose. For a short forged trait that is defensible — "Cannot pass a dog without
+  // stopping" really is expressed when a dog shows up. For a want the player wrote by hand it is
+  // catastrophic, because a long sentence contributes a dozen distinctive words and some of them are
+  // ordinary. Measured over one save: a want containing the word "face" was credited as expressed on
+  // 22 turns out of 22, almost every one of them on somebody looking at somebody else's face. Five
+  // credits is all it takes to reach "ground", and habitDirective drops a ground want — so from turn
+  // six the mandatory block came back EMPTY and the want was never demanded again. Across eleven
+  // saves and twenty authored wants, one ever actually happened.
+  //
+  // A short trait keeps the old behaviour, because there the one word IS the subject. Anything
+  // longer has to put a real share of itself on the page.
+  if (words.length <= 2) return hits >= 1 ? 1 : 0;
+  return hits >= 2 && hits / words.length >= 0.34 ? 1 : 0;
 }
 
 /** Loose match between a reported trait string and a stored one — the simulator
@@ -205,6 +237,12 @@ export function recordExpressions(
     // The simulator READ the prose and knows a gelato expresses "loves ice cream".
     // Trust it when it reported; only fall back to string matching when it didn't,
     // since that fallback is blind to synonym, category, and paraphrase.
+    // AN OMITTED CHARACTER IS AN ANSWER, NOT A MISSING ONE. The simulator's contract says in so
+    // many words: "Omit the character entirely if none of their traits surfaced." So when it
+    // answered this turn and left somebody out, the answer is zero — and running the blind string
+    // fallback there overrides a correct report with a guess, which is exactly how a want that
+    // never happened was credited twenty-two times. The fallback is for a turn where the simulator
+    // returned nothing at all.
     const fired = haveReport
       ? reported!.some((r) => sameTrait(r, h.trait))
       : (!!proseText && expressionCoverage(h.trait, proseText) >= EXPRESSION_COVERAGE);

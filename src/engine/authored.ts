@@ -587,8 +587,8 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
  * — which of each character's core traits the scene actually put on screen, "judged by MEANING, not
  * wording", which is exactly the euphemism problem my regex died on. A crystallised want IS a core
  * trait, so it is already in that list, and recordExpressions already files the answer in
- * state.habits as seen_fires and last_fired_turn. In the save that prompted this, Miranda's two
- * ordinary traits carry fires=1 and the authored want carries fires=0, last_fired_turn=-1. The
+ * state.habits as expressions and last_expressed_turn. In the save that prompted this, Miranda's
+ * two ordinary traits had fired and the authored want had not. The
  * engine had measured the failure precisely and nothing read the measurement.
  *
  * A DETECTOR WAS ALSO TRIED HERE ONCE AND REMOVED, correctly — see THE RATCHET above. It gated
@@ -618,7 +618,7 @@ function habitFor(state: SaveState, id: string, a: AuthoredDrive) {
  * here costs a repeated instruction and nothing else.
  *
  * A want with no habit row yet has never been expressed at all, which is a miss. A row whose
- * last_fired_turn is this turn is a hit.
+ * last_expressed_turn is this turn is a hit.
  */
 export function noteWantMisses(state: SaveState, turn: number, presentIds: readonly string[]): string[] {
   const shifts: string[] = [];
@@ -627,7 +627,10 @@ export function noteWantMisses(state: SaveState, turn: number, presentIds: reado
     if (!c || id === "char_player") continue;
     for (const a of c.authored ?? []) {
       if (!a?.goal || !actOrdered(a)) continue;
-      if (habitFor(state, id, a)?.last_fired_turn === turn) { a.missed = 0; continue; }
+      // last_expressed_turn, not last_fired_turn: those are two different counters on the same row.
+      // seen_fires/last_fired_turn belong to habits.ts and its mannerism axis, which never advances
+      // for a want like this — reading it would have called every turn a miss, including the hits.
+      if (habitFor(state, id, a)?.last_expressed_turn === turn) { a.missed = 0; continue; }
       a.missed = (a.missed ?? 0) + 1;
       shifts.push(a.missed === 1
         ? `${c.name}'s standing want did not reach the page — the narrator is being told again`
@@ -663,4 +666,37 @@ export function missDirective(state: SaveState, presentIds: readonly string[]): 
     + (worst >= 2
       ? `Two turns have now gone to other things. There is no third: if it is not in the opening lines, nothing else in the turn counts.`
       : `It needs no lead-in and no occasion. The build-up already happened, across every turn this was ordered and skipped.`);
+}
+
+/**
+ * TAKE THE PHANTOM CREDITS BACK OFF.
+ *
+ * Run once when a save loads. Every save written before the credit path was fixed carries habit
+ * rows for its authored wants with expression counts that were never earned — a want containing
+ * the word "face" was credited on 22 turns out of 22, and five is all it takes to reach "ground",
+ * after which habitDirective drops the want and the block that demands it comes back empty. A save
+ * in that state cannot recover on its own: the count only ever goes up, and the want can never be
+ * expressed again to correct it, because it is no longer being asked for.
+ *
+ * Only the rows belonging to a crystallised authored want are reset. Those are the ones measured
+ * as corrupt — across eleven saves and twenty wants, one had genuinely happened while the counts
+ * read 10 to 18 — and they are the ones where being wrong is fatal rather than cosmetic. A forged
+ * trait credited a few times too often just gets a quieter beat; a want credited too often stops
+ * existing. Where the two costs are that lopsided, reset.
+ */
+export function repairAuthoredHabitCounts(state: SaveState): number {
+  let reset = 0;
+  for (const [id, c] of Object.entries(state.characters ?? {})) {
+    const wants = (c?.authored ?? []).filter((a) => a?.goal && a.crystallized_turn);
+    if (!wants.length) continue;
+    const labels = new Set(wants.map((a) => crystallizedLabel(a).trim().toLowerCase()));
+    for (const h of state.habits?.[id] ?? []) {
+      if (!labels.has(h.trait.trim().toLowerCase())) continue;
+      if (!(h.expressions ?? 0)) continue;
+      h.expressions = 0;
+      h.last_expressed_turn = undefined;
+      reset++;
+    }
+  }
+  return reset;
 }
