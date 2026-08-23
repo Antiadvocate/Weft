@@ -1,22 +1,25 @@
 /* A fact the world does not hold yet, and is going to.
  *
  * The player writes what will be true — "all the buildings are water" — and how many turns the
- * world has to get there. It does not simply happen: each turn the world has to move toward it
- * through its own causes, and only a turn that actually moved spends one off the clock. When the
- * clock runs out the claim enters world.canon, where the CANON OVERRIDES YOUR DEFAULTS block that
- * already exists binds every line of prose after it.
+ * world has to get there. THE COUNT IS THE INSTRUCTION: every turn spends one, and when the clock
+ * runs out the claim enters world.canon, where the CANON OVERRIDES YOUR DEFAULTS block that already
+ * exists binds every line of prose after it.
  *
- * This is the authored-want pattern pointed at the world instead of at a person, built with the
- * lesson that cost that feature twenty playthroughs: the instruction is not the mechanism. Nothing
- * here decides by string match whether a building became water — the simulator reads the turn and
- * says whether the world moved, judged by meaning, and a turn that did nothing gets named in the
- * next turn's direction. A fact this large is where a false credit would be worst: the clock would
- * run out on a world that had not changed and the prose would have to pretend it had.
+ * The clock used to be conditional on the simulator reporting that the world had visibly moved, and
+ * that was wrong in both directions. It is the same mistake that cost the authored wants twenty
+ * playthroughs — gating a mandatory thing on a model report, when the report is the very thing that
+ * fails — and it inverted the deal, because a turn the narrator skipped is a turn the player is
+ * owed, not a turn that never happened. A narrator that never found a way in froze the clock
+ * forever while the player watched it say "stalled" every turn and nothing approached.
+ *
+ * So the report is still read, and it is pressure rather than a brake: a becoming that has not
+ * reached the page is BEHIND, and the next turn is told to carry the ground it missed as well as
+ * its own. The last turn completes the whole change in full, on the page, however much was left.
  *
  * The player's side is asymmetric on purpose. In ordinary play they cannot stop it — they can be
- * frightened of it, refuse it, work against it the whole way, and it arrives. In god mode they are
- * sovereign, so repudiation works, and it costs the world a turn rather than the war: the clock
- * goes up by one and it comes again from somewhere else.
+ * frightened of it, refuse it, work against it the whole way, and it arrives on schedule. In god
+ * mode they are sovereign, so repudiation holds the clock still for that turn, and it comes again
+ * from somewhere else. They can hold it off forever by paying for it every turn.
  */
 import { newBecoming, liveBecomings, becomingDirective, arrivalDirective, becomingAsk, applyBecomingProgress, CLAIM_MAX, STALL_LIMIT } from "../src/engine/becoming";
 import { newSave, registerCharacter } from "../src/engine/state";
@@ -74,7 +77,8 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 
   check("early on it is deniable", /could still be explained away/.test(becomingDirective(world(false, 8).s)));
   const near = world(false, 4); near.s.becomings[0].remaining = 1;
-  check("at the end it is the last thing giving way", /THE LAST STEP/.test(becomingDirective(near.s)));
+  check("at the end the whole change completes", /THE LAST TURN OF IT/.test(becomingDirective(near.s)), becomingDirective(near.s));
+  check("...in full, on the page", /the whole change completing, not a promise that it is about to/.test(becomingDirective(near.s)));
 
   check("nothing at all when there is nothing coming", becomingDirective(newSave("x", { name: "V" } as any) as any) === "");
 }
@@ -86,29 +90,32 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("in god mode it costs the world a turn", /cost the world a turn, never the outcome/.test(becomingDirective(world(true).s)));
 }
 
-/* ── 4. only a turn that moved spends a turn ──────────────────────────────────── */
+/* ── 4. the clock is a clock ──────────────────────────────────────────────────── */
 {
+  // This was conditional on the simulator reporting movement, and it froze: a narrator that never
+  // found a way in left the clock stopped forever while the player watched it report "stalled"
+  // every turn. The count is the player's instruction — every turn spends one.
   const { s, b } = world(false, 4);
   applyBecomingProgress(s, 6, report({ moved: true, how: "a wall in the stairwell went soft" }));
   check("a turn that moved counts", b.remaining === 3 && b.moved === 1, b);
   check("...and what moved it is kept for the player", b.last_move === "a wall in the stairwell went soft");
 
-  applyBecomingProgress(s, 7, report({ moved: false }));
-  check("a turn that did not move spends nothing", b.remaining === 3, b);
-  check("...and is counted as a stall", b.stalled === 1);
-  applyBecomingProgress(s, 8, report({ moved: false }));
-  check(`...and named at ${STALL_LIMIT}`, /nothing moved toward/.test(applyBecomingProgress(s, 9, report({ moved: false })).shifts[0] ?? ""));
-  check("...to the narrator too", /NOTHING ABOUT THIS MOVED FOR/.test(becomingDirective(s)), becomingDirective(s));
+  const out = applyBecomingProgress(s, 7, report({ moved: false }));
+  check("a turn the prose skipped ALSO spends a turn", b.remaining === 2, b);
+  check("...and says so plainly", /did not show this turn — it lands on schedule anyway, 2 turns to go/.test(out.shifts[0] ?? ""), out.shifts);
+  check("...and is counted as behind", b.stalled === 1 && b.moved === 1);
 
-  // no report at all is not a stall — the same rule the want detector learned
-  const before = { r: b.remaining, st: b.stalled };
-  applyBecomingProgress(s, 10, undefined);
-  check("no report is not a verdict", b.remaining === before.r && b.stalled === before.st);
-  applyBecomingProgress(s, 11, [{ claim: "something else entirely", moved: true }]);
-  check("...nor is a report about something else", b.remaining === before.r);
-  // but a clipped or re-punctuated echo of THIS claim is still this claim
-  applyBecomingProgress(s, 12, [{ claim: "all the buildings are water.", moved: true }]);
-  check("a re-punctuated echo still matches", b.remaining === before.r - 1, b.remaining);
+  applyBecomingProgress(s, 8, report({ moved: false }));
+  check("...and the narrator is told it is behind, not that it is frozen", /THIS HAS NOT REACHED THE PAGE FOR 2 TURNS while its clock ran/.test(becomingDirective(s)), becomingDirective(s));
+  check("...and told to make the ground up", /further along than one step would have left it/.test(becomingDirective(s)));
+
+  // no report from the bookkeeper does not stop the world either
+  const quiet = world(false, 3);
+  applyBecomingProgress(quiet.s, 6, undefined);
+  check("a silent bookkeeper does not stop the clock", quiet.b.remaining === 2, quiet.b);
+  const other = world(false, 3);
+  applyBecomingProgress(other.s, 6, [{ claim: "something else entirely", moved: true }]);
+  check("...nor does a report about something else", other.b.remaining === 2 && other.b.moved === 0, other.b);
 }
 
 /* ── 5. arrival ───────────────────────────────────────────────────────────────── */
@@ -119,7 +126,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("the clock runs out", b.remaining === 0 && b.arrived_turn === 7);
   check("it becomes canon", s.world.canon.includes(CLAIM), s.world.canon);
   check("...stamped with when and who saw it", !!s.world.canon_meta?.[CLAIM.toLowerCase()]);
-  check("...and the player is told", /is now true of this world/.test(out.shifts[0] ?? ""), out.shifts);
+  check("...and the player is told", /is true of this world now/.test(out.shifts[0] ?? ""), out.shifts);
   check("it is no longer live", liveBecomings(s).length === 0);
   check("...so the approach directive stops", becomingDirective(s) === "");
 
@@ -127,6 +134,15 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("the turn after says it on the page", /THIS IS TRUE NOW, IN THIS TURN, AND FROM HERE ON/.test(a), a);
   check("...and then it stops being news", /it is not news and it is not a subject/.test(a));
   check("nothing to announce, nothing said", arrivalDirective([]) === "");
+
+  // IT LANDS ON THE TURN THE PLAYER SET, whether or not the prose ever kept up. The last turn's
+  // direction is what carries the whole change; the clock does not wait for the narrator.
+  const ignored = world(false, 3);
+  applyBecomingProgress(ignored.s, 6, report({ moved: false }));
+  applyBecomingProgress(ignored.s, 7, report({ moved: false }));
+  const last = applyBecomingProgress(ignored.s, 8, report({ moved: false }));
+  check("a becoming the prose ignored still lands on schedule", ignored.b.arrived_turn === 8, ignored.b);
+  check("...and is canon", ignored.s.world.canon.includes(CLAIM));
 
   // a second arrival of the same claim must not duplicate the canon line
   const c = s.world.canon.length;
@@ -138,7 +154,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 {
   const { s, b } = world(true, 4);
   const out = applyBecomingProgress(s, 6, report({ moved: true, opposed: true }));
-  check("in god mode the player pushes it back", b.remaining === 5 && b.repudiations === 1, b);
+  check("in god mode the player holds the clock still", b.remaining === 4 && b.repudiations === 1, b);
   check("...and it does not count as progress", b.moved === 0);
   check("...and the player is told it is still coming", /still coming/.test(out.shifts[0] ?? ""), out.shifts);
   check("...and the narrator is told to come from elsewhere", /from a direction they did not block/.test(becomingDirective(s)));
@@ -146,6 +162,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   const mortal = world(false, 4);
   applyBecomingProgress(mortal.s, 6, report({ moved: true, opposed: true }));
   check("without god mode opposing it changes nothing", mortal.b.remaining === 3 && mortal.b.repudiations === 0, mortal.b);
+  check("...the clock ran anyway", mortal.b.turns - mortal.b.remaining === 1);
 }
 
 /* ── 7. what the bookkeeper is asked ──────────────────────────────────────────── */

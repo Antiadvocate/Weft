@@ -1374,12 +1374,11 @@ export const api = {
    *  nobody is following would sit on the card and never once act. */
   /** A FACT THIS WORLD DOES NOT HOLD YET.
    *
-   *  The player writes what will be true and how many turns the world has to get there. It is not
-   *  granted: each turn the world has to move toward it through its own causes, and only a turn
-   *  that actually moved spends one off the clock — so a claim the story cannot find a way into
-   *  simply takes longer, rather than arriving on schedule in a world that never changed. When the
-   *  clock runs out the claim enters world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS
-   *  block binds every line after it.
+   *  The player writes what will be true and how many turns the world has to get there. The count is
+   *  the instruction: every turn spends one, and when the clock runs out the claim enters
+   *  world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS block binds every line after it.
+   *  Whether each step reached the page is read from the bookkeeper and used to push the next turn
+   *  harder — never to stop the clock, which is what left one frozen at "stalled" forever.
    *
    *  Passing null for `claim` removes it. An index removes or replaces that one; without an index a
    *  claim that matches an existing one replaces it, so rewording is an edit rather than a second

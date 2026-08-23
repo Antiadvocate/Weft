@@ -2,11 +2,15 @@
  * A BECOMING — a fact the world does not hold yet, and is going to.
  *
  * The player writes what will be true ("all the buildings are water") and how many turns the world
- * has to get there. It does not simply happen. Each turn the world has to MOVE toward it through
- * its own causes — through what people do, what they notice, what starts going wrong — and only a
- * turn where it actually moved spends a turn off the clock. When the clock runs out the claim goes
- * into world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS block already binds every line
- * of prose after it. From then on it is simply how this world is, and nobody remarks on it.
+ * has to get there. THE COUNT IS THE INSTRUCTION: every turn spends one, and when the clock runs
+ * out the claim goes into world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS block
+ * already binds every line of prose after it. From then on it is simply how this world is, and
+ * nobody remarks on it.
+ *
+ * Each turn the world takes a step toward it through its own causes — through what people do, what
+ * they notice, what starts going wrong. Whether the step actually reached the page is read from the
+ * simulator and used as PRESSURE on the next turn, never as a brake on the clock: see the note at
+ * applyBecomingProgress for why the other way round was wrong.
  *
  * THIS IS THE AUTHORED-WANT PATTERN POINTED AT THE WORLD instead of at a person, and it is built
  * with the lesson that cost that feature twenty playthroughs: the instruction is not the mechanism.
@@ -76,11 +80,14 @@ export function liveBecomings(state: SaveState): Becoming[] {
   return (state.becomings ?? []).filter((b) => b?.claim && !b.arrived_turn && !b.paused);
 }
 
-/** How near it is, as something to write rather than a number to show. */
+/** Where on the clock it is, as something to write rather than a number to show.
+ *
+ *  The turn count is the player's instruction, not a suggestion, so this says which rung the world
+ *  is on THIS turn — and the last rung says it completes, because it does. */
 function pressureOf(b: Becoming): string {
   const done = b.turns - b.remaining;
   const frac = b.turns <= 1 ? 1 : done / b.turns;
-  if (b.remaining <= 1) return "THE LAST STEP. After this turn it is simply true, so this turn is where the last thing standing between the world and it gives way. Write that thing giving way.";
+  if (b.remaining <= 1) return "THE LAST TURN OF IT. Everything still standing between the world and this gives way here, in full, on the page — the whole change completing, not a promise that it is about to. After this turn it is simply true.";
   if (frac >= 0.6) return "Well underway and no longer deniable to anyone paying attention: it is happening in more than one place at once, it is affecting what people can do today, and somebody has started planning around it rather than arguing about it.";
   if (frac >= 0.25) return "Past the point where it could be a coincidence. It has happened somewhere else as well, somebody with authority has had to say something about it, and the first practical consequence has landed on somebody's day.";
   return "Early. It shows up once, small, in a way that could still be explained away — and the person who notices is the wrong person to be believed, or does not think it is worth mentioning.";
@@ -99,8 +106,11 @@ export function becomingDirective(state: SaveState): string {
   if (!live.length) return "";
   const god = !!state.world_bible?.god_mode;
   const rows = live.map((b) => {
+    // Behind, not frozen: the clock ran on while the prose skipped it, so the world owes the player
+    // those steps and this turn is where the ground is made up. It is never an excuse to jump to
+    // the end early — the last turn is still the last turn.
     const stall = b.stalled >= STALL_LIMIT
-      ? ` NOTHING ABOUT THIS MOVED FOR ${b.stalled} TURNS. It moves in the opening lines of this one, in something that happens rather than something somebody says.`
+      ? ` THIS HAS NOT REACHED THE PAGE FOR ${b.stalled} TURNS while its clock ran. The world is behind on it, so this turn carries the ground it missed as well as its own: it opens the prose, in something that HAPPENS rather than something somebody says, and it is further along than one step would have left it.`
       : "";
     const push = b.repudiations
       ? ` The player has held this back ${b.repudiations} time${b.repudiations === 1 ? "" : "s"} and it has not stopped coming; write it arriving from a direction they did not block.`
@@ -108,7 +118,8 @@ export function becomingDirective(state: SaveState): string {
     return `${b.claim} — ${pressureOf(b)}${stall}${push}`;
   });
   return `\n\nWHAT THIS WORLD IS TURNING INTO — not yet true, becoming true.\n· ${rows.join("\n· ")}\n`
-    + `Each of these gets ONE step this turn and the step is an EVENT, in the world, with a cause: a thing that happens, a thing somebody finds, a thing that stops working, a thing somebody does about it. `
+    + `Each of these gets a step THIS TURN and the step is an EVENT, in the world, with a cause: a thing that happens, a thing somebody finds, a thing that stops working, a thing somebody does about it. `
+    + `THE COUNT IS A DEADLINE, NOT A SUGGESTION — the player set how many turns this takes, the clock runs whether or not the prose used its turn, and it becomes true when the clock runs out however much ground is left. A turn that skips it does not pause it; it only leaves the world further behind and the last turn holding more. `
     + `THE END STATE IS NOT WRITTEN AND IS NOT NAMED. Nobody says what is coming, nobody predicts it, nobody explains it, and no character understands the shape of it — they meet the piece in front of them and are wrong about what it means, because they are inside it and it has no name yet. `
     + `Do not skip ahead: the world is at the step described above and not one step further, and a turn that jumps to the finished state has spent something the story needed. `
     + `Write it as the people there would meet it — as an inconvenience, a rumour, a fault, a thing somebody is angry about, a thing that ruins an afternoon — never as an omen and never as a scene about itself. `
@@ -161,36 +172,49 @@ export function applyBecomingProgress(
       for (const [k, v] of said) if (k.length >= 12 && (k.includes(key) || key.includes(k))) return v;
       return undefined;
     })();
-    if (!r) continue;
 
-    if (r.opposed && god) {
+    if (r?.opposed && god) {
       b.repudiations++;
-      b.remaining++;
       b.stalled = 0;
       shifts.push(`you held back "${short(b.claim)}" — the world lost a turn on it and is still coming`);
       continue;
     }
-    if (r.moved) {
+
+    // THE CLOCK IS A CLOCK. It was conditional on the simulator reporting movement, and that was
+    // wrong twice over. It is the same mistake that cost the authored wants twenty playthroughs:
+    // gating a mandatory thing on a model's report, when the report is the very thing that fails.
+    // And it inverts the deal — the player said HOW MANY TURNS, and a turn where the narrator
+    // skipped the step is a turn the narrator owes them, not a turn that never happened. Under the
+    // old rule a narrator that never found a way in froze the clock forever and the player watched
+    // it report "stalled" every turn while nothing approached.
+    //
+    // So every turn spends one, and whether it SHOWED is kept separately — as pressure on the next
+    // turn's direction, not as a brake on the clock. Only a god-mode repudiation puts a turn back,
+    // because that is the player paying for it.
+    b.remaining = Math.max(0, b.remaining - 1);
+    if (r?.moved) {
       b.moved++;
       b.stalled = 0;
-      b.remaining = Math.max(0, b.remaining - 1);
       if (r.how?.trim()) b.last_move = clipWords(r.how.trim(), 160);
-      if (b.remaining === 0) {
-        b.arrived_turn = turn;
-        arrived.push(b);
-        const canon = (state.world.canon ??= []);
-        if (!canon.some((c) => c.trim().toLowerCase() === b.claim.trim().toLowerCase())) {
-          canon.push(b.claim);
-          (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
-        }
-        shifts.push(`"${short(b.claim)}" is now true of this world, and binds every turn from here`);
-      } else {
-        shifts.push(`the world moved toward "${short(b.claim)}" — ${b.remaining} turn${b.remaining === 1 ? "" : "s"} of it left`);
+    } else {
+      b.stalled++;
+    }
+
+    if (b.remaining === 0) {
+      b.arrived_turn = turn;
+      arrived.push(b);
+      const canon = (state.world.canon ??= []);
+      if (!canon.some((c) => c.trim().toLowerCase() === b.claim.trim().toLowerCase())) {
+        canon.push(b.claim);
+        (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
       }
+      shifts.push(`"${short(b.claim)}" is true of this world now, and binds every turn from here`);
       continue;
     }
-    b.stalled++;
-    if (b.stalled >= STALL_LIMIT) shifts.push(`nothing moved toward "${short(b.claim)}" for ${b.stalled} turns — telling the narrator again`);
+    const left = `${b.remaining} turn${b.remaining === 1 ? "" : "s"} to go`;
+    shifts.push(r?.moved
+      ? `the world moved toward "${short(b.claim)}" — ${left}`
+      : `"${short(b.claim)}" did not show this turn — it lands on schedule anyway, ${left}`);
   }
   return { shifts, arrived };
 }

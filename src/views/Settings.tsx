@@ -481,9 +481,9 @@ function Becomings({ save, setSave }: { save: ClientSave; setSave: (s: ClientSav
     <div className="card p-4">
       <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>What this world is turning into</div>
       <div className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
-        A fact this world does not hold yet. It is not granted — the world has to get there through its own
-        causes, and only a turn where something actually moved spends one off the clock. When the clock runs
-        out it becomes canon and binds every line after it.
+        A fact this world does not hold yet. The world gets there through its own causes, one step a turn —
+        and the count is a deadline, not a suggestion: every turn spends one, and when the clock runs out it
+        becomes canon and binds every line after it, however much ground the prose left.
         {(save.world_bible as any).god_mode
           ? " God mode is on, so you can push it back: every turn you act against it puts a turn back on the clock, and it comes again from somewhere else."
           : " You cannot stop it. You can be frightened of it, refuse it, and work against it the whole way, and it arrives."}
