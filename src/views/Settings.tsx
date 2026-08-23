@@ -6,6 +6,7 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
+import type { Becoming } from "../engine/becoming";
 import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT,
   getLocalImage, setLocalImage, LOCAL_IMAGE_DEFAULTS, LOCAL_PREFIX, type LocalImageEndpoint } from "../config";
 import { generateLocalImage, listLocalCheckpoints, defaultWorkflow, KONTEXT_WORKFLOW, WORKFLOW_TOKENS, DEFAULT_NEGATIVE } from "../lib/diffusion";
@@ -56,6 +57,43 @@ function Toggle({ on, onFlip, title, desc }: { on: boolean; onFlip: () => void; 
         <span style={{ position: "absolute", top: 2, left: on ? 20 : 2, width: 20, height: 20, borderRadius: 999, background: "var(--ink-0)", transition: "left .2s" }} />
       </span>
     </button>
+  );
+}
+
+/** THE SETTINGS PAGE GOT LONG. Five groups, one visible at a time, so a change to the world does
+ *  not mean scrolling past every model id and token knob to reach it. Sticky, because the page it
+ *  sits on is the tallest one in the app. */
+const TABS = [
+  { id: "world",  label: "World",  blurb: "Tension, the bible, what this world is turning into, the opening." },
+  { id: "look",   label: "Look",   blurb: "Palette and type. Previews live — save to keep." },
+  { id: "models", label: "Models", blurb: "Keys and which model does which job." },
+  { id: "engine", label: "Engine", blurb: "Context, memory, cast and what a turn is allowed to cost." },
+  { id: "data",   label: "Data",   blurb: "Export, repair, and the raw world." },
+] as const;
+type Tab = typeof TABS[number]["id"];
+
+function Tabs({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
+  const here = TABS.find((t) => t.id === tab)!;
+  return (
+    <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-2" style={{ background: "var(--ink-0)" }}>
+      <div className="flex gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className="btn font-mono text-[11px] uppercase tracking-widest"
+            style={{
+              height: 32, padding: "0 12px", flex: "0 0 auto",
+              background: t.id === tab ? "var(--accent-soft)" : "transparent",
+              color: t.id === tab ? "var(--accent)" : "var(--text-lo)",
+              borderColor: t.id === tab ? "var(--accent-glow)" : "var(--line)",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="text-[12px] mt-2" style={{ color: "var(--text-mid)" }}>{here.blurb}</div>
+    </div>
   );
 }
 
@@ -415,6 +453,85 @@ function BackgroundTurns() {
   );
 }
 
+/**
+ * WHAT THIS WORLD IS TURNING INTO.
+ *
+ * A world-level injector: the player writes a fact this world does not hold yet and how many turns
+ * it has to get there. The engine makes the world move toward it one step per turn, through its own
+ * causes, and files it in canon when it arrives. See engine/becoming.ts — this is only the desk it
+ * is written at.
+ */
+function Becomings({ save, setSave }: { save: ClientSave; setSave: (s: ClientSave) => void }) {
+  const list = (save as any).becomings as Becoming[] | undefined;
+  const [claim, setClaim] = useState("");
+  const [turns, setTurns] = useState("10");
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    if (!claim.trim() || busy) return;
+    setBusy(true);
+    try { setSave(await api.setBecoming(save.id, claim, { turns: Math.max(1, parseInt(turns, 10) || 10) })); setClaim(""); }
+    finally { setBusy(false); }
+  };
+  const drop = async (i: number) => setSave(await api.setBecoming(save.id, null, { index: i }));
+  const pause = async (b: Becoming, i: number) =>
+    setSave(await api.setBecoming(save.id, b.claim, { index: i, turns: b.turns, paused: !b.paused }));
+
+  return (
+    <div className="card p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>What this world is turning into</div>
+      <div className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
+        A fact this world does not hold yet. It is not granted — the world has to get there through its own
+        causes, and only a turn where something actually moved spends one off the clock. When the clock runs
+        out it becomes canon and binds every line after it.
+        {(save.world_bible as any).god_mode
+          ? " God mode is on, so you can push it back: every turn you act against it puts a turn back on the clock, and it comes again from somewhere else."
+          : " You cannot stop it. You can be frightened of it, refuse it, and work against it the whole way, and it arrives."}
+      </div>
+
+      {!!list?.length && (
+        <div className="space-y-2 mb-3">
+          {list.map((b, i) => {
+            const done = Math.max(0, b.turns - b.remaining);
+            const pct = b.arrived_turn ? 100 : Math.round((done / Math.max(1, b.turns)) * 100);
+            return (
+              <div key={b.id ?? i} className="rounded p-2.5" style={{ background: "var(--ink-1)", border: "1px solid var(--line)" }}>
+                <div className="text-[13px]" style={{ color: b.arrived_turn ? "var(--text-lo)" : "var(--text-hi)" }}>{b.claim}</div>
+                <div className="mt-1.5" style={{ height: 3, background: "var(--line)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: b.arrived_turn ? "var(--text-lo)" : "var(--accent)" }} />
+                </div>
+                <div className="font-mono text-[10px] mt-1.5 flex items-center gap-2" style={{ color: "var(--text-lo)" }}>
+                  <span>
+                    {b.arrived_turn ? `true since turn ${b.arrived_turn}`
+                      : b.paused ? "held"
+                      : `${b.remaining} of ${b.turns} to go`}
+                  </span>
+                  {!!b.repudiations && <span>· pushed back {b.repudiations}×</span>}
+                  {b.stalled >= 2 && !b.arrived_turn && <span>· stalled {b.stalled}</span>}
+                  <span style={{ flex: 1 }} />
+                  {!b.arrived_turn && (
+                    <button className="btn btn-ghost" style={{ height: 22, padding: "0 8px", fontSize: 10 }} onClick={() => pause(b, i)}>
+                      {b.paused ? "resume" : "hold"}
+                    </button>
+                  )}
+                  <button className="btn btn-ghost" style={{ height: 22, padding: "0 8px", fontSize: 10 }} onClick={() => drop(i)}>remove</button>
+                </div>
+                {b.last_move && <div className="text-[11px] mt-1" style={{ color: "var(--text-mid)" }}>last step: {b.last_move}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <TextField label="What will be true" value={claim} onChange={setClaim} rows={2} />
+      <div className="flex gap-2 items-end">
+        <div style={{ width: 92 }}><TextField label="Turns" value={turns} onChange={setTurns} mono /></div>
+        <button className="btn btn-accent" style={{ height: 38, flex: 1 }} disabled={!claim.trim() || busy} onClick={add}>Set it going</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings({ save, setSave, onGuide }: { save: ClientSave; setSave: (s: ClientSave) => void; onGuide?: () => void }) {
   const m = save.model_settings;
   const wb = save.world_bible;
@@ -437,6 +554,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
   const [worldErr, setWorldErr] = useState("");
   const [openingText, setOpeningText] = useState<string | null>(null);
   const [openingBusy, setOpeningBusy] = useState(false);
+  const [tab, setTab] = useState<Tab>("world");
   const [bibleSaved, setBibleSaved] = useState(false);
   const [bible, setBible] = useState({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
@@ -528,7 +646,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         </div>
       </div>
 
-      <SectionHeader label="The story" blurb="How this world behaves — tension, direction, canon." />
+      <Tabs tab={tab} setTab={setTab} />
+      {tab === "world" && (<>
       <div className="card p-4" data-tour="set-tension">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World tension</div>
         <div className="flex items-center justify-between mb-1">
@@ -552,6 +671,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
                     : "High — relentless. Expect frequent, fast escalation."}
         </div>
       </div>
+      <Becomings save={save} setSave={setSave} />
       <div className="card p-4" data-tour="set-bible">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, yours (live next turn)</div>
 
@@ -669,6 +789,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           </div>
         )}
       </div>
+      </>)}
+      {tab === "look" && (<>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live — save to keep)</div>
         <div className="flex flex-wrap gap-2">
@@ -720,7 +842,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           </>
         )}
       </div>
-      <SectionHeader label="The machine" blurb="Keys, models, and token economics. Set once, forget mostly." />
+      </>)}
+      {tab === "models" && (<>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>OpenRouter key (stored on this device only)</div>
         <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
@@ -797,6 +920,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           Append ":online" to any model id (e.g. anthropic/claude-opus-5:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
       </div>
+      </>)}
+      {tab === "engine" && (<>
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Context engine</div>
         <Toggle on={draft.context_mode === "chatlog"} onFlip={() => setDraft((d) => ({ ...d, context_mode: d.context_mode === "chatlog" ? "digest" : "chatlog" }))}
@@ -872,6 +997,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <TextField label="Reflection cadence (turns)" value={String(draft.reflection_cadence)} onChange={setM("reflection_cadence")} mono />
         <TextField label="Verbatim history window (turns)" value={String(draft.history_window)} onChange={setM("history_window")} mono />
       </div>
+      </>)}
 
 
 
@@ -918,6 +1044,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
       )}
 
 
+      {tab === "data" && (<>
       <button className="btn btn-ghost w-full" style={{ height: 46 }} onClick={async () => {
         const { name, json } = await api.exportSave(save.id);
         const filename = `${name}.weaver.json`;
@@ -977,6 +1104,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
       }}>
         <Copy size={14} /> Show save text (manual backup)
       </button>
+      </>)}
 
       {rescueText !== null && (
         <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "var(--ink-0)", display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)" }}>

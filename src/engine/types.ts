@@ -907,6 +907,13 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** Facts the world does not hold yet and is working toward. Each spends a turn off its clock only
+   *  on a turn the world visibly moved, and lands in world.canon when the clock runs out. See
+   *  engine/becoming.ts. */
+  becomings?: import("./becoming").Becoming[];
+  /** Becomings that landed in canon on the turn just written, so the NEXT turn's direction can say
+   *  so on the page. Cleared once it has. */
+  pending_arrivals?: import("./becoming").Becoming[];
   /** Consecutive turns each present character has been in the room without a line. Cleared for
    *  anybody who is not present, so it never accumulates across a scene change. See speech.ts. */
   speech_silence?: Record<string, number>;
@@ -1000,6 +1007,9 @@ export interface SimulatorDiff {
    *  keyword list cannot. See engine/reaction.ts. */
   unexplained?: { what: string; witnesses?: string[] };
   canon_add?: string[];        // world-altering public facts: new faiths, regime changes, public miracles, wars — broadcast to every mind
+  /** Per-becoming read of THIS turn: did the world move toward it, how, and did the player act
+   *  against it. Judged by meaning, never by whether the claim's words appear. See becoming.ts. */
+  becoming_progress?: { claim: string; moved?: boolean; how?: string; opposed?: boolean }[];
   track?: string[];            // promote these characters to the long game (they matter to a thread now)
   appearance: { char_id: string; value: string; permanent?: boolean }[]; // default: replaces appearance_now (presentation). permanent:true = ONE sentence APPENDED to the bedrock appearance_facts; bedrock is never replaced by the engine
   drives_update: { char_id: string; goal: string; progress?: number; blocker?: string; priority?: number }[]; // new or revised offscreen want

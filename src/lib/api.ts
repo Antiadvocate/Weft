@@ -18,6 +18,7 @@ import { seedDrive } from "../engine/drives";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel, repairAuthoredHabitCounts } from "../engine/authored";
+import { newBecoming, liveBecomings, CLAIM_MAX } from "../engine/becoming";
 import { excuseElapsedToday, newBlock, placeForBlock, placeForRef, readSchedule } from "../engine/schedule";
 import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
@@ -1371,6 +1372,50 @@ export const api = {
    *  Tracking comes along with it. An untracked character is explicitly one the engine spends no
    *  upkeep on — no drive regeneration, no offstage presence — so a want written onto somebody
    *  nobody is following would sit on the card and never once act. */
+  /** A FACT THIS WORLD DOES NOT HOLD YET.
+   *
+   *  The player writes what will be true and how many turns the world has to get there. It is not
+   *  granted: each turn the world has to move toward it through its own causes, and only a turn
+   *  that actually moved spends one off the clock — so a claim the story cannot find a way into
+   *  simply takes longer, rather than arriving on schedule in a world that never changed. When the
+   *  clock runs out the claim enters world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS
+   *  block binds every line after it.
+   *
+   *  Passing null for `claim` removes it. An index removes or replaces that one; without an index a
+   *  claim that matches an existing one replaces it, so rewording is an edit rather than a second
+   *  copy of the same future. See engine/becoming.ts. */
+  setBecoming: async (id: string, claim: string | null, opts: { turns?: number; index?: number; paused?: boolean } = {}): Promise<ClientSave> => {
+    const s = await need(id);
+    const list = (s.becomings ??= []);
+    const at = opts.index;
+    if (!claim?.trim()) {
+      if (typeof at === "number" && at >= 0 && at < list.length) list.splice(at, 1);
+      else s.becomings = [];
+      await putSave(s);
+      return clientView(s);
+    }
+    const norm = (t: string) => t.trim().toLowerCase();
+    const same = typeof at === "number" ? -1 : list.findIndex((b) => norm(b.claim) === norm(claim));
+    const slot = typeof at === "number" ? at : same;
+    const prev = slot >= 0 ? list[slot] : undefined;
+    const made = newBecoming(claim, opts.turns ?? prev?.turns ?? 10, s.world.current_turn);
+    if (prev) {
+      // Rewording a claim keeps the ground the world has already covered; changing the length of
+      // the clock does not reset it either, it just moves where the finish line is.
+      made.id = prev.id;
+      made.added_turn = prev.added_turn;
+      made.moved = prev.moved;
+      made.repudiations = prev.repudiations;
+      made.last_move = prev.last_move;
+      made.remaining = Math.max(0, Math.min(made.turns, made.turns - prev.moved));
+    }
+    if (opts.paused !== undefined) made.paused = opts.paused;
+    if (slot >= 0 && slot < list.length) list[slot] = made;
+    else list.push(made);
+    await putSave(s);
+    return clientView(s);
+  },
+
   setAuthored: async (id: string, char_id: string, want: null | {
     goal: string; approach?: string; because?: string;
     rate?: "slow" | "steady" | "fast"; stage?: number; crystallize?: boolean; paused?: boolean;
