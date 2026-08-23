@@ -43,6 +43,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
+import { becomingDirective, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -2105,6 +2106,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // what the previous turn actually measured, and the standing rule for anybody in the room who is
   // currently angry — the state whose only rendering was withdrawal. See engine/speech.ts.
   const speechNote = speechDirective(state) + angerRegister(state);
+  // WHAT THIS WORLD IS TURNING INTO. A fact the player wrote that is not true yet: the world moves
+  // one step toward it per turn, through its own causes, and lands in canon when it gets there.
+  // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
+  const becomingNote = becomingDirective(state) + arrivalDirective(state.pending_arrivals ?? []);
+  state.pending_arrivals = undefined;   // said once, on the turn after it landed
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);
   replanDrives(state);
@@ -2758,13 +2764,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -3106,7 +3112,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       return likely.length
         ? `\n\n=== PROMISES THIS TURN MAY HAVE SETTLED (check each against the prose; resolve kept, or broken, or leave open and it stays in the player's journal) ===\n${likely.map((p) => `- ${p.id} | "${p.text}"`).join("\n")}`
         : "";
-    })()}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
+    })()}${becomingAsk(state)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
@@ -3895,6 +3901,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
     // here because it needs the habit rows this loop has just written. See engine/authored.ts.
     for (const line of noteWantMisses(state, turn, state.world.present, simAnswered)) shifts.push(line);
+  }
+  // WHAT THE WORLD DID ABOUT WHAT IT IS TURNING INTO. Model-judged, like the trait report beside it:
+  // a claim about buildings is moved by a wall going soft, which no string test could ever see. A
+  // becoming that did not move does not spend a turn — a clock that ran out on a world that never
+  // changed would leave the prose pretending. Arrivals are carried to the NEXT turn's direction,
+  // because this turn's prose is already written. See engine/becoming.ts.
+  {
+    const bec = applyBecomingProgress(state, turn, diff.becoming_progress);
+    shifts.push(...bec.shifts);
+    state.pending_arrivals = bec.arrived.length ? bec.arrived : undefined;
   }
 
   // ALREADY SPENT — the distinctive props this turn's DIALOGUE put on the page. Deliberately not

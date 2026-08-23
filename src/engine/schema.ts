@@ -31,6 +31,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   appearance: A(S({ char_id: str, value: str, permanent: { type: "boolean" } }, ["char_id", "value"])),
   drives_update: A(S({ char_id: str, goal: str, approach: str, progress: num, blocker: str, priority: num }, ["char_id", "goal"])),
   canon_add: strA,
+  becoming_progress: A(S({ claim: str, moved: { type: "boolean" }, how: str, opposed: { type: "boolean" } })),
   track: strA,
   promises_new: A(S({ from: str, to: str, text: str, weight: num, due_time: str }, ["from", "to", "text"])),
   promises_resolved: A(S({ id: str, from: str, to: str, text: str, outcome: { type: "string", enum: ["kept", "broken"] } }, ["outcome"])),
