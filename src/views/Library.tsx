@@ -57,6 +57,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
             {saves.map((s, i) => (
               <React.Fragment key={s.id}>
               <motion.div className="card card-press p-4 flex items-center gap-3"
+                data-tour={i === 0 ? "lib-continue" : undefined}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
                 onClick={() => onOpen(s.id)}>
@@ -67,6 +68,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
                   </div>
                 </div>
                 <button className="p-2" style={{ color: "var(--text-lo)" }} title="start a new chapter from this save"
+                  data-tour={i === 0 ? "lib-sprout" : undefined}
                   onClick={(e) => { e.stopPropagation(); setBrief(""); setComposing(composing === s.id ? null : s.id); }}>
                   <Sprout size={15} style={{ color: forking === s.id || composing === s.id ? "var(--accent)" : "var(--text-lo)" }} />
                 </button>
@@ -112,6 +114,31 @@ export default function Library({ onOpen, onForge, onCreated }: {
         Begin
       </div>
       <div className="space-y-2.5">
+        {/* THE FORGE IS FIRST AND IT IS THE BIG ONE. It used to sit at the bottom under a dashed
+            border, below four other people's worlds — which is where you put the advanced option,
+            not the thing the whole engine is for. A world of your own is the default now; the
+            prebuilt ones are the shortcut underneath it. */}
+        <motion.div className="card card-press p-4 flex items-center gap-3" data-tour="lib-forge"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.3 }}
+          style={{ borderColor: "var(--accent-glow)", background: "var(--accent-soft)" }}
+          onClick={onForge}>
+          <Hammer size={20} className="shrink-0" style={{ color: "var(--accent)" }} />
+          <div className="min-w-0">
+            <div className="font-display text-[16px]">The Forge — build your own</div>
+            <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+              One idea, any genre. The engine builds the place, the cast, their grudges and the clocks already running.
+            </div>
+          </div>
+          <Plus size={16} className="ml-auto shrink-0" style={{ color: "var(--accent)" }} />
+        </motion.div>
+
+        {presets.length > 0 && (
+          <div className="font-mono text-[10px] uppercase tracking-wider pt-3" style={{ color: "var(--text-lo)" }}>
+            or take one already forged
+          </div>
+        )}
+        <div className="space-y-2.5" data-tour="lib-presets">
         {presets.map((p, i) => (
           <motion.div key={p.id} className="card card-press p-4"
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -124,8 +151,9 @@ export default function Library({ onOpen, onForge, onCreated }: {
             <div className="text-[13px] mt-1.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{p.blurb}</div>
           </motion.div>
         ))}
+        </div>
 
-        <motion.div className="card card-press p-4 flex items-center gap-3"
+        <motion.div className="card card-press p-4 flex items-center gap-3" data-tour="lib-import"
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.22, duration: 0.3 }}
           onClick={() => fileRef.current?.click()}>
@@ -156,18 +184,6 @@ export default function Library({ onOpen, onForge, onCreated }: {
           </div>
         </motion.div>
 
-        <motion.div className="card card-press p-4 flex items-center gap-3"
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.3 }}
-          style={{ borderStyle: "dashed", borderColor: "var(--accent-glow)" }}
-          onClick={onForge}>
-          <Hammer size={18} style={{ color: "var(--accent)" }} />
-          <div>
-            <div className="font-display text-[15px]">The Forge</div>
-            <div className="text-[12.5px]" style={{ color: "var(--text-mid)" }}>Seed an idea. The engine builds the world, cast, and stakes.</div>
-          </div>
-          <Plus size={16} className="ml-auto" style={{ color: "var(--text-lo)" }} />
-        </motion.div>
       </div>
     </div>
   );

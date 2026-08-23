@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText } from "lucide-react";
+import { BookOpen, Feather, Users, Globe2, BarChart3, Moon, Sun, Settings2, ScrollText, HelpCircle } from "lucide-react";
 import { api, type ClientSave } from "./lib/api";
 import { hasApiKey, setApiKey } from "./config";
 import { watchForUpdate } from "./lib/freshness";
@@ -12,6 +12,9 @@ import Chronicle from "./views/Chronicle";
 import Journal from "./views/Journal";
 import Forge from "./views/Forge";
 import Settings, { applyProseFont } from "./views/Settings";
+import Coach from "./lib/Coach";
+import Primer from "./lib/Primer";
+import { TOURS, type TourId, tourSeen, markTourSeen, guidesOff, setGuidesOff, firstRun, markVisited } from "./lib/tour";
 
 export type Tab = "play" | "cast" | "world" | "journal" | "chronicle" | "settings";
 
@@ -27,10 +30,18 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number 
 export default function App() {
   const [save, setSave] = useState<ClientSave | null>(null);
   const [tab, setTab] = useState<Tab>("play");
-  const [mode, setMode] = useState<"library" | "forge" | "game">("library");
+  /* THE FORGE IS THE FRONT DOOR. A first-time player opening on the library sees a list of other
+     people's worlds and one dashed card at the bottom that happens to be the actual product. Land
+     them in the Forge; the library is one tap away and becomes the landing once they have a save. */
+  const [mode, setMode] = useState<"library" | "forge" | "game">(() => (firstRun() ? "forge" : "library"));
   const [lightMode, setLightMode] = useState(() => localStorage.getItem("weft-mode") === "light");
   const [needKey, setNeedKey] = useState(!hasApiKey());
   const [keyInput, setKeyInput] = useState("");
+  /* ONBOARDING — a welcome card on the very first run, a spotlight guide per screen, and the full
+     primer behind the "?" forever after. See lib/tour.ts. */
+  const [welcome, setWelcome] = useState(() => firstRun());
+  const [coach, setCoach] = useState<TourId | null>(null);
+  const [primer, setPrimer] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-mode", lightMode ? "light" : "dark");
@@ -67,8 +78,25 @@ export default function App() {
     };
   }, []);
 
+  /* Which guide belongs to what is on screen right now. The game tabs share their id with their
+     tour, so a new tab needs no wiring here. */
+  const currentTour: TourId | null =
+    mode === "library" ? "library" : mode === "forge" ? "forge" : (mode === "game" && save) ? (tab as TourId) : null;
+
+  /* A screen explains itself the first time you reach it — once, ever, and never while the key gate
+     or the welcome card is still up. The delay lets the view finish animating in, so the spotlight
+     lands on where the button ACTUALLY is rather than where it was mid-transition. */
+  useEffect(() => {
+    if (welcome || needKey || !currentTour) return;
+    if (guidesOff() || tourSeen(currentTour)) return;
+    const id = currentTour;
+    const t = window.setTimeout(() => { markTourSeen(id); setCoach(id); }, 480);
+    return () => window.clearTimeout(t);
+  }, [currentTour, welcome, needKey]);
+
   const openSave = useCallback(async (id: string) => {
     const s = await api.save(id);
+    markVisited();
     setSave(s); setTab("play"); setMode("game");
   }, []);
 
@@ -134,6 +162,14 @@ export default function App() {
             </div>
           </button>
           <div className="flex items-center gap-1 shrink-0">
+            {/* THE WAY BACK IN. Every screen's guide runs itself once; this is how you get it again,
+                and it is the only control that is in the same place on every screen. */}
+            {currentTour && (
+              <button className="icon-btn" data-tour="help" onClick={() => setCoach(currentTour)}
+                aria-label="what does everything on this screen do" title="what does everything on this screen do">
+                <HelpCircle size={15} />
+              </button>
+            )}
             <button className="icon-btn" onClick={() => setLightMode((v) => !v)} aria-label="toggle light and dark" title="toggle light and dark">
               {lightMode ? <Moon size={14} /> : <Sun size={14} />}
             </button>
@@ -152,14 +188,15 @@ export default function App() {
             <motion.div key="library" className="absolute inset-0"
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
-              <Library onOpen={openSave} onForge={() => setMode("forge")} onCreated={(s) => { setSave(s); setMode("game"); setTab("play"); }} />
+              <Library onOpen={openSave} onForge={() => setMode("forge")} onCreated={(s) => { markVisited(); setSave(s); setMode("game"); setTab("play"); }} />
             </motion.div>
           )}
           {mode === "forge" && (
             <motion.div key="forge" className="absolute inset-0"
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}>
-              <Forge onBack={() => setMode("library")} onCreated={(s) => { setSave(s); setMode("game"); setTab("play"); }} />
+              <Forge onBack={() => setMode("library")} onGuide={() => setPrimer(true)}
+                onCreated={(s) => { markVisited(); setSave(s); setMode("game"); setTab("play"); }} />
             </motion.div>
           )}
           {mode === "game" && save && (
@@ -171,15 +208,58 @@ export default function App() {
               {tab === "world" && <World save={save} onSave={setSave} />}
               {tab === "chronicle" && <Chronicle save={save} />}
               {tab === "journal" && <Journal save={save} onSave={setSave} />}
-              {tab === "settings" && <Settings save={save} setSave={setSave} />}
+              {tab === "settings" && <Settings save={save} setSave={setSave} onGuide={() => setPrimer(true)} />}
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
+      {/* ── FIRST RUN ── the only thing between a stranger and the Forge. Three sentences on what
+          this is, the one piece of syntax that is not guessable, and a door marked "I have played
+          this sort of thing". Never shown twice. */}
+      <AnimatePresence>
+        {welcome && (
+          <motion.div style={{ position: "fixed", inset: 0, zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="drawer-veil" style={{ position: "absolute", inset: 0 }} />
+            <motion.div className="card p-5" style={{ position: "relative", width: "100%", maxWidth: 400, maxHeight: "100%", overflowY: "auto" }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.34, ease: [0.2, 0.8, 0.2, 1] }}>
+              <div className="font-display text-[23px] leading-tight mb-2" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
+                A world that reacts.
+              </div>
+              <div className="text-[13.5px] leading-relaxed space-y-2" style={{ color: "var(--text-mid)" }}>
+                <p>Describe a place. The engine builds the people, what they want, and the trouble already coming.</p>
+                <p>Then you live in it. Nothing is on rails.</p>
+                <p style={{ color: "var(--text-lo)" }}>
+                  The one thing to know: in the message box{" "}
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>"quotes"</span> are spoken,{" "}
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>*asterisks*</span> are private thoughts,
+                  and the rest is what you do.
+                </p>
+              </div>
+
+              <button className="btn btn-accent w-full mt-4" style={{ height: 46 }}
+                onClick={() => { markVisited(); setWelcome(false); }}>
+                Build a world
+              </button>
+              <div className="flex gap-2 mt-2">
+                <button className="btn flex-1" onClick={() => setPrimer(true)}>Cheat sheet</button>
+                <button className="btn flex-1" onClick={() => { markVisited(); setGuidesOff(true); setWelcome(false); }}>
+                  Skip the guides
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {coach && <Coach key={coach} steps={TOURS[coach]} onDone={() => setCoach(null)} />}
+      {primer && <Primer onClose={() => setPrimer(false)} />}
+
       {mode === "game" && save && (
         <nav className="tabbar z-30">
-          <div className="flex items-stretch px-2">
+          <div className="flex items-stretch px-2" data-tour="tabs">
             {TABS.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               return (

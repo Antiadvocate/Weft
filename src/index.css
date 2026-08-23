@@ -335,6 +335,17 @@ hr.rule { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 }
 [data-mode="light"] .drawer-veil { background: rgba(40,30,15,.32); }
 
+/* ───────── the guides ─────────
+   Four panels around a hole, so the spotlit control is the one part of the page still in focus.
+   The veil follows the drawer's convention: heavy on dark, gentle on light. */
+.coach-scrim {
+  position: fixed;
+  background: rgba(6, 5, 3, .84);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+[data-mode="light"] .coach-scrim { background: rgba(40, 30, 15, .46); }
+
 /* ───────── prose inks (readable registers) ───────── */
 .prose-stream .dlg {
   color: var(--accent);
