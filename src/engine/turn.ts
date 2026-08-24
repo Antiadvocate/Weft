@@ -25,7 +25,7 @@ import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolv
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -2587,8 +2587,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
+  // THE AUDITOR FOUND IT AND THE STORY KEPT GOING. This was one polite sentence — "steer back, not
+  // with a lurch" — buried in the middle of a fifteen-thousand-character directive, against sixty
+  // turns of accumulated momentum. From a save whose genre is "Love, erotica, romantic", the
+  // auditor's own words: "The story became an explicit divorce/breakup procedural ... violating the
+  // explicit prohibition against breakup engines and ignoring the romantic destination." It was
+  // right, it was recorded, and nothing changed. The measurement existing is not the mechanism.
+  //
+  // So it takes the shape that works in this engine: bracketed, mandatory, refusing the excuses by
+  // name, and stating what this story is FOR beside what it has become.
   const contractFix = state.contract_drift
-    ? `\nCOURSE-CORRECTION (the story has drifted from its contract): ${state.contract_drift} Steer back through present characters' wants and the standing direction — not with a lurch, but starting THIS turn.`
+    ? `\n\n[THIS STORY HAS LEFT ITS OWN CONTRACT, and the correction is not optional.\nWhat it drifted into: ${state.contract_drift}\n`
+      + `What it is: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? ` Never the engine of a scene here: ${state.world_bible.forbidden_as_primary.join("; ")}.` : ""}\n`
+      + `THIS TURN IS WHERE IT COMES BACK. Not gradually, not once the current business is finished, and not after one more scene of what it drifted into — this one. You do not get to decide the moment is wrong for it or that the drift is what the scene is about now; the drift IS what the scene is about, which is the problem.\n`
+      + `Come back through what the people here actually want from each other, and through the standing direction. One beat is enough, and there is no version of this turn that contains none of it.]`
     : "";
   // PUBLIC STANDING — the crowd's counterpart to the edge ledger. Without this the narrator had no
   // state at all for "the wider community" and improvised it from whatever the nearest directive
@@ -3917,6 +3929,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // AND SAY IT WHEN THE WHOLE CAST HAS TURNED. Measured, not guessed: warmth is what the narrator
+  // reads to decide how people treat the player, and a romance whose ledger has gone hostile
+  // produces cruelty correctly and inexplicably. Said once, on the turn it crosses. See social.ts.
+  {
+    const cold = castGoneCold(state);
+    if (cold && !state.cast_cold_said) { shifts.push(cold); state.cast_cold_said = turn; }
+    else if (!cold && state.cast_cold_said) state.cast_cold_said = undefined;
+  }
   // COUNT WHAT WAS ACTUALLY SAID. Runs after the prose exists and before the next turn reads it —
   // the share of the turn that was spoken aloud, and who was standing in the room without a line.
   trackSilence(state, prose);

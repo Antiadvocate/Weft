@@ -91,6 +91,35 @@ export function bondStrength(e?: Pick<SocialEdge, "warmth" | "trust" | "roles">)
 export const OPEN_KNEE = 50;
 export const MAX_DAMP = 0.6;
 
+/** WHAT A STRONG BOND ABSORBS.
+ *
+ *  gainScale exists because warmth was too easy to win — "she softened over one conversation". It
+ *  has no counterpart, so the ledger is a ratchet: a gain against a guarded person is cut to a
+ *  third, and every loss lands at full magnitude whatever the bond was worth. Over a long story of
+ *  ordinary friction that is a one-way trip.
+ *
+ *  From a save, 63 turns, genre "Love, erotica, romantic", a world bible that calls the marriage
+ *  "strong, loving, and stable": the wife sits at warmth -16 trust -31 and the best friend at
+ *  warmth -86 trust -100. Nobody betrayed anybody. It is sixty turns of small deductions with
+ *  nothing on the other side of the scale, and the prose that comes out of it is correct — at -86
+ *  dispositionCue says openly antagonistic, so the narrator writes people who hate him, and the
+ *  player reads a romance in which every character is cruel and cannot see why.
+ *
+ *  So an established bond absorbs ordinary friction, the way one does. A slight that would cost a
+ *  new acquaintance eight points costs a long marriage two. What it does NOT damp is a rupture:
+ *  at or past RUPTURE_STEP the loss lands in full, because that is the size of thing that actually
+ *  ends relationships, and the engine already has a whole path for it. Betrayal still costs
+ *  everything; a bad afternoon no longer costs a marriage.
+ *
+ *  LOSS_FLOOR — the most a bond at warmth 100 can absorb an ordinary loss down to. */
+export const LOSS_FLOOR = 0.25;
+
+export const lossScale = (current: number, delta: number): number => {
+  if (Math.abs(delta) >= RUPTURE_STEP) return 1;   // a real rupture is never softened
+  if (current <= 0) return 1;                      // nothing left for the bond to spend
+  return 1 - Math.min(1, current / 100) * (1 - LOSS_FLOOR);
+};
+
 const gainScale = (current: number, obduracy = 0) => {
   const o = Math.max(0, Math.min(1, obduracy));
   const knee = OPEN_KNEE * (1 - o);
@@ -203,7 +232,9 @@ export function applyEdgeDelta(
   // Omit ctx and obduracy is 0, which reproduces the old arithmetic exactly — every existing
   // save and every call site that hasn't been updated behaves identically.
   const obd = ctx ? obduracyIn(ctx.chars, ctx.traits, d.from) : 0;
-  const warmthDelta = d.warmth_delta > 0 ? d.warmth_delta * gainScale(e.warmth, obd) : d.warmth_delta;
+  const warmthDelta = d.warmth_delta > 0
+    ? d.warmth_delta * gainScale(e.warmth, obd)
+    : d.warmth_delta * lossScale(e.warmth, d.warmth_delta);
   e.warmth = clamp(e.warmth + clamp(warmthDelta, -15, 15), -100, 100);
   // trust breaks faster than it builds: positive deltas apply at 60% strength, negatives at full.
   // Dampen the DELTA before applying it once (the old version added full then subtracted from the
@@ -1535,3 +1566,51 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
   return log;
 }
 function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
+
+/** Warm genres. A cast going cold in one of these is a failure of the story, not a development. */
+const WARM_GENRE = /\b(romance|romantic|love|erotic\w*|comfort|cosy|cozy|slice of life|friendship|domestic)\b/i;
+/** WHERE THE LINE ACTUALLY IS, and it is not the hostility band.
+ *
+ *  The first cut of this counted people below -20, which is where dispositionCue starts saying
+ *  openly antagonistic. Against the save it was built from that fires on ONE of three: the friend
+ *  at -86 counts and the WIFE at -16 does not. But a wife at -16 in a bible that calls the marriage
+ *  strong and loving is the failure — the whole failure — and a rule that cannot see her is
+ *  measuring the wrong thing.
+ *
+ *  So it reads the cast as a body: the average has gone negative, and at least half of them are
+ *  below zero. That catches the save (-86, -16, +4 → mean -33, two of three under) and leaves alone
+ *  a warm cast with one enemy in it (-86, +40, +30 → mean -5, one of three under), which is an
+ *  antagonist and not a collapse. */
+const COLD_MEAN = -10;
+
+/**
+ * THE CAST HAS GONE COLD — a failure state the engine could measure and nobody was reading.
+ *
+ * From a save: genre "Love, erotica, romantic", a bible calling the marriage strong and loving, and
+ * a ledger holding the wife at warmth -16 trust -31 and the closest friend at -86 and -100. The
+ * prose was correct at every step — at -86 the disposition band says openly cold or antagonistic,
+ * so the narrator wrote people who despise him. The player read a romance in which every character
+ * is cruel and could not see why, because the number that explains it is not on the page.
+ *
+ * Says it once, when it crosses, rather than every turn: this is a thing to notice, not a nag. The
+ * numbers come with it because the whole problem was that they were invisible.
+ */
+export function castGoneCold(state: SaveState): string | null {
+  if (!WARM_GENRE.test(state.world_bible?.tone ?? "")) return null;
+  const all = (state.world.edges ?? []).filter((e) => {
+    const c = state.characters[e.from];
+    return e.to === "char_player" && c && c.status !== "dead" && c.status !== "departed";
+  });
+  if (all.length < 2) return null;
+  const mean = all.reduce((n, e) => n + (e.warmth ?? 0), 0) / all.length;
+  const under = all.filter((e) => (e.warmth ?? 0) < 0).length;
+  if (mean > COLD_MEAN || under < all.length / 2) return null;
+  const who = all
+    .filter((e) => (e.warmth ?? 0) < 0)
+    .sort((a, b) => (a.warmth ?? 0) - (b.warmth ?? 0))
+    .slice(0, 4)
+    .map((e) => `${state.characters[e.from]?.name} ${Math.round(e.warmth ?? 0)}`)
+    .join(", ");
+  return `everyone has gone cold on you — ${who} — in a story whose genre is "${(state.world_bible.tone ?? "").trim()}". `
+    + `Warmth is what the narrator reads to decide how people treat you, so this is why they are like this. You can edit it in the Cast panel.`;
+}

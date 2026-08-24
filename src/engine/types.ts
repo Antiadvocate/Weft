@@ -907,6 +907,9 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
+   *  Cleared when the ledger recovers. See castGoneCold. */
+  cast_cold_said?: number;
   /** Facts the world does not hold yet and is working toward. Each spends a turn off its clock only
    *  on a turn the world visibly moved, and lands in world.canon when the clock runs out. See
    *  engine/becoming.ts. */
