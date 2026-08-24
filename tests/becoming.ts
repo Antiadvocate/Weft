@@ -21,7 +21,7 @@
  * mode they are sovereign, so repudiation holds the clock still for that turn, and it comes again
  * from somewhere else. They can hold it off forever by paying for it every turn.
  */
-import { newBecoming, liveBecomings, becomingDirective, becomingBehind, arrivalDirective, becomingAsk, applyBecomingProgress, CLAIM_MAX, STALL_LIMIT } from "../src/engine/becoming";
+import { newBecoming, liveBecomings, arrivedBecomings, becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, CLAIM_MAX, STALL_LIMIT, WORN_IN } from "../src/engine/becoming";
 import { newSave, registerCharacter } from "../src/engine/state";
 
 let pass = 0, fail = 0;
@@ -182,6 +182,49 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("...with discussing it explicitly not counting", /only mentioned it, worried about it, or discussed it did NOT move it/.test(ask));
   check("...and to answer for every line", /Report every line, including the ones nothing happened to/.test(ask));
   check("nothing asked when nothing is coming", becomingAsk(newSave("x", { name: "V" } as any) as any) === "");
+}
+
+
+
+
+/* ── 8. true, and nobody living in it ─────────────────────────────────────────── */
+{
+  // From the save that prompted this: three becomings reached the end of their clocks and entered
+  // canon, two of them having never once been shown. The turn after all three were true produced a
+  // laugh, a wine bottle and a conversation about dinner. When the player finally acted on one
+  // himself, the character he did it to was written as STARTLED — against a canon line saying it is
+  // as normal as breathing and nobody comments on it.
+  //
+  // Canon is a constraint against CONTRADICTION. It does nothing to make a scene contain a thing.
+  // The authored wants have three phases; becomings had two, and this is the missing middle.
+  const { s, b } = world(false, 2);
+  applyBecomingProgress(s, 6, report({ moved: false }));
+  applyBecomingProgress(s, 7, report({ moved: false }));
+  check("it arrived without ever being shown", b.arrived_turn === 7 && b.moved === 0, b);
+  check("...so it is not finished with", arrivedBecomings(s).length === 1);
+  check("...and the approach directive is done", becomingDirective(s) === "");
+
+  const law = becomingLaw(s);
+  check("the world is told to be the place where it is true", /WHAT IS TRUE OF THIS WORLD NOW/.test(law), law);
+  check("...carrying the claim", law.includes(CLAIM));
+  check("...and saying it has never been seen", /has not been seen once; it shows in THIS scene/.test(law), law);
+  check("nobody is surprised by it", /NOBODY IS SURPRISED BY THEM/.test(law));
+  check("...and a startled character is named as the tell", /reacting to one as though it were new is the clearest possible sign/.test(law));
+  check("nobody announces it either", /NOBODY ANNOUNCES THEM EITHER/.test(law));
+  check("...it is visible only in what people do", /visible only in what people do without thinking about it/.test(law));
+  check("...and the scene makes room", /make the room, in one sentence if that is all there is/.test(law));
+
+  // showing it counts, and after enough of it the canon line carries it alone
+  for (let t = 8; t < 8 + WORN_IN; t++) applyBecomingProgress(s, t, report({ moved: true, how: "she set her bare feet on the rail without looking" }));
+  check(`after ${WORN_IN} showings it is worn in`, (b.shown ?? 0) >= WORN_IN, b);
+  check("...and stops being pushed", becomingLaw(s) === "", becomingLaw(s));
+  check("...while canon still holds it", s.world.canon.includes(CLAIM));
+
+  // the bookkeeper is asked about arrived ones too, or `shown` could never move
+  const { s: s2 } = world(false, 1);
+  applyBecomingProgress(s2, 6, report({ moved: false }));
+  check("an arrived becoming is still asked about", becomingAsk(s2).includes(CLAIM), becomingAsk(s2));
+  check("...under a heading that covers both", /TURNING INTO, OR HAS TURNED INTO/.test(becomingAsk(s2)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
