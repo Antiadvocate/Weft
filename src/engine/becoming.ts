@@ -57,6 +57,9 @@ export interface Becoming {
   last_move?: string;
   /** Set the turn it entered canon. */
   arrived_turn?: number;
+  /** Turns it has actually been SEEN in the prose since arriving. A becoming that is true and has
+   *  never once been shown is a canon line nobody is living in — see becomingLaw. */
+  shown?: number;
   paused?: boolean;
 }
 
@@ -75,9 +78,19 @@ export function newBecoming(claim: string, turns: number, turn: number): Becomin
   };
 }
 
+/** Turns an arrived becoming keeps being pushed onto the page before the canon line carries it
+ *  alone. The authored wants have exactly this third phase — live, settled, ground — and becomings
+ *  had only the first two, which is the whole of the failure this fixes. */
+export const WORN_IN = 3;
+
 /** The ones still on their way. */
 export function liveBecomings(state: SaveState): Becoming[] {
   return (state.becomings ?? []).filter((b) => b?.claim && !b.arrived_turn && !b.paused);
+}
+
+/** True now, and not yet part of how the place feels. */
+export function arrivedBecomings(state: SaveState): Becoming[] {
+  return (state.becomings ?? []).filter((b) => b?.claim && b.arrived_turn && !b.paused && (b.shown ?? 0) < WORN_IN);
 }
 
 /** THE RUNGS, in the shape the authored-want ladder uses — because that is the block in this engine
@@ -165,7 +178,8 @@ export function applyBecomingProgress(
   const shifts: string[] = [];
   const arrived: Becoming[] = [];
   const live = liveBecomings(state);
-  if (!live.length) return { shifts, arrived };
+  const settled = arrivedBecomings(state);
+  if (!live.length && !settled.length) return { shifts, arrived };
   const god = !!state.world_bible?.god_mode;
   // Match the simulator's line to a becoming by its claim. Absent or unmatched means no report for
   // it, and no report is NOT a miss — the same rule the want detector learned.
@@ -174,16 +188,18 @@ export function applyBecomingProgress(
     const key = String(r?.claim ?? "").trim().toLowerCase();
     if (key) said.set(key, r);
   }
-  for (const b of live) {
-    // Matched by the claim the simulator echoed back. Lexical here and correctly so: this compares
-    // its copy of the claim against the stored claim, not prose against meaning. Containment either
-    // way covers a clipped or lightly re-punctuated echo. A line about some OTHER claim is not a
-    // report about this one, however few of them there are.
+  // Matched by the claim the simulator echoed back. Lexical here and correctly so: this compares its
+  // copy of the claim against the stored claim, not prose against meaning. Containment either way
+  // covers a clipped or lightly re-punctuated echo. A line about some OTHER claim is not a report
+  // about this one, however few of them there are.
+  const matched = (b: Becoming) => {
     const key = b.claim.trim().toLowerCase();
-    const r = said.get(key) ?? (() => {
-      for (const [k, v] of said) if (k.length >= 12 && (k.includes(key) || key.includes(k))) return v;
-      return undefined;
-    })();
+    if (said.has(key)) return said.get(key);
+    for (const [k, v] of said) if (k.length >= 12 && (k.includes(key) || key.includes(k))) return v;
+    return undefined;
+  };
+  for (const b of live) {
+    const r = matched(b);
 
     if (r?.opposed && god) {
       b.repudiations++;
@@ -228,6 +244,17 @@ export function applyBecomingProgress(
       ? `the world moved toward "${short(b.claim)}" — ${left}`
       : `"${short(b.claim)}" did not show this turn — it lands on schedule anyway, ${left}`);
   }
+
+  // AND THE ONES ALREADY TRUE. A fact the world is supposed to be living in that has never once
+  // reached the page is the failure this phase exists to catch, so it is counted the same way.
+  for (const b of settled) {
+    const r = matched(b);
+    if (r?.moved) {
+      b.shown = (b.shown ?? 0) + 1;
+      if (r.how?.trim()) b.last_move = clipWords(r.how.trim(), 160);
+      if ((b.shown ?? 0) >= WORN_IN) shifts.push(`"${short(b.claim)}" is simply how this world is now`);
+    }
+  }
   return { shifts, arrived };
 }
 
@@ -237,9 +264,11 @@ function short(claim: string): string {
 
 /** The block added to the bookkeeper's request, only while something is on its way. */
 export function becomingAsk(state: SaveState): string {
-  const live = liveBecomings(state);
+  // Arrived ones are asked about too. `shown` is how the engine knows whether a fact the world is
+  // supposed to be living in has ever actually reached the page, and without asking it never moves.
+  const live = [...liveBecomings(state), ...arrivedBecomings(state)];
   if (!live.length) return "";
-  return `\n\n=== WHAT THIS WORLD IS TURNING INTO (report on each, in becoming_progress) ===\n`
+  return `\n\n=== WHAT THIS WORLD IS TURNING INTO, OR HAS TURNED INTO (report on each, in becoming_progress) ===\n`
     + live.map((b) => `- "${b.claim}"`).join("\n")
     + `\nFor each line, copy its text into "claim" and answer two things about THIS TURN only.\n`
     + `moved: did the world get measurably closer to it — did something happen, change, fail, or get done that puts it nearer? Judge by what the turn MEANS, not by whether the words above appear: a claim about buildings is moved by a wall going soft, by a street closing, by somebody's ceiling coming down. A turn that only mentioned it, worried about it, or discussed it did NOT move it; a turn that showed it happening somewhere did.\n`
@@ -267,4 +296,39 @@ export function becomingBehind(state: SaveState): string {
     + `The scenes written instead were real scenes and they went where this was supposed to be. `
     + `WRITE IT FIRST THIS TURN: the thing happening, in the opening lines of the prose, before the conversation, before whatever the room was in the middle of. Then carry on with the rest of the turn around it. `
     + `The clock did not wait, so there is less room left than there was — what shows now is as far along as the turns already spent should have carried it.`;
+}
+
+/**
+ * WHAT IS TRUE HERE NOW — the phase that was missing, and the reason a becoming could land and
+ * change nothing.
+ *
+ * From a save: three becomings reached the clock's end and entered world.canon. Two of them had
+ * `moved: 0` — the world had never once shown them — and after all three were canon the next turn
+ * produced a laugh, a wine bottle and a conversation about dinner. When the player finally acted on
+ * one himself, the character he did it to was written as STARTLED, against a canon line saying it
+ * is as normal as breathing and nobody comments on it.
+ *
+ * Canon is a constraint against CONTRADICTION. The block that carries it tells the narrator not to
+ * write the default meaning where canon redefines a thing, which is exactly right and does nothing
+ * whatever to make a scene contain it. A fact nobody is living in reads as a fact that is not true.
+ *
+ * The authored wants have three phases — climbing, settled-and-still-ordered, then worn in and left
+ * to the novelty note. Becomings had climbing and then silence. This is the middle one: for a few
+ * turns after it lands, the world is told to be a place where this is ordinary, and told what
+ * ordinary means — nobody explains it, nobody is surprised by it, and it shows in what people DO.
+ */
+export function becomingLaw(state: SaveState): string {
+  const here = arrivedBecomings(state);
+  if (!here.length) return "";
+  const rows = here.map((b) => {
+    const never = !(b.shown ?? 0)
+      ? ` This has been true since turn ${b.arrived_turn} and has not been seen once; it shows in THIS scene, in something somebody does.`
+      : "";
+    return `${b.claim}${never}`;
+  });
+  return `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
+    + `These are not news, not a subject, and not a thing anybody has an opinion about: they are the water these people have always swum in. `
+    + `NOBODY IS SURPRISED BY THEM. Nobody remarks on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as a thing that has just started — a character reacting to one as though it were new is the clearest possible sign the world has not actually changed. `
+    + `NOBODY ANNOUNCES THEM EITHER. They are not stated, quoted, or described as facts; they are visible only in what people do without thinking about it, the way anybody behaves about the ordinary conditions of their own life. `
+    + `Each of these is somewhere in this scene — in a posture, a habit, an arrangement, something somebody reaches for or does not, something that goes without saying between them. If the scene seems to leave no room, that is the instruction: make the room, in one sentence if that is all there is.]`;
 }
