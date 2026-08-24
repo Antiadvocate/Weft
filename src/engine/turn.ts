@@ -5351,8 +5351,23 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // leaving and calling her a slut to his family, sitting at relaxation +0.87 and climbing toward
     // a capacity of +3, mood "grieving, hollow", valence +1 — stoic, because the ledger said fine.
     // The engine had discharge_lift for release and nothing at all for loss. See tickPsyche.
+    // AND A LIFE COMES APART SLOWLY MORE OFTEN THAN IT COMES APART AT ONCE. The threshold above is
+    // a single blow of -3 or worse in one turn, which catches a betrayal and misses a marriage
+    // ending across forty turns of -2s — each one erased by the next turn's drift back toward
+    // capacity, leaving nothing behind. From a save: a woman whose husband took off his wedding
+    // ring, left, and demanded she sign, whose own memories read "furious grief" and "devastated
+    // and bitter" and whose mood string says "furious and aching", sitting at relaxation -0.5
+    // against a capacity of +2 with no grief_drag at all. Her state was recorded perfectly and the
+    // number the narrator actually renders from said nothing had happened.
+    //
+    // So sustained pressure accumulates too, at a quarter the rate. Ten turns of -2 build real
+    // drag; one bad afternoon builds 0.15, which is under the floor tickPsyche deletes at, so it
+    // leaves nothing by the next turn. Decay is unchanged, so it lifts when the pressure stops.
     if (d <= -3) {
       const drag = Math.min(6, (c.psyche.grief_drag ?? 0) + Math.abs(d) * 0.6);
+      c.psyche.grief_drag = +drag.toFixed(3);
+    } else if (d <= -1) {
+      const drag = Math.min(6, (c.psyche.grief_drag ?? 0) + Math.abs(d) * 0.15);
       c.psyche.grief_drag = +drag.toFixed(3);
     }
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);
