@@ -43,6 +43,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
+import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
@@ -4996,6 +4997,27 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   //    DEPARTURE EVIDENCE GUARD (below): a character present when this turn began cannot be
   //    moved unless the turn's prose shows them leave — the bookkeeper is told to quote the
   //    departure in `said`; the engine verifies it. Offscreen moves are untouched. ──
+  // SOMETHING GAVE THEM BACK. Run before the location guards below so a turn that narrates both the
+  // release and the return works in one pass. A release can be narrated while the person is
+  // offscreen ("word came she was out by Tuesday") and it can be the player's own doing ("I post
+  // her bail"), so this reads the whole turn and not just the scene. Deliberately generous: a
+  // release wrongly accepted costs one scene, a release wrongly refused loses a character for good.
+  for (const [hid, hc] of Object.entries(state.characters)) {
+    if (!hc.held || hid === "char_player") continue;
+    const freed = releaseEvidence({
+      prose,
+      action,
+      name: hc.name ?? "",
+      others: Object.entries(state.characters)
+        .filter(([oid]) => oid !== hid && oid !== "char_player")
+        .map(([, o]) => o.name ?? "")
+        .filter(Boolean),
+    });
+    if (!freed) continue;
+    shifts.push(`${hc.name} is out of ${hc.held.where}.`);
+    hc.held = undefined;
+  }
+
   if (diff.player_location) {
     // the player never lands in `elsewhere`: an unrecognized name means they stayed put
     state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
@@ -5016,29 +5038,37 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // freely offstage.
       if (presentAtStart.has(cid)) {
         const c = state.characters[cid];
-        const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
-        const saidRaw = String((mv as { said?: string }).said ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-        const quoted = saidRaw.length >= 8 && proseLow.includes(saidRaw);
-        const nameLow = (c.name ?? "").toLowerCase();
-        // probe tokens: the full name plus each usable word of it. Titles and ranks are skipped —
-        // prose almost never repeats them ("Hale left", not "Mr. Hale left"), and a bare rank
-        // ("the captain") is too common a noun to be evidence about anyone in particular.
-        const HONORIFICS = new Set(["mr", "mrs", "ms", "miss", "dr", "doctor", "captain", "lt", "lieutenant", "commander", "sir", "madam", "professor", "officer", "ensign", "sergeant", "major", "colonel", "general", "lord", "lady", "father", "sister", "brother", "elder", "master"]);
-        const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3 && !HONORIFICS.has(t));
-        const probes = [...new Set([nameLow, ...tokens])].filter((s) => s.length >= 3);
-        let nearDeparture = false;
-        for (const probe of probes) {
-          let idx = proseLow.indexOf(probe);
-          while (idx !== -1) {
-            const w = proseLow.slice(Math.max(0, idx - 160), idx + probe.length + 160);
-            if (/\b(left|leaves|leaving|exits?|exiting|departs?|departing|walks? out|walking out|strode out|hurried off|heads? off|headed off|dismissed|called away|slipped out|steps? out|stepping out|took the lift|made (his|her|xer|their) way out|was summoned|retreated|withdrew|withdrawn)\b/i.test(w)) { nearDeparture = true; break; }
-            idx = proseLow.indexOf(probe, idx + 1);
-          }
-          if (nearDeparture) break;
-        }
-        if (!quoted && !nearDeparture) {
+        // NOT JUST "DID THEY LEAVE" — "is there any reason to think they are still in the room".
+        // A person who is thrown out, arrested, or carried off is never described as leaving, and
+        // for five turns of one save this guard held a woman in a living room she had been
+        // deadbolted out of and sentenced away from. See engine/exit.ts.
+        const evidence = departureEvidence({
+          prose,
+          action,
+          said: (mv as { said?: string }).said,
+          name: c.name ?? "",
+          // so a bystander standing beside somebody else's arrest doesn't inherit it
+          others: [...presentAtStart]
+            .filter((o) => o !== cid && o !== "char_player")
+            .map((o) => state.characters[o]?.name ?? "")
+            .filter(Boolean),
+          destination: state.world.places[pid]?.name ?? mv.place,
+        });
+        if (!evidence.ok) {
           shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
           continue;
+        }
+        // SOMEBODY ELSE HAS THEM NOW. An arrest is not a walk to another room: it holds, and until
+        // this save it held for exactly as long as the turn it happened on. Four turns after a
+        // five-year sentence the same woman came back through the front door and the world had
+        // nothing to say about it. This is what it now has to say about it.
+        if (evidence.why === "custody") {
+          c.held = {
+            since_turn: turn,
+            where: state.world.places[pid]?.name ?? String(mv.place),
+            note: `taken on turn ${turn}`,
+          };
+          shifts.push(`${c.name} has been taken — they are not free to walk back in.`);
         }
       }
       // ARRIVAL EVIDENCE GUARD — the mirror of the above, and the half that was missing.
@@ -5064,6 +5094,14 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         if (c.status === "dead" || c.status === "departed") {
           shifts.push(`bookkeeping correction: ${c.name} is ${c.status} and does not re-enter the scene`);
           console.warn(`[cast] blocked ${c.status} ${c.name} being moved back into the player's scene`);
+          continue;
+        }
+        // AND NEITHER DO THE HELD. Being in custody is the one absence the prose is most likely to
+        // forget, because nothing about a living room reminds a narrator that somebody is in a cell.
+        // A release is a real event and reads as one; short of that, they stay where they were put.
+        if (c.held) {
+          shifts.push(`bookkeeping correction: ${c.name} is being held at ${c.held.where} and does not simply reappear`);
+          console.warn(`[cast] blocked held ${c.name} returning from ${c.held.where} with no release in the prose`);
           continue;
         }
         const proseLow = prose.toLowerCase().replace(/\s+/g, " ");

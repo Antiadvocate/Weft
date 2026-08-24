@@ -301,6 +301,12 @@ export interface Identity {
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
   exit_turn?: number;         // when they died/left
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
+  /** SOMEBODY ELSE HAS THEM. Set when the prose puts this person into custody — arrested, jailed,
+   *  sectioned, hospitalised, deported. They are not `departed` (that is permanent and untracked);
+   *  they are held, and they do not walk back into the player's scene until the story shows a
+   *  release. Cleared the moment it does, or by hand from the character panel. Written and read by
+   *  the departure/arrival guards in engine/turn.ts — see engine/exit.ts for what counts. */
+  held?: { since_turn: number; where: string; note: string };
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
   /** THE EXACT WORDS THAT DREW THIS PERSON — written when the portrait is generated, then reused

@@ -1112,8 +1112,9 @@ export const api = {
       s.world.present = s.world.present.filter((p) => p !== char_id); // leave the scene now
     } else if (action === "restore") {
       c.status = "active";
+      c.held = undefined;   // restoring someone the world was holding also lets them out of it
     } else if (action === "central") {
-      c.central = true; c.tracked = true; c.status = "active";
+      c.central = true; c.tracked = true; c.status = "active"; c.held = undefined;
       if (!c.drive) { const d = seedDrive(s, char_id); if (d) c.drive = d; }
     }
     await putSave(s);
