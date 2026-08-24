@@ -43,7 +43,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
-import { becomingDirective, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
+import { becomingDirective, becomingBehind, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
@@ -2109,7 +2109,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // WHAT THIS WORLD IS TURNING INTO. A fact the player wrote that is not true yet: the world moves
   // one step toward it per turn, through its own causes, and lands in canon when it gets there.
   // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
-  const becomingNote = becomingDirective(state) + arrivalDirective(state.pending_arrivals ?? []);
+  const becomingNote = becomingDirective(state) + becomingBehind(state) + arrivalDirective(state.pending_arrivals ?? []);
   state.pending_arrivals = undefined;   // said once, on the turn after it landed
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);

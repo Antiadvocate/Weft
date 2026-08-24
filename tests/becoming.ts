@@ -21,7 +21,7 @@
  * mode they are sovereign, so repudiation holds the clock still for that turn, and it comes again
  * from somewhere else. They can hold it off forever by paying for it every turn.
  */
-import { newBecoming, liveBecomings, becomingDirective, arrivalDirective, becomingAsk, applyBecomingProgress, CLAIM_MAX, STALL_LIMIT } from "../src/engine/becoming";
+import { newBecoming, liveBecomings, becomingDirective, becomingBehind, arrivalDirective, becomingAsk, applyBecomingProgress, CLAIM_MAX, STALL_LIMIT } from "../src/engine/becoming";
 import { newSave, registerCharacter } from "../src/engine/state";
 
 let pass = 0, fail = 0;
@@ -69,25 +69,28 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   const d = becomingDirective(s);
   check("the world is told what it is turning into", /WHAT THIS WORLD IS TURNING INTO/.test(d), d);
   check("...carrying the claim", d.includes(CLAIM));
-  check("the step is an event with a cause", /the step is an EVENT, in the world, with a cause/.test(d));
-  check("the end state is not written", /THE END STATE IS NOT WRITTEN AND IS NOT NAMED/.test(d));
+  check("the block is framed as mandatory", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d), d);
+  check("...and refuses every excuse by name", /too busy for it, that the conversation matters more, or that it would land better later/.test(d));
+  check("...and leaves no version of the turn without it", /There is no version of this turn in which none of it can be seen/.test(d));
+  check("...and says the count is a deadline", /THE COUNT IS A DEADLINE/.test(d));
+  check("each beat is an event with a cause", /Each beat is an EVENT with a cause/.test(d));
+  check("the world acts on its own", /THE WORLD DOES THIS NOW, on its own, without anybody deciding it/.test(d));
+  check("the end state is not named", /DO NOT NAME THE END STATE/.test(d));
   check("...and nobody in it understands the shape", /no character understands the shape of it/.test(d));
-  check("...and it may not jump ahead", /not one step further/.test(d));
-  check("...and is never a scene about itself", /never as a scene about itself/.test(d));
 
   check("early on it is deniable", /could still be explained away/.test(becomingDirective(world(false, 8).s)));
   const near = world(false, 4); near.s.becomings[0].remaining = 1;
   check("at the end the whole change completes", /THE LAST TURN OF IT/.test(becomingDirective(near.s)), becomingDirective(near.s));
-  check("...in full, on the page", /the whole change completing, not a promise that it is about to/.test(becomingDirective(near.s)));
+  check("...in full, on the page", /the whole change completing, physically, where somebody can see it/.test(becomingDirective(near.s)));
 
   check("nothing at all when there is nothing coming", becomingDirective(newSave("x", { name: "V" } as any) as any) === "");
 }
 
 /* ── 3. what the player can do about it ───────────────────────────────────────── */
 {
-  check("in ordinary play their resistance fails", /write their resistance honestly and write it failing/.test(becomingDirective(world(false).s)));
+  check("in ordinary play their resistance fails", /Write their resistance honestly and write it failing/.test(becomingDirective(world(false).s)));
   check("...without the world gloating", /without anyone gloating/.test(becomingDirective(world(false).s)));
-  check("in god mode it costs the world a turn", /cost the world a turn, never the outcome/.test(becomingDirective(world(true).s)));
+  check("in god mode it costs the world a turn", /they can cost it a turn, never the outcome/.test(becomingDirective(world(true).s)));
 }
 
 /* ── 4. the clock is a clock ──────────────────────────────────────────────────── */
@@ -107,6 +110,11 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 
   applyBecomingProgress(s, 8, report({ moved: false }));
   check("...and the narrator is told it is behind, not that it is frozen", /THIS HAS NOT REACHED THE PAGE FOR 2 TURNS while its clock ran/.test(becomingDirective(s)), becomingDirective(s));
+  const behind = becomingBehind(s);
+  check("...and gets a second, louder block of its own", /THIS WAS ORDERED AND THE TURNS CAME BACK WITHOUT IT/.test(behind), behind);
+  check("...naming the count and what is left", /ordered for 2 turns and absent from all of them; 1 turn left/.test(behind), behind);
+  check("...and putting it in the opening lines", /WRITE IT FIRST THIS TURN/.test(behind));
+  check("...with no second block while it is keeping up", becomingBehind(world(false, 4).s) === "");
   check("...and told to make the ground up", /further along than one step would have left it/.test(becomingDirective(s)));
 
   // no report from the bookkeeper does not stop the world either
