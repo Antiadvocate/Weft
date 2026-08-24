@@ -2,11 +2,15 @@
  * A BECOMING — a fact the world does not hold yet, and is going to.
  *
  * The player writes what will be true ("all the buildings are water") and how many turns the world
- * has to get there. It does not simply happen. Each turn the world has to MOVE toward it through
- * its own causes — through what people do, what they notice, what starts going wrong — and only a
- * turn where it actually moved spends a turn off the clock. When the clock runs out the claim goes
- * into world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS block already binds every line
- * of prose after it. From then on it is simply how this world is, and nobody remarks on it.
+ * has to get there. THE COUNT IS THE INSTRUCTION: every turn spends one, and when the clock runs
+ * out the claim goes into world.canon, where the existing CANON OVERRIDES YOUR DEFAULTS block
+ * already binds every line of prose after it. From then on it is simply how this world is, and
+ * nobody remarks on it.
+ *
+ * Each turn the world takes a step toward it through its own causes — through what people do, what
+ * they notice, what starts going wrong. Whether the step actually reached the page is read from the
+ * simulator and used as PRESSURE on the next turn, never as a brake on the clock: see the note at
+ * applyBecomingProgress for why the other way round was wrong.
  *
  * THIS IS THE AUTHORED-WANT PATTERN POINTED AT THE WORLD instead of at a person, and it is built
  * with the lesson that cost that feature twenty playthroughs: the instruction is not the mechanism.
@@ -76,46 +80,65 @@ export function liveBecomings(state: SaveState): Becoming[] {
   return (state.becomings ?? []).filter((b) => b?.claim && !b.arrived_turn && !b.paused);
 }
 
-/** How near it is, as something to write rather than a number to show. */
-function pressureOf(b: Becoming): string {
+/** THE RUNGS, in the shape the authored-want ladder uses — because that is the block in this engine
+ *  that demonstrably reaches the page, and this one was not.
+ *
+ *  Each rung names ONE CONCRETE THING that has to be on the page and says what a reader would be
+ *  able to point at. A rung that describes a mood produces nothing; a rung that names an event
+ *  produces an event. */
+const RUNGS = [
+  "FIRST SIGN, ONE CONCRETE THING. It happens once, small, somewhere ordinary, and it could still be explained away \u2014 a fault, a mess, a thing gone wrong that somebody has to deal with today. Whoever notices is the wrong person to be believed, or does not think it worth mentioning. NOT MENTIONING IT IS NOT THE SAME AS IT NOT HAPPENING: if a reader could not point at the sentence where it occurred, this rung has not been written.",
+  "AGAIN, SOMEWHERE ELSE, and now it costs somebody something. It has happened in a second place, it is on somebody's day \u2014 a job that cannot be done, a route that is closed, a thing that has to be replaced \u2014 and somebody with a reason to know has been asked about it and has answered badly.",
+  "NOT A COINCIDENCE ANY MORE. Several places at once, and the people here start behaving differently because of it: they plan around it, they move something, they stop doing a thing they always did. Somebody in authority says something official and it does not help.",
+  "IT IS THE CONDITION NOW, not an event. Most of what the scene contains is already like this, ordinary life is arranged around it, and whatever is still holding out is visibly the last of it.",
+  "THE LAST TURN OF IT. Everything still standing between the world and this gives way here, in full, on the page \u2014 the whole change completing, physically, where somebody can see it. Not a threshold about to be crossed and not a promise: it finishes in this turn's prose. After this it is simply true.",
+];
+
+/** Which rung this turn is on. Counted from the END, so one turn left is always the last rung
+ *  whatever the clock's total length, and a long clock spends its extra turns on the early rungs
+ *  rather than sitting still. */
+function rungOf(b: Becoming): string {
+  if (b.remaining <= 1) return RUNGS[RUNGS.length - 1];
   const done = b.turns - b.remaining;
-  const frac = b.turns <= 1 ? 1 : done / b.turns;
-  if (b.remaining <= 1) return "THE LAST STEP. After this turn it is simply true, so this turn is where the last thing standing between the world and it gives way. Write that thing giving way.";
-  if (frac >= 0.6) return "Well underway and no longer deniable to anyone paying attention: it is happening in more than one place at once, it is affecting what people can do today, and somebody has started planning around it rather than arguing about it.";
-  if (frac >= 0.25) return "Past the point where it could be a coincidence. It has happened somewhere else as well, somebody with authority has had to say something about it, and the first practical consequence has landed on somebody's day.";
-  return "Early. It shows up once, small, in a way that could still be explained away — and the person who notices is the wrong person to be believed, or does not think it is worth mentioning.";
+  const frac = b.turns <= 1 ? 1 : done / Math.max(1, b.turns - 1);
+  return RUNGS[Math.max(0, Math.min(RUNGS.length - 2, Math.floor(frac * (RUNGS.length - 1))))];
 }
 
 /**
  * What the narrator is handed while a becoming is on its way.
  *
- * The hard part of this instruction is not the goal, it is the PROHIBITION: the end state must not
- * be stated, announced, predicted by a character, or arrive early. Left to itself a narrator handed
- * "all the buildings are water" writes somebody saying the buildings are turning to water, which
- * spends the whole thing in one line and leaves the clock nothing to do.
+ * FRAMED LIKE habitDirective, deliberately and nearly word for word. That block is the one thing in
+ * this engine measured getting a mandatory beat onto the page; this one said much the same in
+ * gentler words and produced nothing at all. What differs is the bracket, refusing each excuse for
+ * skipping it BY NAME, and a rung that says what a reader could point at rather than how the turn
+ * should feel.
+ *
+ * The prohibitions are kept and cut to a tail. Four prohibitions against one instruction reads as an
+ * instruction not to do it, which is roughly what came back.
  */
 export function becomingDirective(state: SaveState): string {
   const live = liveBecomings(state);
   if (!live.length) return "";
   const god = !!state.world_bible?.god_mode;
   const rows = live.map((b) => {
-    const stall = b.stalled >= STALL_LIMIT
-      ? ` NOTHING ABOUT THIS MOVED FOR ${b.stalled} TURNS. It moves in the opening lines of this one, in something that happens rather than something somebody says.`
+    const behind = b.stalled >= STALL_LIMIT
+      ? ` THIS HAS NOT REACHED THE PAGE FOR ${b.stalled} TURNS while its clock ran, so the world is behind on it: this turn opens on it, and it is further along than one step would have left it.`
       : "";
     const push = b.repudiations
-      ? ` The player has held this back ${b.repudiations} time${b.repudiations === 1 ? "" : "s"} and it has not stopped coming; write it arriving from a direction they did not block.`
+      ? ` The player has held this back ${b.repudiations} time${b.repudiations === 1 ? "" : "s"} and it has not stopped coming; it arrives from a direction they did not block.`
       : "";
-    return `${b.claim} — ${pressureOf(b)}${stall}${push}`;
+    return `THE WORLD DOES THIS NOW, on its own, without anybody deciding it: ${b.claim} \u2014 ${rungOf(b)}${behind}${push}`;
   });
-  return `\n\nWHAT THIS WORLD IS TURNING INTO — not yet true, becoming true.\n· ${rows.join("\n· ")}\n`
-    + `Each of these gets ONE step this turn and the step is an EVENT, in the world, with a cause: a thing that happens, a thing somebody finds, a thing that stops working, a thing somebody does about it. `
-    + `THE END STATE IS NOT WRITTEN AND IS NOT NAMED. Nobody says what is coming, nobody predicts it, nobody explains it, and no character understands the shape of it — they meet the piece in front of them and are wrong about what it means, because they are inside it and it has no name yet. `
-    + `Do not skip ahead: the world is at the step described above and not one step further, and a turn that jumps to the finished state has spent something the story needed. `
-    + `Write it as the people there would meet it — as an inconvenience, a rumour, a fault, a thing somebody is angry about, a thing that ruins an afternoon — never as an omen and never as a scene about itself. `
-    + (god
-      ? `The player can push it back and it will cost the world a turn, never the outcome; if they act against it, write the world losing that particular ground and looking for another way in.`
-      : `The player cannot stop it. They can be frightened of it, refuse it, work against it for the whole of it, and it arrives anyway — write their resistance honestly and write it failing, without anyone gloating and without the world seeming to intend anything.`);
+  return `\n\n[WHAT THIS WORLD IS TURNING INTO \u2014 NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE.
+Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, that the conversation matters more, or that it would land better later: the clock is running whether it is written or not, and a turn that skips it does not pause it \u2014 it only makes the next one arrive with more to carry. If the scene seems to leave no room, that is the instruction \u2014 make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.
+THE COUNT IS A DEADLINE: the player set how many turns this takes, and it becomes true when the clock runs out however much ground is left.
+\u00b7 ${rows.join("\n\u00b7 ")}
+Each beat is an EVENT with a cause \u2014 a thing that happens, a thing somebody finds, a thing that stops working, a thing somebody does about it \u2014 met the way the people there would meet it: an inconvenience, a rumour, a fault, a thing somebody is angry about.
+DO NOT NAME THE END STATE. Nobody says what is coming, nobody predicts it, and no character understands the shape of it; they meet the piece in front of them and are wrong about what it means. ${god
+      ? `If the player acts against it the world loses that ground and looks for another way in \u2014 they can cost it a turn, never the outcome.`
+      : `The player cannot stop it. Write their resistance honestly and write it failing, without anyone gloating and without the world seeming to intend anything.`}]`;
 }
+
 
 /** The turn it lands. Handed to the narrator alongside the canon entry it just became. */
 export function arrivalDirective(arrived: Becoming[]): string {
@@ -161,36 +184,49 @@ export function applyBecomingProgress(
       for (const [k, v] of said) if (k.length >= 12 && (k.includes(key) || key.includes(k))) return v;
       return undefined;
     })();
-    if (!r) continue;
 
-    if (r.opposed && god) {
+    if (r?.opposed && god) {
       b.repudiations++;
-      b.remaining++;
       b.stalled = 0;
       shifts.push(`you held back "${short(b.claim)}" — the world lost a turn on it and is still coming`);
       continue;
     }
-    if (r.moved) {
+
+    // THE CLOCK IS A CLOCK. It was conditional on the simulator reporting movement, and that was
+    // wrong twice over. It is the same mistake that cost the authored wants twenty playthroughs:
+    // gating a mandatory thing on a model's report, when the report is the very thing that fails.
+    // And it inverts the deal — the player said HOW MANY TURNS, and a turn where the narrator
+    // skipped the step is a turn the narrator owes them, not a turn that never happened. Under the
+    // old rule a narrator that never found a way in froze the clock forever and the player watched
+    // it report "stalled" every turn while nothing approached.
+    //
+    // So every turn spends one, and whether it SHOWED is kept separately — as pressure on the next
+    // turn's direction, not as a brake on the clock. Only a god-mode repudiation puts a turn back,
+    // because that is the player paying for it.
+    b.remaining = Math.max(0, b.remaining - 1);
+    if (r?.moved) {
       b.moved++;
       b.stalled = 0;
-      b.remaining = Math.max(0, b.remaining - 1);
       if (r.how?.trim()) b.last_move = clipWords(r.how.trim(), 160);
-      if (b.remaining === 0) {
-        b.arrived_turn = turn;
-        arrived.push(b);
-        const canon = (state.world.canon ??= []);
-        if (!canon.some((c) => c.trim().toLowerCase() === b.claim.trim().toLowerCase())) {
-          canon.push(b.claim);
-          (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
-        }
-        shifts.push(`"${short(b.claim)}" is now true of this world, and binds every turn from here`);
-      } else {
-        shifts.push(`the world moved toward "${short(b.claim)}" — ${b.remaining} turn${b.remaining === 1 ? "" : "s"} of it left`);
+    } else {
+      b.stalled++;
+    }
+
+    if (b.remaining === 0) {
+      b.arrived_turn = turn;
+      arrived.push(b);
+      const canon = (state.world.canon ??= []);
+      if (!canon.some((c) => c.trim().toLowerCase() === b.claim.trim().toLowerCase())) {
+        canon.push(b.claim);
+        (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
       }
+      shifts.push(`"${short(b.claim)}" is true of this world now, and binds every turn from here`);
       continue;
     }
-    b.stalled++;
-    if (b.stalled >= STALL_LIMIT) shifts.push(`nothing moved toward "${short(b.claim)}" for ${b.stalled} turns — telling the narrator again`);
+    const left = `${b.remaining} turn${b.remaining === 1 ? "" : "s"} to go`;
+    shifts.push(r?.moved
+      ? `the world moved toward "${short(b.claim)}" — ${left}`
+      : `"${short(b.claim)}" did not show this turn — it lands on schedule anyway, ${left}`);
   }
   return { shifts, arrived };
 }
@@ -210,4 +246,25 @@ export function becomingAsk(state: SaveState): string {
     + `how: if it moved, the one thing that moved it, in a few words.\n`
     + `opposed: did the PLAYER act against it this turn — try to stop, reverse, prevent, or undo it?\n`
     + `Report every line, including the ones nothing happened to.`;
+}
+
+
+/**
+ * THE SEPARATE, LOUDER BLOCK when the world is behind — the same second mechanism the authored
+ * wants have in missDirective, and for the same reason: a note buried inside the standing
+ * instruction is read as part of that instruction, and the standing instruction is the thing that
+ * just got skipped. This arrives on its own, after everything else, naming the count.
+ *
+ * The escalation is not louder adjectives. It is the two facts the narrator cannot argue with: how
+ * many turns have gone, and how few are left.
+ */
+export function becomingBehind(state: SaveState): string {
+  const rows = liveBecomings(state)
+    .filter((b) => (b.stalled ?? 0) >= STALL_LIMIT)
+    .map((b) => `${b.claim} — ordered for ${b.stalled} turns and absent from all of them; ${b.remaining} turn${b.remaining === 1 ? "" : "s"} left before it is simply true.`);
+  if (!rows.length) return "";
+  return `\n\nTHIS WAS ORDERED AND THE TURNS CAME BACK WITHOUT IT.\n· ${rows.join("\n· ")}\n`
+    + `The scenes written instead were real scenes and they went where this was supposed to be. `
+    + `WRITE IT FIRST THIS TURN: the thing happening, in the opening lines of the prose, before the conversation, before whatever the room was in the middle of. Then carry on with the rest of the turn around it. `
+    + `The clock did not wait, so there is less room left than there was — what shows now is as far along as the turns already spent should have carried it.`;
 }
