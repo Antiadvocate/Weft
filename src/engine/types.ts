@@ -169,6 +169,12 @@ export interface SocialEdge {
    *  as though it had just happened. A feeling needs a date on it or it is not a feeling, it is law. */
   notes_turn?: number;
   updated_turn: number;
+  /** WHAT JUST MOVED. Warmth and trust are levels, and a level cannot say what somebody is reeling
+   *  from. A save had a woman at warmth 57 who had been told to leave twice in three turns; the
+   *  ledger recorded both cuts and the narrator was handed the number 57, so it wrote a serene,
+   *  devoted woman kissing the hand of the man who had just told her to fuck off. The deltas were
+   *  applied and thrown away. This keeps them for a few turns so the prose can be about them. */
+  swing?: { since_turn: number; warmth: number; trust: number };
   last_rupture_turn?: number; // a real disagreement happened on this edge (someone said no or set terms); trust that grows within 5 turns of it is repair, and repair grows trust faster than smoothness does
 }
 

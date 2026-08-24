@@ -221,6 +221,25 @@ const RECONCILING_NOTE = /\b(mov(es|ed|ing)? (past|beyond)|past (her|his|their|t
  *  turn — a move nothing else in the engine is allowed to make. It amplifies now; it never sets. */
 const RUPTURE_STEP = 15;
 
+/** How many turns a swing stays live. Long enough to cover the exchange somebody is still inside,
+ *  short enough that a bond stops being defined by an argument a chapter ago. */
+export const SWING_WINDOW = 6;
+
+/** The movement worth telling the narrator about — below this it is ordinary conversational drift. */
+export const SWING_FLOOR = 8;
+
+/** One plain clause naming what just happened to a bond, or "" when nothing did. */
+export function swingLine(e: SocialEdge, turn: number): string {
+  const s = e.swing;
+  if (!s || turn - s.since_turn > SWING_WINDOW) return "";
+  const parts: string[] = [];
+  if (Math.abs(s.warmth) >= SWING_FLOOR) parts.push(`warmth ${s.warmth > 0 ? "+" : ""}${Math.round(s.warmth)}`);
+  if (Math.abs(s.trust) >= SWING_FLOOR) parts.push(`trust ${s.trust > 0 ? "+" : ""}${Math.round(s.trust)}`);
+  if (!parts.length) return "";
+  const span = Math.max(1, turn - s.since_turn + 1);
+  return `${parts.join(" and ")} in the last ${span === 1 ? "turn" : `${span} turns`} — they are reacting to that move, not to the level`;
+}
+
 export function applyEdgeDelta(
   edges: SocialEdge[],
   d: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; note?: string; roles_set?: string[] },
@@ -228,6 +247,10 @@ export function applyEdgeDelta(
   ctx?: { chars?: Record<string, Identity>; traits?: Record<string, AcquiredTrait[]> },
 ) {
   const e = getEdge(edges, d.from, d.to);
+  // Where this bond stood before the turn touched it. Read again at the end, so the swing records
+  // what actually LANDED — after gain damping, after loss damping, after the rupture amplification
+  // below, after the clamps — and not what the bookkeeper asked for.
+  const wasWarmth = e.warmth, wasTrust = e.trust;
   // The edge is d.from's feeling TOWARD d.to, so the relevant constitution is the feeler's.
   // Omit ctx and obduracy is 0, which reproduces the old arithmetic exactly — every existing
   // save and every call site that hasn't been updated behaves identically.
@@ -257,6 +280,7 @@ export function applyEdgeDelta(
   }
   e.trust = clamp(e.trust + clamp(trustDelta, -20, 20), -100, 100);
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
+
   if (d.note) {
     e.notes = d.note.slice(0, 140);
     e.notes_turn = turn;
@@ -289,6 +313,21 @@ export function applyEdgeDelta(
       }
     }
   }
+  // WHAT JUST MOVED, KEPT FOR A FEW TURNS. Levels are what the narrator is handed, and a level is
+  // the one thing that cannot say a bond is in motion: a woman who has always sat at warmth 57 and
+  // a woman who arrived there this afternoon on her way down read as the same number and get
+  // written as the same person. Measured from the snapshot above, so a rupture the note amplified
+  // is counted at its real size.
+  {
+    const moved = { warmth: e.warmth - wasWarmth, trust: e.trust - wasTrust };
+    if (moved.warmth || moved.trust) {
+      const live = e.swing && turn - e.swing.since_turn <= SWING_WINDOW ? e.swing : { since_turn: turn, warmth: 0, trust: 0 };
+      live.warmth = +(live.warmth + moved.warmth).toFixed(2);
+      live.trust = +(live.trust + moved.trust).toFixed(2);
+      e.swing = live;
+    }
+  }
+
   // AN EMPTY LIST IS NOTHING TO SAY, NOT AN ERASURE — and this cost the engine every role it ever
   // had. `roles_set` is documented as "the full current list", so an empty array reads as "they hold
   // no roles now"; an empty array is also TRUTHY in JavaScript; and the schema template the model

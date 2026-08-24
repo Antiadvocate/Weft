@@ -27,7 +27,7 @@ import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
 import { authoredLine, hasAuthored, liveAuthored, settledAuthored } from "./authored";
 import { scheduleLine } from "./schedule";
-import { edgeNote, livePromises } from "./social";
+import { edgeNote, livePromises, swingLine } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
  *  present tense and never revisited, so without this the narrator is handed "Andrea is the only
@@ -1640,7 +1640,15 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${n ? ` (${n})` : ""}`; }).join("; ")}`);
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
-      if (pedge) { const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : ""; lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pn ? ` — ${pn}` : ""}`); }
+      if (pedge) {
+        const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : "";
+        lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pn ? ` — ${pn}` : ""}`);
+        // AND WHAT JUST MOVED IT. A level renders a settled person; a person mid-fall is not
+        // settled, and the number alone cannot tell those apart. Only appears when something
+        // actually moved, so it costs nothing on a quiet turn.
+        const sw = swingLine(pedge, state.world.current_turn);
+        if (sw) lines.push(`  just moved: ${sw}`);
+      }
       // desire is rendered EVERY turn for present central characters — its absence is exactly how
       // a model defaults to "warm = available". One short line, gated by openness.
       { const dl = desireLine(state, id); if (dl) lines.push(`  ${dl}`); }
