@@ -12,7 +12,7 @@
  */
 
 /** Bump when the save's shape or semantics change. */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** Human-readable build identity, stamped into every export. */
 export const APP_VERSION = "1.0.0";
@@ -23,6 +23,7 @@ export const SCHEMA_HISTORY: Record<number, string> = {
   2: "edges carry attraction/attraction_base; desire is its own axis",
   3: "power_witnessed on the save; offstage_last_turn on the world",
   4: "edges carry authored_seed; exports are stamped with provenance",
+  5: "turns may carry narrator_prose_read — the reviser's repaired copy, read alongside the narrator's own words",
 };
 
 export interface SaveStamp {

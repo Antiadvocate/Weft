@@ -57,6 +57,22 @@ The useful split is a **local narrator** — the long creative call, and the exp
 
 > Note: a page served over `https` may refuse a plain-`http://localhost` call. Run Weft locally (`npm run dev`), or use KoboldCpp's `--remotetunnel` and paste the `https` URL it prints.
 
+## Repairing the narrator's tics
+
+There is a family of sentences a narrator writes when it has nothing else to write: the ones that state what somebody felt, knew, or privately decided. *She was looking at him the way she'd looked at him when they were younger. Not frightened, not grateful, just a woman doing arithmetic on a sum she hadn't expected.* The camera does not know any of that. Weft has caught these for a long time — the pattern list in `engine/reviser.ts` was mined family by family out of real saves — and until now it only ever used the catch one way: to keep the sentence out of the narrator's own replayed context, so the model would not read its worst paragraph and copy it. Good for the drift, no use at all to you, who read it.
+
+**Tuning → Models → Repair the narrator's tics** points the catch at the page instead. Each flagged sentence goes to the **reviser** slot with the offending phrase quoted, and comes back with that phrase removed and nothing else touched. What you read is the repaired copy.
+
+What it deliberately is *not* is a "write this plainer" pass. Asking a model for plainer prose flattens the narration's voice, which is yours to set, and flattens the world's vocabulary, which the narrator is only allowed to draw from this setting — a model reaching for the plainest word reaches for the word from *our* world. The unit of work is one sentence and one quoted phrase, and a replacement is thrown away if it drops a name, becomes dialogue, runs long, or trades one tic for another.
+
+Three things worth knowing:
+
+- **It never touches dialogue.** Any sentence carrying a quotation mark is passed over, so a line somebody actually said is never rewritten. A narration sentence that happens to quote two words keeps its tic; that is the trade, and it is the right way round.
+- **The narrator's own words stay on the turn.** The repaired copy is a second field. The bookkeeper, presence, the Chronicle, the audit and every extraction pass read what the narrator actually wrote, so the world's record is exactly what it would have been with this switched off.
+- **It is free on a clean turn and nearly free otherwise.** The detector runs locally first, so narration with nothing flagged never opens a socket. When it does fire it is a few hundred tokens — the flagged sentences, no digest, no cast, no rules — and it runs *alongside* the bookkeeper rather than after it, so it hides inside a call that was going to happen anyway. It is the one slot that genuinely wants a small local model; a `local/…` id here costs nothing and adds nothing to the wait.
+
+Off by default, including on upgrade. Every failure path — provider down, timeout, nothing usable back — leaves you reading exactly what the narrator wrote.
+
 ## Running a local image model
 
 The same idea one slot down: point **Tuning → Local images** at ComfyUI or an A1111-style WebUI, then set the image slot to a `local/…` id. Portraits and scene art are then drawn on your own GPU.

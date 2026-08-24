@@ -15,6 +15,13 @@ export interface ModelSettings {
   simulator_model: string;
   forge_model: string;
   fallback_model: string;
+  /** THE REVISER — the fifth slot, and the only optional one. Small, cheap, and asked for one
+   *  thing: repair the sentences the tic detector flagged, in place, without touching anything
+   *  else on the page. Unset falls back to the simulator slot, which is already the small-model
+   *  slot; a `local/…` id here is the intended configuration, since the prompt is a few hundred
+   *  tokens and never carries the digest. Only ever called when `prose_reviser` is on AND the
+   *  detector actually caught something. */
+  reviser_model?: string;
   image_model: string;            // model used for portraits & scene illustrations
   context_memories_k: number;     // top-k memories per present NPC
   reflection_cadence: number;     // turns between reflection compactions
@@ -49,6 +56,20 @@ export interface ModelSettings {
    *  having been illustrated but drop the bytes — one picture a turn is tens of megabytes a
    *  session otherwise, and store.ts documents exactly what that does to the tab. 0 = keep all. */
   illustration_keep?: number;
+  /** REPAIR THE NARRATOR'S TICS INSTEAD OF ONLY HIDING THEM FROM IT.
+   *
+   *  The engine has always detected the interiority tic — the narration stating what somebody felt,
+   *  knew or privately concluded — and has always done exactly one thing with the detection: keep
+   *  the sentence out of the model's replayed context so it doesn't imitate itself. The player read
+   *  it anyway. Turn this on and each flagged sentence goes to the reviser slot to have the offending
+   *  phrase removed, and what you read is the repaired copy. The narrator's own words are kept
+   *  verbatim on the turn and remain what the bookkeeper, the Chronicle and every extraction pass
+   *  read; nothing about the world's record changes.
+   *
+   *  OFF by default, including on upgrade: it is an extra model call on any turn that trips the
+   *  detector, and turning that on for somebody's existing save without being asked is not ours
+   *  to do. See engine/reviser.ts. */
+  prose_reviser?: boolean;
   paging?: boolean;               // MemGPT-style paging: cold central characters' identity cards page out of the prefix to one-line stubs until they matter again
 }
 
@@ -840,6 +861,12 @@ export interface TurnHistoryEntry {
    *  (see forgetOldPictures). The record survives; the picture does not. */
   illustrated?: boolean;
   narrator_prose: string;
+  /** The reviser's copy — what the player reads, when the pass ran and changed something. The
+   *  narrator's own words stay in `narrator_prose` and stay authoritative: presence, novelty,
+   *  appellations, maxims, place descriptions, the bookkeeper and every audit read that field and
+   *  are entirely unaffected by this one. Absent on every turn the reviser did not touch and on
+   *  every save written before it existed, which is why readers go through `displayProse`. */
+  narrator_prose_read?: string;
   /** Bookkeeping health for this turn. "thin" = the diff parsed but recorded nothing that changed the
    *  world; "failed" = the simulator returned nothing usable. Either way the prose happened but the
    *  world did not notice, and the turn can be re-run through the bookkeeper without re-narrating. */
@@ -1038,6 +1065,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   simulator_model: "google/gemini-3.1-flash-lite",
   forge_model: "anthropic/claude-opus-5",
   fallback_model: "google/gemini-3.1-flash-lite",
+  reviser_model: "google/gemini-3.1-flash-lite",
   image_model: "google/gemini-2.5-flash-image",
   illustration_keep: 12,            // pictures that keep their bytes; older turns keep the record only
   context_memories_k: 6,
@@ -1052,4 +1080,5 @@ export const DEFAULT_MODELS: ModelSettings = {
   context_mode: "chatlog",          // append-only context: between anchors nearly all input bills at cache-hit rates
   narrator_reasoning: false,        // narrator thinking is billed as output; prose doesn't need it
   prefer_deepseek_provider: true,   // first-party DeepSeek carries the 0.8–2% cache-hit rate
+  prose_reviser: false,             // opt-in: one extra call on turns that trip the tic detector
 };

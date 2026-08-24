@@ -49,6 +49,10 @@ export type {
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 };
 export type { ActionMode } from "../engine/types";
+/** What the player should be shown for a turn — the reviser's repaired copy when there is one,
+ *  the narrator's own words otherwise. The views go through this rather than reading
+ *  `narrator_prose` directly, so a save written before the reviser existed renders unchanged. */
+export { displayProse } from "../engine/reviser";
 import type { ActionMode } from "../engine/types";
 
 export interface PresetInfo { id: string; name: string; blurb: string; era_theme: string }
@@ -648,6 +652,13 @@ export const api = {
     if (entry.illustration_url) {
       const fresh = restored.history.find((h) => h.turn === t);
       if (fresh && !fresh.illustration_url) fresh.illustration_url = entry.illustration_url;
+    }
+    // Same reasoning for the reviser's copy: the prose is byte-identical, so the repair still holds.
+    // The replay runs with proseOverride and deliberately does not re-buy the pass, so without this
+    // a re-read would quietly hand the player back the unrepaired sentences.
+    if (entry.narrator_prose_read) {
+      const fresh = restored.history.find((h) => h.turn === t);
+      if (fresh && !fresh.narrator_prose_read) fresh.narrator_prose_read = entry.narrator_prose_read;
     }
     await putSave(restored);
     return clientView(restored);

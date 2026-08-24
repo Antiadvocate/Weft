@@ -39,6 +39,8 @@ import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
 import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
+import { MOTIVE_LEAK, scrubForReplay, reviseProse, displayProse } from "./reviser";
+export { scrubForReplay };
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
@@ -178,113 +180,9 @@ function sovereignty(state: SaveState): string {
   return `\n[${n} does ONLY what the input above states — no added actions, words, feelings, or decisions. Dialogue-only input means ${n} spoke and did nothing else. If the scene is waiting on ${n} (an instruction, a question, an invitation), the world WAITS: end at the waiting point. Never resolve it for them.]`;
 }
 
-/** CHATLOG PROSE SCRUB — the loop that made the POV rule unenforceable.
- *
- *  In chatlog mode the narrator's own prior prose is replayed as ASSISTANT messages. That is
- *  the strongest style signal in the whole request: it is not a rule about how to write, it is
- *  an example of how this narrator already writes, authored by the role the model is playing.
- *  So a single escape on turn 1 ("the polite mask still in place, his eyes calculating") becomes
- *  the house style by turn 4 — the violation rate RISES with turn count, which is the tell.
- *  The same failure the fresh-reader voice pass exists to break: the narrator imitates its own
- *  last paragraph. Voice got a fix; prose never did.
- *
- *  This scrubs the REPLAY COPY only — state.history keeps every word, the Chronicle is untouched,
- *  nothing is rewritten after the fact. It is input hygiene, not post-hoc correction: the model
- *  never sees the bad sentence, so it has nothing to copy.
- *
- *  Sentences are the unit deliberately. Excising a clause leaves mangled grammar in context,
- *  which is its own kind of style signal; dropping a whole sentence costs a little continuity
- *  and can't corrupt anything. If a paragraph would lose most of itself the scrub backs off —
- *  a pattern that greedy is misfiring, and a thin replay is worse than a flawed one. */
-const MOTIVE_LEAK = new RegExp([
-  "\\bas (?:if|though) (?:he|she|they|it|xe|ze|the \\w+) (?:were|was|had|hadn|wanted|meant|knew|expected|did|didn|might|could)\\b",
-  "\\bas if to \\b", "\\bwith the air of\\b",
-  // DELIVERY SIMILE: "she said it like an accusation and a question folded together" — the narrator
-  // decoding a tone and telling you what it meant. And the INTENT GAP: "the word came out smaller
-  // than she'd meant it to" states what she intended, which is the interior in one clause.
-  "\\bsaid it (?:like|as though|as if)\\b", "\\bcame out \\w+er than\\b",
-  "\\bthan (?:he|she|they|xe)'?d? (?:meant|intended|wanted|planned)\\b",
-  // ── families found in a 58-turn save, all of which walked through the first pass ──
-  // ROLE COMPARISON via a person-noun: "the stillness of a man who has just heard...",
-  // "the way a man watches a cliff edge". The earlier rule only caught "the way SHE watched";
-  // swapping the pronoun for an indefinite person was enough to slip it, and it is the same move.
-  "\\bthe (?:way|look|stillness|silence|patience|calm|care|expression|voice|smile) of (?:a|an|someone|somebody)\\b",
-  "\\bthe way (?:a|an) (?:man|woman|boy|girl|person|child|someone)\\b",
-  "\\blike (?:a|an) (?:man|woman|boy|girl|person|someone) who\\b",
-  // THE UNIVERSALIZING SENTENCE: "men who have watched the impossible learn quickly that...".
-  // A claim true of everyone everywhere, in the eternal present, dropped into a scene. It is the
-  // single loudest marker of the narrator adjudicating, and it generalizes past the moment, which
-  // narration is never allowed to do.
-  "\\b(?:men|women|people|those|anyone|everyone|no ?one|a man|a woman) who \\w+(?:\\s+\\w+){0,4}\\s+(?:learn|learns|know|knows|understand|understands|never|always|tend|tends)\\b",
-  // NEGATIVE DEFINITION: "not the stillness of X, but the stillness of Y" — the narrator ruling out
-  // one interior reading in order to install another.
-  "\\bnot the \\w+ of (?:a|an|someone)\\b", "\\bnot because (?:he|she|they|it) \\w+, but\\b",
-  // UNSPOKEN SPEECH: "He did not say we didn't know you'd be here." Reporting the sentence someone
-  // withheld is interior access with a negation in front of it.
-  "\\b(?:he|she|they|xe) did not say\\b", "\\bwhatever (?:he|she|they) had been about to say\\b",
-  // A CONTRACTION WAS ENOUGH TO SLIP IT. This required a bare pronoun followed by a word, so
-  // "the way SHE watched" was caught and "the way she'D LOOKED at him when they were younger" —
-  // the same move, reaching further, into a shared past and a feeling — sailed through. Allow the
-  // contraction and the auxiliary.
-  "\\bthe way (?:he|she|they|xe|ze|it)(?:'d|'s|'ll|'ve| had| has| would| always)?\\s+(?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said|smile|hold|held)",
-  // THE RELATIONSHIP AS A STANDING FACT: "the way it always was with him", "the way she always
-  // did with him". A claim about how these two always are, asserted by the camera, in a scene.
-  "\\bthe way it (?:always |usually )?(?:was|is|had been) with (?:him|her|them)\\b",
-  // NEGATIVE DEFINITION, SECOND FORM. The list already catches "not the stillness of a man…";
-  // this is the same construction with the ruling-out done first and the verdict landed last:
-  // "not frightened, not grateful, just a woman doing arithmetic on a sum she hadn't expected".
-  "\\bnot \\w+, (?:not \\w+, )?just (?:a|an|the) (?:man|woman|boy|girl|person|someone)\\b",
-  "\\bjust (?:a|an) (?:man|woman|boy|girl|person|someone) (?:doing|working|reading|deciding|weighing|counting|thinking)\\b",
-  // THE ACCOUNTING METAPHOR. Reported by a player as the one that gets used constantly, and it is
-  // interior access wearing a bookkeeping costume: a sum, a ledger, arithmetic, numbers that do or
-  // do not add up, all standing in for what somebody is privately concluding. This world contains
-  // real ledgers and real tallies, so only the FIGURATIVE frames are listed.
-  "\\b(?:doing|did|finished|running) (?:the )?arithmetic\\b", "\\ba sum (?:he|she|they|xe)\\b",
-  "\\bthe (?:ledger|arithmetic|calculus|accounting|mathematics) of\\b",
-  "\\bnumbers (?:that )?(?:did ?n[o']t|don'?t|would ?n[o']t) add up\\b", "\\badding (?:it|them|her|him) up\\b",
-    "\\bthe way (?:he|she|they|xe|ze|it) (?:\\w+ )?(?:watch|watche|read|handle|look|touch|move|speak|spoke|said)",
-  "\\bpretend(?:s|ing|ed)?\\b", "\\bto (?:hide|conceal|mask|cover)\\b", "\\bmask(?:ing)? (?:still |firmly )?in place\\b",
-  "\\b(?:polite|careful|practised|practiced) mask\\b", "\\bcarefully (?:blank|neutral|still|empty)\\b",
-  "\\bwhich meant\\b", "\\bwhat (?:he|she|they|xe) really\\b", "\\bdoes ?n[o']t say what\\b", "\\bdid ?n[o']t say what\\b",
-  "\\btrying to (?:parse|read|work out|decide|figure|understand|place|reconcile)\\b",
-  "\\b(?:weighing|calculating|measuring|gauging|deciding) (?:what|which|whether|how|him|her|them)\\b",
-  "\\bshowing (?:his|her|their|xyr) (?:\\w+ )?(?:curiosity|doubt|fear|anger|interest|surprise)\\b",
-  "\\breveal(?:s|ing|ed) (?:his|her|their|nothing|something)\\b",
-  "—\\s*(?:weighing|calculating|measuring|deciding|wondering|trying|reading)\\b",
-  "\\bsomething (?:quieter|softer|harder|colder|warmer|sharper|unspoken)\\b",
-  "\\bsomething \\w+er than\\b", "\\b(?:held|carried|contained) something \\w+\\b",
-  "\\bgone from \\w+ to something\\b", "\\ba look that had gone\\b",
-  // ── THE THREE PLAINEST FORMS, WHICH THIS MISSED ENTIRELY ──────────────────────────────────
-  // Every family above catches interiority smuggled through a hedge, a simile, or a comparison.
-  // None of them caught it stated outright, which is what a model does when the scene gives it
-  // nothing else to write. From one save, all three in two sentences, none detected:
-  //   "she FELT a sudden sharp ACHE in her chest"          — the feeling, named
-  //   "she LET HERSELF look at him"                        — her own permission, her own governance
-  //   "WHEN SHE WAS SURE he was deep under"                — what she knew, and when she knew it
-  // A NAMED FEELING. Kept to feeling-nouns on purpose: "she felt the blanket" is a hand on cloth
-  // and belongs in the prose; "she felt a pang" is the inside of a head nobody can see into.
-  "\\b(?:he|she|they|xe|ze)\\s+felt\\s+(?:a|an|the|her|his|their)?\\s*(?:\\w+\\s+){0,2}" +
-    "(?:ache|pang|rush|surge|wave|knot|lurch|twist|weight|warmth|heat|chill|tightness|" +
-    "relief|shame|guilt|dread|grief|panic|fury|longing|tenderness|revulsion)\\b",
-  // SELF-PERMISSION AND SELF-DENIAL — the narrator adjudicating someone's inner governance.
-  "\\b(?:let|lets|letting|allow|allows|allowed|allowing)\\s+(?:herself|himself|themselves|itself)\\b",
-  "\\b(?:hadn'?t|didn'?t|wouldn'?t|couldn'?t)\\s+(?:let|allow|permit)\\s+(?:herself|himself|themselves)\\b",
-  // STATED KNOWLEDGE AND STATED CERTAINTY. A third person's verb of cognition is the interior in
-  // one word. Bounded to a pronoun subject so quoted first-person speech ("I knew it") is untouched.
-  "\\b(?:when|once|until|after)\\s+(?:he|she|they|xe|ze)\\s+was\\s+(?:sure|certain|satisfied|convinced)\\b",
-  "\\b(?:he|she|they|xe|ze)\\s+(?:knew|realiz|realis|understood|decided|wondered|hoped|feared|regretted|remembered that)\\w*\\b",
-].join("|"), "i");
-
-export function scrubForReplay(prose: string): string {
-  if (!prose) return prose;
-  return prose.split(/\n\n+/).map((para) => {
-    const sents = para.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [para];
-    const kept = sents.filter((x) => !MOTIVE_LEAK.test(x));
-    if (!kept.length) return "";
-    if (kept.length < sents.length * 0.5 && sents.length > 2) return para; // too greedy — leave it
-    return kept.join("").trim();
-  }).filter(Boolean).join("\n\n");
-}
+/** The tic corpus, the replay scrub, and the repair pass all live in engine/reviser.ts now.
+ *  scrubForReplay is re-exported here because it has been imported from this module since it
+ *  existed and the smoke tests reach for it by that path. */
 
 /** THE CONVERSATION MUST NOT START COLD.
  *
@@ -313,7 +211,11 @@ export function replayPairs(
   return history
     .filter((h) => h.kind !== "opening" && h.kind !== "interlude" && h.turn >= anchorTurn - CARRY)
     .slice(-(cad + CARRY))
-    .map((h) => ({ user: h.player_action, assistant: scrubForReplay(h.narrator_prose) }));
+    // REPLAY THE REPAIRED COPY WHEN THERE IS ONE. The scrub stays on top of it either way: it is
+    // the free backstop, and on a repaired turn it simply finds nothing left to delete. What
+    // changes is that a repaired sentence now comes back to the model as a sentence rather than as
+    // a hole, so the replay keeps its continuity instead of paying for the hygiene with it.
+    .map((h) => ({ user: h.player_action, assistant: scrubForReplay(displayProse(h)) }));
 }
 
 /** Does a trait label describe ACQUIRED EXPERTISE (skill built over years) rather than temperament?
@@ -3059,6 +2961,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       console.warn(`[turn] tic guard: cut ${cuts} echo/canned sentence(s)`);
     }
   }
+
+  // ── THE REVISER ── The prose has stopped changing, so this is where the repair pass can see the
+  // finished turn. It is STARTED here and AWAITED at the commit, which puts it alongside the
+  // bookkeeper rather than in front of it: the bookkeeper is a full second prompt ingest and the
+  // long pole of the back half of a turn, so on any normal turn the reviser costs no wall-clock at
+  // all. It also never runs on a clean turn — flagTics is local and returns nothing to do, and the
+  // promise resolves without opening a socket.
+  //
+  // Everything downstream of this point — the bookkeeper, presence, novelty, appellations, maxims,
+  // the audit, the Chronicle — goes on reading `prose`, the narrator's own words. The repaired copy
+  // is carried separately and touches nothing but the page. See engine/reviser.ts.
+  const reviserOn = !!state.model_settings.prose_reviser && !opts?.proseOverride;
+  const revisePass = reviserOn
+    ? reviseProse(prose, {
+        model: state.model_settings.reviser_model || state.model_settings.simulator_model,
+        fallback: state.model_settings.fallback_model,
+        signal,
+      }).catch((e) => {
+        // Swallowed on purpose, cancellation included. This promise is awaited late, so a rejection
+        // that escaped here would be an unhandled rejection on any turn that unwound before the
+        // commit — and there is nothing to report either way: no repair means the narrator's own
+        // words, which is the state the player was already in.
+        if (!isCancel(e)) console.warn(`[reviser] pass threw, prose left as written: ${e}`);
+        return null;
+      })
+    : null;
+
   let footer = parsedScene.footer;
   // TRUNCATION SAFETY NET. If the narrator hit the output cap, its tail (the scene footer) may have
   // been cut past even the tolerant parser's reach. Rather than let the simulator GUESS the scene
@@ -3939,8 +3868,25 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     if (dropped) console.warn(`[turn] memory sweep: dropped ${dropped} malformed entr(ies)`);
   }
 
+  // ── THE REVISER, COLLECTED ── Started before the bookkeeper, awaited here. `null` covers every
+  // way it can decline: switched off, nothing flagged, provider down, no usable repair — and every
+  // one of them lands the player on the narrator's own words, which is where they were before.
+  let proseRead: string | undefined;
+  if (revisePass) {
+    const rev = await revisePass;
+    if (rev && rev.revised + rev.dropped > 0 && rev.prose.trim()) {
+      proseRead = rev.prose;
+      const bits = [`${rev.revised} repaired`];
+      if (rev.dropped) bits.push(`${rev.dropped} cut for having nothing observable left`);
+      ev.onMeta?.({ shifts: [`reviser: ${bits.join(", ")} of ${rev.flagged} flagged sentence${rev.flagged > 1 ? "s" : ""}`] });
+    } else if (rev?.skipped) {
+      ev.onMeta?.({ shifts: [`reviser: ${rev.skipped} — you are reading the narrator's own words`] });
+    }
+  }
+
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
+    ...(proseRead ? { narrator_prose_read: proseRead } : {}),
     reads: turnReads.length ? turnReads : undefined,
     summary: diff.scene_summary || prose.slice(0, 120),
     present: presentDuringTurn,
