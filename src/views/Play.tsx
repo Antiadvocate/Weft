@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, Eraser, ChevronDown, Feather, ChevronUp, Compass, CornerDownLeft, Crosshair, Globe, Hourglass, Image as ImageIcon, Leaf, Moon, MoreHorizontal, Play as PlayIcon, Plus, RotateCcw, Scale, Sparkles, Square, Utensils, Volume2, VolumeX, X , Ban } from "lucide-react";
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
-import { api, streamTurn, resumePending, governorState, type ActionMode, type ClientSave } from "../lib/api";
+import { api, streamTurn, resumePending, governorState, displayProse, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
 import World from "./World";
 import Chronicle from "./Chronicle";
@@ -847,7 +847,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               {h.kind === "interlude" ? (
                 <div className="interlude my-5">
                   <div className="interlude-rule"><span>✦ {h.span_label} ✦</span></div>
-                  {h.narrator_prose.split(/\n{2,}/).map((p, i) => (
+                  {displayProse(h).split(/\n{2,}/).map((p, i) => (
                     <p key={i} className="interlude-prose" style={{ animation: "none" }}>{p}</p>
                   ))}
                   <div className="interlude-rule"><span>{h.time_label}</span></div>
@@ -865,7 +865,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               </div>
               )}
               {h.kind !== "interlude" && h.illustration_url && <img className="scene-img" src={h.illustration_url} alt="" onClick={() => setLightbox(h.illustration_url!)} style={{ cursor: "zoom-in" }} />}
-              {h.kind !== "interlude" && h.narrator_prose.trim() ? (
+              {h.kind !== "interlude" && displayProse(h).trim() ? (
                 <div
                   onClick={(e) => {
                     // tap the prose to reveal this turn's actions — but not when tapping a character name (that opens the tip)
@@ -874,12 +874,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   }}
                   style={{ cursor: "pointer" }}
                 >
-                  {h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
+                  {displayProse(h).split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
                 </div>
               ) : (
-                h.kind !== "interlude" && h.narrator_prose.split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))
+                h.kind !== "interlude" && displayProse(h).split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))
               )}
-              {h.kind !== "interlude" && h.narrator_prose.trim() && (h.bookkeeping === "thin" || h.bookkeeping === "failed") && (
+              {h.kind !== "interlude" && displayProse(h).trim() && (h.bookkeeping === "thin" || h.bookkeeping === "failed") && (
                 <div className="flex items-center gap-2 mb-1.5 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
                   <div className="flex-1 text-[11.5px] leading-snug" style={{ color: "var(--text-mid)" }}>
                     {h.bookkeeping === "failed"
@@ -894,7 +894,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 </div>
               )}
               <AnimatePresence>
-                {h.kind !== "interlude" && h.narrator_prose.trim() && revealedTurn === h.turn && (
+                {h.kind !== "interlude" && displayProse(h).trim() && revealedTurn === h.turn && (
                   <motion.div className="turn-actions"
                     initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.22 }}>
@@ -916,7 +916,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     {ttsAvailable() && (
                       <button className="turn-action"
                         style={readingTurn === h.turn ? { color: "var(--accent)" } : undefined}
-                        onClick={() => toggleRead(h.turn, h.narrator_prose)}
+                        onClick={() => toggleRead(h.turn, displayProse(h))}
                         title={readingTurn === h.turn ? "stop reading" : "read aloud (system voice)"}>
                         {readingTurn === h.turn ? <VolumeX size={12} /> : <Volume2 size={12} />}
                         {readingTurn === h.turn ? "stop" : "read"}

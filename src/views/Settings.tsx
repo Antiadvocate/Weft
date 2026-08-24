@@ -885,6 +885,15 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <ModelPicker label="Simulator — the bookkeeper" value={draft.simulator_model} onChange={setM("simulator_model")} />
         <ModelPicker label="Forge — world generation" value={draft.forge_model} onChange={setM("forge_model")} />
         <ModelPicker label="Fallback" value={draft.fallback_model} onChange={setM("fallback_model")} />
+        <Toggle on={!!draft.prose_reviser} onFlip={() => setDraft((d) => ({ ...d, prose_reviser: !d.prose_reviser }))}
+          title="Repair the narrator's tics"
+          desc="The engine already catches the sentences where the narration states what somebody felt, knew or privately decided — and until now it only used that to keep the narrator from copying itself. Turn this on and each caught sentence is sent to the reviser to have that one phrase taken out, and what you read is the repaired copy. Never touches dialogue, never touches a clean turn, and the narrator's own words stay on the turn and stay what the bookkeeper reads." />
+        {draft.prose_reviser && (<>
+          <ModelPicker label="Reviser — the repair pass" value={draft.reviser_model || draft.simulator_model} onChange={setM("reviser_model")} />
+          <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
+            The one slot that wants a small model. Its prompt is a few hundred tokens — the flagged sentences and nothing else, no digest, no cast, no rules — so a <span style={{ fontFamily: "var(--font-mono)" }}>local/…</span> id here costs nothing and adds nothing to the wait: it runs alongside the bookkeeper, which is the long call anyway. A turn with clean narration never calls it at all.
+          </div>
+        </>)}
         {isLocalModel(draft.narrator_model) && isLocalModel(draft.fallback_model) && (
           // A fallback exists to be DIFFERENT. Pointing it at the same local model means a narrator
           // that returned garbage gets asked again, the same way, by the same weights — and the one
@@ -915,7 +924,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           Every picture lives inside the save as base64, and the save is written to IndexedDB on every call the engine makes. A handful of them is nothing; one per turn for two hundred turns is a save that takes seconds to write and eventually takes the tab with it. Past this many, older turns keep the record of having been illustrated and lose the bytes.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
-          Two calls per turn. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
+          Two calls per turn — three on a turn the reviser fires on. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
           Prefix `anthropic/` models get prompt-cache breakpoints automatically.
           Append ":online" to any model id (e.g. anthropic/claude-opus-5:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
         </div>
