@@ -39,7 +39,7 @@ import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voi
 import { stripScaffolding } from "../engine/echo";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
 import { refreshDrives } from "../engine/driveforge";
-import { reconcileAge, summarizeAgeReport } from "../engine/age";
+import { reconcileAge, summarizeAgeReport, ageClashes, summarizeAgeClashes } from "../engine/age";
 
 /** `edit_notice` is transient — never stored, set only on the value an edit hands straight back, so
  *  the view that made the change can tell the player what the engine did behind it. */
@@ -735,6 +735,14 @@ export const api = {
         const rep = reconcileAge(s, cid, wasAge, nowAge);
         const line = summarizeAgeReport(rep, s.characters[cid].name);
         if (line) notices.push(line);
+      }
+      // …and whether the record hangs together at all, which is the failure the forge produces
+      // rather than the profile panel: an age of 22 under a history that needs 32. Checked on every
+      // write of either half, since editing the background can create the clash as easily as
+      // editing the number. Usually silent. See ageClashes.
+      {
+        const clash = summarizeAgeClashes(ageClashes(s.characters[cid]), s.characters[cid].name, Number(nowAge));
+        if (clash) notices.push(clash);
       }
     }
     if (Array.isArray(patch.canon)) s.world.canon = patch.canon.map(String).filter(Boolean).slice(0, 20);

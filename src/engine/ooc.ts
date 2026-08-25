@@ -104,6 +104,35 @@ function looksLikeAnAct(text: string): boolean {
 }
 /** …and the same thing the other way round, which is how people actually type it. */
 const META_ADDRESS_REV = /\b(?:writer|writing|storytell\w*|story\s?telling|narrat\w+|prose|plot|pacing|dialogue|author|this\s+(?:story|game|ai))\b[^.!?]{0,30}\b(?:is|are|was|sucks?|blows?)\b[^.!?]{0,30}\b(?:terrible|awful|bad|shit|garbage|trash|boring|stupid|lazy|nonsense|broken|dogshit)\b/i;
+/* ── AND THEY DO NOT ALWAYS SAY "YOU" EITHER. ────────────────────────────────────
+ *
+ * Turn 115 of the Ashford save, typed into the action box:
+ *
+ *     "I don't eat. I don't do anything. The narrator has failed at making a non horro story"
+ *
+ * Nothing here matches. There is no second person, so both "you" tiers are out; the reversed form
+ * wants one of a short list of copulas followed by one of a short list of adjectives, and "has
+ * failed at making" is neither. So the note went unheard, and seven turns later the same player
+ * typed the same complaint again — "Are you writing a horror story? Because so far every beat
+ * you've made has been a horror story" — which did match, because that time they happened to say
+ * "you". A player should not have to find the phrasing the parser knows.
+ *
+ * The module's own principle covers this and was only ever implemented in the second person: NOBODY
+ * IN THE FICTION AUTHORED THE FICTION. It holds just as absolutely in the third. "The narrator has
+ * failed", "the writing keeps doing this", "this story ignored what I said" — there is no person in
+ * any scene those sentences could be about.
+ *
+ * The subject has to be at the head of its sentence, which is what keeps this off ordinary play:
+ * "I turn on the game" has the noun in it and is not about the noun. */
+
+/** An apparatus noun as the SUBJECT of the sentence, doing something only an author can do. */
+const APPARATUS_SUBJECT = /^\s*(?:the|this|your|ur)?\s*(?:narrator|narration|writer|writing|author|prose|storytelling|story\s?telling|plot|pacing|dialogue|ai|bot|llm|model|engine|game|program|story|chapter|scene|turn)s?\b[^.!?]{0,40}\b(?:fail(?:s|ed|ing)?|ruin(?:s|ed)?|wreck(?:s|ed)?|ignor(?:e|es|ed|ing)|refus(?:e|es|ed|ing)|forg(?:ot|ets|etting)|keeps?|kept|made|makes?|making|wrote|writes?|written|turned|gave|gives?|has been|have been|is|are|was|were|can'?t|cannot|won'?t|doesn'?t|didn'?t|don'?t)\b/i;
+
+/** …and what that predicate has to be ABOUT for the sentence to be a complaint rather than a
+ *  description of something in the room. A story that "is" something is only a note to the software
+ *  when what it is, is a judgement of it. */
+const APPARATUS_FAULT = /\b(?:fail\w*|ruin\w*|wreck\w*|ignor\w*|refus\w*|forg[oe]t\w*|terrible|awful|bad|worse|shit\w*|garbage|trash|boring|stupid|lazy|nonsense|broken|dogshit|horror|repetitive|repeating|same|wrong|not what|nothing but|supposed to|meant to|point of)\b/i;
+
 /** Direct instruction to the machine about how to run the story. */
 const META_COMMAND = /\b(?:stop|quit|cut it out with|enough with|knock it off with)\b[^.!?]{0,30}\b(?:writing|making|doing|giving|having|the (?:wind|weather|prose|repetition))\b|\bthis (?:is not|isn'?t) (?:the|what)\b[^.!?]{0,30}\b(?:genre|story|game) i\b/i;
 
@@ -160,6 +189,9 @@ function outsideQuotes(piece: { text: string; at: number }, mask: boolean[]): st
  */
 function isMeta(raw: string, bare: string): boolean {
   if (META_ADDRESS.test(raw) || META_ADDRESS_REV.test(raw) || META_COMMAND.test(raw)) return true;
+  // Third-person authorship, read outside quotes for the same reason the "you" tier is: inside
+  // them, somebody in the room is talking about a story, which is ordinary play.
+  if (APPARATUS_SUBJECT.test(bare.trim()) && APPARATUS_FAULT.test(bare)) return true;
   return AUTHORED_BY_YOU.test(bare) || META_INSULT.test(bare);
 }
 
@@ -217,13 +249,25 @@ export function oocFrame(hit: OOC): string {
  * The complaint as standing direction, carried for a few turns because one corrected turn does not
  * answer a complaint about the writing.
  */
-export function oocDirective(complaint: string | undefined, turnsAgo: number): string {
+/** How long one note stands. Its last line tells the narrator the complaint is about a pattern
+ *  rather than one turn — and then it used to be withdrawn after three, which is shorter than the
+ *  pattern it describes and far shorter than the twenty-five turns between chapter audits. In the
+ *  save this was raised from, the player said it at turn 115 and again at 122; the first went
+ *  undetected, and had it been caught it would have expired four turns before the second. */
+export const OOC_STANDS = 10;
+
+export function oocDirective(complaint: string | undefined, turnsAgo: number, said = 1): string {
   const c = String(complaint ?? "").trim();
-  if (!c || turnsAgo > 3) return "";
+  if (!c || turnsAgo > OOC_STANDS) return "";
+  // SAYING IT TWICE MEANS IT WAS NOT ANSWERED THE FIRST TIME. A repeat is not a fresh note; it is
+  // the same note, louder, from somebody who has now watched the writing not change.
+  const again = said > 1
+    ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first one did not answer it, so whatever adjustment was made was too small or was made in the wrong place. Change something structural about how the next scenes are built, not the wording of one paragraph.`
+    : "";
   return `\n\n=== THE PLAYER HAS TOLD YOU SOMETHING DIRECTLY ===\nOut of character, ${turnsAgo === 0 ? "this turn" : `${turnsAgo} turn${turnsAgo === 1 ? "" : "s"} ago`}, they said: "${c}"\n`
     + `This is not story material and it is never dramatised, quoted, alluded to, or given to a character to say. It is a note about the writing, from the person reading it, and it is the most reliable information you will get about whether any of this is working. `
     + `Act on it in what you actually write from here — the shape of the scenes, what gets attention, what is left out — and do not acknowledge it on the page. `
-    + `A player who has to say this at all has usually been trying to say it for a while through their choices; assume the complaint is bigger than the words they used, and that it is about a pattern rather than one turn.`;
+    + `A player who has to say this at all has usually been trying to say it for a while through their choices; assume the complaint is bigger than the words they used, and that it is about a pattern rather than one turn.${again}`;
 }
 
 /* ── FIAT, AND THE TURN WHERE THE PLAYER DID NOTHING ────────────────────────────

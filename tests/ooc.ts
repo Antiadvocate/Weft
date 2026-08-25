@@ -96,7 +96,21 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("...told to act on it in the writing, not on the page", /do not acknowledge it on the page/.test(d), d);
   check("...and told to assume it is about a pattern", /about a pattern rather than one turn/.test(d), d);
   check("it persists past the turn it was said", oocDirective("bad pacing", 2).length > 0);
-  check("...but not forever", oocDirective("bad pacing", 5) === "");
+  // WIDENED FROM THREE TURNS. The directive's own last line tells the narrator this complaint is
+  // about a pattern rather than one turn, and it was then withdrawn after three — shorter than the
+  // pattern it describes, and far shorter than the twenty-five turns between chapter audits. In the
+  // save this was raised from, the player said it at turn 115 and again at 122; at the old window
+  // the first note would have expired four turns before the second arrived.
+  check("...and stands long enough to outlast the pattern it names", oocDirective("bad pacing", 8).length > 0);
+  check("...but not forever", oocDirective("bad pacing", 12) === "");
+
+  // SAYING IT TWICE MEANS IT WAS NOT ANSWERED THE FIRST TIME.
+  const once = oocDirective("every beat is a horror story", 1, 1);
+  const twice = oocDirective("every beat is a horror story", 1, 2);
+  check("a first note does not accuse the narrator of ignoring it", !/NOW SAID THIS/.test(once), once);
+  check("a repeat is heard as a repeat", /HAVE NOW SAID THIS 2 TIMES/.test(twice), twice);
+  check("...and asks for a structural change, not a reworded paragraph",
+    /not the wording of one paragraph/.test(twice), twice);
   check("nothing said means nothing carried", oocDirective(undefined, 0) === "");
 }
 
@@ -158,6 +172,40 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("...and where to put it instead", /Story mode/.test(n), n);
   check("...and how to get the outcome legitimately", /have them do something that could kill them/.test(n), n);
   check("the OOC notice says it was taken as a note", /Taken as a note about the writing/.test(voidNotice("ooc")));
+}
+
+/* ── 6. the player does not always say "you" ─────────────────────────────────────
+ *
+ * Turn 115 of the Ashford save. Nothing in the module matched it, so the note went unheard — and
+ * seven turns later the same player made the same complaint again, that time with a "you" in it,
+ * and that one was caught. A player should not have to find the phrasing the parser knows.
+ */
+{
+  const third = detectOOC("I don't eat. I don't do anything. The narrator has failed at making a non horro story");
+  check("a third-person complaint about the narrator is heard", !!third, third);
+  check("...and the complaint is the sentence about the narrator",
+    /narrator has failed/.test(third?.complaint ?? ""), third);
+  check("...while what the player actually did survives it",
+    /don't eat/.test(third?.inWorld ?? "") && third?.kind === "aside", third);
+
+  for (const line of [
+    "The writing keeps ignoring what I asked for",
+    "this story is nothing but horror",
+    "The prose has been repeating the same beat",
+  ]) check(`heard: "${line}"`, !!detectOOC(line), detectOOC(line));
+
+  // …and ordinary play is untouched, which is what the sentence-head rule is for. (A character
+  // saying "that documentary's narrator was terrible" out loud is caught by the older tier that
+  // reads inside quotation marks on purpose — naming the machine is treated as unmistakable
+  // wherever it appears. That predates this rule and is left as it is.)
+  for (const line of [
+    "I turn on the game and it is loud",
+    "I tell her the story is over",
+    "I finish the game and put the controller down",
+    "I tell Leo the plot of the film we saw",
+    "I pick up the model ship and it is heavier than it looks",
+    "I finish the chapter she lent me and set the book down",
+  ]) check(`ordinary play, untouched: "${line}"`, detectOOC(line) === null, detectOOC(line));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

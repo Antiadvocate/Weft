@@ -702,6 +702,13 @@ export interface Thread {
    *  axis itself — a world whose threads are all threats can only ever press by endangering them.
    *  Absent on threads authored before this existed; treated as "threat" for weighting. */
   kind?: "obligation" | "opportunity" | "relationship" | "institution" | "threat";
+  /** Set by the chapter auditor when this open thread IS one of the things the world bible listed
+   *  as never-the-engine. The pressure controller will not press through it: a forbidden engine
+   *  that keeps being chosen as the source of every scene is how a romance becomes a breakup
+   *  procedural while the audit records, correctly, that it has. Cleared when the auditor stops
+   *  naming it. It does not close the thread — the situation is still real and the player may
+   *  still act on it; the world just stops reaching for it as the reason a scene happens. */
+  forbidden_engine?: boolean;
 }
 
 export interface ConsequenceEvent {
@@ -969,7 +976,7 @@ export interface SaveState {
   last_retold?: { line: string; known: string } | null;
   /** The player addressing the machine rather than the world — a note about the writing. Carried
    *  for a few turns as standing direction, never dramatised. See engine/ooc.ts. */
-  last_ooc?: { complaint: string; turn: number } | null;
+  last_ooc?: { complaint: string; turn: number; said?: number } | null; // said = how many times they have raised it; a repeat means the first was not answered
   /** Somebody found inside the player's private space last turn with no door on the page. Corrected
    *  at the end of the next turn's direction, same mechanism as last_maxim. See engine/threshold.ts. */
   last_intrusion?: { name: string; line: string; place: string } | null;

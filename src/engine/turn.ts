@@ -43,7 +43,7 @@ import { MOTIVE_LEAK, scrubForReplay, reviseProse, displayProse } from "./revise
 export { scrubForReplay };
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
-import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
+import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
@@ -1746,7 +1746,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // quote mask does that job in every other mode, and say mode is the one where there are no quotes
   // to mask because the whole input is the line.
   const ooc = mode === "say" ? null : detectOOC(action);
-  if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
+  // A REPEAT IS THE SAME NOTE, LOUDER. Counted while the previous one is still standing, so a
+  // player who has to say it twice is heard as having said it twice rather than starting over.
+  if (ooc) {
+    const prior = state.last_ooc;
+    const stillStanding = prior && state.world.current_turn - prior.turn <= OOC_STANDS;
+    state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn, said: stillStanding ? (prior!.said ?? 1) + 1 : 1 };
+  }
   // SOVEREIGNTY, read here rather than at its old home 250 lines down, because the first thing that
   // consumes it is the void guard below and everything after that is downstream of what the guard
   // did to the action text.
@@ -1863,6 +1869,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
+    // What the last few turns already said the scene was about. The headline used to be a fresh
+    // argmax every turn, so the hottest thread named itself as the reason for every scene until its
+    // tension moved — which in one save meant forty turns whose directive opened on the same line.
+    recentSources: (state.telemetry ?? []).slice(-8).map((t) => t.pressure_source).filter(Boolean) as string[],
   });
   // fate's floor: the ending is coming and the world knows it. Never lowers pressure, only raises.
   const floor = fatePressureFloor(fate);
@@ -2476,7 +2486,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
-    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn) : "";
+    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
   const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
@@ -2499,11 +2509,43 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   //
   // So it takes the shape that works in this engine: bracketed, mandatory, refusing the excuses by
   // name, and stating what this story is FOR beside what it has become.
+  // THE CORRECTION WAS AIMED AT THE WRONG HALF OF THE PROBLEM.
+  //
+  // The governor above is right that the auditor's verdict has to become a mechanism. What it did
+  // with it was demand the missing genre back — "there is no version of this turn that contains
+  // none of it" — every turn, for as long as the drift stood. Read what that instruction actually
+  // asks for in a romance whose romance has left: the wife is divorced and across the city, and the
+  // narrator has been told, without exception, to put a beat of intimacy on this page. It has one
+  // way to comply. It reaches for whoever is standing nearest and aims her at the player.
+  //
+  // That is not a hypothetical. In the save this comes from, the governor stood armed for roughly
+  // three-quarters of the story, and across it the dead wife's best friend crossed from a friend
+  // with a message to deliver into somebody who could not be kept off the porch — through a
+  // refusal, through the police being called, through an arrest — and a neighbour went from a
+  // hello to "I'm your girlfriend now, so I stay" in a single afternoon. The player read that as
+  // the characters being written insane. The characters were fine. They were being conscripted.
+  //
+  // So the correction is split, and the halves are not equally mandatory:
+  //
+  //  · WHAT IS FORBIDDEN STOPS. This is the part that is genuinely not optional, because it is the
+  //    part that is actually a violation. A story is off contract when a never-the-engine thing has
+  //    become the engine — not when the player has spent ten turns on something quiet.
+  //  · WHAT IS MISSING IS MADE POSSIBLE AGAIN, which is a different verb from "is written now". The
+  //    narrator is told to stop spending the scene on the forbidden thing and to leave the room
+  //    open; it is NOT told to manufacture a partner, and it is told in as many words that pushing
+  //    an unwanted person at the player is the failure this instruction exists to prevent, not a
+  //    way of satisfying it.
+  //
+  // And it can be answered by the player. A player who has decided their marriage is over is not
+  // drifting; they are playing. The governor no longer treats their choices as the thing to correct
+  // — see the auditor's `drift_cause` — and it says out loud that the story it is asking for is the
+  // one the player is already writing, not a return to a status quo they have left behind.
   const contractFix = state.contract_drift
-    ? `\n\n[THIS STORY HAS LEFT ITS OWN CONTRACT, and the correction is not optional.\nWhat it drifted into: ${state.contract_drift}\n`
-      + `What it is: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? ` Never the engine of a scene here: ${state.world_bible.forbidden_as_primary.join("; ")}.` : ""}\n`
-      + `THIS TURN IS WHERE IT COMES BACK. Not gradually, not once the current business is finished, and not after one more scene of what it drifted into — this one. You do not get to decide the moment is wrong for it or that the drift is what the scene is about now; the drift IS what the scene is about, which is the problem.\n`
-      + `Come back through what the people here actually want from each other, and through the standing direction. One beat is enough, and there is no version of this turn that contains none of it.]`
+    ? `\n\n[THIS STORY HAS DRIFTED FROM WHAT IT WAS MADE TO BE.\nWhat it drifted into: ${state.contract_drift}\n`
+      + `What it is: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? `\nNEVER THE ENGINE OF A SCENE HERE, and this is the part that is not optional: ${state.world_bible.forbidden_as_primary.join("; ")}. Whichever of those the story has been running on, it stops being the reason a scene happens — starting this turn. It may still be TRUE; it does not get to be the engine. Do not open on it, do not build the turn around it, and do not resolve the turn with it.` : ""}\n`
+      + `THE REST OF THE CORRECTION IS AN OPENING, NOT A QUOTA. Let this world be the kind of story it is again — through what the people here already want, at whatever strength the scene honestly supports. A turn with none of it in it is allowed; several are, if that is where the player has taken this.\n`
+      + `WHAT YOU MAY NOT DO TO SATISFY THIS: manufacture desire that is not already in these people, aim a character at the player who has no reason to want them, escalate somebody's pursuit because the scene needs the genre in it, or keep a person in a room the player has asked them to leave. A character who wants something from the player is welcome; a character conscripted into wanting it is how this instruction gets read wrong, and it wrecks them. If nobody present plausibly carries this, the right amount this turn is none.\n`
+      + `WHAT THE PLAYER HAS CHOSEN STANDS. Where they have taken this — out of a room, out of a marriage, into their own company — is where the story is; bring the genre to that place, through the people who are actually in it, and leave behind whatever situation they spent their turns ending.]`
     : "";
   // PUBLIC STANDING — the crowd's counterpart to the edge ledger. Without this the narrator had no
   // state at all for "the wider community" and improvised it from whatever the nearest directive
@@ -4076,6 +4118,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           bibleC.pressure_palette?.length ? `PRESSURES THIS STORY RUNS ON: ${bibleC.pressure_palette.join("; ")}` : "",
           bibleC.forbidden_as_primary?.length ? `NEVER THE ENGINE OF THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
         ].filter(Boolean).join("\n");
+        const openTitles = (state.world.threads ?? [])
+          .filter((t) => t.status === "active" && String(t.title ?? "").trim())
+          .map((t) => String(t.title).trim());
         const destination = state.world_bible.destination?.trim() || "";
         const priorPct = state.destination_progress?.pct;
         const destLine = destination
@@ -4083,10 +4128,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           : "DESTINATION: none — this is an open story with no stated ending. Omit the destination object.\n";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
-          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}PRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats:\n${beats.slice(0, 7000)}` },
+          // THE THREADS ARE PART OF THE QUESTION NOW. The auditor was asked which forbidden thing had
+          // become the engine and could only answer in prose, which nothing downstream could act on.
+          // Given the open threads by name, it can point at the ones the world keeps pressing
+          // through — and a title is a handle the pressure controller can hold. See engine_threads.
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}OPEN THREADS (copy titles verbatim into engine_threads if one of them IS a forbidden engine):\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "(none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
@@ -4121,8 +4170,47 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
             ? { mbti: String(ch.persona.mbti).slice(0, 6).toUpperCase(), read: String(ch.persona.read).slice(0, 300), traits: (ch.persona.traits ?? []).slice(0, 5).map((t) => String(t).slice(0, 60)), shift: ch.persona.shift && String(ch.persona.shift).trim() ? String(ch.persona.shift).slice(0, 160) : undefined }
             : undefined;
           state.chapters.push({ idx: state.chapters.length + 1, from_turn: fromTurn, to_turn: turn, title: (ch.title ?? `Chapter ${state.chapters.length + 1}`).slice(0, 60), summary: ch.summary.slice(0, 400), on_contract: ch.on_contract !== false, drift: ch.drift?.slice(0, 200), persona });
-          // arm or clear the governor
-          state.contract_drift = ch.on_contract === false && ch.drift?.trim() ? ch.drift.trim().slice(0, 200) : null;
+
+          // ── WHICH THREADS THE WORLD KEEPS PRESSING THROUGH ────────────────────────────────────
+          // The auditor's verdict was a sentence in a chapter record, and the only mechanism it fed
+          // was a directive asking the narrator to write more of the missing genre. Nothing ever
+          // touched the machinery that was CHOOSING the forbidden thing as the subject of each
+          // scene — fictionHeat picks the hottest open thread and names it as the reason the turn
+          // happens, and it had no idea any of them were forbidden. So the auditor could say "this
+          // became a breakup procedural" five chapters running while the pressure controller, on
+          // every turn in between, handed the narrator "source: thread: Friction between Vin and
+          // Miranda" and the narrator wrote what it was told to write.
+          //
+          // Marking is per-audit and not sticky: a thread the auditor stops naming is a thread the
+          // world may press through again. The thread itself is untouched — still open, still real,
+          // still something the player can pick up. It just stops being the world's reason.
+          {
+            const named = new Set((ch.engine_threads ?? [])
+              .map((t) => String(t ?? "").trim().toLowerCase()).filter(Boolean));
+            for (const t of state.world.threads ?? []) {
+              const was = !!t.forbidden_engine;
+              const now = named.has(String(t.title ?? "").trim().toLowerCase());
+              if (now !== was) {
+                t.forbidden_engine = now || undefined;
+                if (now) shifts.push(`the world stops pressing through "${t.title}" — it had become this story's forbidden engine`);
+              }
+            }
+          }
+
+          // ── ARM OR CLEAR THE GOVERNOR ─────────────────────────────────────────────────────────
+          // Only for drift the NARRATION produced. A player who spends a chapter leaving their
+          // marriage has not violated anything: they are the one the contract is for. Arming on
+          // their choices is how a course-correction becomes a story arguing with the person
+          // telling it — and, downstream, how it becomes characters pushed at a player who has
+          // said no, because the directive demands the genre and the narrator has only the people
+          // in the room to supply it with.
+          //
+          // The thread marking above still happens either way, and that is the point: when the
+          // player is the one driving, the world stops manufacturing the forbidden engine on its
+          // own AND stops being told to write its way back. It simply follows them.
+          const playerDriven = String(ch.drift_cause ?? "").trim().toLowerCase().startsWith("player");
+          state.contract_drift = ch.on_contract === false && ch.drift?.trim() && !playerDriven
+            ? ch.drift.trim().slice(0, 200) : null;
           // HISTORY COMPACTION — a chapter summary now covers this span, so old entries shed their
           // hidden bloat (directive, offscreen log). Prose stays: it IS the transcript the player
           // reads. Ribot applied to the story: the summary is the semantic residue.
