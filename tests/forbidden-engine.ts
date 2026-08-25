@@ -35,7 +35,7 @@
  */
 import { fictionHeat, selectBeat, pressureDirective } from "../src/engine/pressure";
 import { outlivedCanon } from "../src/engine/canonstate";
-import { CHAPTER_SYSTEM, PERSONA_SYSTEM } from "../src/engine/prompts";
+import { CHAPTER_SYSTEM, PERSONA_SYSTEM, OPENING_SYSTEM } from "../src/engine/prompts";
 import { ageClashes, summarizeAgeClashes } from "../src/engine/age";
 import { readFileSync } from "node:fs";
 
@@ -232,6 +232,35 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
     age: 30, background: "As a child, twenty years ago, she was taken out of the city.",
   }).length === 0);
   check("no age on record means nothing to check", ageClashes({ background: "A decade ago she left." }).length === 0);
+}
+
+/* ── 8. and the very first sentence of the whole thing ───────────────────────────
+ *
+ * Turn 0 of the Ashford save, before the player has typed anything:
+ *
+ *     "The silence in here is becoming a structural issue, Vin," she says, her voice sharp and
+ *     devoid of its usual playful warmth. ... "Can you manage that, or are you going to keep
+ *     staring at the wall until the world decides to interrupt us?"
+ *
+ * Her knuckles are white in the paragraph above it. That is an argument already in progress, at
+ * turn zero, between the two people the same world bible's canon calls "a strong, loving, and
+ * stable marriage that is the bedrock of their lives" — in a story whose genre is "Love, erotica,
+ * romantic". The forge is told in as many words that a world "begins with loaded potential, never a
+ * mature crisis already at the player's throat", and the opening writer, which is a separate call,
+ * was never told any of it. The pressure controller's own opening grace (turn <= 2 forces the calm
+ * band) does not reach here either: the opening scene is not generated through that path.
+ *
+ * So "the prose always drove Miranda and the player apart" is literally true from sentence one.
+ */
+{
+  check("the opening obeys the same seeding rule as the rest of the world",
+    /never with a mature crisis already at the player's throat/i.test(OPENING_SYSTEM), OPENING_SYSTEM.slice(0, 60));
+  check("...and opens inside the bonds canon established, not against them",
+    /OPENS INSIDE THE BONDS THE WORLD BIBLE ESTABLISHED/.test(OPENING_SYSTEM));
+  check("...so a player's strongest tie is not introduced in trouble",
+    /the first thing a player sees of their strongest tie is not that tie in trouble/.test(OPENING_SYSTEM));
+  check("...with a concrete instruction, not a preference",
+    /write a different scene/.test(OPENING_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
