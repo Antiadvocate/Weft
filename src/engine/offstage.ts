@@ -221,6 +221,11 @@ export function offstageDue(state: any): boolean {
  * is the point — a world with events the player never learns about is a world, and one where
  * every event finds its way to the protagonist is a story pretending to be one.
  */
+/** How strong a tie has to be before it decides where somebody goes. Directional: SEEK draws a
+ *  person toward the player, AVOID sends them anywhere else. */
+const SEEK = 25;
+const AVOID = -25;
+
 /**
  * Bring people back from "elsewhere".
  *
@@ -240,20 +245,73 @@ export function returnFromOffscene(state: any): string[] {
   if (!real.length) return log;
 
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
-    if (id === "char_player" || c.location !== OFF) continue;
+    if (id === "char_player") continue;
+    // A STAMP THAT ONLY EVER GETS CLEARED ON THE WAY BACK IS A FOSSIL. It was deleted when this
+    // pass returned someone, and never when the story returned them itself — so a character the
+    // narrator walked back into the room kept a mark saying she had been nowhere since turn 73,
+    // forty-one turns earlier. The next time she genuinely stepped out, her grace period was
+    // already spent and she was eligible to be teleported back on the very next pass.
+    if (c.location !== OFF) { if (c.offscene_since !== undefined) delete c.offscene_since; continue; }
     if (c.status === "dead" || c.status === "departed") continue;
+
+    // Somebody else has them. The world does not hand them back because eight turns went by.
+    if (c.held) continue;
 
     // How long have they been nowhere? Give it a little time before hauling them back — someone
     // can plausibly be out of sight for a few hours.
     c.offscene_since ??= state.world.current_turn;
     if (state.world.current_turn - c.offscene_since < 8) continue;
 
-    // Where would they actually go? A live drive names a place; otherwise the place they have the
-    // strongest reason to be — where the player is, if they have any tie to the player at all.
-    const edge = (state.world.edges ?? []).find(
-      (e: any) => e.from === id && e.to === "char_player" && (Math.abs(e.warmth) >= 25 || Math.abs(e.trust) >= 25),
-    );
-    const target = edge ? state.world.player_location : real[Math.floor(Math.random() * real.length)].id;
+    // ── WHERE WOULD THEY ACTUALLY GO? ──
+    //
+    // This used to read `Math.abs(e.warmth) >= 25` and send anyone over that line straight to the
+    // player's location. Absolute value. A bond and a grudge came out of it identical, so the
+    // people who most wanted nothing to do with the player were the ones the engine most reliably
+    // delivered to his door — and it landed them ON him, not near him, because presence is derived
+    // from co-location, so the next turn they were simply in the room with no arrival written.
+    //
+    // In one save that meant a woman at warmth -100 kept reappearing in a house she had been
+    // thrown out of and arrested at, an ex-wife at -28 turned up in a home she had never been to,
+    // and the one man in the cast who mildly LIKED the player, at +4, was scattered to a random
+    // location every time — which is why the player could not work out what he had to do with
+    // anything. The whole social graph was being read through its absolute value.
+    //
+    // A tie is directional. Warmth draws you toward someone; a grudge sends you the other way.
+    // The one thing that overrides the grudge is a want that names them — and that is a stated
+    // drive the player can read and the engine can retire, not arithmetic nobody can see.
+    const edge = (state.world.edges ?? []).find((e: any) => e.from === id && e.to === "char_player");
+    const bond = (edge?.warmth ?? 0) >= SEEK || (edge?.trust ?? 0) >= SEEK;
+    const grudge = (edge?.warmth ?? 0) <= AVOID || (edge?.trust ?? 0) <= AVOID;
+
+    const goal = String(c.drive?.goal ?? "").toLowerCase();
+    const playerNames = [String(state.characters?.char_player?.name ?? "").toLowerCase(), "the player"]
+      .filter((n) => n.length >= 3);
+    const wantsThePlayer = playerNames.some((n) => goal.includes(n));
+
+    // a want that names a place is the plainest answer of all, and the comment here promised it
+    // long before the code did it
+    const namedPlace = goal
+      ? real.find((p: any) => p.name.length >= 4 && goal.includes(p.name.toLowerCase()))?.id
+      : undefined;
+
+    // failing all that: home. A place carrying their own name is where a person goes when they
+    // have nowhere to be, and it beats the dice for everyone the story has given a home to.
+    const first = String(c.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+    const homeHit = first.length >= 3
+      ? real.find((p: any) => p.name.toLowerCase().includes(first))?.id
+      : undefined;
+    // ...unless their home is where the player happens to be standing, in which case it is not
+    // somewhere else and sending a grudge there defeats the whole point
+    const home = grudge && homeHit === state.world.player_location ? undefined : homeHit;
+
+    const elsewhere = real.filter((p: any) => p.id !== state.world.player_location);
+    const away = (elsewhere.length ? elsewhere : real)[Math.floor(Math.random() * (elsewhere.length || real.length))].id;
+
+    const target =
+      namedPlace ??
+      (wantsThePlayer || (bond && !grudge) ? state.world.player_location : undefined) ??
+      home ??
+      away;
 
     c.location = target;
     delete c.offscene_since;

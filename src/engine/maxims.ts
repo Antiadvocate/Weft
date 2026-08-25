@@ -209,26 +209,47 @@ export function maximRate(prose: string): number {
  * puts the one concrete sample of how this person talks next to the request to write them talking.
  */
 export function voiceAnchor(
-  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; voice?: { never_says?: string[] } }> },
+  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; speech_pattern?: string; voice?: { never_says?: string[]; diction?: string; example_lines?: string[] } }> },
   presentIds: string[],
 ): string {
   const rows: string[] = [];
   for (const id of presentIds.slice(0, 4)) {
     const c = state.characters[id];
     if (!c) continue;
+    // THE REGISTER, WHICH THIS BLOCK DID NOT CARRY.
+    //
+    // A block headed "WHY NONE OF THEM SHOULD SOUND ALIKE" was sending an age, three traits and the
+    // first sentence of a background — none of which tells anybody how a person SOUNDS. The fields
+    // that do were on the cached card, deliberately, to avoid paying for them twice: deriveVoice's
+    // own comment says "diction/syntax/rhythm/never-says live on the (cached) card — don't repeat
+    // them per turn". That economy cost the whole voice system.
+    //
+    // Measured on one save: 91 turns, five characters with superb distinct registers on their cards
+    // — a pharmacy tech at 19 with "the counter, the register, closing, the schedule", a designer
+    // with kerning and negative space, a teacher with dumplings and innings — and 318 spoken lines
+    // between them containing NONE of it. The player's report was that everybody sounds the same
+    // and a nineteen-year-old shop worker sounds like a thirty-six-year-old programmer.
+    //
+    // The example line matters most and is the cheapest: one sentence in a person's actual mouth
+    // does more than any description of how they talk.
+    const sound = String(c.speech_pattern ?? c.voice?.diction ?? "").trim();
+    const sample = c.voice?.example_lines?.find((l) => String(l ?? "").trim());
     const bits = [
       c.age ? `${c.age}` : "",
       c.core_traits?.length ? c.core_traits.slice(0, 3).join("; ") : "",
       c.background?.trim() ? String(c.background).trim().split(/(?<=\.)\s/)[0].slice(0, 120) : "",
     ].filter(Boolean);
-    if (!bits.length) continue;
+    if (!bits.length && !sound && !sample) continue;
     const never = c.voice?.never_says?.length ? ` Would never say: ${c.voice.never_says.slice(0, 2).join("; ")}.` : "";
-    rows.push(`${c.name} — ${bits.join(" · ")}.${never}`);
+    const talks = sound ? `\n  TALKS LIKE THIS: ${sound.slice(0, 180)}` : "";
+    const line = sample ? `\n  ONE OF THEIR ACTUAL LINES: "${String(sample).trim().slice(0, 150)}"` : "";
+    rows.push(`${c.name} — ${bits.join(" · ")}.${never}${talks}${line}`);
   }
   if (!rows.length) return "";
   return `\n[WHO IS TALKING, AND WHY NONE OF THEM SHOULD SOUND ALIKE.
 · ${rows.join("\n· ")}
 Decide two things per speaker before writing their line. What do they want out of THIS exchange, right now — aim the line at that. And what state are they in: somebody frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
 LENGTH COMES FROM THAT, NOT FROM A STYLE. Somebody who has explained this a hundred times explains it again at length; somebody who wants to leave uses six words. If everyone in this scene is brief, they have all been written by the same person, which is you.
-If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.]`;
+If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.
+AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.]`;
 }

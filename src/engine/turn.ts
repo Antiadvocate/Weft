@@ -25,7 +25,7 @@ import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolv
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -45,6 +45,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
+import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
@@ -2489,8 +2490,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
+  // THE AUDITOR FOUND IT AND THE STORY KEPT GOING. This was one polite sentence — "steer back, not
+  // with a lurch" — buried in the middle of a fifteen-thousand-character directive, against sixty
+  // turns of accumulated momentum. From a save whose genre is "Love, erotica, romantic", the
+  // auditor's own words: "The story became an explicit divorce/breakup procedural ... violating the
+  // explicit prohibition against breakup engines and ignoring the romantic destination." It was
+  // right, it was recorded, and nothing changed. The measurement existing is not the mechanism.
+  //
+  // So it takes the shape that works in this engine: bracketed, mandatory, refusing the excuses by
+  // name, and stating what this story is FOR beside what it has become.
   const contractFix = state.contract_drift
-    ? `\nCOURSE-CORRECTION (the story has drifted from its contract): ${state.contract_drift} Steer back through present characters' wants and the standing direction — not with a lurch, but starting THIS turn.`
+    ? `\n\n[THIS STORY HAS LEFT ITS OWN CONTRACT, and the correction is not optional.\nWhat it drifted into: ${state.contract_drift}\n`
+      + `What it is: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? ` Never the engine of a scene here: ${state.world_bible.forbidden_as_primary.join("; ")}.` : ""}\n`
+      + `THIS TURN IS WHERE IT COMES BACK. Not gradually, not once the current business is finished, and not after one more scene of what it drifted into — this one. You do not get to decide the moment is wrong for it or that the drift is what the scene is about now; the drift IS what the scene is about, which is the problem.\n`
+      + `Come back through what the people here actually want from each other, and through the standing direction. One beat is enough, and there is no version of this turn that contains none of it.]`
     : "";
   // PUBLIC STANDING — the crowd's counterpart to the edge ledger. Without this the narrator had no
   // state at all for "the wider community" and improvised it from whatever the nearest directive
@@ -3846,6 +3859,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // behind the habit-engine switch: a character repeating the same anecdote three scenes running is
   // a failure whether or not habits are running, and this measures the prose either way.
   recordSpokenSubjects(state, prose, turn);
+  // AND SAY IT WHEN THE WHOLE CAST HAS TURNED. Measured, not guessed: warmth is what the narrator
+  // reads to decide how people treat the player, and a romance whose ledger has gone hostile
+  // produces cruelty correctly and inexplicably. Said once, on the turn it crosses. See social.ts.
+  {
+    const cold = castGoneCold(state);
+    if (cold && !state.cast_cold_said) { shifts.push(cold); state.cast_cold_said = turn; }
+    else if (!cold && state.cast_cold_said) state.cast_cold_said = undefined;
+  }
   // COUNT WHAT WAS ACTUALLY SAID. Runs after the prose exists and before the next turn reads it —
   // the share of the turn that was spoken aloud, and who was standing in the room without a line.
   trackSilence(state, prose);
@@ -4922,6 +4943,27 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   //    DEPARTURE EVIDENCE GUARD (below): a character present when this turn began cannot be
   //    moved unless the turn's prose shows them leave — the bookkeeper is told to quote the
   //    departure in `said`; the engine verifies it. Offscreen moves are untouched. ──
+  // SOMETHING GAVE THEM BACK. Run before the location guards below so a turn that narrates both the
+  // release and the return works in one pass. A release can be narrated while the person is
+  // offscreen ("word came she was out by Tuesday") and it can be the player's own doing ("I post
+  // her bail"), so this reads the whole turn and not just the scene. Deliberately generous: a
+  // release wrongly accepted costs one scene, a release wrongly refused loses a character for good.
+  for (const [hid, hc] of Object.entries(state.characters)) {
+    if (!hc.held || hid === "char_player") continue;
+    const freed = releaseEvidence({
+      prose,
+      action,
+      name: hc.name ?? "",
+      others: Object.entries(state.characters)
+        .filter(([oid]) => oid !== hid && oid !== "char_player")
+        .map(([, o]) => o.name ?? "")
+        .filter(Boolean),
+    });
+    if (!freed) continue;
+    shifts.push(`${hc.name} is out of ${hc.held.where}.`);
+    hc.held = undefined;
+  }
+
   if (diff.player_location) {
     // the player never lands in `elsewhere`: an unrecognized name means they stayed put
     state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
@@ -4942,29 +4984,37 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // freely offstage.
       if (presentAtStart.has(cid)) {
         const c = state.characters[cid];
-        const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
-        const saidRaw = String((mv as { said?: string }).said ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-        const quoted = saidRaw.length >= 8 && proseLow.includes(saidRaw);
-        const nameLow = (c.name ?? "").toLowerCase();
-        // probe tokens: the full name plus each usable word of it. Titles and ranks are skipped —
-        // prose almost never repeats them ("Hale left", not "Mr. Hale left"), and a bare rank
-        // ("the captain") is too common a noun to be evidence about anyone in particular.
-        const HONORIFICS = new Set(["mr", "mrs", "ms", "miss", "dr", "doctor", "captain", "lt", "lieutenant", "commander", "sir", "madam", "professor", "officer", "ensign", "sergeant", "major", "colonel", "general", "lord", "lady", "father", "sister", "brother", "elder", "master"]);
-        const tokens = nameLow.split(/\s+/).map((t) => t.replace(/[^a-z]/g, "")).filter((t) => t.length >= 3 && !HONORIFICS.has(t));
-        const probes = [...new Set([nameLow, ...tokens])].filter((s) => s.length >= 3);
-        let nearDeparture = false;
-        for (const probe of probes) {
-          let idx = proseLow.indexOf(probe);
-          while (idx !== -1) {
-            const w = proseLow.slice(Math.max(0, idx - 160), idx + probe.length + 160);
-            if (/\b(left|leaves|leaving|exits?|exiting|departs?|departing|walks? out|walking out|strode out|hurried off|heads? off|headed off|dismissed|called away|slipped out|steps? out|stepping out|took the lift|made (his|her|xer|their) way out|was summoned|retreated|withdrew|withdrawn)\b/i.test(w)) { nearDeparture = true; break; }
-            idx = proseLow.indexOf(probe, idx + 1);
-          }
-          if (nearDeparture) break;
-        }
-        if (!quoted && !nearDeparture) {
+        // NOT JUST "DID THEY LEAVE" — "is there any reason to think they are still in the room".
+        // A person who is thrown out, arrested, or carried off is never described as leaving, and
+        // for five turns of one save this guard held a woman in a living room she had been
+        // deadbolted out of and sentenced away from. See engine/exit.ts.
+        const evidence = departureEvidence({
+          prose,
+          action,
+          said: (mv as { said?: string }).said,
+          name: c.name ?? "",
+          // so a bystander standing beside somebody else's arrest doesn't inherit it
+          others: [...presentAtStart]
+            .filter((o) => o !== cid && o !== "char_player")
+            .map((o) => state.characters[o]?.name ?? "")
+            .filter(Boolean),
+          destination: state.world.places[pid]?.name ?? mv.place,
+        });
+        if (!evidence.ok) {
           shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
           continue;
+        }
+        // SOMEBODY ELSE HAS THEM NOW. An arrest is not a walk to another room: it holds, and until
+        // this save it held for exactly as long as the turn it happened on. Four turns after a
+        // five-year sentence the same woman came back through the front door and the world had
+        // nothing to say about it. This is what it now has to say about it.
+        if (evidence.why === "custody") {
+          c.held = {
+            since_turn: turn,
+            where: state.world.places[pid]?.name ?? String(mv.place),
+            note: `taken on turn ${turn}`,
+          };
+          shifts.push(`${c.name} has been taken — they are not free to walk back in.`);
         }
       }
       // ARRIVAL EVIDENCE GUARD — the mirror of the above, and the half that was missing.
@@ -4990,6 +5040,14 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         if (c.status === "dead" || c.status === "departed") {
           shifts.push(`bookkeeping correction: ${c.name} is ${c.status} and does not re-enter the scene`);
           console.warn(`[cast] blocked ${c.status} ${c.name} being moved back into the player's scene`);
+          continue;
+        }
+        // AND NEITHER DO THE HELD. Being in custody is the one absence the prose is most likely to
+        // forget, because nothing about a living room reminds a narrator that somebody is in a cell.
+        // A release is a real event and reads as one; short of that, they stay where they were put.
+        if (c.held) {
+          shifts.push(`bookkeeping correction: ${c.name} is being held at ${c.held.where} and does not simply reappear`);
+          console.warn(`[cast] blocked held ${c.name} returning from ${c.held.where} with no release in the prose`);
           continue;
         }
         const proseLow = prose.toLowerCase().replace(/\s+/g, " ");
@@ -5277,8 +5335,23 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // leaving and calling her a slut to his family, sitting at relaxation +0.87 and climbing toward
     // a capacity of +3, mood "grieving, hollow", valence +1 — stoic, because the ledger said fine.
     // The engine had discharge_lift for release and nothing at all for loss. See tickPsyche.
+    // AND A LIFE COMES APART SLOWLY MORE OFTEN THAN IT COMES APART AT ONCE. The threshold above is
+    // a single blow of -3 or worse in one turn, which catches a betrayal and misses a marriage
+    // ending across forty turns of -2s — each one erased by the next turn's drift back toward
+    // capacity, leaving nothing behind. From a save: a woman whose husband took off his wedding
+    // ring, left, and demanded she sign, whose own memories read "furious grief" and "devastated
+    // and bitter" and whose mood string says "furious and aching", sitting at relaxation -0.5
+    // against a capacity of +2 with no grief_drag at all. Her state was recorded perfectly and the
+    // number the narrator actually renders from said nothing had happened.
+    //
+    // So sustained pressure accumulates too, at a quarter the rate. Ten turns of -2 build real
+    // drag; one bad afternoon builds 0.15, which is under the floor tickPsyche deletes at, so it
+    // leaves nothing by the next turn. Decay is unchanged, so it lifts when the pressure stops.
     if (d <= -3) {
       const drag = Math.min(6, (c.psyche.grief_drag ?? 0) + Math.abs(d) * 0.6);
+      c.psyche.grief_drag = +drag.toFixed(3);
+    } else if (d <= -1) {
+      const drag = Math.min(6, (c.psyche.grief_drag ?? 0) + Math.abs(d) * 0.15);
       c.psyche.grief_drag = +drag.toFixed(3);
     }
     if (id !== "char_player" && Math.abs(d) >= 3) shifts.push(d > 0 ? `${nameOf(id)} relaxed a little.` : `${nameOf(id)} tensed up.`);

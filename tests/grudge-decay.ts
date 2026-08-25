@@ -103,7 +103,31 @@ function idle(e: SocialEdge[], turns: number) { for (let t = 1; t <= turns; t++)
   applyEdgeDelta(edges, { from: "a", to: "char_player", warmth_delta: -10, trust_delta: -10, power_delta: 0 }, 2, { chars, traits: {} });
   const after = getEdge(edges, "a", "char_player").trust;
   check("a +10 lands smaller than a -10 removes", up < 10 && after < 0, [up, after]);
-  check("...and warmth is symmetric for an open person", getEdge(edges, "a", "char_player").warmth === 0, getEdge(edges, "a", "char_player").warmth);
+  // WARMTH USED TO RETURN TO EXACTLY 0 HERE, and that symmetry was the bug behind a save where a
+  // 63-turn romance ended with the wife at -16 and the best friend at -86 without a single betrayal
+  // in it: gains were braked by obduracy and losses were not braked by anything, so sixty small
+  // deductions had nothing on the other side of the scale. A bond absorbs ordinary friction now
+  // (see lossScale) — but only in proportion to what the bond is worth, so at warmth 10 there is
+  // almost nothing to absorb with and this stays very close to the old number.
+  const w = getEdge(edges, "a", "char_player").warmth;
+  check("...and warmth for an open person is very nearly symmetric at a weak bond", w > 0 && w < 1, w);
+  // A bond has to be BUILT to be strong — gainScale caps a +90 at +15 — so this one is set, the way
+  // a forged marriage arrives already deep.
+  check("...while a strong bond absorbs the same slight", (() => {
+    const e2: SocialEdge[] = [];
+    getEdge(e2, "a", "char_player").warmth = 90;
+    applyEdgeDelta(e2, { from: "a", to: "char_player", warmth_delta: -10, trust_delta: 0, power_delta: 0 }, 2, { chars, traits: {} });
+    const drop = 90 - getEdge(e2, "a", "char_player").warmth;
+    return drop > 0 && drop < 6;
+  })());
+  // A rupture is not absorbed at all. It lands at the engine's own per-turn warmth cap of 15, which
+  // is what "undamped" looks like here — five times what the same bond does to an ordinary slight.
+  check("...and a rupture-sized blow is not absorbed at all", (() => {
+    const e3: SocialEdge[] = [];
+    getEdge(e3, "a", "char_player").warmth = 90;
+    applyEdgeDelta(e3, { from: "a", to: "char_player", warmth_delta: -20, trust_delta: 0, power_delta: 0 }, 2, { chars, traits: {} });
+    return 90 - getEdge(e3, "a", "char_player").warmth >= 15;
+  })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -413,6 +413,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                                 <Item icon={<RotateCcw size={15} style={{ color: "var(--accent)" }} />} label="Bring back into the story"
                                   on={() => changeStatus(sel!, "restore")} />
                               )}
+                              {npc && c.status !== "departed" && c.held && (
+                                <Item icon={<RotateCcw size={15} style={{ color: "var(--accent)" }} />} label={`Let them out of ${c.held.where}`}
+                                  note="the world stops holding them and they can turn up again"
+                                  on={() => changeStatus(sel!, "restore")} />
+                              )}
                               {npc && alive && (
                                 <Item icon={<DoorOpen size={15} style={{ color: "var(--danger)" }} />} label="Send away" danger
                                   note="they leave the story and this scene — reversible from the Gone list"
@@ -534,6 +539,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   {(cond.thirst_meter ?? 0) >= 6.5 && <Row k="thirst" v={(cond.thirst_meter ?? 0) >= 8 ? "parched" : "thirsty"} />}
                   {(cond.awake_minutes ?? 0) >= 17 * 60 && <Row k="sleep" v={`${Math.round((cond.awake_minutes ?? 0) / 60)}h awake`} />}
                   <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
+                  {c.held && <Row k="held" v={`in custody at ${c.held.where} since turn ${c.held.since_turn} — they do not walk back into a scene until the story lets them out`} />}
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 

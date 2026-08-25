@@ -190,6 +190,12 @@ export interface SocialEdge {
    *  as though it had just happened. A feeling needs a date on it or it is not a feeling, it is law. */
   notes_turn?: number;
   updated_turn: number;
+  /** WHAT JUST MOVED. Warmth and trust are levels, and a level cannot say what somebody is reeling
+   *  from. A save had a woman at warmth 57 who had been told to leave twice in three turns; the
+   *  ledger recorded both cuts and the narrator was handed the number 57, so it wrote a serene,
+   *  devoted woman kissing the hand of the man who had just told her to fuck off. The deltas were
+   *  applied and thrown away. This keeps them for a few turns so the prose can be about them. */
+  swing?: { since_turn: number; warmth: number; trust: number };
   last_rupture_turn?: number; // a real disagreement happened on this edge (someone said no or set terms); trust that grows within 5 turns of it is repair, and repair grows trust faster than smoothness does
 }
 
@@ -322,6 +328,12 @@ export interface Identity {
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
   exit_turn?: number;         // when they died/left
   exit_note?: string;         // how they exited ("killed by the blast", "fled the city")
+  /** SOMEBODY ELSE HAS THEM. Set when the prose puts this person into custody — arrested, jailed,
+   *  sectioned, hospitalised, deported. They are not `departed` (that is permanent and untracked);
+   *  they are held, and they do not walk back into the player's scene until the story shows a
+   *  release. Cleared the moment it does, or by hand from the character panel. Written and read by
+   *  the departure/arrival guards in engine/turn.ts — see engine/exit.ts for what counts. */
+  held?: { since_turn: number; where: string; note: string };
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
   /** THE EXACT WORDS THAT DREW THIS PERSON — written when the portrait is generated, then reused
@@ -934,6 +946,9 @@ export interface SaveState {
    *  (see tests/prompt-echo.ts). Corrected at the end of the next turn's directive, same mechanism
    *  as last_maxim and last_leak. See engine/echo.ts. */
   last_echo?: { line: string; kind: "demand" | "parrot" } | null;
+  /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
+   *  Cleared when the ledger recovers. See castGoneCold. */
+  cast_cold_said?: number;
   /** Facts the world does not hold yet and is working toward. Each spends a turn off its clock only
    *  on a turn the world visibly moved, and lands in world.canon when the clock runs out. See
    *  engine/becoming.ts. */

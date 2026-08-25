@@ -27,7 +27,7 @@ import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
 import { authoredLine, hasAuthored, liveAuthored, settledAuthored } from "./authored";
 import { scheduleLine } from "./schedule";
-import { edgeNote, livePromises } from "./social";
+import { edgeNote, livePromises, swingLine } from "./social";
 
 /** Everyone the story has lost, lowercase name → how. Beliefs and memories are written in the
  *  present tense and never revisited, so without this the narrator is handed "Andrea is the only
@@ -1640,7 +1640,15 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
         if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${n ? ` (${n})` : ""}`; }).join("; ")}`);
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
-      if (pedge) { const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : ""; lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pn ? ` — ${pn}` : ""}`); }
+      if (pedge) {
+        const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : "";
+        lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${pedge.warmth}, trust ${pedge.trust}${pn ? ` — ${pn}` : ""}`);
+        // AND WHAT JUST MOVED IT. A level renders a settled person; a person mid-fall is not
+        // settled, and the number alone cannot tell those apart. Only appears when something
+        // actually moved, so it costs nothing on a quiet turn.
+        const sw = swingLine(pedge, state.world.current_turn);
+        if (sw) lines.push(`  just moved: ${sw}`);
+      }
       // desire is rendered EVERY turn for present central characters — its absence is exactly how
       // a model defaults to "warm = available". One short line, gated by openness.
       { const dl = desireLine(state, id); if (dl) lines.push(`  ${dl}`); }
@@ -1782,7 +1790,9 @@ Player carries: ${state.world.money || "—"}${(() => {
   const list = named.map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}${populationLine(p)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
   const away = Object.entries(state.characters)
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location && c.location !== state.world.player_location)
-    .map(([, c]) => `${c.name} (${c.location === "loc_offscene" ? "elsewhere" : state.world.places[c.location!]?.name})`);
+    // held = in custody. It rides with the name because a narrator has no other reason to remember
+    // it: nothing about the room the player is standing in says somebody is in a cell.
+    .map(([, c]) => `${c.name} (${c.location === "loc_offscene" ? "elsewhere" : state.world.places[c.location!]?.name}${c.held ? ", HELD — in custody since turn " + c.held.since_turn + " and cannot come or go" : ""})`);
   const here = state.world.places[state.world.player_location]?.name ?? "";
   const footer = `\n\nEND EVERY TURN with this exact line, on its own line after the prose:\n<<<SCENE place="a name from the list above" here="EVERY character in the scene as it ends, full names, comma separated" entered="anyone who came into the scene" left="anyone who went out of it" new="anyone who did not exist in this story before this turn, each as Name (one clause on who they are)" alias="Title = the full name of the person it refers to">>>\nLeave any attribute empty when it does not apply. The "here" attribute is the important one and is NOT a list of arrivals: it is everyone physically in the scene when the turn ends, including people who were already there, people who never moved, and people who said nothing. If someone spoke or acted this turn, they are in "here" — no exceptions. Use each character’s established full name. Anyone you omit is treated as having left the scene, so an incomplete list silently removes people from the story. The "new" attribute is ONLY for a person genuinely entering the world for the first time — never an existing character, never a group ("the riders"), never an object or a place. The "alias" attribute is for a title, rank, nickname, or epithet you used for someone who ALREADY exists, so that "Headmaster" or "the old man" is not mistaken for a second person; give the alias on the left and their established full name on the right. If a person you invented spoke or acted this turn, they MUST appear in "new" — nothing else registers them, and an unregistered person has no memory, no relationships, and forgets every scene they were in. The place is where the scene ENDED. This line is machinery, not story: it is removed before anyone reads the prose, so never mention it and never write it twice.`;
   const rooms = `\n\nRooms, corners, and doorways inside a place are prose, not locations. A kitchen is part of a house; a doorway is part of a room; a booth is part of a bar. Someone who steps into the next room has not gone anywhere — they are still at the same location, and you simply describe where they stand. Never name one of these as a place: not "the edge of the kitchen", just ${here || "the house"}, with the person standing near the doorway.\n\nWhen the scene moves, look at the list first and use a name from it. Take the closest one that fits — a bar's back room is that bar; a street outside a shop is that shop. Only when the story truly goes somewhere new and separate, somewhere that is not part of anywhere on the list, name that new place plainly and briefly, as a person would say it: "The Old Cannery", "Marisol's apartment". A new place should be rare. The world has room for a few more, not for one per scene.`;
