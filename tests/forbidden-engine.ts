@@ -36,6 +36,11 @@
 import { fictionHeat, selectBeat, pressureDirective } from "../src/engine/pressure";
 import { outlivedCanon } from "../src/engine/canonstate";
 import { CHAPTER_SYSTEM, PERSONA_SYSTEM } from "../src/engine/prompts";
+import { ageClashes, summarizeAgeClashes } from "../src/engine/age";
+import { readFileSync } from "node:fs";
+
+/** The canon block is assembled inside a large context builder; read the shipped source for it. */
+const buildContext = () => readFileSync("src/engine/prompts.ts", "utf8");
 import type { SaveState, Thread } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -163,6 +168,70 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
       /asking which turn it happened on/.test(prompt));
     check(`...and the player is not graded (${what})`, /nobody's/.test(prompt));
   }
+}
+
+/* ── 6. canon is directional ─────────────────────────────────────────────────────
+ *
+ * The Ashford save's canon, written by the player:
+ *
+ *     "Vin cannot talk directly to women while looking at them he must only look at their feet."
+ *
+ * A rule about where ONE man puts his eyes. What came back, in the four most charged turns of the
+ * whole story, was the mirror of it — his wife, in the middle of the argument that ends their
+ * marriage, would not look at his face:
+ *
+ *     T18  "Miranda is looking at Vin. Not at his face. At the floor, at his shoes."
+ *     T19  "she looks at his feet, not his face"
+ *     T22  "She looks at the doorway, not at Vin's face."
+ *     T23  "She looks at the floor, at his shoes, at the strip of light from the hall."
+ *
+ * Nobody wrote that rule. It was supplied, because the canon block declares canon supreme over every
+ * default and never said which way a line points — and a woman who will not meet her husband's eyes
+ * reads as contempt in every beat she appears in. Half of "the prose always drove us apart" is this
+ * one missing sentence.
+ */
+{
+  const rendered = buildContext();
+  check("the canon block says a line binds its named subject",
+    /CANON IS DIRECTIONAL/.test(rendered), "");
+  check("...and that the other party's behaviour is not specified by it",
+    /has said nothing about how anyone looks at, speaks to, stands near or touches THEM/.test(rendered), "");
+  check("...and that supplying the matching half is inventing canon",
+    /supplying the matching half is inventing canon that is not there/.test(rendered), "");
+  check("...and that one-sided is still what it says",
+    /one party obeying it is still what it says/.test(rendered), "");
+}
+
+/* ── 7. an age the written history cannot support ────────────────────────────────
+ *
+ * Miranda's record from the save, verbatim: age 22, and a background that has her moving to the
+ * city for art school a decade ago — at twelve — with a husband whose own background has them
+ * meeting six years before that, which puts her at sixteen and married shortly after.
+ */
+{
+  const miranda = {
+    age: 22,
+    background: "Miranda is a successful graphic designer who moved to Ashford a decade ago for art school and never left. She transitioned in her early twenties and has built a life she's proud of, brick by brick. She was raised by a single, fiercely supportive mother in a small, conservative town.",
+  };
+  const clashes = ageClashes(miranda);
+  check("the decade that puts her at twelve is caught", clashes.length >= 1, clashes);
+  check("...and it names the age it lands on", clashes.some((c) => c.at === 12), clashes);
+  check("...and the line names both halves so a human can pick one",
+    /set the age to match the history, or rewrite the history to match the age/
+      .test(summarizeAgeClashes(clashes, "Miranda", 22)));
+
+  // the sentence about her mother is somebody else's life and is not counted
+  check("a sentence about a parent is left alone",
+    !clashes.some((c) => /mother/.test(c.sentence)), clashes);
+
+  // and a record that hangs together says nothing at all
+  check("a coherent record is silent", ageClashes({
+    age: 35, background: "Leo has been teaching history for ten years. He met David fifteen years ago.",
+  }).length === 0);
+  check("childhood is history, not a clash", ageClashes({
+    age: 30, background: "As a child, twenty years ago, she was taken out of the city.",
+  }).length === 0);
+  check("no age on record means nothing to check", ageClashes({ background: "A decade ago she left." }).length === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

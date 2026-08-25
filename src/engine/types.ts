@@ -976,7 +976,7 @@ export interface SaveState {
   last_retold?: { line: string; known: string } | null;
   /** The player addressing the machine rather than the world — a note about the writing. Carried
    *  for a few turns as standing direction, never dramatised. See engine/ooc.ts. */
-  last_ooc?: { complaint: string; turn: number } | null;
+  last_ooc?: { complaint: string; turn: number; said?: number } | null; // said = how many times they have raised it; a repeat means the first was not answered
   /** Somebody found inside the player's private space last turn with no door on the page. Corrected
    *  at the end of the next turn's direction, same mechanism as last_maxim. See engine/threshold.ts. */
   last_intrusion?: { name: string; line: string; place: string } | null;

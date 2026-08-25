@@ -257,6 +257,99 @@ export function reconcileAge(state: SaveState, charId: string, from: number, to:
 }
 
 /** One line for the player, in the profile they just edited. */
+/* ── THE OTHER WAY AN AGE GOES WRONG ─────────────────────────────────────────────
+ *
+ * Everything above reconciles a record the player EDITED. This catches the record that was never
+ * coherent to begin with, which is a different failure and arrives from the forge rather than from
+ * the profile panel.
+ *
+ * The Ashford save. Miranda, age 22, background:
+ *
+ *     "Miranda is a successful graphic designer who moved to Ashford a decade ago for art school
+ *      and never left. She transitioned in her early twenties and has built a life she's proud of,
+ *      brick by brick."
+ *
+ * A decade ago she was twelve. Her husband's background has them meeting six years ago at a party,
+ * which puts her at sixteen and married not long after. None of that is what anyone meant, and
+ * every one of those sentences is printed to the narrator every turn as her nature — while the
+ * number 22 sits in a comma-separated card, being, as the header of this file says, the quieter of
+ * the two instructions by a wide margin. The prose wins, so the cast plays a woman with a decade of
+ * history who is twenty-two, and the seams show up as characters who do not quite add up.
+ *
+ * DELIBERATELY CONSERVATIVE, because this reports to a human rather than editing anything: it reads
+ * only elapsed spans ("a decade ago", "for six years"), only in the character's own record, and it
+ * stays quiet on any sentence that has already anchored itself to a younger age or to somebody
+ * else's life — which is where almost every legitimate mention of a small number lives.
+ */
+
+/** Spans of elapsed time, as a biography writes them. */
+const SPAN = /\b(?:(\d{1,2})|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\s+(year|decade)s?\s+(?:ago|of|before|earlier)\b|\bfor\s+(?:(\d{1,2})|a|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty)\s+(year|decade)s?\b/gi;
+
+/** …and the phrases that mean a sentence is already talking about childhood, or about somebody
+ *  else. A background is full of both, and neither is an incoherent age. */
+const NOT_THEIRS = /\b(?:as a (?:child|kid|girl|boy|baby)|growing up|childhood|when (?:he|she|they) was|when (?:he|she|they) were|at the age of|aged \d|born|mother|father|mom|dad|parents?|grandmother|grandfather|gran|nan|aunt|uncle|sister|brother|sibling|cousin|daughter|son|school days)\b/i;
+
+/** Below this, a span describing an adult life has landed on somebody who was not one. */
+const ADULT_FLOOR = 14;
+
+const SPANWORD: Record<string, number> = {
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20,
+};
+
+export interface AgeClash {
+  /** Which field it was written in. */
+  where: string;
+  /** The sentence, as written. */
+  sentence: string;
+  /** How old they would have been. Negative means the span is longer than their whole life. */
+  at: number;
+}
+
+/**
+ * Spans in a character's own record that their age cannot support.
+ *
+ * Returns an empty array for almost every character, which is the intent — a report a human reads
+ * is only useful if it is usually silent.
+ */
+export function ageClashes(c: { age?: number; background?: unknown; life_history?: unknown }): AgeClash[] {
+  const age = Number(c?.age);
+  if (!Number.isFinite(age) || age <= 0 || age > 120) return [];
+  const out: AgeClash[] = [];
+  for (const where of ["background", "life_history"] as const) {
+    const text = typeof (c as any)[where] === "string" ? String((c as any)[where]) : "";
+    if (!text.trim()) continue;
+    for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+      if (NOT_THEIRS.test(sentence)) continue;
+      SPAN.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = SPAN.exec(sentence))) {
+        const digits = m[1] ?? m[3];
+        const unitRaw = (m[2] ?? m[4] ?? "year").toLowerCase();
+        const word = m[0].trim().split(/\s+/)[0].toLowerCase();
+        const n = digits ? Number(digits) : (SPANWORD[word] ?? 0);
+        if (!n) continue;
+        const years = unitRaw.startsWith("decade") ? n * 10 : n;
+        const at = age - years;
+        if (at < ADULT_FLOOR) out.push({ where, sentence: sentence.trim().slice(0, 200), at });
+      }
+    }
+  }
+  return out;
+}
+
+/** The clashes as one line for the player, or "" when the record hangs together. */
+export function summarizeAgeClashes(clashes: AgeClash[], name: string, age: number): string {
+  if (!clashes.length) return "";
+  const worst = clashes.slice(0, 2).map((c) =>
+    c.at < 0
+      ? `"${c.sentence}" covers more years than ${name} has been alive`
+      : `"${c.sentence}" puts ${name} at ${c.at} when it happened`);
+  return `${name}'s age (${age}) and their written history disagree: ${worst.join("; ")}. `
+    + `The prose is what the narrator reads every turn, so it is the half that will be played — `
+    + `set the age to match the history, or rewrite the history to match the age.`;
+}
+
 export function summarizeAgeReport(rep: AgeReport, name: string): string {
   if (rep.from === rep.to) return "";
   const bits: string[] = [];

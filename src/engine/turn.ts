@@ -43,7 +43,7 @@ import { MOTIVE_LEAK, scrubForReplay, reviseProse, displayProse } from "./revise
 export { scrubForReplay };
 import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
-import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "./ooc";
+import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
@@ -1746,7 +1746,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // quote mask does that job in every other mode, and say mode is the one where there are no quotes
   // to mask because the whole input is the line.
   const ooc = mode === "say" ? null : detectOOC(action);
-  if (ooc) state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn };
+  // A REPEAT IS THE SAME NOTE, LOUDER. Counted while the previous one is still standing, so a
+  // player who has to say it twice is heard as having said it twice rather than starting over.
+  if (ooc) {
+    const prior = state.last_ooc;
+    const stillStanding = prior && state.world.current_turn - prior.turn <= OOC_STANDS;
+    state.last_ooc = { complaint: ooc.complaint, turn: state.world.current_turn, said: stillStanding ? (prior!.said ?? 1) + 1 : 1 };
+  }
   // SOVEREIGNTY, read here rather than at its old home 250 lines down, because the first thing that
   // consumes it is the void guard below and everything after that is downstream of what the guard
   // did to the action text.
@@ -2480,7 +2486,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // so the model cannot learn from them, which is necessary and entirely silent — the narrator kept
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
-    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn) : "";
+    ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
   const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
