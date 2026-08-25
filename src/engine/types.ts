@@ -702,6 +702,13 @@ export interface Thread {
    *  axis itself — a world whose threads are all threats can only ever press by endangering them.
    *  Absent on threads authored before this existed; treated as "threat" for weighting. */
   kind?: "obligation" | "opportunity" | "relationship" | "institution" | "threat";
+  /** Set by the chapter auditor when this open thread IS one of the things the world bible listed
+   *  as never-the-engine. The pressure controller will not press through it: a forbidden engine
+   *  that keeps being chosen as the source of every scene is how a romance becomes a breakup
+   *  procedural while the audit records, correctly, that it has. Cleared when the auditor stops
+   *  naming it. It does not close the thread — the situation is still real and the player may
+   *  still act on it; the world just stops reaching for it as the reason a scene happens. */
+  forbidden_engine?: boolean;
 }
 
 export interface ConsequenceEvent {

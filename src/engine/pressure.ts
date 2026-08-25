@@ -29,6 +29,9 @@ export interface PressureInput {
   clocks: FactionClock[];
   action: string;                  // player's typed intent
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
+  /** The last several turns' pressure sources, oldest first. Stops one thread from naming itself
+   *  as the reason for every scene — see fictionHeat. */
+  recentSources?: string[];
   focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
   focusLabel?: string | null;      // what we're converging on / in (for the directive text)
   tension?: number;                // 0-10 master dial; 0 = engine originates nothing new
@@ -69,11 +72,53 @@ export function bandMean(target: number[]): number {
   return target.reduce((s, p, i) => s + p * ((BAND_RANGES[i][0] + BAND_RANGES[i][1]) / 2), 0);
 }
 
-export function fictionHeat(threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string): { heat: number; source: string } {
+/** How many recent turns of named sources are weighed when picking this turn's headline. */
+const SOURCE_MEMORY = 8;
+
+/**
+ * THE HEADLINE IS A SOURCE TOO, AND IT HAD NO MEMORY AND NO FILTER.
+ *
+ * `source` is the first thing in the narrator's pressure directive — "PRESSURE 8/10 (danger) —
+ * source: thread: Friction between Vin and Miranda over privacy and friends." — and until now it
+ * was a plain argmax over thread tension, recomputed from scratch every turn. selectBeat, one
+ * function below, has careful per-source fatigue precisely so the world stops reaching for the same
+ * thing; the headline had none, so the hottest thread named itself as the reason for the scene on
+ * every single turn it stayed hottest.
+ *
+ * One save: forty turns across a hundred where the directive's first line named the same marital
+ * friction thread. The genre was "Love, erotica, romantic" and the bible's own never-the-engine list
+ * began "A breakup or infidelity plot". The chapter auditor caught it five times and said so in
+ * plain words. Nothing downstream of the auditor could act on it, because nothing downstream of the
+ * auditor was reading the forbidden list at all — it reached the narrator only as one parenthetical
+ * asking it not to plot that way unprompted, while the machinery underneath handed it that exact
+ * plot as the turn's assigned subject.
+ *
+ * So two gates, in the order they matter:
+ *  · A thread the auditor has marked as running a forbidden engine is not a source. It stays open,
+ *    the player may still act on it, and the world stops using it as the reason a scene happens.
+ *  · Among what is left, a source named in the last few turns is damped rather than banned. A truly
+ *    hot thread still wins eventually; it just cannot own the headline indefinitely.
+ */
+export function fictionHeat(
+  threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string,
+  /** The last several turns' chosen sources, oldest first — telemetry's `pressure_source` column. */
+  recentSources?: string[],
+): { heat: number; source: string } {
   let heat = 0;
   let source = "ambient world texture";
-  const hot = threads.filter((t) => t.status === "active").sort((a, b) => b.tension - a.tension)[0];
-  if (hot && hot.tension > heat) { heat = hot.tension; source = `thread: ${hot.title}`; }
+  // How many of the recent turns named this exact source. Each one costs a point of effective
+  // tension for the purposes of THIS choice only; the thread's real tension is never touched.
+  const named = new Map<string, number>();
+  for (const r of (recentSources ?? []).slice(-SOURCE_MEMORY)) {
+    const k = String(r ?? "").trim();
+    if (k) named.set(k, (named.get(k) ?? 0) + 1);
+  }
+  const staleness = (label: string) => named.get(label) ?? 0;
+  const hot = threads
+    .filter((t) => t.status === "active" && !t.forbidden_engine)
+    .map((t) => ({ t, score: (t.tension ?? 0) - staleness(`thread: ${t.title}`) }))
+    .sort((a, b) => b.score - a.score)[0];
+  if (hot && hot.score > heat) { heat = hot.t.tension; source = `thread: ${hot.t.title}`; }
   for (const c of clocks) {
     if (c.status !== "running" || c.segments === 0) continue;
     const h = (c.filled / c.segments) * 8;
@@ -113,7 +158,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) { band = i; break; } if (i === p.length - 1) band = i; }
 
   // fiction heat: pressure ≥ 8 must be earned (C4); heat also pulls band up
-  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now);
+  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.recentSources);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
     if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
@@ -328,6 +373,10 @@ export function selectBeat(inp: BeatInput): Beat {
   // at 2. That is the whole point of authoring them.
   for (const t of inp.threads) {
     if (t.status !== "active") continue;
+    // Marked by the chapter auditor as one of this world's never-the-engine things. The situation
+    // is real and the player may still act on it; the world does not press through it. See
+    // fictionHeat above for why this gate exists in two places.
+    if (t.forbidden_engine) continue;
     const kind = t.kind ?? "threat";
     const bar = kind === "threat" ? 6 : 2;
     if ((t.tension ?? 0) >= bar)
@@ -462,12 +511,14 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
       lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist. That reaction is NOT automatically fear or opposition: people who cannot resist a power also court it, claim it, follow it, sell access to it, ask it for things, or build a life in its shadow, and what any given person does comes from their own state, their standing with the player, and what they want — never from a script that assumes the powerful are resented.`);
     } else if (tier === "mythic") {
       lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel — and a KIND of attacker the player has already beaten does not get to try again the same way. Men who watched their fellows lose to this person do not charge him; they hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating a losing attack is not tension, it is the world failing to learn. That list is how HOSTILE parties adapt — it is not the whole world's posture: people with no quarrel with the player, or who have been helped by them, respond by seeking them out, asking, petitioning, following, or trading on the connection. Otherwise pressure is consequence and reaction, drawn from each character's own state.`);
-    } else if (palette?.length) {
-      lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
     }
-  } else if (palette?.length) {
-    lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
   }
+  // THE GENRE'S OWN PRESSURES, ALWAYS. This line used to sit in the tier chain's `else`, so a
+  // protagonist who had scaled past mortal silently lost the palette the forge wrote for their
+  // story — the one instruction that says what this world is allowed to press with. Scaling up is
+  // not a reason to stop being a romance. The tier note above steers off the wrong reflex; the
+  // palette says what the right one is, and the two are not alternatives.
+  if (palette?.length) lines.push(`Draw pressure only from: ${palette.join("; ")}.`);
   return lines.join(" ");
 }
 
