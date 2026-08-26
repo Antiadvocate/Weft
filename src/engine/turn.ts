@@ -45,6 +45,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
+import { apertureNote, heardYouNote } from "./aperture";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -2019,6 +2020,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // what the previous turn actually measured, and the standing rule for anybody in the room who is
   // currently angry — the state whose only rendering was withdrawal. See engine/speech.ts.
   const speechNote = speechDirective(state) + angerRegister(state);
+  // HOW WIDE THE ATTENTION IS. Relaxation already decides how accurately a person sees, how an
+  // emotion resolves, and whether a habit can be caught; it did not decide how much of the world
+  // gets into what they say. A settled character was running her whole voice card at a hundred
+  // percent and her whole want out loud, every turn, deaf to a room full of things she likes.
+  // See engine/aperture.ts.
+  const apertureNote_ = apertureNote(state, state.world.present);
   // WHAT THIS WORLD IS TURNING INTO. A fact the player wrote that is not true yet: the world moves
   // one step toward it per turn, through its own causes, and lands in canon when it gets there.
   // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
@@ -2671,7 +2678,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const consultNote = consultDirective(state, action);
   // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
   const cameNote = arrivalOrder(state);
-  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
+  // written, so nothing gets explained to somebody who just declined the explanation.
+  const heardNote = heardYouNote(action);
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2721,13 +2731,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }

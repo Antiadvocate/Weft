@@ -12,6 +12,14 @@ Relaxation sets how accurately a person reads other people. Clenched bodies see 
 
 **Exception — conscience.** Calm is not care. Each person has a **conscience** number (0–1): how much other people's pain registers as mattering. For most people, opening up and warming up travel together. For a person at ≤0.3, they come apart: relaxation still sharpens their sight, but what they see never obligates them. Their calm is real (these people are genuinely low-anxiety and stress-immune) and it makes them more effective, not kinder. Clench makes them petty and punitive instead of defensive. Their darkness is constitution, not wound, and comfort does not fix it.
 
+## Attention: the aperture
+
+The same number decides how *wide* a person is. A braced body narrows: the attention goes to the one thing that matters, the vocabulary tightens onto its most concentrated form, and very little else gets in. That is not a fault — it is what bracing is for, and it is what makes the other end mean anything.
+
+An open body is not doing that. Its speech still comes out of its own life and its own words, but the signature loosens: something said for no reason, an aside that goes nowhere, an answer given straight with no angle on it, a sentence that does not end in what happens next. Its attention is catchable by whatever is actually around it — a gym on the way to the bank, a smell in the car, somebody else's shoulder — and none of that has to lead anywhere. And its wants move by an inch and a gesture rather than by an agenda read out loud: a person walking toward what they want while talking about something else is the ordinary case, and a person narrating their want every turn is a plot-label with a body.
+
+A voice card describes the shape a person takes **under load**. Run at a hundred percent it stops being a voice and becomes a filter, and the character can only ever say the one kind of thing. How much of it is load-bearing this turn is what the aperture decides.
+
 ## Feeling: the lifecycle of an emotion
 
 An emotion is an event, not a possession. When one lands (an active state like "anger at the verdict"), what happens next depends on the body holding it:

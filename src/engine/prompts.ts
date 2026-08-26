@@ -16,6 +16,7 @@ import { MAX_LIVE } from "./threads";
 import { outlivedCanon } from "./canonstate";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
+import { apertureOf } from "./aperture";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
 import { doorFromVoice } from "./coerce";
@@ -1209,7 +1210,18 @@ export function deriveVoice(
   // ESCALATE under threat — pursue, re-check, protest. The band was overriding the model, so the
   // band now defers to it.
   if (rel <= -7) parts.push(`right now: clenched — under pressure and it is going somewhere. ${ident?.attachment?.style === "avoidant" ? "Short and hard rather than silent: the flat sentence that ends the subject, said out loud, and then they are doing something else." : ident?.attachment?.style === "anxious" ? "It comes out AT the other person: asking again, following it across the room, repeating the part that was not answered, raising it." : "It stays in the room and in their voice: the plain naming of the thing, the direct question, what they will and will not do."} Not stillness and not one clipped line — those are one person's way of being angry and are being written as everybody's`);
-  else if (rel >= 6) parts.push("right now: easier, more open and warm than usual");
+  // AND THE MIDDLE BAND, WHICH DID NOT EXIST. Between −7 and +6 this function said nothing at all
+  // about register, which is where nearly every turn of nearly every save actually sits: a body at
+  // +2.5 after twenty-eight settled turns was handed exactly what a body at −2 was handed, which
+  // was nothing, so it spoke out of its card and only its card. See engine/aperture.ts — the long
+  // form of this lives in the direction; what a card can carry is the one clause that changes.
+  else if (apertureOf(rel) === "narrowed") parts.push("right now: braced — the register above is at its most concentrated, and the attention is on the one thing that matters and stays there. Correct, and what makes the open state mean anything");
+  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the register above is the shape this person takes UNDER LOAD, and they are not under load. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
+  // The middle band carries the least, so it is the one band that does not count as "something to
+  // say about this voice this turn": a card with nothing else on it still falls back to its
+  // baseline below, with this appended rather than instead.
+  const neutralBand = !parts.length;
+  if (!(rel <= -7) && apertureOf(rel) === "working") parts.push("right now: neither braced nor loose — mostly on task, with slack in it; one thing they say lands outside the register");
   // relationship to the person being addressed
   if (addresseeEdge) {
     const { warmth, trust } = addresseeEdge;
@@ -1219,6 +1231,7 @@ export function deriveVoice(
     if (trust <= -40) parts.push("guarded — they do not trust this listener");
   }
   const dynamic = parts.filter(Boolean);
+  if (neutralBand && ident.speech_pattern) return [ident.speech_pattern, ...dynamic].filter(Boolean).join("; ");
   return dynamic.length ? dynamic.join("; ") : ident.speech_pattern;
 }
 
