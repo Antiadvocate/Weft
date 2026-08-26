@@ -27,7 +27,7 @@ export type FieldKind =
   | "unknown";    // anything else — falls back to JSON
 
 /** Keys whose string values are long-form by nature, however short they happen to be right now. */
-const PROSE_KEYS = /^(background|life_history|appearance_facts|appearance_now|description_facts|description|taste|narrator_direction|political_situation|what_people_fear|climate_and_geography|cultures_and_languages|magic_rules|technology_level|forbidden|absent|destination|tone|content|full_content|summary|narrator_prose|player_action|blocker|goal|objective|consequence|notes|stale_note|under_threat|soothed_by|agenda|rule|title|premise|art_direction|opening_scene_hint)$/;
+const PROSE_KEYS = /^(background|life_history|appearance_facts|appearance_now|description_facts|description|speech_pattern|taste|narrator_direction|political_situation|what_people_fear|climate_and_geography|cultures_and_languages|magic_rules|technology_level|forbidden|absent|destination|tone|content|full_content|summary|narrator_prose|player_action|blocker|goal|objective|consequence|notes|stale_note|under_threat|soothed_by|agenda|rule|title|premise|art_direction|opening_scene_hint)$/;
 
 /** Keys that hold image payloads. Their length is the problem, so they are never text. */
 const IMAGE_KEYS = /(portrait_url|image_url|image|thumbnail|avatar|_url$)/i;

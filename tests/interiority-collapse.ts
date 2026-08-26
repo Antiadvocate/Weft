@@ -33,11 +33,10 @@
  *  3. NO DOOR. All three characters carried `approach: null`. The approach only survives a
  *     bookkeeper rewrite while the goal is unchanged, and goals change constantly. Without it the
  *     intent pass has nothing to build a surface from except the want — and a surface that IS the
- *     want is an announcement, which the rule at intent.ts already names in those words. (The
- *     fallback door that used to be derived from a character's voice card is gone with the rest of
- *     the idiolect machinery — see tests/no-idiolect.ts.)
+ *     want is an announcement, which the rule at intent.ts already names in those words.
  */
 import { collapsed } from "../src/engine/intent";
+import { doorFromVoice } from "../src/engine/coerce";
 import { stripMetaPlayer } from "../src/engine/echo";
 
 let pass = 0, fail = 0;
@@ -63,6 +62,22 @@ function check(name: string, c: boolean, extra?: unknown) {
               "She meets his gaze steadily, hands folded in her lap."));
   check("an empty truth is a collapse", collapsed(s45, ""));
   check("...so the intent gets dropped rather than filed as an interior", collapsed(s45, "   "));
+}
+
+/* ── 2. the door, derived from the person when the want has none ─────────────── */
+{
+  // Miranda's actual voice block from the save
+  const miranda = { voice: {
+    agenda: "to steer any conversation off the closed door and back to something she can point at",
+    tics: ["swerves to the physical environment when pressed", "asks about logistics to stop a personal question"],
+  } };
+  const door = doorFromVoice(miranda);
+  check("a person with a voice always has a door", !!door, door);
+  check("...built from what they angle for", /steer any conversation off the closed door/.test(door ?? ""));
+  check("...and the moves they use to do it", /swerves to the physical environment/.test(door ?? ""));
+  check("somebody with no voice block gets none rather than an invented one",
+    doorFromVoice({}) === undefined && doorFromVoice(undefined) === undefined);
+  check("tics alone are enough", !!doorFromVoice({ voice: { tics: ["changes the subject to an object"] } }));
 }
 
 /* ── 3. the machinery naming itself on the page ──────────────────────────────── */

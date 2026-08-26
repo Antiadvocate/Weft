@@ -204,7 +204,7 @@ export function reconcileAge(state: SaveState, charId: string, from: number, to:
   // The bedrock look is the loudest of these: it is printed to the narrator every single turn and
   // labelled "(constant)", so an apparent age written into it reads as more authoritative than the
   // number beside it.
-  for (const k of ["appearance_facts", "appearance_now", "background", "life_history", "current_goal", "taste"] as const) {
+  for (const k of ["appearance_facts", "appearance_now", "background", "life_history", "current_goal", "taste", "speech_pattern"] as const) {
     const v = (c as any)[k];
     if (typeof v === "string" && v) (c as any)[k] = fix(`${c.name} · ${k}`, v, false, false);
   }
@@ -212,6 +212,13 @@ export function reconcileAge(state: SaveState, charId: string, from: number, to:
     const arr = (c as any)[k];
     if (Array.isArray(arr)) (c as any)[k] = arr.map((x: unknown) => (typeof x === "string" ? fix(`${c.name} · ${k}`, x, false, false) : x));
   }
+  if (c.voice) {
+    for (const k of ["example_lines", "never_says"] as const) {
+      const arr = c.voice[k];
+      if (Array.isArray(arr)) c.voice[k] = arr.map((x) => (typeof x === "string" ? fix(`${c.name} · voice.${k}`, x, false, true) : x));
+    }
+  }
+
   // ── 2. WHAT EVERYONE KNOWS ──────────────────────────────────────────────────
   // Her own bank may hold it in the first person ("I'm fifteen"); everybody else's has to name her.
   for (const [holder, mem] of Object.entries(state.memory ?? {})) {

@@ -226,28 +226,6 @@ safety net: when a filed promise's text matches the recipient's active drive (to
 clears, and the next goal arrives by the normal drives_update path. Even if the bookkeeper forgets,
 the promise reaching the ledger IS the answer reaching state.
 
-**No idiolects** (voiceforge.ts *deleted*; prompts.ts, maxims.ts, state.ts, coerce.ts). Every
-character used to carry a stored speech signature: a `voice` card of diction, syntax, rhythm,
-tics, never-says, an agenda and sample lines, a `speech_pattern` string beside it, a tail-sampled
-forge pass whose entire job was to make each card unlike the others, a refresh that rewrote it
-every twelve turns, and half a dozen prompt blocks telling the narrator to write everybody toward
-theirs. The whole idea is gone. A speech signature is written once, at creation, by a model that
-has never seen this person in a scene — and then repetition makes it the loudest thing on the
-record, so a hundred turns later the character is still performing a sentence somebody guessed
-about them before the story started. That is a caricature with a refresh schedule, not a person.
-
-What decides a line now is the situation, which is the same five questions the dialogue procedure
-always asked: what the speaker wants in the next minute, what they know, what their body is doing,
-who else can hear, and what their life has given them words for. All five move. `deriveDelivery`
-(the old `deriveVoice`) keeps only what is situational — what play has made of them, the pressure
-they are under, who they are addressing — and returns the empty string when none of it applies,
-in which case no line is printed at all. `speakerAnchor` (the old `voiceAnchor`) sends who is in
-the room and drops the registers and exemplars. The narrator is told outright that nobody has a
-voice of their own and that it is not to invent one; the forge is told not to author one. Old
-saves are scrubbed on load — `healCharacterTypes` deletes `speech_pattern`, `voice` and
-`voice_refreshed_turn` — so a pre-change record cannot leak one back into a prompt.
-Pinned by tests/no-idiolect.ts.
-
 ## 5b. The attempt frame (`attempt.ts`)
 
 Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine

@@ -15,7 +15,7 @@
  * detector that flags "Two sestertii is high for bread that needs trimming" to the narrator as a
  * fault teaches it to stop writing the best thing in the file.
  */
-import { findMaxims, maximFix, maximRate, spokenLines, speakerAnchor } from "../src/engine/maxims";
+import { findMaxims, maximFix, maximRate, spokenLines, voiceAnchor } from "../src/engine/maxims";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -84,28 +84,25 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   check("nothing to correct produces nothing", maximFix(null) === "" && maximFix(undefined) === "");
 }
 
-/* ── the positive half: who is talking, where instructions land ─────────────── */
+/* ── the positive half: their own lines, where instructions land ─────────────── */
 {
-  // NO SAMPLE LINES AND NO REGISTERS. Three two-word exemplars per character taught the whole cast
-  // to answer in fragments — a sample of a voice is always compressed, and "match this" then reads
-  // as "never write anyone a long sentence". Nobody has a stored voice at all now; what goes in is
-  // who is in the room, and the line comes from what they want and what state they are in.
+  // NO SAMPLE LINES. Three two-word exemplars per character taught the whole cast to answer in
+  // fragments — a sample of a voice is always compressed, and "match this" then reads as "never
+  // write anyone a long sentence". What separates two people is their lives, so that is what goes in.
   const state = { characters: {
     char_l: { name: "Lucia", age: 52, core_traits: ["Counts everything twice"], background: "Runs the inn. Owes the decurio." },
     char_m: { name: "Marcus", age: 19, core_traits: ["Answers before you finish"], background: "Carries water for the temple." },
     char_x: { name: "Nobody" },
   } };
-  const a = speakerAnchor(state, ["char_l", "char_m", "char_x"]);
-  check("present speakers arrive as who they are", /Lucia — 52/.test(a) && /Marcus — 19/.test(a), a);
+  const a = voiceAnchor(state, ["char_l", "char_m", "char_x"]);
+  check("present speakers are told apart by their lives", /Lucia — 52/.test(a) && /Marcus — 19/.test(a), a);
   check("a card with nothing on it contributes nothing", !/Nobody/.test(a));
-  check("no sample line is handed over at all", !/"/.test(a), a);
-  check("no manner of speaking is handed over either",
-    !/(TALKS LIKE THIS|Would never say|register)/i.test(a.replace(/in the same plain register/, "")), a);
-  check("and it says so outright", /NOBODY HERE HAS A VOICE OF THEIR OWN/.test(a), a);
+  check("no sample line is handed over at all", !/"/.test(a.replace(/Would never say[^\n]*/g, "")), a);
   check("a state can override the person", /repeats themselves, stops halfway/.test(a));
   check("length is named as coming from the moment, not a style", /LENGTH COMES FROM THAT, NOT FROM A STYLE/.test(a));
   check("and a uniformly terse cast is called out as one person", /they have all been written by the same person/.test(a));
-  check("no cards, no note", speakerAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
+  check("with a check that can actually be applied", /would produce the same line in this moment/.test(a));
+  check("no cards, no note", voiceAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
 }
 
 /* ── the rate, for the toast ─────────────────────────────────────────────────── */

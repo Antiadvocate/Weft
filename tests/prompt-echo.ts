@@ -85,9 +85,9 @@ const modelFacing = templateLiterals(readFileSync("src/engine/prompts.ts", "utf8
  *
  * This file only ever measured prompts.ts, and its scanner only ever saw the parts of it that fell
  * in phase with a backtick-pairing regex (see tools/promptlint.ts). Meanwhile the prompt that writes
- * a whole person from the player's description lives in sketch.ts, the one that writes what a
- * player's own faculties tell them lives in read.ts, and neither was ever read here. Same rule,
- * same ratchet, applied to all of them.
+ * the sample lines every character's speech is copied from lives in voiceforge.ts, the one that
+ * writes what a player's own faculties tell them lives in read.ts, and neither was ever read here.
+ * Same rule, same ratchet, applied to all of them.
  */
 {
   const NEG = /(never|no |not |ban(ned)?|forbidden|avoid|stop |instead of|rather than|failure|wrong|do not|don't)/i;

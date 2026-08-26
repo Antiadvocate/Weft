@@ -5,8 +5,6 @@
  * given them words for. Four of those five need FIELDS, and the block the model reads immediately
  * before writing — "HOW THESE PEOPLE SPEAK", deliberately placed last so it is nearer than the
  * model's own drifting prose — used to carry a name, a diction note and three sample lines.
- * Nobody has a stored voice at all any more; a save written before that change may still have one
- * on disk, so the fixture below hands one in and the block has to ignore every part of it.
  *
  * So: no age. No background (rendered for the player only, never for an NPC). No era, no culture,
  * no technology level. Mood and body existed, hundreds of lines further up, past everything else in
@@ -82,10 +80,6 @@ const anchor = (s: any) => {
   // fragments: a sample of a voice is always compressed, so "match this" reads as "never write
   // anyone a long sentence" — and a clipped weighty fragment is the shape of an aphorism.
   check("and NO sample line is handed over", !/bread that needs trimming|The fifteenth/.test(a), a);
-  check("...nor a manner of speaking, from a stale card or anywhere else",
-    !/short, priced, transactional|Would never say|how she feels/.test(a), a);
-  check("...and the block says outright that nobody has one",
-    /NOBODY HERE HAS A VOICE OF THEIR OWN/.test(a), a);
   check("length is named as a property of the moment, not the person",
     /HOW MUCH SOMEBODY SAYS IS NOT A PROPERTY OF THE PERSON/.test(a));
   check("a uniformly terse cast is called out as one person",
@@ -130,7 +124,7 @@ const anchor = (s: any) => {
   const { s, m } = fixture({ voice: {} });
   s.condition[m].psyche.mood = "wary";
   const a = anchor(s);
-  check("someone with nothing recorded about their speech still appears", /Lucia, 52/.test(a), a.slice(0, 500));
+  check("someone with no voice card still appears", /Lucia, 52/.test(a), a.slice(0, 500));
   check("...with the life the narrator would otherwise invent", /lost its land two generations back/.test(a));
   check("...and their state", /wary/.test(a));
   check("...and their traits", /Counts everything twice/.test(a));

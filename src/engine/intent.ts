@@ -24,6 +24,7 @@ import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
+import { doorFromVoice } from "./coerce";
 import { playerSaysAnswered, deixisNote } from "./turn";
 
 export interface NpcIntent {
@@ -36,7 +37,7 @@ export interface NpcIntent {
 }
 
 /** Does this NPC have something at stake THIS turn worth authoring a hidden intent for?
- *  Stakes = they carry an active drive, OR they hold a charged edge toward the player
+ *  Stakes = they carry an agenda/drive, OR they hold a charged edge toward the player
  *  (secret want, distrust, a false belief), OR they're withholding under stress. Cheap,
  *  synchronous gate — no model call. Returns the reason (for the prompt) or null. */
 function stakesFor(state: SaveState, id: string): string | null {
@@ -44,6 +45,8 @@ function stakesFor(state: SaveState, id: string): string | null {
   const cond = state.condition[id];
   if (!c || !cond) return null;
   const reasons: string[] = [];
+  const agenda = c.voice?.agenda?.trim();
+  if (agenda) reasons.push(`under-the-surface agenda: ${agenda}`);
   if (c.drive?.goal && !c.drive.goal.toLowerCase().includes("relax")) reasons.push(`active pursuit: ${c.drive.goal}`);
   // charged edge toward the player: strong desire they may be hiding, or distrust
   const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
@@ -239,14 +242,15 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
     const ctx = [
       `CHARACTER: ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, age ${c.age ?? "?"}.`,
       c.core_traits?.length ? `Nature: ${(Array.isArray(c.core_traits) ? c.core_traits.join(", ") : c.core_traits)}.` : "",
+      c.voice?.agenda ? `Agenda (their subtext): ${c.voice.agenda}` : "",
       // The rule above turns on the blocker and the door, and this pass was never shown either of
       // them — the same shape as every other bug this engine has had: a pass told to act on state it
       // is not given. Without the blocker it cannot know the want is frightening; without the
       // approach it invents a door the character does not use.
       c.drive?.goal ? `Wants: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
-      // A pass with no door writes the surface AS the want, which is the announcement this rule
-      // exists to stop.
-      (() => { const door = c.drive?.approach?.trim();
+      // the want's own door if it has one, otherwise the person's — see doorFromVoice. A pass with
+      // no door writes the surface AS the want, which is the announcement this rule exists to stop.
+      (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
                return door ? `How they go at it (their door — the surface should BE this, not the want): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
       e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",

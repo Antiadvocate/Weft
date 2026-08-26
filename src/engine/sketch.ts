@@ -16,7 +16,8 @@
  * and then read four paragraphs describing her — taller by an inch, dark hair in loose waves,
  * grey-green eyes, bare feet on the grass — ended up with a record holding a name, an age of 30,
  * an empty appearance, empty core_traits, empty values, and an "INCOMPLETE RECORD" background.
- * Nothing filled any of it in. She was, as the player put it, a person who does not exist.
+ * A voice card got forged for her, because voice forging is wired up. Nothing else was. She was,
+ * as the player put it, a person who does not exist.
  *
  * This is the missing pass. It has excellent material to work from and neither of the two other
  * systems was using it: the player's own words creating them, and the prose that rendered them.
@@ -42,6 +43,7 @@ export const RECORD_FIELDS = `{
 "background": "WHO THEY ARE APART FROM THE SCENE THEY ENTERED IN. Three or four plain sentences, and the test is whether a stranger could hold four different conversations with them: where they are from and what that place was like; who raised them or who they have lost; the trade or body of knowledge they actually hold, named specifically; one formative thing with nothing to do with the player or the story; and one ordinary strong opinion about something small. If the player created them outright, say so plainly and say what they were made to be \u2014 then give them the rest of a self anyway, because a person made yesterday still has to be able to talk about something other than the person who made them.",
 "core_traits": ["2-4 traits, each written to the TRAIT CONTRACT stated below the schema \u2014 a thing this person does, which a camera would catch. The engine reads this field and sends adjectives back"],
 "values": ["2-3 things they actually care about"],
+"speech_pattern": "how they talk — register, rhythm, what they refuse to say",
 "texture": ["2-4 standing interests and enthusiasms they raise unprompted when a scene gives them room \u2014 at least two with nothing to do with their trade, their rank, or the player. One physical tell is allowed among them, never more."],
 "skills": {"3-5 entries, key = the competence, value = how good and how they came by it \u2014 a person's skills are the subjects they can actually hold forth on": ""},
 "beauty": 50,
@@ -120,6 +122,7 @@ export async function completeSketch(state: SaveState, id: string, model: string
   const ctx = [
     `NAME: ${c.name}`,
     c.pronouns ? `PRONOUNS ALREADY RECORDED: ${c.pronouns}` : "",
+    c.speech_pattern && c.speech_pattern !== "plain" ? `VOICE ALREADY RECORDED (keep consistent): ${c.speech_pattern}` : "",
     `WORLD: ${b?.name ?? ""} — ${b?.era ?? ""}. ${b?.technology_level ?? ""}`,
     b?.cultures_and_languages ? `CULTURE: ${b.cultures_and_languages}` : "",
     (state.world.canon ?? []).length ? `CANON (binding law):\n${state.world.canon.map((x) => `- ${x}`).join("\n")}` : "",
@@ -165,7 +168,7 @@ export async function completeSketch(state: SaveState, id: string, model: string
  * rules are testable on their own.
  */
 export function applySketch(state: SaveState, c: Identity, g: any): void {
-  const putText = (k: "appearance_facts" | "background" | "taste" | "attracted_to", v: unknown) => {
+  const putText = (k: "appearance_facts" | "background" | "speech_pattern" | "taste" | "attracted_to", v: unknown) => {
     const cur = asText((c as any)[k], " ").trim();
     const next = asText(v, " ").trim();
     if (next && (!cur || /^INCOMPLETE RECORD\b/.test(cur) || cur === "plain")) (c as any)[k] = next;
@@ -182,6 +185,7 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
 
   putText("appearance_facts", g.appearance_facts);
   putText("background", g.background);
+  putText("speech_pattern", g.speech_pattern);
   putText("taste", g.taste);
   putText("attracted_to", g.attracted_to);
   putList("core_traits", g.core_traits);

@@ -10,9 +10,10 @@
  *   "Work is fine. Elena's still fighting over the burgundy. Marcus is still fighting over the
  *    flatstock."
  *
- * Half of this is the character working correctly. She was steering the conversation off the closed
- * door and back to something she could point at, and the player asked what was wrong three turns
- * running. She is supposed to deflect. What she is not supposed to
+ * Half of this is the character working correctly. Her voice agenda is "to steer any conversation
+ * off the closed door and back to something she can point at", her tics are "swerves to the physical
+ * environment when pressed" and "asks about logistics to stop a personal question", and the player
+ * asked what was wrong three turns running. She is supposed to deflect. What she is not supposed to
  * do is deflect with the identical anecdote every time, and nothing in the engine knew she had
  * already spent it — the narrator simply reached for the nearest prop, which was the one it had
  * invented two turns ago and could still see in the recent prose.

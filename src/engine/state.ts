@@ -36,7 +36,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     character_id: id, name: asText(ident.name), age: asNum(ident.age, 0, 200) ?? 30,
     appearance_facts: asText(ident.appearance_facts, " "), background: asText(ident.background, " "),
     core_traits: asList(ident.core_traits), values: asList(ident.values),
-    skills: ident.skills ?? {},
+    speech_pattern: asText(ident.speech_pattern) || "plain", skills: ident.skills ?? {},
     texture: asList(ident.texture),
     pronouns: ident.pronouns ? asText(ident.pronouns) : undefined,
     height_cm: asNum(ident.height_cm, 30, 300), weight_kg: asNum(ident.weight_kg, 2, 500),
@@ -66,6 +66,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     aliases: ident.aliases ? asList(ident.aliases) : undefined,
     conscience: asNum(ident.conscience, 0, 1),
     beauty: typeof ident.beauty === "number" ? Math.max(0, Math.min(100, ident.beauty)) : undefined,
+    voice: ident.voice,
     attachment: ident.attachment,
   };
   // CAPACITY = resting openness the person's nature drifts toward. When the forge gives an explicit
@@ -77,7 +78,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
   let cap = explicitCap ?? 2;
   if (explicitCap === undefined) {
     const consc = asNum(ident.conscience, 0, 1) ?? 0.6;
-    const traitBlob = `${asList(ident.core_traits).join(" ")} ${asText(ident.attachment?.under_threat ?? "")}`.toLowerCase();
+    const traitBlob = `${asList(ident.core_traits).join(" ")} ${asText((ident.voice as any)?.agenda ?? "")} ${asText(ident.attachment?.under_threat ?? "")}`.toLowerCase();
     const guarded = /\b(cold|hollow|vindictive|cruel|ruthless|predatory|paranoid|hostile|guarded|calculating|manipulat|menac|instrument|vicious|contempt|sadis|controlling|suspicious|wary|hardened|brutal)\b/.test(traitBlob);
     // base on conscience: dark (≤0.3) rests tense (~-2), ordinary (~2), warm (≥0.8) rests open (~4)
     cap = consc <= 0.3 ? -2 : consc >= 0.8 ? 4 : 2;
@@ -183,15 +184,7 @@ export function healCharacterTypes(state: SaveState): void {
     if (c.appearance_now !== undefined && typeof c.appearance_now !== "string") c.appearance_now = asText(c.appearance_now, " ");
     if (c.background !== undefined && typeof c.background !== "string") c.background = asText(c.background, " ");
     if (c.life_history !== undefined && typeof c.life_history !== "string") c.life_history = asText(c.life_history, " ");
-    // NO IDIOLECTS, INCLUDING ON OLD SAVES. Characters used to carry a stored speech signature —
-    // `speech_pattern` and a `voice` card of diction, syntax, rhythm, tics, never-says and sample
-    // lines — and the narrator was told to write everyone toward theirs. The whole idea is gone;
-    // nothing reads these fields any more. They are deleted rather than ignored so a save made
-    // before the change cannot leak one back into a prompt through the inspector, an export, or
-    // any pass that walks the record generically.
-    delete (c as any).speech_pattern;
-    delete (c as any).voice;
-    delete (c as any).voice_refreshed_turn;
+    if (c.speech_pattern !== undefined && typeof c.speech_pattern !== "string") c.speech_pattern = asText(c.speech_pattern);
     if (c.current_goal !== undefined && typeof c.current_goal !== "string") c.current_goal = asText(c.current_goal);
     if (c.current_activity !== undefined && typeof c.current_activity !== "string") c.current_activity = asText(c.current_activity);
     if (c.core_traits !== undefined && !Array.isArray(c.core_traits)) c.core_traits = asList(c.core_traits);

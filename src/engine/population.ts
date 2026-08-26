@@ -14,7 +14,7 @@
  *
  * These people are never carded and never remembered. They are weather with faces: a scale figure
  * and one line on who they are, so a scene can have a crowd in it without the crowd becoming
- * sixteen new records with drives of their own.
+ * sixteen new records with drives and voice cards.
  */
 import type { Place, SaveState } from "./types";
 import { minutesBetween } from "./time";

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { splitLines } from "../engine/turn";
 import { visualSignature } from "../engine/prompts";
@@ -64,6 +64,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     finally { setEmbodying(false); }
   };
   const [imgErr, setImgErr] = useState<string | null>(null);
+  const [revoicing, setRevoicing] = useState(false);
   const [retraiting, setRetraiting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "" });
@@ -395,6 +396,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                                 note="same person, described one level deeper — originals kept"
                                 busy={retraiting}
                                 on={async () => { setRetraiting(true); try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits */ } finally { setRetraiting(false); } }} />
+                              <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
+                                note="regenerate how they talk from the card, ignoring recent drift"
+                                busy={revoicing}
+                                on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />
                               <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
                                 note={typeof c.beauty === "number" ? `currently ${c.beauty} — recomputes from appearance` : "recomputes from appearance"}
                                 busy={scoring} on={rescore} />

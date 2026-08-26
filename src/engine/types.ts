@@ -285,12 +285,26 @@ export interface Identity {
   life_history?: string;      // ACCRETED: defining moments that have happened in play, folded in over time. Compressed when it grows long; bedrock is never touched.
   core_traits: string[];
   values: string[];
+  speech_pattern: string;
   attachment?: {              // how this nervous system behaves around other people under threat — clinical attachment, deterministic in play
     style: "secure" | "anxious" | "avoidant" | "disorganized";
     under_threat?: string;    // plain sentence: what they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
     soothed_by?: string;      // plain sentence: what actually settles them
   };
   conscience?: number;        // 0..1 — how much other people's experience registers as MATTERING. Orthogonal to relaxation: calm is not care. Most people 0.6-0.9 (openness → warmth, the default physics). ≤0.35 = rudra-type: constitutionally cold — their poise is real (low-anxiety, stress-immune) and their openness yields precision without obligation; comfort does not soften them because there is nothing to soften into.
+  voice?: {                   // the verbal fingerprint — what makes this mouth unmistakable on the page
+    diction?: string;         // vocabulary register: concrete/abstract, schooling, era words, what they'd never name directly
+    syntax?: string;          // sentence shape: length, fragments vs run-ons, where the verb lands, questions vs statements
+    rhythm?: string;          // pacing: self-interruption, trailing off, volley vs monologue
+    tics?: string[];          // recurring verbal habits — used SPARINGLY (at most once a scene, often zero)
+    never_says?: string[];    // constructions this person would never produce
+    agenda?: string;          // subtext: what they're usually angling for under the words — people speak from agenda, not to inform
+    example_lines?: string[]; // 2-4 lines ONLY this person could say — the register in action, never reused verbatim
+  };
+  /** Turn the voice was last re-derived by the fresh-reader pass. Voice drifts because the narrator
+   *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
+   *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
+  voice_refreshed_turn?: number;
   /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
    *  no traits, no conscience, background copied from the sentences they appeared in. The simulator
    *  is asked to complete it; until it does, nothing should treat this as a finished person. */
@@ -1062,7 +1076,7 @@ export interface SimulatorDiff {
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];
-  new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; gregariousness: number }[];
+  new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];
   new_places: { name: string; description_facts: string }[];
   places_update?: { place: string; description_facts: string; note?: string; population?: { scale: number; who: string } }[]; // a place the prose materially CHANGED — rewritten description_facts (see applyDiff)
   offscreen: string[];          // world-motion lines (the merged world tick)

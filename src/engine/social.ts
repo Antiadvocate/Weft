@@ -867,7 +867,8 @@ export function settleAfterDeltas(p: Psyche): void {
 /** Trait reinforcement-or-decay. Unreinforced acquired traits fade; identity-integrated ones persist. */
 /** Consolidation — earned, slow identity change. An acquired trait reinforced into deep
  *  integration (high self_weight AND repeatedly reinforced) stops being a "learned" overlay
- *  and becomes WHO THEY ARE: folded into core_traits, then retired from the acquired list. Never runs
+ *  and becomes WHO THEY ARE: folded into core_traits, and — if it bears on how they come
+ *  across — into the stored speech_pattern, then retired from the acquired list. Never runs
  *  per-turn (only on reflection / time skips), so a single scene can't move the core. */
 export function capMemory(episodic: EpisodicMemory[], cap = 60): EpisodicMemory[] {
   if (episodic.length <= cap) return episodic;
@@ -948,6 +949,7 @@ export function needsHistoryCompaction(ident: Identity): boolean {
 
 export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {
   const log: string[] = [];
+  const SPEECHY = /(mean|cruel|harsh|cold|gentle|warm|tender|curt|terse|sharp|bitter|guarded|open|cheerful|grim|sardonic|formal|crude|profane|soft-spoken|aggressive|meek|commanding|timid|sarcastic|kind)/i;
   const kept = traits.filter((t) => {
     const integrated = t.self_weight >= 6 && t.reinforcement_count >= 8 && t.intensity >= 5;
     if (!integrated) return true;
@@ -955,6 +957,12 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     if (!already) {
       ident.core_traits = [...ident.core_traits, t.label].slice(-8);
       log.push(`${ident.name}'s trait "${t.label}" has become part of their core personality.`);
+    }
+    if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
+      const add = t.label.toLowerCase();
+      if (!ident.speech_pattern.toLowerCase().includes(add)) {
+        ident.speech_pattern = `${ident.speech_pattern}; has become ${add}`.replace(/^;\s*/, "");
+      }
     }
     return false; // retire from acquired — it's core now
   });
