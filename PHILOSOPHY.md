@@ -12,6 +12,16 @@ Relaxation sets how accurately a person reads other people. Clenched bodies see 
 
 **Exception — conscience.** Calm is not care. Each person has a **conscience** number (0–1): how much other people's pain registers as mattering. For most people, opening up and warming up travel together. For a person at ≤0.3, they come apart: relaxation still sharpens their sight, but what they see never obligates them. Their calm is real (these people are genuinely low-anxiety and stress-immune) and it makes them more effective, not kinder. Clench makes them petty and punitive instead of defensive. Their darkness is constitution, not wound, and comfort does not fix it.
 
+## Wear: what a long story does to a body
+
+The resting point is not a constant. A person who spends a long stretch braced comes to rest tighter than they used to — ordinary friction stops landing on them, and there is less in reserve when something real arrives. A person held and safe for a long stretch comes to rest easier, with more room before they contract. Neither happens in an afternoon: it takes a run, and a single bad day changes nobody.
+
+Two things keep this from becoming a one-way trip into numbness, which is what it would otherwise be, because bracing makes more bracing likely. The first is that a body is always being drawn back toward the one it was born with — slowly, underneath everything, whether or not anything good is happening. Sixty turns of hell followed by a hundred turns in which *nothing happens at all* brings someone most of the way home. The second is that coming back is a little easier than going down. Both are deliberate: a story where damage is permanent and recovery has to be earned by a scene is a story that has decided something false about people.
+
+Numbness is real and it is bounded. A worn body stops flinching at the daily grind — the small slights, the ordinary rudeness — but a genuine blow lands at full weight on the most hardened person in any save. Nobody in this engine can become unreachable.
+
+**Never the player.** The engine will not decide that the story has worn you down. Your interior reaches it only when you type it, and your own report of how tight you are can cap what you feel but never lift it. A resting point is a fact about a person, and the player is the one person here whose inside the engine cannot see.
+
 ## Attention: the aperture
 
 The same number decides how *wide* a person is. A braced body narrows: the attention goes to the one thing that matters, the vocabulary tightens onto its most concentrated form, and very little else gets in. That is not a fault — it is what bracing is for, and it is what makes the other end mean anything.

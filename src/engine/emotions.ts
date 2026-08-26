@@ -319,6 +319,11 @@ export function tickDischarge(state: SaveState): string[] {
     }
     if (p.mood && p.mood !== "even") { p.mood = "even"; p.mood_set_turn = turn; }
     p.discharge_lift = 1.5;
+    // AND IT IS COUNTED. The lift decays within a week of turns because one release is an opening
+    // and not a personality change — that stays true. But a body that has come all the way back from
+    // depth three separate times over a save has learned something the lift cannot carry, and the
+    // count is what remodel.ts reads to pay that into the resting point itself.
+    p.discharges = (p.discharges ?? 0) + 1;
   }
   return shifts;
 }

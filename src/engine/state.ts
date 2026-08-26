@@ -5,6 +5,7 @@ import { ensureHabits } from "./habits";
 import { mergePhantomPlaces } from "./places";
 import { healSchedule } from "./schedule";
 import { cleanMood } from "./emotions";
+import { ensureBorn } from "./remodel";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
 import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood, clipWords, LABEL_MAX } from "./coerce";
@@ -487,6 +488,10 @@ export function sanitize(state: SaveState): SaveState {
       state.memory[id].first_person = true;
     }
     state.condition[id].psyche ??= blankCondition().psyche;
+    // THE RESTING POINT THEY WERE MADE WITH. Saves written before capacity had a history carry no
+    // baseline to measure drift against or return to, so the current value becomes it — which is
+    // correct for exactly those saves, since nothing had ever moved it. See engine/remodel.ts.
+    ensureBorn(state.condition[id].psyche);
     // A MOOD THAT DEGENERATED INTO A LOOP IS A STUCK RECORD, NOT WEATHER. It renders on the card and
     // goes back into the next prompt as the character's current state, so it re-seeds itself: one
     // save held "…not the quiet after the door closes. The quiet after the door closes, the quiet

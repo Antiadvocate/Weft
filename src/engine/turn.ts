@@ -16,6 +16,7 @@ import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFlo
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
+import { tickRemodel, dampen, remodelReport } from "./remodel";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote, type Read } from "./read";
 import { frameDirective } from "./frame";
@@ -1845,6 +1846,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const psy = state.condition[id].psyche;
     psy.prev_relaxation = psy.relaxation;
     tickPsyche(psy);
+    // AND THE RESTING POINT ITSELF HAS A HISTORY NOW. A completed run of bracing or of ease moves
+    // the number the drift above is aiming at, inside a band around the one the forge stamped, with
+    // a standing pull back toward it. Never for the player — see engine/remodel.ts on why.
+    if (id !== "char_player") {
+      const r = tickRemodel(psy, state.world.current_turn);
+      if (r.dir) (state.last_remodel ??= []).push({ id, dir: r.dir, to: r.to, turn: state.world.current_turn });
+    }
   }
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
@@ -5412,6 +5420,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       shifts.push(`${nameOf(id)} was sworn at — that does not settle anybody.`);
       raw = 0;
     }
+    // WHAT A WORN BODY STILL FEELS. Ordinary friction lands lighter on somebody the story has ground
+    // down; a real blow lands in full on anybody, always. Damped here rather than after, so the
+    // grief drag and the reported shift below all agree on what actually reached them.
+    if (id !== "char_player") raw = dampen(c.psyche, raw);
     c.psyche.relaxation = clamp(c.psyche.relaxation + raw, -10, 10);
     const mood = cleanMood(p.mood);
     if (mood) { c.psyche.mood = mood; c.psyche.mood_set_turn = turn; }
@@ -5457,6 +5469,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // so without this the stored value floats away from capacity forever. See settleAfterDeltas.
     settleAfterDeltas(c.psyche);
   }
+
+  // A RESTING POINT THAT MOVED IS A STATE CHANGE AND IS REPORTED AS ONE. Rare by construction — a
+  // step needs a completed run of six or eight turns — so this is a line every save or two, not
+  // noise. The alternative is a scalar that drifts behind everybody's back for a hundred turns and
+  // is only ever discovered from a player report. See engine/remodel.ts.
+  for (const r of state.last_remodel ?? []) {
+    if (r.turn !== turn) continue;
+    shifts.push(r.dir === "wear"
+      ? `${nameOf(r.id)} has been braced long enough that it is where ${nameOf(r.id)} now comes to rest.`
+      : `${nameOf(r.id)} has been settled long enough that it has become where ${nameOf(r.id)} rests.`);
+  }
+  state.last_remodel = (state.last_remodel ?? []).filter((r) => r.turn === turn);
 
   // Idle edges ease toward neutral before this turn's deltas land, so a relationship nobody has
   // tended for a while is no longer held up by a number set long ago.

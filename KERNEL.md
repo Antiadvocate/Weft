@@ -28,7 +28,9 @@ Per character (`Psyche` in `src/engine/types.ts`):
 | field | range | meaning |
 |---|---|---|
 | `relaxation` | −10 … +10 | the body's current openness. The one number everything reads. |
-| `capacity` | −6 … +6 | resting point — relaxation drifts here. Set at forge from conscience+traits; healed downward in turn.ts if it contradicts the character's nature. |
+| `capacity` | −6 … +6 | resting point — relaxation drifts here. Set at forge from conscience+traits; healed downward in turn.ts if it contradicts the character's nature. **Lived, not constant** — remodelled slowly by completed runs of bracing or of being held, inside a band around `capacity_born`, with a standing pull back toward it (§5, remodelling). Never for the player. |
+| `capacity_born` | −6 … +6 | what the forge stamped. Never written again. Every remodel is measured against it, bounded by it, and drawn back to it. |
+| `braced_run` / `settled_run` | turns | consecutive turns spent at or below the braced line, and above the effective resting point. The two runs that move `capacity`. |
 | `recovery` | 0.01 … 0.45 | drift rate per turn. Some people return to calm fast; some sit braced for days. |
 | `discharge_lift` | +1.5, decays ×0.7/turn | temporary capacity bonus after a discharge (§5). An opening, not a personality change. |
 | `consecutive_clenched` | turns | counts turns at ≤ −7. Resets the moment the body rises above −7. |
@@ -99,6 +101,31 @@ Time skips (`continuity.ts`) run a subset: drift, drives, rumors, bonds — no d
 (nobody is releasing anything offscreen; the world just turns).
 
 ## 5. The new mechanics (what changed and why)
+
+**Somatic remodelling** (`remodel.ts`). `capacity` was the only number in the psyche with no history
+in it: a body eighty turns braced came to rest exactly where one that arrived this morning did.
+Measured on the Ashford save at turn 29, all four characters sat on the integer the forge wrote on
+turn zero, three of them after a twenty-eight turn settled run. The engine already had both temporary
+halves — `discharge_lift` for release, `grief_drag` for loss, each returning to baseline within a
+week of turns — and nothing for the case where the week does not end. Now a completed run of eight
+braced turns lowers the resting point by 0.3, a completed run of six turns spent *above* it raises it
+by the same, three discharges across a save pay one step, and `capacity` lives in
+[born − 2.5, born + 2.0].
+
+The failure mode is a ratchet, and wear feeds itself — a lower resting point means more turns below
+the braced line, which earns more wear. Four things stop it: the band; a standing pull toward
+`capacity_born` at 2% of the gap every turn, which is the mechanism's *default* direction; settling
+being cheaper to earn than wear (6 turns against 8); and a numbness ceiling. A worn body damps
+incoming deltas of |1.5| or less, to at most 45% — so ordinary friction stops landing and a real blow
+lands in full on the most hardened character in any save. Simulated over 120-turn runs: continuous
+cruelty converges around born − 1.6 and never reaches the floor, because the pull home scales with
+the gap while wear is flat. Sixty turns of hell followed by a hundred turns of *nothing happening*
+recovers most of the way. Growth keys off being lifted above the resting point, not off `open_run` —
+an untroubled save widens nobody.
+
+Excluded for the player, on the same rule as `fault`: their resting point is a fact about a person
+the engine cannot observe, and deriving it from the prose is the authorship the tightness anchor
+exists to prevent.
 
 **The aperture** (`aperture.ts`). Relaxation decided how accurately a person SEES, how an emotion
 resolves, and whether a habit can be caught — and said nothing at all about how much of the world
