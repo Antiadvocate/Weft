@@ -213,7 +213,14 @@ export function reconcileAge(state: SaveState, charId: string, from: number, to:
     if (Array.isArray(arr)) (c as any)[k] = arr.map((x: unknown) => (typeof x === "string" ? fix(`${c.name} · ${k}`, x, false, false) : x));
   }
   if (c.voice) {
-    for (const k of ["example_lines", "never_says"] as const) {
+    // The voice card holds no lines any more, only descriptions of how somebody talks — but a
+    // description can still carry a stale age ("the only woman of forty on the crew"), so the
+    // string fields are walked too.
+    for (const k of ["idiolect_shows", "diction"] as const) {
+      const v = c.voice[k];
+      if (typeof v === "string" && v) c.voice[k] = fix(`${c.name} · voice.${k}`, v, false, true);
+    }
+    for (const k of ["tics", "never_says"] as const) {
       const arr = c.voice[k];
       if (Array.isArray(arr)) c.voice[k] = arr.map((x) => (typeof x === "string" ? fix(`${c.name} · voice.${k}`, x, false, true) : x));
     }

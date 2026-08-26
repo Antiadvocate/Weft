@@ -3,9 +3,9 @@
 // VOICE FORGE — a separate tail-sampled pass that overwrites each NPC's voice card.
 //
 // Why this exists: FORGE_SYSTEM builds the whole world in ONE call, which means the
-// entire cast's example_lines are drawn from one forward pass at the centre of the
-// model's distribution. The prompt already ORDERS variety ("write each npc's voice so
-// far apart a reader could name the speaker blind") — and it doesn't work, because
+// entire cast's voices are drawn from one forward pass at the centre of the model's
+// distribution. The prompt already ORDERS variety ("write each npc's voice so far
+// apart a reader could name the speaker blind") — and it doesn't work, because
 // instruction-following can't move a distribution. Sampling can.
 //
 // Two rules make this work, and both are load-bearing:
@@ -13,18 +13,35 @@
 //   2. THE SELECTION HAPPENS HERE, IN TYPESCRIPT — never in the model. If you ask the
 //      model to "pick the unusual one" it picks the typical one and calls it unusual.
 //
+// WHAT THIS PASS NO LONGER PRODUCES: example lines.
+//
+// It used to end every card with two or three sentences only that person could say, and they were
+// the best writing in the engine. They were also the reason the same handful of lines came back for
+// a hundred turns. A sample line is not a description of a voice, it is a LINE — finished, in the
+// context, and cheaper for a model to reuse than to match. maxims.ts then printed one of them
+// immediately before the request to write the scene, every single turn, which is the most reliable
+// way anyone has found to make a model repeat something.
+//
+// So the card names the voice instead of demonstrating it. `idiolect` is this person's own way of
+// using language, given a name — a non-linear visualiser, a reassuring interrupter — plus one
+// sentence saying what that does to their sentences. A name has to be REALISED into whatever is
+// actually happening in the room, freshly, every time it is used; a sample only has to be copied.
+// The culture and the persona the example lines used to showcase now live in `diction`, which is
+// the field that was always doing that work: what this person's world and trade gave them words for.
+//
 // Fails open: any error and the forge's original voice card is kept untouched.
 
 import { buildMessages, complete, safeJson } from "../llm";
 
 export interface VoiceCard {
+  idiolect: string;
+  idiolect_shows: string;
   diction: string;
   syntax: string;
   rhythm: string;
   tics: string[];
   never_says: string[];
   agenda: string;
-  example_lines: string[];
 }
 
 interface Candidate { probability: number; voice: VoiceCard }
@@ -50,27 +67,41 @@ const TAIL = 0.10;
 
 const VOICE_SYSTEM = `You produce candidate VOICE CARDS for one character in a story.
 
-THE SETTING IS A HARD FLOOR. Everything below happens INSIDE the world described in the WORLD block. Before writing any line, work out what this person could possibly have a word for: they name what their world contains and what their life has put in front of them, and nothing else. They cannot name a feeling their culture has no concept of, and they cannot reach for a comparison drawn from a thing that does not exist here. This covers ideas as much as vocabulary — a person from a world without clinics does not talk about processing, boundaries, holding space or unpacking; a person from a world without offices does not talk about handling it, managing it, or sorting the logistics. Their comparisons come from the work, weather, animals, food, faith, kin and violence of THEIR world. A candidate that borrows from outside it is not an unusual voice, it is a mistake, and it is the most common one.
+THE SETTING IS A HARD FLOOR. Everything below happens INSIDE the world described in the WORLD block. Before writing anything, work out what this person could possibly have a word for: they name what their world contains and what their life has put in front of them, and nothing else. They cannot name a feeling their culture has no concept of, and they cannot reach for a comparison drawn from a thing that does not exist here. This covers ideas as much as vocabulary — a person from a world without clinics does not talk about processing, boundaries, holding space or unpacking; a person from a world without offices does not talk about handling it, managing it, or sorting the logistics. Their comparisons come from the work, weather, animals, food, faith, kin and violence of THEIR world. A candidate that borrows from outside it is not an unusual voice, it is a mistake, and it is the most common one.
+
+WRITE NO DIALOGUE. Not one line, not a fragment, not a phrase in quotation marks anywhere in any field. You are describing a way of talking, never demonstrating it. This is the whole design of this pass: a sample line is a finished sentence sitting in the narrator's context, and it gets reused until the character is a broken record, which is exactly what happened when this card carried examples. Every field must be a DESCRIPTION that the narrator has to realise fresh into whatever is happening in the room. If any field of yours could be dropped into a scene as something somebody says, it is wrong.
+
+THE IDIOLECT IS THE CARD. An idiolect is one person's own way of using language, and you are naming it: two to four words for the MOVE they make when they talk. It is never a mood, never a personality adjective, and never their job. Build it from the axes below, choosing whichever ones this life actually produced:
+- how they get to the point — straight at it, spiralling in, by way of a picture, by way of a story about somebody else, by asking instead of saying, never at all
+- what they do with the other person's turn — cut in, wait a beat too long, finish their sentence for them, answer the question they wish had been asked, leave the silence sitting there
+- what they do when they disagree — restate it louder, go procedural, concede and come back to it, make it a joke, refuse the frame
+- what they do with anything abstract — refuse it, translate it into something physical, live in it happily, get it slightly wrong and keep going
+- what they do with their own feeling — name it flatly, route it through a third thing, deny it while doing it anyway, put it on somebody else
+Two examples of the SHAPE, both used up — do not return either or anything near them: a non-linear visualiser; a reassuring interrupter. Yours comes from THIS person's background, trade, age and what their life has cost them.
 
 Output FIVE candidates. Each carries a numeric "probability": your honest estimate of how likely that voice is to be the one a writer would reach for first for this character. Sample from the TAILS — every candidate should sit below 0.10.
 
-BUT the unusualness must live on the RIGHT AXIS. Vary: what they refuse to say, what they are angling for under the words, sentence length, whether they answer the question asked, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the world. A candidate that is improbable because it reaches outside this setting scores zero.
+BUT the unusualness must live on the RIGHT AXIS. Vary the idiolect, what they refuse to say, what they are angling for under the words, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the world. A candidate that is improbable because it reaches outside this setting scores zero.
 
-A voice is diction, syntax, rhythm, and what the person refuses to say. It is NOT their mood and NOT their personality restated. Two characters with identical traits should still speak nothing alike.
+A voice is the idiolect, the words this life gave them, and what they refuse to say. It is NOT their mood and NOT their personality restated. Two characters with identical traits should still speak nothing alike.
 
-example_lines are the proof and the only part that matters. The narrator copies these to write everything this person ever says, so a sample about life in general teaches them to talk about life in general. Four requirements, all of them checkable on the finished line:
-- IT NAMES SOMETHING THIS PERSON COULD POINT AT OR HAS HANDLED — a person, an object, a price, a place, a job, an animal, a debt, a number, an errand. A line that names nothing of the kind is rewritten until it does.
-- IT IS UNSAYABLE BY ANYONE ELSE IN THIS CAST. If it would fit a generic sympathetic stranger, it is wrong. If it would still be true said by anyone, anywhere, to anyone, it is wrong.
-- IT IS AIMED AT SOMETHING THE SPEAKER WANTS FROM WHOEVER IS LISTENING — to be paid, to be believed, to be left alone, to find out what the other person knows, to get back to work. Not at what the listener is really like underneath: nobody here restates what the listener just said, asks a question designed to walk them to a realization about themselves, or tells them what their behaviour means.
-- IT IS NOT THE LAST LINE OF A SCENE. A sample that would work as the closing beat of a chapter teaches this person to end every exchange on one.
+The fields, and what makes each one right:
+- "idiolect": 2-4 words naming the move. A reader who watched this person talk for ten minutes would recognise the name.
+- "idiolect_shows": ONE sentence on what that move does to their actual sentences — where they start, what they leave out, what shape the sentence ends up. This is what makes the name operable instead of decorative. Still no dialogue.
+- "diction": what their life and their world gave them words for — the trade, the place, the people they answer to, the things they have handled all day. Which things they name directly and which they go around. This is where the culture of this world shows, so it carries the most weight after the idiolect.
+- "syntax": how their sentences are built — roughly how long, whether they finish them, whether several run together before they stop.
+- "rhythm": how their talking moves — interrupts themselves, trails off, answers in one word, keeps going past the answer.
+- "tics": 0-2 recurring verbal HABITS, each written as a behaviour they perform — checking whether you followed before going on, say — and NEVER as a phrase they say. A tic written as a phrase becomes a catchphrase within three scenes.
+- "never_says": 2-3 KINDS of construction this person would never produce, named as kinds — anything that states her own feeling outright, that shape of thing. Never a line, and nothing in quotation marks.
+- "agenda": what they are usually angling for under the words.
 
 Output ONLY this JSON:
-{"candidates":[{"probability":0.04,"voice":{"diction":"","syntax":"","rhythm":"","tics":[""],"never_says":["",""],"agenda":"","example_lines":["","",""]}}]}`;
+{"candidates":[{"probability":0.04,"voice":{"idiolect":"","idiolect_shows":"","diction":"","syntax":"","rhythm":"","tics":[""],"never_says":["",""],"agenda":""}}]}`;
 
 /** Uniform pick from the tail pool; falls back to the least-likely candidate. */
 function pickFromTail(cands: Candidate[]): VoiceCard | null {
   const usable = cands.filter(
-    (c) => c?.voice?.example_lines?.length && Number.isFinite(c.probability),
+    (c) => String(c?.voice?.idiolect ?? "").trim() && Number.isFinite(c.probability),
   );
   if (!usable.length) return null;
   const tail = usable.filter((c) => c.probability <= TAIL);
@@ -78,7 +109,16 @@ function pickFromTail(cands: Candidate[]): VoiceCard | null {
   return pool[Math.floor(Math.random() * pool.length)].voice;
 }
 
-/** One character, one call. `avoid` carries the lines already committed to this cast. */
+/** The one-line summary of a card, used as the stored `speech_pattern` and anywhere a voice has to
+ *  be stated in a sentence. Idiolect first, because it is the thing that decides a line. */
+export function voiceSummary(v: Partial<VoiceCard> | undefined): string {
+  if (!v) return "";
+  const head = [v.idiolect?.trim(), v.idiolect_shows?.trim()].filter(Boolean).join(" — ");
+  const parts = [head, v.diction?.trim(), v.syntax?.trim(), v.rhythm?.trim()].filter(Boolean);
+  return parts.length ? `${parts.map((p) => String(p).replace(/[.\s]+$/, "")).join(". ")}.` : "";
+}
+
+/** One character, one call. `avoid` carries the idiolects already committed to this cast. */
 export async function forgeVoice(
   npc: any,
   worldNote: string,
@@ -98,9 +138,11 @@ export async function forgeVoice(
   ].join("\n");
 
   // Concrete exclusion, not an abstract instruction to "be different" — the model can
-  // only avoid a register it can actually see.
+  // only avoid a voice it can actually see. These are the idiolects the rest of this cast
+  // already holds, which is a far better anti-convergence signal than sample lines ever were:
+  // it is the axis the cards actually collapse along, stated in the terms the card is written in.
   const exclusion = avoid.length
-    ? `\n\nALREADY SPOKEN BY THIS CAST — none of your lines may share their register, rhythm, or sentence shape:\n${avoid.map((l) => `- ${l}`).join("\n")}`
+    ? `\n\nALREADY TAKEN BY THIS CAST — none of your candidates may name this move, or a near neighbour of it:\n${avoid.map((l) => `- ${l}`).join("\n")}`
     : "";
 
   try {
@@ -115,8 +157,8 @@ export async function forgeVoice(
 
 /**
  * Sequential pass over the cast. Sequential rather than Promise.all on purpose:
- * each character sees what the previous ones have already said, so the exclusion
- * list does real work. A 4-NPC cast is 4 small calls, once, at forge time.
+ * each character sees which voices the previous ones have already taken, so the
+ * exclusion list does real work. A 4-NPC cast is 4 small calls, once, at forge time.
  */
 export async function forgeCastVoices(
   npcs: any[],
@@ -124,15 +166,14 @@ export async function forgeCastVoices(
   model: string,
 ): Promise<void> {
   const worldNote = typeof bible === "string" ? bible : worldBriefOf(bible);
-  const spoken: string[] = [];
+  const taken: string[] = [];
   for (const npc of npcs) {
-    const voice = await forgeVoice(npc, worldNote, model, spoken);
+    const voice = await forgeVoice(npc, worldNote, model, taken);
     if (!voice) continue;                       // keep the forge's original card
     npc.voice = { ...(npc.voice ?? {}), ...voice };
-    if (voice.example_lines?.length) {
-      npc.speech_pattern = `${voice.diction}. ${voice.syntax}. ${voice.rhythm}.`;
-      spoken.push(...voice.example_lines.slice(0, 2));
-    }
+    delete npc.voice.example_lines;             // a pre-change card must not smuggle samples through
+    npc.speech_pattern = voiceSummary(voice) || npc.speech_pattern;
+    if (voice.idiolect?.trim()) taken.push(voice.idiolect.trim());
   }
 }
 
@@ -146,8 +187,8 @@ export async function forgeCastVoices(
 // So this pass never sees the prose. It reads the character card as it stands NOW — including
 // who play has made them — and re-derives the voice from scratch, tail-sampled. It is the
 // equivalent of handing the script to an actor who hasn't heard the previous takes. The old
-// example_lines are OVERWRITTEN, not appended: keeping them would reintroduce the drifted voice
-// as an exemplar, which is the exact loop this exists to break.
+// idiolect is OVERWRITTEN, not appended: keeping it would reintroduce the drifted voice as an
+// exemplar, which is the exact loop this exists to break.
 
 /** Turns between automatic refreshes for a character who is actually in scenes. */
 export const VOICE_REFRESH_INTERVAL = 12;
@@ -174,20 +215,20 @@ export async function refreshVoice(
 
   const worldNote = worldBriefOf(state.world_bible);
 
-  // Anti-set: what everyone ELSE currently sounds like, so a refresh can't converge the cast.
+  // Anti-set: the moves everyone ELSE in this cast already makes, so a refresh can't converge them.
   const avoid: string[] = [];
   for (const [id, other] of Object.entries<any>(state.characters ?? {})) {
     if (id === charId || id === "char_player") continue;
-    for (const l of other?.voice?.example_lines ?? []) avoid.push(l);
+    const other_idiolect = String(other?.voice?.idiolect ?? "").trim();
+    if (other_idiolect) avoid.push(other_idiolect);
   }
 
   const voice = await forgeVoice(npcView, worldNote, model, avoid.slice(0, 8));
   if (!voice) return false;
 
-  c.voice = { ...(c.voice ?? {}), ...voice };      // example_lines REPLACED, deliberately
-  if (voice.example_lines?.length) {
-    c.speech_pattern = `${voice.diction}. ${voice.syntax}. ${voice.rhythm}.`;
-  }
+  c.voice = { ...(c.voice ?? {}), ...voice };      // idiolect REPLACED, deliberately
+  delete c.voice.example_lines;                    // and a sample from an old save is dropped here
+  c.speech_pattern = voiceSummary(voice) || c.speech_pattern;
   c.voice_refreshed_turn = state.world?.current_turn ?? 0;
   return true;
 }

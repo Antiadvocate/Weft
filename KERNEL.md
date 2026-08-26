@@ -226,6 +226,35 @@ safety net: when a filed promise's text matches the recipient's active drive (to
 clears, and the next goal arrives by the normal drives_update path. Even if the bookkeeper forgets,
 the promise reaching the ledger IS the answer reaching state.
 
+**Idiolects: a voice is a move they make, not a line they have** (voiceforge.ts, maxims.ts,
+prompts.ts). The voice forge stays — one tail-sampled call per character is the only thing in the
+engine that actually makes two people sound unalike, because instruction-following cannot move a
+distribution and sampling can. What it stopped producing is `example_lines`.
+
+A sample of a voice is not a description of one. It is a finished sentence sitting in the
+narrator's context, and a model reuses a finished sentence rather than matching it — `voiceAnchor`
+printed one immediately before "now write the scene", on every turn, which is the most reliable
+way this engine has found to make anything repeat. The same handful of lines came back for a
+hundred turns and the cast read as broken records.
+
+The card names the voice instead of demonstrating it. `idiolect` is the person's own way of using
+language in two to four words — the MOVE they make when they talk: how they get to the point, what
+they do with somebody else's turn, what they do when they disagree, what they do with anything
+abstract, what they do with their own feeling. `idiolect_shows` is one sentence on what that move
+does to their sentences. A name has to be performed onto whatever is actually happening in the
+room, which is a different sentence every time; a sample only has to be pasted. The culture and
+persona the samples used to showcase live in `diction`, which was always the field doing that work,
+and the forge's cross-cast exclusion list now carries idiolects — a far better anti-convergence
+signal than sample lines, because it is the axis cards actually collapse along.
+
+One copy per turn, as everywhere else: `voiceAnchor` rides the DIRECTION block, which lands after
+the digest and is nearer to generation, so it carries the idiolect and the diction and the speech
+block does not. `charCard` carries it once in the cached prefix, folded into the `Voice —` label
+rather than restated beside it. `healCharacterTypes` deletes `example_lines` from saves written
+before the change, so a stale sample cannot reach a prompt through the inspector, an export, or
+any generic walk of the record. Pinned by tests/idiolect.ts, which holds both halves: the voice
+must REACH the narrator, and nothing quotable may.
+
 ## 5b. The attempt frame (`attempt.ts`)
 
 Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine

@@ -195,21 +195,30 @@ export function maximRate(prose: string): number {
 }
 
 /**
- * THE POSITIVE HALF — the speaker's own lines, at the point of writing.
+ * THE POSITIVE HALF — who is talking and how, at the point of writing.
  *
  * Banning a register leaves a vacuum, and a model fills a vacuum with its defaults, which for
- * "ancient world" is the oracle. The cards in the save that prompted all this already held the
- * answer — Lucia argues in clauses and haggles with her goddess, Marcus answers with a date and
- * nothing else, Gnaeus frames every grievance as a lawsuit he could win — and every one of those
- * lines was sitting in the cached prefix behind thirty thousand characters, which this engine has
- * already learned means REFERENCE rather than instruction (see authored.ts, habitDirective).
+ * "ancient world" is the oracle. The cards already hold the answer, and every one of them sits in
+ * the cached prefix behind thirty thousand characters, which this engine has already learned means
+ * REFERENCE rather than instruction (see authored.ts, habitDirective). So the voice comes down
+ * here too, for present speakers only, a couple of lines each. It costs a hundred-odd tokens, it
+ * says nothing new, and it puts how this person talks next to the request to write them talking.
  *
- * So the exemplars come down here too, for present speakers only, at a couple of lines each. It is
- * the cheapest possible intervention: it costs a hundred-odd tokens, it says nothing new, and it
- * puts the one concrete sample of how this person talks next to the request to write them talking.
+ * WHAT IS NOT IN THIS BLOCK ANY MORE: one of their actual lines.
+ *
+ * That used to be here, and this comment used to argue for it — "one sentence in a person's actual
+ * mouth does more than any description of how they talk". It does, and that is the problem. A
+ * finished line printed immediately before the request to write a scene, on EVERY turn, is not an
+ * exemplar, it is a suggestion the model takes: the same handful of sentences came back for a
+ * hundred turns and the cast turned into broken records. Nothing quotable goes in this slot.
+ *
+ * The IDIOLECT goes in it instead — the person's way of talking, named ("a non-linear visualiser").
+ * A name cannot be pasted into a scene; it has to be performed into whatever is actually happening,
+ * which is a different action every turn. That is the whole trade, and it is why the card stopped
+ * carrying samples (see voiceforge.ts).
  */
 export function voiceAnchor(
-  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; speech_pattern?: string; voice?: { never_says?: string[]; diction?: string; example_lines?: string[] } }> },
+  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; speech_pattern?: string; voice?: { never_says?: string[]; diction?: string; idiolect?: string; idiolect_shows?: string } }> },
   presentIds: string[],
 ): string {
   const rows: string[] = [];
@@ -225,25 +234,24 @@ export function voiceAnchor(
     // them per turn". That economy cost the whole voice system.
     //
     // Measured on one save: 91 turns, five characters with superb distinct registers on their cards
-    // — a pharmacy tech at 19 with "the counter, the register, closing, the schedule", a designer
-    // with kerning and negative space, a teacher with dumplings and innings — and 318 spoken lines
-    // between them containing NONE of it. The player's report was that everybody sounds the same
-    // and a nineteen-year-old shop worker sounds like a thirty-six-year-old programmer.
-    //
-    // The example line matters most and is the cheapest: one sentence in a person's actual mouth
-    // does more than any description of how they talk.
-    const sound = String(c.speech_pattern ?? c.voice?.diction ?? "").trim();
-    const sample = c.voice?.example_lines?.find((l) => String(l ?? "").trim());
+    // — a pharmacy tech at 19 whose words were the counter, the register, closing and the schedule,
+    // a designer who saw rooms in margins and alignment, a teacher who reached for the classroom and
+    // the kitchen — and 318 spoken lines between them containing NONE of it. The player's report was
+    // that everybody sounds the same and a nineteen-year-old shop worker sounds like a
+    // thirty-six-year-old programmer.
+    const idiolect = String(c.voice?.idiolect ?? "").trim();
+    const shows = String(c.voice?.idiolect_shows ?? "").trim();
+    const sound = String(c.voice?.diction ?? c.speech_pattern ?? "").trim();
     const bits = [
       c.age ? `${c.age}` : "",
       c.core_traits?.length ? c.core_traits.slice(0, 3).join("; ") : "",
       c.background?.trim() ? String(c.background).trim().split(/(?<=\.)\s/)[0].slice(0, 120) : "",
     ].filter(Boolean);
-    if (!bits.length && !sound && !sample) continue;
+    if (!bits.length && !sound && !idiolect) continue;
     const never = c.voice?.never_says?.length ? ` Would never say: ${c.voice.never_says.slice(0, 2).join("; ")}.` : "";
-    const talks = sound ? `\n  TALKS LIKE THIS: ${sound.slice(0, 180)}` : "";
-    const line = sample ? `\n  ONE OF THEIR ACTUAL LINES: "${String(sample).trim().slice(0, 150)}"` : "";
-    rows.push(`${c.name} — ${bits.join(" · ")}.${never}${talks}${line}`);
+    const how = idiolect ? `\n  HOW THEY TALK: ${idiolect}${shows ? ` — ${shows.slice(0, 160)}` : ""}` : "";
+    const talks = sound ? `\n  THE WORDS THEIR LIFE GAVE THEM: ${sound.slice(0, 180)}` : "";
+    rows.push(`${c.name} — ${bits.join(" · ")}.${never}${how}${talks}`);
   }
   if (!rows.length) return "";
   return `\n[WHO IS TALKING, AND WHY NONE OF THEM SHOULD SOUND ALIKE.
@@ -251,5 +259,6 @@ export function voiceAnchor(
 Decide two things per speaker before writing their line. What do they want out of THIS exchange, right now — aim the line at that. And what state are they in: somebody frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
 LENGTH COMES FROM THAT, NOT FROM A STYLE. Somebody who has explained this a hundred times explains it again at length; somebody who wants to leave uses six words. If everyone in this scene is brief, they have all been written by the same person, which is you.
 If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.
-AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.]`;
+HOW THEY TALK IS A MOVE THEY MAKE, NOT A LINE THEY HAVE. You are given no sample of anybody's speech and you are not owed one: performing the named move on whatever is actually in front of them this minute is the work, and it comes out as a different sentence every time. A person who arrives at things sideways arrives sideways at THIS, tonight; a person who cuts in to soften things cuts into THIS. Never turn it into a catchphrase, a signature opener, or a sentence this character keeps producing — that is the failure the samples caused and the reason they are gone.
+AND THE WORDS THEIR LIFE GAVE THEM ARE NOT DECORATION. Their lines this turn are built out of that vocabulary — the words their own work and place handed them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.]`;
 }

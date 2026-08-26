@@ -39,7 +39,7 @@ function fixture() {
   const m = registerCharacter(s, {
     name: "Lucia", age: 40, background: "Runs the inn.", core_traits: ["Counts twice"],
     skills: { brewing: "very well" }, texture: ["rocks"],
-    voice: { diction: "priced", example_lines: ["Two sestertii."], tics: ["hm"], never_says: ["feelings"] },
+    voice: { idiolect: "a ledger-first refuser", idiolect_shows: "gives the number before the answer", diction: "priced", tics: ["counts it out where you can see"], never_says: ["feelings"] },
     current_goal: "collect the debt",
   } as any);
   s.characters[m].location = "l";

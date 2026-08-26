@@ -51,8 +51,8 @@ const prompt = \`Match the register of the story you are given and keep the tone
  *
  * The scanner used to be a regex pairing backticks in order, so an inner `${x ? `y` : ""}` shifted
  * the pairing and everything after it fell out of phase. The effect was not a few missed lines: it
- * silently excluded most of the corpus. voiceforge.ts — the prompt that writes the sample lines the
- * narrator copies for every word a character speaks — was being read 204 characters deep, and the
+ * silently excluded most of the corpus. voiceforge.ts — the prompt that writes the voice every
+ * character speaks out of — was being read 204 characters deep, and the
  * measured count that this file ratchets was taken over the fraction that happened to land in
  * phase. A linter that reports zero because it never looked is worse than no linter.
  */
@@ -66,7 +66,9 @@ const prompt = \`Match the register of the story you are given and keep the tone
   // and the real file it was hiding
   const vf = modelFacing(readFileSync("src/engine/voiceforge.ts", "utf8"));
   check("voiceforge is actually linted now", vf.length > 2000, vf.length);
-  check("...including the rules for the lines the narrator imitates", /UNSAYABLE BY ANYONE ELSE IN THIS CAST/.test(vf));
+  check("...including the rules for the voice the narrator writes from", /THE IDIOLECT IS THE CARD/.test(vf));
+  // and the rule that keeps a voice card from becoming a script the narrator recites
+  check("...and its ban on writing any dialogue at all", /WRITE NO DIALOGUE/.test(vf), vf.slice(0, 200));
 }
 
 /* ── 2. the three shapes ─────────────────────────────────────────────────────── */

@@ -292,18 +292,32 @@ export interface Identity {
     soothed_by?: string;      // plain sentence: what actually settles them
   };
   conscience?: number;        // 0..1 — how much other people's experience registers as MATTERING. Orthogonal to relaxation: calm is not care. Most people 0.6-0.9 (openness → warmth, the default physics). ≤0.35 = rudra-type: constitutionally cold — their poise is real (low-anxiety, stress-immune) and their openness yields precision without obligation; comfort does not soften them because there is nothing to soften into.
-  voice?: {                   // the verbal fingerprint — what makes this mouth unmistakable on the page
-    diction?: string;         // vocabulary register: concrete/abstract, schooling, era words, what they'd never name directly
+  /** THE VERBAL FINGERPRINT — what makes this mouth unmistakable on the page.
+   *
+   *  NO SAMPLE LINES LIVE HERE, EVER. This card used to carry `example_lines`: two or three
+   *  sentences only this person could say. They were excellent and they were a disaster, because a
+   *  sample is not a description — it is a ready-made line sitting in the context, and the narrator
+   *  reached for it turn after turn. maxims.ts printed one next to the request to write the scene
+   *  on EVERY turn, which is the most reliable way this engine has ever found to make a model
+   *  repeat something. The player's report was that the same handful of lines kept coming back.
+   *
+   *  What replaced them is `idiolect`: the person's way of using language, NAMED — a non-linear
+   *  visualiser, a reassuring interrupter. A name is generative where a sample is imitative. The
+   *  model has to realise it fresh into whatever is happening in the room, which is the whole point,
+   *  and there is nothing on the card short enough to copy. */
+  voice?: {
+    idiolect?: string;        // 2-4 words naming HOW this person uses language — the move, not the mood. The headline field.
+    idiolect_shows?: string;  // one sentence: what that move does to their actual sentences, so the name is operable
+    diction?: string;         // the words their life and world gave them — trade, place, schooling, what they name directly and what they go around. This is where the culture shows.
     syntax?: string;          // sentence shape: length, fragments vs run-ons, where the verb lands, questions vs statements
     rhythm?: string;          // pacing: self-interruption, trailing off, volley vs monologue
-    tics?: string[];          // recurring verbal habits — used SPARINGLY (at most once a scene, often zero)
-    never_says?: string[];    // constructions this person would never produce
+    tics?: string[];          // recurring verbal HABITS, described as behaviour and never as a phrase to reuse — at most once a scene, often zero
+    never_says?: string[];    // KINDS of construction this person would never produce, described — never a quoted line
     agenda?: string;          // subtext: what they're usually angling for under the words — people speak from agenda, not to inform
-    example_lines?: string[]; // 2-4 lines ONLY this person could say — the register in action, never reused verbatim
   };
   /** Turn the voice was last re-derived by the fresh-reader pass. Voice drifts because the narrator
    *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
-   *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
+   *  overwrites the idiolect, which is what breaks the copy-of-a-copy loop. */
   voice_refreshed_turn?: number;
   /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
    *  no traits, no conscience, background copied from the sentences they appeared in. The simulator

@@ -774,7 +774,7 @@ export const api = {
 
   // Re-read one character's script cold. The refresher sees the card as it stands now — core traits
   // plus what play has made them — and never sees a line of prose, so it cannot inherit the drift.
-  // example_lines are REPLACED: keeping the old ones would feed the drifted voice back in as an
+  // The idiolect is REPLACED: keeping the old one would feed the drifted voice back in as an
   // exemplar, which is the loop this exists to break.
   refreshVoice: async (id: string, char_id: string): Promise<ClientSave> => {
     const s = await need(id);

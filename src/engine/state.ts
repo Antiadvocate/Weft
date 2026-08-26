@@ -191,6 +191,13 @@ export function healCharacterTypes(state: SaveState): void {
     if (c.values !== undefined && !Array.isArray(c.values)) c.values = asList(c.values);
     if (c.texture !== undefined && !Array.isArray(c.texture)) c.texture = asList(c.texture);
     if (c.aliases !== undefined && !Array.isArray(c.aliases)) c.aliases = asList(c.aliases);
+    // NO SAMPLE LINES SURVIVE A LOAD. Voice cards used to carry `example_lines`, and a finished
+    // line sitting in the narrator's context gets reused rather than matched — that is why the
+    // cards name a voice now instead of demonstrating one (voiceforge.ts). Saves written before
+    // that change still have the samples on disk, and every generic walk of the record (the
+    // inspector, an export, the audit) would carry them straight back into a prompt. Deleted here
+    // rather than ignored, once, on the way in. The voice refresh replaces the rest of the card.
+    if (c.voice && "example_lines" in (c.voice as any)) delete (c.voice as any).example_lines;
   }
 }
 

@@ -40,7 +40,7 @@ function fixture() {
   registerCharacter(s, { name: "Rabi", character_id: "char_player" } as any);
   const m = registerCharacter(s, {
     name: "Lucia", age: 40, background: "bg", core_traits: ["t"],
-    voice: { example_lines: ["Two sestertii."] },
+    voice: { idiolect: "a ledger-first refuser", diction: "priced" },
     attachment: { style: "avoidant", under_threat: "SENT_underthreat", soothed_by: "SENT_soothed" },
   } as any);
   s.characters[m].location = "loc_x";

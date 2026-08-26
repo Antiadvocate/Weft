@@ -1706,6 +1706,9 @@ function deriveDefaultVoice(_traits: string[], _age: string): { diction?: string
   return {
     diction: "not yet observed — take it from their age, background, trade and traits, and let it differ from everyone else already in the scene",
   };
+  // No idiolect is invented here either, for the same reason: a move named by this function rather
+  // than derived from a person would be the same move on everybody it ever fired for. The voice
+  // pass writes one from the finished record (voiceforge.ts) as soon as the character has one.
 }
 
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal;
@@ -4821,8 +4824,14 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     const attachment = ["secure", "anxious", "avoidant", "disorganized"].includes(aStyle)
       ? { style: aStyle as any, under_threat: (nc as any).under_threat ? String((nc as any).under_threat).slice(0, 160) : undefined }
       : undefined;
-    const vFlat = { example_lines: (nc as any).example_lines, never_says: (nc as any).never_says };
-    const voice = vFlat.example_lines?.length || vFlat.never_says?.length ? { example_lines: vFlat.example_lines?.slice(0, 4), never_says: vFlat.never_says?.slice(0, 3) } : undefined;
+    // NO SAMPLE LINES REACH STATE, EVER — not even when the bookkeeper writes some anyway. A line
+    // on a card is a line the narrator reuses (see voiceforge.ts); the idiolect is a move it has to
+    // perform instead, so that is the only speech field a spawned character carries in.
+    const idiolect = String((nc as any).idiolect ?? "").trim();
+    const nvSays = (nc as any).never_says as string[] | undefined;
+    const voice = idiolect || nvSays?.length
+      ? { ...(idiolect ? { idiolect } : {}), ...(nvSays?.length ? { never_says: nvSays.slice(0, 3) } : {}) }
+      : undefined;
     // MULTIPLE GOALS — a character is several live wants, not one. Take drive_goals[] if the bookkeeper
     // supplied it; else fall back to the single drive_goal/current_goal. The first becomes the active
     // drive, the rest seed the queue as simultaneous wants the narrator can surface by context. A lone
