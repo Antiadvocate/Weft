@@ -89,6 +89,11 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
   state.condition[id] = blankCondition(cap);
   state.traits[id] = [];
   state.memory[id] = blankMemory(id);
+  // A PERSON CREATED IN PLAY HAS HABITS TOO. ensureHabits ran only in sanitize, i.e. on load — so
+  // everybody the simulator introduced mid-save had none of their core traits as automaticities
+  // until the next time the file was opened, and a character created and dissolved inside one
+  // session never had any at all. Idempotent, zero tokens.
+  if (state.model_settings?.habit_engine !== false) { try { ensureHabits(state, id); } catch { /* best-effort */ } }
   return id;
 }
 
@@ -267,8 +272,12 @@ export function sanitize(state: SaveState): SaveState {
   state.telemetry ??= []; state.pressure_trace ??= []; state.snapshots ??= []; state.records ??= [];
   state.chapters ??= [];
   for (const c of Object.values(state.characters)) c.appearance_now ??= "";
-  // HABIT ENGINE backfill (experimental, flag-gated): populate firing-strength habits from each
-  // character's core_traits so an existing save can opt in. Inert unless habit_engine is set.
+  // HABIT ENGINE. On unless the player has explicitly turned it off — `??=` distinguishes "this save
+  // predates the default" from "somebody declined it", and only the first gets opted in. Every
+  // character's core_traits become firing-strength habits, which is the channel that carries slow
+  // change: a pattern loosens a little each time its owner catches it happening and deepens when it
+  // runs blind. Zero tokens. See engine/habits.ts.
+  if (state.model_settings) state.model_settings.habit_engine ??= true;
   if (state.model_settings?.habit_engine) {
     for (const id of Object.keys(state.characters)) { try { ensureHabits(state, id); } catch { /* best-effort */ } }
   }

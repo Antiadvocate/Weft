@@ -952,8 +952,13 @@ export function needsHistoryCompaction(ident: Identity): boolean {
   return (ident.life_history?.length ?? 0) > 900;
 }
 
-export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {
+export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[]; promoted: string[] } {
   const log: string[] = [];
+  // WHAT THE STORY PUT THERE, reported so it can become an automaticity as well as a label. A trait
+  // that reaches this function has been reinforced eight times and carries the character's own
+  // weight; it is already who they are by every other measure in the engine. It enters the habit
+  // engine as drywall rather than as the wall a forged trait is. See habits.formHabit.
+  const promoted: string[] = [];
   const SPEECHY = /(mean|cruel|harsh|cold|gentle|warm|tender|curt|terse|sharp|bitter|guarded|open|cheerful|grim|sardonic|formal|crude|profane|soft-spoken|aggressive|meek|commanding|timid|sarcastic|kind)/i;
   const kept = traits.filter((t) => {
     const integrated = t.self_weight >= 6 && t.reinforcement_count >= 8 && t.intensity >= 5;
@@ -961,6 +966,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     const already = ident.core_traits.some((c) => c.toLowerCase().includes(t.label.toLowerCase()) || t.label.toLowerCase().includes(c.toLowerCase()));
     if (!already) {
       ident.core_traits = [...ident.core_traits, t.label].slice(-8);
+      promoted.push(t.label);
       log.push(`${ident.name}'s trait "${t.label}" has become part of their core personality.`);
     }
     if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
@@ -971,7 +977,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     }
     return false; // retire from acquired — it's core now
   });
-  return { kept, log };
+  return { kept, log, promoted };
 }
 
 export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kept: AcquiredTrait[]; log: string[] } {

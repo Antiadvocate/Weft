@@ -190,7 +190,13 @@ function readCapability(state: SaveState, action: string): { score: number; fact
     ...(c.core_traits ?? []),
     ...Object.entries(c.skills ?? {}).map(([k, v]) => `${k} ${v}`),
     ...(state.traits?.["char_player"] ?? []).map((t) => `${t.label} ${t.behavioral_impact}`),
-    ...(state.habits?.["char_player"] ?? []).filter((h) => h.strength >= 40 && !h.dormant).map((h) => h.trait),
+    // NOT the habit list. It is a MIRROR of core_traits (ensureHabits seeds it from them, formHabit
+    // adds one at the same moment consolidateTraits writes it to core_traits), so every live entry
+    // is already two lines above — and it is a mirror that can go stale, because a habit worn
+    // through to dormancy leaves core_traits while its record stays. Reading both double-counted a
+    // competence and, once the engine was no longer inert, let a trait the card had since replaced
+    // grade an attempt: a beginner with two hours on a pistol read 0.68 off a habit nobody had
+    // looked at. Automaticity is not skill; what a person can DO is the card.
     ...(state.condition["char_player"]?.inventory ?? []).map((i) => i.name),
   ].filter((s) => s && s.trim().length >= 3);
   // DOMAIN FIRST. Whichever domains this action belongs to, any card entry that speaks to one of

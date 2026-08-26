@@ -41,7 +41,12 @@ export interface ModelSettings {
                                   // providers of the same weights charge up to 4x input with weaker cache discounts.
                                   // Falls back to the rest of the provider pool when first-party is unhealthy.
   sim_route_speed?: boolean;      // route BOOKKEEPER calls for throughput instead of price — default true; bookkeeping latency is the felt latency
-  habit_engine?: boolean;         // EXPERIMENTAL: core traits become probabilistic firing habits that loosen when seen (dzogchen self-liberation) and deepen when unseen. Inert unless true.
+  /** Core traits as firing habits that loosen when a character sees themselves do them and deepen
+   *  when they do not. ON by default since it stopped being inert — see engine/habits.ts for the
+   *  measurement that showed it producing zero fires in 200 turns in every state, and why. Stored
+   *  false only when somebody has explicitly turned it off, so the backfill in state.sanitize can
+   *  tell "never set" from "declined". */
+  habit_engine?: boolean;
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   /** PAINT THE SCENE EVERY TURN, without being asked.
@@ -1124,4 +1129,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   narrator_reasoning: false,        // narrator thinking is billed as output; prose doesn't need it
   prefer_deepseek_provider: true,   // first-party DeepSeek carries the 0.8–2% cache-hit rate
   prose_reviser: false,             // opt-in: one extra call on turns that trip the tic detector
+  // THE KERNEL'S SLOWEST CHANNEL, and it is not optional any more. Zero tokens: all of it is
+  // engine-side arithmetic, and the narrator only ever receives a concrete behaviour to render.
+  habit_engine: true,
 };

@@ -102,6 +102,34 @@ Time skips (`continuity.ts`) run a subset: drift, drives, rumors, bonds — no d
 
 ## 5. The new mechanics (what changed and why)
 
+**The habit engine, no longer optional** (`habits.ts`). Core traits as firing physics — the channel
+that carries change nobody chose — was flag-gated off, and simulated with the flag on it produced
+**zero fires in 200 turns in every state**. Its opportunity gate was a cosine similarity against the
+beat, the metric `novelty.ts` had already documented as wrong here ("it normalizes by document
+length"). Measured: a behavioural trait against a beat that IS that behaviour scores 0.302, against a
+real turn of prose 0.162, and the gate is 0.34 — so the only trait shape that could ever fire was the
+two-word adjective this engine has a whole module devoted to forbidding. No threshold fixes it: a
+behaviour that is *enacted* rather than named scores near zero on containment too, and the beat text
+is assembled before the prose exists, so the simulator's semantic read is not available either.
+
+Opportunity is structural now, the way the mannerism path always was, with lexical relevance demoted
+to deciding which eligible habit takes the beat's one slot. What replaces the gate is grip:
+`unpromptedRate` runs from 0.05 at r ≥ +2 to 0.50 at r ≤ −7 — clenching *is* the automaticity, the
+kernel's own claim applied to the channel it had never reached. Simulated over 200 turns:
+
+| body | fires | seen | outcome |
+|---|---|---|---|
+| settled (r +4) | 15 | 87% | slack — the patterns mostly do not run, and it sees what it does |
+| clenched, quiet (r −7) | 101 | 10% | runs constantly, blind, grooves *past* baseline — the chain of delusion |
+| clenched, loud (r −7, salience 9) | 89 | 24% | the second road: the deepest loosening in the table, and somebody else notices |
+
+Also: `NEW_HABIT_STRENGTH` was declared from the beginning and never used, so the only habits anybody
+ever had were forged before turn one. A trait `consolidateTraits` promotes now becomes an
+automaticity at drywall strength (60) rather than a forged wall (95). `ensureHabits` runs at
+`registerCharacter` as well as on load, so people created mid-save have them too. And `attempt.ts` no
+longer reads the habit list as competence — it is a mirror of `core_traits` that can go stale, and it
+was double-counting.
+
 **Somatic remodelling** (`remodel.ts`). `capacity` was the only number in the psyche with no history
 in it: a body eighty turns braced came to rest exactly where one that arrived this morning did.
 Measured on the Ashford save at turn 29, all four characters sat on the integer the forge wrote on

@@ -22,7 +22,7 @@ import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote,
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
-import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
+import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
@@ -3764,16 +3764,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // earned identity change: only on the reflection cadence, never per-turn
     if (isThePlayer) {
       if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
-        const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+        const { kept: ck, log: clog, promoted: cprom } = consolidateTraits(state.characters[id], state.traits[id], turn);
         state.traits[id] = ck;
+        for (const label of cprom) formHabit(state, id, label);
         // logged to the player's own shift feed, never pushed at the narrator
         for (const l of clog) offscreenLog.push(l);
       }
       continue;
     }
     if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
-      const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+      const { kept: ck, log: clog, promoted: cprom } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;
+      // A PATTERN THE STORY LAID DOWN. Until now the only habits anybody had were the ones the forge
+      // wrote before turn one; whatever a save did to somebody could never become automatic. See
+      // habits.formHabit on why it enters at drywall strength rather than at a forged trait's wall.
+      for (const label of cprom) formHabit(state, id, label);
       for (const l of clog) { offscreenLog.push(l); shifts.push(l); }
       // identity-defining memories fold permanently into background (survive eviction, shape who they are)
       const blog = consolidateBackground(state.characters[id], state.memory[id]);

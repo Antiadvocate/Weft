@@ -44,6 +44,73 @@ const OPPORTUNITY_THRESHOLD = 0.34; // relevance(trait, beat) above which the tr
 /** Turns between chances for a mannerism to fire. A tic recurs; it does not recur every beat, and
  *  firing it every turn would groove it upward forever in any body that is not settled. */
 const MANNERISM_REFRACTORY = 2;
+/** Turns between chances for a subject habit. Longer than a tic: a signature behaviour is a signature
+ *  because it recurs, not because it happens every beat. */
+const HABIT_REFRACTORY = 3;
+
+/* ── THE OPPORTUNITY GATE, AND WHY IT WAS A WALL ───────────────────────────────────────────────
+ *
+ * This engine was dark. Not off — dark: flag-gated off by default, and producing nothing at all when
+ * the flag was set. Simulated over 200 turns, deterministic rng, three well-written traits and beats
+ * deliberately written so the behaviour was unmistakably happening:
+ *
+ *   SETTLED (r +4)          200 turns:  0 fires,  0 seen,  0 noticed
+ *   NEUTRAL (r  0)          200 turns:  0 fires,  0 seen,  0 noticed
+ *   CLENCHED (r −7), loud   200 turns:  0 fires,  0 seen,  0 noticed
+ *
+ * Nothing ever cleared this threshold, because the threshold was a cosine similarity against the
+ * beat, and novelty.ts had already written down exactly why that does not work:
+ *
+ *   "That is cosine similarity, which is right for ranking memories against each other but wrong
+ *    here: it normalizes by document length, so an unmistakable expression inside a normal paragraph
+ *    scores ~0.19 and gets weaker the longer the prose runs."
+ *
+ * novelty.ts fixed it and this file never did. Measured:
+ *
+ *   "Answers a question with a joke first…"  vs a beat of exactly that      relevance 0.302
+ *   "Will not let a check be split evenly…"  vs the check arriving          relevance 0.218
+ *   the same trait against a REAL turn of prose (what turn.ts passes)       relevance 0.162
+ *   "loves basketball" vs "they played basketball at the court"             relevance 0.408  ← only
+ *
+ * The gate is at 0.34. So the only trait shape that could ever fire was the two-word adjective —
+ * and this engine spends a whole module (coerce.ts, sketch.ts) forcing traits to be written as
+ * concrete behavioural sentences instead, because adjectives give a person nothing to do. The better
+ * the trait was written, the less able it was to ever fire. A perfect inversion.
+ *
+ * AND NO THRESHOLD FIXES IT, which is the part worth recording so nobody tunes this number again.
+ * Against realistic prose — a woman deflecting a question about the roof with a joke and then giving
+ * the real figure — the trait scores cosine 0.053 and containment 0.00, because the words "joke",
+ * "answers" and "wait" are nowhere in it. The behaviour is ENACTED, not named. Lexical matching
+ * cannot see an enacted behaviour, and the beat text is assembled BEFORE the prose exists, so the
+ * simulator's semantic read (which is how novelty.ts solves the after-the-fact version) is not
+ * available here either.
+ *
+ * So opportunity stops being lexical. The mannerism path already had the answer and had it for the
+ * right reason — "a mannerism's trigger context is simply BEING IN THE SCENE" — and that is true of
+ * every habit, not just the tics. A person does not do their pattern because the room said its
+ * keyword. They do it because it is their pattern. Lexical relevance becomes a BOOSTER that decides
+ * which habit wins the one slot when the scene is genuinely on-subject, never the gate that decides
+ * whether anything happens at all.
+ *
+ * What replaces the gate is grip. An unprompted pattern runs far more readily in a braced body than
+ * in a settled one — which is the kernel's own claim, applied to the channel it had never reached:
+ * clenching IS the automaticity. A settled character does an unprompted signature behaviour about
+ * one eligible beat in ten; a badly clenched one, better than half. Both still fire on-subject when
+ * the scene actually calls for it.
+ */
+
+/** How readily a pattern runs when nothing in the scene prompted it. Grasping drives automaticity;
+ *  slack is what an open body has and a braced one does not. */
+export function unpromptedRate(relaxation: number): number {
+  const gripped = Math.max(0, Math.min(1, (2 - relaxation) / 9));   // 0 at r≥+2, full by r≤−7
+  return 0.05 + 0.45 * gripped;
+}
+
+/** Fire verdicts one beat may carry. Each one is a line of law telling the narrator to render a
+ *  specific behaviour, and a scene of four people each doing their signature thing is a scene made
+ *  of tics. The most gripped bodies keep their slots: whose patterns are running hardest is exactly
+ *  what the beat is about. */
+const FIRES_PER_BEAT = 2;
 const BARE_SEEING = 0.04;         // seeing is never impossible, at any state — the floor under both roads
 const INTENSITY_SEEING = 0.22;    // additional chance at full volume: a loud arising in a gripped body
 
@@ -103,6 +170,38 @@ export function ensureHabits(state: SaveState, id: string): CoreHabit[] {
   return list;
 }
 
+/**
+ * A pattern the STORY laid down, entering as a habit for the first time.
+ *
+ * NEW_HABIT_STRENGTH was declared in this file from the beginning and never once used, so the only
+ * habits any character ever had were the ones the forge wrote before turn one. Whatever a save did
+ * to somebody could reach their acquired traits, their beliefs, their memory and their voice card —
+ * and could never become an automaticity, which is the one thing a habit is.
+ *
+ * The distinction the unused constant was reserved for is the one that matters here: what a person
+ * was made with is a wall (95), and what a life laid down on top of it is drywall (60). Both loosen
+ * the same way and by the same mechanism. The second just has less of itself to lose, which is why a
+ * thing you have been doing for a year comes apart faster than the thing you have always done.
+ *
+ * Called when consolidateTraits promotes a lived trait into core_traits — the moment the engine
+ * already recognises as "this is who they are now" — so the two records stop disagreeing.
+ */
+export function formHabit(state: SaveState, id: string, trait: string): boolean {
+  if (!trait?.trim()) return false;
+  state.habits ??= {};
+  const list = (state.habits[id] ??= []);
+  const key = trait.trim().toLowerCase();
+  const existing = list.find((h) => h.trait.trim().toLowerCase() === key);
+  if (existing) {
+    // A dormant pattern the story has re-established is a relapse, not a new habit: it comes back at
+    // the strength a lived pattern gets, never at the wall it used to be.
+    if (existing.dormant) { existing.dormant = false; existing.strength = NEW_HABIT_STRENGTH; existing.noticed_watermark = NEW_HABIT_STRENGTH; }
+    return false;
+  }
+  list.push({ trait: trait.trim(), strength: NEW_HABIT_STRENGTH, baseline: NEW_HABIT_STRENGTH, seen_fires: 0, last_fired_turn: -1, noticed_watermark: NEW_HABIT_STRENGTH });
+  return true;
+}
+
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
@@ -150,20 +249,25 @@ export function tickHabits(
     // gets a non-lexical opportunity — rate-limited by the same frequency budget that governs
     // whether it should be on the page, so this does not just fire one every turn instead.
     let best: CoreHabit | null = null;
-    let bestRel = OPPORTUNITY_THRESHOLD;
+    let bestScore = -1;
+    let onSubject = false;
     for (const h of habits) {
       if (h.dormant) continue;
-      if (isMannerism(h.trait)) {
-        if (mannerismSuppressed(h, turn)) continue;      // resting: not on the page, not fired
-        if (turn - (h.last_fired_turn ?? -99) < MANNERISM_REFRACTORY) continue;
-        // scored just over the lexical bar so a genuinely on-subject trait still wins the slot
-        if (bestRel <= OPPORTUNITY_THRESHOLD) { bestRel = OPPORTUNITY_THRESHOLD + 0.01; best = h; }
-        continue;
-      }
-      const rel = relevance(h.trait, beatText);
-      if (rel > bestRel) { bestRel = rel; best = h; }
+      const manner = isMannerism(h.trait);
+      if (manner && mannerismSuppressed(h, turn)) continue;   // resting: not on the page, not fired
+      if (turn - (h.last_fired_turn ?? -99) < (manner ? MANNERISM_REFRACTORY : HABIT_REFRACTORY)) continue;
+      // Lexical relevance no longer decides WHETHER anything is eligible — only which eligible habit
+      // takes the one slot when the scene is genuinely about one of them. A tic has no subject to
+      // match on and is never scored for it.
+      const rel = manner ? 0 : relevance(h.trait, beatText);
+      const score = rel + (rng() * 0.01);                     // tie-break, so the list order is not destiny
+      if (score > bestScore) { bestScore = score; best = h; onSubject = rel >= OPPORTUNITY_THRESHOLD; }
     }
     if (!best) continue;
+
+    // NOTHING IN THE SCENE ASKED FOR IT. A pattern still runs — that is what makes it a pattern —
+    // but how readily depends on how much slack the body has. See unpromptedRate above.
+    if (!onSubject && rng() > unpromptedRate(relax)) continue;
 
     // FIRE ROLL — P(fire) = strength/100. A misfire produces NOTHING: no verdict, no absence note,
     // no one notices. The dog simply doesn't bark. (This is the bootstrap: the alternative is never
@@ -214,7 +318,14 @@ export function tickHabits(
     }
   }
 
-  return { fires, shifts, dwellings };
+  // The strength math above has already happened for everyone who fired — being seen or grooved is
+  // what a firing DOES, and it does it whether or not the page has room for it. What the cap trims
+  // is the narrator's instruction list, not the physics.
+  const kept = fires.length <= FIRES_PER_BEAT ? fires
+    : [...fires].sort((a, b) =>
+        (state.condition[a.char_id]?.psyche?.relaxation ?? 0) - (state.condition[b.char_id]?.psyche?.relaxation ?? 0)
+      ).slice(0, FIRES_PER_BEAT);
+  return { fires: kept, shifts, dwellings };
 }
 
 /** Re-groove: extinction is inhibition, not erasure. Habits not recently seen-fired drift back toward
