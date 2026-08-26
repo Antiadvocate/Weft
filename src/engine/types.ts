@@ -996,6 +996,9 @@ export interface SaveState {
    *  noticing, so a step is reported in the same channel as every other state change the moment it
    *  happens. Rare by construction — a step needs a completed run. See engine/remodel.ts. */
   last_remodel?: { id: string; dir: "wear" | "settle"; to: number; turn: number }[];
+  /** Places that moved somebody on the way in this turn. The container and its contents are the same
+   *  system: what a room holds for a person is what happened to them in it. See engine/ground.ts. */
+  last_ground?: { id: string; place: string; shove: number; about: string; turn: number }[];
   /** A line last turn that delivered something the player's own record already held. Corrected at
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */

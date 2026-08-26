@@ -102,6 +102,28 @@ Time skips (`continuity.ts`) run a subset: drift, drives, rumors, bonds — no d
 
 ## 5. The new mechanics (what changed and why)
 
+**The container and its contents** (`ground.ts`). A place had no relationship to a nervous system.
+Measured on Ashford: 18 of Amber's 30 episodic memories carry a `where` — the place is filed with the
+memory and fades out of it as the memory fades — and that field was used for display and nothing
+else. Arrival at a place now shoves relaxation by what happened to that person there, computed from
+their own bank. Bounded at ±1.2 (a fifth of a bad conversation), fires on arrival only, needs more
+than one memory or one that mattered, and **habituates** — divided by recent visits, so the room you
+are in daily stops announcing itself and the one you have avoided does not. That habituation term is
+the difference between this and a haunted world. Zero tokens.
+
+**Simulation LOD is not render LOD.** `central === false` gated the emotion lifecycle, discharge,
+desire, rivalry and repair — and all of those are pure arithmetic (0 LLM references across
+`emotions.ts`, `desire.ts`, `fault.ts`, `social.ts`, `remodel.ts`). Excluding background characters
+saved nothing; the *card* is what costs, and theirs is one line either way. Everyone is simulated
+now; only the central cast is described.
+
+**Offstage reaches bodies** (`offstage.ts`). The pass had zero references to relaxation or psyche, so
+the world could hand a man the first call to his dead husband's brother since the funeral, file it,
+seed a rumour off it, and leave him at the same number. `eventImpact` is a separate lexical read from
+`actorValence` and deliberately so — agentive valence scores a plague at zero, which is right for
+opinion and exactly wrong for a body. The actor takes ±1.4, a witness half, the player never, and a
+hard one accrues grief drag so it does not wash out on the next turn's drift.
+
 **The habit engine, no longer optional** (`habits.ts`). Core traits as firing physics — the channel
 that carries change nobody chose — was flag-gated off, and simulated with the flag on it produced
 **zero fires in 200 turns in every state**. Its opportunity gate was a cosine similarity against the

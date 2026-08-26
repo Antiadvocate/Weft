@@ -18,6 +18,7 @@ import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { apertureOf } from "./aperture";
 import { remodelCue } from "./remodel";
+import { groundCue } from "./ground";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
 import { doorFromVoice } from "./coerce";
@@ -1554,6 +1555,9 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       // behavioural — what they no longer react to, or what they can now take — never the number.
       // Empty for everybody still resting where they started, which is most people. See remodel.ts.
       { const rc = remodelCue(cond.psyche, ident.name); if (rc) lines.push(rc); }
+      // AND WHETHER THE ROOM ITSELF IS DOING SOMETHING TO THEM. Only on the turn they walked in,
+      // only when the place actually holds something for this person. See engine/ground.ts.
+      { const gc = groundCue(state, id); if (gc) lines.push(gc); }
       if (cond.psyche.relaxation <= -3 && ident.attachment?.under_threat) lines.push(`  under stress this person: ${ident.attachment.under_threat}`);
       // The forge writes soothed_by for every NPC — "one plain sentence: what actually settles
       // them" — and it reached nobody. This branch printed a generic sentence about avoidant people

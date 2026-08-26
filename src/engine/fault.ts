@@ -44,6 +44,18 @@
  * And the size of it scales with the bond. Hurting a stranger is a bad afternoon; hurting the person
  * you sleep next to is the thing you cannot put down.
  */
+// SIMULATION LOD IS NOT RENDER LOD, and `central` was gating both.
+//
+// A background character was excluded from the emotion lifecycle, discharge, desire, rivalry and
+// repair — every one of which is pure arithmetic over numbers already in the save. Measured: zero
+// LLM references in emotions.ts, desire.ts, fault.ts, social.ts, remodel.ts. Excluding them saved
+// nothing at all, because what actually costs tokens is the CARD, and a background character's card
+// is one line either way (prompts.ts renders them as name + bearing and stops).
+//
+// So the two questions get separated. Who gets simulated: everybody, always, for free. Who gets
+// rendered in detail: the central cast, unchanged. A vendor with a nervous system costs the same as
+// a vendor without one, and when the scene finally turns to them they are somebody rather than
+// furniture that has been standing there at capacity since the turn they were named.
 import type { SaveState, SimulatorDiff } from "./types";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -107,7 +119,7 @@ export function applyFaults(state: SaveState, faults: FaultReport[], turn: numbe
   for (const f of faults) {
     const c = state.characters[f.character];
     const cond = state.condition[f.character];
-    if (!c || !cond || f.character === "char_player" || c.central === false) continue;
+    if (!c || !cond || f.character === "char_player") continue;
     const conscience = typeof c.conscience === "number" ? c.conscience : 0.7;
     const p = cond.psyche;
     if (conscience <= COLD) {
@@ -148,7 +160,7 @@ export function tickRepair(state: SaveState): string[] {
   for (const id of state.world.present) {
     const c = state.characters[id];
     const cond = state.condition[id];
-    if (!c || !cond || id === "char_player" || c.central === false) continue;
+    if (!c || !cond || id === "char_player") continue;
     const p = cond.psyche;
     const style = c.attachment?.style ?? "secure";
     const conscience = typeof c.conscience === "number" ? c.conscience : 0.7;

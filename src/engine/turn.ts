@@ -17,6 +17,7 @@ import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, 
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
 import { tickRemodel, dampen, remodelReport } from "./remodel";
+import { tickArrivals } from "./ground";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote, type Read } from "./read";
 import { frameDirective } from "./frame";
@@ -5080,6 +5081,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
     state.characters["char_player"].location = state.world.player_location;
   }
+  const arrivedThisTurn: { id: string; to: string }[] = [];
   for (const mv of diff.locations ?? []) {
     const cid = resolveId(state, mv.char_id);
     if (!cid || !mv.place) continue;
@@ -5193,9 +5195,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         mem.episodic = capMemory(mem.episodic);
       }
     }
+    const cameFrom = state.characters[cid].location;
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
+    if (cameFrom !== pid && pid !== OFFSCENE) arrivedThisTurn.push({ id: cid, to: pid });
   }
+  // THE ROOM GOT THERE FIRST. Walking into a place something happened to you in shoves the one
+  // number before anybody has said a word — small, on arrival only, and it habituates, so the
+  // kitchen you use every day stops doing it and the house you have avoided for thirty turns does
+  // not. Zero tokens, computed from the place already filed on each memory. See engine/ground.ts.
+  for (const line of tickArrivals(state, arrivedThisTurn)) shifts.push(line);
   // ── TRAVEL LOG ── the player's path through places, in order. Feeds the story map:
   //    each visited place is a node, each move an edge. Skips "elsewhere" (not a place)
   //    and consecutive repeats (staying put is not travel). Capped so old saves stay small.

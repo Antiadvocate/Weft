@@ -12,6 +12,20 @@ Relaxation sets how accurately a person reads other people. Clenched bodies see 
 
 **Exception — conscience.** Calm is not care. Each person has a **conscience** number (0–1): how much other people's pain registers as mattering. For most people, opening up and warming up travel together. For a person at ≤0.3, they come apart: relaxation still sharpens their sight, but what they see never obligates them. Their calm is real (these people are genuinely low-anxiety and stress-immune) and it makes them more effective, not kinder. Clench makes them petty and punitive instead of defensive. Their darkness is constitution, not wound, and comfort does not fix it.
 
+## Places: the room got there first
+
+A place is not neutral to the person walking into it. What a room holds for someone is what happened to them in it — and walking in gets some of it, before anybody has said a word. You are already braced by the time you notice the hallway.
+
+It is small, it fires on arrival rather than every turn you stand there, and it **habituates**: the kitchen you use every day stops doing this to you, and the house you have avoided for a month does not. It is also personal — the same room is charged for one of two people standing in it and inert for the other, because it is computed from each person's own memory of the place. That is the whole point of it.
+
+## Everybody is simulated; not everybody is described
+
+A background character — a vendor, a clerk, someone's cousin — used to be excluded from the emotion lifecycle, from release, from desire, from repair. Not to save anything: all of that is arithmetic over numbers already in the save. What costs is the *description* in the prompt, and a background character is one line either way.
+
+So the two questions are separate now. Everyone gets a nervous system, always, for free. Only the central cast gets described in detail. A vendor with an inner life costs exactly what a vendor without one costs — and when a scene finally turns toward them, they are somebody, rather than furniture that has been standing at its resting point since the turn it was named.
+
+The world moving offstage reaches bodies too. Something hard that happened to a person while nobody was watching lands on them; someone who only saw it takes half. The story used to move without the people in it moving.
+
 ## Wear: what a long story does to a body
 
 The resting point is not a constant. A person who spends a long stretch braced comes to rest tighter than they used to — ordinary friction stops landing on them, and there is less in reserve when something real arrives. A person held and safe for a long stretch comes to rest easier, with more room before they contract. Neither happens in an afternoon: it takes a run, and a single bad day changes nobody.
