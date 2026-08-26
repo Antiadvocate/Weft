@@ -55,6 +55,8 @@ here so you can see the whole skeleton at once.
 | sigmoid(r × 0.7) | habits.ts | the **calm road** to seeing a habit as it fires — clear at +3, near-blind at −3 |
 | 0.04 + 0.22·loud·gripped | habits.ts | the **second road**: intensity, not ease. Loud = pressure above 4; gripped = r below −2, full by −8. The two are independent doors, so a deep clench at full volume sees about one firing in five instead of one in a hundred and forty |
 | r ≥ +2 | emotions.ts, social | stale moods fade; you count as someone's safe person |
+| r ≥ +2 | aperture.ts | the **aperture opens**: the voice card becomes where the words come from rather than a filter every line passes through, and the character's own standing interests are offered as things the room can catch their attention with |
+| r ≤ −4 | aperture.ts | the aperture **narrows**: register at its most concentrated, attention on the one thing. Correct behavior, and what makes the open band mean anything |
 | r ≤ −2 | physiology.ts | visible tension cue rendered for the narrator (shoulders/jaw/breath, never interior) |
 | r ≤ −3 | emotions.ts | "threatened": the **second hit** — a held emotion older than 3 turns starts draining −0.2/turn and colonizes the mood; avoidant attachment stops taking comfort |
 | r ≤ −4 | tickPsyche, emotions.ts | the **fracturing line**: 4 turns at ≤ −7 flips state to fracturing; a discharge must return above −4 to count |
@@ -97,6 +99,19 @@ Time skips (`continuity.ts`) run a subset: drift, drives, rumors, bonds — no d
 (nobody is releasing anything offscreen; the world just turns).
 
 ## 5. The new mechanics (what changed and why)
+
+**The aperture** (`aperture.ts`). Relaxation decided how accurately a person SEES, how an emotion
+resolves, and whether a habit can be caught — and said nothing at all about how much of the world
+reaches what they SAY. `deriveVoice` had a band at −7 and a band at +6 with nothing between them, so
+the whole middle, where nearly every turn of nearly every save sits, got no line about register at
+all and spoke out of its card and only its card. Measured on one save: a woman at +2.51 with a
+28-turn settled run behind her, 65% of her spoken lines on her one errand, 3% touching any of the
+four standing interests printed on her card, the last word of the turn in 15 turns of 17, and four
+turns running ending with her telling the player what happens next. Three deterministic detectors
+now read the last few turns — how long her speech has been on her own want, how long she has been
+closing the scene with an instruction, and which of her own interests the page has not used — and
+the note they produce is permission plus the measured fact, never a ban on the want. A clenched body
+narrows and the module protects that; an open body does not.
 
 **Mean-field coupling** (`tickCoRegulation`, second pass). Pairwise co-regulation is star-topology:
 each character finds their single safest person. Collective phenomena need neighborhood reads, so a
