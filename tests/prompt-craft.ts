@@ -51,10 +51,10 @@ const prompt = \`Match the register of the story you are given and keep the tone
  *
  * The scanner used to be a regex pairing backticks in order, so an inner `${x ? `y` : ""}` shifted
  * the pairing and everything after it fell out of phase. The effect was not a few missed lines: it
- * silently excluded most of the corpus. voiceforge.ts — the prompt that writes the sample lines the
- * narrator copies for every word a character speaks — was being read 204 characters deep, and the
- * measured count that this file ratchets was taken over the fraction that happened to land in
- * phase. A linter that reports zero because it never looked is worse than no linter.
+ * silently excluded most of the corpus: whole prompt files were being read a couple of hundred
+ * characters deep, and the measured count that this file ratchets was taken over the fraction that
+ * happened to land in phase. A linter that reports zero because it never looked is worse than no
+ * linter.
  */
 {
   const src = 'const p = `Alpha instruction text here ${a ? `${b}` : ""} and the tail of it` + `Beta instruction text that must also be seen by the linter`;';
@@ -63,10 +63,10 @@ const prompt = \`Match the register of the story you are given and keep the tone
   check("...and the literal after it is not lost", lits.some((t) => /Beta instruction text/.test(t)), lits);
   check("the interpolated code is not read as prose", !lits.join("").includes("a ?"));
 
-  // and the real file it was hiding
-  const vf = modelFacing(readFileSync("src/engine/voiceforge.ts", "utf8"));
-  check("voiceforge is actually linted now", vf.length > 2000, vf.length);
-  check("...including the rules for the lines the narrator imitates", /UNSAYABLE BY ANYONE ELSE IN THIS CAST/.test(vf));
+  // and a real file of the kind it was hiding — sketch.ts, the pass that writes a whole person
+  const sk = modelFacing(readFileSync("src/engine/sketch.ts", "utf8"));
+  check("a real prompt file is actually linted now", sk.length > 2000, sk.length);
+  check("...all the way to the end of it", /DO NOT SANITIZE/.test(sk));
 }
 
 /* ── 2. the three shapes ─────────────────────────────────────────────────────── */

@@ -87,7 +87,6 @@ export async function retraitCharacter(
     `WHAT SETTLES THEM: ${c.attachment?.soothed_by ?? "unstated — do not invent"}`,
     `CONSCIENCE (0..1, how much others' pain registers): ${c.conscience ?? 0.7}`,
     acquired.length ? `WHAT PLAY HAS MADE THEM (overlay — do not fold into core): ${acquired.join(" | ")}` : "",
-    c.voice?.example_lines?.length ? `HOW THEY TALK: ${c.voice.example_lines.slice(0, 2).map((l: string) => `"${l}"`).join(" ")}` : "",
   ].filter(Boolean).join("\n");
 
   let traits: { trait?: string; from?: string }[] = [];

@@ -158,7 +158,7 @@ function leaves(node: any, path: string, out: Leaf[], depth = 0): void {
   }
 }
 
-/** Collapse "characters.char_msk82wsspvxy5.voice.tics.0" to "characters.*.voice.tics.*" so the
+/** Collapse "characters.char_msk82wsspvxy5.texture.0" to "characters.*.texture.*" so the
  *  report says what KIND of thing is dark rather than listing it once per character. */
 function groupOf(path: string): string {
   return path

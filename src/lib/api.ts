@@ -35,7 +35,6 @@ import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun, rolesFromRelation } from "../engine/coerce";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
-import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
 import { stripScaffolding } from "../engine/echo";
 import { retraitCast, retraitCharacter, type RetraitResult } from "../engine/traitforge";
 import { refreshDrives } from "../engine/driveforge";
@@ -366,13 +365,11 @@ export const api = {
         life_history: prev?.life_history ?? "",          // the accreted defining-moments carry verbatim
         core_traits: prev?.core_traits ?? [],
         values: prev?.values ?? [],
-        speech_pattern: prev?.speech_pattern ?? "plain",
         texture: prev?.texture ?? [],
         attracted_to: prev?.attracted_to,
         taste: prev?.taste,
         aliases: prev?.aliases,
         conscience: prev?.conscience,
-        voice: prev?.voice,
         attachment: prev?.attachment,
         portrait_url: prev?.portrait_url,
         tracked: true,
@@ -768,18 +765,6 @@ export const api = {
     const s = await need(id);
     const r = await retraitCharacter(s, char_id, s.model_settings.forge_model, force);
     if (!r) throw new Error("Couldn't re-express those traits — try again.");
-    await putSave(s);
-    return clientView(s);
-  },
-
-  // Re-read one character's script cold. The refresher sees the card as it stands now — core traits
-  // plus what play has made them — and never sees a line of prose, so it cannot inherit the drift.
-  // example_lines are REPLACED: keeping the old ones would feed the drifted voice back in as an
-  // exemplar, which is the loop this exists to break.
-  refreshVoice: async (id: string, char_id: string): Promise<ClientSave> => {
-    const s = await need(id);
-    const ok = await refreshVoice(s, char_id, s.model_settings.forge_model);
-    if (!ok) throw new Error("Couldn't re-derive that voice — try again.");
     await putSave(s);
     return clientView(s);
   },
@@ -1203,9 +1188,6 @@ export const api = {
     syncPresence(s);                                   // co-location decides the scene; recompute it
     s.updated_at = new Date().toISOString();
     await putSave(s);
-    // A voice, so they can speak the moment they are in a room. Best-effort: a person with a full
-    // record and no voice card still plays; a failed forge call must not lose the character.
-    try { await refreshVoice(s, r.id, s.model_settings.forge_model); await putSave(s); } catch { /* they can still talk */ }
     return { save: clientView(s), added: { name: r.name, where: r.where, tie: r.tie } };
   },
 
@@ -1238,7 +1220,7 @@ export const api = {
     const ctx = [
       `CHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. ${c.background}`,
       c.life_history ? `Since the story began: ${c.life_history}` : "",
-      `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
+      `Core: ${c.core_traits.join(", ")}.`,
       traits ? `Learned: ${traits}` : "",
       cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (colors every answer per the openness rules).` : "",
       edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth — liking is not wanting)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
@@ -1721,7 +1703,6 @@ export const api = {
       } catch (e: any) { lastErr = `${m}: ${e.message}`; g = null; }
     }
     if (!g) throw new Error(`The forge failed after 3 attempts — ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
-await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     const bible: WorldBible = {
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
@@ -2013,24 +1994,13 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
       onMeta: (m) => ev.onMeta?.(m as Record<string, unknown>),
       onRead: (rs) => ev.onRead?.(rs),
     }, observe ? "story" : mode, { ...opts, eco: gov.eco, signal: opts?.signal, jobId: job });
-    // FRESH READER. After the turn, re-derive the voice of anyone in the scene whose card hasn't
-    // been re-read in VOICE_REFRESH_INTERVAL turns. Runs on the card only — it never sees a line of
-    // narrator prose — so it can't inherit the drift it exists to undo. Best-effort and silent:
-    // a failed refresh just leaves the existing voice in place.
     // Anyone with no want, or a want that only exists in relation to the player, gets a real one —
     // derived from their own life, in a pass that never sees the player or the transcript.
-    // SIDE BY SIDE, NOT ONE AFTER THE OTHER. These two are independent — one gives a want to
-    // somebody who has none, the other re-reads a voice off the card — and they were awaited in
-    // sequence on the forge model, which on a real save is Opus. Two Opus round trips end to end,
-    // after the narrator and the bookkeeper have already finished, while the player watches
-    // "recording changes". Neither reads what the other writes; running them together costs one
-    // wait instead of two.
-    const [drives, voices] = await Promise.allSettled([
+    // Best-effort: a failed pass leaves the existing wants in place.
+    const [drives] = await Promise.allSettled([
       refreshDrives(s, s.model_settings.forge_model),
-      refreshStaleVoices(s, s.model_settings.forge_model),
     ]);
     if (drives.status === "fulfilled" && drives.value.length) console.info(`[drives] ${drives.value.join(" | ")}`);
-    if (voices.status === "fulfilled" && voices.value.length) console.info(`[voice] re-read from the card: ${voices.value.join(", ")}`);
     await putSave(s);
     // rolling checkpoint: every 25 turns, a full-state backup row — catastrophic loss is
     // bounded to <25 turns even with no export anywhere

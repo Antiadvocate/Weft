@@ -50,7 +50,7 @@ import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becom
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
 import { scheduleDirective, tickSchedule } from "./schedule";
-import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { findMaxims, maximFix, speakerAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
@@ -397,7 +397,7 @@ export function splitSentencesOutsideQuotes(para: string): string[] {
  *
  * A gladiator did her crowd-work in the prose — `"Tigris the Nubian says it too, so now it's three
  * people saying it."` — and the cast gained a member called Nubian. She was registered on turn 6,
- * promoted to central, forged a voice card and a drive of her own, joined PRESENT, and from turn 16
+ * promoted to central, given a drive of her own, joined PRESENT, and from turn 16
  * walked beside the player for nine turns as a person nobody had ever written. The bookkeeper then
  * filed Tigris's own history onto her ("Rabi offered Nubian freedom in exchange for her silence"),
  * and the player — reasonably — asked who the hell this was and how she got there.
@@ -1688,25 +1688,6 @@ function deriveDefaultValues(traits: string[], background: string): string[] {
   return out.slice(0, 3);
 }
 
-/**
- * A spawned character with no voice of their own.
- *
- * This used to return one of three canned diction strings — "clipped, plain, spends words like they
- * cost something", "plain and direct, no flourish" — and a pair of hardcoded two-word sample lines,
- * for EVERY character the prose introduced. So the engine itself was the source of the terse,
- * weighty, interchangeable cast: any person who walked into a scene was assigned brevity as a
- * personality before anyone had written a word for them, and the narrator then had a sample proving
- * it. Three canned voices cannot tell anyone apart, and a description of how somebody sounds that
- * was not derived from who they are is worse than no description, because it overrides the card.
- *
- * So it derives nothing about sound now. It records only what is actually known — that this person
- * has not been written yet — and points at the fields that do decide it.
- */
-function deriveDefaultVoice(_traits: string[], _age: string): { diction?: string; never_says?: string[] } {
-  return {
-    diction: "not yet observed — take it from their age, background, trade and traits, and let it differ from everyone else already in the scene",
-  };
-}
 
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal;
   /** Identifies THIS turn's narrator call to the relay, when one is configured. Generated and
@@ -1826,7 +1807,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     if (id === "char_player") continue;
     const cond = state.condition[id]; if (!cond) continue;
     const consc = typeof c.conscience === "number" ? c.conscience : 0.6;
-    const traitBlob = `${(Array.isArray(c.core_traits) ? c.core_traits.join(" ") : c.core_traits ?? "")} ${(c.voice as any)?.agenda ?? ""} ${c.attachment?.under_threat ?? ""}`.toLowerCase();
+    const traitBlob = `${(Array.isArray(c.core_traits) ? c.core_traits.join(" ") : c.core_traits ?? "")} ${c.attachment?.under_threat ?? ""}`.toLowerCase();
     const guarded = /\b(cold|hollow|vindictive|cruel|ruthless|predatory|paranoid|hostile|guarded|calculating|manipulat|menac|instrument|vicious|contempt|sadis|controlling|suspicious|wary|hardened|brutal)\b/.test(traitBlob);
     let natural = consc <= 0.3 ? -2 : consc >= 0.8 ? 4 : 2;
     if (guarded) natural -= 2;
@@ -2671,7 +2652,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const consultNote = consultDirective(state, action);
   // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
   const cameNote = arrivalOrder(state);
-  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + speakerAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3556,7 +3537,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // A RECORD THAT IS STILL A STUB IS NOT A CAST MEMBER YET.
     //
     // This loop promotes anyone present, named and untracked to central: tracked, full fidelity,
-    // a voice card, a drive, an intent authored every turn, a place in the digest. It never asked
+    // a drive, an intent authored every turn, a place in the digest. It never asked
     // whether the engine knows who they are. So a name the regex scraped out of one line of prose
     // — no traits, no background, an INCOMPLETE RECORD marker where a life should be — was made a
     // full member of the story on the same turn it appeared, and everything downstream then had to
@@ -4695,7 +4676,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
  * Named people who SPOKE this turn but exist nowhere in state.
  *
  * This is the hole every "why does she sound like she's from 2026" complaint comes through. A
- * tracked character is constrained by a voice card, core traits, memories, and the knowledge gate.
+ * tracked character is constrained by core traits, memories, and the knowledge gate.
  * A person the narrator simply started writing has NONE of that — no card, no register, no history
  * — so they speak in the model's default voice, which is contemporary literary fiction. It is also
  * how an offstage mother acquired opinions, and how a harper arrived carrying plot: an unregistered
@@ -4714,7 +4695,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // The frequency heuristic is GONE. "Capitalised word appearing 3+ times, at least once
   // mid-sentence" registered Somewhere, Pictish, Past, Rule, Even, Rome and He'll as members of the
   // cast — because adjectives of nationality, book titles, cities and contractions all satisfy it,
-  // and each junk record then drew a voice card. No refinement of a frequency rule fixes that: it
+  // and each junk record then drew a full card. No refinement of a frequency rule fixes that: it
   // is counting the wrong thing. Only one signal actually means "this is a person": the text says
   // they SPOKE. That misses people introduced by name and thereafter referred to as "she" — an
   // acceptable loss, since a miss costs one uncredited walk-on and a false positive costs a
@@ -4732,7 +4713,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // SELF-INTRODUCTION. The two rules above look for a name ADJACENT to a speech verb, and the most
   // common way a person enters a story defeats both: the player asks a name, and the answer comes
   // back as `"Tomas," he said.` — the verb attaches to the pronoun, the name sits inside the quote.
-  // A whole conversation partner then lived eight turns of prose with no record, no voice card, no
+  // A whole conversation partner then lived eight turns of prose with no record, no card, no
   // memory bank and no edge, reconstructed from the chatlog each turn and forgetting everything
   // that scrolled out of it; meanwhile the bookkeeper, having no id to write to, filed his
   // relationship onto an unrelated knight. A quotation whose entire contents are one capitalised
@@ -4787,7 +4768,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // nothing` and `Hiding said nothing` both survive every other check, and the giveaway is that
       // the identical word appears in lower case somewhere else in the turn, which a real name never
       // does. It costs the occasional character named Rose or Will, and a miss costs one uncredited
-      // walk-on while a false positive costs a permanent fictional person with a voice card.
+      // walk-on while a false positive costs a permanent fictional person with a full record.
       if (new RegExp(`\\b${raw.toLowerCase()}\\b`).test(`${prose} ${action}`.replace(new RegExp(`\\b${raw}\\b`, "g"), ""))) continue;
       // Must also appear mid-sentence somewhere: a real person gets referred to, not just used to
       // open a sentence before a verb that happens to be in the list. A name directly after a
@@ -4821,8 +4802,6 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     const attachment = ["secure", "anxious", "avoidant", "disorganized"].includes(aStyle)
       ? { style: aStyle as any, under_threat: (nc as any).under_threat ? String((nc as any).under_threat).slice(0, 160) : undefined }
       : undefined;
-    const vFlat = { example_lines: (nc as any).example_lines, never_says: (nc as any).never_says };
-    const voice = vFlat.example_lines?.length || vFlat.never_says?.length ? { example_lines: vFlat.example_lines?.slice(0, 4), never_says: vFlat.never_says?.slice(0, 3) } : undefined;
     // MULTIPLE GOALS — a character is several live wants, not one. Take drive_goals[] if the bookkeeper
     // supplied it; else fall back to the single drive_goal/current_goal. The first becomes the active
     // drive, the rest seed the queue as simultaneous wants the narrator can surface by context. A lone
@@ -4834,16 +4813,15 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3);
     const drive = allGoals.length ? { goal: allGoals[0], priority: 3, progress: 0, updated_turn: turn } : undefined;
     const driveQueue = allGoals.slice(1).map((g, i) => ({ goal: g, priority: 2 - i, progress: 0, updated_turn: turn }));
-    // HOLLOW-CHARACTER FLOOR — if the bookkeeper spawned a thin character (no voice, no values), give
-    // them serviceable defaults derived from their nature so they are never a plot-label with nothing
-    // to render. This is a floor, not a replacement: real authored depth is always better, but an
-    // empty character can never be a person, and a null voice literally cannot be reactive.
+    // HOLLOW-CHARACTER FLOOR — if the bookkeeper spawned a thin character (no values), give them
+    // serviceable defaults derived from their nature so they are never a plot-label with nothing to
+    // render. This is a floor, not a replacement: real authored depth is always better, but an empty
+    // character can never be a person.
     const values: string[] = Array.isArray((nc as any).values) && (nc as any).values.length
       ? (nc as any).values.map((v: any) => String(v)).slice(0, 4)
       : deriveDefaultValues(nc.core_traits ?? [], nc.background ?? "");
-    const floorVoice = voice ?? (nc.speech_pattern ? undefined : deriveDefaultVoice(nc.core_traits ?? [], String((nc as any).age ?? 30)));
     const floorAttachment = attachment ?? { style: "secure" as any, under_threat: "goes quiet and watchful, keeps their distance until they read the room" };
-    registerCharacter(state, { ...nc, values, character_id: undefined as any, voice: floorVoice, attachment: floorAttachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
+    registerCharacter(state, { ...nc, values, character_id: undefined as any, attachment: floorAttachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
     // apply the multi-goal drive after registration (registerCharacter doesn't take drive_queue)
     if (drive) {
       const newId = findCharByName(state, nc.name);
@@ -4868,8 +4846,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // KEEP WHAT THE PROSE SAID ABOUT THEM. The stub background ("nothing else is established")
     // was actively harmful: it produced a record that LOOKS complete, so nothing ever filled it in,
     // and a character the player had established as a machine ended up with empty traits, no
-    // conscience, and a voice card that made her sound like any other person in the room. Carry
-    // the sentences she actually appeared in, and mark the record provisional so the simulator
+    // conscience, and nothing that made her anybody in particular. Carry the sentences she
+    // actually appeared in, and mark the record provisional so the simulator
     // knows it is a sketch to be completed rather than a finished person.
     const around = prose
       .split(/(?<=[.!?])\s+/)

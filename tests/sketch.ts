@@ -3,8 +3,7 @@
  * A player wrote "I make myself another woman. Mable. She's more beautiful than Andrea. She's
  * loving. She cares for me. She's interesting. Charming." and read four paragraphs describing her.
  * The record that came out held a name, an age of 30, an empty appearance, empty core_traits,
- * empty values and an INCOMPLETE RECORD background. A voice card was forged for her — voice
- * forging is wired up — and nothing else was.
+ * empty values and an INCOMPLETE RECORD background. Nothing ever filled any of it in.
  *
  * Two causes. The scene footer split `new="Mable (a woman Rabi has just created, beautiful,
  * loving, and perceptive)"` on commas before reading the parenthetical, making three extra people
@@ -62,7 +61,7 @@ function stubState(): { s: SaveState; id: string } {
   const id = registerCharacter(s, {
     name: "Mable", provisional: true, age: 30,
     background: "INCOMPLETE RECORD — the narrator brought them into the story at Day 1, 18:15.",
-    speech_pattern: "Market-haggle vocabulary, coin and trade — clipped, transactional.",
+    taste: "men who talk to her about the work and not about herself",
   } as any);
   return { s, id };
 }
@@ -76,9 +75,8 @@ function stubState(): { s: SaveState; id: string } {
     background: "Made by Rabi on the terrace, whole, out of nothing.",
     core_traits: ["watchful", "unimpressed by power", "privately amused"],
     values: ["being talked to as a person", "the quiet after a room empties"],
-    speech_pattern: "SHOULD NOT OVERWRITE — a voice was already forged",
     texture: ["stands with her weight on one hip"],
-    beauty: 92, conscience: 0.6, attracted_to: "men", taste: "restless, inventive men",
+    beauty: 92, conscience: 0.6, attracted_to: "men", taste: "SHOULD NOT OVERWRITE — the story established this already",
     attachment_style: "secure", under_threat: "goes very still and watches",
     drive_goals: ["Learn what Rabi actually wants", "Find something of her own that is not him"],
   });
@@ -87,7 +85,7 @@ function stubState(): { s: SaveState; id: string } {
   check("traits are written", c.core_traits.length === 3, c.core_traits);
   check("values are written", c.values.length === 2, c.values);
   check("the INCOMPLETE RECORD background is replaced", !/INCOMPLETE RECORD/.test(c.background), c.background);
-  check("the already-forged voice is NOT overwritten", /Market-haggle/.test(c.speech_pattern), c.speech_pattern);
+  check("what the story already established is NOT overwritten", /talk to her about the work/.test(c.taste ?? ""), c.taste);
   check("beauty lands so the desire model can read her", c.beauty === 92);
   check("the registration-default age is treated as blank and filled", c.age === 24);
   check("she gets wants of her own, not only the player", (c.drive_queue ?? []).length === 1 && !!c.drive?.goal, c.drive);
