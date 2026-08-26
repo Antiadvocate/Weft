@@ -45,6 +45,7 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
+import { trackSubjects, subjectDirective, otherLivesNote } from "./subjects";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -2021,7 +2022,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // NOBODY SAID ANYTHING LAST TURN, AND HERE IS THE COUNT. Two halves: the correction built from
   // what the previous turn actually measured, and the standing rule for anybody in the room who is
   // currently angry — the state whose only rendering was withdrawal. See engine/speech.ts.
-  const speechNote = speechDirective(state) + angerRegister(state);
+  // THE SPEECH FLOOR measures how MUCH people said; the subject floor measures what it was ABOUT.
+  // Both are corrections read off the last turn, so both ride the same slot at the end.
+  const speechNote = speechDirective(state) + angerRegister(state) + subjectDirective(state);
   // WHAT THIS WORLD IS TURNING INTO. A fact the player wrote that is not true yet: the world moves
   // one step toward it per turn, through its own causes, and lands in canon when it gets there.
   // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
@@ -2674,7 +2677,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const consultNote = consultDirective(state, action);
   // WHO CAME TO WHOM — the movement log, which nothing ever read. See engine/reaction.ts.
   const cameNote = arrivalOrder(state);
-  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + otherLivesNote(state) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3915,6 +3918,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // COUNT WHAT WAS ACTUALLY SAID. Runs after the prose exists and before the next turn reads it —
   // the share of the turn that was spoken aloud, and who was standing in the room without a line.
   trackSilence(state, prose);
+  trackSubjects(state, prose);
   // TOLD SOMETHING THEY ALREADY HAD. Detected on the committed prose against the player's own
   // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
   // banned line, because by then it has been written. See engine/spent.ts.

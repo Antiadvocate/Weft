@@ -255,6 +255,44 @@ before the change, so a stale sample cannot reach a prompt through the inspector
 any generic walk of the record. Pinned by tests/idiolect.ts, which holds both halves: the voice
 must REACH the narrator, and nothing quotable may.
 
+**The subject floor** (`subjects.ts`, prompts.ts, api.ts). "My NPCs only talk about things they are
+goal-driven by directly. No one just asks you if you've seen any shows, or what you're up to, or
+how's life." Everything needed was already there and none of it fired. Each present character's
+block carries `texture:` (raises these unprompted), `can talk at length about:`, `has heard:`,
+`saw while you were elsewhere:` and `backup wants:`; the narrator law says A CHARACTER IS NOT THEIR
+GOAL in those words; commonground.ts computes the subject two people would bond over, free, every
+turn. It failed for the reason every rule in this engine failed before it was measured — nothing
+ever read the prose back and asked whether anybody said anything that was not their errand.
+`texture` in particular had no expression tracking of any kind, unlike core traits, which habits.ts
+counts, ages and retires. A field nothing measures is a field the narrator learns it can skip.
+
+Three deterministic counters per present character, updated once a turn beside `trackSilence`:
+`off_errand` (spoke, and at least half of it shared real vocabulary with their own want, and none
+of it touched anything on their card), `incurious` (asked nobody anything that was not part of
+getting what they wanted), `roombound` (never named a person outside the room). Each fires a
+correction that names the person, the count, and the specific unused material off their own card —
+the shape speech.ts uses, because "give them a life" is the rule already in the prompt and already
+not working. It stands down entirely when anyone present is at relaxation ≤ −6: a frightened person
+talking about their nephew is a worse failure than the one this fixes. Silence is left to the
+speech floor, so one cause never trips two guards. `otherLivesNote` adds the standing material —
+what two present NPCs would find in each other, and the business of people the room knows who are
+not in it, gated on an edge so nobody discusses a stranger.
+
+Two prompt causes fixed alongside. "Every present character pursues the agenda in their wants field
+THIS turn" was being read as *talks about it*, so the law now separates acting toward a want from
+raising it and supplies the check (if everyone has arrived, stated their business and is waiting,
+you have written a queue). And the ordinary social move — how are you, what have you been doing,
+did you see it — had never once been named in either prompt tier; it is now, as a real question
+whose answer changes what the asker says next.
+
+**The starting cast had one want each** (`api.ts`, forge npc spec). `drive_goals` — 2-3 wants held
+at the same time — existed only in the bookkeeper's `new_characters` spec, so anybody spawned
+mid-story got a life while the four or five people a save actually lives with were born holding a
+single errand, handed to the narrator every turn as the loudest line on their block. The forge spec
+now asks for 2-3 distinct simultaneous wants with at least one unconnected to the premise or the
+player, and the forge ingestion builds the `drive_queue` from them the same way turn.ts already did
+for spawned characters.
+
 ## 5b. The attempt frame (`attempt.ts`)
 
 Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine

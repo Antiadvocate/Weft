@@ -979,6 +979,11 @@ export interface SaveState {
   pending_arrivals?: import("./becoming").Becoming[];
   /** Consecutive turns each present character has been in the room without a line. Cleared for
    *  anybody who is not present, so it never accumulates across a scene change. See speech.ts. */
+  /** Per-character conversational-range counters, updated once a turn from the prose that ran (see
+   *  engine/subjects.ts). Consecutive turns of: saying nothing but their own errand, asking nobody
+   *  anything, and never mentioning a person outside the room. Present characters only; a counter
+   *  is dropped the moment its owner leaves the scene, because it means nothing out of one. */
+  subjects?: Record<string, { off_errand: number; incurious: number; roombound: number }>;
   speech_silence?: Record<string, number>;
   /** What the last turn's prose actually measured: the share of its words that were spoken aloud,
    *  and the share of its lines that were fragments. The evidence the next turn's correction is

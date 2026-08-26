@@ -1761,7 +1761,23 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     // theirs; they are the outsider.
     const worldPronoun = detectWorldPronoun(s.world.canon);
     for (const n of g.npcs ?? []) {
-      const cid = registerCharacter(s, { ...n, drive: n.drive_goal ? { goal: n.drive_goal, progress: 10, updated_turn: 1 } : undefined });
+      // MORE THAN ONE WANT, FOR THE PEOPLE THE PLAYER ACTUALLY LIVES WITH.
+      //
+      // This read `drive_goal` alone, so every member of the STARTING cast — the four or five people
+      // a save spends a hundred turns with — was born holding exactly one want, while anybody the
+      // bookkeeper spawned later got 2-3 (turn.ts builds a drive_queue from `drive_goals`). The
+      // asymmetry ran the wrong way round: a walk-on had a life and the leads had an errand. A
+      // character with one want can only have one conversation, and the engine then hands that want
+      // to the narrator every turn as the loudest line on their block.
+      const goals: string[] = (Array.isArray((n as any).drive_goals) ? (n as any).drive_goals : [])
+        .map((g: any) => String(g ?? "").trim()).filter(Boolean);
+      const all = (goals.length ? goals : [String(n.drive_goal ?? "").trim()])
+        .filter(Boolean).filter((g, i, a) => a.indexOf(g) === i).slice(0, 3);
+      const cid = registerCharacter(s, {
+        ...n,
+        drive: all.length ? { goal: all[0], progress: 10, updated_turn: 1 } : undefined,
+        drive_queue: all.slice(1).map((g, i) => ({ goal: g, priority: 2 - i, progress: 0, updated_turn: 1 })),
+      });
       if (worldPronoun && s.characters[cid]) s.characters[cid].pronouns = worldPronoun;
       s.memory[cid].core = [n.background].filter(Boolean);
       // relation_to_player is a sentence and it names the standing fact: "his wife of six years"
