@@ -26,6 +26,18 @@
  *      not consuming passion. The simulator can still move attraction past the plateau, but
  *      only with explicit cause in the prose.
  */
+// SIMULATION LOD IS NOT RENDER LOD, and `central` was gating both.
+//
+// A background character was excluded from the emotion lifecycle, discharge, desire, rivalry and
+// repair — every one of which is pure arithmetic over numbers already in the save. Measured: zero
+// LLM references in emotions.ts, desire.ts, fault.ts, social.ts, remodel.ts. Excluding them saved
+// nothing at all, because what actually costs tokens is the CARD, and a background character's card
+// is one line either way (prompts.ts renders them as name + bearing and stops).
+//
+// So the two questions get separated. Who gets simulated: everybody, always, for free. Who gets
+// rendered in detail: the central cast, unchanged. A vendor with a nervous system costs the same as
+// a vendor without one, and when the scene finally turns to them they are somebody rather than
+// furniture that has been standing there at capacity since the turn they were named.
 import type { SaveState, Identity } from "./types";
 import { asText, asList, orientationIsMood } from "./coerce";
 import { getEdge } from "./social";
@@ -401,7 +413,7 @@ export function tickDesire(state: SaveState): string[] {
   const player = state.characters["char_player"];
   for (const id of state.world.present) {
     const c = state.characters[id];
-    if (!c || id === "char_player" || c.central === false || c.status === "dead") continue;
+    if (!c || id === "char_player" || c.status === "dead") continue;
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
     if (!e || e.attraction === undefined) continue;
     // "made up for it": sustained warmth lifts attraction, capped by the conditioned first read.
@@ -525,7 +537,7 @@ export function tickRivalry(state: SaveState): string[] {
   for (const watcherId of present) {
     const watcher = state.characters[watcherId];
     const cond = state.condition[watcherId];
-    if (!watcher || !cond || watcher.central === false) continue;
+    if (!watcher || !cond) continue;
 
     // everyone in the room the watcher wants (the player counts as in the room)
     const targets = state.world.present.filter((t) => t !== watcherId && holdsDesire(state, watcherId, t));

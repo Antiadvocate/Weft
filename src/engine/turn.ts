@@ -16,12 +16,14 @@ import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFlo
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
 import { updateMind } from "./mind";
+import { tickRemodel, dampen, remodelReport } from "./remodel";
+import { tickArrivals } from "./ground";
 import { buildMessages, buildChatlogMessages, complete, completeStream, safeJson, repairJson, setLLMPrefs, Cancelled, isCancel, REASON_TAGS } from "../llm";
 import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote, type Read } from "./read";
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
-import { tickHabits, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
+import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
@@ -1845,6 +1847,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const psy = state.condition[id].psyche;
     psy.prev_relaxation = psy.relaxation;
     tickPsyche(psy);
+    // AND THE RESTING POINT ITSELF HAS A HISTORY NOW. A completed run of bracing or of ease moves
+    // the number the drift above is aiming at, inside a band around the one the forge stamped, with
+    // a standing pull back toward it. Never for the player — see engine/remodel.ts on why.
+    if (id !== "char_player") {
+      const r = tickRemodel(psy, state.world.current_turn);
+      if (r.dir) (state.last_remodel ??= []).push({ id, dir: r.dir, to: r.to, turn: state.world.current_turn });
+    }
   }
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
   const undertow = neutralUndertow();
@@ -3756,16 +3765,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // earned identity change: only on the reflection cadence, never per-turn
     if (isThePlayer) {
       if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
-        const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+        const { kept: ck, log: clog, promoted: cprom } = consolidateTraits(state.characters[id], state.traits[id], turn);
         state.traits[id] = ck;
+        for (const label of cprom) formHabit(state, id, label);
         // logged to the player's own shift feed, never pushed at the narrator
         for (const l of clog) offscreenLog.push(l);
       }
       continue;
     }
     if (reflectionDue(state.memory[id], state.model_settings.reflection_cadence, turn, reflectSalt(id))) {
-      const { kept: ck, log: clog } = consolidateTraits(state.characters[id], state.traits[id], turn);
+      const { kept: ck, log: clog, promoted: cprom } = consolidateTraits(state.characters[id], state.traits[id], turn);
       state.traits[id] = ck;
+      // A PATTERN THE STORY LAID DOWN. Until now the only habits anybody had were the ones the forge
+      // wrote before turn one; whatever a save did to somebody could never become automatic. See
+      // habits.formHabit on why it enters at drywall strength rather than at a forged trait's wall.
+      for (const label of cprom) formHabit(state, id, label);
       for (const l of clog) { offscreenLog.push(l); shifts.push(l); }
       // identity-defining memories fold permanently into background (survive eviction, shape who they are)
       const blog = consolidateBackground(state.characters[id], state.memory[id]);
@@ -5067,6 +5081,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     state.world.player_location = resolvePlace(state, diff.player_location, { keepIfUnknown: true });
     state.characters["char_player"].location = state.world.player_location;
   }
+  const arrivedThisTurn: { id: string; to: string }[] = [];
   for (const mv of diff.locations ?? []) {
     const cid = resolveId(state, mv.char_id);
     if (!cid || !mv.place) continue;
@@ -5180,9 +5195,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         mem.episodic = capMemory(mem.episodic);
       }
     }
+    const cameFrom = state.characters[cid].location;
     state.characters[cid].location = pid;
     if (cid === "char_player") state.world.player_location = pid;
+    if (cameFrom !== pid && pid !== OFFSCENE) arrivedThisTurn.push({ id: cid, to: pid });
   }
+  // THE ROOM GOT THERE FIRST. Walking into a place something happened to you in shoves the one
+  // number before anybody has said a word — small, on arrival only, and it habituates, so the
+  // kitchen you use every day stops doing it and the house you have avoided for thirty turns does
+  // not. Zero tokens, computed from the place already filed on each memory. See engine/ground.ts.
+  for (const line of tickArrivals(state, arrivedThisTurn)) shifts.push(line);
   // ── TRAVEL LOG ── the player's path through places, in order. Feeds the story map:
   //    each visited place is a node, each move an edge. Skips "elsewhere" (not a place)
   //    and consecutive repeats (staying put is not travel). Capped so old saves stay small.
@@ -5412,6 +5434,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       shifts.push(`${nameOf(id)} was sworn at — that does not settle anybody.`);
       raw = 0;
     }
+    // WHAT A WORN BODY STILL FEELS. Ordinary friction lands lighter on somebody the story has ground
+    // down; a real blow lands in full on anybody, always. Damped here rather than after, so the
+    // grief drag and the reported shift below all agree on what actually reached them.
+    if (id !== "char_player") raw = dampen(c.psyche, raw);
     c.psyche.relaxation = clamp(c.psyche.relaxation + raw, -10, 10);
     const mood = cleanMood(p.mood);
     if (mood) { c.psyche.mood = mood; c.psyche.mood_set_turn = turn; }
@@ -5457,6 +5483,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // so without this the stored value floats away from capacity forever. See settleAfterDeltas.
     settleAfterDeltas(c.psyche);
   }
+
+  // A RESTING POINT THAT MOVED IS A STATE CHANGE AND IS REPORTED AS ONE. Rare by construction — a
+  // step needs a completed run of six or eight turns — so this is a line every save or two, not
+  // noise. The alternative is a scalar that drifts behind everybody's back for a hundred turns and
+  // is only ever discovered from a player report. See engine/remodel.ts.
+  for (const r of state.last_remodel ?? []) {
+    if (r.turn !== turn) continue;
+    shifts.push(r.dir === "wear"
+      ? `${nameOf(r.id)} has been braced long enough that it is where ${nameOf(r.id)} now comes to rest.`
+      : `${nameOf(r.id)} has been settled long enough that it has become where ${nameOf(r.id)} rests.`);
+  }
+  state.last_remodel = (state.last_remodel ?? []).filter((r) => r.turn === turn);
 
   // Idle edges ease toward neutral before this turn's deltas land, so a relationship nobody has
   // tended for a while is no longer held up by a number set long ago.

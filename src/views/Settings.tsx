@@ -942,8 +942,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <Toggle on={draft.paging !== false} onFlip={() => setDraft((d) => ({ ...d, paging: d.paging === false ? true : false }))}
           title="Page out cold characters"
           desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is untouched — only their card leaves the room." />
-        <Toggle on={!!draft.habit_engine} onFlip={() => setDraft((d) => ({ ...d, habit_engine: !d.habit_engine }))}
-          title="Habit engine (experimental)"
+        <Toggle on={draft.habit_engine !== false} onFlip={() => setDraft((d) => ({ ...d, habit_engine: d.habit_engine === false ? true : false }))}
+          title="Habit engine"
           desc="Core traits become firing habits that loosen only when a character sees themselves do them (clarity, not kindness) and deepen when they don't. Change is slow, directionless, and never chosen — a character finds out they've changed when someone else notices. Watch it in each character's drawer." />
         <Toggle on={draft.sim_route_speed !== false} onFlip={() => setDraft((d) => ({ ...d, sim_route_speed: d.sim_route_speed === false ? true : false }))}
           title="Bookkeeper: route for speed"

@@ -417,6 +417,40 @@ export function playerAuthored(what: string, playerName: string): boolean {
 const ACTOR_CRUEL = /\b(struck|beat|stabbed|shot|killed|murdered|attacked|robbed|stole|cheated|swindled|betrayed|denounced|informed on|turned (?:\w+ ){0,3}(?:away|out)|evicted|refused (?:to )?(?:help|pay|feed|shelter|open)|broke (?:his|her|their|the) (?:word|promise|oath)|lied to|humiliated|threatened|blackmail\w*|seized|burned (?:down )?(?:the|his|her|their)|drove (?:\w+ ){0,3}off (?:the|his|her|their) land|left (?:\w+ ){0,3}to (?:die|starve)|abandoned)\b/i;
 const ACTOR_KIND = /\b(helped|paid|repaid|fed|sheltered|took (?:\w+ ){0,2}in|nursed|tended|carried|defended|protected|warned|hid|freed|rescued|saved|mended|repaired|gave|forgave|stood up for|spoke for|vouched for|kept (?:his|her|their) (?:word|promise|oath)|sat with|buried|delivered|brought (?:\w+ ){0,3}(?:food|water|medicine|word))\b/i;
 
+/**
+ * AND WHAT LIVING THROUGH IT DOES TO THE BODY THAT LIVED IT.
+ *
+ * The pass above answers "what does this make me think of you", and it moves edges. Nothing has ever
+ * moved a NERVOUS SYSTEM. Measured: zero references to relaxation or psyche anywhere in this file.
+ * So the world's own report could hand a man the first phone call to his dead husband's brother
+ * since the funeral, ringing four times into a voicemail still recorded in David's voice — an actual
+ * event from a save's offstage log — file it as his memory, seed a rumour off it, and leave him at
+ * precisely the relaxation he had before it happened. The story moved and the body did not.
+ *
+ * This is a DIFFERENT question from the one above and needs its own read, which is why it is not a
+ * reuse. Agentive valence deliberately scores a plague at zero, because catching one tells you
+ * nothing about the person who caught it — correct for opinion, exactly wrong for a body. What
+ * matters here is only whether the thing that happened was hard or good to be inside of.
+ *
+ * Same discipline as everything else in this file: lexical, zero tokens, no migration, and narrow —
+ * an event that matches neither list moves nobody. Small on purpose. This is something that happened
+ * between scenes, not a scene.
+ */
+const HARD = /\b(died|dead|death|funeral|buried|killed|lost|losing|failed|failing|refused|denied|rejected|evicted|fired|foreclos\w*|repossess\w*|broke down|broken|burned|flood\w*|stolen|robbed|attacked|beaten|threatened|arrested|collapsed|sick|illness|injur\w*|hospital|overdue|owed|debt|late again|no answer|never called back|didn'?t come|wouldn'?t come|turned (?:\w+ ){0,2}away|walked out|left (?:him|her|them))\b/i;
+const GOOD = /\b(paid off|settled|cleared|approved|accepted|hired|healed|recovered|mended|fixed|found|finished|delivered|arrived safe|came home|got word|said yes|agreed|forgave|reunited|born|married|celebrat\w*|thanked|helped (?:him|her|them)|came through)\b/i;
+
+/** −1 hard / +1 good / 0 nothing a body should move on. */
+export function eventImpact(what: string): number {
+  const t = String(what ?? "");
+  const hard = HARD.test(t), good = GOOD.test(t);
+  if (hard === good) return 0;
+  return hard ? -1 : 1;
+}
+
+/** What an offstage event does to the relaxation of the person who lived it. Halved for somebody who
+ *  only watched: being in the yard when it happened is not the same as it happening to you. */
+export const OFFSTAGE_SHOVE = 1.4;
+
 /** −1 cruel / +1 kind / 0 nothing anyone's opinion should move on. */
 export function actorValence(what: string): number {
   const t = String(what ?? "");
@@ -532,6 +566,23 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     // Who did it, if the cast contains them — needed for the edge pass below.
     const actorId = byName.get(String(ev.actor ?? "").toLowerCase().trim()) ?? null;
     const valence = actorValence(ev.what);
+    // THE BODY THAT LIVED IT. The actor took the whole of it; a witness took half. Never the player —
+    // nothing offstage is about them, and their scalar is not the engine's to author from a report
+    // they were not in. Grief accrues the same way a scene's does, so a hard stretch offstage still
+    // lowers the resting point rather than being erased by the next turn's drift.
+    const impact = eventImpact(ev.what);
+    if (impact !== 0) {
+      const felt: [string | null, number][] = [[actorId, OFFSTAGE_SHOVE], ...witnessNames.map((w) => [byName.get(w) ?? null, OFFSTAGE_SHOVE / 2] as [string | null, number])];
+      const done = new Set<string>();
+      for (const [who, size] of felt) {
+        if (!who || who === "char_player" || done.has(who)) continue;
+        done.add(who);
+        const psy = state.condition?.[who]?.psyche; if (!psy) continue;
+        const d = impact * size;
+        psy.relaxation = Math.max(-10, Math.min(10, psy.relaxation + d));
+        if (d <= -1) psy.grief_drag = Math.min(6, (psy.grief_drag ?? 0) + Math.abs(d) * 0.15);
+      }
+    }
 
     for (const w of witnessNames) {
       const id = byName.get(w);

@@ -41,7 +41,12 @@ export interface ModelSettings {
                                   // providers of the same weights charge up to 4x input with weaker cache discounts.
                                   // Falls back to the rest of the provider pool when first-party is unhealthy.
   sim_route_speed?: boolean;      // route BOOKKEEPER calls for throughput instead of price — default true; bookkeeping latency is the felt latency
-  habit_engine?: boolean;         // EXPERIMENTAL: core traits become probabilistic firing habits that loosen when seen (dzogchen self-liberation) and deepen when unseen. Inert unless true.
+  /** Core traits as firing habits that loosen when a character sees themselves do them and deepen
+   *  when they do not. ON by default since it stopped being inert — see engine/habits.ts for the
+   *  measurement that showed it producing zero fires in 200 turns in every state, and why. Stored
+   *  false only when somebody has explicitly turned it off, so the backfill in state.sanitize can
+   *  tell "never set" from "declined". */
+  habit_engine?: boolean;
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   /** PAINT THE SCENE EVERY TURN, without being asked.
@@ -551,6 +556,22 @@ export interface Psyche {
    *  +1, ten turns after her husband left her and called her a slut to his family. The engine had a
    *  temporary lift for good news and nothing at all for bad. Subtracted from capacity; decays. */
   grief_drag?: number;
+  /** SOMATIC REMODELLING — see engine/remodel.ts. `capacity` above is the resting point relaxation
+   *  drifts toward, and it used to be a constant for the life of a save: a body eighty turns braced
+   *  came to rest exactly where one that arrived this morning did. These four fields make it a lived
+   *  number. `capacity_born` is what the forge stamped and never changes — every drift is measured
+   *  against it, bounded by it, and pulled back toward it. `braced_run` is the mirror of `open_run`
+   *  below (consecutive turns at or under −3). `discharges` counts release across the whole save,
+   *  because one is an opening and three is a different nervous system. Never written for the player:
+   *  their resting point is a fact about a person the engine cannot observe. */
+  capacity_born?: number;
+  braced_run?: number;
+  settled_run?: number;
+  wear_steps?: number;
+  settle_steps?: number;
+  discharges?: number;
+  discharge_steps?: number;    // how many discharge accruals have already been paid out
+  remodel_turn?: number;       // last turn the resting point actually moved — for the audit trail
                                // per turn in tickPsyche — an opening, not a personality change
   /** FAULT — what this person DID, which nothing in the engine used to read. Every other mechanic
    *  here measures what was done TO somebody; there was no cost to being the one who caused it, so
@@ -970,6 +991,14 @@ export interface SaveState {
    *  and the share of its lines that were fragments. The evidence the next turn's correction is
    *  built from — nothing else in the engine was counting either. */
   last_speech?: { share: number; short: number; turn: number };
+  /** Resting points that actually moved this turn. A slow scalar drifting behind everyone's back for
+   *  a hundred turns is exactly the mechanic that can be wrong the whole time without anybody
+   *  noticing, so a step is reported in the same channel as every other state change the moment it
+   *  happens. Rare by construction — a step needs a completed run. See engine/remodel.ts. */
+  last_remodel?: { id: string; dir: "wear" | "settle"; to: number; turn: number }[];
+  /** Places that moved somebody on the way in this turn. The container and its contents are the same
+   *  system: what a room holds for a person is what happened to them in it. See engine/ground.ts. */
+  last_ground?: { id: string; place: string; shove: number; about: string; turn: number }[];
   /** A line last turn that delivered something the player's own record already held. Corrected at
    *  the end of the next turn's direction, same mechanism as last_maxim and last_echo — the rules
    *  against restating live in the narrator's FINAL CHECK, which is a self-audit. See spent.ts. */
@@ -1103,4 +1132,7 @@ export const DEFAULT_MODELS: ModelSettings = {
   narrator_reasoning: false,        // narrator thinking is billed as output; prose doesn't need it
   prefer_deepseek_provider: true,   // first-party DeepSeek carries the 0.8–2% cache-hit rate
   prose_reviser: false,             // opt-in: one extra call on turns that trip the tic detector
+  // THE KERNEL'S SLOWEST CHANNEL, and it is not optional any more. Zero tokens: all of it is
+  // engine-side arithmetic, and the narrator only ever receives a concrete behaviour to render.
+  habit_engine: true,
 };

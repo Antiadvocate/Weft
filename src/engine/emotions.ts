@@ -53,6 +53,18 @@
  *    onto the player is authorship and stays forbidden; letting one that has run its course go is
  *    the opposite of authorship, and the player gets it like anyone else.
  */
+// SIMULATION LOD IS NOT RENDER LOD, and `central` was gating both.
+//
+// A background character was excluded from the emotion lifecycle, discharge, desire, rivalry and
+// repair — every one of which is pure arithmetic over numbers already in the save. Measured: zero
+// LLM references in emotions.ts, desire.ts, fault.ts, social.ts, remodel.ts. Excluding them saved
+// nothing at all, because what actually costs tokens is the CARD, and a background character's card
+// is one line either way (prompts.ts renders them as name + bearing and stops).
+//
+// So the two questions get separated. Who gets simulated: everybody, always, for free. Who gets
+// rendered in detail: the central cast, unchanged. A vendor with a nervous system costs the same as
+// a vendor without one, and when the scene finally turns to them they are somebody rather than
+// furniture that has been standing there at capacity since the turn they were named.
 import type { SaveState } from "./types";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -142,7 +154,7 @@ export function tickEmotions(state: SaveState): string[] {
   for (const id of [...new Set([...state.world.present, "char_player"])]) {
     const c = state.characters[id];
     const cond = state.condition[id];
-    if (!c || !cond || c.central === false) continue;
+    if (!c || !cond) continue;
     // The player gets the RELEASE half only. Nothing below may write them a feeling, move their
     // relaxation, or decide their weather — those stay theirs. Letting go of what has run its
     // course is not authorship.
@@ -212,7 +224,7 @@ export function tickCoRegulation(state: SaveState): string[] {
   for (const id of state.world.present) {
     const c = state.characters[id];
     const cond = state.condition[id];
-    if (!c || !cond || id === "char_player" || c.central === false) continue;
+    if (!c || !cond || id === "char_player") continue;
     const p = cond.psyche;
     const threatened = p.relaxation <= -3;
 
@@ -259,7 +271,7 @@ export function tickCoRegulation(state: SaveState): string[] {
     for (const id of roomIds) {
       const c = state.characters[id];
       const cond = state.condition[id];
-      if (!c || !cond || c.central === false) continue;
+      if (!c || !cond) continue;
       const p = cond.psyche;
       if (Math.abs(mean - p.relaxation) <= 1) continue; // dead zone: no jitter when already near the weather
       const pull = clamp((mean - p.relaxation) * 0.03 * boost, -0.3, 0.3);
@@ -300,7 +312,7 @@ export function tickDischarge(state: SaveState): string[] {
   for (const id of state.world.present) {
     const c = state.characters[id];
     const cond = state.condition[id];
-    if (!c || !cond || id === "char_player" || c.central === false) continue;
+    if (!c || !cond || id === "char_player") continue;
     const p = cond.psyche;
     const prev = p.prev_relaxation;
     if (prev === undefined) continue;
@@ -319,6 +331,11 @@ export function tickDischarge(state: SaveState): string[] {
     }
     if (p.mood && p.mood !== "even") { p.mood = "even"; p.mood_set_turn = turn; }
     p.discharge_lift = 1.5;
+    // AND IT IS COUNTED. The lift decays within a week of turns because one release is an opening
+    // and not a personality change — that stays true. But a body that has come all the way back from
+    // depth three separate times over a save has learned something the lift cannot carry, and the
+    // count is what remodel.ts reads to pay that into the resting point itself.
+    p.discharges = (p.discharges ?? 0) + 1;
   }
   return shifts;
 }

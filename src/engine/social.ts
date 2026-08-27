@@ -14,6 +14,7 @@
  * Simulator deltas; psyche state derived from thresholds and dwell time.
  */
 import type { SaveState, Rumor, SocialEdge, Psyche, AcquiredTrait, Identity, EpisodicMemory, CharMemory } from "./types";
+import { tickRuns } from "./remodel";
 import { asText } from "./coerce";
 import { relevance } from "./memory";
 import { absMinutes } from "./time";
@@ -762,6 +763,10 @@ export function tickPsyche(p: Psyche): void {
   // Reset when relaxation falls meaningfully below their capacity OR below the neutral line.
   const openFloor = Math.min(3, Math.max(0, effCapacity - 1));
   p.open_run = p.relaxation >= openFloor ? (p.open_run ?? 0) + 1 : 0;
+  // And the two runs that decide whether the resting point ITSELF moves — sustained bracing, and
+  // being held above where this body rests. Counted here beside their siblings so they keep running
+  // wherever drift runs, time skips included. See engine/remodel.ts.
+  tickRuns(p);
   // Grief lifts far more slowly than a discharge closes — ×0.94 a turn, so a real rupture is still
   // pulling on someone twenty turns later, which is the point. Cleared when it stops mattering.
   if (p.grief_drag !== undefined) {
@@ -947,8 +952,13 @@ export function needsHistoryCompaction(ident: Identity): boolean {
   return (ident.life_history?.length ?? 0) > 900;
 }
 
-export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[] } {
+export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _turn: number): { kept: AcquiredTrait[]; log: string[]; promoted: string[] } {
   const log: string[] = [];
+  // WHAT THE STORY PUT THERE, reported so it can become an automaticity as well as a label. A trait
+  // that reaches this function has been reinforced eight times and carries the character's own
+  // weight; it is already who they are by every other measure in the engine. It enters the habit
+  // engine as drywall rather than as the wall a forged trait is. See habits.formHabit.
+  const promoted: string[] = [];
   const SPEECHY = /(mean|cruel|harsh|cold|gentle|warm|tender|curt|terse|sharp|bitter|guarded|open|cheerful|grim|sardonic|formal|crude|profane|soft-spoken|aggressive|meek|commanding|timid|sarcastic|kind)/i;
   const kept = traits.filter((t) => {
     const integrated = t.self_weight >= 6 && t.reinforcement_count >= 8 && t.intensity >= 5;
@@ -956,6 +966,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     const already = ident.core_traits.some((c) => c.toLowerCase().includes(t.label.toLowerCase()) || t.label.toLowerCase().includes(c.toLowerCase()));
     if (!already) {
       ident.core_traits = [...ident.core_traits, t.label].slice(-8);
+      promoted.push(t.label);
       log.push(`${ident.name}'s trait "${t.label}" has become part of their core personality.`);
     }
     if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
@@ -966,7 +977,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     }
     return false; // retire from acquired — it's core now
   });
-  return { kept, log };
+  return { kept, log, promoted };
 }
 
 export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kept: AcquiredTrait[]; log: string[] } {
