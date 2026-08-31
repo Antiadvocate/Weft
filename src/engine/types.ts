@@ -233,6 +233,13 @@ export interface FactionClock {
   stalled_since?: number;      // turn this clock first found itself with nothing to act on
   knowledge_chain?: string[];  // how this faction came to know — printed in the World tab, oldest hop first
   status: "running" | "fired" | "stalled";
+  /** Set by the chapter auditor, exactly as on Thread — this clock's objective is one of the things
+   *  the world bible listed as never-the-engine. The clock keeps ticking and still fires on
+   *  schedule; the pressure controller just stops naming it as the reason a scene is happening.
+   *  A clock needs this more than a thread does: its heat is a pure function of progress, so it
+   *  only ever rises, and an off-genre clock the forge wrote at world creation will otherwise
+   *  headline every turn from the moment it passes the hottest thread until the day it fires. */
+  forbidden_engine?: boolean;
 }
 
 export interface Norm {

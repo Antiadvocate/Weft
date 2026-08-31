@@ -98,6 +98,20 @@ const SOURCE_MEMORY = 8;
  *    the player may still act on it, and the world stops using it as the reason a scene happens.
  *  · Among what is left, a source named in the last few turns is damped rather than banned. A truly
  *    hot thread still wins eventually; it just cannot own the headline indefinitely.
+ *
+ * BOTH GATES WERE WIRED TO THE THREADS BRANCH ONLY, AND CLOCKS WALKED PAST THEM. A clock's heat is
+ * `(filled / segments) * 8` — a pure function of its progress, so it never cools, never repeats
+ * itself into fatigue, and once it passes the hottest thread it owns the headline until it fires.
+ * The auditor's forbidden_engine mark could not reach it either, because only threads carried the
+ * flag. A second save, same shape as the one above: genre "Love, romance, erotica, slice of life",
+ * never-the-engine list led by "External villains", and the forge had written it two faction clocks
+ * — a substation upgrade and a condo development. Thirty-six of fifty-seven turns carried pressure;
+ * every one of them named a clock or a thread hanging off one, and twenty-four named those two
+ * clocks by faction and objective. Not one named anything from the bible's own pressure palette,
+ * which is five lines about a marriage. The staleness damping was working perfectly on the threads
+ * that had already lost.
+ *
+ * So the gates apply to every kind of source, not just the one they were first written for.
  */
 export function fictionHeat(
   threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string,
@@ -121,8 +135,13 @@ export function fictionHeat(
   if (hot && hot.score > heat) { heat = hot.t.tension; source = `thread: ${hot.t.title}`; }
   for (const c of clocks) {
     if (c.status !== "running" || c.segments === 0) continue;
-    const h = (c.filled / c.segments) * 8;
-    if (h > heat) { heat = h; source = `clock: ${c.faction} — ${c.objective}`; }
+    if (c.forbidden_engine) continue;              // the auditor named this one; it still ticks, it just stops being the reason
+    const label = `clock: ${c.faction} — ${c.objective}`;
+    const raw = (c.filled / c.segments) * 8;
+    // Damped exactly like a thread: each recent turn that named this clock costs it a point of
+    // effective heat for THIS choice only. Its real progress is untouched and it still fires on
+    // schedule; it just cannot headline every turn from the moment it passes everything else.
+    if (raw - staleness(label) > heat) { heat = raw; source = label; }
   }
   const due = consequences.find((c) => isDue(c, turn, now));
   if (due) {
@@ -353,7 +372,7 @@ export function selectBeat(inp: BeatInput): Beat {
     ? sinceBeat < beatCooldown(inp.tension, inp.clocks)
     : inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) || sinceBeat < MIN_GAP_TURNS;
   const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
-  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && c.filled / c.segments >= 0.75)
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
     standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({
       kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90),
       // THE SIGNS TRAVEL WITH THE BEAT. The narrator is deliberately not shown the clock table —

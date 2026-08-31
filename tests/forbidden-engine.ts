@@ -156,7 +156,15 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
   check("...and told to lean toward the player when it is close",
     /"player" whenever it is genuinely close/.test(CHAPTER_SYSTEM));
   check("the auditor names the threads the world presses through", /engine_threads/.test(CHAPTER_SYSTEM));
-  check("...verbatim, so a title is a handle", /copy the EXACT titles/.test(CHAPTER_SYSTEM));
+  check("...verbatim, so the line is a handle", /copy the EXACT lines/.test(CHAPTER_SYSTEM));
+  // A clock is the source a romance actually drifted onto — see tests/love-story-engine.ts.
+  // The auditor could only ever answer with threads, so it kept passing chapters on_contract.
+  check("...and clocks are nameable too, not only threads",
+    /open threads OR running faction clocks/.test(CHAPTER_SYSTEM));
+  check("...with the reason a clock needs naming spelled out",
+    /its pull on the story only ever grows/.test(CHAPTER_SYSTEM));
+  check("...and marking one does not stop it firing",
+    /does not stop the clock ticking or firing/.test(CHAPTER_SYSTEM));
 
   // Stated as a positive requirement, deliberately: naming the diagnostic phrasings in order to ban
   // them is the shape this repo's own prompt ratchets exist to keep out, and it teaches the shape.
