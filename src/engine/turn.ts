@@ -57,7 +57,7 @@ import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
-import { sweepThreads, MAX_LIVE } from "./threads";
+import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
 import { reflectionDue, cleanMemoryContent, sweepMemories, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
@@ -4142,9 +4142,22 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           bibleC.pressure_palette?.length ? `PRESSURES THIS STORY RUNS ON: ${bibleC.pressure_palette.join("; ")}` : "",
           bibleC.forbidden_as_primary?.length ? `NEVER THE ENGINE OF THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
         ].filter(Boolean).join("\n");
+        // STANDING SOURCES, not just threads. The auditor was shown the open threads and asked
+        // which of them the world was pressing through — while the thing actually supplying the
+        // pressure sat in a table it never saw. On the save that prompted this, thirty-six of
+        // fifty-seven turns carried pressure and twenty-four of them named one of two faction
+        // clocks the forge had written at creation ("Complete the Delridge substation upgrade",
+        // "Stop the new condo development") for a world whose genre line reads "Love, romance,
+        // erotica, slice of life" and whose never-the-engine list opens with "External villains".
+        // The auditor passed both chapters on_contract, and it was right to, in the only terms it
+        // was given: no THREAD was the engine. A clock was. So clocks go on the list, labelled, and
+        // the marking below reads both kinds back off it.
         const openTitles = (state.world.threads ?? [])
           .filter((t) => t.status === "active" && String(t.title ?? "").trim())
           .map((t) => String(t.title).trim());
+        const clockLines = (state.world.clocks ?? [])
+          .filter((c) => c.status === "running" && String(c.objective ?? "").trim())
+          .map((c) => `${c.faction} — ${c.objective}`.trim());
         const destination = state.world_bible.destination?.trim() || "";
         const priorPct = state.destination_progress?.pct;
         const destLine = destination
@@ -4156,7 +4169,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           // become the engine and could only answer in prose, which nothing downstream could act on.
           // Given the open threads by name, it can point at the ones the world keeps pressing
           // through — and a title is a handle the pressure controller can hold. See engine_threads.
-          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}OPEN THREADS (copy titles verbatim into engine_threads if one of them IS a forbidden engine):\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "(none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (a clock on this list is a faction working a timer; its pull only grows):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
         const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
@@ -4217,6 +4230,19 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
               if (now !== was) {
                 t.forbidden_engine = now || undefined;
                 if (now) shifts.push(`the world stops pressing through "${t.title}" — it had become this story's forbidden engine`);
+              }
+            }
+            // Same marking on clocks, off the same list. A marked clock keeps ticking and still
+            // fires — the faction is really doing this — it just stops being the answer to "why is
+            // this scene happening". Matched on the label the auditor was shown, and on the bare
+            // objective too, since that is the half a model tends to echo.
+            for (const c of state.world.clocks ?? []) {
+              const was = !!c.forbidden_engine;
+              const label = `${c.faction} — ${c.objective}`.trim().toLowerCase();
+              const now = named.has(label) || named.has(String(c.objective ?? "").trim().toLowerCase());
+              if (now !== was) {
+                c.forbidden_engine = now || undefined;
+                if (now) shifts.push(`the world stops pressing through ${c.faction}'s "${c.objective}" — it had become this story's forbidden engine`);
               }
             }
           }
@@ -5956,6 +5982,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // near-duplicate: same beat with a reworded title (subject + action overlap heavily)
       || (t.status === "active" && overlapRatio(String(t.title ?? ""), tu.title) >= 0.6));
     if (existing) {
+      const wasDormantBefore = (existing.status as string) === "dormant";
       existing.status = tu.status;
       if (tu.description) existing.description = tu.description;
       // ESCALATION COSTS TIME, NOT TURNS. The +2/turn cap was the only brake, and turns are cheap —
@@ -5980,14 +6007,39 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         }
       }
       if (tu.status === "resolved") existing.turn_resolved = turn;
-      // THE AUTHORITATIVE TOUCH. The bookkeeper naming a thread is the one unambiguous signal that
-      // the story is still about it — far better than matching its wording against the prose, which
-      // a thread's identity does not survive ("the dug corner" / "the corner she had dug"). A
-      // dormant thread the bookkeeper writes to is back in play.
-      existing.last_touched_turn = turn;
-      // cast: `existing` is narrowed to the statuses threads_update can set, but a stored thread
-      // may also be dormant — which is exactly the case being woken here.
-      if ((existing.status as string) === "dormant" && tu.status !== "resolved") existing.status = "active";
+      // THE AUTHORITATIVE TOUCH — BUT ONLY WHEN IT CARRIES NEWS.
+      //
+      // The bookkeeper naming a thread was taken as the one unambiguous signal that the story is
+      // still about it, in preference to matching wording against the prose, which a thread's
+      // identity does not survive ("the dug corner" / "the corner she had dug"). That is right
+      // about the prose and wrong about the signal, because the bookkeeper is HANDED the open
+      // threads in its own context. Re-listing one is not a report; it is an echo of the input.
+      //
+      // What that cost, on a real save: four threads about a municipal clearance dispute, last
+      // genuinely touched around turn 20, still `active` at 56 with the same tension and the same
+      // description. Every turn sweepThreads found them idle past the window and demoted them,
+      // every turn the bookkeeper echoed them back and this line woke them, and every turn the
+      // player — mid-scene, at four in the morning, in the kitchen, in a marriage — read four lines
+      // of "Nobody has thought about it in a while: Initials she hasn't got." in their offscreen
+      // log. Seven turns running, verbatim. And because the wake also restored `active`, all four
+      // stayed in the pressure pool and in the narrator's context indefinitely.
+      //
+      // So a bare echo is inert. A touch has to carry something the bookkeeper could only know from
+      // this turn: a rewritten description, a moved tension, a resolution — or the prose naming it.
+      const echoOnly = !mentioned(existing, prose)
+        && tu.status !== "resolved"
+        && (!tu.description || tu.description.trim() === String(existing.description ?? "").trim())
+        && (typeof tu.tension !== "number" || tu.tension === (existing.tension ?? 3));
+      if (!echoOnly) {
+        existing.last_touched_turn = turn;
+        // cast: `existing` is narrowed to the statuses threads_update can set, but a stored thread
+        // may also be dormant — which is exactly the case being woken here.
+        if ((existing.status as string) === "dormant" && tu.status !== "resolved") existing.status = "active";
+      } else if (wasDormantBefore) {
+        // It was already dormant and the bookkeeper had nothing new to say. Leave it there rather
+        // than letting the assignment above put it back to active.
+        existing.status = "dormant" as typeof existing.status;
+      }
     } else if (tu.status === "active") {
       // ── THE LIST IS FULL ──────────────────────────────────────────────────────────────────
       //

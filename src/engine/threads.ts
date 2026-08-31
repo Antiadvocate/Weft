@@ -37,7 +37,7 @@ const COLD = 1;
 
 /** Did this thread's subject show up in the prose? Matched on the distinctive words of its title and
  *  description, so "the dug corner" wakes on "the corner she had dug". */
-function mentioned(t: Thread, prose: string): boolean {
+export function mentioned(t: Thread, prose: string): boolean {
   const stop = new Set(["that", "this", "with", "from", "known", "first", "then", "they", "them", "there", "into", "about", "still", "over", "what", "when", "have", "been", "would", "could", "than", "some", "made", "made"]);
   const words = [...new Set((`${t.title} ${t.description}`.toLowerCase().match(/[a-z]{4,}/g) ?? []))]
     .filter((w) => !stop.has(w))
