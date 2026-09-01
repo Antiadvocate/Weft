@@ -42,8 +42,8 @@ import type { SaveState, Identity } from "./types";
 import { asText, asList, orientationIsMood } from "./coerce";
 import { getEdge } from "./social";
 import { relevance } from "./memory";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Stable per-pair noise so first reads are reproducible: -10..+15. */
 function pairNoise(a: string, b: string): number {

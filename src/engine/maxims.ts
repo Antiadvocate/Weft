@@ -213,7 +213,27 @@ export function voiceAnchor(
   presentIds: string[],
 ): string {
   const rows: string[] = [];
-  for (const id of presentIds.slice(0, 4)) {
+  /* WHO GETS A ROW WHEN THE ROOM IS FULL.
+   *
+   * This took the first four ids in array order, which is the order the world happens to store
+   * presence in — so the fifth person in a busy scene got no register, no sample and no never-says,
+   * and the narrator wrote them out of its own defaults. That is the exact failure this block was
+   * built to stop, reappearing as soon as a scene has five people in it.
+   *
+   * The cap stays (this is per-turn context and it is paid for every turn), but it is filled by
+   * whoever has something distinguishing on file rather than by whoever was stored first: a
+   * character with a recorded register and a line in their own mouth is the one whose absence from
+   * this block actually costs a voice. Anyone with a blank card contributes nothing here anyway. */
+  const ranked = [...presentIds].sort((a, b) => {
+    const has = (id: string) => {
+      const c = state.characters[id];
+      if (!c) return 0;
+      return (String(c.speech_pattern ?? c.voice?.diction ?? "").trim() ? 2 : 0)
+        + (c.voice?.example_lines?.some((l) => String(l ?? "").trim()) ? 1 : 0);
+    };
+    return has(b) - has(a);
+  });
+  for (const id of ranked.slice(0, 6)) {
     const c = state.characters[id];
     if (!c) continue;
     // THE REGISTER, WHICH THIS BLOCK DID NOT CARRY.

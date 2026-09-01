@@ -105,11 +105,11 @@ const modelFacing = templateLiterals(readFileSync("src/engine/prompts.ts", "utf8
     if (n) worst.push([f, n]);
     supplied += n;
   }
-  // First measurement of these files, taken after the mystical-perception and comparison bans in
-  // read.ts were rewritten as tests instead of catalogues. Most of what remains is JSON field
-  // descriptions in montage-run.ts and minimal pairs in turn.ts, which are not quotable prose — but
-  // the number may only fall. Same rule as above: lower it, do not nudge it.
-  const BUDGET = 60;
+  // Ratcheted down from 60 after turn.ts's eleven supplied specimens were rewritten as tests on the
+  // finished line — the POV block alone was handing over five ready-made sentences it forbade. What
+  // remains is mostly JSON field descriptions in montage-run.ts and minimal pairs in turn.ts, which
+  // are not quotable prose. The number may only fall. Same rule as above: lower it, do not nudge it.
+  const BUDGET = 46;
   console.log(`     (…and in the other prompts: ${supplied}, budget ${BUDGET})`);
   check("nor has it grown outside prompts.ts", supplied <= BUDGET,
     worst.sort((a, b) => b[1] - a[1]).slice(0, 4));

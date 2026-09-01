@@ -28,6 +28,7 @@
 import type { SaveState, SimulatorDiff, Thread } from "./types";
 import { buildMessages, complete, safeJson } from "../llm";
 import { uid } from "./state";
+import { clipText } from "./text";
 
 export const ESTABLISH_COOLDOWN = 12;
 
@@ -105,8 +106,8 @@ export async function threadsFromSuccess(
       .slice(0, 2)
       .map((t) => ({
         id: uid("thr"),
-        title: String(t.title ?? "").slice(0, 90),
-        description: t.description.slice(0, 400),
+        title: clipText(t.title, 120),
+        description: clipText(t.description, 500),
         status: "active" as const,
         turn_started: turn,
         // Clamped low regardless of what came back. An obligation that opens hot is a crisis with

@@ -24,6 +24,7 @@ import { buildMessages, complete, safeJson } from "../llm";
 import { hasAuthored, liveAuthored } from "./authored";
 import { newBlock, normalizeDays, parseClock } from "./schedule";
 import type { SaveState, Schedule, ScheduleBlock } from "./types";
+import { clipText } from "./text";
 
 const SCHEDULE_SYSTEM = `You write down the week ONE character already has. You are not designing them a life.
 
@@ -64,7 +65,7 @@ function brief(state: SaveState, id: string): string {
   const b = state.world_bible ?? ({} as SaveState["world_bible"]);
   const places = Object.values(state.world.places ?? {})
     .filter((p) => p.id !== "loc_offscene")
-    .map((p) => `- ${p.name}${p.description_facts ? `: ${String(p.description_facts).slice(0, 110)}` : ""}`)
+    .map((p) => `- ${p.name}${p.description_facts ? `: ${clipText(p.description_facts, 150)}` : ""}`)
     .join("\n");
   const wants = [
     c.drive?.goal,
@@ -81,7 +82,7 @@ function brief(state: SaveState, id: string): string {
     `CLIMATE AND GROUND: ${b.climate_and_geography ?? ""}`,
     `POLITICS: ${b.political_situation ?? ""}`,
     `BACKGROUND (this is where their week comes from): ${c.background ?? ""}`,
-    c.life_history?.trim() ? `WHAT HAS HAPPENED TO THEM SINCE: ${c.life_history.trim().slice(0, 600)}` : "",
+    c.life_history?.trim() ? `WHAT HAS HAPPENED TO THEM SINCE: ${clipText(c.life_history, 700)}` : "",
     `AS A PERSON: ${(c.core_traits ?? []).join("; ")}`,
     (c.values ?? []).length ? `HOLDS TO: ${(c.values ?? []).join(", ")}` : "",
     Object.keys(c.skills ?? {}).length ? `CAN DO: ${Object.entries(c.skills).map(([k, v]) => (v ? `${k} (${v})` : k)).join("; ")}` : "",
@@ -122,8 +123,8 @@ export async function forgeSchedule(state: SaveState, charId: string, model: str
 
   const schedule: Schedule = {
     blocks,
-    home: String(raw.home ?? "").trim().slice(0, 80) || undefined,
-    note: String(raw.note ?? "").trim().slice(0, 200) || undefined,
+    home: clipText(raw.home, 110) || undefined,
+    note: clipText(raw.note, 300) || undefined,
   };
   c.schedule = schedule;
   // A WEEK IS UPKEEP. An untracked character is one the engine spends nothing on — the same reason

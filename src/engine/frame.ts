@@ -53,8 +53,8 @@
 
 import type { SaveState } from "./types";
 import { getEdge } from "./social";
+import { clamp01 } from "./num";
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 export interface Attention {
   id: string;

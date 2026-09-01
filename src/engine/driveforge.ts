@@ -19,6 +19,7 @@
 import { buildMessages, complete, safeJson } from "../llm";
 import { tidyPhrase, ownWant } from "./coerce";
 import { overlapRatio } from "./turn";
+import { clipText } from "./text";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
 
@@ -163,7 +164,7 @@ function brief(state: any, id: string): string {
       const held = Object.entries<any>(state.characters ?? {})
         .filter(([oid, o]) => oid !== id && oid !== "char_player" && o.drive?.goal && o.status !== "dead" && o.status !== "departed")
         .slice(0, 8)
-        .map(([, o]) => `- ${o.name}: ${String(o.drive.goal).slice(0, 120)}`);
+        .map(([, o]) => `- ${o.name}: ${clipText(o.drive.goal, 170)}`);
       return held.length
         ? `\nWANTS ALREADY TAKEN IN THIS STORY — yours must not be the same KIND as any of these. If they are all errands of record and account, that is the failure described above and yours is something else entirely:\n${held.join("\n")}`
         : "";

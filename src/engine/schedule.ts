@@ -45,6 +45,7 @@ import type { Identity, SaveState, Schedule, ScheduleBlock, ScheduleDays } from 
 import { absMinutes, clockLabel, dayOf, weekdayIndex, WEEKDAY_FULL } from "./time";
 import { placeIntent } from "./places";
 import { uid } from "./state";
+import { clipText } from "./text";
 
 /** Minutes past the hour a MANDATORY block is allowed to be held by a live scene before the engine
  *  stops waiting for the narrator to write the departure and writes it itself. Roughly two ordinary
@@ -138,7 +139,7 @@ export function placeForRef(state: SaveState, where: string | undefined, what = 
   if ("id" in intent) return intent.id;
   const id = uid("loc");
   state.world.places[id] = {
-    id, name: ref.slice(0, 60),
+    id, name: clipText(ref, 80),
     description_facts: what.trim() ? `Where ${what.trim()} happens.` : "",
     contains: [], founding: false,
   };
@@ -363,7 +364,7 @@ function remember(state: SaveState, id: string, content: string, importance: num
   const mem = (state.memory[id] ??= { character_id: id, core: [], episodic: [], beliefs: [], facts: [], knows: [] });
   mem.episodic.push({
     turn: state.world.current_turn,
-    content: content.slice(0, 200),
+    content: clipText(content, 280),
     importance,
     emotional_charge: charge,
     when_label: state.world.current_time,
@@ -566,15 +567,15 @@ export function newBlock(
   const end = parseClock(b.end) ?? (start + 8 * 60) % 1440;
   return {
     id: b.id ?? uid("blk"),
-    what: String(b.what).trim().slice(0, 120),
-    why: b.why?.trim().slice(0, 240) || undefined,
-    where: String(b.where).trim().slice(0, 80),
-    how: b.how?.trim().slice(0, 120) || undefined,
+    what: clipText(b.what, 160),
+    why: clipText(b.why, 320) || undefined,
+    where: clipText(b.where, 100),
+    how: clipText(b.how, 160) || undefined,
     travel_min: Number.isFinite(Number(b.travel_min)) ? Math.max(0, Math.min(600, Math.round(Number(b.travel_min)))) : undefined,
     start, end,
     days: normalizeDays(b.days),
     rigidity: b.rigidity === "mandatory" || b.rigidity === "optional" ? b.rigidity : "expected",
-    stakes: b.stakes?.trim().slice(0, 200) || undefined,
+    stakes: clipText(b.stakes, 280) || undefined,
     paused: b.paused || undefined,
     last_left_day: b.last_left_day, last_done_day: b.last_done_day,
     last_missed_day: b.last_missed_day, last_late_day: b.last_late_day,
@@ -629,7 +630,7 @@ export function healSchedule(c: Identity): Schedule | undefined {
   if (!blocks.length && !String(s.home ?? "").trim()) return undefined;
   return {
     blocks,
-    home: String(s.home ?? "").trim().slice(0, 80) || undefined,
-    note: String(s.note ?? "").trim().slice(0, 200) || undefined,
+    home: clipText(s.home, 110) || undefined,
+    note: clipText(s.note, 300) || undefined,
   };
 }

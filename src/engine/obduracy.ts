@@ -14,8 +14,8 @@
 // whose regard has to be earned over an arc and cannot be bought in an afternoon.
 
 import type { Identity, AcquiredTrait } from "./types";
+import { clamp01 } from "./num";
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 /** Constitutionally cold — cruelty as nature, not as wound. */
 const HARD = /\b(cruel|ruthless|cold|merciless|brutal|vicious|callous|predatory|sadistic|remorseless)\b/i;

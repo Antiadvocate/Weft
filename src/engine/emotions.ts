@@ -66,8 +66,8 @@
 // a vendor without one, and when the scene finally turns to them they are somebody rather than
 // furniture that has been standing there at capacity since the turn they were named.
 import type { SaveState } from "./types";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Structural states other systems own — the lifecycle leaves them alone. */
 const STRUCTURAL = [/^fixated on /i];

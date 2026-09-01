@@ -52,6 +52,7 @@
  * paragraph the narrator can discard rather than a text invented out of nothing.
  */
 import type { SaveState } from "./types";
+import { clipText } from "./text";
 
 /** Things that answer in words. Not an inventory — the player names the source themselves, and this
  *  only has to recognise the kind of thing it is. */
@@ -112,12 +113,12 @@ export function consultTarget(state: SaveState, action: string): string | null {
     if (q >= 0 && (CONTENT_QUESTION.test(s) || SOURCE.test(s))) {
       const head = s.slice(0, q + 60);
       const aimedAtPerson = PERSON_TARGET.test(head) || (namesRe?.test(head) ?? false);
-      if (!aimedAtPerson) return s.slice(0, 160);
+      if (!aimedAtPerson) return clipText(s, 220);
     }
 
     // (2) the act of consulting a thing that answers in words
     if (ACT_OF_READING.test(s) && SOURCE.test(s) && !ASKS_A_PERSON.test(s)) {
-      if (!(namesRe?.test(s) ?? false)) return s.slice(0, 160);
+      if (!(namesRe?.test(s) ?? false)) return clipText(s, 220);
     }
   }
   return null;

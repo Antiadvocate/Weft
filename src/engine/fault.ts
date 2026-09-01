@@ -57,8 +57,9 @@
 // a vendor without one, and when the scene finally turns to them they are somebody rather than
 // furniture that has been standing there at capacity since the turn they were named.
 import type { SaveState, SimulatorDiff } from "./types";
+import { clipText } from "./text";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Below this conscience, nothing another person feels registers as mattering. The Rudra line. */
 const COLD = 0.35;
@@ -128,7 +129,7 @@ export function applyFaults(state: SaveState, faults: FaultReport[], turn: numbe
       continue;
     }
     const weight = bondWeight(state, f.character, f.toward);
-    p.fault = { toward: f.toward, about: f.about.slice(0, 90), turn };
+    p.fault = { toward: f.toward, about: clipText(f.about, 130), turn };
     const dip = 0.5 + conscience * weight * 2.5;
     p.relaxation = clamp(+(p.relaxation - dip).toFixed(2), -10, 10);
     const name = state.characters[f.toward]?.name ?? "them";

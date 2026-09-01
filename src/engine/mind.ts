@@ -31,8 +31,8 @@
  * is the only string, and it's the dramatic seed the narrator can spend.
  */
 import type { SaveState, BeliefAbout, MindModel, Stance } from "./types";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Who does character A model? The player (always, if A has ever met them) plus A's
  *  single sharpest tie (largest |warmth|+|trust| edge to a present/tracked other).

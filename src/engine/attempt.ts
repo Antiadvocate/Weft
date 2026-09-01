@@ -26,6 +26,7 @@
 import type { SaveState } from "./types";
 import { bodySeverity, bodyMarks } from "./body";
 import { relevance } from "./memory";
+import { clamp } from "./num";
 
 export type AttemptOutcome = "sufficient" | "contested" | "insufficient";
 
@@ -56,7 +57,6 @@ export function isAttempt(action: string): boolean {
   return DANGEROUS.test(t) || RISKY.test(t);
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Loose stem match for the injury check: tokenize, drop trailing s/es, count weighted overlap.
  *  Pure relevance() misses disjoint-but-obvious pairs ("climb" vs "grip fails on ledges"), so

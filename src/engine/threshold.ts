@@ -29,6 +29,7 @@
  * use, and the only place a move can be named safely, because by then it has already been made.
  */
 import type { SaveState } from "./types";
+import { clipText } from "./text";
 
 /** Places that need letting into. Deliberately not "anywhere indoors" — a shop, an inn and a
  *  temple are places a stranger may simply walk into, and most of the world is like that. */
@@ -99,7 +100,7 @@ export function findIntrusion(
     if (!inside) continue;
     if (lines.some((l) => ADMITTED.test(l))) continue;                 // somebody let them in
     const line = lines.find((l) => RETROACTIVE.test(l)) ?? lines[0];
-    return { name, line: line.trim().slice(0, 170), place };
+    return { name, line: clipText(line, 220), place };
   }
   return null;
 }

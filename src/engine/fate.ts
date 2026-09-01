@@ -12,6 +12,7 @@
 // pull, faction clocks turn toward it, pressure gets a floor. At zero turns, the ending is written.
 
 import type { SaveState, Thread } from "./types";
+import { clipText } from "./text";
 
 export type Act = "open" | "rising" | "closing" | "convergence" | "arrival";
 
@@ -133,7 +134,7 @@ export function enforceFate(state: SaveState, f: Fate): string[] {
   // The ending becomes a thread, so the existing pressure system can select it as a beat.
   let spine = threads.find((t) => t.id === "thread_fate");
   if (!spine) {
-    spine = { id: "thread_fate", title: f.destination.split(/[.,;]/)[0].trim().slice(0, 60), status: "active", description: f.destination.slice(0, 240), turn_started: state.world.current_turn, tension: f.act === "open" ? 3 : 5 };
+    spine = { id: "thread_fate", title: clipText(f.destination.split(/[.,;]/)[0], 80), status: "active", description: clipText(f.destination, 320), turn_started: state.world.current_turn, tension: f.act === "open" ? 3 : 5 };
     threads.push(spine);
     state.world.threads = threads;
   }

@@ -46,8 +46,10 @@ export function RelationshipWeb({ save }: { save: ClientSave }) {
           return (
             <g key={id} onClick={() => setFocus(focus === id ? null : id)} style={{ cursor: "pointer" }} opacity={dim ? 0.3 : 1}>
               {ch.portrait_url
-                ? <image href={ch.portrait_url} x={p.x - (isPlayer ? 20 : 16)} y={p.y - (isPlayer ? 20 : 16)} width={isPlayer ? 40 : 32} height={isPlayer ? 40 : 32}
-                    clipPath={`circle(${isPlayer ? 20 : 16}px at ${isPlayer ? 20 : 16}px ${isPlayer ? 20 : 16}px)`}
+                ? // the CSS clip-path in `style` is the one that works; the SVG `clipPath`
+                  // ATTRIBUTE takes a url(#id) reference, so a circle() function there was invalid
+                  // markup that every browser ignored — two ways of saying it, one of them noise.
+                  <image href={ch.portrait_url} x={p.x - (isPlayer ? 20 : 16)} y={p.y - (isPlayer ? 20 : 16)} width={isPlayer ? 40 : 32} height={isPlayer ? 40 : 32}
                     style={{ clipPath: "circle(50%)" } as React.CSSProperties} preserveAspectRatio="xMidYMid slice" />
                 : <circle cx={p.x} cy={p.y} r={isPlayer ? 20 : 16} fill={isPlayer ? "var(--accent-soft)" : "var(--ink-2)"} />}
               <circle cx={p.x} cy={p.y} r={isPlayer ? 20 : 16} fill="none"

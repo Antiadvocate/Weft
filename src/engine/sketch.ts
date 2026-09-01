@@ -28,6 +28,7 @@ import { buildMessages, complete, safeJson } from "../llm";
 import { asList, asText, unfilmableTraits } from "./coerce";
 import { TRAIT_CONTRACT } from "./prompts";
 import { registerCharacter } from "./state";
+import { clipText } from "./text";
 
 
 /** THE CHARACTER RECORD, DEFINED ONCE. Two passes produce a full person — completing somebody the
@@ -198,7 +199,7 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
     const out: Record<string, string> = {};
     for (const [k, v] of Object.entries(g.skills).slice(0, 6)) {
       const key = String(k).trim().slice(0, 40);
-      if (key) out[key] = String(v ?? "").trim().slice(0, 120);
+      if (key) out[key] = clipText(v, 170);
     }
     if (Object.keys(out).length) c.skills = out;
   }
@@ -214,8 +215,8 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
   }
   const goals = asList(g.drive_goals).filter(Boolean);
   if (goals.length && !c.drive?.goal) {
-    c.drive = { goal: goals[0].slice(0, 140), progress: 0, priority: 1, updated_turn: state.world.current_turn };
-    c.drive_queue = goals.slice(1, 3).map((goal: string) => ({ goal: goal.slice(0, 140), progress: 0, priority: 0, updated_turn: state.world.current_turn }));
+    c.drive = { goal: clipText(goals[0], 200), progress: 0, priority: 1, updated_turn: state.world.current_turn };
+    c.drive_queue = goals.slice(1, 3).map((goal: string) => ({ goal: clipText(goal, 200), progress: 0, priority: 0, updated_turn: state.world.current_turn }));
   }
 
   // A SKETCH IS NOT FINISHED BECAUSE THE PASS RAN.
@@ -317,7 +318,7 @@ export async function characterFromBrief(
     state.world.edges.push({
       from: id, to: "char_player", warmth: 0, trust: 0, power: 0,
       updated_turn: state.world.current_turn,
-      notes: asText(g.relation_to_player).trim().slice(0, 200),
+      notes: clipText(asText(g.relation_to_player), 280),
     });
   }
 

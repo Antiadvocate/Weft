@@ -54,6 +54,7 @@ export type { ActionMode } from "../engine/types";
  *  `narrator_prose` directly, so a save written before the reviser existed renders unchanged. */
 export { displayProse } from "../engine/reviser";
 import type { ActionMode } from "../engine/types";
+import { clipText } from "../engine/text";
 
 export interface PresetInfo { id: string; name: string; blurb: string; era_theme: string }
 export interface SaveListing { id: string; name: string; updated_at: string; turn: number; world_name: string }
@@ -540,7 +541,7 @@ export const api = {
    *  by the struck turns are removed outright; canon they minted is dropped. Undo via undoRollback. */
   strike: async (id: string, text: string, to_turn?: number): Promise<ClientSave> => {
     const s = await need(id);
-    const note = String(text || "").trim().slice(0, 240);
+    const note = clipText(text, 320);
     if (!note) throw new Error("say what to strike");
     await putSideRow(id, "recovery", s);            // same safety rail as rollback
     let t = s;
@@ -612,7 +613,7 @@ export const api = {
    *  back, nothing is purged: the fiction so far stands; the law simply binds from here on. */
   correct: async (id: string, text: string): Promise<ClientSave> => {
     const s = await need(id);
-    const note = String(text || "").trim().slice(0, 240);
+    const note = clipText(text, 320);
     if (!note) throw new Error("say what is true");
     s.retcons = [...(s.retcons ?? []), { text: note, turn: s.world.current_turn, kind: "correction" as const }].slice(-12);
     addCanon(s, note);
@@ -911,11 +912,11 @@ export const api = {
     if (patch.name !== undefined && patch.name.trim()) p.name = patch.name.trim().slice(0, 60);
     // The fixed half. Only ever written here — the simulator is told it is not its to write, and
     // nothing in the turn loop touches it. See Place.identity.
-    if (patch.identity !== undefined) p.identity = patch.identity.trim().slice(0, 200);
+    if (patch.identity !== undefined) p.identity = clipText(patch.identity, 260);
     if (patch.description_facts !== undefined) p.description_facts = patch.description_facts.trim();
     // Explicit population beats inference, including an explicit 0 for "this really is deserted".
     if (patch.population !== undefined) {
-      p.population = { scale: Math.max(0, Math.round(patch.population.scale || 0)), who: String(patch.population.who ?? "").slice(0, 200) };
+      p.population = { scale: Math.max(0, Math.round(patch.population.scale || 0)), who: clipText(patch.population.who, 260) };
     }
     p.founding = true;                       // touched by hand = protected from the cap
     await putSave(s);
@@ -1148,7 +1149,7 @@ export const api = {
     const mem = s.memory[char_id];
     if (!mem) throw new Error("no such character");
     mem.facts = facts
-      .map((f) => ({ content: (f.content ?? "").trim().slice(0, 160), turn: s.world.current_turn, quote: f.quote?.slice(0, 160) }))
+      .map((f) => ({ content: clipText(f.content, 240), turn: s.world.current_turn, quote: f.quote ? clipText(f.quote, 240) : undefined }))
       .filter((f) => f.content)
       .slice(0, 40);
     await putSave(s);
@@ -1267,7 +1268,7 @@ export const api = {
       { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline is SACRED — keep it verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
       { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
-    return { baseline: out.text.trim().replace(/^"|"$/g, "").slice(0, 600) };
+    return { baseline: clipText(out.text.replace(/^"|"$/g, ""), 800) };
   },
 
   /** BEAUTY RESCORE — a small, cheap call that assigns intrinsic attractiveness (0-100) from a
@@ -1327,9 +1328,11 @@ export const api = {
     const reading = {
       turn: s.world.current_turn,
       mbti: String(parsed.mbti ?? "????").slice(0, 6).toUpperCase(),
-      read: String(parsed.read ?? "").slice(0, 500),
-      traits: (parsed.traits ?? []).slice(0, 6).map((t) => String(t).slice(0, 70)),
-      arc: String(parsed.arc ?? "").slice(0, 400),
+      // The Chronicle renders these verbatim. "three or four sentences" is 350-550 characters on an
+      // ordinary answer, so the old 500/400 ceilings cut the last sentence off the card mid-word.
+      read: clipText(parsed.read, 800),
+      traits: (parsed.traits ?? []).slice(0, 6).map((t) => clipText(t, 100)),
+      arc: clipText(parsed.arc, 600),
     };
     s.persona_reading = reading;
     await putSave(s);

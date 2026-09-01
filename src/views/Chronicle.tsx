@@ -3,19 +3,8 @@ import { motion } from "motion/react";
 import { api, type ClientSave } from "../lib/api";
 import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
-import { nice, niceCap } from "../lib/format";
+import { asLine, nice, niceCap } from "../lib/format";
 
-/** Model-written text, as something React can render. Same reason as Play.tsx's asLine: a persona
- *  reading comes back from a model, and an object child throws — which, on a persisted reading,
- *  means the Chronicle stops opening. See tests/render-safety.ts. */
-function asLine(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (v == null) return "";
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
-  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
-  return "";
-}
 
 /** Everything here is computed locally from telemetry — zero token cost. */
 export default function Chronicle({ save }: { save: ClientSave }) {

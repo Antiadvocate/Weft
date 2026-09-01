@@ -19,6 +19,7 @@
  * a banned line can be quoted safely, because by then the model has already written it.
  */
 import type { SaveState } from "./types";
+import { clipText } from "./text";
 /**
  * Quoted speech, with NO minimum length. maxims.ts has its own spokenLines with a length floor,
  * because a two-word line cannot be an aphorism — but it can very easily be "Again." So this reads
@@ -109,17 +110,17 @@ export interface EchoHit { line: string; kind: "demand" | "parrot" }
  */
 export function findEcho(prose: string, playerSaid: string): EchoHit | null {
   for (const line of quotedLines(prose)) {
-    if (REPEAT_DEMAND.some((re) => re.test(line))) return { line: line.slice(0, 180), kind: "demand" };
+    if (REPEAT_DEMAND.some((re) => re.test(line))) return { line: clipText(line, 220), kind: "demand" };
   }
   const said = String(playerSaid ?? "").trim();
   if (!said) return null;
   // a literal span of the player's own sentence, whatever it is made of
   for (const line of quotedLines(prose)) {
-    if (verbatimParrot(said, line)) return { line: line.slice(0, 180), kind: "parrot" };
+    if (verbatimParrot(said, line)) return { line: clipText(line, 220), kind: "parrot" };
   }
   if (contentWords(said).length < RUN_FLOOR) return null;   // nothing long enough to be copied
   for (const line of quotedLines(prose)) {
-    if (longestEchoRun(said, line) >= RUN_FLOOR) return { line: line.slice(0, 180), kind: "parrot" };
+    if (longestEchoRun(said, line) >= RUN_FLOOR) return { line: clipText(line, 220), kind: "parrot" };
   }
   return null;
 }
