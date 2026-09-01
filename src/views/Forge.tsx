@@ -56,7 +56,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
   };
 
   return (
-    <div className="scroll-y h-full px-5 pb-10 pt-3">
+    <div className="scroll-y measure-scroll h-full px-5 pb-10 pt-3">
       <button className="chip mb-5" onClick={onBack}><ArrowLeft size={11} /> library</button>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
@@ -68,11 +68,10 @@ export default function Forge({ onBack, onCreated, onGuide }: {
         <textarea className="field" rows={4} data-tour="forge-seed" placeholder="A fishing village the winter the ice came early…"
           value={seed} onChange={(e) => setSeed(e.target.value)} />
 
-        <div className="flex flex-wrap gap-1.5 mt-3" data-tour="forge-sparks">
+        <div className="flex flex-col gap-1.5 mt-3" data-tour="forge-sparks">
           {SPARKS.map((s) => (
-            <button key={s} className="chip text-left" style={{ textTransform: "none", letterSpacing: 0 }}
-              onClick={() => setSeed(s)}>
-              {s.length > 44 ? s.slice(0, 43) + "…" : s}
+            <button key={s} className="spark" onClick={() => setSeed(s)}>
+              {s}
             </button>
           ))}
         </div>

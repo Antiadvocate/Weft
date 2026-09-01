@@ -34,6 +34,12 @@
   --danger: #cf5a4e;
   --calm: #82a884;
   --radius: 16px;
+  /* THE COLUMN. The prose stream has always been 42rem — a measure, because this is a
+     reading app. Nothing else obeyed it, so on a desktop window every other surface ran
+     the full width: a 1700px paragraph of help text, a composer wider than a page, six tab
+     icons 210px apart. This is that same decision applied to the chrome and the views, a
+     little wider than the prose so the stream sits inside a frame rather than flush to it. */
+  --measure: 46rem;
   --font-display: "Fraunces", serif;
   --font-prose: "Newsreader", serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -562,3 +568,47 @@ details.shifts > summary::-webkit-details-marker { display: none; }
   font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--accent); opacity: .8; white-space: nowrap;
 }
+
+/* ───────── the column, on wide windows ─────────
+   Below the breakpoint nothing changes at all: a phone is already the width of the column, and
+   these rules never fire there. Above it the content centres and the chrome centres with it.
+
+   The scroll roots keep their full width and centre with padding rather than max-width, so the
+   wheel still scrolls with the pointer anywhere over the window — a centred, narrowed scroll box
+   would leave the gutters dead. The chrome rows, which do not scroll, just take the max-width. */
+@media (min-width: 56rem) {
+  .measure-scroll { padding-inline: calc((100% - var(--measure)) / 2); }
+  .measure-row { max-width: var(--measure); margin-inline: auto; width: 100%; }
+}
+
+/* ───────── example seeds in the Forge ─────────
+   These were pills cut to 43 characters, which hid the half of each line that made the
+   point — "A lighthouse town where the keeper has been…" dead three weeks and no one will
+   say it. A pill cannot hold a sentence, so the sentence gets a row instead: the same
+   hairline, ink and 12px radius as every other row in the app, just left-aligned and free
+   to wrap. */
+.spark {
+  display: block; width: 100%; text-align: left;
+  font-family: var(--font-sans); font-size: 12.5px; line-height: 1.45;
+  color: var(--text-mid);
+  background: var(--ink-1);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 9px 12px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.spark:active { border-color: var(--line-strong); color: var(--text-hi); }
+@media (hover: hover) {
+  .spark:hover { border-color: var(--line-strong); color: var(--text-hi); }
+}
+
+/* ───────── keyboard focus ─────────
+   Only the text fields ever said where the keyboard was. Everything you can operate is a
+   custom button, so tabbing through the app on a desktop was invisible. One ring, in the
+   era's accent, on every focusable thing — and only for keyboard focus, so a tap on a
+   phone still leaves no mark. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.field:focus-visible, .composer-input:focus-visible { outline-offset: 0; }

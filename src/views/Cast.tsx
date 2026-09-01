@@ -182,7 +182,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   );
 
   return (
-    <div className="scroll-y h-full px-4 pb-10 pt-3">
+    <div className="scroll-y measure-scroll h-full px-4 pb-10 pt-3">
       <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--accent)" }}>
         In the scene
       </div>

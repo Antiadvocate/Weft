@@ -25,7 +25,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
   const openWord = (r: number, st: string) => st === "broken" || st === "shattered" ? "broken" : st === "fracturing" ? "fracturing" : r <= -7 ? "clenched tight" : r <= -3 ? "guarded" : r >= 4 ? "open" : "level";
 
   return (
-    <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+    <div className="scroll-y measure-scroll h-full px-4 pb-10 pt-3 space-y-3">
       {weather.length > 0 && (
         <Block title="Emotional weather" delay={0}>
           <div className="space-y-2 py-1">

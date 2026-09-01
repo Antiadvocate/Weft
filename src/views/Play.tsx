@@ -701,7 +701,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
 
       {/* STATUS LINE — one slim row: your body, the pressure trace, the clock, and
           the "⋯" that holds everything you only touch once in a while. */}
-      <div className="px-3 pt-1.5 pb-1 flex items-center gap-1.5">
+      <div className="measure-row px-3 pt-1.5 pb-1 flex items-center gap-1.5">
         {(() => {
           const r = (save as any).condition?.["char_player"]?.psyche?.relaxation ?? 0;
           const color = r <= -7 ? "var(--danger)" : r <= -3 ? "var(--accent)" : r >= 4 ? "var(--calm)" : "var(--text-lo)";
@@ -794,12 +794,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       </div>
 
       {/* prose scroll — ambient layers (seeded backdrop + tone-driven particles) sit beneath it */}
-      <div className="relative flex-1 min-h-0" data-tour="play-prose">
+      <div className="relative flex-1 min-h-0 overflow-hidden" data-tour="play-prose">
         {ambience !== "off" && <Backdrop tone={tone} locale={locale} level={ambience} />}
         {ambience !== "off" && <Atmosphere tone={tone} level={ambience} />}
         {ambience !== "off" && <div className="prose-scrim" aria-hidden />}
         {fx && <div className={fx === "strike" ? "fx-strike" : "fx-canon"} aria-hidden />}
-        <div ref={scrollRef} className="scroll-y h-full px-5 pb-4 relative" style={{ zIndex: 1 }}>
+        <div ref={scrollRef} className="scroll-y measure-scroll h-full px-5 pb-4 relative" style={{ zIndex: 1 }}>
         {history.length === 0 && !liveProse && (
           <div className="pt-10 text-center">
             <div className="font-display text-lg mb-1.5">Ready to begin.</div>
@@ -1053,7 +1053,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           strips of text between the prose and the composer. They are on the rail above as an icon
           each now, and this is what those icons open — same information, none of the page. */}
       {railPanel && (
-        <div className="px-4 pb-1.5">
+        <div className="measure-row px-4 pb-1.5">
           <div className="card p-2.5">
             {railPanel === "focus" && save.world.focus && (
               <div className="flex items-center gap-2">
@@ -1101,7 +1101,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       )}
 
       {/* composer — one row. The "+" summons mode / web / tightness when you want them. */}
-      <div className="px-3 pb-2 pt-1">
+      <div className="measure-row px-3 pb-2 pt-1">
         <AnimatePresence>
           {extrasOpen && (
             <motion.div style={{ overflow: "hidden" }}

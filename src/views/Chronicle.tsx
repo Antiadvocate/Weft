@@ -189,7 +189,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
   const chapters = (save as any).chapters as Chapter[] | undefined;
 
   return (
-    <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+    <div className="scroll-y measure-scroll h-full px-4 pb-10 pt-3 space-y-3">
       {!!save.world_bible.destination?.trim() && (
         <Fade delay={0}>
           <div className="card p-4">

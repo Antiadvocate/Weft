@@ -615,7 +615,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
   };
 
   return (
-    <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+    <div className="scroll-y measure-scroll h-full px-4 pb-10 pt-3 space-y-3">
       {/* LEARNING IT — first card in Tuning, because the one thing a lost player will reliably do
           is open settings. Both doors are here: the long guide, and the switch for the short ones. */}
       <div className="card p-4" data-tour="set-guides">

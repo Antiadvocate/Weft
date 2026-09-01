@@ -152,7 +152,7 @@ export default function App() {
         </button>
       )}
       <header className="topbar z-30">
-        <div className="flex items-center justify-between px-4 py-2">
+        <div className="measure-row flex items-center justify-between px-4 py-2">
           <button className="text-left min-w-0" onClick={mode === "game" ? closeSave : undefined}>
             <div className="font-display text-[16.5px] leading-tight truncate" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
               {title}
@@ -259,7 +259,7 @@ export default function App() {
 
       {mode === "game" && save && (
         <nav className="tabbar z-30">
-          <div className="flex items-stretch px-2" data-tour="tabs">
+          <div className="measure-row flex items-stretch px-2" data-tour="tabs">
             {TABS.map(({ id, label, icon: Icon }) => {
               const active = tab === id;
               return (

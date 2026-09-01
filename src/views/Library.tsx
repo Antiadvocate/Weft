@@ -47,7 +47,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
   };
 
   return (
-    <div className="scroll-y h-full px-4 pb-10 pt-3">
+    <div className="scroll-y measure-scroll h-full px-4 pb-10 pt-3">
       {saves.length > 0 && (
         <>
           <div className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: "var(--text-lo)" }}>

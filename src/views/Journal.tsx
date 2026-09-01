@@ -122,7 +122,7 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6" style={{ color: "var(--text-hi)" }}>
+    <div className="scroll-y measure-scroll h-full px-4 py-6" style={{ color: "var(--text-hi)" }}>
       <div className="flex items-center gap-2 mb-5">
         <ScrollText size={18} style={{ color: "var(--text-mid)" }} />
         <h2 className="text-lg font-semibold">Journal</h2>
