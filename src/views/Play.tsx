@@ -4,29 +4,11 @@ import { BookOpen, Eraser, ChevronDown, Feather, ChevronUp, Compass, CornerDownL
 import { speak, stopSpeaking, ttsAvailable } from "../lib/tts";
 import { api, streamTurn, resumePending, governorState, displayProse, type ActionMode, type ClientSave } from "../lib/api";
 import Cast from "./Cast";
-import World from "./World";
-import Chronicle from "./Chronicle";
 
-/**
- * Anything a model wrote, as a line the browser can actually display.
- *
- * React throws on an object child, and a throw during render of a persisted history entry is
- * permanent: the save fails to open, every time, and the story is gone as far as the player is
- * concerned. A save that shows one odd-looking line is strictly better than a save that will not
- * load, so nothing on this path is allowed to be trusted for its type.
- */
-function asLine(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (v == null) return "";
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
-  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
-  return "";
-}
 import { CastPip, Vitals } from "../lib/charts";
 import { readSchedule } from "../engine/schedule";
 import type { SaveState } from "../engine/types";
-import { AnalogClock, WeatherIcon } from "../lib/format";
+import { AnalogClock, WeatherIcon, asLine } from "../lib/format";
 import { estimateSaveWeight, leaveBreadcrumb } from "../lib/crash";
 import Atmosphere from "../lib/Atmosphere";
 import Backdrop from "../lib/Backdrop";
@@ -106,9 +88,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [proseDone, setProseDone] = useState(false);
   const [armedRollback, setArmedRollback] = useState<number | null>(null);
   const [undoTurn, setUndoTurn] = useState<number | null>(null);
-  const [rolledTo, setRolledTo] = useState<number | null>(null);
   const pendingRef = useRef<string | null>(null);
-  const [drawer, setDrawer] = useState<null | "cast" | "world" | "chronicle">(null);
+  const [drawer, setDrawer] = useState<null | "cast">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
   const observingRef = useRef(false);
   const runningRef = useRef(false);
@@ -389,7 +370,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     setArmedRollback(null); setRollbackOpen(false);
     const before = save.world.current_turn;
     setSave(await api.rollback(save.id, turn));
-    setUndoTurn(before); setRolledTo(turn);
+    setUndoTurn(before);
     pushToasts([`rolled back to turn ${turn} — undo available`]);
   };
 
@@ -422,7 +403,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       // Snapshot N is taken BEFORE turn N runs, so striking turn N means restoring snapshot N —
       // passing turn-1 here used to erase turn N-1 along with it (the "past 2 turns" bug).
       setSave(await api.strike(save.id, what.trim(), turn));
-      setUndoTurn(before); setRolledTo(turn - 1);
+      setUndoTurn(before);
       flash("strike");
       pushToasts([`struck — rolled back to turn ${turn - 1}`, "the narrator will never write it again"]);
     } catch (e: any) { setError(e.message ?? "strike failed"); }
@@ -495,7 +476,8 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     observingRef.current = false; setObserving(false);
   };
 
-  const illustrateLatest = async () => {    if (illustratingRef.current || !history.length) return;
+  const illustrateLatest = async () => {
+    if (illustratingRef.current || !history.length) return;
     illustratingRef.current = true; setIllustrating(true); setError(null);
     try {
       const { save: s } = await api.illustrate(save.id, history[history.length - 1].turn);
@@ -876,9 +858,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 >
                   {displayProse(h).split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))}
                 </div>
-              ) : (
-                h.kind !== "interlude" && displayProse(h).split(/\n{2,}/).map((p, i) => renderParagraph(p, `${h.turn}-${i}`, false))
-              )}
+              ) : null}
               {h.kind !== "interlude" && displayProse(h).trim() && (h.bookkeeping === "thin" || h.bookkeeping === "failed") && (
                 <div className="flex items-center gap-2 mb-1.5 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
                   <div className="flex-1 text-[11.5px] leading-snug" style={{ color: "var(--text-mid)" }}>
@@ -1127,7 +1107,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 {/* SOMATIC TIGHTNESS — one-tap body reading vs your meditative zero. Off = the engine
                     infers from your text. `base` reroutes the tap to a persistent baseline (bad sleep
                     the clock can't see) that holds until cleared; otherwise it's a this-turn spike
-                    that clears on send. */}
+                    that clears on send.
+
+                    THE WHOLE SCALE IS ONE OBJECT. These eight controls were direct children of the
+                    wrapping row, so at phone width the row broke wherever it ran out of space — which
+                    on a 420px screen is between 3 and 4, leaving "4 5 base" stranded on a line of
+                    their own under a label that no longer pointed at them. A 0-to-5 scale that wraps
+                    mid-scale is not a scale. They share a nowrap group now and move as one. */}
+                <div className="flex items-center gap-1 shrink-0" style={{ flexWrap: "nowrap" }}>
                 <span className="font-mono text-[8px] uppercase tracking-widest shrink-0" style={{ color: "var(--text-lo)" }} title="how tight your body is right now, 0 (fully calm) to 5 (fully tightened), against your own baseline. leave off to let the engine read it from your words.">
                   tight
                 </span>
@@ -1140,7 +1127,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   return (
                     <button key={n}
                       className="font-mono text-[11px] leading-none rounded-full flex items-center justify-center shrink-0"
-                      style={{ width: 26, height: 26,
+                      style={{ width: 24, height: 24,
                         color: active ? "var(--ink-0)" : "var(--text-lo)",
                         background: active ? "var(--accent)" : "var(--accent-soft)",
                         border: active ? "1px solid var(--accent)" : "1px solid transparent" }}
@@ -1158,6 +1145,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   onClick={() => setBaseline((v) => !v)}>
                   base
                 </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1555,9 +1543,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         )}
       </AnimatePresence>
 
-      {/* ONE PLAY SURFACE, THREE DRAWERS — the full Cast/World/Chronicle views mount as
-          slide-overs so the loop of "check something, keep playing" never leaves the scene.
-          The bottom tabs still work; these are the fast path. */}
+      {/* THE CHARACTER SLIDE-OVER — tap a face on the status rail and their full card comes in
+          from the side, so "who is this and how do they feel about me" never leaves the scene.
+
+          It used to claim to be three drawers. The World and Chronicle branches were real code with
+          a real veil, a real header and a real mount — and nothing in this file ever set `drawer` to
+          either value, so neither had ever opened for anybody. They are gone rather than wired up:
+          both views own a tab on the bottom bar already, and inventing a second way in is a feature,
+          not a repair. */}
       <AnimatePresence>
         {drawer && (
           <>
@@ -1570,14 +1563,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               transition={{ type: "spring", stiffness: 360, damping: 40 }}>
               <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--text-lo)" }}>
-                  {drawer === "cast" ? "cast" : drawer === "world" ? "world" : "chronicle"}
+                  cast
                 </div>
                 <button onClick={() => setDrawer(null)}><X size={16} style={{ color: "var(--text-lo)" }} /></button>
               </div>
               <div className="flex-1 min-h-0">
-                {drawer === "cast" && <Cast key={drawerSel ?? "none"} save={save} setSave={setSave} initialSel={drawerSel} />}
-                {drawer === "world" && <World save={save} />}
-                {drawer === "chronicle" && <Chronicle save={save} />}
+                <Cast key={drawerSel ?? "none"} save={save} setSave={setSave} initialSel={drawerSel} />
               </div>
             </motion.div>
           </>

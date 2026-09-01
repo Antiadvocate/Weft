@@ -233,8 +233,12 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
     beliefLine("Andreas the mason still owes me for the winter.", gone) === "Andreas the mason still owes me for the winter.",
     beliefLine("Andreas the mason still owes me for the winter.", gone));
 
+  // Still bounded — but the bound moved. A belief is written as ONE sentence by the reflection pass
+  // and the old 180-character ceiling cut an ordinary one in half, mid-word, in the digest the
+  // narrator reads. The budget is 240 now and the cut lands on a sentence or a word (see
+  // engine/text.ts), so this asserts the guard still exists rather than pinning the old number.
   const long = "x".repeat(300);
-  check("an over-long belief is still clipped", beliefLine(long, gone).length < 200);
+  check("an over-long belief is still clipped", beliefLine(long, gone).length < 250, beliefLine(long, gone).length);
 
   // and the pass that WRITES beliefs is now told the standing, so these cannot be born
   const R = REFLECTION_SYSTEM;

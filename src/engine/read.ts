@@ -124,7 +124,7 @@ You are given: who the player is, what state their body is in, what they already
 WRITE EACH READ LIKE THIS:
 - First person, present tense, the player's own voice. "She's already decided." "He wants me to ask."
 - FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". A read is a verdict; verdicts are stated. Wrongness comes from BEING wrong, never from hedging — a hedged read is mush and it is the exact failure this channel exists to replace.
-- Under 20 words. Usually well under. A read is a thought, not a paragraph.
+- ONE short sentence. A read is a thought, not a paragraph, and it stops as soon as it has landed.
 - NO NEW FACTS. You may not invent a gesture, an object, a line of dialogue, or anything the surface did not already contain. You interpret what is there. If the surface is thin, the read is thin.
 - COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION: a comparison of that kind states the verdict inside itself, which is the one thing a read must earn rather than assert. Default to no comparison at all.
 - Read the PERSON, not the plot. Never predict events, never name what will happen next in the story, never advise the player.

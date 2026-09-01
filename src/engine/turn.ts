@@ -67,6 +67,8 @@ import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCei
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { readScene, sceneCutDirective, perceptionGapDirective } from "./scene";
+import { clipText, clipTail, overlapRatio } from "./text";
+import { clamp } from "./num";
 
 export interface TurnEvents {
   onPhase: (phase: string) => void;
@@ -78,8 +80,6 @@ export interface TurnEvents {
    *  spinner. Optional — a caller that ignores it loses nothing but the texture. */
   onRead?: (reads: Read[]) => void;
 }
-
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Appended after the player's action every turn — the last thing the model reads before writing.
  *  Exists because mid-tier narrator models resolve scene momentum by moving the player's body
@@ -161,7 +161,7 @@ function presenceFromProse(state: SaveState, prose: string): string[] {
 function echoBan(_state: SaveState): string {
   // The do-not-repeat list used to live here, at the tail of this string. It now lives in
   // lastWord(), which is appended after the POV block — see there for why.
-  return `\nDIALOGUE COMES FROM THE SPEAKER, NOT FROM THE PLAYER'S LAST MOVE: no character restates, describes, recaps, or marvels at what the player just did. Forbidden shapes — "you didn't even —", "you just —", "most people would —", "nobody does that", "that's not how anyone —", and any line whose content is the player's own action handed back to them. Astonishment is real and shows in what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.`;
+  return `\nDIALOGUE COMES FROM THE SPEAKER, NOT FROM THE PLAYER'S LAST MOVE: no character restates, describes, recaps, or marvels at what the player just did. THE TEST ON A FINISHED LINE: take the player's last action out of the scene and read the line again. If it no longer means anything, it was built out of that action rather than out of the speaker, and it is rewritten. This covers every wording of it. Astonishment is real and shows in what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.`;
 }
 
 /** THE LAST THING THE MODEL READS.
@@ -177,7 +177,7 @@ export function lastWord(state: SaveState): string {
   return `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`;
 }
 
-const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
+const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no clause that says what a movement meant, no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
 
 function sovereignty(state: SaveState): string {
   const n = state.characters["char_player"]?.name ?? "the player";
@@ -1319,7 +1319,7 @@ const ASKING = /\b(?:i|we)\s+(?:ask|asked|want|need|demand|buy|buys|bought|purch
 export function giftDirective(action: string): string {
   const a = String(action ?? "");
   if (!GIVING.test(a) || !BENEFICIARY.test(a) || ASKING.test(a)) return "";
-  return `\nTHE PLAYER IS GIVING, NOT BUYING. Whatever the player just provided, made, mended or handed over moves TOWARD the people in this scene. NOBODY CHARGES THEM FOR IT. No price, no fee, no invoice, no "and what do you want in return", no haggling over the thing they were just handed — that is not friction, it is the exchange read backwards, and it has happened often enough that the player has noticed it as a tic. If someone here is cold, afraid, proud or suspicious, render THAT instead: they refuse it, they will not touch it, they ask what it will cost them LATER in obligation rather than in coin, they resent needing it, they wonder aloud what taking it makes them. Those are answers. A bill is not. And at least one person's reaction must be proportionate to the size of what was given — a village handed something it badly needed does not answer with a shrug and a complaint.`;
+  return `\nTHE PLAYER IS GIVING, NOT BUYING. Whatever the player just provided, made, mended or handed over moves TOWARD the people in this scene. NOBODY CHARGES THEM FOR IT. No price, no fee, no invoice, no counter-demand, no haggling over the thing they were just handed — that is not friction, it is the exchange read backwards, and it has happened often enough that the player has noticed it as a tic. If someone here is cold, afraid, proud or suspicious, render THAT instead: they refuse it, they will not touch it, they ask what it will cost them LATER in obligation rather than in coin, they resent needing it, they wonder aloud what taking it makes them. Those are answers. A bill is not. And at least one person's reaction must be proportionate to the size of what was given — a village handed something it badly needed does not answer with a shrug and a complaint.`;
 }
 
 /**
@@ -1342,7 +1342,7 @@ export function giftDirective(action: string): string {
  */
 export function nagDirective(names: string[]): string {
   if (!names.length) return "";
-  return `\nASKED ALREADY — ${names.join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN. Not rephrased, not sharpened, not "I asked you what X and you gave me Y". A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
+  return `\nASKED ALREADY — ${names.join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN. Not rephrased, not sharpened, and not restated as a complaint about the answer they did get. A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
       + `\nAND IF THE PLAYER GIVES IT, THEY HAVE GIVEN IT. The goalpost does not move on delivery. A character who asked for something specific and then receives it may absolutely be hurt by HOW it came — offhand, late, walking away, in front of others — and may say so, once. What they may not do is treat the manner as a reason the thing was never given, keep the want open, and go on being owed it. That exchange has happened in this story and it is the single most maddening thing a written person can do: it makes the player unable to succeed by any action available to them, because the condition for success is revealed only after they have failed it. If the want is genuinely still open after this turn, something CONCRETE must still be missing and you must be able to name it in one clause. "It wasn't said the right way" is not a concrete thing missing. Take the yes.`
 }
 
@@ -2302,7 +2302,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // (not passive), and this isn't a deliberately quiet restoration scene.
   const dithering = vergeTurns >= 3 && !playerInert && !restoration && recentProse.length >= 3;
   const ditherDirective = dithering
-    ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. No more "she stopped," no more trailing off, no more "not yet," no fresh hesitation to replace the old one. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. Landing the beat imperfectly is the goal; hovering at the edge one more turn is the failure.`
+    ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. The hesitation is not renewed in another form: whatever else happens, the decision is behind them by the end of this turn. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. Landing the beat imperfectly is the goal; hovering at the edge one more turn is the failure.`
     : "";
 
   // ── ATMOSPHERE_BREAK ── The failure where a story becomes ALL mood and no plot: turn after turn of
@@ -2324,7 +2324,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   });
   const atmosphereLocked = atmosSaturated && eventStarved && recentProse.length >= 3 && !restoration;
   if (atmosphereLocked) {
-    directive += `\nATMOSPHERE_BREAK — the last several turns have been almost entirely MOOD: mist, wet moss, dripping branches, silence, a character standing rigid — sensory texture where events should be. Atmosphere is not plot, and a story that is only atmosphere has stalled. THIS TURN something concrete HAPPENS and changes the situation: ${canGenerateEvent ? `a present character ACTS on what they want (moves, takes, demands, threatens, reaches for something, forces the issue) — pick the one with the strongest drive or the most menace and let them MAKE a beat` : `a standing pressure lands — an arrival, a discovered thing, a threat closing, a consequence of what was already set in motion`}. Not another sensory paragraph, not a character "listening to the trees," not a held silence — an actual event with a before and an after. End the turn on what changed, not on the weather.`;
+    directive += `\nATMOSPHERE_BREAK — the last several turns have been almost entirely MOOD: mist, wet moss, dripping branches, silence, a character standing rigid — sensory texture where events should be. Atmosphere is not plot, and a story that is only atmosphere has stalled. THIS TURN something concrete HAPPENS and changes the situation: ${canGenerateEvent ? `a present character ACTS on what they want (moves, takes, demands, threatens, reaches for something, forces the issue) — pick the one with the strongest drive or the most menace and let them MAKE a beat` : `a standing pressure lands — an arrival, a discovered thing, a threat closing, a consequence of what was already set in motion`}. Not another sensory paragraph, not a character attending to the surroundings, not a held silence — an actual event with a before and an after. End the turn on what changed, not on the weather.`;
   }
 
   // ── POV INTERIORITY FILTER ── The scene is the player's to READ, not the narrator's to explain.
@@ -2362,9 +2362,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // and can be wrong. Relaxation still governs interpretation — it governs it THERE, where it
   // is visible to the player as their own faculties failing, instead of here as tonal mush.
   const povFilter = `\nPOV — THE CAMERA IS WITH THE PLAYER AND DOES NOT LEAVE. Every sentence reports something the player could see, hear, smell, or touch from where they actually are. No cutting away. No scene break to somewhere else. No "meanwhile", no "upstairs", no "back at the —", no paragraph about what an absent character is doing, feeling, or looking at. This is not a style rule: whatever you write becomes the record, so a scene rendered in a room the player has left is filed as something they witnessed, and the person in it is credited with knowing it. One save had the player leave in a car and text his family from the back seat; the prose cut to the woman he had left, alone in the apartment, and the ledger came out saying she witnessed the messages he sent. If something is happening elsewhere it reaches the player the way things reach people — someone arrives, someone calls, word gets back, they find out later, or they never do.
-POV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive ("puts the shuttle down to listen"), naming a concealment ("pretending he hasn't", "doesn't say what xe means"), captioning a gesture with its significance, following an act with a clause explaining the feeling under it, or routing any of these through a filter verb to make them deniable — "seems", "as if", "something in the way", "makes him think", "you can tell" are not licenses, they are the same violation with a hedge on it. If the player has a thought about someone, that thought does not appear here; another channel carries it.
-COMPARISONS: a simile or metaphor may touch ONLY physical form, motion, texture, sound, or scale. Never compare a person, act, or gesture to a ROLE, PROFESSION, RITUAL, RELATIONSHIP, or INTENTION — "the way a physician takes a pulse", "like someone apologizing", "as though closing a bargain" smuggle the emotional verdict inside the vehicle, which is the same failure as stating it outright. When in doubt write no comparison: the gesture, plainly, is stronger. If a gesture needs a caption to land, the gesture is wrong — fix the gesture.
-JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by side without a connective. Never join them with a verb of perception or cause. Not "her brow furrows, showing irritation" and not "her brow furrows, which makes you think she is angry" — "her brow furrows." Then the next thing that happens.`;
+POV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive — any clause saying what an act was FOR; naming a concealment — any clause saying something is being hidden, masked, or left unsaid; captioning a gesture with its significance; following an act with a clause explaining the feeling under it; or routing any of these through a hedge to make them deniable. A verb of seeming, a comparison, or an attribution to the player's own impression is not a licence — it is the same violation with a hedge on it. THE TEST: cover the clause and ask whether what remains is still something a person in the room could have pointed at. If the clause was carrying the meaning, cut it and fix the gesture instead. If the player has a thought about someone, that thought does not appear here; another channel carries it.
+COMPARISONS: a simile or metaphor may touch ONLY physical form, motion, texture, sound, or scale. Never compare a person, act, or gesture to a ROLE, PROFESSION, RITUAL, RELATIONSHIP, or INTENTION: a comparison of that kind carries the emotional verdict inside the vehicle, which is the same failure as stating it outright. When in doubt write no comparison: the gesture, plainly, is stronger. If a gesture needs a caption to land, the gesture is wrong — fix the gesture.
+JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by side without a connective. Never join them with a verb of perception or cause. Write the observable thing, end the sentence, and let the next sentence be the next thing that happens rather than a gloss on the last one.`;
 
   // ── FOCUS GATE (interiority has a source) ── povFilter above bounds HOW MUCH interior the narrator
   // may report; this bounds WHOSE. A first-person scene reads the person the player is actually
@@ -2416,7 +2416,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   }
   const unfocused = focusNames.filter((f) => !focused.some((g) => g.id === f.id));
   const focusFilter = (focused.length && unfocused.length)
-    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, bracing for, or signalling — and NO interpretation of a look, glance, or expression ("that look said", "as if to tell him"). They get a gesture, a line, or silence, never a paragraph of their own. Do not compensate by giving them extra dialogue.`
+    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, bracing for, or signalling — and NO interpretation of a look, glance, or expression. They get a gesture, a line, or silence, never a paragraph of their own. Do not compensate by giving them extra dialogue.`
     : (focusNames.length >= 2)
     // LAST-RESORT CAP — no name, no prior floor-holder (scene opening). Still never let every body
     // in the room get read: one interior per turn, the rest exterior.
@@ -2463,7 +2463,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const ongoing = /\b(i('?m| am| will| shall|'ll)?\s*(going to|begin|start|am beginning|will begin)\b|\bkill (this|the) (realm|world|planet|city|place)\b|\bunmak\w*|\btear\w* (it|this|the) .*(down|apart|realm|world|place)|\bbring\w* (it|this|them|the|this) (whole )?(place|realm|world|city)?\s*(all )?down|\bend (this|the) (realm|world|place|everything)|\bdestroy\w* (everything|it all|the realm|the world|this place|the place))/i.test(lowerAct);
     directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides everything else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies. If they remake a city, the city is remade.`;
     if (ongoing) {
-      directive += `\nTHE PLAYER HAS INITIATED A LARGE, ONGOING ACTION — it must VISIBLY UNFOLD AND ACCELERATE this turn, not be rendered as a hint of things to come. The single worst failure here is decompressing a declared cataclysm into atmosphere: one tremor, a flickering torch, a character who "doesn't finish the sentence," a promise that it will happen soon. NO. If they said they are killing the realm, the realm is DYING NOW and fast — show it concretely and at scale this turn: structures failing, the ground opening, the sky changing, people dying en masse, the physical process tearing through everything, escalating paragraph by paragraph. Deliver the event in progress, not the warning before it. Reaction is at most a sentence amid the cataclysm; the cataclysm itself is the turn. End mid-acceleration with the thing well underway, not poised to begin.`;
+      directive += `\nTHE PLAYER HAS INITIATED A LARGE, ONGOING ACTION — it must VISIBLY UNFOLD AND ACCELERATE this turn, not be rendered as a hint of things to come. The single worst failure here is decompressing a declared cataclysm into atmosphere: one tremor, a flickering torch, a character who cannot get a sentence out, a promise that it will happen soon. NO. If they said they are killing the realm, the realm is DYING NOW and fast — show it concretely and at scale this turn: structures failing, the ground opening, the sky changing, people dying en masse, the physical process tearing through everything, escalating paragraph by paragraph. Deliver the event in progress, not the warning before it. Reaction is at most a sentence amid the cataclysm; the cataclysm itself is the turn. End mid-acceleration with the thing well underway, not poised to begin.`;
     } else {
       directive += `\nThe player's act is done as declared. Now show the world's honest reaction to it — drawn from each present character's own state and relationship to the player, never from a script, and never by undoing or shrinking what happened. But reaction is not a substitute for events: if the moment calls for the story to keep moving, move it.`;
     }
@@ -4042,9 +4042,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         const highPri = (ch.drive.priority ?? 1) >= 8;
         if ((dr.status === "complete" || dr.status === "impossible") && !highPri) {
           const next = ch.drive_queue?.shift();
-          ch.drive = next ?? (dr.new_goal ? { goal: dr.new_goal.slice(0, 120), progress: 0, priority: 3, updated_turn: turn } : undefined);
+          ch.drive = next ?? (dr.new_goal ? { goal: clipText(dr.new_goal, 200), progress: 0, priority: 3, updated_turn: turn } : undefined);
         } else if (dr.blocker && dr.blocker.trim()) {
-          ch.drive.blocker = dr.blocker.slice(0, 120);
+          ch.drive.blocker = clipText(dr.blocker, 200);
           ch.drive.updated_turn = turn;
         }
       }
@@ -4067,7 +4067,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       if (ident && needsHistoryCompaction(ident)) {
         try {
           const cmsg = [
-            { role: "system", content: `You compress a character's accumulated life-history into tighter prose. Preserve every identity-defining throughline (relationships formed, who they became, irreversible changes, key losses and bonds) but collapse repetitive or minor beats and lose verbatim detail. Keep it under 120 words, past tense, plain prose, no list. Output ONLY the rewritten history paragraph.` },
+            { role: "system", content: `You compress a character's accumulated life-history into tighter prose. Preserve every identity-defining throughline (relationships formed, who they became, irreversible changes, key losses and bonds) but collapse repetitive or minor beats and lose verbatim detail. Write it as ONE paragraph, past tense, plain prose, no list. Length is not the point and you cannot count it while you write — the test is that nothing identity-defining was dropped and nothing repetitive survived. Output ONLY the rewritten history paragraph.` },
             { role: "user", content: `Character: ${ident.name}\nTheir core identity (do NOT repeat this, it's already known): ${ident.background}\nAccumulated history to compress:\n${ident.life_history}` },
           ];
           const cres = await complete(cmsg, state.model_settings.simulator_model, state.model_settings.fallback_model, false, 300);
@@ -4079,7 +4079,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           }
         } catch (e: any) {
           // if the rewrite fails, fall back to a hard tail-trim so it can't grow unbounded
-          if (ident.life_history && ident.life_history.length > 1400) ident.life_history = ident.life_history.slice(-1400);
+          if (ident.life_history && ident.life_history.length > 1400) ident.life_history = clipTail(ident.life_history, 1400);
         }
       }
     } catch (e: any) {
@@ -4322,16 +4322,8 @@ function wordOverlap(a: string, b: string): boolean {
 /** Token overlap between two strings. Coerces on the way in ON PURPOSE: every caller passes a
  *  hand-editable field — a thread title, a consequence description — and one of them being blank is
  *  a real state, not a programming error. It should score zero, not take the turn down with it. */
-export function overlapRatio(rawA: unknown, rawB: unknown): number {
-  const a = String(rawA ?? ""), b = String(rawB ?? "");
-  const STOP = new Set(["the","a","an","of","in","on","and","with","from","to","for","by","at","as","that","this","it","is","are","was","were","be","has","have","had","who","which","their","they","them","his","her","its","if","when","then","now","up","down","fast","two","one"]);
-  const toks = (s: string) => new Set(s.toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !STOP.has(w)));
-  const sa = toks(a), sb = toks(b);
-  if (!sa.size || !sb.size) return 0;
-  let shared = 0;
-  for (const w of sa) if (sb.has(w)) shared++;
-  return shared / Math.min(sa.size, sb.size); // fraction of the SMALLER set covered
-}
+/** @see text.ts — kept exported here because half the engine and several tests import it from turn. */
+export { overlapRatio };
 
 /** Add a condition with dedupe: a variant of an existing condition REPLACES it instead of stacking. */
 export function addCondition(c: { conditions: string[]; condition_age?: Record<string, number> }, value: string, turn: number): void {

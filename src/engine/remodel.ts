@@ -101,8 +101,8 @@
  * anchor exists to prevent"). Same rule, same reason.
  */
 import type { Psyche, SaveState } from "./types";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /* ── the constants, gathered so the whole skeleton is visible at once ─────────────────────────── */
 

@@ -19,6 +19,7 @@ import { placeIntent } from "./places";
 import { buildMessages, complete, safeJson, type Usage } from "../llm";
 import { stablePrefix, CHAPTER_SYSTEM } from "./prompts";
 import { pushSnapshot, uid } from "./state";
+import { overlapRatio, clipText } from "./text";
 
 /** AUX SPEND — montage calls that aren't tied to a single beat (planner, chapter) accumulate
  *  on the save so the spend meter matches the OpenRouter dashboard. Beats themselves carry
@@ -31,8 +32,8 @@ import {
   type MontagePlan, type MontageEdgeTarget, type EdgeOrigins,
   planBeats, captureOrigins, beatAllowance, scoreChecklist, pairKey,
 } from "./montage";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** applyEdgeDelta hard-clamps warmth to ±15 and trust to ±20 per call. An envelope
  *  wider than that would be silently truncated, so the walk must respect the real
@@ -131,26 +132,14 @@ export async function planMontage(state: SaveState, opts: MontageOptions): Promi
     span_days,
     goal: plan.beats?.[i]?.goal || `days ${i + 1} of the span`,
   }));
-  plan.checklist = (plan.checklist ?? []).map((c) => String(c).slice(0, 80)).slice(0, 8);
+  plan.checklist = (plan.checklist ?? []).map((c) => clipText(c, 110)).slice(0, 8);
   plan.targets = (plan.targets ?? []).filter(
     (t) => state.characters[t.from] && state.characters[t.to],
   ).slice(0, 6);
   return plan;
 }
 
-/** Content-word overlap — near-duplicate thread titles reworded ("the water debt" vs
- *  "Kildare's water debt") must not become two threads. Mirrors turn.ts's guard. */
-function overlapRatio(a: string, b: string): number {
-  const stop = new Set(["the","a","an","and","or","of","in","on","to","is","are","was","were","for","with","at","by","from","that","this","it","his","her","their"]);
-  const words = (x: string) => new Set(
-    x.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w)),
-  );
-  const A = words(a), B = words(b);
-  if (!A.size || !B.size) return 0;
-  let inter = 0;
-  for (const w of A) if (B.has(w)) inter++;
-  return inter / Math.min(A.size, B.size);
-}
+
 
 /**
  * How heavy a thread a skip of `days` is ALLOWED to settle.
@@ -237,7 +226,7 @@ function applyThreads(
     if (state.world.threads.filter((x) => x.status === "active").length >= 12) break;
     state.world.threads.push({
       id: uid("thr"), title, status: "active",
-      description: String((n as any)?.description ?? "").slice(0, 240),
+      description: clipText((n as any)?.description, 320),
       turn_started: turn,
       // same birth calibration as turn.ts: a thread arrives as potential, never a crisis
       tension: clamp(Number((n as any)?.tension) || 3, 0, 6),
@@ -489,19 +478,21 @@ export async function runMontage(
       const persona = ch.persona?.mbti && ch.persona?.read
         ? {
             mbti: String(ch.persona.mbti).slice(0, 6).toUpperCase(),
-            read: String(ch.persona.read).slice(0, 300),
-            traits: (ch.persona.traits ?? []).slice(0, 5).map((t: any) => String(t).slice(0, 60)),
-            shift: ch.persona.shift && String(ch.persona.shift).trim() ? String(ch.persona.shift).slice(0, 160) : undefined,
+            read: clipText(ch.persona.read, 420),
+            traits: (ch.persona.traits ?? []).slice(0, 5).map((t: any) => clipText(t, 90)),
+            shift: ch.persona.shift && String(ch.persona.shift).trim() ? clipText(ch.persona.shift, 240) : undefined,
           }
         : undefined;
       state.chapters ??= [];
       state.chapters.push({
         idx: state.chapters.length + 1,
         from_turn: fromTurn, to_turn: state.world.current_turn,
-        title: (ch.title ?? `${opts.days} days`).slice(0, 60),
-        summary: String(ch.summary).slice(0, 400),
+        title: clipText(ch.title ?? `${opts.days} days`, 80),
+        // "2-3 sentences" of summary is 300-500 characters on an ordinary answer, so a 400 cap cut
+        // the last sentence off most chapters in the Chronicle. This is the runaway guard now.
+        summary: clipText(ch.summary, 800),
         on_contract: ch.on_contract !== false,
-        drift: ch.drift?.slice(0, 200),
+        drift: clipText(ch.drift, 300) || undefined,
         persona,
       });
     }

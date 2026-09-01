@@ -24,6 +24,7 @@ import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
 import { dispositionCue } from "./desire";
 import { relevance } from "./memory";
+import { clipText } from "./text";
 import { doorFromVoice } from "./coerce";
 import { playerSaysAnswered, deixisNote } from "./turn";
 
@@ -189,17 +190,8 @@ export function collapsed(surface: string, truth: string): boolean {
   return shared / Math.min(wa.size, wb.size) >= 0.75;
 }
 
-export function clip(t: string, max: number): string {
-  const s = t.trim();
-  if (s.length <= max) return s;
-  const head = s.slice(0, max);
-  const lastStop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
-  // only take the sentence boundary if it keeps most of the budget — otherwise we throw away
-  // the substance to gain a full stop
-  if (lastStop >= max * 0.5) return head.slice(0, lastStop + 1).trim();
-  if (/[.!?]$/.test(head)) return head.trim();
-  return head.slice(0, head.lastIndexOf(" ")).trim().replace(/[,;:]$/, "") + "…";
-}
+/** @see clipText — one clipper for the whole engine now; this name is kept for its callers. */
+export const clip = clipText;
 
 export function repeatedIntent(prior: string[]): boolean {
   const last = prior[prior.length - 1] ?? "";

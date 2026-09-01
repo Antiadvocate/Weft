@@ -26,6 +26,7 @@
  *  Free, deterministic, no tokens. It reads texture, skills, values and background — fields the
  *  forge has always been made to fill and that nothing downstream has ever read for this. */
 import type { Identity, SaveState } from "./types";
+import { clipText } from "./text";
 
 export interface Domain { key: string; label: string; re: RegExp }
 
@@ -113,7 +114,7 @@ export function profile(c: Identity): Map<string, { phrase: string; weight: numb
         if (!d.re.test(hay)) continue;
         const prev = out.get(d.key);
         if (prev && prev.weight >= src.weight) continue;
-        out.set(d.key, { phrase: raw.trim().replace(/\s+/g, " ").slice(0, 120), weight: src.weight });
+        out.set(d.key, { phrase: clipText(raw, 170), weight: src.weight });
       }
     }
   }

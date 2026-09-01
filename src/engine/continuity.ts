@@ -23,8 +23,9 @@ import { buildMessages, complete, safeJson } from "../llm";
 import { stablePrefix } from "./prompts";
 import { pushSnapshot, uid } from "./state";
 import { relevance } from "./memory";
+import { clipText } from "./text";
+import { clamp } from "./num";
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 export interface ForwardReport {
   days: number;
@@ -226,12 +227,12 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
     }
     // a new want that grew over the days — only if they don't already have a live drive
     if (cu.drive_nudge && !state.characters[id].drive?.goal) {
-      state.characters[id].drive = { goal: String(cu.drive_nudge).slice(0, 160), progress: 0, updated_turn: turn } as any;
+      state.characters[id].drive = { goal: clipText(cu.drive_nudge, 220), progress: 0, updated_turn: turn } as any;
     }
     // a first-hand memory of their own days (self-sourced, personally lived → inferred/offscreen)
     if (cu.line && state.memory[id]) {
       state.memory[id].episodic.push({
-        turn, content: String(cu.line).slice(0, 240), importance: 3,
+        turn, content: clipText(cu.line, 320), importance: 3,
         emotional_charge: "", last_accessed_turn: turn, source: "inferred",
       });
     }

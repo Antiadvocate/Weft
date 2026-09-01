@@ -21,6 +21,7 @@
 import type { Place, SaveState } from "./types";
 import { contextHistory } from "./context";
 import { buildMessages, complete, safeJson } from "../llm";
+import { clipText } from "./text";
 
 const PLACE_SYSTEM = `You write the PHYSICAL RECORD of one location in a story — what is actually there, as a person walking in would find it.
 
@@ -90,11 +91,11 @@ export async function completePlaceDescription(state: SaveState, id: string, mod
   const desc = String(g?.description_facts ?? "").trim();
   if (!desc) return false;
 
-  place.description_facts = desc.slice(0, 1200);
+  place.description_facts = clipText(desc, 1400);
   delete place.stale_note;                       // the record has caught up
   place.changed_turn = state.world.current_turn;
   if (g.population && typeof g.population.scale === "number") {
-    place.population = { scale: Math.max(0, Math.round(g.population.scale)), who: String(g.population.who ?? "").slice(0, 200) };
+    place.population = { scale: Math.max(0, Math.round(g.population.scale)), who: clipText(g.population.who, 260) };
   }
   return true;
 }

@@ -12,6 +12,7 @@
 import type { AuthoredDrive, Identity, SaveState } from "./types";
 import { noveltyStage } from "./novelty";
 import { clipWords, LABEL_MAX } from "./coerce";
+import { clipText } from "./text";
 
 /** IN-WORLD HOURS PER RUNG — not turns.
  *
@@ -552,7 +553,7 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
   return {
     goal: clipWords(goal, GOAL_MAX),
     approach: opts.approach?.trim() ? clipWords(opts.approach, GOAL_MAX) : undefined,
-    because: opts.because?.trim().slice(0, 240) || undefined,
+    because: clipText(opts.because, 320) || undefined,
     rate,
     stage,
     acted: Math.max(stage * 60 * (STEP_HOURS[rate] ?? STEP_HOURS.steady), opts.acted ?? 0),

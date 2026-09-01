@@ -84,14 +84,6 @@ function sizeFor(ep: LocalImageEndpoint, aspect: DiffusionRequest["aspect"]): { 
   return aspect === "portrait" ? { w: short, h: long } : { w: long, h: short };
 }
 
-/** A stable 32-bit seed from any string. Same scene, same cast, same seed — which is what keeps a
- *  place looking like itself from one message to the next instead of being re-imagined each turn. */
-export function seedFrom(key: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return Math.abs(h | 0) % 2147483647;
-}
-
 /* ── IMAGE PLUMBING ──────────────────────────────────────────────────────────────────────────── */
 
 /** Bytes to a data URL WITHOUT FileReader — the conversion is three lines either way, and this one

@@ -41,6 +41,8 @@
  * being stopped is the fourth one, and the one that arrived last turn as well.
  */
 
+import { clipText } from "./text";
+
 /** Sentence-splitting that keeps a quoted line and its attribution together, so cutting one can
  *  never strand a quotation mark. Same rule as turn.ts's splitter, kept local to avoid an import
  *  cycle (turn.ts imports this module). */
@@ -222,7 +224,7 @@ export function overusedAmbient(recentProse: string[], names: string[]): string[
 export function ambientExample(prose: string, motif: string): string {
   for (const para of String(prose ?? "").split(/\n\n+/)) {
     for (const sent of sentences(para)) {
-      if (new RegExp(`\\b${motif}s?\\b`, "i").test(sent)) return sent.trim().replace(/\s+/g, " ").slice(0, 150);
+      if (new RegExp(`\\b${motif}s?\\b`, "i").test(sent)) return clipText(sent, 210);
     }
   }
   return "";

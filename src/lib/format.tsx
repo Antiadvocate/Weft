@@ -63,3 +63,22 @@ export function WeatherIcon({ weather, size = 12 }: { weather?: string; size?: n
   const Icon = hit?.[1] ?? Cloud;
   return <Icon size={size} />;
 }
+
+/**
+ * Anything a model wrote, as a line the browser can actually display.
+ *
+ * React throws on an object child, and a throw during render of a persisted history entry is
+ * permanent: the save fails to open, every time, and the story is gone as far as the player is
+ * concerned. Both `shifts` and a persona reading are typed `string[]`/`string` and both are written
+ * by a model; one save recorded its world-motion lines as objects and became unopenable. A save that
+ * shows one odd-looking line is strictly better than a save that will not load, so nothing on this
+ * path is trusted for its type. See tests/render-safety.ts.
+ */
+export function asLine(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(asLine).filter(Boolean).join(", ");
+  if (typeof v === "object") return Object.values(v as Record<string, unknown>).map(asLine).filter(Boolean).join(" — ");
+  return "";
+}

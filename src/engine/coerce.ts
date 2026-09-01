@@ -10,6 +10,8 @@
 // only catches null and undefined, and the problem is never null. It is an array where a string
 // belongs.
 
+import { clipText } from "./text";
+
 /** Any model value → string. Arrays join, objects stringify, numbers render, nullish → "". */
 export function asText(v: unknown, joiner = ", "): string {
   if (v == null) return "";
@@ -206,13 +208,7 @@ export function inferPronouns(text: string): string | undefined {
 }
 
 export function tidyPhrase(text: unknown, max = 140): string {
-  const t = deLoop(asText(text));
-  if (t.length <= max) return t;
-  const head = t.slice(0, max);
-  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
-  if (stop >= max * 0.5) return head.slice(0, stop + 1).trim();
-  const sp = head.lastIndexOf(" ");
-  return (sp > 0 ? head.slice(0, sp) : head).replace(/[\s,;:]+$/, "").trim() + "…";
+  return clipText(deLoop(asText(text)), max);
 }
 
 /**
@@ -380,10 +376,4 @@ export const LABEL_MAX = 100;
  *  — 100 characters against 80, both mid-word. So the label the novelty ladder counts a habit under
  *  stopped matching the label stored on the want the moment the save was reopened, and the two
  *  halves of one habit were filed under two different keys. */
-export function clipWords(text: string, max: number): string {
-  const t = String(text ?? "").trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-  const at = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\u2014"), cut.lastIndexOf(","));
-  return (at > max * 0.6 ? cut.slice(0, at) : cut).trimEnd().replace(/[,;:\u2014-]$/, "") + "\u2026";
-}
+export { clipWords } from "./text";

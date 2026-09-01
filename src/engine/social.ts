@@ -44,7 +44,6 @@ export function getEdge(edges: SocialEdge[], from: string, to: string): SocialEd
   return e;
 }
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Roles that ARE a bond, whatever the numbers have gotten around to recording. */
 const BOND_ROLE = /date|lover|girlfriend|boyfriend|partner|spouse|wife|husband|fianc|betrothed|beloved|consort|friend|ally|sworn|protector|guardian|sister|brother|mother|father|daughter|son|family|kin/i;
@@ -283,7 +282,7 @@ export function applyEdgeDelta(
   e.power = clamp(e.power + clamp(d.power_delta, -10, 10), -100, 100);
 
   if (d.note) {
-    e.notes = d.note.slice(0, 140);
+    e.notes = clipText(d.note, 200);
     e.notes_turn = turn;
     // THE WORDS AND THE NUMBERS HAVE TO AGREE. The note is written from the prose; the deltas are
     // written from habit, and the habit is ±2–8. One save carried "Rabi's silent disgust marks a
@@ -1254,6 +1253,8 @@ export function playerEdgeSnapshot(state: SaveState): { pair: string; warmth: nu
 // on them); broken ones cost trust hardest, and warmth too when the promise was large.
 
 import type { Promise as PromiseRec } from "./types";
+import { clipText } from "./text";
+import { clamp } from "./num";
 
 /** How many promises `from` has already KEPT vs BROKEN toward `to` — the track record that bends
  *  how the next outcome lands. */
@@ -1284,7 +1285,7 @@ export function addPromise(state: SaveState, from: string, to: string, text: str
   if (dup) return dup;
   const w: 1 | 2 | 3 = weight ?? (/(\bvow\b|\bswear\b|\bwith my life\b|protect|never leave|marry|die for|always be)/i.test(text) ? 3
     : /(\bhelp\b|\bbring\b|\bget\b|\bfetch\b|\bwalk\b|\bmeet\b|\bstop by\b|\blook after\b for a)/i.test(text) ? 1 : 2);
-  const rec: PromiseRec = { id: uid("promise"), from, to, text: text.trim().slice(0, 160), made_turn: state.world.current_turn, due_time, weight: w, status: "open" };
+  const rec: PromiseRec = { id: uid("promise"), from, to, text: clipText(text, 220), made_turn: state.world.current_turn, due_time, weight: w, status: "open" };
   state.world.promises.push(rec);
   if (state.world.promises.length > 40) state.world.promises = state.world.promises.filter((p) => p.status === "open").concat(state.world.promises.filter((p) => p.status !== "open").slice(-20));
   return rec;

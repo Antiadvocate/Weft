@@ -28,6 +28,7 @@
  *  would install the very thing this exists to catch. */
 import type { SaveState } from "./types";
 import { contextHistory } from "./context";
+import { clipText } from "./text";
 
 /** How many recent turns of shared record to carry. Enough to cover an argument about something that
  *  happened earlier in the same scene, which is the case this exists for. */
@@ -46,7 +47,7 @@ export function witnessRecord(state: SaveState, presentIds: string[]): string {
     const saw = others.filter((id) => (h.present ?? []).includes(id));
     if (!saw.length) continue;
     const when = h.time_label ? h.time_label.replace(/\s*\(.*\)$/, "") : `turn ${h.turn}`;
-    rows.push(`- ${when} — ${h.summary.trim().slice(0, 200)} [present: you, ${saw.map(name).join(", ")}]`);
+    rows.push(`- ${when} — ${clipText(h.summary, 280)} [present: you, ${saw.map(name).join(", ")}]`);
   }
   if (!rows.length) return "";
 

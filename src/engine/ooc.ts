@@ -39,6 +39,8 @@
  * it as the character rather than as a review.
  */
 
+import { clipText } from "./text";
+
 /** Second-person address to the thing writing the story. */
 const META_ADDRESS = /\b(?:you|your|you'?re|youre|u)\b[^.!?]{0,60}\b(?:writer|writing|write|storytell\w*|story\s?telling|narrat\w+|prose|plot|pacing|storyline|dialogue|author|ai\b|bot|engine|game|program|model|prompt|setting|settings|trait|traits|scene|turns?|chapter|response|output|context|instructions?|description)\b/i;
 
@@ -208,7 +210,7 @@ export function detectOOC(action: string): OOC | null {
   const meta = new Set(parts.filter((p) => isMeta(p.text, outsideQuotes(p, mask))));
   if (!meta.size) return null;
 
-  const complaint = [...meta].map((p) => p.text).join(" ").trim().slice(0, 300);
+  const complaint = clipText([...meta].map((p) => p.text).join(" "), 400);
   const rest = parts.filter((p) => !meta.has(p)).map((p) => p.text).join(" ").trim();
   const inWorld = looksLikeAnAct(rest) ? rest : "";
 

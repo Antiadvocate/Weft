@@ -19,6 +19,7 @@ import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
 import { apertureOf } from "./aperture";
 import { remodelCue } from "./remodel";
+import { clipText, clipTail } from "./text";
 import { groundCue } from "./ground";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
@@ -503,13 +504,13 @@ RULES:
 
 Output ONLY JSON: {"memories":[{"content":"their POV of what happened, one tight sentence","importance":6,"emotional_charge":"resentment"}]}`;
 
-export const PERSONA_SYSTEM = `You are typing a player character from an entire playthrough — chapters of story plus a sample of the player's literal typed actions. Read BEHAVIOR, not self-description: what they do under pressure, how they treat power, intimacy, risk, and other people's needs. EVERY CLAUSE NAMES SOMETHING A READER WATCHED THEM DO — an act, a choice, the manner of it. Test each phrase by asking which turn it happened on: if the answer is a turn, keep it; if the phrase is instead about what this person is like underneath, what they are supposedly unable to do, or what accounts for their behaviour, replace it with the behaviour. Conduct, and then stop: how well they played is nobody's to say. Output ONLY JSON: {"mbti":"four letters, friendly shorthand not diagnosis","read":"3-4 sentences on who this person is as actually played","traits":["4-6 concrete behavioral traits"],"arc":"2-3 sentences on how they changed from the earliest chapters to now"}`;
+export const PERSONA_SYSTEM = `You are typing a player character from an entire playthrough — chapters of story plus a sample of the player's literal typed actions. Read BEHAVIOR, not self-description: what they do under pressure, how they treat power, intimacy, risk, and other people's needs. EVERY CLAUSE NAMES SOMETHING A READER WATCHED THEM DO — an act, a choice, the manner of it. Test each phrase by asking which turn it happened on: if the answer is a turn, keep it; if the phrase is instead about what this person is like underneath, what they are supposedly unable to do, or what accounts for their behaviour, replace it with the behaviour. Conduct, and then stop: how well they played is nobody's to say. Output ONLY JSON: {"mbti":"four letters, friendly shorthand not diagnosis","read":"three or four sentences on who this person is as actually played","traits":["4-6 concrete behavioral traits"],"arc":"two or three sentences on how they changed from the earliest chapters to now"}`;
 
 export const CHAPTER_SYSTEM = `You title and summarize one chapter of an ongoing interactive story from its turn-by-turn beats, AND you audit it against THE CONTRACT — the genre, the standing direction, the pressures this story is allowed to run on, and the things that are never to be its engine. Those are given to you; judge against all of them, not only the direction line. Report the arc: what changed, who it changed between, and where things stand. Record what the chapter actually contained, at the same level of explicitness it had; never sanitize. Then judge honestly: did this chapter's content actually deliver the contract, or has the story drifted into something else (e.g. procedure instead of romance, logistics instead of horror)? Check the GENRE against what the beats are actually made of, and check whether anything listed as NEVER THE ENGINE has become the engine — a chapter whose spine is a forbidden-as-primary thing has drifted however well it is written, and saying so is the single most useful thing you do here. on_contract false is not a criticism of the writing; it is a report that the story is no longer the one that was asked for. THEN SAY WHOSE DRIFT IT IS, in "drift_cause", and be honest about it, because a correction gets aimed at the answer. "narration" = the world took it there on its own: scenes kept being ABOUT the forbidden thing without the player steering into it, characters pursued and escalated unprompted, the pressure kept arriving from the same place. "player" = the player drove it there deliberately and repeatedly, in their own typed actions — they chose to leave, to refuse, to end it, to go somewhere else. A player playing their story is NOT a drift to be corrected, however far it lands from the genre; say "player" whenever their own actions are the spine of it, and do not hedge toward "narration" because the result is off-genre. Both can be true at once — answer with whichever is actually driving, and "player" whenever it is genuinely close. ALSO, in "engine_threads", copy the EXACT lines (from the STANDING SOURCES list given to you, verbatim, or an empty list) of any open threads OR running faction clocks the story has been running a never-the-engine thing THROUGH. The clocks are on that list for a reason: a clock is a faction pursuing an objective on a timer, its pull on the story only ever grows, and an off-genre one written at world creation will otherwise supply the reason for every scene until the day it fires — so when the beats keep being about a faction's project rather than about what the GENRE line says this story is, name that clock. Marking a line stops the world reaching for it as the reason a scene happens; it does not close the thread, does not stop the clock ticking or firing, and does not stop the player acting on either. Empty list is the common answer — only name something you would point at as the engine itself. ALSO type the PLAYER as they actually PLAYED in these beats — from behavior, never self-description: an MBTI four-letter type as a friendly shorthand, a 1-2 sentence read of how they operated this chapter, 3-5 concrete behavioral traits ("negotiates before threatening", "protects partners at personal cost"). EVERY CLAUSE OF THE READ AND EVERY TRAIT NAMES SOMETHING A READER WATCHED THEM DO — an act, a choice, the manner of it. Test each phrase by asking which turn it happened on: if the answer is a turn, keep it; if the phrase is instead about what this person is like underneath, what they are supposedly unable to do, or what accounts for their behaviour, replace it with the behaviour. The read describes conduct and stops there; where the story went is the chapter summary's job and how well they played is nobody's, and — when a prior reading is given — ONE line on what shifted since. ALSO: list any event in these beats that became PUBLIC, WORLD-SCALE knowledge (proclaimed, crowd-witnessed, spreading beyond containment) — stated as one line of present-tense law each; empty list if none. IF (and only if) a DESTINATION is given: "missing" = one short concrete phrase naming what still stands between the story and that ending right now (a thing to be done, obtained, faced, or decided — not a feeling, not a theme). "gained" = one short phrase for what got closer this chapter, empty if nothing did. "reached" = true ONLY if the ending has already, unambiguously happened in the fiction; when in doubt, false. "pct" is ignored — do not think about how far along the story is; a clock handles that. If no destination is given, omit the destination object entirely. Output ONLY JSON: {"title":"3-6 words","summary":"2-3 sentences, past tense","on_contract":true,"drift":"empty when on contract; otherwise ONE blunt line naming what the story became instead and what is missing","drift_cause":"narration | player — omit or use \"narration\" when on_contract is true","engine_threads":["exact titles of open threads running a forbidden engine; usually empty"],"canon_add":["only genuinely public world-scale facts, usually empty"],"destination":{"pct":0,"gained":"","missing":"","reached":false},"persona":{"mbti":"XXXX","read":"1-2 sentences","traits":["3-5 behavioral traits"],"shift":"one line vs the prior reading; empty if none given"}}`;
 
 export const INTERVIEW_SYSTEM = `You are a single character from an ongoing story, speaking OUT OF SCENE in a quiet aside with the player — a conversation that leaves no trace in the world. Stay entirely in character: their voice, their knowledge and ONLY their knowledge (their memories, verified facts, beliefs, and feelings as given — if they don't know something, they don't know it), their current mood coloring their answers through the openness rules. They may deflect, lie, or refuse exactly as this person would. Never break character, never mention being an AI or a game, never reveal engine terms. Answer in 1-2 short paragraphs of plain speech, first person.`;
 
-export const OPENING_SYSTEM = `You write the OPENING SCENE of an interactive story — the moment the player arrives in this world, before they have acted. Set the stage: establish where they are, who is present, the mood, and the immediate situation, ending on a beat that invites the player to act. Honor the PLAYER'S STANDING DIRECTION above all (if a topic is marked incidental, keep it incidental). Name only objects, materials, jobs, foods, animals, distances and units that exist in this setting. 2–4 paragraphs, 120–260 words. Second person ("you"). Dialogue in quotes. No headers, no lists, no meta, no "Turn 1" — just the scene. Do not resolve anything; open it. THE WORLD OPENS WITH LOADED POTENTIAL, NEVER WITH A MATURE CRISIS ALREADY AT THE PLAYER'S THROAT — the same rule the rest of this world was seeded under, where clocks start near empty and threads start low. A first scene is where the player learns who these people are to them, so it runs at the temperature of an ordinary day in this life: someone is doing something, something is wanted, something is a little unresolved. AND IT OPENS INSIDE THE BONDS THE WORLD BIBLE ESTABLISHED, not against them. Where canon says two people are close, the opening shows them close and puts whatever is unresolved somewhere the closeness survives; the first thing a player sees of their strongest tie is not that tie in trouble. What canon says is true of a relationship is true in this scene — read those lines before writing, and if the scene you are about to write would contradict one, write a different scene.`;
+export const OPENING_SYSTEM = `You write the OPENING SCENE of an interactive story — the moment the player arrives in this world, before they have acted. Set the stage: establish where they are, who is present, the mood, and the immediate situation, ending on a beat that invites the player to act. Honor the PLAYER'S STANDING DIRECTION above all (if a topic is marked incidental, keep it incidental). Name only objects, materials, jobs, foods, animals, distances and units that exist in this setting. Three or four paragraphs. Second person ("you"). Dialogue in quotes. No headers, no lists, no meta, no "Turn 1" — just the scene. Do not resolve anything; open it. THE WORLD OPENS WITH LOADED POTENTIAL, NEVER WITH A MATURE CRISIS ALREADY AT THE PLAYER'S THROAT — the same rule the rest of this world was seeded under, where clocks start near empty and threads start low. A first scene is where the player learns who these people are to them, so it runs at the temperature of an ordinary day in this life: someone is doing something, something is wanted, something is a little unresolved. AND IT OPENS INSIDE THE BONDS THE WORLD BIBLE ESTABLISHED, not against them. Where canon says two people are close, the opening shows them close and puts whatever is unresolved somewhere the closeness survives; the first thing a player sees of their strongest tie is not that tie in trouble. What canon says is true of a relationship is true in this scene — read those lines before writing, and if the scene you are about to write would contradict one, write a different scene.`;
 
 export const NEWSEASON_SYSTEM = `You turn a long, finished playthrough into the clean starting point for a NEW chapter — like a "season 2" that carries the consequences but starts fresh. You are given the world bible, the cast with their evolved traits and relationships, recent events, threads, and current situation.
 
@@ -537,7 +538,7 @@ Produce ONE JSON object that frames the time skip and a new opening that flows F
  "world_bible": { "name":"", "political_situation":"third person, about the world: which factions moved, what changed on the map, what is unsettled. Never addressed to the player and never about what the player is — the engine rejects this field outright if it contains the word \"you\".", "start_date":"YYYY-MM-DD — the real calendar date of Day 1, era-appropriate (unlocks weekdays/months/years in the game clock)" },
  "player": { "background_addition":"ONE sentence, appended to a record the player wrote about their own character. WHAT CHANGED IN THIS CHAPTER — the position they now hold, the thing they did, the place they now live, what they lost. Facts a chronicler would note. NEVER a verdict on them, never their emotional condition, never their appetites restated, never the second person. If nothing about their circumstances changed, return an empty string — that is the correct answer more often than not." },
  "cast": [ { "name":"", "still_present": true, "background_addition":"one sentence on where they ended up / how they changed — keep their edge, appetites, and darkness intact", "warmth_to_player": 0, "trust_to_player": 0, "new_drive":"", "where":"the place this person is at the moment the chapter opens, by name from the world's places. MOST OF THE CAST IS NOT IN THE ROOM. A time skip scatters people: they went home, took a post, left the city, are asleep across town. Name the starting location ONLY for the one or two who are genuinely with the player in the opening prose. If they are somewhere the chapter does not name, write \"elsewhere\"." } ],
- "opening_scene": "the new chapter's opening prose, 120-220 words, second person, beginning after the time skip, carrying the weight of what came before without re-explaining it, at the story's own level of explicitness. Write ONLY the people whose 'where' is the starting location — an opening with the entire cast standing in one room is wrong. End on a beat inviting action.",
+ "opening_scene": "the new chapter's opening prose, three or four paragraphs, second person, beginning after the time skip, carrying the weight of what came before without re-explaining it, at the story's own level of explicitness. Write ONLY the people whose 'where' is the starting location — an opening with the entire cast standing in one room is wrong. End on a beat inviting action.",
  "starting_location_name": "where the player is when the chapter opens — prefer an EXISTING place from the world by exact name; invent one only if the time skip genuinely moved them somewhere new",
  "threads": [ { "title":"", "description":"what somebody is DOING and where it is heading — see THREADS below", "tension": 3 } ],
  "distances": [ { "from":"place or region name", "to":"place or region name", "minutes": 0 } ]
@@ -762,7 +763,7 @@ export function simulatorContext(state: SaveState): string {
   // a no-signal world) and forgets the danger (a lethal threat rendered as ambient set-dressing).
   if (b.technology_level?.trim()) parts.push(`WHAT WORKS HERE (tech law — do NOT let anyone use what this rules out): ${b.technology_level.trim()}`);
   if (b.what_people_fear?.trim()) parts.push(`THE LIVE THREAT (present and dangerous — never reduce it to background; characters do not calmly ignore it): ${b.what_people_fear.trim()}`);
-  if (state.world.canon.length) parts.push(`CANON (do not re-add): ${state.world.canon.map((c) => c.slice(0, 160)).join(" | ")}`);
+  if (state.world.canon.length) parts.push(`CANON (do not re-add): ${state.world.canon.map((c) => clipText(c, 220)).join(" | ")}`);
   // roster: every living character, id + name + where they are; the ids the diff must use
   const roster = Object.entries(state.characters)
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
@@ -874,9 +875,9 @@ THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIV
   const clocks = state.world.clocks.filter((c) => c.status === "running");
   if (clocks.length) parts.push(`CLOCKS: ${clocks.map((c) => `${c.id}:${c.faction} — ${c.objective} [${c.filled}/${c.segments}]`).join("; ")}`);
   const pend = state.world.consequences.filter((c) => c.status === "pending");
-  if (pend.length) parts.push(`PENDING CONSEQUENCES (already scheduled, don't re-add): ${pend.map((c) => c.description.slice(0, 70)).join(" | ")}`);
+  if (pend.length) parts.push(`PENDING CONSEQUENCES (already scheduled, don't re-add): ${pend.map((c) => clipText(c.description, 110)).join(" | ")}`);
   const rumors = state.world.rumors.filter((r) => !r.dead).slice(-3);
-  if (rumors.length) parts.push(`LIVE RUMORS (don't re-add): ${rumors.map((r) => `"${r.content.slice(0, 70)}"`).join("; ")}`);
+  if (rumors.length) parts.push(`LIVE RUMORS (don't re-add): ${rumors.map((r) => `"${clipText(r.content, 110)}"`).join("; ")}`);
   if (state.world.focus) parts.push(`FOCUS ${state.world.focus.mode.toUpperCase()}: ${state.world.focus.label}`);
   parts.push(`TENSION DIAL: ${state.model_settings.tension ?? 5}/10`);
   const recent = contextHistory(state).slice(-2).map((h) => `T${h.turn}: ${clipRecord(h.player_action, 220)} → ${clipRecord(h.summary, 260)}`).join("\n");
@@ -892,17 +893,7 @@ THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIV
  *  keep his cum on his penis instead of" is not a shorter record of the turn; it is a different and
  *  wrong one, and it goes back into the next narrator prompt reading as complete. Prefer the last
  *  clause boundary inside the budget, fall back to the last whole word, and mark the cut. */
-function clipRecord(t: string, max: number): string {
-  const s = String(t ?? "").replace(/\s+/g, " ").trim();
-  if (s.length <= max) return s;
-  const head = s.slice(0, max);
-  const stop = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
-  if (stop >= max * 0.5) return head.slice(0, stop + 1).trim();
-  const clause = Math.max(head.lastIndexOf("; "), head.lastIndexOf(", "));
-  if (clause >= max * 0.6) return head.slice(0, clause).trim() + "…";
-  const sp = head.lastIndexOf(" ");
-  return (sp > 0 ? head.slice(0, sp) : head).trim().replace(/[,;:]$/, "") + "…";
-}
+const clipRecord = clipText;
 
 function describeOpenness(c: Condition, conscience?: number): string {
   const r = c.psyche.relaxation;
@@ -1057,14 +1048,7 @@ export function portraitBodyPlan(state: SaveState, c: Identity): { humanoid: boo
 /** The most RECENT part of an accreting log, cut on a sentence boundary. Older beats have already
  *  been absorbed into traits, memories and edges; what the narrator needs from this field is where
  *  the person has just got to. */
-export function tailGist(text: string, maxLen: number): string {
-  const t = String(text ?? "").trim();
-  if (t.length <= maxLen) return t;
-  const cut = t.slice(t.length - maxLen);
-  const start = cut.search(/[.!?]\s+\S/);
-  const kept = start >= 0 ? cut.slice(start + 1).trim() : cut.trim();
-  return `…${kept}`;
-}
+export const tailGist = clipTail;
 
 /** Compose a portrait prompt that reflects WHO the character is — not just their face.
  *  Full body, head to toe, on a white studio background, in the world's art direction.
@@ -1536,7 +1520,7 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     //
     // The whole thing goes under the label now, and the duplicate below is suppressed for the
     // player: one copy, marked.
-    if (isPlayer && ident.background) lines.push(`  who they are (PRIVATE authorial background — this is for YOU, not known to anyone in the world; no character knows the player's job, history, origin, hometown, how long they have been here, or anatomy until the player states it aloud in play): ${ident.background.trim().slice(0, 600)}${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
+    if (isPlayer && ident.background) lines.push(`  who they are (PRIVATE authorial background — this is for YOU, not known to anyone in the world; no character knows the player's job, history, origin, hometown, how long they have been here, or anatomy until the player states it aloud in play): ${clipText(ident.background, 700)}${ident.life_history?.trim() ? ` Since: ${ident.life_history.trim()}` : ""}`);
     // CORE TRAITS ARE BEHAVIOUR, NOT DECORATION, AND THE PLAYER HAS THEM TOO.
     //
     // These were rendered for NPCs and skipped entirely for the player, who got one truncated
@@ -1885,12 +1869,10 @@ ${recentStr}${proseTail}${(() => {
   // quotable modern lines supplied as things never to write. Both are gone: what a world contains is
   // already recorded in the bible, and it is read from there.
   const wb = state.world_bible;
-  const first = (s: string | undefined, n: number) => {
-    const t = String(s ?? "").trim(); if (!t) return "";
-    if (t.length <= n) return t;
-    const cut = t.slice(0, n); const end = cut.lastIndexOf(". ");
-    return end > n * 0.4 ? cut.slice(0, end + 1) : cut.trim() + "…";
-  };
+  // Whole sentences, whole words. This used to cut mid-word at a byte offset, so a life the model
+  // was meant to build a voice out of arrived as "…lost its land two generations back and the roof
+  // has nev" — the half-sentence the character's whole register hangs on, severed.
+  const first = (s: string | undefined, n: number) => clipText(s, n);
   const lines = state.world.present
     .filter((id) => id !== "char_player")
     .map((id) => {
@@ -1922,8 +1904,10 @@ ${recentStr}${proseTail}${(() => {
       // not here, so the one question in the five with no adjacent answer was the one that decides
       // whether a character speaks from their own picture of events or from the narrator's.
       const bel = state.memory[id]?.beliefs?.slice(-2).map((x) => x?.content).filter(Boolean) ?? [];
-      if (bel.length) out.push(`   holds to be true (may be false; they act on it anyway): ${bel.join("; ").slice(0, 200)}`);
-      if (c.voice?.never_says?.length) out.push(`   Would never say: ${c.voice.never_says.slice(0, 2).join("; ")}.`);
+      if (bel.length) out.push(`   holds to be true (may be false; they act on it anyway): ${clipText(bel.join("; "), 280)}`);
+      // never_says is deliberately NOT repeated here: voiceAnchor (engine/maxims.ts) already
+      // sends it in the per-turn directive, and both blocks reach the same narrator call. One
+      // copy, in the block that sits nearest the point where the line actually gets written.
       return out.join("\n");
     })
     .filter(Boolean);
@@ -1989,11 +1973,7 @@ export function stableSeed(key: string): number {
  *  asides, not visible facts), then it is cut on a sentence or comma boundary. */
 function clause(text: string | undefined, max: number): string {
   const t = String(text ?? "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().replace(/[.;]+$/, "");
-  if (!t) return "";
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(", "));
-  return (stop > max * 0.5 ? cut.slice(0, stop) : cut).trim().replace(/[.,;]+$/, "");
+  return clipText(t, max).replace(/[.,;…]+$/, "");
 }
 
 /** THE LOCKED LOOK OF ONE PERSON — the exact words that will be used for them in every image.

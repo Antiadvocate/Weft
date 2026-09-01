@@ -9,6 +9,7 @@ import { ensureBorn } from "./remodel";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS } from "./types";
 import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood, clipWords, LABEL_MAX } from "./coerce";
+import { clipText } from "./text";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
 const VERDICT_ROLE_HEAL = /^(the\s+)?(enemy|enemies|foe|nemesis|adversary|antagonist|traitor|betrayer|victim|prey|target|threat|obstacle|nuisance|burden)$/i;
@@ -320,7 +321,7 @@ export function sanitize(state: SaveState): SaveState {
     if (!p || p.id === "loc_offscene") continue;
     if (typeof p.identity === "string" && p.identity.trim()) continue;
     const first = String(p.description_facts ?? "").trim().split(/(?<=[.!?])\s+/)[0] ?? "";
-    p.identity = first.trim().slice(0, 200);
+    p.identity = clipText(first, 260);
   }
 
   // ── A MODEL-SHAPED OBJECT WHERE A LINE OF TEXT BELONGS ──────────────────────────────────────
@@ -566,7 +567,7 @@ function wordSet(x: string): Set<string> {
 }
 
 export function addCanon(state: SaveState, line: string): boolean {
-  const l = line.trim().slice(0, 200);
+  const l = clipText(line, 260);
   if (!l || state.world.canon.some((x) => x.toLowerCase() === l.toLowerCase())) return false;
   state.world.canon.push(l);
   state.world.canon_meta ??= {};

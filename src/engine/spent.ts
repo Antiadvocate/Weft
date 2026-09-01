@@ -33,6 +33,7 @@
  * record, and it is the second one the player hears.
  */
 import type { SaveState } from "./types";
+import { clipText } from "./text";
 
 /** How many of the last turns a subject must appear in before it counts as spent. */
 const SPENT_AT = 2;
@@ -290,7 +291,7 @@ export function retoldToPlayer(state: SaveState, prose: string): { line: string;
     const lt = contentTokens(line);
     if (lt.size < 5) continue;                       // too short to be a re-delivery of anything
     for (const k of known) {
-      if (overlap(lt, contentTokens(k)) >= RETOLD_AT) return { line: line.slice(0, 160), known: k.slice(0, 160) };
+      if (overlap(lt, contentTokens(k)) >= RETOLD_AT) return { line: clipText(line, 220), known: clipText(k, 220) };
     }
   }
   return null;

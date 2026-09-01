@@ -18,6 +18,7 @@ import { absMinutes } from "./time";
  * still earned by the story, just computed instead of asked for.
  */
 import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock, SaveState } from "./types";
+import { clipText } from "./text";
 
 export interface PressureInput {
   turn: number;
@@ -337,11 +338,11 @@ export function selectBeat(inp: BeatInput): Beat {
   const rng = inp.rng ?? Math.random;
   if (inp.tension <= 0) {
     const due0 = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
-    return due0 ? { kind: "consequence", ref: due0.description.slice(0, 80), consequence: due0 } : { kind: "none" };
+    return due0 ? { kind: "consequence", ref: clipText(due0.description, 120), consequence: due0 } : { kind: "none" };
   }
   // a DUE consequence always lands — the player (or the world) loaded it; the calendar fired it
   const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
-  if (due) return { kind: "consequence", ref: due.description.slice(0, 80), consequence: due };
+  if (due) return { kind: "consequence", ref: clipText(due.description, 120), consequence: due };
 
   // GRACE WINDOW: the opening turns establish a world; they do not besiege the player who just
   // arrived in it. Standing weight may be FELT (reminders) but nothing discharges yet.
@@ -360,7 +361,7 @@ export function selectBeat(inp: BeatInput): Beat {
     const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
     const minRemind = inp.besieged ? 1 : 4;
     return early && inp.turn >= minRemind && (inp.rng ?? Math.random)() < (inp.besieged ? 0.7 : 0.35)
-      ? { kind: "reminder", ref: String(early.title ?? "").slice(0, 90) }
+      ? { kind: "reminder", ref: clipText(early.title, 130) }
       : { kind: "none" };
   }
 
@@ -373,8 +374,8 @@ export function selectBeat(inp: BeatInput): Beat {
     : inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) || sinceBeat < MIN_GAP_TURNS;
   const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
-    standing.push({ ref: `${c.faction}: ${c.objective}`.slice(0, 90), kind: "threat", mk: () => ({
-      kind: "clock", ref: `${c.faction}: ${c.objective}`.slice(0, 90),
+    standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "threat", mk: () => ({
+      kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130),
       // THE SIGNS TRAVEL WITH THE BEAT. The narrator is deliberately not shown the clock table —
       // a faction's objective is private bookkeeping and handing it over is the omniscience leak.
       // But visible_signs is the opposite of private: the forge writes it as what an ordinary
@@ -399,12 +400,12 @@ export function selectBeat(inp: BeatInput): Beat {
     const kind = t.kind ?? "threat";
     const bar = kind === "threat" ? 6 : 2;
     if ((t.tension ?? 0) >= bar)
-      standing.push({ ref: String(t.title ?? "").slice(0, 90), kind, mk: () => ({ kind: "thread", ref: String(t.title ?? "").slice(0, 90) }) });
+      standing.push({ ref: clipText(t.title, 130), kind, mk: () => ({ kind: "thread", ref: clipText(t.title, 130) }) });
   }
   // Agents gated at priority 6 meant a person only pressed the world when they were in crisis.
   // People acting on ordinary wants IS how a world turns; 3 lets them.
   for (const a of inp.agents) if ((a.priority ?? 1) >= 3)
-    standing.push({ ref: `${a.name} — ${a.goal}`.slice(0, 90), kind: "relationship", mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
+    standing.push({ ref: clipText(`${a.name} — ${a.goal}`, 130), kind: "relationship", mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
 
   // ── PER-SOURCE FATIGUE ──────────────────────────────────────────────────────
   // Every source in `standing` used to be equally eligible on every turn, chosen by a flat random

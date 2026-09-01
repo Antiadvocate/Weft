@@ -161,8 +161,3 @@ export function groundCue(state: SaveState, id: string): string {
     : `  ${name} is easier in this place than elsewhere; good things happened to ${name} here. Render it as ease with the room itself — moving through it without looking, using it like somewhere that belongs to ${name} — never as a comment about the place.`;
 }
 
-/** The auditable version. Same discipline as remodel.ts: a quiet scalar gets a legible record. */
-export function groundReport(state: SaveState): string[] {
-  return (state.last_ground ?? []).map((g) =>
-    `${state.characters[g.id]?.name ?? g.id} → ${g.place}: ${g.shove > 0 ? "+" : ""}${g.shove}${g.about ? ` (${g.about})` : ""}`);
-}

@@ -15,6 +15,7 @@ import { factGate, factOverlap } from "./facts";
  * the geometric-series bound and Monte Carlo precision checks.
  */
 import type { CharMemory, EpisodicMemory, Belief, SaveState } from "./types";
+import { clipText } from "./text";
 
 export const HALF_LIFE_TURNS = 24;       // recency half-life
 export const ALPHA = 1.0, BETA = 1.0, GAMMA = 1.5;
@@ -587,7 +588,7 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
       t = t.replace(/\bherself\b/g, "myself").replace(/\bhimself\b/g, "myself").replace(/\bthemselves\b/g, "myself");
     }
   }
-  return t.slice(0, 400);
+  return clipText(t, 400);
 }
 
 /**
@@ -766,7 +767,9 @@ export function beliefLine(content: string, gone: Map<string, string>): string {
   // the third layer, because a bad entry from any source must not be able to end a playthrough.
   const raw = typeof content === "string" ? content : "";
   if (!raw.trim()) return "";
-  const text = raw.length > 180 ? raw.slice(0, 178).trimEnd() + "…" : raw;
+  // A belief is written as one sentence by the reflection pass, and 180 characters routinely cut
+  // one in half. Wider, and cut at a sentence when it does have to give.
+  const text = clipText(raw, 240);
   const hits: string[] = [];
   for (const [name, how] of gone) {
     if (name.length < 3) continue;
@@ -791,7 +794,8 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     const ranked = [...live].map((f) => ({ f, r: relevance(f.content, query) })).sort((a, b) => b.r - a.r);
     const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
     if (live.length) chosen.add(live[live.length - 1]);
-    const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "…" : t);
+    // A fact is a self-contained sentence by contract; 140 was under the length of an ordinary one.
+    const clipF = (t: string) => clipText(t, 200);
     if (chosen.size) parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
     const corrected = mem.facts
       .filter((f) => f.superseded_by && relevance(f.content, query) >= 0.25)

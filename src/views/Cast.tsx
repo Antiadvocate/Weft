@@ -79,6 +79,27 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
   useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now"); }, [sel]);
 
+  /* ESCAPE CLOSES IT. The character drawer's veil is fixed at z-40 and the tab bar sits at z-30, so
+     while a card is open the bottom navigation is behind it and cannot be reached — tapping the veil
+     is the only way out, which is correct on a phone and a dead end on a keyboard. The overlays that
+     were written later (Coach, Primer) both take Escape; this one never did. */
+  useEffect(() => {
+    if (!sel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      // one layer at a time, innermost first — Escape out of the lightbox should not also throw
+      // away the card underneath it, and never out of an edit with unsaved text in it
+      if (lightbox) { setLightbox(null); return; }
+      if (rawJson !== null) { setRawJson(null); return; }
+      if (menu) { setMenu(false); return; }
+      if (editing) { setEditing(false); return; }
+      setSel(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sel, lightbox, rawJson, menu, editing]);
+
   const commitFacts = async (facts: { content: string; quote?: string }[]) => {
     if (!sel) return;
     setFactsBusy(true);
@@ -538,7 +559,13 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   {c.appearance_now?.trim() && <Row k="presenting" v={c.appearance_now} />}
                   {(cond.thirst_meter ?? 0) >= 6.5 && <Row k="thirst" v={(cond.thirst_meter ?? 0) >= 8 ? "parched" : "thirsty"} />}
                   {(cond.awake_minutes ?? 0) >= 17 * 60 && <Row k="sleep" v={`${Math.round((cond.awake_minutes ?? 0) / 60)}h awake`} />}
-                  <Row k="where" v={save.world.places[c.location ?? ""]?.name ?? (c.location ? c.location : "—")} />
+                  {/* The PLAYER's location lives on the world, not on their identity record —
+                      `c.location` is undefined for char_player, so their own card read
+                      "where —" on every save ever opened. */}
+                  <Row k="where" v={(() => {
+                    const loc = sel === "char_player" ? save.world.player_location : c.location;
+                    return save.world.places[loc ?? ""]?.name ?? (loc || "—");
+                  })()} />
                   {c.held && <Row k="held" v={`in custody at ${c.held.where} since turn ${c.held.since_turn} — they do not walk back into a scene until the story lets them out`} />}
                   {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
                 </Section>

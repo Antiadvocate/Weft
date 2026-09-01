@@ -25,6 +25,7 @@ import { minutesBetween } from "./time";
 import { mundaneObjective } from "./knowledge";
 import { placeIntent } from "./places";
 import { scheduleDigestLine } from "./schedule";
+import { clipText } from "./text";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 export const OFFSTAGE_INTERVAL_MIN = 360;
@@ -497,10 +498,10 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     if (rp?.how?.trim() && rp?.content?.trim()) {
       const from = String(ev.actor ?? "").trim() || "someone";
       (state.world.inbound ??= []).push({
-        from, how: String(rp.how).trim().slice(0, 80), content: String(rp.content).trim().slice(0, 400), turn,
+        from, how: clipText(rp.how, 110), content: clipText(rp.content, 600), turn,
       });
       state.world.inbound = state.world.inbound.slice(-3);
-      log.push(`${from} reached out: ${String(rp.how).trim().slice(0, 60)}`);
+      log.push(`${from} reached out: ${clipText(rp.how, 90)}`);
     }
 
     // A place the event brought into being. The forge's ten were never meant to be the whole
@@ -511,11 +512,11 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     // location, and the world it grew was largely a maze of near-duplicates. One gate now: see
     // existingPlaceFor in turn.ts.
     if (ev.new_place?.trim()) {
-      const name = ev.new_place.trim().slice(0, 60);
+      const name = clipText(ev.new_place, 80);
       const intent = placeIntent(state, name, "offstage");
       if (intent && "create" in intent) {
         const pid = uid("loc");
-        state.world.places[pid] = { id: pid, name, description_facts: ev.what.slice(0, 160), contains: [], founding: false };
+        state.world.places[pid] = { id: pid, name, description_facts: clipText(ev.what, 240), contains: [], founding: false };
       }
     }
 
@@ -527,7 +528,7 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     // them — and never duplicated against a thread that already says the same thing.
     const ot = ev.opens_thread;
     if (ot?.title?.trim() && ot?.description?.trim()) {
-      const title = ot.title.trim().slice(0, 70);
+      const title = clipText(ot.title, 90);
       const active = (state.world.threads ?? []).filter((t: any) => t.status === "active");
       const dup = active.some((t: any) => {
         const a = new Set(t.title.toLowerCase().split(/\W+/).filter(Boolean));
@@ -536,7 +537,7 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
       });
       if (!dup && active.length < 12) {
         state.world.threads.push({
-          id: uid("thr"), title, description: ot.description.trim().slice(0, 200),
+          id: uid("thr"), title, description: clipText(ot.description, 300),
           status: "active", tension: 3, turn_started: turn,
         } as any);
         log.push(`the world opened a question: ${title}`);
@@ -598,7 +599,7 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
           warmth_delta: valence > 0 ? 3 : -5,
           trust_delta: valence > 0 ? 2 : -4,
           power_delta: 0,
-          note: `${valence > 0 ? "saw them do right by someone" : "saw what they did"}: ${ev.what.slice(0, 70)}`,
+          note: `${valence > 0 ? "saw them do right by someone" : "saw what they did"}: ${clipText(ev.what, 100)}`,
         }, turn, { chars: state.characters, traits: state.traits });
       }
 
@@ -606,7 +607,7 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
       mem.episodic.push({
         id: uid("mem"),
         turn,
-        content: ev.what.slice(0, 200),
+        content: clipText(ev.what, 280),
         importance: 7,                          // at the gossip threshold: worth repeating, not world-ending
         // marked distinctly from an ordinary witnessed memory so the digest can give it a guaranteed
         // slot: this is the world's own motion, and it has no other way back to the page
