@@ -1,0 +1,197 @@
+{
+ "travel_log": [
+  {
+   "turn": 1,
+   "place": "loc_mtggvs9r4vmyf"
+  },
+  {
+   "turn": 30,
+   "place": "loc_mtggvs9rtki96"
+  },
+  {
+   "turn": 32,
+   "place": "loc_mtggvs9r4vmyf"
+  },
+  {
+   "turn": 41,
+   "place": "loc_mtjsir234yzg1"
+  }
+ ],
+ "time_at_turn": {
+  "1": "Day 1, 07:30",
+  "2": "Day 1, 07:35 (Dawn)",
+  "3": "Day 1, 06:45 (Dawn)",
+  "4": "Day 1, 07:00 (Dawn)",
+  "5": "Day 1, 07:20 (Dawn)",
+  "6": "Day 1, 07:30 (Dawn)",
+  "7": "Day 1, 07:42 (Dawn)",
+  "8": "Day 1, 07:52 (Dawn)",
+  "9": "Day 1, 08:07 (Morning)",
+  "10": "Day 1, 08:12 (Morning)",
+  "11": "Day 1, 08:24 (Morning)",
+  "12": "Day 1, 08:29 (Morning)",
+  "13": "Day 1, 08:33 (Morning)",
+  "14": "Day 1, 08:35 (Morning)",
+  "15": "Day 1, 08:40 (Morning)",
+  "16": "Day 1, 08:42 (Morning)",
+  "17": "Day 1, 08:47 (Morning)",
+  "18": "Day 1, 08:57 (Morning)",
+  "19": "Day 1, 18:17 (Evening)",
+  "20": "Day 1, 18:27 (Evening)",
+  "21": "Day 1, 18:42 (Evening)",
+  "22": "Day 1, 18:54 (Evening)",
+  "23": "Day 1, 18:58 (Evening)",
+  "24": "Day 1, 19:08 (Evening)",
+  "25": "Day 1, 19:38 (Evening)",
+  "26": "Day 1, 19:53 (Evening)",
+  "27": "Day 1, 19:58 (Evening)",
+  "28": "Day 1, 20:28 (Evening)",
+  "29": "Day 2, 08:28 (Morning)",
+  "30": "Day 2, 08:58 (Morning)",
+  "31": "Day 2, 09:28 (Morning)",
+  "32": "Day 2, 09:33 (Morning)",
+  "33": "Day 2, 09:48 (Morning)",
+  "34": "Day 2, 10:18 (Morning)",
+  "35": "Day 2, 10:23 (Morning)",
+  "36": "Day 2, 10:28 (Morning)",
+  "37": "Day 2, 18:28 (Evening)",
+  "38": "Day 2, 18:43 (Evening)",
+  "39": "Day 2, 18:58 (Evening)",
+  "40": "Day 2, 19:08 (Evening)",
+  "41": "Day 2, 19:10 (Evening)",
+  "42": "Day 2, 19:40 (Evening)",
+  "43": "Day 2, 19:50 (Evening)",
+  "44": "Day 2, 20:05 (Evening)",
+  "45": "Day 2, 20:15 (Evening)",
+  "46": "Day 2, 20:20 (Evening)",
+  "47": "Day 2, 20:28 (Evening)",
+  "48": "Day 2, 20:58 (Evening)"
+ },
+ "current_time": "Day 2, 21:08 (Night)",
+ "places": {
+  "loc_mtggvs9r4vmyf": {
+   "id": "loc_mtggvs9r4vmyf",
+   "name": "Rabi and Emily's House"
+  },
+  "loc_mtggvs9ripm7p": {
+   "id": "loc_mtggvs9ripm7p",
+   "name": "Seattle City Light Operations Center"
+  },
+  "loc_mtggvs9rtki96": {
+   "id": "loc_mtggvs9rtki96",
+   "name": "The Copper Kettle Diner"
+  },
+  "loc_mtggvs9r8chdh": {
+   "id": "loc_mtggvs9r8chdh",
+   "name": "Priya's Yoga Studio"
+  },
+  "loc_mtggvs9r1ugep": {
+   "id": "loc_mtggvs9r1ugep",
+   "name": "Mara's House"
+  },
+  "loc_mtggvs9rkhsoz": {
+   "id": "loc_mtggvs9rkhsoz",
+   "name": "Columbia City Farmers Market"
+  },
+  "loc_mtggvs9rukweo": {
+   "id": "loc_mtggvs9rukweo",
+   "name": "The Lighthouse Bar"
+  },
+  "loc_mtggvs9rpvl5w": {
+   "id": "loc_mtggvs9rpvl5w",
+   "name": "Seward Park"
+  },
+  "loc_mtggvs9r5zwv9": {
+   "id": "loc_mtggvs9r5zwv9",
+   "name": "The Central District Grocery"
+  },
+  "loc_mtggvs9rhy3vu": {
+   "id": "loc_mtggvs9rhy3vu",
+   "name": "The Substation on Delridge"
+  },
+  "loc_offscene": {
+   "id": "loc_offscene",
+   "name": "elsewhere"
+  },
+  "loc_mti9n5udqilsz": {
+   "id": "loc_mti9n5udqilsz",
+   "name": "a rented suite of offices on Jackson Street, up above a prin"
+  },
+  "loc_mtjsir234yzg1": {
+   "id": "loc_mtjsir234yzg1",
+   "name": "Kings house in Houston"
+  }
+ },
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "location": "loc_mtjsir234yzg1",
+   "life_history": null
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "location": "loc_mtggvs9rukweo",
+   "life_history": "Emily had hand-carried her reapplication to the county funder, desperate to secure her non-profit\u2019s grant. The stress of the upcoming call bled into a tense morning with Rabi, until she confessed she was just scared and needed him close. She asked for his trust, promising to answer anything later. Their bond, built on his complete acceptance of her body and her playful, dominant love, held steady. She was Rabi said it was an easy yes and told me he was glad I wasn't going insane about the grant. Did not go to Grant-writing and reentry casework for the nonprofit \u2014 Missed deadlines mean a grant cycle lost and clients with nowhere to land.. Rabi told me he is leaving for a week, grabbed his laptop and duffel, and walked out the door. Rabi accused me of sending people to stalk him and said to figure out why I left all night; I told him I didn't, that Mara called this morning, but he wouldn't listen and now he's gone."
+  },
+  "char_mtggvs9vfhh5e": {
+   "name": "Mara",
+   "location": "loc_offscene",
+   "life_history": "Emily is not okay, and I flew on the last possible flight to Houston without telling Rabi, because I have to know what he actually said to her before he got in that car."
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "location": "loc_mtggvs9rtki96",
+   "life_history": null
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "location": "loc_mtggvs9r8chdh",
+   "life_history": null
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "location": "loc_mtjsir234yzg1",
+   "life_history": "I told Rabi his door was open and that I wa just wiping the table. He made a crack about plastic surgery\u2014it landed somewhere I can't let him see. Rabi walked out. He called me a psychopath, said King was a mudman for letting me in. I did not know what to say."
+  },
+  "char_mtjslytt2l8m7": {
+   "name": "King Tong",
+   "location": "loc_mtjsir234yzg1",
+   "life_history": null
+  }
+ },
+ "present": {
+  "40": [
+   "char_mtggvs9t2dhp3"
+  ],
+  "41": [],
+  "42": [
+   "char_mtjslytt2l8m7"
+  ],
+  "43": [
+   "char_mtjslytt2l8m7"
+  ],
+  "44": [
+   "char_mtggvs9vfhh5e",
+   "char_mtjslytt2l8m7"
+  ],
+  "45": [
+   "char_mtjrpj3m33eoj",
+   "char_mtjslytt2l8m7"
+  ],
+  "46": [
+   "char_mtjrpj3m33eoj",
+   "char_mtjslytt2l8m7"
+  ],
+  "47": [
+   "char_mtjrpj3m33eoj",
+   "char_mtjslytt2l8m7"
+  ],
+  "48": [
+   "char_mtjrpj3m33eoj",
+   "char_mtjslytt2l8m7"
+  ]
+ },
+ "actions": {
+  "41": "After hours of travel. I finally arrive in Houston and take an uber to kings house. He just recently separated from his wife and has 3 kids. And a massive house. He's been my best man and my best friend. I've supported him through everything. I knock on his door"
+ }
+}

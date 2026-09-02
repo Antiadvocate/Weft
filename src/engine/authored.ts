@@ -276,6 +276,11 @@ export function authoredLine(a: AuthoredDrive): string {
  */
 export function habitDirective(state: SaveState, presentIds: string[], guarded = false): string {
   const rows: string[] = [];
+  // Kept apart from `rows` deliberately. The header over `rows` reads "NOT OPTIONAL ... If the scene
+  // seems to leave no room, that is the instruction — make the room", and a standing condition
+  // printed under that header is read as an order to stage it, which is the whole failure. The two
+  // need different headers because they are asking for opposite things.
+  const standing: string[] = [];
   const receded: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
@@ -301,6 +306,16 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
       if (stage === "ground") continue;
       if (stage === "familiar") {
         receded.push(`${c.name}: ${crystallizedLabel(a)}`);
+        continue;
+      }
+      // A STANDING CONDITION BINDS THE SCENE; IT DOES NOT GET STAGED. Ordering "only allows Rabi to
+      // eat X" as an act in this turn's opening lines has exactly one reading — interfere with what
+      // he is eating, now — and a narrator obeying it every turn produces a character who stops the
+      // scene to manage a plate, over and over. What the want actually says is what is TRUE, and a
+      // true thing needs no beat: it decides what may happen, and the turns where nothing tests it
+      // are turns in which it quietly held. See isStanding.
+      if (isStanding(a)) {
+        standing.push(`${c.name} — THIS IS SIMPLY TRUE, CONTINUOUSLY, AND IT IS NOT A BEAT TO STAGE: ${a.goal.trim().replace(/\.$/, "")}. It has been true since before this scene and it is true whether or not anything in this turn touches it. Do NOT open the turn with it, do not have ${c.name} announce, re-establish, explain or enforce it unprompted, and do not manufacture an occasion to demonstrate it — a rule performed every turn stops reading as a rule and starts reading as a person with a compulsion. What it DOES is bind what can happen: if the scene runs into it, it holds and the scene bends around it, in one line, without a speech. If the scene never runs into it, it goes unmentioned and nothing is missing. And it never overrides what the player declares for themselves: they do what they type, and ${c.name} answers it as this person would.`);
         continue;
       }
       rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. Not a version of it, not a suggestion of it — that, the act itself, in this turn's prose. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not. THIS IS ESTABLISHED BETWEEN THEM, so she does not ask for it and does not work up to it — she assumes it, positions for it, waits for it, expects it, picks it up again mid-conversation as if it were never in question, and is unbothered by who is standing there.${THRESHOLD}`);
@@ -342,9 +357,13 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
   const recededNote = receded.length
     ? `\n[SETTLED, AND NO LONGER NEWS — ${receded.join(" | ")}. These are established and need no beat of their own. They may show or not show as the scene has use for them; do not stage one, do not have anybody remark on it, and do not spend a line establishing something that is already true.]`
     : "";
-  if (!rows.length) return recededNote;
+  const standingNote = standing.length
+    ? `\n[WHAT IS ALREADY TRUE OF THESE PEOPLE — BINDING, AND NOT A BEAT TO WRITE.
+These are settled conditions of this world, not things that need to happen in this turn. They constrain what may occur; they do not ask for a scene, an announcement, or a demonstration, and staging one every turn is how a rule becomes a tic. Where the turn runs into one it holds, plainly and briefly. Where it does not, it stays off the page and nothing is owed.\n· ${standing.join("\n· ")}]`
+    : "";
+  if (!rows.length) return standingNote + recededNote;
   return `\n[WHAT IS FORMING IN THESE PEOPLE — NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE.
-Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]${recededNote}`;
+Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]${standingNote}${recededNote}`;
 }
 
 /** The core_trait label a crystallised want became — the same normalisation `crystallize` applies,
@@ -616,6 +635,57 @@ export function newAuthored(goal: string, turn: number, opts: Partial<AuthoredDr
  */
 
 /** Is this want at the rung where the act itself was ordered? Below that, absence is the design. */
+/**
+ * ── A STANDING CONDITION IS NOT AN ACT, AND ORDERING IT AS ONE IS A DEATH LOOP ──────────────────
+ *
+ * From a save at turn 15. The player had authored, by hand:
+ *
+ *     "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow
+ *      Rabi to eat anything else."
+ *
+ * It crystallized at turn 5. At turn 14 its record read `acted: 0, missed: 8` — ordered on every
+ * turn since turn 1, credited on none of them, ever. So the narrator opened every turn holding:
+ *
+ *     THIS WAS ORDERED LAST TURN AND THE TURN CAME BACK WITHOUT IT ... ordered for the last 8 turns
+ *     and absent from all of them ... WRITE IT FIRST THIS TURN: the act itself, in plain words, in
+ *     the opening lines of the prose, before the conversation ... There is no third: if it is not
+ *     in the opening lines, nothing else in the turn counts.
+ *
+ * There is no act that IS that want. It is a rule about what may happen, and it was being satisfied
+ * — Rabi was eating eggs he had cooked himself, which is the rule being BROKEN, and the narrator's
+ * only legal move under the mandate was to interfere with his eating. So it did, in the opening
+ * lines, every turn, for nine turns: she stops the blowjob to make him eat, then stops him eating,
+ * then orders him to finish, then stops him again. The player, on turn 13: "What do you mean you
+ * want me to finish... my toast? That I keep trying to eat? That you keep stopping me then telling
+ * me to finish the toast again?" On turn 14 they asked whether she was having a stroke.
+ *
+ * The engine already knows this failure. It is written into the forge's own drive guidance, for
+ * `drive_goal`, in almost these words: "WANTS ARE THINGS THEY DO, NOT THINGS THEY ASK FOR. A drive
+ * whose completion depends on somebody else answering ... cannot progress on its own. The character
+ * asks, nothing recordable resolves, and they ask again next scene and the scene after, because the
+ * meter never moves." It was never applied to `authored` — which is exactly where a player types a
+ * standing rule, because a standing rule is the natural way to write "this is how they are".
+ *
+ * So the shape is detected instead of forbidden. A want written as a permission, a prohibition or an
+ * invariant is TRUE CONTINUOUSLY: it binds what may happen in the scene, it needs no beat, and it
+ * can never be missed. That is not a demotion — it is a stronger claim on the world than a beat is.
+ */
+const STANDING = /\b(only allows?|only ever allows?|does ?n[o']t allow|never allows?|only lets?|does ?n[o']t let|never lets?|refuses to let|will not let|won'?t let|only permits?|never permits?|forbids?|always makes? (?:him|her|them)|never (?:eats|wears|touches|speaks|goes|sleeps)|is only ever|only eats?|will only|can only)\b/i;
+
+/** Is this want a rule about what may happen rather than something a person does on a given turn?
+ *
+ *  READ THE OPENING CLAUSE ONLY, because a want routinely CONTAINS a rule without being one. From
+ *  the suite: "Jerks her penis off on his face, Always Makes sure Vin's face is always covered with
+ *  her cum, does not let him wipe it off, quickly cums on his face if it's dry". That opens with an
+ *  act and then qualifies it, and reading the whole string flagged it as standing on the strength of
+ *  "does not let" — which would have quietly stopped the engine ordering the one want that suite
+ *  exists to prove gets ordered. What a want IS, is what its main clause says it is: a rule opens
+ *  with the rule ("Only allows Rabi to eat…"), an act opens with the act. */
+export function isStanding(a: AuthoredDrive): boolean {
+  const opening = String(a?.goal ?? "").trim().split(/[,;.]/)[0] ?? "";
+  return STANDING.test(opening);
+}
+
 export function actOrdered(a: AuthoredDrive): boolean {
   if (a.paused) return false;
   if (a.crystallized_turn) return true;
@@ -651,6 +721,10 @@ export function noteWantMisses(
     if (!c || id === "char_player") continue;
     for (const a of c.authored ?? []) {
       if (!a?.goal || !actOrdered(a)) continue;
+      // A standing condition cannot be missed, because there is no beat it was supposed to be. See
+      // isStanding: it is true continuously, and the turn that did not stage it is a turn in which
+      // it simply held. Counting it drove one save to missed:8 with acted:0.
+      if (isStanding(a)) { a.missed = 0; continue; }
       // last_expressed_turn, not last_fired_turn: those are two different counters on the same row.
       // seen_fires/last_fired_turn belong to habits.ts and its mannerism axis, which never advances
       // for a want like this — reading it would have called every turn a miss, including the hits.
@@ -671,6 +745,27 @@ export function noteWantMisses(
  * volume on every turn it was skipped. What is added is the part the narrator cannot argue with:
  * that this is the second or third turn, and that the scene it wrote instead is on the record.
  */
+/** How many turns an act-want may be ordered-and-absent before the engine stops ordering it. Six is
+ *  past any plausible "the narrator was busy" and well short of the nine that produced the loop. */
+export const MISS_CEILING = 6;
+
+/** Wants the engine has given up ordering, for the player — the Inspector and the turn's shifts.
+ *  Nothing else can fix an unwritable want: the engine cannot rewrite what the player typed, and
+ *  silently dropping it would leave them wondering why their want stopped happening. */
+export function staleWants(state: SaveState, presentIds: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const id of presentIds) {
+    const c = state.characters[id];
+    if (!c || id === "char_player") continue;
+    for (const a of c.authored ?? []) {
+      if (!a?.goal || !actOrdered(a) || isStanding(a)) continue;
+      if ((a.missed ?? 0) !== MISS_CEILING + 1) continue;   // say it once, on the turn it crosses
+      out.push(`"${clipWords(a.goal, 12)}" has been ordered ${a.missed} turns running and has never reached the page — the world has stopped pushing it. It may not be writable as an act in this scene; rewriting it as something ${c.name} DOES is what unsticks it.`);
+    }
+  }
+  return out;
+}
+
 export function missDirective(state: SaveState, presentIds: readonly string[]): string {
   const rows: string[] = [];
   let worst = 0;
@@ -678,7 +773,14 @@ export function missDirective(state: SaveState, presentIds: readonly string[]): 
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
     for (const a of c.authored ?? []) {
-      if (!a?.goal || !actOrdered(a) || !(a.missed ?? 0)) continue;
+      if (!a?.goal || !actOrdered(a) || isStanding(a) || !(a.missed ?? 0)) continue;
+      // PAST THIS, ORDERING IT AGAIN IS NOT THE FIX. An act-want that has been demanded in the
+      // opening lines of six consecutive turns and has still never landed is not being ignored out
+      // of laziness — it is unwritable in the scene the story is actually in, and a seventh "there
+      // is no third" only guarantees a seventh turn bent around it. Stand the order down, and let
+      // the player be told (see staleWant) so they can rewrite it, which is the only thing that
+      // ever actually resolves this.
+      if ((a.missed ?? 0) > MISS_CEILING) continue;
       worst = Math.max(worst, a.missed ?? 0);
       rows.push(`${c.name}: ${a.goal.trim().replace(/\.$/, "")} — ordered for the last ${a.missed} turn${a.missed === 1 ? "" : "s"} and absent from all of ${a.missed === 1 ? "it" : "them"}.`);
     }

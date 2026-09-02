@@ -1,0 +1,133 @@
+{
+ "narrator_direction": "MARA IS DEAD. DREA IS DEAD. KING IS DEAD.  DO NOT MAKE ANY MORE MARAS. MARAS STORY IS OVER. DO NOT FUCKING MAKE HER EXIST. ",
+ "canon": [
+  "Emily is a trans woman who never had bottom surgery, and her body is exactly as she wants it to be.",
+  "Emily is a playful dom in their intimate life, and Rabi is happy to follow her lead.",
+  "Emily hates being penetrated, and this is a firm boundary that Rabi respects completely.",
+  "Emily loves her feet and her penis, and Rabi's acceptance of her body is a cornerstone of their marriage.",
+  "Rabi and Emily have been married for two years and are deeply in love.",
+  "Rabi works as a utility engineer for Seattle City Light, and Emily is a graphic designer.",
+  "Houston was destroyed in a nuclear blast Rabi detonated.",
+  "Mara, King and Drea are dead",
+  "MARA IS DEAD."
+ ],
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "status": null,
+   "location": "loc_mtggvs9r4vmyf",
+   "central": null,
+   "background": "Rabi grew up in Tacoma, the middle child of three, raised by his mother after his father left when he was twelve. He went to a trade school for electrical engineering, worked his way through Seattle City Light's apprenticeship program, and has been with the utility for seventeen years. He met Emily "
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "status": null,
+   "location": "loc_mti9n5udqilsz",
+   "central": null,
+   "background": "Emily grew up in Portland, the only child of a nurse and a high school teacher, and came out as trans in her early twenties. She moved to Seattle for a job in social worker jobs where she helps inmates out of prison by getting grants for her non profit. She works 9-5. She met Rabi at a friend's roof"
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "status": "departed",
+   "location": "loc_mtggvs9rtki96",
+   "central": false,
+   "background": "Dev is Rabi's closest friend and a fellow engineer at Seattle City Light. They came up through the apprenticeship program together and have worked side by side for over fifteen years. Dev is married with two young daughters and lives in West Seattle. He is steady, dry-humored, and deeply loyal. He a"
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "status": "departed",
+   "location": "loc_mtggvs9r8chdh",
+   "central": false,
+   "background": "Priya is a yoga instructor and the owner of a small studio in Columbia City, two blocks from Rabi and Emily's house. She grew up in Seattle, the daughter of Indian immigrants who run a grocery store in the Central District. She is calm, observant, and quietly perceptive. She and Emily have become fr"
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "status": "departed",
+   "location": "loc_offscene",
+   "central": false,
+   "background": "Grew up in Beacon Hill, third of four kids, in a house where her lola ran the kitchen and everyone else worked around her; her mother did overnight custodial at Harborview and slept through most afternoons, which is why Drea learned to cook and to be quiet indoors. Her father went back to Cebu when "
+  },
+  "char_mtjslytt2l8m7": {
+   "name": "King Tong",
+   "status": "dead",
+   "location": "loc_offscene",
+   "central": true,
+   "background": "Grew up in Alief on the west side of Houston, the second of four kids, in a house where his mother ran a nail salon out of the front room and his father drove long-haul until his back gave out. He put himself through University of Houston doing overnight shifts stocking a Kroger, and he now owns a c"
+  },
+  "char_mtju2zz0wc7nw": {
+   "name": "Mara",
+   "status": "Dead",
+   "location": "loc_mtggvs9r4vmyf",
+   "central": true,
+   "background": "Born and raised in the dense, rain-slicked neighborhoods of South Seattle, she grew up in a cramped apartment above a laundromat. She was raised by her grandmother after her parents moved to California, and she spent her youth learning the intricacies of local transit routes and neighborhood gossip."
+  }
+ },
+ "present": [
+  "char_mtju2zz0wc7nw"
+ ],
+ "places": {
+  "loc_mtggvs9r4vmyf": {
+   "name": "Rabi and Emily's House",
+   "contains": [
+    "char_player",
+    "char_mtju2zz0wc7nw"
+   ]
+  },
+  "loc_mtggvs9ripm7p": {
+   "name": "Seattle City Light Operations Center",
+   "contains": []
+  },
+  "loc_mtggvs9rtki96": {
+   "name": "The Copper Kettle Diner",
+   "contains": []
+  },
+  "loc_mtggvs9r8chdh": {
+   "name": "Priya's Yoga Studio",
+   "contains": []
+  },
+  "loc_mtggvs9r1ugep": {
+   "name": "Mara's House",
+   "contains": []
+  },
+  "loc_mtggvs9rkhsoz": {
+   "name": "Columbia City Farmers Market",
+   "contains": []
+  },
+  "loc_mtggvs9rukweo": {
+   "name": "The Lighthouse Bar",
+   "contains": []
+  },
+  "loc_mtggvs9rpvl5w": {
+   "name": "Seward Park",
+   "contains": []
+  },
+  "loc_mtggvs9r5zwv9": {
+   "name": "The Central District Grocery",
+   "contains": []
+  },
+  "loc_mtggvs9rhy3vu": {
+   "name": "The Substation on Delridge",
+   "contains": []
+  },
+  "loc_offscene": {
+   "name": "elsewhere",
+   "contains": []
+  },
+  "loc_mti9n5udqilsz": {
+   "name": "a rented suite of offices on Jackson Street, up above a prin",
+   "contains": [
+    "char_mtggvs9t2dhp3"
+   ]
+  },
+  "loc_mtjsir234yzg1": {
+   "name": "Kings house in Houston",
+   "contains": []
+  }
+ },
+ "old_mara": {
+  "char_mtggvs9vfhh5e": {
+   "name": "Mara",
+   "background": "Mara is Emily's best friend and a landscape architect who lives three blocks away. She grew up in Seattle, the daughter of a fisherman and a schoolteacher, and has known Emily since Emily first moved to the city. She is divorced, amicably, and has a teenage son who lives with her half the time. She "
+  }
+ }
+}

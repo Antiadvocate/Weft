@@ -1,0 +1,186 @@
+{
+ "travel_log": [
+  {
+   "turn": 1,
+   "place": "loc_mtggvs9r4vmyf"
+  },
+  {
+   "turn": 30,
+   "place": "loc_mtggvs9rtki96"
+  },
+  {
+   "turn": 32,
+   "place": "loc_mtggvs9r4vmyf"
+  }
+ ],
+ "time_at_turn": {
+  "1": "Day 1, 07:30",
+  "2": "Day 1, 07:35 (Dawn)",
+  "3": "Day 1, 06:45 (Dawn)",
+  "4": "Day 1, 07:00 (Dawn)",
+  "5": "Day 1, 07:20 (Dawn)",
+  "6": "Day 1, 07:30 (Dawn)",
+  "7": "Day 1, 07:42 (Dawn)",
+  "8": "Day 1, 07:52 (Dawn)",
+  "9": "Day 1, 08:07 (Morning)",
+  "10": "Day 1, 08:12 (Morning)",
+  "11": "Day 1, 08:24 (Morning)",
+  "12": "Day 1, 08:29 (Morning)",
+  "13": "Day 1, 08:33 (Morning)",
+  "14": "Day 1, 08:35 (Morning)",
+  "15": "Day 1, 08:40 (Morning)",
+  "16": "Day 1, 08:42 (Morning)",
+  "17": "Day 1, 08:47 (Morning)",
+  "18": "Day 1, 08:57 (Morning)",
+  "19": "Day 1, 18:17 (Evening)",
+  "20": "Day 1, 18:27 (Evening)",
+  "21": "Day 1, 18:42 (Evening)",
+  "22": "Day 1, 18:54 (Evening)",
+  "23": "Day 1, 18:58 (Evening)",
+  "24": "Day 1, 19:08 (Evening)",
+  "25": "Day 1, 19:38 (Evening)",
+  "26": "Day 1, 19:53 (Evening)",
+  "27": "Day 1, 19:58 (Evening)",
+  "28": "Day 1, 20:28 (Evening)",
+  "29": "Day 2, 08:28 (Morning)",
+  "30": "Day 2, 08:58 (Morning)",
+  "31": "Day 2, 09:28 (Morning)",
+  "32": "Day 2, 09:33 (Morning)",
+  "33": "Day 2, 09:48 (Morning)",
+  "34": "Day 2, 10:18 (Morning)",
+  "35": "Day 2, 10:23 (Morning)",
+  "36": "Day 2, 10:28 (Morning)"
+ },
+ "current_time": "Day 2, 10:28 (Morning)",
+ "current_turn": 36,
+ "places": {
+  "loc_mtggvs9r4vmyf": {
+   "id": "loc_mtggvs9r4vmyf",
+   "name": "Rabi and Emily's House"
+  },
+  "loc_mtggvs9ripm7p": {
+   "id": "loc_mtggvs9ripm7p",
+   "name": "Seattle City Light Operations Center"
+  },
+  "loc_mtggvs9rtki96": {
+   "id": "loc_mtggvs9rtki96",
+   "name": "The Copper Kettle Diner"
+  },
+  "loc_mtggvs9r8chdh": {
+   "id": "loc_mtggvs9r8chdh",
+   "name": "Priya's Yoga Studio"
+  },
+  "loc_mtggvs9r1ugep": {
+   "id": "loc_mtggvs9r1ugep",
+   "name": "Mara's House"
+  },
+  "loc_mtggvs9rkhsoz": {
+   "id": "loc_mtggvs9rkhsoz",
+   "name": "Columbia City Farmers Market"
+  },
+  "loc_mtggvs9rukweo": {
+   "id": "loc_mtggvs9rukweo",
+   "name": "The Lighthouse Bar"
+  },
+  "loc_mtggvs9rpvl5w": {
+   "id": "loc_mtggvs9rpvl5w",
+   "name": "Seward Park"
+  },
+  "loc_mtggvs9r5zwv9": {
+   "id": "loc_mtggvs9r5zwv9",
+   "name": "The Central District Grocery"
+  },
+  "loc_mtggvs9rhy3vu": {
+   "id": "loc_mtggvs9rhy3vu",
+   "name": "The Substation on Delridge"
+  },
+  "loc_offscene": {
+   "id": "loc_offscene",
+   "name": "elsewhere"
+  },
+  "loc_mti9n5udqilsz": {
+   "id": "loc_mti9n5udqilsz",
+   "name": "a rented suite of offices on Jackson Street, up above a prin"
+  }
+ },
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "character_id": "char_player",
+   "location": "loc_mtggvs9r4vmyf",
+   "tracked": null,
+   "central": null,
+   "status": null,
+   "drive": null
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "character_id": "char_mtggvs9t2dhp3",
+   "location": "loc_mtggvs9rkhsoz",
+   "tracked": true,
+   "central": null,
+   "status": null,
+   "drive": {
+    "goal": "Get to the Lighthouse, see who is actually there, and control what Rabi knows about how this night unfolds.",
+    "progress": 23.723501199106646,
+    "blocker": "must find Rabi first \u2014 they are elsewhere",
+    "priority": 2,
+    "updated_turn": 35,
+    "progress_turn": 35,
+    "last_progress": 23.64502155452242,
+    "pursuit_since": 28
+   }
+  },
+  "char_mtggvs9vfhh5e": {
+   "name": "Mara",
+   "character_id": "char_mtggvs9vfhh5e",
+   "location": "loc_offscene",
+   "tracked": true,
+   "central": true,
+   "status": null,
+   "drive": {
+    "goal": "Find out exactly why Rabi is leaving and reconcile that with Emily's account before the family dinner on Sunday.",
+    "progress": 30.12610697659483,
+    "blocker": "Rabi hasn't told the truth yet.",
+    "priority": 2,
+    "updated_turn": 35,
+    "progress_turn": 34,
+    "last_progress": 30
+   }
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "character_id": "char_mtggvs9wzzfz3",
+   "location": "loc_mtggvs9rtki96",
+   "tracked": false,
+   "central": false,
+   "status": "departed",
+   "drive": null
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "character_id": "char_mtggvs9wvhjy7",
+   "location": "loc_mtggvs9r8chdh",
+   "tracked": false,
+   "central": false,
+   "status": "departed",
+   "drive": null
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "character_id": "char_mtjrpj3m33eoj",
+   "location": "loc_offscene",
+   "tracked": true,
+   "central": true,
+   "status": null,
+   "drive": {
+    "goal": "Open her own tiny coffee cart \u2014 get the used La Marzocco Linea two-group that's listed on Craigslist for $2,800 in Georgetown into her lola's garage this week\u2026",
+    "approach": "Talks shop instead of asking \u2014 corners whoever's in the room about grind retention and how the north-side milk foams different, then\u2026",
+    "progress": 0,
+    "priority": 1,
+    "blocker": "next: Texts the seller from behind the counter to set a same-day viewing in Georgetown, then counts what's actually in her cash envelope\u2026",
+    "updated_turn": 36
+   }
+  }
+ }
+}

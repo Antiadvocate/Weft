@@ -115,7 +115,7 @@ const DENIAL: Record<Part, (poss: string, obj: string) => string> = {
  *  absolute — "never substitute the set your training reaches for" — and a block about somebody's
  *  body written in the wrong set is the last place to break it. Falls back to they/them, which is
  *  also what an unstated set gets. */
-function pronounsOf(raw: string | undefined): { poss: string; obj: string; subj: string } {
+export function pronounsOf(raw: string | undefined): { poss: string; obj: string; subj: string } {
   const p = String(raw ?? "").toLowerCase();
   if (/\bshe\b|\bher\b/.test(p)) return { poss: "her", obj: "her", subj: "she" };
   if (/\bhe\b|\bhim\b/.test(p)) return { poss: "his", obj: "him", subj: "he" };

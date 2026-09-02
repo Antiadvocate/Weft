@@ -26,7 +26,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
-import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
+import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
@@ -51,12 +51,14 @@ import { apertureNote, heardYouNote } from "./aperture";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
-import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
+import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
+import { findKinBreach, kinFix } from "./kinship";
+import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, findReprint, reprintFix, stripScaffolding, stripMetaPlayer } from "./echo";
+import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
@@ -173,10 +175,52 @@ function echoBan(_state: SaveState): string {
  *  turn's dialogue: both lines were named, verbatim, as forbidden, and both were said again anyway.
  *  A rule that is right and unread is not a rule. Same content, moved to where nothing follows it. */
 export function lastWord(state: SaveState): string {
-  const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
-  const spoken = (prev.match(/["\u201c][^"\u201d]{8,160}["\u201d]/g) ?? []).slice(-4).map((q) => q.trim());
-  if (!spoken.length) return "";
-  return `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`;
+  // PAIR THE QUOTES FIRST, THEN FILTER BY LENGTH — the other way round is why this block has been
+  // quoting NARRATION back at the narrator as though somebody had said it. The old pattern required
+  // 8-160 characters BETWEEN the marks, so a short line ("Okay," / "Oh.") failed to match, its
+  // opening quote was skipped, and every pair after it in the paragraph was off by one: the regex
+  // then matched from one line's CLOSING quote to the next line's OPENING quote and captured the
+  // prose in between. Measured on one save's last turn, three of the four "already said" entries
+  // were narration, including a whole paragraph about a tattoo. quotedLines pairs on every quote
+  // and is the extractor the rest of the engine already uses.
+  const quotes = (t: string) => quotedLines(t).map((q) => `"${q.trim()}"`).filter((q) => q.length >= 10 && q.length <= 162);
+  const ctx = contextHistory(state);
+  const prev = ctx[ctx.length - 1]?.narrator_prose ?? "";
+  const spoken = quotes(prev).slice(-4);
+
+  // ...AND A LINE THE HABIT WHEEL WILL BRING BACK IS NOT FROM LAST TURN.
+  //
+  // This looked only at the previous turn, which is the right window for a scene restaging itself
+  // and the wrong one for the other repeat: a character's trait comes round on the rotation and the
+  // model reaches for the same sentence it used the last time. One save's turn 0 opened with
+  // "Blanche, you're being dramatic," and turn 9 — nine turns later, well outside this window —
+  // said it again, word for word, with the plant trait ordered on both. Same failure, longer arm.
+  //
+  // So: any line the story has ALREADY used, repeated exactly, anywhere in recent memory. Matched on
+  // the line itself rather than on who said it, because a verbatim reprint is a reprint whoever it
+  // is handed to. Kept to exact repeats — a paraphrase is a judgement call and belongs to the rule
+  // above, not to a list.
+  // Everything already on the page, not just what has been said twice — the Blanche repeat was a
+  // SECOND use, and a rule that only fires on the third would have let it through. Distinctive
+  // lines first: the longer a line is, the more obviously it is a reprint when it comes back, and a
+  // short line ("Okay." / "I know.") is one people really do say twice. Capped so this stays a few
+  // hundred characters at the very end of a sixty-thousand-character prompt.
+  // Most recent first, because that is the window a scene actually restages itself in, and a list
+  // long enough to reach a line from nine turns ago would be longer than the block it sits in. The
+  // long-range case — a habit coming round and bringing its sentence with it — is caught on the
+  // OUTPUT instead, by findLineReprint, and corrected on the turn after. See echo.ts.
+  const earlier: string[] = [];
+  for (const h of ctx.slice(-6, -1)) for (const q of quotes(h.narrator_prose)) earlier.push(q);
+  const reused = [...new Set(earlier.reverse())].filter((q) => !spoken.includes(q)).slice(0, 8);
+
+  if (!spoken.length && !reused.length) return "";
+  const a = spoken.length
+    ? `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`
+    : "";
+  const b = reused.length
+    ? `\n[ALREADY ON THE PAGE EARLIER IN THIS STORY — none of these is said again, word for word: ${reused.join(" / ")}. A line the reader has already read is spent, however long ago it was and whoever says it this time. Whatever brings a character back to it — a habit of theirs, a plant they scold, a joke that landed once — they reach it a different way now, or they do something instead of saying anything.]`
+    : "";
+  return a + b;
 }
 
 const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no clause that says what a movement meant, no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
@@ -540,6 +584,88 @@ export function repairBibleLists(state: SaveState): string[] {
 export function isStub(c: { provisional?: boolean; background?: unknown } | undefined): boolean {
   if (!c) return false;
   return c.provisional === true || /^INCOMPLETE RECORD\b/.test(String(c.background ?? ""));
+}
+
+/** The two statuses the engine actually understands, from whatever a model returned. */
+export function normalizeStatus(raw: unknown): "dead" | "departed" | undefined {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (/^dead|killed|deceased|slain|destroyed|erased$/.test(t)) return "dead";
+  if (/^departed|gone|left|exited|moved away$/.test(t)) return "departed";
+  return undefined;
+}
+
+/**
+ * A NAME THAT HAS DIED DOES NOT COME BACK ON SOMEBODY ELSE.
+ *
+ * findCharByName already refuses to register a second character with a living character's name.
+ * It cannot refuse one whose record is no longer in `state.characters` — and once the record is
+ * gone, the name is free. On the save that prompted this, the original Mara (char_mtggvs9vfhh5e,
+ * Emily's best friend, a landscape architect living three blocks away) was no longer on the roster,
+ * and the
+ * bookkeeper registered `char_mtju2zz0wc7nw` — a completely different woman, raised above a
+ * laundromat by her grandmother, who collects 1962 transit maps — as "Mara", central, tracked, and
+ * standing in the player's house.
+ *
+ * The player's standing direction at that moment, which the bookkeeper is shown in full: "MARA IS
+ * DEAD. DREA IS DEAD. KING IS DEAD. DO NOT MAKE ANY MORE MARAS. MARAS STORY IS OVER. DO NOT
+ * FUCKING MAKE HER EXIST." It made her anyway, which is why this is a list and not a sentence.
+ */
+export function retireName(state: SaveState, name: string): void {
+  const n = String(name ?? "").trim().toLowerCase();
+  if (n.length < 3) return;
+  const list = (state.world.retired_names ??= []);
+  if (!list.includes(n)) list.push(n);
+}
+
+/** Has this name already had its story ended? Checks the tombstones AND the live roster, so it
+ *  holds whether or not the old record still exists. */
+export function nameIsRetired(state: SaveState, name: string): boolean {
+  const n = String(name ?? "").trim().toLowerCase();
+  if (n.length < 3) return false;
+  if ((state.world.retired_names ?? []).includes(n)) return true;
+  return Object.values(state.characters).some(
+    (c) => (c?.name ?? "").trim().toLowerCase() === n && (c.status === "dead" || c.status === "departed"));
+}
+
+/**
+ * REPAIR A SAVE WHOSE STATUSES THE ENGINE CANNOT READ.
+ *
+ * Runs from the repair button and on the same footing as the other repairs. A save already carrying
+ * "Dead" is not a save that can be reasoned about — every guard in the engine reads that character
+ * as alive — so the capital is fixed in place, and every ended name is retired so nothing hands it
+ * to a stranger later.
+ */
+export function repairStatuses(state: SaveState): string[] {
+  const log: string[] = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || !c) continue;
+    const raw = c.status;
+    if (raw === undefined || raw === "dead" || raw === "departed") {
+      if (raw) retireName(state, c.name);
+      continue;
+    }
+    const fixed = normalizeStatus(raw);
+    if (fixed) {
+      c.status = fixed;
+      retireName(state, c.name);
+      log.push(`${c.name}'s status read "${raw}" — the engine only understands "dead" and "departed", so every check that asked was told they were alive. Corrected.`);
+    } else {
+      log.push(`${c.name}'s status is "${raw}", which the engine does not recognise — they are being treated as alive. Set it from the character panel if that is wrong.`);
+    }
+  }
+  // A dead or departed character standing in a room is a corpse in the roster; take them out of it.
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || !c) continue;
+    if (c.status !== "dead" && c.status !== "departed") continue;
+    for (const pl of Object.values(state.world.places)) {
+      if (pl.contains?.includes(id)) { pl.contains = pl.contains.filter((x) => x !== id); log.push(`${c.name} is ${c.status} and was still standing in ${pl.name}. Removed.`); }
+    }
+    if (state.world.present.includes(id)) {
+      state.world.present = state.world.present.filter((x) => x !== id);
+      log.push(`${c.name} is ${c.status} and was still on the scene roster. Removed.`);
+    }
+  }
+  return log;
 }
 
 export function pruneParseArtifacts(state: SaveState): string[] {
@@ -1401,6 +1527,10 @@ export function answeredDirective(action: string): string {
  *  the point — it stops an accidental teleport without pretending to a map. */
 export const DEFAULT_TRAVEL_MIN = 24 * 60;
 
+/** Violence that leaves no body. A detector built on bodies going still cannot see an annihilation,
+ *  which is the entire register a player with god mode reaches for. See the forced-death detector. */
+const ERASURE = /\b(erased|unmade|obliterated|annihilated|wiped (out|from existence)|removed from existence|ceased to exist|no longer exists?|is not there any\s?more|simply is not there|disintegrat\w+|is gone\b|are gone\b|was gone\b|were gone\b)/i;
+
 /** Two places the player is known to have walked between directly, when the clock stamps for the
  *  trip have already scrolled out of the window. Adjacency is the fact worth keeping; the exact
  *  duration is not. */
@@ -1465,7 +1595,64 @@ export function travelMinutesBetween(state: SaveState, from: string, to: string)
   //    live locations at once. Quoting a day between them is the failure above; quoting a walk is
   //    wrong only in the rare case, and wrong by minutes rather than by a whole character.
   if (INTERIOR.test(a) && INTERIOR.test(b)) return NEIGHBOUR_TRAVEL_MIN;
-  return DEFAULT_TRAVEL_MIN;
+  // 5. AND THE DEFAULT IS BOUNDED BY THE SCALE THIS WORLD HAS ACTUALLY DEMONSTRATED. See worldScale.
+  return Math.min(DEFAULT_TRAVEL_MIN, worldScale(state) ?? DEFAULT_TRAVEL_MIN);
+}
+
+/**
+ * HOW BIG IS THIS WORLD, MEASURED RATHER THAN ASSUMED.
+ *
+ * DEFAULT_TRAVEL_MIN is a day, and a day is the right guard against the failure it was written for
+ * — a wife left in another country appearing in an Italian inn eight turns later, having crossed a
+ * sea nobody wrote. It is a catastrophe in a story whose entire map is one city.
+ *
+ * A save at turn 36: eleven places, all in Seattle, none more than a bus ride apart. The player's
+ * wife walked out of the house at 19:58 on Day 1 and was in pursuit from turn 28 with the blocker
+ * "must find Rabi first — they are elsewhere". By turn 36 she had not come home and could not: no
+ * authored distance existed between the farmers market and the house, so the pursuit gate quoted
+ * her 1440 minutes of travel, of which 120 had passed. At roughly ten in-world minutes a turn that
+ * is another hundred and thirty turns before the player's wife is allowed to walk four blocks.
+ *
+ * What the player read was that his wife had vanished from his own story — while two acquaintances,
+ * standing at `elsewhere` rather than at a place, went through no gate at all and turned up in his
+ * dining room twice.
+ *
+ * The evidence was in the save the whole time. `travel_log` records every place the player has
+ * stood and the turn they stood there, `time_at_turn` stamps the clock, and consecutive entries are
+ * therefore measured hops across this world's own map. That save's log: the house at turn 30 to the
+ * diner, the diner at turn 32 back to the house — twenty in-world minutes. A world that has shown
+ * its places are twenty minutes apart is not a world where an unmeasured pair is a day away.
+ *
+ * So the day becomes a ceiling rather than a value: an unknown pair costs at most a generous
+ * multiple of the longest hop this world has ever actually been observed to take. A world with no
+ * observations keeps the day, and a world of genuine journeys keeps it too, because its own
+ * observed hops are long.
+ */
+const SCALE_SLACK = 4;      // an unmeasured pair may be several times the longest measured one
+const SCALE_FLOOR = 45;     // …and never so small that arrival becomes instant
+export function worldScale(state: SaveState): number | undefined {
+  const log = state.travel_log ?? [];
+  const hops: number[] = [];
+  for (let i = 1; i < log.length; i++) {
+    if (log[i - 1].place === log[i].place) continue;
+    const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+    if (!t0 || !t1) continue;
+    const mins = minutesBetween(t0, t1);
+    // A hop measured across a sleep or a montage is not a measurement of the distance — it is a
+    // measurement of the gap. Only same-day, plausibly-direct hops count.
+    if (mins > 0 && mins <= 12 * 60) hops.push(mins);
+  }
+  if (!hops.length) return undefined;
+  // THE TYPICAL HOP, NOT THE LONGEST. This read the maximum, which is the right statistic for "how
+  // far can this world stretch" and the wrong one for "what does an unmeasured pair cost". The
+  // moment a story that had been a city for forty turns put the player on a plane, the longest hop
+  // became a cross-country flight, and every unknown pair in Seattle — including the walk from the
+  // farmers market to the player's own front door — would have inherited it. A world can contain
+  // both a neighbourhood and a flight; its ORDINARY distance is the middle of what has been walked,
+  // and the flight is not unknown anyway, because the player flew it and step 2 above measured it.
+  hops.sort((a, b) => a - b);
+  const typical = hops[Math.floor((hops.length - 1) / 2)];
+  return Math.max(SCALE_FLOOR, Math.round(typical * SCALE_SLACK));
 }
 
 function emptyDiff(): SimulatorDiff {
@@ -2503,7 +2690,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + anatomyFix(state.last_anatomy) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2920,14 +3107,25 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
       // actually produced prose, so an interlude or a montage in between does not mask it.
-      state.last_reprint = findReprint(state.history.filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
+      state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
       // ...and a body the record does not give this person. Detected on the output for the same
       // reason as the two above: it can only be quoted once it has been written.
+      state.last_line_reprint = findLineReprint(contextHistory(state).map((h) => h.narrator_prose ?? ""), prose);
+      if (state.last_line_reprint) noteFire(state, "line", `"${state.last_line_reprint.slice(0, 70)}" said again`);
       state.last_anatomy = findAnatomyBreach(state, prose);
+      // ...and a family invented to win an argument. Dialogue is the only channel with no guard on
+      // it at all, and family is what a devastating line reaches for. See kinship.ts.
+      state.last_kin = findKinBreach(state, prose);
+      if (state.last_kin) {
+        noteFire(state, "kin", `${state.last_kin.owner} given a ${state.last_kin.relation} — ${state.last_kin.because}`);
+        ev.onMeta({ shifts: [`the prose gave ${state.last_kin.owner} a ${state.last_kin.relation} the record contradicts — it will be corrected and voided next turn`] });
+      }
       if (state.last_anatomy) {
+        noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
         ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
       }
       if (state.last_reprint) {
+        noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
         ev.onMeta({ shifts: [`this turn reprinted ${Math.round(state.last_reprint.overlap * 100)}% of the last one — the narrator will be shown it next turn`] });
       }
       if (maxims.length >= 2) {
@@ -3564,7 +3762,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // HOW MUCH TIME THIS TURN TOOK, hoisted above the world-motion block. The clock itself is not
   // advanced until later (the offstage passes deliberately run against the time the scene happened
   // at), but anything here that moves with time rather than with turns needs the number now.
-  const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
+  // The bookkeeper's number, floored by what the PLAYER said the turn cost. A declared action
+  // occurs at the declared scale, and how long it took is part of the declaration — see
+  // declaredMinutes for the flight that was billed at two minutes and took the geography with it.
+  const billed = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
+  const declared = declaredMinutes(action);
+  const minutes = Math.max(billed, declared);
+  if (declared > billed) {
+    console.info(`[time] the player declared ~${declared}min; the bookkeeper billed ${billed} — taking the declaration`);
+  }
   // asList, not a spread: `offscreen` is typed string[] and written by a model, and one returned
   // its lines as {char_id, where} objects. They reach the history entry and Play renders each one
   // as a React child, which throws and then keeps throwing on every load of that save.
@@ -3601,7 +3807,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
-      const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central && x.status !== "dead" && x.status !== "departed").length;
+      // COUNT THE CAST THE STORY WAS BUILT WITH, NOT ONLY THE ONES THIS LOOP PROMOTED. `central` is
+      // set to true HERE and to false HERE, and nowhere else — so a character the forge authored at
+      // world creation has it `undefined` forever: they arrive already `tracked`, skip this branch
+      // on the guard above, and are never stamped. Every other reader treats undefined as central
+      // (they all test `=== false`), and this one line treated it as not-cast. So the cap that
+      // exists to keep the story to a handful of people was counting a handful that did not include
+      // the player's wife. On one save it read 1 of 6 with five people in the cast, and a barista
+      // named in a single line of prose at turn 30 was a full central character by turn 33.
+      const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central !== false && x.tracked && x.status !== "dead" && x.status !== "departed").length;
       if (nCentral < capCentral) { c.tracked = true; c.central = true; }
       else if (c.central === undefined) c.central = false;
     }
@@ -3921,6 +4135,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
     // here because it needs the habit rows this loop has just written. See engine/authored.ts.
     for (const line of noteWantMisses(state, turn, state.world.present, simAnswered)) shifts.push(line);
+    // ...and, once, on the turn a want crosses the ceiling: the engine has stopped ordering it, and
+    // the player is the only one who can fix a want that cannot be written as an act.
+    for (const line of staleWants(state, state.world.present)) shifts.push(line);
+    // AND THE AGGREGATE. Every detector above corrects its own failure into the next turn and
+    // forgets; nothing was counting them, which is how 208 turns of one world produced fifteen
+    // separate defects while the chapter auditor returned on_contract every single time. This is
+    // the only part of the loop that talks to the person who can actually act on it.
+    { const alarm = integrityAlarm(state); if (alarm) shifts.push(alarm); }
   }
   // WHAT THE WORLD DID ABOUT WHAT IT IS TURNING INTO. Model-judged, like the trait report beside it:
   // a claim about buildings is moved by a wall going soft, which no string test could ever see. A
@@ -4167,6 +4389,22 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         const openTitles = (state.world.threads ?? [])
           .filter((t) => t.status === "active" && String(t.title ?? "").trim())
           .map((t) => String(t.title).trim());
+        // THE RECORD IT HAS NEVER BEEN GIVEN. Five audits across six saves of one world returned
+        // on_contract every time while a romance became a stalking thriller with an invented sister
+        // in it — correctly, on the evidence: the beats are the bookkeeper's summaries, and an
+        // invention the narrator made is in them as a plain statement of fact. An auditor handed a
+        // laundered transcript and asked "is this the right story" says yes. Handed the cast's own
+        // facts as well, it can say which sentences the record denies.
+        const castRecord = Object.entries(state.characters)
+          .filter(([id, c]) => id !== "char_player" && c?.name && c.status !== "dead")
+          .slice(0, 8)
+          .map(([id, c]) => {
+            const roles = (state.world.edges ?? [])
+              .filter((e) => e.from === id || e.to === id)
+              .flatMap((e) => e.roles ?? []);
+            const where = state.world.places[c.location ?? ""]?.name;
+            return `- ${c.name}${typeof c.age === "number" ? `, ${c.age}` : ""}${roles.length ? ` — known here as: ${[...new Set(roles)].join(", ")}` : ""}${where ? ` — currently at ${where}` : ""}. ${String(c.background ?? "").slice(0, 320)}`;
+          }).join("\n");
         const clockLines = (state.world.clocks ?? [])
           .filter((c) => c.status === "running" && String(c.objective ?? "").trim())
           .map((c) => `${c.faction} — ${c.objective}`.trim());
@@ -4181,10 +4419,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           // become the engine and could only answer in prose, which nothing downstream could act on.
           // Given the open threads by name, it can point at the ones the world keeps pressing
           // through — and a title is a handle the pressure controller can hold. See engine_threads.
-          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (a clock on this list is a faction working a timer; its pull only grows):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\nTHE CAST RECORD — who these people actually are. The beats below are the bookkeeper's account and may state things this record denies; that is what "contradictions" is for:\n${castRecord || "(none)"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (a clock on this list is a faction working a timer; its pull only grows):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; contradictions?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        // WHAT THE SPAN CONTRADICTS. Reported to the PLAYER, never fed back as a correction: by the
+        // time an audit runs, the invented fact is 25 turns deep in memories, summaries and queued
+        // intents, and a narrator told to un-invent it writes a scene about the mistake. The player
+        // can roll back. Nothing else in this engine can.
+        for (const line of (ch.contradictions ?? []).slice(0, 4)) {
+          const t = String(line ?? "").trim();
+          if (!t) continue;
+          noteFire(state, "kin", t.slice(0, 120));
+          shifts.push(`the record disagrees with what the story has been saying — ${t.slice(0, 140)}`);
+        }
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
@@ -4862,6 +5110,12 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   for (const nc of diff.new_characters ?? []) {
     if (!nc?.name || findCharByName(state, nc.name)) continue;
+    // ...and a name whose story this world has already ended, whether or not the record survives.
+    if (nameIsRetired(state, nc.name)) {
+      shifts.push(`bookkeeping correction: refused to create a new ${nc.name} — that name's story is over`);
+      console.warn(`[cast] blocked re-creation of retired name "${nc.name}"`);
+      continue;
+    }
     // CENTRAL-CHARACTER CAP: a new character joins as central (full fidelity) only if there's room
     // under the cap. Beyond it, they register as NON-CENTRAL — a background/environment figure with
     // minimal footprint and simple handling — until something promotes them.
@@ -5127,6 +5381,17 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // freely offstage.
       if (presentAtStart.has(cid)) {
         const c = state.characters[cid];
+        // THE GUARD DOES NOT HOLD THE DEAD. Everything below asks whether the prose showed this
+        // person leave, and refuses the move when it did not — which is right for somebody walking
+        // out and grotesque for somebody who has just been killed, because a corpse is never
+        // described as leaving. One save's shift log, verbatim: "bookkeeping correction: King Tong
+        // stays — the prose never showed them leave", about a man the player had killed two turns
+        // earlier. He was still in world.present, so he was still in the narrator's roster, so he
+        // kept getting lines. The player's words for it: "People that are dead keep coming back."
+        if (c?.status === "dead" || c?.status === "departed") {
+          state.characters[cid].location = pid;
+          continue;
+        }
         // NOT JUST "DID THEY LEAVE" — "is there any reason to think they are still in the room".
         // A person who is thrown out, arrested, or carried off is never described as leaving, and
         // for five turns of one save this guard held a woman in a living room she had been
@@ -5144,6 +5409,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           destination: state.world.places[pid]?.name ?? mv.place,
         });
         if (!evidence.ok) {
+          noteFire(state, "swap", `${c.name} moved out of a scene the prose keeps them in`);
           shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
           continue;
         }
@@ -5200,11 +5466,46 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // the player calling for them is evidence too — "I send for Angeline" should work
         const calledFor = [...new Set([nameLow, ...tokens])].some((p) => p.length >= 3 && action.toLowerCase().includes(p));
         if (!named && !calledFor) {
+          noteFire(state, "phantom", `${c.name} moved into the scene with nothing in the prose showing it`);
           shifts.push(`bookkeeping correction: ${c.name} was not in this scene — the prose never showed them arrive`);
           console.warn(`[cast] blocked phantom arrival of ${c.name} into ${state.world.places[pid]?.name ?? pid} — unnamed in prose and action`);
           continue;
         }
+        // AND A NAME IN THE PROSE IS NOT A JOURNEY.
+        //
+        // Everything above asks whether the prose MENTIONS this person. Nothing asks whether they
+        // could possibly be here. The pursuit walk in replanDrives has consulted travelMinutesBetween
+        // for as long as it has existed — it is why a wife three miles away waits for the clock — and
+        // the bookkeeper's own location diff, which moves far more people far more often, has never
+        // consulted it once. So the ledger could put anybody anywhere the moment the narrator said
+        // their name.
+        //
+        // From one save: the player flew Seattle to Houston. Inside the hour, a friend from Seattle
+        // was in the Houston kitchen ("I got the last flight I could"), a second Seattle acquaintance
+        // materialised beside her, and the host was made to say she had been there two days — a
+        // person who had been standing on the player's porch in Seattle forty minutes earlier. The
+        // player's own words for it: "Nice quantum teleportation. No quantum cloning?" He was right,
+        // and there was no cloning; there was a ledger with no notion of distance.
+        //
+        // location_since is stamped on every accepted move below, so this asks the only question
+        // that matters: has enough in-world time passed, since this person was last put somewhere,
+        // for them to have got from there to here. Unknown stamp means an unmoved character standing
+        // where the forge put them, and that is not the case this guard is for — let it through.
+        const sinceStamp = c.location_since;
+        if (sinceStamp && fromPid && fromPid !== pid) {
+          const needed = travelMinutesBetween(state, state.world.places[fromPid]?.name ?? "", state.world.places[pid]?.name ?? "");
+          const have = minutesBetween(sinceStamp, state.world.current_time);
+          if (needed > 0 && have >= 0 && have < needed) {
+            noteFire(state, "arrival", `${c.name} placed ${Math.round(needed)} minutes away with ${Math.round(have)} to travel it`);
+            shifts.push(`bookkeeping correction: ${c.name} cannot be here yet — ${state.world.places[fromPid]?.name ?? "where they were"} is ${Math.round(needed)} minutes away and ${Math.round(have)} have passed`);
+            console.warn(`[cast] blocked impossible arrival of ${c.name}: needs ${Math.round(needed)}min, has ${Math.round(have)}min`);
+            continue;
+          }
+        }
       }
+      // THE STAMP THE GUARD ABOVE READS. Written on every accepted move, so the next one can ask
+      // how long this person has actually had to get anywhere.
+      state.characters[cid].location_since = state.world.current_time;
       // a move is an event the character remembers: where from, where to, when
       const fromName = (fromPid && state.world.places[fromPid]?.name) || "elsewhere";
       const toName = state.world.places[pid]?.name ?? mv.place;
@@ -5257,11 +5558,48 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // world.present — so next turn the narrator keeps animating a dead body ("his fingers twitch"). If
   // the prose unambiguously kills a PRESENT character this turn and no exit was emitted for them, we
   // synthesize the exit so the engine marks them dead and removes them from the scene.
+  //
+  // ── AND ITS WHOLE VOCABULARY WAS A KNIFE FIGHT ────────────────────────────────────────────────
+  //
+  // Every pattern below was written for conventional violence: shot in the head, stabbed, throat
+  // cut, the body goes still. A save where the player had god mode on:
+  //
+  //   T49  shoots Drea twice in the face      prose: "Drea's head snaps back ... she goes down hard"
+  //   T51  erases King's children             prose: "The children are gone"
+  //   T52  "I destroy Dreas head"             prose: "Drea's head is gone."
+  //   T53  removes all of Mara's flesh        prose: "The flesh simply is not there anymore"
+  //   T54  "I kill king. He is dead."         prose: King walks to the counter and calls a rideshare
+  //   T55  detonates a nuke over Houston      prose: "It is not destroyed. It is gone."
+  //
+  // Not one of those matched. "Snaps back" is not "jerks back"; "goes down hard" is not "goes
+  // still"; and nothing in the list has ever heard of erasure. So nobody was marked dead, nobody
+  // left world.present, and the departure guard below then actively HELD them there — the save's own
+  // shift log reads "bookkeeping correction: King Tong stays — the prose never showed them leave",
+  // about a man the player had killed two turns earlier. Drea, shot in the face on turn 49, spoke on
+  // 50, was given a new drive and a new trait on 51, and had to be killed again on 52. The player,
+  // reasonably: "People that are dead keep coming back."
+  //
+  // Two additions. First, the words this kind of violence actually uses: gone, erased, unmade, no
+  // longer exists — annihilation leaves no body to go still, which is exactly why a detector built
+  // on bodies going still cannot see it.
+  //
+  // Second, and more important: IN GOD MODE THE PLAYER'S DECLARATION IS THE EVIDENCE. The god-mode
+  // contract this engine prints to the narrator could not be plainer — "Whatever the player declares
+  // happens, completely, immediately, at exactly the scale they state ... Never downscale, soften,
+  // delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill
+  // millions, millions die as real bodies." A narrator that answers "I kill king" with King ordering
+  // a rideshare has broken that contract, and the LEDGER MUST NOT INHERIT THE BREACH. When the
+  // player declares a kill in god mode, the person is dead in the record whatever the prose did with
+  // it; the next turn then starts from a world where it happened, which is the only way the refusal
+  // costs one paragraph instead of the rest of the game.
   {
     const alreadyExiting = new Set((diff.character_exits ?? []).map((e) => resolveId(state, e.char_id)).filter(Boolean));
+    const god = !!state.world_bible.god_mode;
     const proseLc = prose.toLowerCase();
     // a clear killing blow depicted this turn (the player shooting/stabbing, or the body going still/dead)
-    const lethalDepicted = /\b(shot (him|her|them|it) in the head|head jerks? back|blows? (his|her|their) (head|brains)|goes (instantly|limp|still)|body (sags|slumps|drops|goes still|goes limp)|lifeless|dead(?:,| |\.)|killed (him|her|them)|throat (opens|cut)|stops? breathing|crumples? (dead|lifeless)|collapses? dead)\b/i.test(proseLc);
+    const lethalDepicted = /\b(shot (him|her|them|it) in the head|head (jerks?|snaps?) back|blows? (his|her|their) (head|brains)|goes (instantly|limp|still)|body (sags|slumps|drops|goes still|goes limp)|lifeless|dead(?:,| |\.)|killed (him|her|them)|throat (opens|cut)|stops? breathing|crumples? (dead|lifeless)|collapses? dead)\b/i.test(proseLc)
+      // ...and the register that leaves no body at all.
+      || ERASURE.test(proseLc);
     if (lethalDepicted) {
       for (const pid of [...state.world.present]) {
         if (pid === "char_player" || alreadyExiting.has(pid)) continue;
@@ -5282,14 +5620,24 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         const named = !inanimate && (
           new RegExp(`\\b${esc}\\b[^.!?]{0,25}\\b(is dead|lies dead|dies|died|is killed|was killed|lifeless|stops breathing|stopped breathing)\\b`, "i").test(prose)
           || new RegExp(`\\b(shot|stabbed?|killed?|struck down|put (a|the) (round|bullet|blade) (in|through))\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
+          // erasure, in either order: "Drea's head is gone", "the flesh is not there anymore",
+          // "erased Mara", "Mara simply was not there any more".
+          || new RegExp(`\\b${esc}('s|s')?\\b[^.!?]{0,40}\\b(is|are|was|were|simply)?\\s*(gone|erased|unmade|obliterated|annihilated|vanished|disintegrated|no longer (exists?|there)|not there any\\s?more)\\b`, "i").test(prose)
+          || new RegExp(`\\b(erase[ds]?|unmade|unmake|obliterate[ds]?|annihilate[ds]?|wipe[ds]? (out|from existence)|remove[ds]? from existence)\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
         );
+        // THE DECLARATION IS THE EVIDENCE IN GOD MODE. See the header above.
+        const declaredKill = god && new RegExp(
+          `\\b(i\\s+(kill|killed|murder|murdered|destroy|destroyed|erase|erased|unmake|unmade|obliterate|obliterated|annihilate|annihilated|end|ended|delete|deleted|remove|removed)\\b[^.!?]{0,40}\\b${esc}\\b`
+          + `|\\b${esc}\\b[^.!?]{0,30}\\b(is|are)\\s+(dead|gone|erased|no longer)\\b)`, "i").test(action);
         // the stranger case: unnamed present target + player action was an explicit kill + a body goes still
         const playerKilled = /\b(i (shoot|shot|stab|stabbed|kill|killed|execute|executed)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
         const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless|crumples? (dead|to the ground))\b/i.test(proseLc);
-        if (named || (playerKilled && bodyStill)) {
-          (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
+        if (named || declaredKill || (playerKilled && bodyStill)) {
+          (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: declaredKill && !named ? "declared dead by the player in god mode; the prose did not carry it" : "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
           console.warn(`[turn] forced-death detector: recorded ${name}'s depicted death that the bookkeeper failed to emit`);
-          break; // one forced death per turn is plenty; avoid a cascade of guesses
+          // One INFERRED death per turn is plenty — a cascade of guesses is worse than a miss. A
+          // death the player declared outright is not a guess, so it does not consume that budget.
+          if (!declaredKill) break;
         }
       }
     }
@@ -5300,8 +5648,24 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!cid || cid === "char_player") continue;
     const c = state.characters[cid];
     if (!c) continue;
-    c.status = ex.kind;
+    // ── "Dead" IS NOT "dead", AND ONE CAPITAL LETTER UNDID EVERY DEATH GUARD IN THIS ENGINE ──────
+    //
+    // `kind` comes from a model. The schema asks for "dead" or "departed"; the model returned
+    // "Dead". Every check in this codebase is `c.status === "dead"` — an exact, case-sensitive
+    // comparison, in about twenty places: the roster filter, the arrival guard, the departure
+    // exemption, drive re-planning, the central-cast count, the cast card, the auditor's own list.
+    // "Dead" fails all of them, so a character the player had killed, and whose record said Dead in
+    // plain sight, was alive to every line of code that asked.
+    //
+    // That save: the player had written it in three places at once — the standing direction
+    // ("MARA IS DEAD. DREA IS DEAD. KING IS DEAD. DO NOT MAKE ANY MORE MARAS"), the canon list
+    // ("Mara, King and Drea are dead", and again "MARA IS DEAD."), and her own status field. She was
+    // standing in his living room, `central: true`, with a fresh drive about collecting transit
+    // maps. Normalised at the one write site, and on load, because a save already carrying the
+    // capital cannot be reasoned about until it is fixed.
+    c.status = normalizeStatus(ex.kind) ?? ex.kind;
     c.exit_turn = turn;
+    if (c.name) retireName(state, c.name);
     if (ex.note) c.exit_note = ex.note;
     c.tracked = false;
     c.drive = undefined;

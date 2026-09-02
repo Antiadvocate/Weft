@@ -10,7 +10,7 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, heal
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
-import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStatuses, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -1163,6 +1163,7 @@ export const api = {
     const s = await need(id);
     const log = [
       ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description, not a person.`),
+      ...repairStatuses(s),
       ...repairStrandedCast(s),
       ...repairPlaceDescriptions(s),
       ...repairBibleLists(s),

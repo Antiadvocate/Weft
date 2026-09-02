@@ -346,6 +346,10 @@ export interface Identity {
    *  release. Cleared the moment it does, or by hand from the character panel. Written and read by
    *  the departure/arrival guards in engine/turn.ts — see engine/exit.ts for what counts. */
   held?: { since_turn: number; where: string; note: string };
+  /** In-world time this character was last MOVED to where they are now. The arrival guard reads it
+   *  to ask whether a journey could have happened in the time available. Undefined on a character
+   *  the engine has never moved (a forge-authored cast member standing where they started). */
+  location_since?: string;
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
   /** THE EXACT WORDS THAT DREW THIS PERSON — written when the portrait is generated, then reused
@@ -796,6 +800,9 @@ export interface FocusPhase {
 }
 
 export interface WorldState {
+  /** Names whose story this world has ended. A dead or departed character's name is never given to a
+   *  newly created person, even after their record is gone. See retireName. */
+  retired_names?: string[];
   canon: string[];             // world-altering facts, always in context. Knowledge PROPAGATES: fresh entries carry witness metadata (canon_meta) until news has had time to travel.
   canon_meta?: Record<string, { turn: number; witnesses: string[] }>; // keyed by lowercase canon text — who was present when the fact entered the world, and when. Fresh + unwitnessed = a character does NOT know it yet. Evicted canon folds into the bible instead of vanishing.
   current_turn: number;
@@ -987,6 +994,15 @@ export interface SaveState {
   /** The prose giving a character genital anatomy their own record contradicts. Quoted back next
    *  turn and voided, so the error does not become the record. See engine/anatomy.ts. */
   last_anatomy?: { name: string; part: "penis" | "vulva"; sentence: string } | null;
+  /** A line of dialogue reprinted verbatim from an earlier turn — the long-range half of the
+   *  restage, outside any list that fits in the prompt. See engine/echo.ts. */
+  last_line_reprint?: string | null;
+  /** A family the prose invented for somebody the record contradicts. See engine/kinship.ts. */
+  last_kin?: { owner: string; relation: string; other?: string; because: string; sentence: string } | null;
+  /** Every contradiction the engine caught, counted rather than forgotten. The detectors each emit
+   *  one correction and move on; nothing was keeping the aggregate, which is why a story could come
+   *  apart while the engine noticed every individual crack. See engine/integrity.ts. */
+  integrity?: { fires: { turn: number; kind: string; detail: string }[]; said_turn?: number };
   /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
    *  Cleared when the ledger recovers. See castGoneCold. */
   cast_cold_said?: number;
