@@ -256,7 +256,24 @@ export function authoredLine(a: AuthoredDrive): string {
  *  The per-turn directive is what a narrator acts on. So the want goes there, after everything else,
  *  next to the player's action — and the card keeps only a one-line reference so the tokens are not
  *  paid twice. */
-export function habitDirective(state: SaveState, presentIds: string[]): string {
+/**
+ * `guarded` — this turn is intimate, dangerous, or hushed (see register.ts). The trait rotation at
+ * the bottom of this function is a blind wheel over core_traits, and the block it emits is written
+ * to be unrefusable: "If the scene seems to leave no room, that is the instruction — make the
+ * room." That is correct for the failure it was built for, a narrator too busy for the character
+ * the player wrote, and it is a wrecking ball in a scene where the room is the point. One save's
+ * wheel reached "Talks to her plants by name and scolds them when they droop" during sex in a
+ * shower, and the narrator, obeying, had her stop and say "Blanche needs water. That droopy bastard
+ * is judging us from the living room."
+ *
+ * So the ROTATION defers on those turns. It is a wheel: the trait it would have ordered comes round
+ * again, and a beat it does not get during a two-minute scene is not a beat it loses. What does NOT
+ * defer is anything the player authored — `liveAuthored` and `settledAuthored` are the things they
+ * asked for by hand, several of them are the reason an intimate scene is happening at all, and
+ * silencing those here would be the engine deciding it knows better than the player about their
+ * own scene.
+ */
+export function habitDirective(state: SaveState, presentIds: string[], guarded = false): string {
   const rows: string[] = [];
   const receded: string[] = [];
   for (const id of presentIds) {
@@ -307,7 +324,7 @@ export function habitDirective(state: SaveState, presentIds: string[]): string {
   // been shown living several times over: ordering it again is what makes a person read as a single
   // repeating gesture. The rotation picks from what still has something to establish.
   const traits: string[] = [];
-  for (const id of presentIds) {
+  for (const id of guarded ? [] : presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player" || !c.core_traits?.length) continue;
     const eligible = c.core_traits.filter((t) => {

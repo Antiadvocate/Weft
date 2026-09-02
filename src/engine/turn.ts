@@ -52,9 +52,10 @@ import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
+import { sceneRegister } from "./register";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, stripScaffolding, stripMetaPlayer } from "./echo";
+import { findEcho, echoFix, findReprint, reprintFix, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
@@ -2117,12 +2118,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // forcing an exchange breaks the moment. This is a DEFAULT nudge against player-orbit, not a mandate
   // to chatter through every scene. Suppress it when the recent prose or the player's action signals
   // one of those contexts; otherwise nudge as before.
-  const ctx = recentText.toLowerCase();
-  const suppressChatter =
-    /\b(kiss|kissed|naked|undress|bare|caress|breath|whisper|moan|trembl|skin|intimate|tender|make love|between them|close enough to|foreheads?)\b/.test(ctx) || // intimacy
-    /\b(gun|knife|blade|blood|scream|silence|frozen|frozen still|don'?t move|hold your breath|creeping|sneak|stalk|hiding|hidden|hunt|predator|snarl|growl|aim|barrel|trigger|corpse|body|dying|dead)\b/.test(ctx) || // danger / stealth
-    /\b(standoff|stared|staring|neither (spoke|moved)|no one (spoke|moved)|held (his|her|their|xer) breath|dead quiet|deathly|shock|stunned|reeling|grief|sobb|weeping)\b/.test(ctx) || // standoff / shock / grief
-    (verdict as any)?.mode === "escalate"; // active pressure spike
+  // The three regexes that used to live here now live in register.ts, because this read is useful
+  // to every unrefusable per-turn injection and was being spent on cross-talk alone. See that file.
+  const register = sceneRegister(`${recentText} ${action}`);
+  const suppressChatter = register.guarded || (verdict as any)?.mode === "escalate"; // active pressure spike
   if (presentNpcs.length >= 2 && !suppressChatter) {
     directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene — they have EACH OTHER, not just the player. When the moment allows it, at least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player. But read the room: if the scene is intimate, dangerous, tense, or stunned, silence or a single held beat is correct — do not force banter that breaks it.`;
   }
@@ -2503,7 +2502,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2690,7 +2689,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -2918,6 +2917,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
+      // ...and the narrator's own previous page coming back. Read against the last turn that
+      // actually produced prose, so an interlude or a montage in between does not mask it.
+      state.last_reprint = findReprint(state.history.filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
+      if (state.last_reprint) {
+        ev.onMeta({ shifts: [`this turn reprinted ${Math.round(state.last_reprint.overlap * 100)}% of the last one — the narrator will be shown it next turn`] });
+      }
       if (maxims.length >= 2) {
         ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
       }

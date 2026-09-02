@@ -89,26 +89,58 @@ export function shortLineShare(prose: string): number {
 }
 
 /** Did this person get a line? A quote counts as theirs when their name sits beside it — the same
- *  proximity test the misattribution guard uses, and wrong in the same rare ways. */
-export function spoke(prose: string, name: string): boolean {
+ *  proximity test the misattribution guard uses.
+ *
+ *  AND IT WAS WRONG IN A WAY THAT WAS NOT RARE AT ALL: it scores against the prose naming somebody,
+ *  and good prose names somebody once and then writes "she". A two-hander is the worst case and the
+ *  commonest one. Eleven turns of a save, one room, two people:
+ *
+ *      turn  1  3 quoted lines   "Emily" appears once, in the opening sentence
+ *      turn  5  9 quoted lines   same
+ *      turn  7  9 quoted lines   same
+ *      turn  9  7 quoted lines   same — and the only NAME beside her dialogue is Rabi's, because
+ *                                she is talking TO him and uses it
+ *
+ *  Sixty-one lines of hers in ten turns, every one of them scored as silence, because the ±90-char
+ *  window around each quote caught "she", "her" and the player's name and never hers. The counter
+ *  reached ten, MUTE_LIMIT is two, and so from turn three onward every single turn's directive
+ *  carried "Emily has been in the room for N turns without a line ... asks the direct question ...
+ *  Give Emily real speech this turn" — into a scene where she had not stopped talking once, and
+ *  where the player's actual complaint was that she would not stop talking.
+ *
+ *  Two widenings, both conservative. The window is still the primary test; a quote in a PARAGRAPH
+ *  that names them is theirs too (attribution routinely sits a sentence away in the same block);
+ *  and `soleSpeaker` lets the caller say that this is the only person in the room who can be
+ *  speaking, in which case any quoted line at all is theirs. */
+export function spoke(prose: string, name: string, soleSpeaker = false): boolean {
   const first = (String(name ?? "").split(/\s+/)[0] ?? "").toLowerCase();
   if (first.length < 3) return false;
   const p = String(prose ?? "");
-  for (const m of p.matchAll(/["“][^"”\n]{2,}["”]/g)) {
+  const QUOTE = /["“][^"”\n]{2,}["”]/g;
+  for (const m of p.matchAll(QUOTE)) {
     const window = p.slice(Math.max(0, m.index! - 90), m.index! + m[0].length + 90).toLowerCase();
     if (window.includes(first)) return true;
   }
+  // Same block of prose, however far along it the attribution sits.
+  for (const para of p.split(/\n\s*\n/)) {
+    if (!para.toLowerCase().includes(first)) continue;
+    if (new RegExp(QUOTE.source).test(para)) return true;
+  }
+  // Nobody else in the room could have said it. The player's speech is only ever what they typed,
+  // so a quoted line in the narrator's prose is not theirs either.
+  if (soleSpeaker && new RegExp(QUOTE.source).test(p)) return true;
   return false;
 }
 
 /** Per-character consecutive-silence counters, updated once a turn from the prose that just ran. */
 export function trackSilence(state: SaveState, prose: string): void {
   const counts = (state.speech_silence ??= {});
+  const npcs = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
   for (const id of state.world.present ?? []) {
     if (id === "char_player") continue;
     const name = state.characters[id]?.name ?? "";
     if (!name) continue;
-    counts[id] = spoke(prose, name) ? 0 : (counts[id] ?? 0) + 1;
+    counts[id] = spoke(prose, name, npcs.length === 1) ? 0 : (counts[id] ?? 0) + 1;
   }
   for (const id of Object.keys(counts)) {
     if (!(state.world.present ?? []).includes(id)) delete counts[id];

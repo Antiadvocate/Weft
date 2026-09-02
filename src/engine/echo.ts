@@ -211,3 +211,79 @@ export function stripMetaPlayer(prose: string, playerName: string): { prose: str
   });
   return { prose: out, fixed };
 }
+
+/* ── THE NARRATOR ECHOING ITSELF ────────────────────────────────────────────────────────────────
+ *
+ * Everything above is about a character handing the player's own line back. There is a louder
+ * version of the same failure and nothing was watching for it: the narrator handing back its own
+ * previous turn.
+ *
+ * Turn 10 of one save is turn 9 with the first sentence deleted and the apostrophes curled. Same
+ * four paragraphs, same seven lines of dialogue, same closing beat — 1489 characters against 1539,
+ * otherwise identical. What the player had typed to earn it was "I'm just very confused about what's
+ * happening right now", so the answer to "what is happening" was the previous page, again. The
+ * turn's own spent_subjects re-spent the same words (fourteen, deadline, questions, blanche) and
+ * nothing flagged it, because every detector in the engine reads this turn's prose against the
+ * player's line, the world state, or a phrase list — never against what the narrator itself wrote
+ * last time. FINAL CHECK item 12 covers it ("no scene replayed in new words"), and item 12 is a
+ * self-check: the model that just reprinted a page is not the thing that will notice.
+ *
+ * So it goes where the other specimens go — a detector on the output, quoting the model back to
+ * itself on the following turn.
+ */
+
+/** Distinctive-word overlap between two passages, as a fraction of the shorter one. Stopwords are
+ *  dropped: two turns in one room share their furniture, and it is the content that gives a reprint
+ *  away. */
+export function proseOverlap(a: string, b: string): number {
+  const wa = new Set(contentWords(a)), wb = new Set(contentWords(b));
+  if (wa.size < 20 || wb.size < 20) return 0;      // too short to judge; a held beat is allowed to rhyme
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared / Math.min(wa.size, wb.size);
+}
+
+/** Above this, the turn is a reprint rather than a continuation. Set high on purpose: a scene that
+ *  stays in one room with two people genuinely repeats a lot of nouns, and the cost of a false
+ *  positive is one advisory paragraph in the next prompt. The observed reprint scores ~0.97; ordinary
+ *  consecutive turns of the same conversation measured 0.3–0.5. */
+const REPRINT_FLOOR = 0.8;
+
+/** The longest run of words this turn reproduces verbatim from last turn — the unambiguous half of
+ *  the evidence, and what gets quoted back. */
+export function longestSharedSpan(prev: string, now: string): string {
+  const a = flatten(prev).trim().split(" ").filter(Boolean);
+  const b = flatten(now).trim().split(" ").filter(Boolean);
+  if (!a.length || !b.length) return "";
+  let bestLen = 0, bestEnd = 0;
+  let prev_ = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = new Array(b.length + 1).fill(0);
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        cur[j] = prev_[j - 1] + 1;
+        if (cur[j] > bestLen) { bestLen = cur[j]; bestEnd = j; }
+      }
+    }
+    prev_ = cur;
+  }
+  return bestLen >= 8 ? b.slice(bestEnd - bestLen, bestEnd).join(" ") : "";
+}
+
+/** Did this turn reprint the last one? Returns the shared span to quote back, or null. */
+export function findReprint(prevProse: string, prose: string): { span: string; overlap: number } | null {
+  const prev = String(prevProse ?? "").trim(), now = String(prose ?? "").trim();
+  if (!prev || !now) return null;
+  const overlap = proseOverlap(prev, now);
+  if (overlap < REPRINT_FLOOR) return null;
+  const span = longestSharedSpan(prev, now);
+  if (!span) return null;
+  return { span: span.slice(0, 180), overlap: +overlap.toFixed(2) };
+}
+
+/** The correction, handed to the following turn. */
+export function reprintFix(hit: { span: string; overlap: number } | null | undefined): string {
+  if (!hit?.span) return "";
+  return `\nLAST TURN REPRINTED THE TURN BEFORE IT. ${Math.round(hit.overlap * 100)}% of its distinctive words were the previous turn's, including this run word for word: "${hit.span}…"
+That is not a scene. Whatever the player typed, the world had already moved past that page and did not move back. THIS TURN STARTS FROM WHERE THE LAST ONE ENDED and goes somewhere the story has not been: the bodies are in different positions than they were, or somebody has said the thing they had not said, or the act is further along, or someone has arrived, moved, or stopped. Do not re-establish what is already established, do not restage the same gesture in new words, and do not re-run a line of dialogue in a new wording. If the player's input was a question about what is happening, ANSWER IT INSIDE THE FICTION — state plainly, in the prose, where everyone is and what is being done to whom right now — and then move.`;
+}
