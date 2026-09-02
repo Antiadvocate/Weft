@@ -1507,7 +1507,55 @@ export function travelMinutesBetween(state: SaveState, from: string, to: string)
   //    live locations at once. Quoting a day between them is the failure above; quoting a walk is
   //    wrong only in the rare case, and wrong by minutes rather than by a whole character.
   if (INTERIOR.test(a) && INTERIOR.test(b)) return NEIGHBOUR_TRAVEL_MIN;
-  return DEFAULT_TRAVEL_MIN;
+  // 5. AND THE DEFAULT IS BOUNDED BY THE SCALE THIS WORLD HAS ACTUALLY DEMONSTRATED. See worldScale.
+  return Math.min(DEFAULT_TRAVEL_MIN, worldScale(state) ?? DEFAULT_TRAVEL_MIN);
+}
+
+/**
+ * HOW BIG IS THIS WORLD, MEASURED RATHER THAN ASSUMED.
+ *
+ * DEFAULT_TRAVEL_MIN is a day, and a day is the right guard against the failure it was written for
+ * — a wife left in another country appearing in an Italian inn eight turns later, having crossed a
+ * sea nobody wrote. It is a catastrophe in a story whose entire map is one city.
+ *
+ * A save at turn 36: eleven places, all in Seattle, none more than a bus ride apart. The player's
+ * wife walked out of the house at 19:58 on Day 1 and was in pursuit from turn 28 with the blocker
+ * "must find Rabi first — they are elsewhere". By turn 36 she had not come home and could not: no
+ * authored distance existed between the farmers market and the house, so the pursuit gate quoted
+ * her 1440 minutes of travel, of which 120 had passed. At roughly ten in-world minutes a turn that
+ * is another hundred and thirty turns before the player's wife is allowed to walk four blocks.
+ *
+ * What the player read was that his wife had vanished from his own story — while two acquaintances,
+ * standing at `elsewhere` rather than at a place, went through no gate at all and turned up in his
+ * dining room twice.
+ *
+ * The evidence was in the save the whole time. `travel_log` records every place the player has
+ * stood and the turn they stood there, `time_at_turn` stamps the clock, and consecutive entries are
+ * therefore measured hops across this world's own map. That save's log: the house at turn 30 to the
+ * diner, the diner at turn 32 back to the house — twenty in-world minutes. A world that has shown
+ * its places are twenty minutes apart is not a world where an unmeasured pair is a day away.
+ *
+ * So the day becomes a ceiling rather than a value: an unknown pair costs at most a generous
+ * multiple of the longest hop this world has ever actually been observed to take. A world with no
+ * observations keeps the day, and a world of genuine journeys keeps it too, because its own
+ * observed hops are long.
+ */
+const SCALE_SLACK = 4;      // an unmeasured pair may be several times the longest measured one
+const SCALE_FLOOR = 45;     // …and never so small that arrival becomes instant
+export function worldScale(state: SaveState): number | undefined {
+  const log = state.travel_log ?? [];
+  let longest = 0;
+  for (let i = 1; i < log.length; i++) {
+    if (log[i - 1].place === log[i].place) continue;
+    const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+    if (!t0 || !t1) continue;
+    const mins = minutesBetween(t0, t1);
+    // A hop measured across a sleep or a montage is not a measurement of the distance — it is a
+    // measurement of the gap. Only same-day, plausibly-direct hops count.
+    if (mins > 0 && mins <= 12 * 60) longest = Math.max(longest, mins);
+  }
+  if (!longest) return undefined;
+  return Math.max(SCALE_FLOOR, Math.round(longest * SCALE_SLACK));
 }
 
 function emptyDiff(): SimulatorDiff {
@@ -3644,7 +3692,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
-      const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central && x.status !== "dead" && x.status !== "departed").length;
+      // COUNT THE CAST THE STORY WAS BUILT WITH, NOT ONLY THE ONES THIS LOOP PROMOTED. `central` is
+      // set to true HERE and to false HERE, and nowhere else — so a character the forge authored at
+      // world creation has it `undefined` forever: they arrive already `tracked`, skip this branch
+      // on the guard above, and are never stamped. Every other reader treats undefined as central
+      // (they all test `=== false`), and this one line treated it as not-cast. So the cap that
+      // exists to keep the story to a handful of people was counting a handful that did not include
+      // the player's wife. On one save it read 1 of 6 with five people in the cast, and a barista
+      // named in a single line of prose at turn 30 was a full central character by turn 33.
+      const nCentral = Object.values(state.characters).filter((x) => x.character_id !== "char_player" && x.central !== false && x.tracked && x.status !== "dead" && x.status !== "departed").length;
       if (nCentral < capCentral) { c.tracked = true; c.central = true; }
       else if (c.central === undefined) c.central = false;
     }
