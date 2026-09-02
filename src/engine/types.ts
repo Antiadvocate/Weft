@@ -800,6 +800,9 @@ export interface FocusPhase {
 }
 
 export interface WorldState {
+  /** Names whose story this world has ended. A dead or departed character's name is never given to a
+   *  newly created person, even after their record is gone. See retireName. */
+  retired_names?: string[];
   canon: string[];             // world-altering facts, always in context. Knowledge PROPAGATES: fresh entries carry witness metadata (canon_meta) until news has had time to travel.
   canon_meta?: Record<string, { turn: number; witnesses: string[] }>; // keyed by lowercase canon text — who was present when the fact entered the world, and when. Fresh + unwitnessed = a character does NOT know it yet. Evicted canon folds into the bible instead of vanishing.
   current_turn: number;

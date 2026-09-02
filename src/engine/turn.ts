@@ -586,6 +586,88 @@ export function isStub(c: { provisional?: boolean; background?: unknown } | unde
   return c.provisional === true || /^INCOMPLETE RECORD\b/.test(String(c.background ?? ""));
 }
 
+/** The two statuses the engine actually understands, from whatever a model returned. */
+export function normalizeStatus(raw: unknown): "dead" | "departed" | undefined {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (/^dead|killed|deceased|slain|destroyed|erased$/.test(t)) return "dead";
+  if (/^departed|gone|left|exited|moved away$/.test(t)) return "departed";
+  return undefined;
+}
+
+/**
+ * A NAME THAT HAS DIED DOES NOT COME BACK ON SOMEBODY ELSE.
+ *
+ * findCharByName already refuses to register a second character with a living character's name.
+ * It cannot refuse one whose record is no longer in `state.characters` — and once the record is
+ * gone, the name is free. On the save that prompted this, the original Mara (char_mtggvs9vfhh5e,
+ * Emily's best friend, a landscape architect living three blocks away) was no longer on the roster,
+ * and the
+ * bookkeeper registered `char_mtju2zz0wc7nw` — a completely different woman, raised above a
+ * laundromat by her grandmother, who collects 1962 transit maps — as "Mara", central, tracked, and
+ * standing in the player's house.
+ *
+ * The player's standing direction at that moment, which the bookkeeper is shown in full: "MARA IS
+ * DEAD. DREA IS DEAD. KING IS DEAD. DO NOT MAKE ANY MORE MARAS. MARAS STORY IS OVER. DO NOT
+ * FUCKING MAKE HER EXIST." It made her anyway, which is why this is a list and not a sentence.
+ */
+export function retireName(state: SaveState, name: string): void {
+  const n = String(name ?? "").trim().toLowerCase();
+  if (n.length < 3) return;
+  const list = (state.world.retired_names ??= []);
+  if (!list.includes(n)) list.push(n);
+}
+
+/** Has this name already had its story ended? Checks the tombstones AND the live roster, so it
+ *  holds whether or not the old record still exists. */
+export function nameIsRetired(state: SaveState, name: string): boolean {
+  const n = String(name ?? "").trim().toLowerCase();
+  if (n.length < 3) return false;
+  if ((state.world.retired_names ?? []).includes(n)) return true;
+  return Object.values(state.characters).some(
+    (c) => (c?.name ?? "").trim().toLowerCase() === n && (c.status === "dead" || c.status === "departed"));
+}
+
+/**
+ * REPAIR A SAVE WHOSE STATUSES THE ENGINE CANNOT READ.
+ *
+ * Runs from the repair button and on the same footing as the other repairs. A save already carrying
+ * "Dead" is not a save that can be reasoned about — every guard in the engine reads that character
+ * as alive — so the capital is fixed in place, and every ended name is retired so nothing hands it
+ * to a stranger later.
+ */
+export function repairStatuses(state: SaveState): string[] {
+  const log: string[] = [];
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || !c) continue;
+    const raw = c.status;
+    if (raw === undefined || raw === "dead" || raw === "departed") {
+      if (raw) retireName(state, c.name);
+      continue;
+    }
+    const fixed = normalizeStatus(raw);
+    if (fixed) {
+      c.status = fixed;
+      retireName(state, c.name);
+      log.push(`${c.name}'s status read "${raw}" — the engine only understands "dead" and "departed", so every check that asked was told they were alive. Corrected.`);
+    } else {
+      log.push(`${c.name}'s status is "${raw}", which the engine does not recognise — they are being treated as alive. Set it from the character panel if that is wrong.`);
+    }
+  }
+  // A dead or departed character standing in a room is a corpse in the roster; take them out of it.
+  for (const [id, c] of Object.entries(state.characters)) {
+    if (id === "char_player" || !c) continue;
+    if (c.status !== "dead" && c.status !== "departed") continue;
+    for (const pl of Object.values(state.world.places)) {
+      if (pl.contains?.includes(id)) { pl.contains = pl.contains.filter((x) => x !== id); log.push(`${c.name} is ${c.status} and was still standing in ${pl.name}. Removed.`); }
+    }
+    if (state.world.present.includes(id)) {
+      state.world.present = state.world.present.filter((x) => x !== id);
+      log.push(`${c.name} is ${c.status} and was still on the scene roster. Removed.`);
+    }
+  }
+  return log;
+}
+
 export function pruneParseArtifacts(state: SaveState): string[] {
   const removed: string[] = [];
   for (const [id, c] of Object.entries(state.characters)) {
@@ -5036,6 +5118,12 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   for (const nc of diff.new_characters ?? []) {
     if (!nc?.name || findCharByName(state, nc.name)) continue;
+    // ...and a name whose story this world has already ended, whether or not the record survives.
+    if (nameIsRetired(state, nc.name)) {
+      shifts.push(`bookkeeping correction: refused to create a new ${nc.name} — that name's story is over`);
+      console.warn(`[cast] blocked re-creation of retired name "${nc.name}"`);
+      continue;
+    }
     // CENTRAL-CHARACTER CAP: a new character joins as central (full fidelity) only if there's room
     // under the cap. Beyond it, they register as NON-CENTRAL — a background/environment figure with
     // minimal footprint and simple handling — until something promotes them.
@@ -5568,8 +5656,24 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!cid || cid === "char_player") continue;
     const c = state.characters[cid];
     if (!c) continue;
-    c.status = ex.kind;
+    // ── "Dead" IS NOT "dead", AND ONE CAPITAL LETTER UNDID EVERY DEATH GUARD IN THIS ENGINE ──────
+    //
+    // `kind` comes from a model. The schema asks for "dead" or "departed"; the model returned
+    // "Dead". Every check in this codebase is `c.status === "dead"` — an exact, case-sensitive
+    // comparison, in about twenty places: the roster filter, the arrival guard, the departure
+    // exemption, drive re-planning, the central-cast count, the cast card, the auditor's own list.
+    // "Dead" fails all of them, so a character the player had killed, and whose record said Dead in
+    // plain sight, was alive to every line of code that asked.
+    //
+    // That save: the player had written it in three places at once — the standing direction
+    // ("MARA IS DEAD. DREA IS DEAD. KING IS DEAD. DO NOT MAKE ANY MORE MARAS"), the canon list
+    // ("Mara, King and Drea are dead", and again "MARA IS DEAD."), and her own status field. She was
+    // standing in his living room, `central: true`, with a fresh drive about collecting transit
+    // maps. Normalised at the one write site, and on load, because a save already carrying the
+    // capital cannot be reasoned about until it is fixed.
+    c.status = normalizeStatus(ex.kind) ?? ex.kind;
     c.exit_turn = turn;
+    if (c.name) retireName(state, c.name);
     if (ex.note) c.exit_note = ex.note;
     c.tracked = false;
     c.drive = undefined;
