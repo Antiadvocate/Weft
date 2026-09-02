@@ -55,6 +55,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
+import { pronounsOf } from "./anatomy";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
@@ -5678,6 +5679,58 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     c.tracked = false;
     c.drive = undefined;
     c.drive_queue = [];
+    // ── AND EVERYTHING STILL POINTING AT THEIR FUTURE ────────────────────────────────────────────
+    //
+    // The drive goes, which is what they wanted. What survives is everything the world was holding
+    // ON them: a consequence scheduled to fire, a promise waiting to be kept. Those are not
+    // memories, they are instructions with a date on them, and the pressure system reads pending
+    // consequences first, before cooldowns and before grace.
+    //
+    // From the save that prompted this, still pending at turn 87 about a woman dead since turn 55:
+    //
+    //     "Rabi must give a yes or no to Mara by Friday for Sunday's chicken dinner."
+    //
+    // Thirty turns of the engine holding an appointment open with a corpse, and every one of them a
+    // reason to bring her into a scene. A dead woman is not owed an RSVP.
+    {
+      const first = (c.name ?? "").split(/\s+/)[0];
+      const esc = first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const named = first.length >= 3 ? new RegExp(`\\b${esc}\\b`, "i") : null;
+      let dropped = 0;
+      if (named) {
+        for (const q of state.world.consequences ?? []) {
+          if (q.status !== "pending") continue;
+          if (q.source_char === cid || named.test(q.description ?? "")) { q.status = "cancelled"; dropped++; }
+        }
+      }
+      for (const pr of state.world.promises ?? []) {
+        if (pr.status !== "open") continue;
+        if (pr.from === cid || pr.to === cid) { pr.status = "retired"; dropped++; }
+      }
+      // AND THE FACTS THAT PUT THEM SOMEWHERE. A fact ledger entry is printed as KNOWS (verified
+      // facts) and never decays, so "Mara is whole again and standing at the ridge line" — filed
+      // from the narrator's own prose, sourced "witnessed" — was read as true on every subsequent
+      // turn and rewritten into the scene. Annotating it as past is one layer; this is the other,
+      // and it uses machinery that already exists: supersede it, so it renders under ONCE BELIEVED,
+      // NOW KNOWS BETTER (never state the old version as true).
+      //
+      // ONLY presence claims. "Mara was Emily's best friend for ten years" is history and stays a
+      // fact; "Mara is standing at the ridge line" is a claim about right now and is no longer true.
+      if (named) {
+        const PRESENCE = /\b(is|are|stands?|standing|waits?|waiting|sits?|sitting|comes?|coming|walks?|walking|arriv\w+|approach\w+|here|outside|at the door|on the porch|in the yard|whole again|alive|back)\b/i;
+        let superseded = 0;
+        for (const m of Object.values(state.memory ?? {})) {
+          for (const f of m?.facts ?? []) {
+            if (f.superseded_by || !named.test(f.content ?? "")) continue;
+            if (!PRESENCE.test(f.content ?? "")) continue;
+            f.superseded_by = `${c.name} is ${c.status}; this is no longer where ${pronounsOf(c.pronouns).subj} is`;
+            superseded++;
+          }
+        }
+        if (superseded) console.warn(`[cast] superseded ${superseded} fact(s) placing ${c.name} somewhere — they are ${c.status}`);
+      }
+      if (dropped) shifts.push(`${c.name} is ${c.status} — ${dropped} thing${dropped === 1 ? "" : "s"} the world was still holding open for them ${dropped === 1 ? "is" : "are"} closed`);
+    }
     // remove from whatever room held them
     const pid = c.location;
     if (pid && state.world.places[pid]) {

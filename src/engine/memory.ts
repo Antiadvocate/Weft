@@ -792,7 +792,27 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     const chosen = new Set(ranked.slice(0, 4).map((x) => x.f));
     if (live.length) chosen.add(live[live.length - 1]);
     const clipF = (t: string) => (t.length > 140 ? t.slice(0, 138).trimEnd() + "…" : t);
-    if (chosen.size) parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => clipF(x.content)).join(" | ")}`);
+    // ── THE FACT LEDGER IS WHERE THE DEAD COME BACK FROM ─────────────────────────────────────────
+    //
+    // `gone` was threaded all the way down here and spent on BELIEFS alone. Beliefs are the softer
+    // half — a thing somebody holds. This block is the hard half: it is printed as KNOWS (verified
+    // facts), it never decays, and the narrator reads it as true right now.
+    //
+    // A save at turn 87. Mara had been dead for thirty turns, correctly, in the ledger. The witness
+    // present in every scene carried this, filed by the bookkeeper from the narrator's own prose and
+    // sourced "witnessed":
+    //
+    //     "Mara is whole again and standing at the ridge line, cradling her arm the way she did
+    //      before."
+    //
+    // So every turn the narrator was told, as verified fact, that a dead woman was standing at the
+    // ridge line — and wrote her standing at the ridge line, and the bookkeeper filed that, and the
+    // next turn said it again. The player watched it happen five times and asked why the narrator
+    // kept inventing her. It was not inventing her. It was reading her out of the record.
+    //
+    // Same treatment beliefs already get, and for the stronger reason: a fact is asserted, not held.
+    const factLine = (t: string) => beliefLine(clipF(t), gone);
+    if (chosen.size) parts.push(`KNOWS (verified facts): ${[...chosen].map((x) => factLine(x.content)).filter(Boolean).join(" | ")}`);
     const corrected = mem.facts
       .filter((f) => f.superseded_by && relevance(f.content, query) >= 0.25)
       .slice(-2);

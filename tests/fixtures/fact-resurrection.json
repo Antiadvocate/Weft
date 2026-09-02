@@ -1,0 +1,411 @@
+{
+ "felicity_memory": {
+  "character_id": "char_mtjv1cvx3en2m",
+  "core": [],
+  "episodic": [
+   {
+    "turn": 76,
+    "event_turn": 76,
+    "content": "I told Rabi I've been calling this place Fernhaven, and I wa terrified he'd think it was silly but he didn't.",
+    "full_content": "I told Rabi I've been calling this place Fernhaven, and I wa terrified he'd think it was silly but he didn't. The name is part of choosing to stay and build something here.",
+    "decay_stage": 0,
+    "importance": 6,
+    "emotional_charge": "exposed",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 09:57 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "scheduled_time": "unresolved",
+    "commitment_status": "pending",
+    "folded": true,
+    "swept": true
+   },
+   {
+    "turn": 79,
+    "event_turn": 79,
+    "content": "Rabi healed the deer he shot and let it run off \u2014 he said he only meant to scare them.",
+    "full_content": "Rabi healed the deer he shot and let it run off \u2014 he said he only meant to scare them. Then he asked me for a pool, heated, and I told him he didn't have to ask me twice. I want to believe this place is real and can stay.",
+    "decay_stage": 1,
+    "importance": 4,
+    "emotional_charge": "warm, hopeful, fragile",
+    "last_accessed_turn": 84,
+    "when_label": "Day 3, 10:42 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "swept": true
+   },
+   {
+    "turn": 80,
+    "event_turn": 80,
+    "content": "He made the pistol vanish and asked me to tell him what I want, and I did \u2014 a kitchen garden with a stone path and a working tap, out past the south strip.",
+    "full_content": "He made the pistol vanish and asked me to tell him what I want, and I did \u2014 a kitchen garden with a stone path and a working tap, out past the south strip. And he promised the pool and the bikini at his eye level. I believe it, and that scares me more than anything bad.",
+    "decay_stage": 0,
+    "importance": 7,
+    "emotional_charge": "positive, a little breathless",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 10:52 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "folded": true,
+    "swept": true
+   },
+   {
+    "turn": 81,
+    "event_turn": 81,
+    "content": "I saw her at the yard's edge, that woman Mara, not walking right, her arm held like it was coming apart. Rabi knows her, I could see it in his face.",
+    "full_content": "I saw her at the yard's edge, that woman Mara, not walking right, her arm held like it was coming apart. Rabi knows her, I could see it in his face. I told him she's been there since breakfast, and I dug my thumb over the scar on my wrist without meaning to. I can't stop thinking that if she's from Earth, he might go back there.",
+    "decay_stage": 0,
+    "importance": 7,
+    "emotional_charge": "fear, uncertainty",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 10:57 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "scheduled_time": "unresolved",
+    "commitment_status": "pending",
+    "folded": true,
+    "swept": true
+   },
+   {
+    "turn": 83,
+    "event_turn": 83,
+    "content": "Mara asked if this was the garden part, like she already knew. Rabi said the universe was retarded and I could see he meant it.",
+    "full_content": "Mara asked if this was the garden part, like she already knew. Rabi said the universe was retarded and I could see he meant it. I keep thinking she's going to ask me what I'm planting, and I don't know what to say.",
+    "decay_stage": 0,
+    "importance": 5,
+    "emotional_charge": "unsettled, anxious",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 11:13 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "scheduled_time": "unresolved",
+    "commitment_status": "pending",
+    "swept": true
+   },
+   {
+    "turn": 84,
+    "event_turn": 84,
+    "content": "Rabi destroyed Mara completely with his bare hands and then made a sofa for us on the regolith, and I sat down beside him and kept my hand on his knee, watching the horizon, and I could not stop looking at the ridge where she had stood because there was nothing left of her at all.",
+    "full_content": "Rabi destroyed Mara completely with his bare hands and then made a sofa for us on the regolith, and I sat down beside him and kept my hand on his knee, watching the horizon, and I could not stop looking at the ridge where she had stood because there was nothing left of her at all.",
+    "decay_stage": 0,
+    "importance": 8,
+    "emotional_charge": "awe mixed with fear and a strange, terrible safety",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 11:18 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "folded": true,
+    "swept": true
+   },
+   {
+    "turn": 84,
+    "event_turn": 84,
+    "content": "I told Rabi that my basil seeds still haven't swelled and that I'm afraid I planted them too deep or the water is wrong, and that I won't know for days, and he listened.",
+    "full_content": "I told Rabi that my basil seeds still haven't swelled and that I'm afraid I planted them too deep or the water is wrong, and that I won't know for days, and he listened.",
+    "decay_stage": 0,
+    "importance": 3,
+    "emotional_charge": "small and plain",
+    "last_accessed_turn": 84,
+    "when_label": "Day 3, 11:18 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "swept": true
+   },
+   {
+    "turn": 75,
+    "event_turn": 75,
+    "content": "Rabi walked in and asked what I wanted to eat, and I kept my back to him and talked about tomatoes and basil and the blue mugs so I wouldn't have to stop and ask if Mara is really gone.",
+    "full_content": "Rabi walked in and asked what I wanted to eat, and I kept my back to him and talked about tomatoes and basil and the blue mugs so I wouldn't have to stop and ask if Mara is really gone.",
+    "decay_stage": 0,
+    "importance": 6,
+    "emotional_charge": "",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 09:52 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "scheduled_time": "unresolved",
+    "commitment_status": "pending",
+    "swept": true
+   },
+   {
+    "turn": 85,
+    "event_turn": 85,
+    "content": "He kissed my knuckles and asked to fix the basil seeds, and I told him you can't rush basil by wanting it, but I let him take both my hands and put him on the south strip with a spade.",
+    "full_content": "He kissed my knuckles and asked to fix the basil seeds, and I told him you can't rush basil by wanting it, but I let him take both my hands and put him on the south strip with a spade.",
+    "decay_stage": 0,
+    "importance": 4,
+    "emotional_charge": "warm and a little afraid",
+    "last_accessed_turn": 85,
+    "when_label": "Day 3, 11:28 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "swept": true
+   },
+   {
+    "turn": 86,
+    "event_turn": 86,
+    "content": "I told Rabi he'd have to be shirtless for this clay and handed him the spade and the twine, and we marked the bed line together.",
+    "full_content": "I told Rabi he'd have to be shirtless for this clay and handed him the spade and the twine, and we marked the bed line together. Mara was back at the ridge watching, and I decided the weeding comes before her.",
+    "decay_stage": 0,
+    "importance": 5,
+    "emotional_charge": "tender, resolute",
+    "last_accessed_turn": 86,
+    "when_label": "Day 3, 11:33 (Morning)",
+    "where": "A planet in andromeda galaxy",
+    "source": "witnessed",
+    "scheduled_time": "unresolved",
+    "commitment_status": "pending",
+    "swept": true
+   }
+  ],
+  "beliefs": [
+   {
+    "content": "Rabi is capable of terrible violence, and I sat beside him anyway \u2014 I need to understand what that says about me.",
+    "confidence": 0.9,
+    "formed_turn": 84,
+    "evidence_turns": []
+   },
+   {
+    "content": "Mara is gone for good, and the world keeps going \u2014 I keep planning a garden as if that makes it true.",
+    "confidence": 0.85,
+    "formed_turn": 84,
+    "evidence_turns": []
+   }
+  ],
+  "facts": [
+   {
+    "content": "Rabi says the planet will automatically erase any Mara from existence, making it as if she never existed, and that he fixed the yard.",
+    "turn": 74,
+    "quote": "Let me fix it",
+    "source": "witnessed"
+   },
+   {
+    "content": "I goe out barefoot with the kitchen fork and finds out what the south strip actually is.",
+    "turn": 76,
+    "source": "witnessed"
+   },
+   {
+    "content": "Rabi accepted the name Fernhaven for the planet without hesitation.",
+    "turn": 77,
+    "quote": "Fernhaven... I like it. That's it then.",
+    "source": "witnessed"
+   },
+   {
+    "content": "Rabi created the deer on this planet himself, and he thinks he may have made too many.",
+    "turn": 78,
+    "quote": "oh. Oops. Did you not see the deer around here? Maybe I made too many",
+    "source": "witnessed"
+   },
+   {
+    "content": "The basil seeds in the saucer have not swelled.",
+    "turn": 82,
+    "source": "witnessed"
+   },
+   {
+    "content": "Mara is whole again and standing at the ridge line, cradling her arm the way she did before.",
+    "turn": 86,
+    "quote": "Mara, whole again, cradling her arm the way she had before, watching the house.",
+    "source": "witnessed"
+   }
+  ],
+  "knows": [],
+  "first_person": true
+ },
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "status": null,
+   "pronouns": "he/him"
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "status": null,
+   "pronouns": "she/her"
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "status": "departed",
+   "pronouns": "he/him"
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "status": "departed",
+   "pronouns": "she/her"
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "status": "departed",
+   "pronouns": "she/her"
+  },
+  "char_mtjslytt2l8m7": {
+   "name": "King Tong",
+   "status": "dead",
+   "pronouns": "he/him"
+  },
+  "char_mtju2zz0wc7nw": {
+   "name": "Mara",
+   "status": "dead",
+   "pronouns": "she/her"
+  },
+  "char_mtjus03z2q051": {
+   "name": "Hamed",
+   "status": "departed",
+   "pronouns": null
+  },
+  "char_mtjv1cvx3en2m": {
+   "name": "Felicity",
+   "status": null,
+   "pronouns": "she/her"
+  }
+ },
+ "consequences": [
+  {
+   "id": "cq_mtjrauod4qfr3",
+   "description": "Emily is waiting for Rabi's reaction to her admission that she was scared he'd say no to something.",
+   "fire_turn": 22,
+   "severity": "notable",
+   "source_char": "char_mtggvs9t2dhp3",
+   "location_trigger": "Rabi and Emily's House",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjrea4wla0ds",
+   "description": "Emily and Rabi are now living with the new arrangement of Rabi eating only from Emily's body.",
+   "fire_turn": 24,
+   "fire_time": "Day 2, 18:58 (Evening)",
+   "severity": "notable",
+   "source_char": "char_mtggvs9t2dhp3",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjrlu0j7z9j4",
+   "description": "Emily returns late from the Lighthouse tonight",
+   "fire_turn": 27,
+   "fire_time": "Day 1, 22:53 (Night)",
+   "severity": "notable",
+   "source_char": "char_mtggvs9t2dhp3",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjrpj3ps5hgp",
+   "description": "Rabi must give a yes or no to Mara by Friday for Sunday's chicken dinner.",
+   "fire_turn": 31,
+   "fire_time": "Day 5, 08:58 (Morning)",
+   "severity": "notable",
+   "source_char": "char_mtggvs9vfhh5e",
+   "location_trigger": "Rabi and Emily's House",
+   "status": "pending"
+  },
+  {
+   "id": "cons_mtjrs3qnxrkhe",
+   "description": "Emily missed Grant-writing and reentry casework for the nonprofit: Missed deadlines mean a grant cycle lost and clients with nowhere to land.",
+   "fire_turn": 33,
+   "fire_time": "Day 3, 09:00",
+   "severity": "minor",
+   "source_char": "char_mtggvs9t2dhp3",
+   "status": "fired"
+  },
+  {
+   "id": "clockfire_clk_mtggvs9wcp1x6",
+   "description": "Seattle City Light's clock has run out: If the upgrade isn't finished, the substation will fail during the first cold snap, causing a blackout across West Seattle",
+   "fire_turn": 36,
+   "severity": "major",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjs918vscri6",
+   "description": "Rabi will meet Mara at the diner over his accusation and the future of the marriage.",
+   "fire_turn": 39,
+   "severity": "notable",
+   "source_char": "char_player",
+   "location_trigger": "The Copper Kettle Diner",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjseh0eb04yi",
+   "description": "Rabi's thrown wedding ring lies on the wet pavement outside the house \u2014 Mara hadn't picked it up; nobody is going after it",
+   "fire_turn": 41,
+   "severity": "notable",
+   "source_char": "char_mtggvs9t2dhp3",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjtdf3c0yltr",
+   "description": "Police arrive at King Tong's house to take Rabi's report about Drea.",
+   "fire_turn": 49,
+   "severity": "notable",
+   "location_trigger": "Kings house in Houston",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjtl4wktmd4z",
+   "description": "Mara's arm stays open, wet, and wrong under the porch light; if no one stops it, the wound will become infection or permanent damage.",
+   "fire_turn": 52,
+   "severity": "notable",
+   "source_char": "char_mtggvs9vfhh5e",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjttsdnvoxvs",
+   "description": "State and federal response to the nuclear destruction of a US city \u2014 a military and FEMA presence will eventually reach this location, with no infrastructure left to respond to.",
+   "fire_turn": 56,
+   "fire_time": "Day 3, 09:37 (Morning)",
+   "severity": "notable",
+   "source_char": "char_player",
+   "status": "fired"
+  },
+  {
+   "id": "clockfire_clk_mtggvs9ws24em",
+   "description": "Columbia City Neighborhood Association's clock has run out: If the development goes through, the neighborhood loses its character, Priya's studio loses its morning light, and several small businesses are forced out",
+   "fire_turn": 59,
+   "severity": "major",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjuwutcro0oc",
+   "description": "Mara has handed over the original map from Hamed, but it hasn't been accepted or examined yet. The contents may conflict with Rabin's claims or change the situation.",
+   "fire_turn": 70,
+   "fire_time": "Day 3, 11:18 (Morning)",
+   "severity": "notable",
+   "source_char": "char_mtju2zz0wc7nw",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjuzo6p4ce6c",
+   "description": "Emily is alone at the house with what just happened, no closure, no body to tend.",
+   "fire_turn": 72,
+   "fire_time": "Day 3, 10:38 (Morning)",
+   "severity": "notable",
+   "source_char": "char_player",
+   "status": "fired"
+  },
+  {
+   "id": "cq_mtjvezan718bm",
+   "description": "Mara appeared at the edge of the yard, intact, and began walking toward the house \u2014 she is present and approaching.",
+   "fire_turn": 77,
+   "severity": "notable",
+   "source_char": "char_mtju2zz0wc7nw",
+   "location_trigger": "A planet in andromeda galaxy",
+   "status": "fired"
+  }
+ ],
+ "promises": [
+  {
+   "id": "promise_mtjpwgzgc7776",
+   "from": "char_player",
+   "to": "char_mtggvs9t2dhp3",
+   "text": "Go hiking this weekend, with Rabi picking the trail to surprise Emily.",
+   "made_turn": 4,
+   "weight": 2,
+   "status": "kept",
+   "evidence_turns": [
+    6,
+    8,
+    9
+   ],
+   "settled_turn": 9,
+   "settled_by_evidence": true
+  }
+ ],
+ "mara_prose": "Felicity's mouth pulled left, the smile arriving before she looked up from the sod. She had a fistful of gray turf in one hand, roots trailing regolith dust in a thin line back to the torn ground.\n\n\"You'd have to be,\" she said. \"No shirt's surviving this clay.\"\n\nShe tossed the turf onto the pile behind her and wiped her palm on her thigh, leaving a pale smear. \"The spade's by the house. I left it against the step. You get that, I'll mark the bed line with the string.\" She turned and walked a few paces along the south strip, bare feet pressing small prints into the loose gray, and stopped where the ground firmed at the ridge's edge. \"Hold this end.\" She held out a loop of twine that had been around her wrist. \"And I'll show you what full sun means here.\"\n\nPast her, out where the regolith gave way to rock, a figure stood at the ridge line. Mara, whole again, cradling her arm the way she had before, watching the house.\n\nFelicity followed the direction of his gaze. \"There's that,\" she said. \"At the edge again.\" She didn't drop the twine. \"I want the bed dug before we deal with her. If she's going to keep standing there, she can watch me garden.\""
+}
