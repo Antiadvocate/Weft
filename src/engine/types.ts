@@ -346,6 +346,10 @@ export interface Identity {
    *  release. Cleared the moment it does, or by hand from the character panel. Written and read by
    *  the departure/arrival guards in engine/turn.ts — see engine/exit.ts for what counts. */
   held?: { since_turn: number; where: string; note: string };
+  /** In-world time this character was last MOVED to where they are now. The arrival guard reads it
+   *  to ask whether a journey could have happened in the time available. Undefined on a character
+   *  the engine has never moved (a forge-authored cast member standing where they started). */
+  location_since?: string;
   location?: string;          // place id (or free name) where this character currently is
   portrait_url?: string;
   /** THE EXACT WORDS THAT DREW THIS PERSON — written when the portrait is generated, then reused

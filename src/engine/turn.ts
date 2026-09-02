@@ -26,7 +26,7 @@ import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent }
 import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
-import { advance, heuristicMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
+import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
@@ -1545,7 +1545,7 @@ const SCALE_SLACK = 4;      // an unmeasured pair may be several times the longe
 const SCALE_FLOOR = 45;     // …and never so small that arrival becomes instant
 export function worldScale(state: SaveState): number | undefined {
   const log = state.travel_log ?? [];
-  let longest = 0;
+  const hops: number[] = [];
   for (let i = 1; i < log.length; i++) {
     if (log[i - 1].place === log[i].place) continue;
     const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
@@ -1553,10 +1553,19 @@ export function worldScale(state: SaveState): number | undefined {
     const mins = minutesBetween(t0, t1);
     // A hop measured across a sleep or a montage is not a measurement of the distance — it is a
     // measurement of the gap. Only same-day, plausibly-direct hops count.
-    if (mins > 0 && mins <= 12 * 60) longest = Math.max(longest, mins);
+    if (mins > 0 && mins <= 12 * 60) hops.push(mins);
   }
-  if (!longest) return undefined;
-  return Math.max(SCALE_FLOOR, Math.round(longest * SCALE_SLACK));
+  if (!hops.length) return undefined;
+  // THE TYPICAL HOP, NOT THE LONGEST. This read the maximum, which is the right statistic for "how
+  // far can this world stretch" and the wrong one for "what does an unmeasured pair cost". The
+  // moment a story that had been a city for forty turns put the player on a plane, the longest hop
+  // became a cross-country flight, and every unknown pair in Seattle — including the walk from the
+  // farmers market to the player's own front door — would have inherited it. A world can contain
+  // both a neighbourhood and a flight; its ORDINARY distance is the middle of what has been walked,
+  // and the flight is not unknown anyway, because the player flew it and step 2 above measured it.
+  hops.sort((a, b) => a - b);
+  const typical = hops[Math.floor((hops.length - 1) / 2)];
+  return Math.max(SCALE_FLOOR, Math.round(typical * SCALE_SLACK));
 }
 
 function emptyDiff(): SimulatorDiff {
@@ -3662,7 +3671,15 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // HOW MUCH TIME THIS TURN TOOK, hoisted above the world-motion block. The clock itself is not
   // advanced until later (the offstage passes deliberately run against the time the scene happened
   // at), but anything here that moves with time rather than with turns needs the number now.
-  const minutes = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
+  // The bookkeeper's number, floored by what the PLAYER said the turn cost. A declared action
+  // occurs at the declared scale, and how long it took is part of the declaration — see
+  // declaredMinutes for the flight that was billed at two minutes and took the geography with it.
+  const billed = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
+  const declared = declaredMinutes(action);
+  const minutes = Math.max(billed, declared);
+  if (declared > billed) {
+    console.info(`[time] the player declared ~${declared}min; the bookkeeper billed ${billed} — taking the declaration`);
+  }
   // asList, not a spread: `offscreen` is typed string[] and written by a model, and one returned
   // its lines as {char_id, where} objects. They reach the history entry and Play renders each one
   // as a React child, which throws and then keeps throwing on every load of that save.
@@ -5321,7 +5338,40 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           console.warn(`[cast] blocked phantom arrival of ${c.name} into ${state.world.places[pid]?.name ?? pid} — unnamed in prose and action`);
           continue;
         }
+        // AND A NAME IN THE PROSE IS NOT A JOURNEY.
+        //
+        // Everything above asks whether the prose MENTIONS this person. Nothing asks whether they
+        // could possibly be here. The pursuit walk in replanDrives has consulted travelMinutesBetween
+        // for as long as it has existed — it is why a wife three miles away waits for the clock — and
+        // the bookkeeper's own location diff, which moves far more people far more often, has never
+        // consulted it once. So the ledger could put anybody anywhere the moment the narrator said
+        // their name.
+        //
+        // From one save: the player flew Seattle to Houston. Inside the hour, a friend from Seattle
+        // was in the Houston kitchen ("I got the last flight I could"), a second Seattle acquaintance
+        // materialised beside her, and the host was made to say she had been there two days — a
+        // person who had been standing on the player's porch in Seattle forty minutes earlier. The
+        // player's own words for it: "Nice quantum teleportation. No quantum cloning?" He was right,
+        // and there was no cloning; there was a ledger with no notion of distance.
+        //
+        // location_since is stamped on every accepted move below, so this asks the only question
+        // that matters: has enough in-world time passed, since this person was last put somewhere,
+        // for them to have got from there to here. Unknown stamp means an unmoved character standing
+        // where the forge put them, and that is not the case this guard is for — let it through.
+        const sinceStamp = c.location_since;
+        if (sinceStamp && fromPid && fromPid !== pid) {
+          const needed = travelMinutesBetween(state, state.world.places[fromPid]?.name ?? "", state.world.places[pid]?.name ?? "");
+          const have = minutesBetween(sinceStamp, state.world.current_time);
+          if (needed > 0 && have >= 0 && have < needed) {
+            shifts.push(`bookkeeping correction: ${c.name} cannot be here yet — ${state.world.places[fromPid]?.name ?? "where they were"} is ${Math.round(needed)} minutes away and ${Math.round(have)} have passed`);
+            console.warn(`[cast] blocked impossible arrival of ${c.name}: needs ${Math.round(needed)}min, has ${Math.round(have)}min`);
+            continue;
+          }
+        }
       }
+      // THE STAMP THE GUARD ABOVE READS. Written on every accepted move, so the next one can ask
+      // how long this person has actually had to get anywhere.
+      state.characters[cid].location_since = state.world.current_time;
       // a move is an event the character remembers: where from, where to, when
       const fromName = (fromPid && state.world.places[fromPid]?.name) || "elsewhere";
       const toName = state.world.places[pid]?.name ?? mv.place;

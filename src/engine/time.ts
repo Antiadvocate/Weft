@@ -49,6 +49,53 @@ export function heuristicMinutes(action: string, prose = ""): number {
   return Math.min(30, 2 + Math.round(prose.length / 320) * 3);
 }
 
+/**
+ * WHAT THE PLAYER SAID THE TURN COST, AS A FLOOR THE BOOKKEEPER CANNOT UNDERCUT.
+ *
+ * heuristicMinutes above is a FALLBACK: it runs only when the bookkeeper omits elapsed_minutes, so
+ * a bookkeeper that answers is always believed. On one save the player typed
+ *
+ *     "After hours of travel. I finally arrive in Houston and take an uber to kings house."
+ *
+ * and the bookkeeper returned two minutes. The world clock went 19:08 to 19:10, so as far as every
+ * other system was concerned the player was still in Seattle on the same evening, a few minutes
+ * from his own front door. Everything downstream followed from that one number: a friend from
+ * Seattle turned up in the Houston kitchen fifty-five minutes later having "got the last flight",
+ * a second one materialised beside her, and the player spent four turns being told that people who
+ * had been on his porch an hour ago had been in Texas for two days. The engine was not lying to
+ * him. It genuinely believed Houston was twenty minutes away, because nothing had ever told it
+ * otherwise and the one thing that did — the player's own sentence — was outranked by a guess.
+ *
+ * The engine's own doctrine already settles this: "A declared action occurs exactly as declared, at
+ * the declared scale." A duration is part of the declaration. So when the player states how long
+ * something took, or declares a journey whose length is not in question, that is the floor; the
+ * bookkeeper may bill more and may not bill less.
+ *
+ * Read ONLY from the player's own words, never the prose — the narrator writing "hours later" is
+ * the narrator's guess, and it is the bookkeeper's job to price that. This is the player speaking.
+ */
+export function declaredMinutes(action: string): number {
+  const s = String(action ?? "").toLowerCase();
+  // an explicit count, in the player's own words: "three hours", "a couple of days", "20 minutes"
+  const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, "a couple of": 2, "a few": 3, several: 4, half: 0.5 };
+  const unit: Record<string, number> = { minute: 1, minutes: 1, min: 1, mins: 1, hour: 60, hours: 60, day: 1440, days: 1440, week: 10080, weeks: 10080 };
+  let best = 0;
+  for (const m of s.matchAll(/\b(\d{1,3}|a couple of|a few|several|half|an?|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(minutes?|mins?|hours?|days?|weeks?)\b/g)) {
+    const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM[m[1]] ?? 0;
+    const u = unit[m[2]] ?? 0;
+    if (n && u) best = Math.max(best, Math.round(n * u));
+  }
+  // ...and the unnumbered declarations that are still declarations of length
+  if (/\b(hours of travel|after hours|for hours|all day|the whole day|all night)\b/.test(s)) best = Math.max(best, 4 * 60);
+  if (/\b(overnight|slept|sleep till|sleep until|next morning|the following day)\b/.test(s)) best = Math.max(best, 8 * 60);
+  // A FLIGHT IS NOT A WALK. The player naming air travel is naming a journey no city contains, and
+  // it is the single case where believing a two-minute bill breaks the whole geography.
+  if (/\b(fly|flew|flight|flying|red[- ]eye|land(?:ed|s)? in|plane|airport)\b/.test(s) && /\b(to|in|into|arrive|arrived|reach)\b/.test(s)) {
+    best = Math.max(best, 3 * 60);
+  }
+  return Math.min(best, 14 * 24 * 60);   // a fortnight is the cap; longer belongs to the interlude
+}
+
 /** CALENDAR — layered over the canonical "Day N, HH:MM" clock without changing the stored
  *  format (every parser in the engine depends on it). Given the bible's start_date (Day 1),
  *  returns "Fri 12 Jun 2035" for any time string; empty when no start_date is set. */
