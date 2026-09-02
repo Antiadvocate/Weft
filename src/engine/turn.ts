@@ -55,6 +55,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
+import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
@@ -3024,17 +3025,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       // ...and a body the record does not give this person. Detected on the output for the same
       // reason as the two above: it can only be quoted once it has been written.
       state.last_line_reprint = findLineReprint(contextHistory(state).map((h) => h.narrator_prose ?? ""), prose);
+      if (state.last_line_reprint) noteFire(state, "line", `"${state.last_line_reprint.slice(0, 70)}" said again`);
       state.last_anatomy = findAnatomyBreach(state, prose);
       // ...and a family invented to win an argument. Dialogue is the only channel with no guard on
       // it at all, and family is what a devastating line reaches for. See kinship.ts.
       state.last_kin = findKinBreach(state, prose);
       if (state.last_kin) {
+        noteFire(state, "kin", `${state.last_kin.owner} given a ${state.last_kin.relation} — ${state.last_kin.because}`);
         ev.onMeta({ shifts: [`the prose gave ${state.last_kin.owner} a ${state.last_kin.relation} the record contradicts — it will be corrected and voided next turn`] });
       }
       if (state.last_anatomy) {
+        noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
         ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
       }
       if (state.last_reprint) {
+        noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
         ev.onMeta({ shifts: [`this turn reprinted ${Math.round(state.last_reprint.overlap * 100)}% of the last one — the narrator will be shown it next turn`] });
       }
       if (maxims.length >= 2) {
@@ -4047,6 +4052,11 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // ...and, once, on the turn a want crosses the ceiling: the engine has stopped ordering it, and
     // the player is the only one who can fix a want that cannot be written as an act.
     for (const line of staleWants(state, state.world.present)) shifts.push(line);
+    // AND THE AGGREGATE. Every detector above corrects its own failure into the next turn and
+    // forgets; nothing was counting them, which is how 208 turns of one world produced fifteen
+    // separate defects while the chapter auditor returned on_contract every single time. This is
+    // the only part of the loop that talks to the person who can actually act on it.
+    { const alarm = integrityAlarm(state); if (alarm) shifts.push(alarm); }
   }
   // WHAT THE WORLD DID ABOUT WHAT IT IS TURNING INTO. Model-judged, like the trait report beside it:
   // a claim about buildings is moved by a wall going soft, which no string test could ever see. A
@@ -4293,6 +4303,22 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         const openTitles = (state.world.threads ?? [])
           .filter((t) => t.status === "active" && String(t.title ?? "").trim())
           .map((t) => String(t.title).trim());
+        // THE RECORD IT HAS NEVER BEEN GIVEN. Five audits across six saves of one world returned
+        // on_contract every time while a romance became a stalking thriller with an invented sister
+        // in it — correctly, on the evidence: the beats are the bookkeeper's summaries, and an
+        // invention the narrator made is in them as a plain statement of fact. An auditor handed a
+        // laundered transcript and asked "is this the right story" says yes. Handed the cast's own
+        // facts as well, it can say which sentences the record denies.
+        const castRecord = Object.entries(state.characters)
+          .filter(([id, c]) => id !== "char_player" && c?.name && c.status !== "dead")
+          .slice(0, 8)
+          .map(([id, c]) => {
+            const roles = (state.world.edges ?? [])
+              .filter((e) => e.from === id || e.to === id)
+              .flatMap((e) => e.roles ?? []);
+            const where = state.world.places[c.location ?? ""]?.name;
+            return `- ${c.name}${typeof c.age === "number" ? `, ${c.age}` : ""}${roles.length ? ` — known here as: ${[...new Set(roles)].join(", ")}` : ""}${where ? ` — currently at ${where}` : ""}. ${String(c.background ?? "").slice(0, 320)}`;
+          }).join("\n");
         const clockLines = (state.world.clocks ?? [])
           .filter((c) => c.status === "running" && String(c.objective ?? "").trim())
           .map((c) => `${c.faction} — ${c.objective}`.trim());
@@ -4307,10 +4333,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           // become the engine and could only answer in prose, which nothing downstream could act on.
           // Given the open threads by name, it can point at the ones the world keeps pressing
           // through — and a title is a handle the pressure controller can hold. See engine_threads.
-          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (a clock on this list is a faction working a timer; its pull only grows):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\nTHE CAST RECORD — who these people actually are. The beats below are the bookkeeper's account and may state things this record denies; that is what "contradictions" is for:\n${castRecord || "(none)"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (a clock on this list is a faction working a timer; its pull only grows):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
-        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; contradictions?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
+        // WHAT THE SPAN CONTRADICTS. Reported to the PLAYER, never fed back as a correction: by the
+        // time an audit runs, the invented fact is 25 turns deep in memories, summaries and queued
+        // intents, and a narrator told to un-invent it writes a scene about the mistake. The player
+        // can roll back. Nothing else in this engine can.
+        for (const line of (ch.contradictions ?? []).slice(0, 4)) {
+          const t = String(line ?? "").trim();
+          if (!t) continue;
+          noteFire(state, "kin", t.slice(0, 120));
+          shifts.push(`the record disagrees with what the story has been saying — ${t.slice(0, 140)}`);
+        }
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
         for (const cn of (ch.canon_add ?? []).slice(0, 2)) {
@@ -5278,6 +5314,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           destination: state.world.places[pid]?.name ?? mv.place,
         });
         if (!evidence.ok) {
+          noteFire(state, "swap", `${c.name} moved out of a scene the prose keeps them in`);
           shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
           continue;
         }
@@ -5334,6 +5371,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // the player calling for them is evidence too — "I send for Angeline" should work
         const calledFor = [...new Set([nameLow, ...tokens])].some((p) => p.length >= 3 && action.toLowerCase().includes(p));
         if (!named && !calledFor) {
+          noteFire(state, "phantom", `${c.name} moved into the scene with nothing in the prose showing it`);
           shifts.push(`bookkeeping correction: ${c.name} was not in this scene — the prose never showed them arrive`);
           console.warn(`[cast] blocked phantom arrival of ${c.name} into ${state.world.places[pid]?.name ?? pid} — unnamed in prose and action`);
           continue;
@@ -5363,6 +5401,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           const needed = travelMinutesBetween(state, state.world.places[fromPid]?.name ?? "", state.world.places[pid]?.name ?? "");
           const have = minutesBetween(sinceStamp, state.world.current_time);
           if (needed > 0 && have >= 0 && have < needed) {
+            noteFire(state, "arrival", `${c.name} placed ${Math.round(needed)} minutes away with ${Math.round(have)} to travel it`);
             shifts.push(`bookkeeping correction: ${c.name} cannot be here yet — ${state.world.places[fromPid]?.name ?? "where they were"} is ${Math.round(needed)} minutes away and ${Math.round(have)} have passed`);
             console.warn(`[cast] blocked impossible arrival of ${c.name}: needs ${Math.round(needed)}min, has ${Math.round(have)}min`);
             continue;
