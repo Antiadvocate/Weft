@@ -987,6 +987,9 @@ export interface SaveState {
   /** The prose giving a character genital anatomy their own record contradicts. Quoted back next
    *  turn and voided, so the error does not become the record. See engine/anatomy.ts. */
   last_anatomy?: { name: string; part: "penis" | "vulva"; sentence: string } | null;
+  /** A line of dialogue reprinted verbatim from an earlier turn — the long-range half of the
+   *  restage, outside any list that fits in the prompt. See engine/echo.ts. */
+  last_line_reprint?: string | null;
   /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
    *  Cleared when the ledger recovers. See castGoneCold. */
   cast_cold_said?: number;

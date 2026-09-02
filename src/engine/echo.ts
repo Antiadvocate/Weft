@@ -24,7 +24,7 @@ import type { SaveState } from "./types";
  * because a two-word line cannot be an aphorism — but it can very easily be "Again." So this reads
  * every quoted run, however short.
  */
-function quotedLines(prose: string): string[] {
+export function quotedLines(prose: string): string[] {
   return [...String(prose ?? "").matchAll(/["\u201C\u201D]([^"\u201C\u201D\n]{1,400})["\u201C\u201D]/g)].map((m) => m[1].trim()).filter(Boolean);
 }
 
@@ -286,4 +286,36 @@ export function reprintFix(hit: { span: string; overlap: number } | null | undef
   if (!hit?.span) return "";
   return `\nLAST TURN REPRINTED THE TURN BEFORE IT. ${Math.round(hit.overlap * 100)}% of its distinctive words were the previous turn's, including this run word for word: "${hit.span}…"
 That is not a scene. Whatever the player typed, the world had already moved past that page and did not move back. THIS TURN STARTS FROM WHERE THE LAST ONE ENDED and goes somewhere the story has not been: the bodies are in different positions than they were, or somebody has said the thing they had not said, or the act is further along, or someone has arrived, moved, or stopped. Do not re-establish what is already established, do not restage the same gesture in new words, and do not re-run a line of dialogue in a new wording. If the player's input was a question about what is happening, ANSWER IT INSIDE THE FICTION — state plainly, in the prose, where everyone is and what is being done to whom right now — and then move.`;
+}
+
+/* ── A LINE THE STORY HAS ALREADY PRINTED ───────────────────────────────────────────────────────
+ *
+ * lastWord() bans the previous few turns' dialogue, which is the window a scene restages itself in.
+ * It is the wrong window for the other repeat. One save opened, at turn 0, with
+ *
+ *     "Blanche, you're being dramatic," Emily says
+ *
+ * and said it again at turn 9, word for word, to the same plant — because the core-trait rotation
+ * came round to "Talks to her plants by name and scolds them when they droop" on both turns, and a
+ * model handed the same order in the same room reaches for the same sentence. Nine turns is far
+ * outside any list that can fit at the end of a sixty-thousand-character prompt, so this is caught
+ * where the reprint detector above catches its own: on the output, quoted back on the turn after.
+ */
+
+/** The longest quoted line this turn that already appeared, verbatim, in an earlier turn. */
+export function findLineReprint(previous: readonly string[], prose: string): string | null {
+  const before = new Set<string>();
+  for (const p of previous) for (const q of quotedLines(p)) before.add(flatten(q));
+  if (!before.size) return null;
+  const hits = quotedLines(prose)
+    .filter((q) => q.split(/\s+/).filter(Boolean).length >= 4 && before.has(flatten(q)));
+  if (!hits.length) return null;
+  return hits.sort((a, b) => b.length - a.length)[0].slice(0, 180);
+}
+
+/** The correction. */
+export function lineReprintFix(line: string | null | undefined): string {
+  if (!line) return "";
+  return `\nLAST TURN SOMEBODY SAID A LINE THIS STORY HAS ALREADY PRINTED, WORD FOR WORD: "${line}"
+It was on the page once already and the reader recognised it. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
 }

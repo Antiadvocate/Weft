@@ -51,12 +51,12 @@ import { apertureNote, heardYouNote } from "./aperture";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
-import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
+import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, findReprint, reprintFix, stripScaffolding, stripMetaPlayer } from "./echo";
+import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
@@ -173,10 +173,52 @@ function echoBan(_state: SaveState): string {
  *  turn's dialogue: both lines were named, verbatim, as forbidden, and both were said again anyway.
  *  A rule that is right and unread is not a rule. Same content, moved to where nothing follows it. */
 export function lastWord(state: SaveState): string {
-  const prev = state.history[state.history.length - 1]?.narrator_prose ?? "";
-  const spoken = (prev.match(/["\u201c][^"\u201d]{8,160}["\u201d]/g) ?? []).slice(-4).map((q) => q.trim());
-  if (!spoken.length) return "";
-  return `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`;
+  // PAIR THE QUOTES FIRST, THEN FILTER BY LENGTH — the other way round is why this block has been
+  // quoting NARRATION back at the narrator as though somebody had said it. The old pattern required
+  // 8-160 characters BETWEEN the marks, so a short line ("Okay," / "Oh.") failed to match, its
+  // opening quote was skipped, and every pair after it in the paragraph was off by one: the regex
+  // then matched from one line's CLOSING quote to the next line's OPENING quote and captured the
+  // prose in between. Measured on one save's last turn, three of the four "already said" entries
+  // were narration, including a whole paragraph about a tattoo. quotedLines pairs on every quote
+  // and is the extractor the rest of the engine already uses.
+  const quotes = (t: string) => quotedLines(t).map((q) => `"${q.trim()}"`).filter((q) => q.length >= 10 && q.length <= 162);
+  const ctx = contextHistory(state);
+  const prev = ctx[ctx.length - 1]?.narrator_prose ?? "";
+  const spoken = quotes(prev).slice(-4);
+
+  // ...AND A LINE THE HABIT WHEEL WILL BRING BACK IS NOT FROM LAST TURN.
+  //
+  // This looked only at the previous turn, which is the right window for a scene restaging itself
+  // and the wrong one for the other repeat: a character's trait comes round on the rotation and the
+  // model reaches for the same sentence it used the last time. One save's turn 0 opened with
+  // "Blanche, you're being dramatic," and turn 9 — nine turns later, well outside this window —
+  // said it again, word for word, with the plant trait ordered on both. Same failure, longer arm.
+  //
+  // So: any line the story has ALREADY used, repeated exactly, anywhere in recent memory. Matched on
+  // the line itself rather than on who said it, because a verbatim reprint is a reprint whoever it
+  // is handed to. Kept to exact repeats — a paraphrase is a judgement call and belongs to the rule
+  // above, not to a list.
+  // Everything already on the page, not just what has been said twice — the Blanche repeat was a
+  // SECOND use, and a rule that only fires on the third would have let it through. Distinctive
+  // lines first: the longer a line is, the more obviously it is a reprint when it comes back, and a
+  // short line ("Okay." / "I know.") is one people really do say twice. Capped so this stays a few
+  // hundred characters at the very end of a sixty-thousand-character prompt.
+  // Most recent first, because that is the window a scene actually restages itself in, and a list
+  // long enough to reach a line from nine turns ago would be longer than the block it sits in. The
+  // long-range case — a habit coming round and bringing its sentence with it — is caught on the
+  // OUTPUT instead, by findLineReprint, and corrected on the turn after. See echo.ts.
+  const earlier: string[] = [];
+  for (const h of ctx.slice(-6, -1)) for (const q of quotes(h.narrator_prose)) earlier.push(q);
+  const reused = [...new Set(earlier.reverse())].filter((q) => !spoken.includes(q)).slice(0, 8);
+
+  if (!spoken.length && !reused.length) return "";
+  const a = spoken.length
+    ? `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`
+    : "";
+  const b = reused.length
+    ? `\n[ALREADY ON THE PAGE EARLIER IN THIS STORY — none of these is said again, word for word: ${reused.join(" / ")}. A line the reader has already read is spent, however long ago it was and whoever says it this time. Whatever brings a character back to it — a habit of theirs, a plant they scold, a joke that landed once — they reach it a different way now, or they do something instead of saying anything.]`
+    : "";
+  return a + b;
 }
 
 const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no "as if / as though / with the air of / the way she —", no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
@@ -2503,7 +2545,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + anatomyFix(state.last_anatomy) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2920,9 +2962,10 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
       // actually produced prose, so an interlude or a montage in between does not mask it.
-      state.last_reprint = findReprint(state.history.filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
+      state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
       // ...and a body the record does not give this person. Detected on the output for the same
       // reason as the two above: it can only be quoted once it has been written.
+      state.last_line_reprint = findLineReprint(contextHistory(state).map((h) => h.narrator_prose ?? ""), prose);
       state.last_anatomy = findAnatomyBreach(state, prose);
       if (state.last_anatomy) {
         ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
@@ -3921,6 +3964,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
     // here because it needs the habit rows this loop has just written. See engine/authored.ts.
     for (const line of noteWantMisses(state, turn, state.world.present, simAnswered)) shifts.push(line);
+    // ...and, once, on the turn a want crosses the ceiling: the engine has stopped ordering it, and
+    // the player is the only one who can fix a want that cannot be written as an act.
+    for (const line of staleWants(state, state.world.present)) shifts.push(line);
   }
   // WHAT THE WORLD DID ABOUT WHAT IT IS TURNING INTO. Model-judged, like the trait report beside it:
   // a claim about buildings is moved by a wall going soft, which no string test could ever see. A
