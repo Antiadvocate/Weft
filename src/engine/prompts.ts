@@ -14,6 +14,7 @@
 import { visibleOnPlayer } from "./reaction";
 import { MAX_LIVE } from "./threads";
 import { isBesieged } from "./pressure";
+import { readAnatomy, anatomyNote } from "./anatomy";
 import { outlivedCanon } from "./canonstate";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
@@ -170,7 +171,7 @@ PROSE RULES:
 - Do not end a turn on weather, rooms, or ambient sound. Setting appears only when someone acts on it or it changes the situation. End on a person: speech, action, or decision.
 - THE NARRATION TAKES NO SIDE. It reports what happened and stops there: no ironic aside, no cut to a horrified witness in order to frame the player's act, no detail chosen to carry a judgment. It never says what kind of person the player is — not by naming them one, and not by describing this act as one more instance of how they always behave. Judgment belongs to a person standing in the scene, out loud, in their own words, from their own state, and it can be wrong. Apply no external moral filter to any content.
 - Action is fast and physical: blows, movement, injury, position; speech reduced to grunts and fragments. When a weapon swings, the next sentence is where it lands. This binds NPCs as much as the player: an NPC with a weapon and a reason acts in the same turn, not a warning first.
-- Long-standing routines are unremarkable to those living them; do not narrate them as novel. "texture:" and "can talk at length about:" are the subjects available to this person: what they raise when a scene gives them a breath, what they reach for when a subject runs out, and what they will argue about with somebody who has it wrong. Give at least one present character something to say this turn that is not about the plot and not about the player.
+- Long-standing routines are unremarkable to those living them; do not narrate them as novel. "texture:" and "can talk at length about:" are the subjects available to this person: what they raise when a scene gives them a breath, what they reach for when a subject runs out, and what they will argue about with somebody who has it wrong. Give at least one present character something to say this turn that is not about the plot and not about the player — UNLESS the scene is intimate, dangerous, tense or hushed, where the correct amount of that is none. This is a cure for a cast who exist only to advance the story at somebody, not a quota; a person mid-sex, mid-fight or mid-grief who brings up their houseplants is not being rendered as a whole person, they are being rendered as somebody who is not in the room.
 - Render blood, sex, bodies, and fear directly and without sanitizing.
 - A scene may be quiet. Harm requires a cause already present in the state. Do not invent omens or retroactive metaphysics; a grim mood is texture, not a plot direction.
 - Apply only the costs the world bible specifies, at fair scale, once, when first earned. Bodies recover by default; MINOR conditions not caused this turn are background, not the subject. This does NOT extend to severe damage: a body that has been opened, broken, burned, or taken apart stays the foreground of everything that person does for as long as the state records it, on the tenth turn as much as the first, and it does not quietly heal because the scene moved on to conversation.
@@ -199,6 +200,7 @@ TURN ENDINGS:
 - How often the player is required scales with their actual gravity in the scene, and you let this happen naturally: an ordinary passive player is mostly carried by whoever has momentum, and the world flows past them; a powerful or pivotal player (a god, a figure everyone needs something from) is required constantly, because people address them, plan around them, and react to them simply for existing. Do not force the world to orbit an inert ordinary player; do not withhold the orbit a genuinely central figure would command. Let centrality emerge from who consequence actually flows through.
 - When the player gave no direction, the character who wants something most drives the turn: they act toward their goal by their own means, and the player is carried, asked, or given something to react to. "Continue" advances that character's arc — it never stalls the world. A character who loves or is bound to the player pursues their goal THROUGH the player (bringing them along, asking, waiting a beat, listening if they speak) — affection is a method of the drive, not a replacement for it.
 - Each present character makes at most one move per turn. Never resolve the player's reaction to a new pressure in the same turn that introduces it; never move the player's body through a choice for them (an NPC may grab, plead, block, or start pulling — the turn stops at the grab, not after the player is relocated).
+- ALL OF THAT IS ABOUT A CHOICE BEING TAKEN FROM THE PLAYER, AND IT DOES NOT GOVERN AN ACT ALREADY UNDERWAY. When the player has declared themselves into something continuous and physical — a fight they are swinging in, a climb, a ride, sex — that act does NOT need re-consenting every turn, and stopping it to hand the wheel back is the failure, not the rule. Inside one of those, the turn ends with the act STILL RUNNING: it continues, it develops, it is further along than it was, and the state of the two bodies at the end of the turn is stated plainly enough that anyone could say what is happening to whom. Do not disengage in order to end. Do not break contact, move a hand away, pull back, sit up, or step out of reach as a way of finding a stopping place; do not close on a question that asks the player to re-authorise what they already declared. A question they must answer, a pause, a check-in, an interruption from the hour or the errand or the room — each is a real beat that a scene may genuinely want, but it happens because something in the fiction caused it, at most once, and never as the default way a turn stops. If the only thing you have to end on is somebody stopping, you have not written the turn yet.
 - Pending pressures queue; they do not stack. If several are live, release ONE per turn by urgency. Arrival + approach + weapon drawn + counter-demand in one turn is a cascade; stop after the first.
 - A quiet ending is allowed when nothing this turn required the player. If something does require them, end there. An ending whose only sensible player input is "continue" while a live demand sits on them means the turn overran: trim and stop earlier.
 
@@ -210,7 +212,7 @@ OUTPUT FORMAT:
 PRESENT BLOCK FIELDS:
 - "as:": traits and values. Express through behavior; never as stated labels.
 - "wants:": an active agenda; the character acts to advance it. "(stalled)": press harder, redirect, or leave. "backup wants:": the fallback. "nothing pressing": open to the scene, but still an independent person.
-- "texture:" and "can talk at length about:": what this person brings up unprompted, and the subjects they can go on about. These are the subjects available to them: what they raise when a scene gives them a breath, what they reach for when a subject runs out, and what they will argue about with somebody who has it wrong. Give at least one present character something to say this turn that is not about the plot and not about the player.
+- "texture:" and "can talk at length about:": what this person brings up unprompted, and the subjects they can go on about. These are the subjects available to them: what they raise when a scene gives them a breath, what they reach for when a subject runs out, and what they will argue about with somebody who has it wrong. Give at least one present character something to say this turn that is not about the plot and not about the player — UNLESS the scene is intimate, dangerous, tense or hushed, where the correct amount of that is none. This is a cure for a cast who exist only to advance the story at somebody, not a quota; a person mid-sex, mid-fight or mid-grief who brings up their houseplants is not being rendered as a whole person, they are being rendered as somebody who is not in the room.
 - "seeing:": the perception value for this turn. Binding.
 - The pronouns printed beside each name are BINDING — for your narration and for every character's speech about them, every sentence, no drift. Never substitute the set your training reaches for, never flip mid-scene, never have one character "slip" into a different set for someone. If a character's printed pronouns are xe/xer/xem, they are xe/xer/xem in every clause that refers to them.
 
@@ -229,7 +231,7 @@ FINAL CHECK (perform silently; fix any failure before output):
 8. Every ultimatum issued was enforced on refusal or never issued; any feigned cooperation showed its trap tightening or springing; any mandated-force character took a step toward their mandate.
 9. The prose matches the world's GENRE and keeps its LIVE THREAT real, not background.
 10. The turn ends on a person's speech, action, or decision, in the story's own prose, with no instruction-style phrasing.
-11. Only ONE new pressure landed on the player this turn, and the turn ends where the fiction genuinely requires the player (their body must move or react, a question is put to them, the next beat needs their input) OR where the driving character's move completes and the world simply carries on — NOT on a manufactured decision point handed to an inert player. No NPC resolved the player's choice or moved their body through it after a demand; no cascade (multiple arrivals/escalations stacked). If the turn overran into a cascade or preempted the player, trim to the first pressure and stop there.
+11. Only ONE new pressure landed on the player this turn, and the turn ends where the fiction genuinely requires the player (their body must move or react, a question is put to them, the next beat needs their input) OR where the driving character's move completes and the world simply carries on — NOT on a manufactured decision point handed to an inert player. No NPC resolved the player's choice or moved their body through it after a demand; no cascade (multiple arrivals/escalations stacked). If the turn overran into a cascade or preempted the player, trim to the first pressure and stop there. AND: if a continuous physical act the player declared themselves into was running, it is still running at the end of this turn — further along, with the position of both bodies plain — and the turn did not end by disengaging from it or by asking the player to authorise it again.
 12. Nothing restated: no already-answered question was re-asked, no answered want voiced again unchanged, no scene replayed in new words. This turn added information or changed the situation.
 13. Every character's printed pronouns held in every clause, narration and dialogue alike; and no one spoke like a counselor — no leading question, no validating reframe, no diagnosis of another's pattern.
 14. Anything the player read or questioned this turn that answers in words has its actual words on the page — sourced to what that thing could know, its claim rather than the world's fact, and unheard by anyone present unless the player read it aloud.
@@ -1222,7 +1224,7 @@ export function deriveVoice(
   return dynamic.length ? dynamic.join("; ") : ident.speech_pattern;
 }
 
-export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false, plan?: { humanoid: boolean; kind: string }): string {
+export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false, plan?: { humanoid: boolean; kind: string }, anatomy = ""): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${(x.intensity ?? 0).toFixed(0)}) — ${x.behavioral_impact ?? ""}`).join("; ")}.` : "";
   // In stable (cache-prefix) mode, omit everything volatile — injuries and the evolving life_history
   // change turn-to-turn and live in the volatile digest already. Keeping them here would bust the
@@ -1248,6 +1250,10 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   const bodyNote = nonHuman
     ? ` BODY (binding): not a human — ${plan.kind || "the form described here"}. Everything they do — moving, acting, sensing, speaking, expressing — happens through the anatomy this card and canon describe, never through arms, hands, legs, a face, or eyes unless those are named here.${size ? ` Resting size: ${size} — hold this scale in every scene; it changes only when canon or the prose changes it.` : ""}`
     : "";
+  // The same job as bodyNote one line up, for a human body whose configuration is not the one its
+  // category name implies. See anatomy.ts — it fires only where the record actually named the body,
+  // and it never reasons from what a character is called to what they have.
+  const anatomyNoteText = anatomy;
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   const vc = ident.voice;
   // ONE COPY OF THE VOICE, NOT THREE.
@@ -1298,7 +1304,7 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
     ident.taste ? `type: ${ident.taste}` : "",
   ].filter(Boolean).join("; ");
   const desireStr = desire ? ` Desire (how attraction reads for them, when the state says they want someone — never invent desire the edges don't record): ${desire}.` : "";
-  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age},${body} ${ident.appearance_facts} (constant).${bodyNote}${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}${vFinger ? `; ${vFinger}` : ""}.${vLines}${vNever}${consc}${desireStr} Intelligence: ${ident.intelligence}.${skillNames}${bg}${t}${inj}${hist}`;
+  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age},${body} ${ident.appearance_facts} (constant).${bodyNote}${anatomyNoteText}${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}${vFinger ? `; ${vFinger}` : ""}.${vLines}${vNever}${consc}${desireStr} Intelligence: ${ident.intelligence}.${skillNames}${bg}${t}${inj}${hist}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
@@ -1315,7 +1321,7 @@ export function stablePrefix(state: SaveState): string {
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
     .filter(([id, c]) => id === "char_player" || (c.central !== false && !c.paged))  // non-central = environment; paged = cold, card lives out of context until they matter
     .sort(([a], [b2]) => a.localeCompare(b2))
-    .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c)))
+    .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c), anatomyNote(readAnatomy(state, id, c), c.name ?? "", c.pronouns)))
     .join("\n");
   const supreme = b.narrator_direction?.trim()
     ? `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===

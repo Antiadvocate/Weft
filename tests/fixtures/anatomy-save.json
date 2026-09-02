@@ -1,0 +1,143 @@
+{
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "pronouns": "he/him",
+   "appearance_facts": "Black hair with gray at the temples, cut short and neat; dark brown eyes; warm brown skin; a square jaw with a small scar on the chin from a childhood fall; solid, stocky build with broad shoulders and strong forearms from years of climbing and hauling; looks his age, with smile lines deepening at the corners of his eyes; a small gap between his front teeth that shows when he grins.",
+   "background": "Rabi grew up in Tacoma, the middle child of three, raised by his mother after his father left when he was twelve. He went to a trade school for electrical engineering, worked his way through Seattle City Light's apprenticeship program, and has been with the utility for seventeen years. He met Emily at a friend's rooftop barbecue four years ago; she was arguing with someone about the best way to cook salmon and he fell for her mid-sentence. They married two years ago and bought their house in the Columbia City neighborhood. He is steady, observant, and quietly proud of the life they've built.",
+   "core_traits": [
+    "Checks the locks and the stove before bed every night, in the same order, without thinking about it.",
+    "Cannot pass a hardware store without going in, even if he needs nothing.",
+    "Talks to the houseplants while he waters them, calling them by the names Emily gave them.",
+    "When he's tired, he rubs the scar on his chin with his thumb."
+   ],
+   "values": [
+    "A marriage is a thing you build daily, not a thing you have",
+    "Work is work; home is home; the two should not bleed into each other",
+    "Emily's body is hers, and her comfort is non-negotiable",
+    "Being reliable is a form of love"
+   ],
+   "authored": null
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "pronouns": "she/her",
+   "appearance_facts": "Long auburn hair, usually worn down or in a loose braid; green eyes; fair skin with freckles across her nose and shoulders; a long, elegant face with high cheekbones; tall and slender with long legs and graceful hands; looks younger than her age, with a bright, expressive face; a small tattoo of a crescent moon on the inside of her left wrist.",
+   "background": "Emily grew up in Portland, the only child of a nurse and a high school teacher, and came out as trans in her early twenties. She moved to Seattle for a job in social worker jobs where she helps inmates out of prison by getting grants for her non profit. She works 9-5. She met Rabi at a friend's rooftop barbecue four years ago, where she was arguing with someone about the best way to cook salmon. She is a Leo, playful and warm, and she loves being the center of Rabi's attention. She never had bottom surgery and is comfortable with her body; she is a playful dom in their intimate life and hates being penetrated. She loves her feet and her penis, and Rabi's acceptance of her body is one of the deepest foundations of their marriage. She staunchly dislikes being penetrated and only has sex with Rabi by penetrating him. She loves when he worships her feet. She has a tattoo of scab under her breasts, she's highly progressive and liberal, goes to bars with her friends. ",
+   "core_traits": [
+    "Teases Rabi relentlessly when she's in a good mood, and checks on him quietly when she's not.",
+    "Cannot resist a mirror; she checks her hair or her lipstick whenever she passes one.",
+    "Talks to her plants by name and scolds them when they droop.",
+    "Physically affectionate.",
+    "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to",
+    "force her penis into Rabi's urethra"
+   ],
+   "values": [
+    "Her body is hers, and her pleasure is not up for negotiation",
+    "A marriage should have room for play",
+    "Being seen fully is the point of being loved",
+    "Rabi's steadiness is the ground she stands on"
+   ],
+   "authored": [
+    {
+     "goal": "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to eat anything else.",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 5,
+     "inhabit_turns": 5,
+     "crystallize": true,
+     "added_turn": 1,
+     "crystallized_turn": 5,
+     "label": "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to",
+     "missed": 6
+    },
+    {
+     "goal": "Tries to force her penis into Rabi's urethra.",
+     "because": "Wants to fuck Rabi's pee hole.",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 5,
+     "inhabit_turns": 5,
+     "crystallize": true,
+     "added_turn": 5,
+     "crystallized_turn": 9,
+     "label": "force her penis into Rabi's urethra",
+     "missed": 2
+    }
+   ]
+  },
+  "char_mtggvs9vfhh5e": {
+   "name": "Mara",
+   "pronouns": "she/her",
+   "appearance_facts": "Short black hair with a streak of silver at the front; dark brown eyes; olive skin; a round, friendly face with a dimple in her left cheek; compact and strong, with the build of someone who gardens and lifts; looks her age, with laugh lines and a calm expression; a small scar on her right hand from a pruning accident.",
+   "background": "Mara is Emily's best friend and a landscape architect who lives three blocks away. She grew up in Seattle, the daughter of a fisherman and a schoolteacher, and has known Emily since Emily first moved to the city. She is divorced, amicably, and has a teenage son who lives with her half the time. She is practical, warm, and a little nosy in the way of old friends. She loves her garden and her dog, a golden retriever named Biscuit. She has a standing Sunday dinner with Emily and Rabi that she rarely misses.",
+   "core_traits": [
+    "Brings cuttings from her garden whenever she visits, whether they asked or not.",
+    "Cannot sit still for long; she tidies or rearranges things while she talks.",
+    "Asks direct questions about people's lives and expects direct answers.",
+    "Talks to her dog in full sentences and waits for him to answer."
+   ],
+   "values": [
+    "Friendship is a kind of family you choose",
+    "A garden is a promise you keep",
+    "Honesty is kinder than politeness",
+    "Good food fixes most things"
+   ],
+   "authored": null
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "pronouns": "he/him",
+   "appearance_facts": "Thick black hair with gray at the temples, usually a little messy; dark brown eyes; brown skin; a strong, square face with a heavy brow; tall and broad-shouldered, with the build of a former athlete gone a little soft; looks his age, with deep lines around his mouth; a faded scar on his left eyebrow from a childhood bike accident.",
+   "background": "Dev is Rabi's closest friend and a fellow engineer at Seattle City Light. They came up through the apprenticeship program together and have worked side by side for over fifteen years. Dev is married with two young daughters and lives in West Seattle. He is steady, dry-humored, and deeply loyal. He and Rabi have a standing habit of getting breakfast together before early shifts. Dev is the person Rabi calls when something at work goes wrong, and the person who tells Rabi when he's being an idiot.",
+   "core_traits": [
+    "Arrives early to everything, always, and judges people who don't.",
+    "Cannot resist a good breakfast; he orders the same thing every time and complains about it.",
+    "Tells long stories about his daughters and then catches himself and stops.",
+    "When he's worried, he goes quiet and checks his phone more than usual."
+   ],
+   "values": [
+    "Work is a craft, not just a paycheck",
+    "A friend tells you the truth even when it's inconvenient",
+    "Family comes first, always",
+    "Being on time is a form of respect"
+   ],
+   "authored": null
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "pronouns": "she/her",
+   "appearance_facts": "Long black hair, usually in a low ponytail; dark brown eyes; warm brown skin; an oval face with a small nose and full lips; slender and graceful, with the posture of a dancer; looks younger than her age, with a calm, watchful expression; a small silver ring on her right index finger that she twists when she's thinking.",
+   "background": "Priya is a yoga instructor and the owner of a small studio in Columbia City, two blocks from Rabi and Emily's house. She grew up in Seattle, the daughter of Indian immigrants who run a grocery store in the Central District. She is calm, observant, and quietly perceptive. She and Emily have become friends over the past year, bonding over a shared love of tarot and a shared dislike of the neighborhood's new condo development. Priya is single and content with it, though she sometimes wonders if she's missing something.",
+   "core_traits": [
+    "Moves through a room like she's measuring it; she notices everything and says little.",
+    "Cannot resist a good cup of chai; she makes it from scratch and judges everyone else's.",
+    "Asks questions that sound casual but aren't; she remembers the answers.",
+    "When she's uncomfortable, she goes very still and her hands stop moving."
+   ],
+   "values": [
+    "Stillness is a form of strength",
+    "A neighborhood should be a community, not a market",
+    "Honesty with oneself is the hardest and most important kind",
+    "Good tea fixes most things"
+   ],
+   "authored": null
+  }
+ },
+ "canon": [
+  "Emily is a trans woman who never had bottom surgery, and her body is exactly as she wants it to be.",
+  "Emily is a playful dom in their intimate life, and Rabi is happy to follow her lead.",
+  "Emily hates being penetrated, and this is a firm boundary that Rabi respects completely.",
+  "Emily loves her feet and her penis, and Rabi's acceptance of her body is a cornerstone of their marriage.",
+  "Rabi and Emily have been married for two years and are deeply in love.",
+  "Rabi works as a utility engineer for Seattle City Light, and Emily is a graphic designer."
+ ],
+ "prose": {
+  "6": "The water beats down, steam thick against the tile. Emily's fingers stay curled around you, her thumb sliding slow along the shaft. At your words, her laugh is soft, close to your ear, and she presses her mouth to the wet skin where your neck meets your shoulder.\n\n\"Babe.\" She says it like a private joke, like the word itself is the whole joke. \"You just asked if I'd taste like salve. I'm not even going to dignify that.\"\n\nHer free hand drifts up your chest, palm flat, then slides lower, over your belly. She doesn't stop at your navel. Her fingers keep going, past the root of you, and find the soft skin behind your balls. She pushes gently, the way she might test the give of something delicate, and then lower still, the tips of her fingers searching the seam of you.\n\n\"I think I'd taste like me,\" she says, and her voice has dropped into something easier, less teasing and more certain. Her fingers find what they're looking for, circling once, twice. \"And you already know what I taste like.\"\n\nShe straightens, and her hand comes off you long enough to reach for the little jar on the shelf. She doesn't take any balm from it. She just moves it, an inch, to the other side of the soap \u2014 a small, deliberate thing, like she's clearing a space for something.\n\nThen she turns you, slow and sure, until your shoulder meets the tile. The spray catches her back, flattening her wet hair to her skin. She steps closer, her body sealing the heat of the shower around you both, and she leans in until her lips brush the corner of your mouth.\n\n\"Open,\" she says again, softer this time, and it isn't a question.\n\nShe guides your jaw with two fingers, tilting your face up toward the spray, and she watches the water run over your lips, your teeth, the dark of your mouth. Her eyes follow the water the way she follows a lipstick line in the mirror \u2014 close, unhurried, sure of what comes next.\n\nHer other hand moves between her own legs, and she lets out a breath that is almost a laugh, like she's caught herself doing something she's been wanting to do for longer than the morning.\n\n\"You're going to taste like me, and a little like this weather,\" she says. \"Rain and skin and that soap we both use. That's the whole flavor profile.\"",
+  "7": "The water drums against the tile, steam folding around both of you. Emily's laugh comes quick, bright, and she lets her head fall back against the wall, eyes squeezed shut for a second like the joke landed somewhere good.\n\n\"Hah! Okay, but seriously\u2014\" She straightens, water streaming down her shoulders, and jabs a finger toward you, not quite touching. \"You make it sound like I've got some whole drowning itinerary. Step one, hold husband under spray. Step two, watch him flail.\"\n\nShe's grinning now, the teasing edge back in her voice, her other hand still resting low on your hip. Her fingers trace a small circle there, then stop.\n\n\"No, but okay, listen.\" She steps closer, the heat of her body pressing the shower tight around you both. Her voice drops, losing some of its bounce. \"I want you to taste me. Right here. While the water's hot and we've got, like, twenty minutes before I have to be a professional person.\"\n\nShe tilts her head toward the spray, water beading on her collarbones, and her hand slides from your hip down between her own legs. Her fingers move slow, deliberate, and she watches you the whole time, eyes dark and steady.\n\n\"I've been thinking about it since you got on your knees earlier,\" she says. \"And I kept thinking about it while I was washing your back. And now I want you down there, and I want to watch the water run off your face while you do it.\"\n\nHer mouth curves, small and certain. \"That's the plan. Drowning optional.\"\n\nShe shifts her weight, lifts one foot up onto the edge of the tub, opening herself to the steam and the spray, and her fingers part the wet hair between her legs. The water runs over her hand, over the soft skin, and she lets out a breath that's almost a laugh.\n\n\"So.\" She looks down at you, waiting. \"You gonna come taste me, or do I have to start the itinerary?\"",
+  "8": "The water beats down over both of you, hot and steady. Emily's hand tangles in your hair, fingers pressing into the wet strands with a firm, guiding weight. She lets out a breath that catches halfway through, her head tipping back against the tile, and her hips move forward just enough to meet you.\n\n\"That's my good boy,\" she murmurs, the words loose and low, almost lost under the spray. Her other hand comes up to grip the edge of the shower ledge, knuckles whitening for a second before she relaxes them.\n\nShe shifts her foot on the tub edge, angling herself more fully toward you, and the heat between her legs washes over your face with every stroke of the water. Her breathing changes \u2014 deeper now, less measured \u2014 and she looks down at you with half-lidded eyes, watching the way the steam curls off your shoulders.\n\n\"Okay, but seriously,\" she says, voice dropping into something steadier, \"I've got like nineteen minutes before I have to be professional.\" She laughs softly, the sound bright and quick against the tile walls. \"You're going to make me late if you keep being this good at things.\"",
+  "9": "The water hits the tile, loud in the small space. Emily's hand tightens in your hair, fingers curling into the wet strands and holding you there. She looks down at you, green eyes dark under the steam, and she laughs\u2014a short, breathless sound that vibrates through her chest and into your mouth where she's still sheathed.\n\n\"Stop?\" She repeats the word like it's funny. \"Who said anything about stopping? I'm literally telling you what to do with my cock, Rabi-boo.\"\n\nShe guides your head with a firm press on the back of your skull, tilting your face up so the spray runs over your lips instead of into them. Her hips roll forward, slow and deliberate, pulling almost all the way out before sinking back down, deep enough to make her breath hitch.\n\n\"And no, we are not having sex,\" she says, voice dropping into that low register she uses when she\u2019s being serious under the joke. \"I have fourteen minutes. If I start riding you properly, I\u2019m going to be late for Grant-writing, and then Mara is going to look at me with that *disappointed teacher* face she does when I miss a deadline.\"\n\nShe pulls back just enough to free your mouth, her hand sliding from your hair to grip your chin, tilting your face toward hers. Water drips from her nose onto your forehead.\n\n\"But if you\u2019re done asking questions,\" she murmurs, thumb brushing your lower lip, \"you can finish what you started. And then\u2014\" She glances toward the bathroom door, toward the hallway beyond it. \"Blanche needs water. That droopy bastard is judging us from the living room.\""
+ }
+}

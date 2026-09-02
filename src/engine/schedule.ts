@@ -290,7 +290,21 @@ export function scheduleLine(state: SaveState, id: string): string {
  * and a flat statement of lateness after that. What it never does is decide FOR the player that the
  * character stays — staying is available, it just costs (see tickSchedule).
  */
-export function scheduleDirective(state: SaveState, presentIds: string[]): string {
+/**
+ * `guarded` — an intimate, dangerous or hushed turn (see register.ts). Only the HEADS-UP row below
+ * is affected, and only its talking half. That row fires whenever anybody present is inside the
+ * heads-up window before a scheduled block, and it says, among other things, "they may say how much
+ * time they have". Nothing bounds how often, so a character with a work block ahead of them says it
+ * every turn until they leave. On the save that prompted this the window covered a whole scene in a
+ * shower and produced, in three consecutive turns of sex, "twenty minutes before I have to be a
+ * professional person", "I've got like nineteen minutes", and "I have fourteen minutes".
+ *
+ * The hour is still real and the character still knows it — that is the point of the system, and
+ * LATE and HAS-TO-SET-OUT are untouched, because a person who has to go really does go, mid-scene
+ * and mid-sentence if that is what the schedule says. What stands down is only the licence to
+ * narrate the countdown out loud, on the turns where saying it is the thing that breaks the scene.
+ */
+export function scheduleDirective(state: SaveState, presentIds: string[], guarded = false): string {
   const rows: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
@@ -315,7 +329,9 @@ export function scheduleDirective(state: SaveState, presentIds: string[]): strin
     }
     if (r.next && r.next.leaveIn <= HEADS_UP_MIN) {
       const b = r.next.block;
-      rows.push(`${c.name} — knows they are due at ${placeName(state, existingBlockPlace(state, b))} for ${b.what.trim()} at ${clockLabel(b.start)}, and has about ${Math.round(r.next.leaveIn)} minutes before they have to leave. They are not going yet. It shapes what they are willing to start: they do not open anything long, they may say how much time they have, and the hour is somewhere in how they hold the conversation.`);
+      rows.push(`${c.name} — knows they are due at ${placeName(state, existingBlockPlace(state, b))} for ${b.what.trim()} at ${clockLabel(b.start)}, and has about ${Math.round(r.next.leaveIn)} minutes before they have to leave. They are not going yet.${guarded
+        ? ` They are also in the middle of something that the hour does not interrupt, and they do NOT say how much time they have — not the number, not a version of it, not a joke about it. It is not on the page this turn. They are where they are.`
+        : ` It shapes what they are willing to start: they do not open anything long, they may say how much time they have, and the hour is somewhere in how they hold the conversation.`}`);
       continue;
     }
     if (r.current) {
