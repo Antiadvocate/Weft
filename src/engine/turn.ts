@@ -53,6 +53,7 @@ import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becom
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective } from "./authored";
 import { sceneRegister } from "./register";
+import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findEcho, echoFix, findReprint, reprintFix, stripScaffolding, stripMetaPlayer } from "./echo";
@@ -2502,7 +2503,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + anatomyFix(state.last_anatomy) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2920,6 +2921,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       // ...and the narrator's own previous page coming back. Read against the last turn that
       // actually produced prose, so an interlude or a montage in between does not mask it.
       state.last_reprint = findReprint(state.history.filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
+      // ...and a body the record does not give this person. Detected on the output for the same
+      // reason as the two above: it can only be quoted once it has been written.
+      state.last_anatomy = findAnatomyBreach(state, prose);
+      if (state.last_anatomy) {
+        ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
+      }
       if (state.last_reprint) {
         ev.onMeta({ shifts: [`this turn reprinted ${Math.round(state.last_reprint.overlap * 100)}% of the last one — the narrator will be shown it next turn`] });
       }

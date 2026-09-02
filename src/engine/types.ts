@@ -984,6 +984,9 @@ export interface SaveState {
   /** The narrator reprinting its OWN previous turn — the louder half of the same failure, and the
    *  one nothing was watching for. Quoted back at the start of the next turn. See engine/echo.ts. */
   last_reprint?: { span: string; overlap: number } | null;
+  /** The prose giving a character genital anatomy their own record contradicts. Quoted back next
+   *  turn and voided, so the error does not become the record. See engine/anatomy.ts. */
+  last_anatomy?: { name: string; part: "penis" | "vulva"; sentence: string } | null;
   /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
    *  Cleared when the ledger recovers. See castGoneCold. */
   cast_cold_said?: number;

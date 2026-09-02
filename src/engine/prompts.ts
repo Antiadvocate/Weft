@@ -14,6 +14,7 @@
 import { visibleOnPlayer } from "./reaction";
 import { MAX_LIVE } from "./threads";
 import { isBesieged } from "./pressure";
+import { readAnatomy, anatomyNote } from "./anatomy";
 import { outlivedCanon } from "./canonstate";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
@@ -1239,7 +1240,7 @@ export function deriveVoice(
   return dynamic.length ? dynamic.join("; ") : ident.speech_pattern;
 }
 
-export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false, plan?: { humanoid: boolean; kind: string }): string {
+export function charCard(id: string, ident: Identity, cond: Condition, traits: { label: string; intensity: number; behavioral_impact: string }[], stable = false, plan?: { humanoid: boolean; kind: string }, anatomy = ""): string {
   const t = traits.length ? ` Acquired: ${traits.map((x) => `${x.label}(${(x.intensity ?? 0).toFixed(0)}) — ${x.behavioral_impact ?? ""}`).join("; ")}.` : "";
   // In stable (cache-prefix) mode, omit everything volatile — injuries and the evolving life_history
   // change turn-to-turn and live in the volatile digest already. Keeping them here would bust the
@@ -1265,6 +1266,10 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   const bodyNote = nonHuman
     ? ` BODY (binding): not a human — ${plan.kind || "the form described here"}. Everything they do — moving, acting, sensing, speaking, expressing — happens through the anatomy this card and canon describe, never through arms, hands, legs, a face, or eyes unless those are named here.${size ? ` Resting size: ${size} — hold this scale in every scene; it changes only when canon or the prose changes it.` : ""}`
     : "";
+  // The same job as bodyNote one line up, for a human body whose configuration is not the one its
+  // category name implies. See anatomy.ts — it fires only where the record actually named the body,
+  // and it never reasons from what a character is called to what they have.
+  const anatomyNoteText = anatomy;
   const nowLook = ident.appearance_now ? ` Presenting now: ${ident.appearance_now}.` : "";
   const vc = ident.voice;
   // ONE COPY OF THE VOICE, NOT THREE.
@@ -1315,7 +1320,7 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
     ident.taste ? `type: ${ident.taste}` : "",
   ].filter(Boolean).join("; ");
   const desireStr = desire ? ` Desire (how attraction reads for them, when the state says they want someone — never invent desire the edges don't record): ${desire}.` : "";
-  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age},${body} ${ident.appearance_facts} (constant).${bodyNote}${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}${vFinger ? `; ${vFinger}` : ""}.${vLines}${vNever}${consc}${desireStr} Intelligence: ${ident.intelligence}.${skillNames}${bg}${t}${inj}${hist}`;
+  return `${ident.name} [${id}] — ${ident.pronouns ? `${ident.pronouns}, ` : ""}${ident.age},${body} ${ident.appearance_facts} (constant).${bodyNote}${anatomyNoteText}${nowLook} Core: ${ident.core_traits.join(", ")}. Values: ${ident.values.join(", ")}. Voice: ${ident.speech_pattern}${vFinger ? `; ${vFinger}` : ""}.${vLines}${vNever}${consc}${desireStr} Intelligence: ${ident.intelligence}.${skillNames}${bg}${t}${inj}${hist}`;
 }
 
 /** STABLE PREFIX: identical across turns until the bible or cast cores change. */
@@ -1332,7 +1337,7 @@ export function stablePrefix(state: SaveState): string {
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
     .filter(([id, c]) => id === "char_player" || (c.central !== false && !c.paged))  // non-central = environment; paged = cold, card lives out of context until they matter
     .sort(([a], [b2]) => a.localeCompare(b2))
-    .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c)))
+    .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c), anatomyNote(readAnatomy(state, id, c), c.name ?? "", c.pronouns)))
     .join("\n");
   const supreme = b.narrator_direction?.trim()
     ? `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
