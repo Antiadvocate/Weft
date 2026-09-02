@@ -990,6 +990,8 @@ export interface SaveState {
   /** A line of dialogue reprinted verbatim from an earlier turn — the long-range half of the
    *  restage, outside any list that fits in the prompt. See engine/echo.ts. */
   last_line_reprint?: string | null;
+  /** A family the prose invented for somebody the record contradicts. See engine/kinship.ts. */
+  last_kin?: { owner: string; relation: string; other?: string; because: string; sentence: string } | null;
   /** The turn the whole cast going cold was reported, so it is said once rather than every turn.
    *  Cleared when the ledger recovers. See castGoneCold. */
   cast_cold_said?: number;

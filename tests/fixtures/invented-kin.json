@@ -1,0 +1,251 @@
+{
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "pronouns": "he/him",
+   "background": "Rabi grew up in Tacoma, the middle child of three, raised by his mother after his father left when he was twelve. He went to a trade school for electrical engineering, worked his way through Seattle City Light's apprenticeship program, and has been with the utility for seventeen years. He met Emily at a friend's rooftop barbecue four years ago; she was arguing with someone about the best way to cook salmon and he fell for her mid-sentence. They married two years ago and bought their house in the Columbia City neighborhood. He is steady, observant, and quietly proud of the life they've built.",
+   "core_traits": [
+    "Checks the locks and the stove before bed every night, in the same order, without thinking about it.",
+    "Cannot pass a hardware store without going in, even if he needs nothing.",
+    "Talks to the houseplants while he waters them, calling them by the names Emily gave them.",
+    "When he's tired, he rubs the scar on his chin with his thumb."
+   ],
+   "values": [
+    "A marriage is a thing you build daily, not a thing you have",
+    "Work is work; home is home; the two should not bleed into each other",
+    "Emily's body is hers, and her comfort is non-negotiable",
+    "Being reliable is a form of love"
+   ]
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "pronouns": "she/her",
+   "background": "Emily grew up in Portland, the only child of a nurse and a high school teacher, and came out as trans in her early twenties. She moved to Seattle for a job in social worker jobs where she helps inmates out of prison by getting grants for her non profit. She works 9-5. She met Rabi at a friend's rooftop barbecue four years ago, where she was arguing with someone about the best way to cook salmon. She is a Leo, playful and warm, and she loves being the center of Rabi's attention. She never had bottom surgery and is comfortable with her body; she is a playful dom in their intimate life and hates being penetrated. She loves her feet and her penis, and Rabi's acceptance of her body is one of the deepest foundations of their marriage. She staunchly dislikes being penetrated and only has sex with Rabi by penetrating him. She loves when he worships her feet. She has a tattoo of scab under her breasts, she's highly progressive and liberal, goes to bars with her friends. ",
+   "core_traits": [
+    "Teases Rabi relentlessly when she's in a good mood, and checks on him quietly when she's not.",
+    "Cannot resist a mirror; she checks her hair or her lipstick whenever she passes one.",
+    "Talks to her plants by name and scolds them when they droop.",
+    "When she's nervous, she twists the crescent moon tattoo on her wrist with her thumb.",
+    "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to"
+   ],
+   "values": [
+    "Her body is hers, and her pleasure is not up for negotiation",
+    "A marriage should have room for play",
+    "Being seen fully is the point of being loved",
+    "Rabi's steadiness is the ground she stands on"
+   ]
+  },
+  "char_mtggvs9vfhh5e": {
+   "name": "Mara",
+   "pronouns": "she/her",
+   "background": "Mara is Emily's best friend and a landscape architect who lives three blocks away. She grew up in Seattle, the daughter of a fisherman and a schoolteacher, and has known Emily since Emily first moved to the city. She is divorced, amicably, and has a teenage son who lives with her half the time. She is practical, warm, and a little nosy in the way of old friends. She loves her garden and her dog, a golden retriever named Biscuit. She has a standing Sunday dinner with Emily and Rabi that she rarely misses.",
+   "core_traits": [
+    "Brings cuttings from her garden whenever she visits, whether they asked or not.",
+    "Cannot sit still for long; she tidies or rearranges things while she talks.",
+    "Asks direct questions about people's lives and expects direct answers.",
+    "Talks to her dog in full sentences and waits for him to answer."
+   ],
+   "values": [
+    "Friendship is a kind of family you choose",
+    "A garden is a promise you keep",
+    "Honesty is kinder than politeness",
+    "Good food fixes most things"
+   ]
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "pronouns": "he/him",
+   "background": "Dev is Rabi's closest friend and a fellow engineer at Seattle City Light. They came up through the apprenticeship program together and have worked side by side for over fifteen years. Dev is married with two young daughters and lives in West Seattle. He is steady, dry-humored, and deeply loyal. He and Rabi have a standing habit of getting breakfast together before early shifts. Dev is the person Rabi calls when something at work goes wrong, and the person who tells Rabi when he's being an idiot.",
+   "core_traits": [
+    "Arrives early to everything, always, and judges people who don't.",
+    "Cannot resist a good breakfast; he orders the same thing every time and complains about it.",
+    "Tells long stories about his daughters and then catches himself and stops.",
+    "When he's worried, he goes quiet and checks his phone more than usual."
+   ],
+   "values": [
+    "Work is a craft, not just a paycheck",
+    "A friend tells you the truth even when it's inconvenient",
+    "Family comes first, always",
+    "Being on time is a form of respect"
+   ]
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "pronouns": "she/her",
+   "background": "Priya is a yoga instructor and the owner of a small studio in Columbia City, two blocks from Rabi and Emily's house. She grew up in Seattle, the daughter of Indian immigrants who run a grocery store in the Central District. She is calm, observant, and quietly perceptive. She and Emily have become friends over the past year, bonding over a shared love of tarot and a shared dislike of the neighborhood's new condo development. Priya is single and content with it, though she sometimes wonders if she's missing something.",
+   "core_traits": [
+    "Moves through a room like she's measuring it; she notices everything and says little.",
+    "Cannot resist a good cup of chai; she makes it from scratch and judges everyone else's.",
+    "Asks questions that sound casual but aren't; she remembers the answers.",
+    "When she's uncomfortable, she goes very still and her hands stop moving."
+   ],
+   "values": [
+    "Stillness is a form of strength",
+    "A neighborhood should be a community, not a market",
+    "Honesty with oneself is the hardest and most important kind",
+    "Good tea fixes most things"
+   ]
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "pronouns": "she/her",
+   "background": "Grew up in Beacon Hill, third of four kids, in a house where her lola ran the kitchen and everyone else worked around her; her mother did overnight custodial at Harborview and slept through most afternoons, which is why Drea learned to cook and to be quiet indoors. Her father went back to Cebu when she was eleven and calls on birthdays; she has stopped being angry about it and has not stopped noticing. She knows coffee properly \u2014 not vibes, but the actual mechanics: grind retention, dose-to-yield ratios, why the milk in the north-side stores foams different, and she has trained eleven new hires who all outranked her within a year because she keeps not applying for shift supervisor. The formative thing was the year she spent at South Seattle College in the diesel program because her uncle said there was money in it, and she was good at it, and she hated every minute of standing in a cold bay, and quitting was the first decision she made that nobody in her family approved of. She holds that Rainier Avenue traffic would be fine if people would just commit to a lane, and will say so at length.",
+   "core_traits": [
+    "Calls the order out before the customer has finished paying, every time, and starts building it while they're still fumbling with their card.",
+    "Keeps a rag in her back pocket and wipes down whatever surface she leans on \u2014 the counter, the pastry case, other people's tables while they're still sitting at them, the tops of her own shoes at the end of a shift.",
+    "Will not touch the tip jar until the shift is over and gets loudly angry at coworkers who pull bills out of it early.",
+    "Names every regular within two visits and uses the name loudly across the room, including when the person has clearly come in to be left alone."
+   ],
+   "values": [
+    "Doing the actual craft right even when nobody in line can tell the difference",
+    "Her lola's house, and showing up to it on Sundays",
+    "Not being the person who makes a hard shift harder for someone else"
+   ]
+  }
+ },
+ "edges": [
+  {
+   "from": "char_mtggvs9t2dhp3",
+   "to": "char_player",
+   "warmth": 89.15192240478054,
+   "trust": 68.82648973607624,
+   "power": 2,
+   "notes": "Emily is terrified and hurt by the accusation, but her love remains; she feels abandoned and misunderstood.",
+   "roles": [
+    "wife",
+    "husband",
+    "intimate partner"
+   ],
+   "updated_turn": 38,
+   "attraction": 71.6,
+   "attraction_base": 55,
+   "desire_admissibility": 0.42,
+   "authored_seed": true,
+   "notes_turn": 38
+  },
+  {
+   "from": "char_mtggvs9vfhh5e",
+   "to": "char_player",
+   "warmth": 57.2,
+   "trust": 48.5,
+   "power": 0,
+   "notes": "Mara observed Rabi leaving and is sympathetic but critical of how he treated Emily.",
+   "roles": [
+    "best friend"
+   ],
+   "updated_turn": 38,
+   "attraction": 23.89,
+   "attraction_base": 23,
+   "desire_admissibility": 0.55,
+   "notes_turn": 38
+  },
+  {
+   "from": "char_mtggvs9wzzfz3",
+   "to": "char_player",
+   "warmth": 64.5,
+   "trust": 69.5,
+   "power": 0,
+   "notes": "closest friend and coworker",
+   "roles": [
+    "co-worker",
+    "coworker"
+   ],
+   "updated_turn": 1
+  },
+  {
+   "from": "char_mtggvs9wvhjy7",
+   "to": "char_player",
+   "warmth": 24.5,
+   "trust": 20,
+   "power": 0,
+   "notes": "neighbor and Emily's friend",
+   "roles": [
+    "neighbor",
+    "friend"
+   ],
+   "updated_turn": 1
+  },
+  {
+   "from": "char_player",
+   "to": "char_mtggvs9t2dhp3",
+   "warmth": 11.5,
+   "trust": -0.40000000000000213,
+   "power": 0,
+   "notes": "Accused Emily of lying and weaponizing his friends, breaking trust further.",
+   "updated_turn": 38,
+   "notes_turn": 38,
+   "roles": [
+    "husband",
+    "wife",
+    "intimate partner"
+   ]
+  },
+  {
+   "from": "char_player",
+   "to": "char_mtggvs9vfhh5e",
+   "warmth": -6,
+   "trust": -8,
+   "power": 0,
+   "notes": "Screamed at her to get out of his house, pushed her physically out the door, then cited his ownership of the space against her. The key she ",
+   "updated_turn": 35,
+   "notes_turn": 35,
+   "roles": [
+    "best friend",
+    "wife's friend"
+   ]
+  },
+  {
+   "from": "char_player",
+   "to": "char_mtjrpj3m33eoj",
+   "warmth": -5,
+   "trust": -6,
+   "power": 0,
+   "notes": "Screamed at her too, treated her as an intruder and a messenger; any curiosity she had is now poisoned by the shutdown.",
+   "updated_turn": 35,
+   "notes_turn": 35
+  },
+  {
+   "from": "char_mtggvs9vfhh5e",
+   "to": "char_mtjrpj3m33eoj",
+   "warmth": 0,
+   "trust": 0,
+   "power": 0,
+   "notes": "",
+   "updated_turn": 0,
+   "attraction": 26,
+   "attraction_base": 26,
+   "desire_admissibility": 0.6
+  },
+  {
+   "from": "char_mtjrpj3m33eoj",
+   "to": "char_player",
+   "warmth": -4,
+   "trust": -5,
+   "power": 0,
+   "notes": "The screaming hit something raw \u2014 she is now trying to work out whether he knows about the cart, the rumor, about her, and whether that's wh",
+   "updated_turn": 35,
+   "attraction": 20,
+   "attraction_base": 20,
+   "desire_admissibility": 0.48,
+   "notes_turn": 35
+  },
+  {
+   "from": "char_mtjrpj3m33eoj",
+   "to": "char_mtggvs9vfhh5e",
+   "warmth": 0,
+   "trust": 0,
+   "power": 0,
+   "notes": "",
+   "updated_turn": 0,
+   "attraction": 21,
+   "attraction_base": 21,
+   "desire_admissibility": 0.6
+  }
+ ],
+ "prose": {
+  "37": "The duffel sits at the top of the stairs, half-zipped. He's already got the laptop under his arm when he passes her.\n\nShe's still in the doorway, coat still on, keys still in her hand. Her thumb finds the crescent moon on her wrist and presses into it, once, hard. Then both hands go into her pockets.\n\n\"Okay,\" she says, quiet. \"So that's the week.\"\n\nShe watches him cross the living room.\n\n\"You said chickens in the fridge. The chicken's from Monday. It's fine, but it's not for me.\" Her voice is even, like she's reading the note back to him. \"You want me to go to Sunday dinner with Mara and tell her what, exactly?\"\n\nHe's at the door. She hasn't moved.\n\n\"Rabi.\" She says it once, not loud. \"You're really gonna walk out without telling me what this is about.\"\n\nThe duffel brushes the doorframe.",
+  "38": "The rain has started again, thin and cold. Rabi stands on the porch with the duffel at his feet and the phone in his hand showing a car three minutes out.\n\nThe door is still open behind him. Emily comes as far as the threshold and stops, one hand on the frame. Her coat is still on. Her keys are still in her other hand.\n\nShe doesn't say anything for a long moment. Then she comes down the two steps, slowly, and stands at the edge of the porch with the drizzle catching in her hair.\n\n\"Okay.\" Her voice is flat. \"So that's what you think I did.\"\n\nShe looks down the street, then back at him. Her thumb finds the crescent moon on her wrist and twists it, once, hard. Her breath catches for half a second before she steadies it.\n\n\"I didn't send anyone. Not Mara. Not Drea.\" She says it carefully, like she's reading it off a card. \"Drea's got her own thing. I don't know what she told you.\"\n\nThe porch light hasn't come on. A car idles at the corner two blocks down.\n\n\"Mara called me this morning.\" Her voice is still flat. \"She said you were at the diner, and you looked bad. She wanted to know if she should go over.\" A pause. \"I said I didn't know.\"\n\nShe looks at his duffel, then at his face.\n\n\"You want me to figure it out by myself.\" She says it not like a question. \"Fine. I'll figure it out by myself.\"\n\nShe turns and goes back up the steps. Her foot catches on the threshold for just a second, and then she's inside, and the door closes behind her with a soft click.\n\nThe phone glows in his hand.\n\nA car pulls up to the curb\u2014silver, a rideshare sticker in the window. The driver leans over and squints at him through the passenger window.\n\nBut before the car has fully stopped, Mara comes up the sidewalk from the direction of her house, walking fast, a hood pulled over her hair. She sees Rabi on the porch with the duffel, and she stops at the bottom of the steps, breathing hard.\n\n\"Emily just texted me,\" she says. \"She said you're leaving tonight.\" She looks at the car, then at him. \"You don't have to tell me anything. But if you're gonna go, go. Don't stand out here in the rain making her watch.\"",
+  "39": "Mara's head comes up like he'd thrown the words at her face. She doesn't look at Emily's window. She looks at him.\n\n\"Twenty-four hours,\" she says. \"Is that what you think happened.\"\n\nThe rideshare idles at the curb. The driver's watching through the passenger window, one hand on the gearshift.\n\nMara steps up onto the first stair, not blocking him, just closer. Her hood's fallen back and her hair is wet at the temples.\n\n\"Rabi. Emily called me at seven this morning from her sister's couch. She was there all night because her sister's kid was sick, and she was too tired to drive back, and her phone died in the car. She told me she'd texted you but it didn't go through. She showed me the text.\" Her voice has gone hard and plain, the way she talks about a retaining wall that's about to fail. \"The one that says 'staying at Priya's tonight, home by ten.' Priya. Her sister.\"\n\nShe pulls her phone out of her coat pocket, thumb moving over the screen.\n\n\"You want me to call her right now and put her on speaker? Because I will.\" She holds it up. \"But you don't get to stand on this porch and say stalker to me like we came here to corner you. Drea saw you at the diner this morning and called me because she was worried. I came over because I've known Emily for ten years and she was crying in my kitchen at seven-fifteen.\"\n\nThe driver honks once, soft.\n\nMara doesn't turn. She's watching his face.\n\n\"You said our marriage is done. To her. On the porch. With your bag packed.\" Each sentence lands like a foot on the step. \"You want to go to the airport, go. But you don't get to make her think she needs to figure out what she did wrong when what she did was sleep on her sister's couch.\"\n\nShe steps back down to the sidewalk, out of his way. Her thumb is still on the phone.\n\n\"I'll tell her you got in the car safe.\""
+ },
+ "summary39": "Mara confronted Rabi on the porch of Rabi and Emily's House, telling him that Emily had spent the night at her sister Priya's because the kid was sick and her phone died, and that Emily had texted him it was just for the night; Mara offered to call Emily on speaker to prove it, and told Rabi he could leave but had no right to make Emily think she needed to figure out what she did wrong."
+}
