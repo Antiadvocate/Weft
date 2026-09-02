@@ -1445,6 +1445,10 @@ export function answeredDirective(action: string): string {
  *  the point — it stops an accidental teleport without pretending to a map. */
 export const DEFAULT_TRAVEL_MIN = 24 * 60;
 
+/** Violence that leaves no body. A detector built on bodies going still cannot see an annihilation,
+ *  which is the entire register a player with god mode reaches for. See the forced-death detector. */
+const ERASURE = /\b(erased|unmade|obliterated|annihilated|wiped (out|from existence)|removed from existence|ceased to exist|no longer exists?|is not there any\s?more|simply is not there|disintegrat\w+|is gone\b|are gone\b|was gone\b|were gone\b)/i;
+
 /** Two places the player is known to have walked between directly, when the clock stamps for the
  *  trip have already scrolled out of the window. Adjacency is the fact worth keeping; the exact
  *  duration is not. */
@@ -5297,6 +5301,17 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // freely offstage.
       if (presentAtStart.has(cid)) {
         const c = state.characters[cid];
+        // THE GUARD DOES NOT HOLD THE DEAD. Everything below asks whether the prose showed this
+        // person leave, and refuses the move when it did not — which is right for somebody walking
+        // out and grotesque for somebody who has just been killed, because a corpse is never
+        // described as leaving. One save's shift log, verbatim: "bookkeeping correction: King Tong
+        // stays — the prose never showed them leave", about a man the player had killed two turns
+        // earlier. He was still in world.present, so he was still in the narrator's roster, so he
+        // kept getting lines. The player's words for it: "People that are dead keep coming back."
+        if (c?.status === "dead" || c?.status === "departed") {
+          state.characters[cid].location = pid;
+          continue;
+        }
         // NOT JUST "DID THEY LEAVE" — "is there any reason to think they are still in the room".
         // A person who is thrown out, arrested, or carried off is never described as leaving, and
         // for five turns of one save this guard held a woman in a living room she had been
@@ -5463,11 +5478,48 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // world.present — so next turn the narrator keeps animating a dead body ("his fingers twitch"). If
   // the prose unambiguously kills a PRESENT character this turn and no exit was emitted for them, we
   // synthesize the exit so the engine marks them dead and removes them from the scene.
+  //
+  // ── AND ITS WHOLE VOCABULARY WAS A KNIFE FIGHT ────────────────────────────────────────────────
+  //
+  // Every pattern below was written for conventional violence: shot in the head, stabbed, throat
+  // cut, the body goes still. A save where the player had god mode on:
+  //
+  //   T49  shoots Drea twice in the face      prose: "Drea's head snaps back ... she goes down hard"
+  //   T51  erases King's children             prose: "The children are gone"
+  //   T52  "I destroy Dreas head"             prose: "Drea's head is gone."
+  //   T53  removes all of Mara's flesh        prose: "The flesh simply is not there anymore"
+  //   T54  "I kill king. He is dead."         prose: King walks to the counter and calls a rideshare
+  //   T55  detonates a nuke over Houston      prose: "It is not destroyed. It is gone."
+  //
+  // Not one of those matched. "Snaps back" is not "jerks back"; "goes down hard" is not "goes
+  // still"; and nothing in the list has ever heard of erasure. So nobody was marked dead, nobody
+  // left world.present, and the departure guard below then actively HELD them there — the save's own
+  // shift log reads "bookkeeping correction: King Tong stays — the prose never showed them leave",
+  // about a man the player had killed two turns earlier. Drea, shot in the face on turn 49, spoke on
+  // 50, was given a new drive and a new trait on 51, and had to be killed again on 52. The player,
+  // reasonably: "People that are dead keep coming back."
+  //
+  // Two additions. First, the words this kind of violence actually uses: gone, erased, unmade, no
+  // longer exists — annihilation leaves no body to go still, which is exactly why a detector built
+  // on bodies going still cannot see it.
+  //
+  // Second, and more important: IN GOD MODE THE PLAYER'S DECLARATION IS THE EVIDENCE. The god-mode
+  // contract this engine prints to the narrator could not be plainer — "Whatever the player declares
+  // happens, completely, immediately, at exactly the scale they state ... Never downscale, soften,
+  // delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill
+  // millions, millions die as real bodies." A narrator that answers "I kill king" with King ordering
+  // a rideshare has broken that contract, and the LEDGER MUST NOT INHERIT THE BREACH. When the
+  // player declares a kill in god mode, the person is dead in the record whatever the prose did with
+  // it; the next turn then starts from a world where it happened, which is the only way the refusal
+  // costs one paragraph instead of the rest of the game.
   {
     const alreadyExiting = new Set((diff.character_exits ?? []).map((e) => resolveId(state, e.char_id)).filter(Boolean));
+    const god = !!state.world_bible.god_mode;
     const proseLc = prose.toLowerCase();
     // a clear killing blow depicted this turn (the player shooting/stabbing, or the body going still/dead)
-    const lethalDepicted = /\b(shot (him|her|them|it) in the head|head jerks? back|blows? (his|her|their) (head|brains)|goes (instantly|limp|still)|body (sags|slumps|drops|goes still|goes limp)|lifeless|dead(?:,| |\.)|killed (him|her|them)|throat (opens|cut)|stops? breathing|crumples? (dead|lifeless)|collapses? dead)\b/i.test(proseLc);
+    const lethalDepicted = /\b(shot (him|her|them|it) in the head|head (jerks?|snaps?) back|blows? (his|her|their) (head|brains)|goes (instantly|limp|still)|body (sags|slumps|drops|goes still|goes limp)|lifeless|dead(?:,| |\.)|killed (him|her|them)|throat (opens|cut)|stops? breathing|crumples? (dead|lifeless)|collapses? dead)\b/i.test(proseLc)
+      // ...and the register that leaves no body at all.
+      || ERASURE.test(proseLc);
     if (lethalDepicted) {
       for (const pid of [...state.world.present]) {
         if (pid === "char_player" || alreadyExiting.has(pid)) continue;
@@ -5488,14 +5540,24 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         const named = !inanimate && (
           new RegExp(`\\b${esc}\\b[^.!?]{0,25}\\b(is dead|lies dead|dies|died|is killed|was killed|lifeless|stops breathing|stopped breathing)\\b`, "i").test(prose)
           || new RegExp(`\\b(shot|stabbed?|killed?|struck down|put (a|the) (round|bullet|blade) (in|through))\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
+          // erasure, in either order: "Drea's head is gone", "the flesh is not there anymore",
+          // "erased Mara", "Mara simply was not there any more".
+          || new RegExp(`\\b${esc}('s|s')?\\b[^.!?]{0,40}\\b(is|are|was|were|simply)?\\s*(gone|erased|unmade|obliterated|annihilated|vanished|disintegrated|no longer (exists?|there)|not there any\\s?more)\\b`, "i").test(prose)
+          || new RegExp(`\\b(erase[ds]?|unmade|unmake|obliterate[ds]?|annihilate[ds]?|wipe[ds]? (out|from existence)|remove[ds]? from existence)\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
         );
+        // THE DECLARATION IS THE EVIDENCE IN GOD MODE. See the header above.
+        const declaredKill = god && new RegExp(
+          `\\b(i\\s+(kill|killed|murder|murdered|destroy|destroyed|erase|erased|unmake|unmade|obliterate|obliterated|annihilate|annihilated|end|ended|delete|deleted|remove|removed)\\b[^.!?]{0,40}\\b${esc}\\b`
+          + `|\\b${esc}\\b[^.!?]{0,30}\\b(is|are)\\s+(dead|gone|erased|no longer)\\b)`, "i").test(action);
         // the stranger case: unnamed present target + player action was an explicit kill + a body goes still
         const playerKilled = /\b(i (shoot|shot|stab|stabbed|kill|killed|execute|executed)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
         const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless|crumples? (dead|to the ground))\b/i.test(proseLc);
-        if (named || (playerKilled && bodyStill)) {
-          (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
+        if (named || declaredKill || (playerKilled && bodyStill)) {
+          (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: declaredKill && !named ? "declared dead by the player in god mode; the prose did not carry it" : "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
           console.warn(`[turn] forced-death detector: recorded ${name}'s depicted death that the bookkeeper failed to emit`);
-          break; // one forced death per turn is plenty; avoid a cascade of guesses
+          // One INFERRED death per turn is plenty — a cascade of guesses is worse than a miss. A
+          // death the player declared outright is not a guess, so it does not consume that budget.
+          if (!declaredKill) break;
         }
       }
     }
