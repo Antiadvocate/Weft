@@ -10,7 +10,7 @@ import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, heal
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
-import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStatuses, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
+import { runTurn, syncPresence, resolvePlace, pruneParseArtifacts, repairStatuses, retireName, repairStrandedCast, repairPlaceDescriptions, repairBibleLists, salvageProse } from "../engine/turn";
 import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground } from "../engine/continuity";
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
@@ -555,15 +555,67 @@ export const api = {
     // for sharing any single 6+ letter word — "pleasure" deleted the player's own biology law, which
     // is how a veto misfired as a correction erased the rule from the world. Now it takes real overlap.)
     const words = note.toLowerCase().match(/[a-z']{4,}/g) ?? [];
+    // ── WHY A STRIKE KEPT BRINGING SOMEBODY BACK ────────────────────────────────────────────────
+    //
+    // This deleted any non-central character whose FIRST NAME appeared anywhere in the strike note,
+    // and a name in the note is exactly what a strike about a person contains. The save that found
+    // it: the player, having killed Mara and watched her keep talking, struck the material
+    //
+    //     "Mara is alive"
+    //
+    // meaning: this did not happen, she is not. "mara is alive".includes("mara") is true, and she
+    // was central:false, so her entire record went — character, condition, memory, minds, edges,
+    // her place in every room. Her name was now free. Later that same turn the narrator wrote a
+    // knock at the front door, the bookkeeper emitted a new character called Mara, findCharByName
+    // looked for a living Mara and found nothing, and the engine built a stranger: born above a
+    // laundromat in South Seattle, raised by her grandmother, collects 1962 transit maps. It gave
+    // her the dead woman's name and made her central.
+    //
+    // So the strike was the resurrection. Every attempt to erase her deleted the record that was
+    // the only thing preventing a new one, and the player's own answer — strike her again — minted
+    // another. "DO NOT MAKE ANY MORE MARAS" was written after several rounds of exactly this.
+    //
+    // Three changes, in order of how much they matter.
+    //
+    // THE NAME IS RETIRED WHETHER OR NOT THE RECORD SURVIVES. A struck person's name is closed to
+    // the engine forever, so the next new_characters entry cannot inherit it. This alone breaks the
+    // loop.
+    //
+    // A PERSON WITH A HISTORY IS ENDED, NOT ERASED. Deleting someone the story has actually lived
+    // with throws away every relationship and memory that mentions them and leaves the prose
+    // referring to an id nothing resolves. The same `attached` test pruneParseArtifacts uses --
+    // an edge that has moved, a portrait, real memories -- now decides: attached people are marked
+    // departed and taken out of the scene, which is what the player wanted and is reversible.
+    // Only an unattached figure the struck material itself introduced is removed outright.
+    //
+    // AND `central` WAS THE WRONG SHIELD. It is set by a cap on how many people the engine tracks
+    // closely, not by whether somebody matters, and it is exactly backwards here: the woman with
+    // ten years of history was central:false while the stranger who replaced her was created
+    // central:true, so the strike could delete the real one and never touch the phantom.
+    const noteLc = note.toLowerCase();
     for (const [cid, c] of Object.entries(t.characters)) {
-      if (cid === "char_player" || c.central) continue;
+      if (cid === "char_player") continue;
       const first = (c.name || "").split(/\s+/)[0].toLowerCase();
-      if (first && note.toLowerCase().includes(first)) {
-        delete t.characters[cid]; delete t.condition[cid]; delete t.memory[cid]; delete t.minds?.[cid];
-        t.world.present = t.world.present.filter((p) => p !== cid);
-        t.world.edges = t.world.edges.filter((e) => e.from !== cid && e.to !== cid);
-        for (const p of Object.values(t.world.places)) p.contains = p.contains.filter((x) => x !== cid);
+      if (!first || first.length < 3 || !noteLc.includes(first)) continue;
+
+      retireName(t, c.name);   // closed to the engine either way
+
+      const movedEdge = t.world.edges.some((e) =>
+        (e.from === cid || e.to === cid) &&
+        (Math.abs(e.warmth) >= 5 || Math.abs(e.trust) >= 5 || (e.roles?.length ?? 0) > 0 || (e.notes ?? "").trim().length > 0));
+      const mem = t.memory[cid];
+      const attached = movedEdge || c.portrait_url || (mem?.core?.length ?? 0) > 0 || (mem?.episodic?.length ?? 0) > 1;
+
+      t.world.present = t.world.present.filter((p) => p !== cid);
+      for (const p of Object.values(t.world.places)) p.contains = p.contains.filter((x) => x !== cid);
+
+      if (attached) {
+        c.status = c.status === "dead" ? "dead" : "departed";
+        c.location = "loc_offscene";
+        continue;   // the story lived with this person; end them, do not unmake them
       }
+      delete t.characters[cid]; delete t.condition[cid]; delete t.memory[cid]; delete t.minds?.[cid];
+      t.world.edges = t.world.edges.filter((e) => e.from !== cid && e.to !== cid);
     }
     if (words.length) t.world.canon = t.world.canon.filter((line) => relevance(line, note) < 0.5);
     // PURGE POISONED MEMORIES — the struck material's real damage is the episodic/core/belief/fact
