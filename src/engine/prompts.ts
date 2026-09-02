@@ -1339,6 +1339,40 @@ export function stablePrefix(state: SaveState): string {
     .sort(([a], [b2]) => a.localeCompare(b2))
     .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c), anatomyNote(readAnatomy(state, id, c), c.name ?? "", c.pronouns)))
     .join("\n");
+  // ── AND THE ONES WHO ARE GONE, SAID OUT LOUD ─────────────────────────────────────────────────
+  //
+  // The filter above drops the dead and departed from the cast, which is right and is also the
+  // whole bug: it removes the only line that could say they are dead, and says nothing in its
+  // place. Meanwhile the rest of the digest goes on describing a world they live in.
+  //
+  // Measured on a save at turn 81, with Mara correctly recorded dead and offscene in the ledger:
+  // fourteen mentions of her in the anchor, none of them saying so. "Mara's House — The small
+  // bungalow three blocks away where Mara lives with her son and her dog, Biscuit — ordinarily a
+  // handful of people about: Mara, her teenage son, and Biscuit the golden retriever." Rabi and
+  // Emily's house: "occasionally Mara or Priya visiting". Two chapter summaries with her in them,
+  // a present character's memory of watching her arm opened, and eight recent beats. The narrator
+  // was reading a world in which she lives three blocks away, and it wrote her into a scene she
+  // had no business being in — twice, three times, again — while the player watched the ledger
+  // stay clean and the prose keep producing her.
+  //
+  // This is the doctrine this engine already states in its own negative-canon field, applied to
+  // people instead of body parts: "Absence cannot be inferred from description ... So state it
+  // outright." Dropping somebody from a list is not stating anything.
+  //
+  // Kept in the STABLE prefix on purpose: this set changes only when somebody dies, which is the
+  // same rarity the cast set has, so it costs a cache break exactly when the cast already breaks.
+  const gone = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c?.name && (c.status === "dead" || c.status === "departed"))
+    .sort(([a], [b2]) => a.localeCompare(b2))
+    .map(([, c]) => `${c.name} — ${c.status === "dead" ? "DEAD" : "GONE FROM THIS STORY"}`);
+  const goneBlock = gone.length
+    ? `=== WHO IS NO LONGER IN THIS STORY (ABSOLUTE) ===
+${gone.join("\n")}
+These people do not appear. Not in a doorway, not at the edge of a scene, not walking up a drive, not glimpsed, not arriving, not standing somewhere the prose then notices. They do not speak, and nothing they would have done happens. Where the rest of this document still describes a world they lived in — a house that is theirs, a place that lists them among the people ordinarily about, a memory somebody carries, a chapter that recounts what they did — that is the record of a world that HAD them, and none of it is permission to put them on the page now.
+The living may still think of them, grieve them, and speak of them by name; that is remembering somebody and it reads nothing like their arrival. The test is simple and it is physical: nobody on this list is ever the subject of a verb that happens in the present scene.
+
+`
+    : "";
   const supreme = b.narrator_direction?.trim()
     ? `=== PLAYER'S STANDING DIRECTION (SUPREME — OVERRIDES EVERYTHING BELOW) ===
 The following is the player's explicit instruction for how this story must run. It outranks the world bible, the cast, the faction clocks, your own sense of drama, and every other rule. If anything below — a clock's objective, a thread, a "compelling" hook, your instinct toward tension — conflicts with this, THIS WINS and the other thing is dropped. If the player says a topic or a character trait is NOT the story, then it is background texture only and must never become the engine of a scene. Do not steer toward what you find interesting against this direction. Honor it every single turn:
@@ -1447,7 +1481,7 @@ ${(b as any).absent.trim()}
 
 `
     : "";
-  return `${supreme}${sovereign}${genre}${retcons}${correctBlock}${absent}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
+  return `${supreme}${sovereign}${goneBlock}${genre}${retcons}${correctBlock}${absent}${dest}=== WORLD BIBLE (LAW, subordinate to the player's direction above) ===
 World: ${b.name} | Era: ${b.era}
 Technology: ${b.technology_level}
 Forces/Magic: ${b.magic_rules}
@@ -1848,7 +1882,11 @@ Player carries: ${state.world.money || "—"}${(() => {
   // not only where a cast member happens to be standing. See engine/population.ts.
   // The fixed half rides with the name everywhere the list appears. It is short by construction and
   // it is the thing that must not drift, so it is cheaper to repeat than to have re-invented.
-  const list = named.map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}${populationLine(p)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
+  // The names this world has ended, so a place stops listing them among the people ordinarily here.
+  const goneNames = Object.entries(state.characters)
+    .filter(([id, c]) => id !== "char_player" && c?.name && (c.status === "dead" || c.status === "departed"))
+    .map(([, c]) => c.name);
+  const list = named.map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}${populationLine(p, goneNames)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
   const away = Object.entries(state.characters)
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location && c.location !== state.world.player_location)
     // held = in custody. It rides with the name because a narrator has no other reason to remember

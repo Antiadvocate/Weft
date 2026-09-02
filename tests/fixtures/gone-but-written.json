@@ -1,0 +1,383 @@
+{
+ "places": {
+  "loc_mtggvs9r4vmyf": {
+   "id": "loc_mtggvs9r4vmyf",
+   "name": "Rabi and Emily's House",
+   "identity": "The 1500-square-foot Craftsman home Rabi and Emily own together in Columbia City.",
+   "population": {
+    "scale": 2,
+    "who": "Rabi and Emily, and occasionally Mara or Priya visiting"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9ripm7p": {
+   "id": "loc_mtggvs9ripm7p",
+   "name": "Seattle City Light Operations Center",
+   "identity": "The utility's South Seattle operations hub where Rabi and Dev work.",
+   "population": {
+    "scale": 40,
+    "who": "Engineers, line workers, dispatchers, and administrative staff"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9rtki96": {
+   "id": "loc_mtggvs9rtki96",
+   "name": "The Copper Kettle Diner",
+   "identity": "A small, old-fashioned diner near the operations center where Rabi and Dev get breakfast before early shifts.",
+   "population": {
+    "scale": 15,
+    "who": "Early-shift workers, retirees, and the occasional night-shift nurse"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9r8chdh": {
+   "id": "loc_mtggvs9r8chdh",
+   "name": "Priya's Yoga Studio",
+   "identity": "A small, sunlit studio two blocks from Rabi and Emily's house, owned and run by Priya.",
+   "population": {
+    "scale": 10,
+    "who": "Priya and her students, mostly neighborhood residents"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9r1ugep": {
+   "id": "loc_mtggvs9r1ugep",
+   "name": "Mara's House",
+   "identity": "The small bungalow three blocks away where Mara lives with her son and her dog, Biscuit.",
+   "population": {
+    "scale": 3,
+    "who": "Mara, her teenage son, and Biscuit the golden retriever"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9rkhsoz": {
+   "id": "loc_mtggvs9rkhsoz",
+   "name": "Columbia City Farmers Market",
+   "identity": "A weekly outdoor market held in the neighborhood's main square, a gathering place for the whole community.",
+   "population": {
+    "scale": 200,
+    "who": "Farmers, bakers, craftspeople, and neighborhood residents"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9rukweo": {
+   "id": "loc_mtggvs9rukweo",
+   "name": "The Lighthouse Bar",
+   "identity": "A dim, quiet bar near the water where Rabi and Emily sometimes go for a drink.",
+   "population": {
+    "scale": 20,
+    "who": "Regulars, couples on dates, and the occasional sailor"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9rpvl5w": {
+   "id": "loc_mtggvs9rpvl5w",
+   "name": "Seward Park",
+   "identity": "A large public park on a peninsula in Lake Washington, a favorite spot for walks and picnics.",
+   "population": {
+    "scale": 100,
+    "who": "Families, joggers, birdwatchers, and people walking dogs"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9r5zwv9": {
+   "id": "loc_mtggvs9r5zwv9",
+   "name": "The Central District Grocery",
+   "identity": "The small grocery store run by Priya's parents in the Central District.",
+   "population": {
+    "scale": 10,
+    "who": "Priya's parents and their regular customers"
+   },
+   "contains": []
+  },
+  "loc_mtggvs9rhy3vu": {
+   "id": "loc_mtggvs9rhy3vu",
+   "name": "The Substation on Delridge",
+   "identity": "An aging electrical substation in West Seattle that Dev has been tasked with upgrading.",
+   "population": {
+    "scale": 5,
+    "who": "Utility workers and engineers, mostly Dev and his crew"
+   },
+   "contains": []
+  },
+  "loc_offscene": {
+   "id": "loc_offscene",
+   "name": "elsewhere",
+   "identity": null,
+   "population": null,
+   "contains": []
+  },
+  "loc_mti9n5udqilsz": {
+   "id": "loc_mti9n5udqilsz",
+   "name": "a rented suite of offices on Jackson Street, up above a prin",
+   "identity": "Where Grant-writing and reentry casework for the nonprofit happens.",
+   "population": null,
+   "contains": []
+  },
+  "loc_mtjsir234yzg1": {
+   "id": "loc_mtjsir234yzg1",
+   "name": "Kings house in Houston",
+   "identity": "A large two-story brick house set back from the street on a long paved drive, with a broad symmetrical front, tall white columns framing a covered porch, and wide stone steps up to a solid painted doo",
+   "population": {
+    "scale": 5,
+    "who": "the family that lives here \u2014 the homeowner and his school-age children, with a spouse and occasional visiting relatives or neighbors"
+   },
+   "contains": []
+  },
+  "loc_mtjuyrgmjdwkg": {
+   "id": "loc_mtjuyrgmjdwkg",
+   "name": "A planet in andromeda galaxy",
+   "identity": "A bare rocky world with no atmosphere thick enough to carry sound: loose gray regolith underfoot, fine as ash and ankle-deep in the hollows, packed harder along the ridge crests.",
+   "population": {
+    "scale": 0,
+    "who": "0"
+   },
+   "contains": []
+  }
+ },
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "status": null,
+   "central": null,
+   "location": "loc_mtjuyrgmjdwkg",
+   "pronouns": "he/him",
+   "age": 39,
+   "appearance_facts": "Black hair with gray at the temples, cut short and neat; dark brown eyes; warm brown skin; a square jaw with a small scar on the chin from a childhood fall; solid, stocky build with broad shoulders and strong forearms from years of climbing and hauling; looks his age, with smile lines deepening at the corners of his eyes; a small gap between his front teeth that shows when he grins.",
+   "background": "Rabi grew up in Tacoma, the middle child of three, raised by his mother after his father left when he was twelve. He went to a trade school for electrical engineering, worked his way through Seattle C",
+   "core_traits": [
+    "Checks the locks and the stove before bed every night, in the same order, without thinking about it.",
+    "Cannot pass a hardware store without going in, even if he needs nothing.",
+    "Talks to the houseplants while he waters them, calling them by the names Emily gave them.",
+    "When he's tired, he rubs the scar on his chin with his thumb."
+   ],
+   "values": [
+    "A marriage is a thing you build daily, not a thing you have",
+    "Work is work; home is home; the two should not bleed into each other",
+    "Emily's body is hers, and her comfort is non-negotiable",
+    "Being reliable is a form of love"
+   ],
+   "speech_pattern": "Plain, warm, and unhurried; he says what he means and doesn't dress it up; he asks questions when he doesn't understand and admits when he's wrong.",
+   "intelligence": "average",
+   "skills": {
+    "Electrical engineering and grid maintenance": "Expert; seventeen years with Seattle City Light, from apprenticeship to senior engineer",
+    "Home repair and carpentry": "Competent; learned from his uncle, can fix most things in the house",
+    "Cooking": "Good at breakfast, passable at dinner; makes a very good omelet",
+    "Reading people's moods": "Quietly sharp; he notices when Emily is off before she says anything"
+   }
+  },
+  "char_mtggvs9t2dhp3": {
+   "name": "Emily",
+   "status": null,
+   "central": null,
+   "location": "loc_mtggvs9r4vmyf",
+   "pronouns": "she/her",
+   "age": 37,
+   "appearance_facts": "Long auburn hair, usually worn down or in a loose braid; green eyes; fair skin with freckles across her nose and shoulders; a long, elegant face with high cheekbones; tall and slender with long legs and graceful hands; looks younger than her age, with a bright, expressive face; a small tattoo of a crescent moon on the inside of her left wrist.",
+   "background": "Emily grew up in Portland, the only child of a nurse and a high school teacher, and came out as trans in her early twenties. She moved to Seattle for a job in social worker jobs where she helps inmate",
+   "core_traits": [
+    "Teases Rabi relentlessly when she's in a good mood, and checks on him quietly when she's not.",
+    "Cannot resist a mirror; she checks her hair or her lipstick whenever she passes one.",
+    "Talks to her plants by name and scolds them when they droop.",
+    "When she's nervous, she twists the crescent moon tattoo on her wrist with her thumb.",
+    "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to"
+   ],
+   "values": [
+    "Her body is hers, and her pleasure is not up for negotiation",
+    "A marriage should have room for play",
+    "Being seen fully is the point of being loved",
+    "Rabi's steadiness is the ground she stands on"
+   ],
+   "speech_pattern": "Court and money words used teasingly \u2014 motion denied, appeal, jurisdiction, in writing, on the record. She plays the whole marriage as a docket she presides over.. Mock-formal constructions with the grammar of a ruling, then a wink of plain speech. Asks questions only as procedure.. Crisp openings, a beat of theatre, then a domestic detail that undercuts the whole performance..",
+   "intelligence": "average",
+   "skills": {
+    "Graphic design and branding": "Expert; ten years of freelance and agency work, with a sharp eye for color and type",
+    "Tarot reading": "Amateur but enthusiastic; she reads for friends and for Rabi on slow evenings",
+    "Cooking": "Good at elaborate dinners, bad at breakfast; she burns toast more often than not",
+    "Reading a room": "Very sharp; she knows when someone is uncomfortable before they say so"
+   }
+  },
+  "char_mtggvs9wzzfz3": {
+   "name": "Dev",
+   "status": "departed",
+   "central": false,
+   "location": "loc_mtggvs9rtki96",
+   "pronouns": "he/him",
+   "age": 44,
+   "appearance_facts": "Thick black hair with gray at the temples, usually a little messy; dark brown eyes; brown skin; a strong, square face with a heavy brow; tall and broad-shouldered, with the build of a former athlete gone a little soft; looks his age, with deep lines around his mouth; a faded scar on his left eyebrow from a childhood bike accident.",
+   "background": "Dev is Rabi's closest friend and a fellow engineer at Seattle City Light. They came up through the apprenticeship program together and have worked side by side for over fifteen years. Dev is married w",
+   "core_traits": [
+    "Arrives early to everything, always, and judges people who don't.",
+    "Cannot resist a good breakfast; he orders the same thing every time and complains about it.",
+    "Tells long stories about his daughters and then catches himself and stops.",
+    "When he's worried, he goes quiet and checks his phone more than usual."
+   ],
+   "values": [
+    "Work is a craft, not just a paycheck",
+    "A friend tells you the truth even when it's inconvenient",
+    "Family comes first, always",
+    "Being on time is a form of respect"
+   ],
+   "speech_pattern": "Dry, understated, and a little sarcastic; he says less than he means and lets the silence do the work; he laughs at his own jokes before anyone else does.",
+   "intelligence": "average",
+   "skills": {
+    "Electrical engineering and grid maintenance": "Expert; seventeen years with Seattle City Light, specializing in substation work",
+    "Carpentry": "Competent; he built the treehouse in his backyard",
+    "Cooking": "Good at grilling, bad at everything else; his wife does most of the cooking",
+    "Telling a story": "Very good; he can make a routine repair sound like an adventure"
+   }
+  },
+  "char_mtggvs9wvhjy7": {
+   "name": "Priya",
+   "status": "departed",
+   "central": false,
+   "location": "loc_mtggvs9r8chdh",
+   "pronouns": "she/her",
+   "age": 35,
+   "appearance_facts": "Long black hair, usually in a low ponytail; dark brown eyes; warm brown skin; an oval face with a small nose and full lips; slender and graceful, with the posture of a dancer; looks younger than her age, with a calm, watchful expression; a small silver ring on her right index finger that she twists when she's thinking.",
+   "background": "Priya is a yoga instructor and the owner of a small studio in Columbia City, two blocks from Rabi and Emily's house. She grew up in Seattle, the daughter of Indian immigrants who run a grocery store i",
+   "core_traits": [
+    "Moves through a room like she's measuring it; she notices everything and says little.",
+    "Cannot resist a good cup of chai; she makes it from scratch and judges everyone else's.",
+    "Asks questions that sound casual but aren't; she remembers the answers.",
+    "When she's uncomfortable, she goes very still and her hands stop moving."
+   ],
+   "values": [
+    "Stillness is a form of strength",
+    "A neighborhood should be a community, not a market",
+    "Honesty with oneself is the hardest and most important kind",
+    "Good tea fixes most things"
+   ],
+   "speech_pattern": "Indirect, circling, full of weather and light and the time of day. She names what's outside the window instead of what's in the room.. Longer sentences that wander, then land on a single hard word. Questions that aren't questions: 'You've seen the sign.'. Slow and meandering, like someone walking a familiar block and noticing one new thing. The hard word at the end is the whole point..",
+   "intelligence": "average",
+   "skills": {
+    "Yoga instruction": "Expert; ten years of practice and teaching, with a focus on breathwork",
+    "Tarot reading": "Skilled; she reads for herself and for close friends, and her readings are uncannily accurate",
+    "Cooking": "Good at simple, vegetarian food; her dal is famous among her friends",
+    "Listening": "Exceptional; she hears what people don't say"
+   }
+  },
+  "char_mtjrpj3m33eoj": {
+   "name": "Drea",
+   "status": "departed",
+   "central": false,
+   "location": "loc_offscene",
+   "pronouns": "she/her",
+   "age": 26,
+   "appearance_facts": "Filipina, warm brown skin that goes ruddy at the cheeks in the heat off the espresso machine; black hair, thick and coarse, cut blunt at the jaw and shoved behind her ears when she's slammed; dark brown eyes, slightly hooded, with a permanent faint shadow under them from opening shifts; broad flat nose and a wide mouth that rests half-open when she's counting orders; short and solidly built through the shoulders and forearms from four years of pulling shots and hauling milk crates; looks about her age, maybe younger when she laughs; a shiny burn scar the size of a thumbprint on the inside of her right wrist from a steam wand, and a small stick-and-poke star on the back of her left hand that she did herself at nineteen and regrets the placement of.",
+   "background": "Grew up in Beacon Hill, third of four kids, in a house where her lola ran the kitchen and everyone else worked around her; her mother did overnight custodial at Harborview and slept through most after",
+   "core_traits": [
+    "Calls the order out before the customer has finished paying, every time, and starts building it while they're still fumbling with their card.",
+    "Keeps a rag in her back pocket and wipes down whatever surface she leans on \u2014 the counter, the pastry case, other people's tables while they're still sitting at them, the tops of her own shoes at the end of a shift.",
+    "Will not touch the tip jar until the shift is over and gets loudly angry at coworkers who pull bills out of it early.",
+    "Names every regular within two visits and uses the name loudly across the room, including when the person has clearly come in to be left alone."
+   ],
+   "values": [
+    "Doing the actual craft right even when nobody in line can tell the difference",
+    "Her lola's house, and showing up to it on Sundays",
+    "Not being the person who makes a hard shift harder for someone else"
+   ],
+   "speech_pattern": "Household and kitchen nouns \u2014 the rice cooker, the good pan, my lola's sink, the plastic tub of leftovers she sends people home with. Work words only when she's holding the tool.. Imperatives and offers. She tells you what to do with your hands. Questions are rare and always about logistics, never about you.. Clipped, interrupted by her own movement; a line, a pause where she's reaching for something, then the rest of the line..",
+   "intelligence": "average",
+   "skills": {}
+  },
+  "char_mtjslytt2l8m7": {
+   "name": "King Tong",
+   "status": "dead",
+   "central": true,
+   "location": "loc_offscene",
+   "pronouns": "he/him",
+   "age": 41,
+   "appearance_facts": "Black hair, thick and straight, cut short and starting to grey at both temples; dark brown eyes; warm medium-brown skin; a broad flat-planed face with a heavy jaw and a nose broken once playing rec-league basketball and never properly set, so it sits a few degrees left of center; big through the chest and shoulders with a gut he has been losing and regaining for a decade; looks his age around the eyes and younger everywhere else; a four-inch surgical scar down the inside of his right forearm from a plate put in after a fall off a ladder at twenty-six.",
+   "background": "Grew up in Alief on the west side of Houston, the second of four kids, in a house where his mother ran a nail salon out of the front room and his father drove long-haul until his back gave out. He put",
+   "core_traits": [
+    "Feeds people before he'll talk about anything real \u2014 puts a plate in front of you, gets you a drink, refills it, and only then sits down.",
+    "Cannot say his ex-wife's name out loud; calls her 'their mother' or 'she' and changes the subject inside two sentences.",
+    "Answers his phone every single time it rings, mid-sentence, mid-meal, mid-hug, and apologizes for it afterward without ever once letting it go to voicemail.",
+    "Overpays for everything \u2014 tips forty percent, sends flowers for nothing, tried to buy Rabi a truck \u2014 and gets visibly hurt when it's refused."
+   ],
+   "values": [
+    "his three kids getting more childhood than he got",
+    "loyalty paid back in full, with interest, whether or not anyone asked"
+   ],
+   "speech_pattern": "Trade specifics and part numbers used as ordinary nouns \u2014 compressor, condensate line, warranty, invoice, walk-in cooler. Food named by cut and weight. Money said out loud in dollars.. Declarative, front-loaded with the fact, then a comma and the instruction. Rarely subordinates. Breaks off mid-clause to take a call and picks the sentence back up where he dropped it.. Short bursts, then one long unbroken run when he's on equipment or meat. Pauses land where he's setting a plate down, not where the thought ends..",
+   "intelligence": "average",
+   "skills": {
+    "commercial HVAC and refrigeration": "expert; twenty years from install crew to owning the company, learned load calculations from a mentor who is now dead",
+    "reading a room full of contractors and c": "very good; built a business on knowing who is about to walk away from a deal",
+    "cooking for a crowd": "excellent; taught by his mother and grandmother, can put out food for thirty without notes",
+    "basketball": "decent for a heavy forty-one-year-old; post game, no jumper, all elbows"
+   }
+  },
+  "char_mtju2zz0wc7nw": {
+   "name": "Mara",
+   "status": "dead",
+   "central": true,
+   "location": "loc_offscene",
+   "pronouns": "she/her",
+   "age": 28,
+   "appearance_facts": "Shoulder-length dark hair with a slight, messy wave; pale, cool-toned skin; sharp, angular cheekbones; deep-set hazel eyes that appear more green in low light; athletic, wiry build; a small, jagged scar running vertically through her left eyebrow from a childhood bicycle accident.",
+   "background": "Born and raised in the dense, rain-slicked neighborhoods of South Seattle, she grew up in a cramped apartment above a laundromat. She was raised by her grandmother after her parents moved to Californi",
+   "core_traits": [
+    "Names people constantly when telling a story, always including a specific, irrelevant detail about their life or location.",
+    "Interrupts her own sentences to correct a minor, inconsequential detail, then immediately resumes the original thought.",
+    "Paces in tight, rhythmic circles when she is explaining something she is passionate about.",
+    "Will not enter a room without checking the location of the nearest exit, even in places she visits daily."
+   ],
+   "values": [
+    "The preservation of personal history through storytelling",
+    "The reliability of physical, tangible objects over digital ones",
+    "Maintaining a constant flow of conversation to avoid silence"
+   ],
+   "speech_pattern": "Names people constantly \u2014 the cousin in Renton, the woman on the bus with the parrot cage, Rabi's landlord. Every fact arrives attached to a person who told her.. Starts mid-story, assumes you know who she means, backfills with a relative clause. Interrupts herself to correct a detail.. Fast, spilling, then a hard stop when she catches herself. Talks to keep the room from going quiet..",
+   "intelligence": "average",
+   "skills": {
+    "Archival Research": "Mastered through years of working in the basement of the Seattle Public Library, she can find almost any record in a phy",
+    "Urban Navigation": "Learned from a lifetime of riding the bus and walking the city, she knows every shortcut and alleyway in the metropolita",
+    "Storytelling": "Developed as a social survival mechanism, she can weave disparate facts into a coherent, if rambling, narrative on the f"
+   }
+  },
+  "char_mtjus03z2q051": {
+   "name": "Hamed",
+   "status": "departed",
+   "central": false,
+   "location": "loc_offscene",
+   "pronouns": null,
+   "age": 30,
+   "appearance_facts": "",
+   "background": "INCOMPLETE RECORD \u2014 entered the story at Day 3, 09:10 (Morning) without being declared. What the text established: \"Hamed.\" She said it like she was placing it, a file in a drawer. \"Hamed.",
+   "core_traits": [],
+   "values": [],
+   "speech_pattern": "Trade-precise, borrowed English idioms handled at arm's length; brand names, part numbers, torque values, transit lines. Declarative fragments stacked; drops articles and pronouns when hurrying; questions phrased as statements with the pitch left off. Short bursts with a hard stop, then a longer clarifying clause tacked on like a receipt.",
+   "intelligence": "average",
+   "skills": {}
+  },
+  "char_mtjv1cvx3en2m": {
+   "name": "Felicity",
+   "status": null,
+   "central": true,
+   "location": "loc_mtjuyrgmjdwkg",
+   "pronouns": "she/her",
+   "age": 34,
+   "appearance_facts": "Honey-colored hair, thick and slightly wavy, worn pinned loosely back at the nape with whatever pin is nearest, strands always working loose around her temples. Warm hazel eyes with a green cast in strong light. Fair skin that has taken sun across the nose, cheekbones and the tops of the shoulders \u2014 a faint permanent freckling there. Round face, wide mouth that goes crooked on the left when she smiles, small vertical crease between the brows from squinting. Full-figured and soft-bodied: heavy breasts, wide hips, a soft stomach, strong calves and thighs from stairs and hauling potting soil. High arches and long toes on feet that are almost always bare and consequently a little dirty at the heel. Apparent age early thirties. A pale scar the length of a thumbnail on the inside of her right wrist where a trellis nail caught her, and a small brown mole just under the left corner of her jaw.",
+   "background": "Rabi made her, whole and deliberate, in the new world \u2014 created to be perfect for him, and she knows it and has never once been troubled by it. Behind that she carries a childhood in Bellingham that h",
+   "core_traits": [
+    "Talks continuously to keep a room from going quiet \u2014 through cooking, through weeding, through other people's silences \u2014 and knows exactly what she's doing and does it anyway.",
+    "Goes barefoot everywhere, indoors, on gravel, in the garden, in wet grass, and tracks soil across every floor in the house without noticing until she's asked to.",
+    "Touches the leaves of any plant she passes, running two fingers along the underside, and will stop mid-sentence to pull a dead leaf off and pocket it.",
+    "Never asks a question about anything painful \u2014 she will hand you coffee and start talking about the light instead, and if you want to be asked you will have to ask her to ask."
+   ],
+   "values": [
+    "Keeping the people in her house fed, warm, and not alone in a quiet room",
+    "Things that grow if you tend them daily \u2014 soil, bread starter, a marriage",
+    "Not making anyone explain themselves before they're ready"
+   ],
+   "speech_pattern": "Weather, light, transit, plants on the balcony. Utterly plain words, but she uses them at slight angles \u2014 'the bus came wrong,' 'the light's thin today.'. Long single sentences that run past where they should stop, joined by commas, ending somewhere she didn't announce she was going. Rarely a full stop until she's done.. Slow accumulation. She talks to keep the room from going quiet, and she knows it, and she keeps going anyway..",
+   "intelligence": "average",
+   "skills": {}
+  }
+ },
+ "anchor_turn": 53,
+ "current_turn": 81,
+ "mara_in_prose": "The pistol was gone from his hand between one word and the next. Felicity's fingers stayed where they were, hooked over the porch rail, and her toes pressed into the grass at the yard's edge.\n\nShe looked at his empty hand, then at his face. The laugh came first, short and bright, and she didn't look away from him.\n\n\"You want my feet at your eye level,\" she said. Her voice had dropped, soft and serious, but the corner of her mouth pulled left. \"That's the whole ask.\"\n\nShe came up the last step onto the porch, barefoot, and stopped close enough that he could have counted the freckles across her nose. Her hands were still at her sides.\n\n\"I want a kitchen garden,\" she said. \"Raised beds, with a stone path between them, and a tap that doesn't freeze. Out past the south strip where the soil's warm.\" She didn't pause to check whether that was enough. \"And I'll wear the bikini, if that's the deal.\"\n\nBehind her, at the far edge of the yard where the grass gave way to gray regolith, a figure was walking toward the house. Mara, torn and cut, one arm held tight against her ribs, her feet finding the packed ground like she had walked a long way. She was still a hundred yards out, and she did not call.\n\nFelicity hadn't turned. She was watching Rabi's face, waiting."
+}

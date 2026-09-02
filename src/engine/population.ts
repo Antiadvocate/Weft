@@ -82,9 +82,47 @@ function scaleWord(n: number): string {
 }
 
 /** One line per place for the LOCATIONS block, so the world reads as inhabited everywhere. */
-export function populationLine(place: Place): string {
+/**
+ * `who` IS STATIC TEXT WRITTEN AT WORLD CREATION AND NEVER REVISED, so it goes on naming people the
+ * story has since buried. On a save at turn 81, with Mara correctly recorded dead and offscene, the
+ * places list still read:
+ *
+ *   - Mara's House — The small bungalow three blocks away where Mara lives with her son and her dog,
+ *     Biscuit. — ordinarily a handful of people about: Mara, her teenage son, and Biscuit
+ *   - Rabi and Emily's House — ... ordinarily a handful of people about: Rabi and Emily, and
+ *     occasionally Mara or Priya visiting
+ *
+ * That is not background colour, it is an instruction: this is who you find here. The narrator kept
+ * writing her into scenes, and the player kept watching a clean ledger produce a dead woman on the
+ * page. `strike` takes the names the story has ended out of the line — struck through rather than
+ * silently dropped, because "Mara's House" is still called that and a reader of this list who is
+ * simply not told will fill the gap back in.
+ */
+export function populationLine(place: Place, gone: readonly string[] = []): string {
   const p = populationOf(place);
-  return p ? ` — ordinarily ${scaleWord(p.scale)} about: ${p.who}` : "";
+  if (!p) return "";
+  let who = p.who;
+  for (const name of gone) {
+    const first = String(name ?? "").split(/\s+/)[0];
+    if (!first || first.length < 3) continue;
+    const esc = first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Take the whole clause the name sits in — "and occasionally Mara or Priya visiting" must not
+    // become "and occasionally  or Priya visiting".
+    // NOT THE POSSESSIVE. "Priya's parents and their regular customers" is a description of two
+    // OTHER sets of people that happens to use a dead woman's name to locate them; striking the
+    // clause emptied a working grocery. A name in the possessive is somebody else's address, not an
+    // attendance record, and it stays.
+    if (new RegExp(`\\b${esc}'s\\b`, "i").test(who)) continue;
+    who = who.replace(new RegExp(`(^|,\\s*|;\\s*|\\band\\s+|\\bor\\s+|\\boccasionally\\s+)[^,;]*\\b${esc}\\b[^,;]*`, "gi"), "$1")
+             .replace(/\s*(,|;)\s*(?=,|;|$)/g, "")
+             .replace(/(^|[,;])\s*(and|or|occasionally)\s*(?=[,;]|$)/gi, "$1")
+             .replace(/\s{2,}/g, " ")
+             .replace(/^[\s,;]*(and|or|occasionally)\s+/i, "")
+             .replace(/[\s,;]*\b(and|or|occasionally)\s*$/i, "")
+             .replace(/^[\s,;]+|[\s,;]+$/g, "");
+  }
+  if (!who.trim()) return ` — nobody is ordinarily about here any more`;
+  return ` — ordinarily ${scaleWord(p.scale)} about: ${who}`;
 }
 
 /**
