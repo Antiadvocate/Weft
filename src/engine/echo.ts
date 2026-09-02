@@ -319,3 +319,37 @@ export function lineReprintFix(line: string | null | undefined): string {
   return `\nLAST TURN SOMEBODY SAID A LINE THIS STORY HAS ALREADY PRINTED, WORD FOR WORD: "${line}"
 It was on the page once already and the reader recognised it. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
 }
+
+/* ── THE TURN THAT OPENS BY REPRINTING THE PLAYER'S OWN LINE ────────────────────────────────────
+ *
+ * The narrator's law is explicit: "quotes are spoken aloud in the PLAYER'S own voice and are ALREADY
+ * SAID — never write the line out again, open on it, or have anyone repeat it back; begin after it
+ * landed." Turn 19 of one save opens with the player's entire typed message, verbatim, as its first
+ * paragraph, in quotation marks, before any prose at all:
+ *
+ *     "Ok ok pet. But only if you guys promise to let me have mama for alone time. You'll be the
+ *      oldest Ivy so you'll have to behave and watch wren..."
+ *
+ * The player reads their own message back before the scene starts. It is not a stylistic slip, it is
+ * a whole paragraph of the turn spent on nothing, and it primes everything after it to be about that
+ * sentence — which is exactly what the rest of that turn was.
+ *
+ * Deterministic and narrow: only a quoted run at the very TOP of the prose, and only when it is
+ * substantially the player's own words. A character genuinely quoting the player later in the turn
+ * is a different thing and is left to findEcho above.
+ */
+export function stripOpeningPlayerLine(prose: string, action: string): { prose: string; stripped: string | null } {
+  const said = String(action ?? "").trim();
+  if (said.length < 12) return { prose, stripped: null };
+  const text = String(prose ?? "");
+  // the first quoted paragraph, if the prose opens on one
+  const m = /^\s*(["“][^"”]{12,}["”])\s*(?:\n|$)/.exec(text);
+  if (!m) return { prose, stripped: null };
+  const opener = m[1].slice(1, -1);
+  // Is it the player's own line? Either a verbatim span of it, or heavy distinctive overlap.
+  const isPlayers = verbatimParrot(said, opener)
+    || flatten(said).includes(flatten(opener).trim())
+    || (contentWords(opener).length >= 4 && longestEchoRun(said, opener) >= Math.min(6, contentWords(opener).length));
+  if (!isPlayers) return { prose, stripped: null };
+  return { prose: text.slice(m[0].length).replace(/^\s+/, ""), stripped: opener.slice(0, 160) };
+}

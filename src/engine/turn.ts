@@ -59,7 +59,7 @@ import { pronounsOf } from "./anatomy";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
-import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
+import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, longestEchoRun, stripOpeningPlayerLine, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
@@ -3043,6 +3043,16 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // the machinery naming itself on the page — see stripMetaPlayer
     const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
     if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
+  }
+  {
+    // ...and the turn that opens by printing the player's own typed line back at them, before any
+    // prose at all. See stripOpeningPlayerLine.
+    const opened = stripOpeningPlayerLine(prose, action);
+    if (opened.stripped) {
+      prose = opened.prose;
+      noteFire(state, "echo", `the turn opened by reprinting the player's own line`);
+      console.warn(`[turn] stripped an opening reprint of the player's line: "${opened.stripped.slice(0, 60)}…"`);
+    }
   }
   {
     // THE WIND, EVERY TURN. A free-standing sentence with nobody in it, about the weather or the
@@ -6244,6 +6254,35 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       shifts.push(`bookkeeping correction: ${nameOf(id)} was not in this scene — a want from it was not recorded for them`);
       console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
       continue;
+    }
+    // ── A WANT IS NOT AN ECHO OF THE PLAYER'S LAST MOVE ─────────────────────────────────────────
+    //
+    // The Forge writes drives carefully and at length ("WANTS ARE THINGS THEY DO ... write wants
+    // the person can advance BY THEIR OWN ACTION"). The bookkeeper then overwrites them every turn
+    // and was told nothing about what a drive is, so it wrote down whatever had just happened.
+    //
+    // One save, turn 21. The player made a dog the turn before. Every want in the house:
+    //   Ivy, 7    "Teach Ruff the names of the deer herd."           (Ruff is one turn old)
+    //   Felicity  "Adjust to the new domestic boundaries Rabi has set."
+    //   Ruff, new "Find and close the gap in the garden boundary..."
+    // Not one person wanted anything that predated the player's last sentence — so every line any
+    // of them spoke was a paraphrase of it, and the player read a room full of people with no
+    // interior at all. "Boxes wasting tokens. Have zero actual thoughts."
+    //
+    // So a goal that is mostly the player's own action handed back is refused, and the standing
+    // want survives. Measured on distinctive-word overlap, the same test echo.ts uses for a line of
+    // dialogue — the failure is identical in kind, one level up.
+    {
+      const cur = state.characters[id]?.drive?.goal ?? "";
+      const g = String(du.goal ?? "");
+      const echoesPlayer = longestEchoRun(action, g) >= 3 || overlapRatio(action, g) >= 0.5;
+      // A want the player was explicitly asked for, or that continues the standing one, is fine.
+      const continues = cur && overlapRatio(cur, g) >= 0.4;
+      if (echoesPlayer && !continues && cur) {
+        shifts.push(`bookkeeping correction: ${nameOf(id)} keeps their own want — the new one was a restatement of what the player just did`);
+        console.warn(`[drives] refused echo-want for ${nameOf(id)}: "${g.slice(0, 70)}"`);
+        continue;
+      }
     }
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
   }

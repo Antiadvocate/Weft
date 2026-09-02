@@ -1,0 +1,295 @@
+{
+ "characters": {
+  "char_player": {
+   "name": "Rabi",
+   "age": 39,
+   "status": null,
+   "drive": null,
+   "pronouns": "he/him",
+   "appearance_facts": "Black hair with gray at the temples, cut short and neat; dark brown eyes; warm brown skin; a square jaw with a small scar on the chin from a childhood fall; solid, stocky build with broad shoulders and strong forearms from years of climbing and hauling; looks his age, with smile lines deepening at the corners of his eyes; a small gap between his front teeth that shows when he grins.",
+   "background": "Rabi grew up in Tacoma, the middle child of three, raised by his mother after his father left when he was twelve. He went to a trade school for electrical engineering, worked his way through Seattle C",
+   "core_traits": [
+    "Checks the locks and the stove before bed every night, in the same order, without thinking about it.",
+    "Cannot pass a hardware store without going in, even if he needs nothing.",
+    "Talks to the houseplants while he waters them, calling them by the names Emily gave them.",
+    "When he's tired, he rubs the scar on his chin with his thumb."
+   ],
+   "values": [
+    "A marriage is a thing you build daily, not a thing you have",
+    "Work is work; home is home; the two should not bleed into each other",
+    "Emily's body is hers, and her comfort is non-negotiable",
+    "Being reliable is a form of love"
+   ],
+   "speech_pattern": "Plain, warm, and unhurried; he says what he means and doesn't dress it up; he asks questions when he doesn't understand and admits when he's wrong.",
+   "intelligence": "average",
+   "skills": {
+    "Electrical engineering and grid maintenance": "Expert; seventeen years with Seattle City Light, from apprenticeship to senior engineer",
+    "Home repair and carpentry": "Competent; learned from his uncle, can fix most things in the house",
+    "Cooking": "Good at breakfast, passable at dinner; makes a very good omelet",
+    "Reading people's moods": "Quietly sharp; he notices when Emily is off before she says anything"
+   },
+   "central": null,
+   "location": "loc_mtjwnb1edt4lj"
+  },
+  "char_mtjwnb1efll1f": {
+   "name": "Felicity",
+   "age": 34,
+   "status": "alive",
+   "drive": {
+    "goal": "Adjust to the new domestic boundaries Rabi has set.",
+    "progress": 0,
+    "priority": 1,
+    "updated_turn": 21,
+    "progress_turn": 21,
+    "last_progress": 0
+   },
+   "pronouns": "she/her",
+   "appearance_facts": "Honey-colored hair, thick and slightly wavy, worn pinned loosely back at the nape with whatever pin is nearest, strands always working loose around her temples. Warm hazel eyes with a green cast in strong light. Fair skin that has taken sun across the nose, cheekbones and the tops of the shoulders \u2014 a faint permanent freckling there. Round face, wide mouth that goes crooked on the left when she smiles, small vertical crease between the brows from squinting. Full-figured and soft-bodied: heavy breasts, wide hips, a soft stomach, strong calves and thighs from stairs and hauling potting soil. High arches and long toes on feet that are almost always bare and consequently a little dirty at the heel. Apparent age early thirties. A pale scar the length of a thumbnail on the inside of her right wrist where a trellis nail caught her, and a small brown mole just under the left corner of her jaw.",
+   "background": "Rabi made her, whole and deliberate, in the new world \u2014 created to be perfect for him, and she knows it and has never once been troubled by it. Behind that she carries a childhood in Bellingham that h",
+   "core_traits": [
+    "Talks continuously to keep a room from going quiet \u2014 through cooking, through weeding, through other people's silences \u2014 and knows exactly what she's doing and does it anyway.",
+    "Goes barefoot everywhere, indoors, on gravel, in the garden, in wet grass, and tracks soil across every floor in the house without noticing until she's asked to.",
+    "Touches the leaves of any plant she passes, running two fingers along the underside, and will stop mid-sentence to pull a dead leaf off and pocket it.",
+    "Never asks a question about anything painful \u2014 she will hand you coffee and start talking about the light instead, and if you want to be asked you will have to ask her to ask."
+   ],
+   "values": [
+    "Keeping the people in her house fed, warm, and not alone in a quiet room",
+    "Things that grow if you tend them daily \u2014 soil, bread starter, a marriage",
+    "Not making anyone explain themselves before they're ready"
+   ],
+   "speech_pattern": "Weather, light, and soil as the whole vocabulary. Directions and hours: south side, four o'clock, first frost. She measures affection in growing seasons.. Statement, then a second statement that quietly contradicts the first. She lets the listener's silence sit for one beat, then fills it with something about the sky.. Slower than expected. Sentences that stop early, then a long one that goes on past where a polite person would stop..",
+   "intelligence": "average",
+   "skills": {},
+   "central": null,
+   "location": "loc_mtjwnb1edt4lj"
+  },
+  "char_mtjwnb1fcdosm": {
+   "name": "Ivy",
+   "age": 7,
+   "status": "alive",
+   "drive": {
+    "goal": "Teach Ruff the names of the deer herd.",
+    "progress": 0,
+    "priority": 2,
+    "updated_turn": 21,
+    "progress_turn": 21,
+    "last_progress": 0
+   },
+   "pronouns": "she/her",
+   "appearance_facts": "Seven years old, small for her age and wiry with it. Dark brown hair, thick and coarse, cut blunt at the jaw because she will not sit still for anything longer; it holds a cowlick at the crown that stands up no matter how it's wetted down. Round face still holding baby fat in the cheeks, with a wide mouth and a gap where the lower left incisor came out a month ago and hasn't finished coming back. Eyes are dark hazel, almost brown in shadow. Warm olive-brown skin that browns fast in sun, with a permanent scatter of freckles across the bridge of the nose. Feet are bare and habitually filthy; the second toe on the right foot is longer than the big toe. A pale crescent scar on the right knee from the greenhouse step. Nails bitten down on both hands, and dirt under all of them.",
+   "background": "Three years old, the first person ever born on Fernhaven, barefoot like her mother and already naming every deer in the herd whether or not the deer agree.",
+   "core_traits": [
+    "Tugs the nearest adult's sleeve when she is being ignored, and keeps tugging \u2014 three, four, six pulls \u2014 until someone answers, and follows them into the next room to keep tugging.",
+    "Cannot pass a beetle on a path without crouching to watch it, which means any walk with her takes three times as long.",
+    "Insists on carrying the heaviest thing available \u2014 the full watering can, the bucket, the crate of tomatoes \u2014 refuses help, and will not put it down even when her arms are shaking."
+   ],
+   "values": [
+    "being told the true answer instead of the easy one",
+    "every animal she names is hers now and must be accounted for"
+   ],
+   "speech_pattern": "Borrows adult words she's overheard around the property and uses them slightly wrong but confidently \u2014 compost, hostas, calendar, the herd. Insists on the word she heard, not a simpler one.. Long chained sentences with 'because' doing all the work, then an abrupt stop. Sentences begin mid-thought, as though the first half happened in her head.. Builds momentum, faster and faster, then halts flat on a single short clause. No pause for the listener..",
+   "intelligence": "average",
+   "skills": {},
+   "central": true,
+   "location": "loc_mtjwnb1edt4lj"
+  },
+  "char_mtjwnb1fogcpc": {
+   "name": "Wren",
+   "age": 1,
+   "status": null,
+   "drive": {
+    "goal": "Get closer to Gordon the deer",
+    "progress": 0,
+    "priority": 1,
+    "updated_turn": 20,
+    "progress_turn": 20,
+    "last_progress": 0
+   },
+   "pronouns": "she/her",
+   "appearance_facts": "Baby girl of about a year, still mostly round \u2014 hair coming in dark brown and fine, sticking up at the crown no matter how it's smoothed down; eyes the murky changeable blue-grey of a child whose colour hasn't decided yet, with a ring at the outside already going browner than the middle; fair skin that pinks fast in sun and across the cheeks after a nap; a wide flat nose and her mother's mouth; fat wrists with the deep creases at each one, dimpled knuckles, thighs that crease twice; two teeth up front on the bottom and one coming through above, which she works at with her tongue; a faint red birthmark the shape of a thumbprint at the back of her neck under the hairline, visible when her head is tipped forward; bare feet almost always, and dirt in the creases of them.",
+   "background": "Eighteen months old, born in the house at the top of the stone path, currently asleep more often than not and hauled around on Felicity's hip through every conversation.",
+   "core_traits": [
+    "Grabs a fistful of whoever is holding her \u2014 hair, an ear, the neck of a shirt, the loose skin of a wrist \u2014 and locks her fingers shut, so every handover from hip to hip takes both adults and ends with someone prying her hand open one finger at a time.",
+    "Goes rigid and screams when she's set down on grass, every time, and sits perfectly content when set down on the stone path two feet away; nobody has worked out why.",
+    "Puts everything in her mouth before she'll look at it \u2014 soil out of the third bed, a trellis wire, the buckle of Rabi's boot \u2014 and has to be fished out of by hand three or four times a morning.",
+    "Reaches for Gordon whenever the deer comes within ten feet, both arms out, leaning her whole weight out of the arms holding her."
+   ],
+   "values": [
+    "being held facing outward so she can see what everyone else is looking at",
+    "her sister Ivy, whom she watches constantly and copies badly"
+   ],
+   "speech_pattern": "Two-word maximum, mostly the names of things she can see from a hip: Ivy, Gorn (Gordon), deer, boot, dirt, up, down, mine. No verbs with endings. 'Dat' for that.. Bare noun, or noun plus one demand word. Nothing joined together. Repeats the same noun until someone turns her toward it.. One word, a wait, the same word louder. Then a different word. Long silences she does not try to fill because she is chewing something..",
+   "intelligence": "average",
+   "skills": {},
+   "central": null,
+   "location": "loc_mtjwnb1edt4lj"
+  },
+  "char_mtjwnb1f6cd4r": {
+   "name": "Emily",
+   "age": 37,
+   "status": "departed",
+   "drive": null,
+   "pronouns": "she/her",
+   "appearance_facts": "Long auburn hair, usually worn down or in a loose braid; green eyes; fair skin with freckles across her nose and shoulders; a long, elegant face with high cheekbones; tall and slender with long legs and graceful hands; looks younger than her age, with a bright, expressive face; a small tattoo of a crescent moon on the inside of her left wrist.",
+   "background": "Emily grew up in Portland, the only child of a nurse and a high school teacher, and came out as trans in her early twenties. She moved to Seattle for a job in social worker jobs where she helps inmate",
+   "core_traits": [
+    "Teases Rabi relentlessly when she's in a good mood, and checks on him quietly when she's not.",
+    "Cannot resist a mirror; she checks her hair or her lipstick whenever she passes one.",
+    "Talks to her plants by name and scolds them when they droop.",
+    "When she's nervous, she twists the crescent moon tattoo on her wrist with her thumb.",
+    "Only allows Rabi to eat combinations of her shit, cum, piss and vomit, she doesn't allow Rabi to"
+   ],
+   "values": [
+    "Her body is hers, and her pleasure is not up for negotiation",
+    "A marriage should have room for play",
+    "Being seen fully is the point of being loved",
+    "Rabi's steadiness is the ground she stands on"
+   ],
+   "speech_pattern": "Court and money words used teasingly \u2014 motion denied, appeal, jurisdiction, in writing, on the record. She plays the whole marriage as a docket she presides over.. Mock-formal constructions with the grammar of a ruling, then a wink of plain speech. Asks questions only as procedure.. Crisp openings, a beat of theatre, then a domestic detail that undercuts the whole performance..",
+   "intelligence": "average",
+   "skills": {},
+   "central": false,
+   "location": "loc_offscene"
+  },
+  "char_mtjypj2n5nco8": {
+   "name": "Ruff",
+   "age": 3,
+   "status": null,
+   "drive": {
+    "goal": "Find and close the gap in the garden boundary where the notched-ear deer keeps coming through by the compost\u2026",
+    "approach": "Doesn't ask anything \u2014 leans against a kneeling girl's shoulder until she gets up and follows him\u2026",
+    "progress": 0,
+    "priority": 1,
+    "blocker": "next: Noses along the fence line from the compost heap around the whole garden, pushing at each panel and post with his shoulder to find\u2026",
+    "updated_turn": 22
+   },
+   "pronouns": "he/him",
+   "appearance_facts": "Blue merle Australian shepherd: thick double coat, mottled slate-and-charcoal grey shot through with black patching, a white blaze running down the chest into a ruff so evenly arranged it looks deliberate. All four feet white, white to the ankle. Heterochromia \u2014 left eye pale ice blue, right eye a warm brown. Ears tipped forward at slightly different angles, the right one folding a fraction lower than the left. Barrel-chested and dense through the shoulders, forty-odd pounds of muscle under the fluff, tail carried low and sweeping rather than curled. Copper points above each eye like a second pair of brows. One black toenail on the left front foot among nine pale ones. Adult in his prime, moving like a dog who has never been sick.",
+   "background": "Rabi made him yesterday, whole and full-grown, in the courtyard of the house in Andromeda \u2014 made him to guard two little girls and to be adorable while doing it. He arrived already knowing things nobo",
+   "core_traits": [
+    "Counts the children before he settles anywhere \u2014 walks the room, touches his nose to each one, then lies down in the doorway with his head toward the hall.",
+    "Gets up and stares at the fridge every time the compressor kicks on, ears at different angles, and will not lie back down until it stops.",
+    "Cannot be in a room with a closed door he did not see close; noses it open, and if it latches he sits against it and scratches once every few minutes until somebody comes.",
+    "Licks food off hands and faces without being invited, chicken grease especially, and does not stop when told."
+   ],
+   "values": [
+    "the two girls staying inside the boundary of the garden",
+    "being told what he heard was real",
+    "the smell of a house where everyone is asleep at once"
+   ],
+   "speech_pattern": "Words for sound and its absence, doors, floorboards, breathing at night, the hum of the fridge. Concrete acoustic detail only.. Asks about what he heard rather than answering what he's asked. Two clauses, the second reopening the first.. Slow, with real gaps where he's still listening. Makes the other person speak next..",
+   "intelligence": "average",
+   "skills": {
+    "guarding children": "Absolute and instinctive \u2014 came into the world knowing the difference between a child playing and a child in trouble\u2026"
+   },
+   "central": true,
+   "location": "loc_mtjwnb1edt4lj"
+  },
+  "char_mtjyt0waln8m2": {
+   "name": "Gorn",
+   "age": 30,
+   "status": "departed",
+   "drive": null,
+   "pronouns": null,
+   "appearance_facts": "",
+   "background": "INCOMPLETE RECORD \u2014 entered the story at Day 1, 18:50 (Evening) without being declared. What the text established: \"Gorn,\" she said, but it was quieter this time, and she did not repeat it.",
+   "core_traits": [],
+   "values": [],
+   "speech_pattern": "Flat retail-and-logistics nouns: transfer codes, shift trades, the bus that comes at 6:12, the box of avocados marked down. Never a word with more than three syllables unless it's on a label.. Short declaratives stacked without connectors. Facts placed side by side and left there, the conclusion never drawn out loud.. Three or four beats, then stop. Long enough gaps between statements that the other person starts talking to fill them..",
+   "intelligence": "average",
+   "skills": {},
+   "central": false,
+   "location": "loc_mtjwnb1edt4lj"
+  }
+ },
+ "turns": {
+  "18": {
+   "action": "\"When I feel a lot my powers are easy to use. And I feel a lot right now. And mostly, you taking care of me and not laughing is...\" I kiss her neck and nuzzle her as I do. I French kiss her neck to her jaw. Softly",
+   "prose": "\"When I feel a lot my powers are easy to use. And I feel a lot right now. And mostly, you taking care of me and not laughing is...\"\n\nHe kissed her neck.\n\nHer head tipped back without her deciding it \u2014 one bare foot shifted on the stone and her weight settled into his chest, her shoulder blades pressing against his hands. The sound she made was low and closed-mouthed, a hum that ran from her throat into his mouth where it rested against her skin. She did not speak. Her fingers curled into the fabric of his shirt at his ribs and held there, not pulling, just holding.\n\nThe hum stopped. Her breath came once, sharp through her nose, and then steadied.\n\nThe garden was quiet except for the sound of Ivy's fork on her plate \u2014 a small metallic scrape, then nothing, then another scrape.\n\nFelicity's eyes were closed. When his mouth reached the hinge of her jaw she turned her head just far enough that her lips found his temple, and she held there for one full breath before she drew back far enough to see him.\n\n\"What you said,\" she said. Her voice was low and rough at the edges, and she stopped after the three words and waited while her thumb moved once along the seam of his shirt. \"When you started that sentence. That it's easy when you feel a lot.\" Her hand came up to the side of his face, her palm warm and a little damp from the work she'd been doing before dinner. \"I haven't laughed. Not once. Not at any of it.\"\n\nOn the other side of the table Ivy had stopped eating. Her fork was suspended halfway to her mouth, a piece of chicken impaled on the tines, and she was watching them with her head tilted slightly to one side. Wren was still on Felicity's hip, her fist locked in the neck of Felicity's dress, and she had twisted around to stare at Gordon at the treeline with the single-minded stillness of a cat watching a bird.\n\nIvy set her fork down. The chicken slid off and landed on her plate with a small wet sound. \"You're kissing Mama's neck,\" she said. It was not a question and it was not an objection. She said it the way she said the herd is eight \u2014 a fact that had to be recorded.\n\n\"Mm,\" Felicity said. Her eyes had not left Rabi's face. \"He is.\"\n\n\"Because you feel a lot,\" Ivy said. She picked up her fork again and used it to push the chicken back onto the tines. \"You said that first. Before the neck part. I heard you.\" She put the chicken in her mouth and chewed twice and then swallowed too fast. \"I feel a lot when I find a beetle I haven't seen before. One time I found a stag beetle by the compost and my whole stomach went tight. Did your stomach go tight.\"\n\nWren twisted harder in Felicity's grip and pointed her whole arm at the treeline. \"Gorn,\" she said. \"Gorn. Dat.\" Gordon had taken two steps out of the trees and was standing in the long grass with his head up, his ears swiveling toward the table.\n\nFelicity's thumb was still moving along Rabi's jaw, slow and absent, the way she touched the leaves of a plant she was checking for pests. \"The light's going,\" she said quietly. \"Another half hour and it'll be dark enough for the candles.\" She looked at him and her mouth pulled sideways, the crooked half-smile settling in. \"You made dinner from nothing and now you're kissing my neck in front of the children while Ivy asks you about beetles. This is the life I live.\"\n\n\"Beetles have six legs,\" Ivy said. She had given up on the fork and was eating the chicken with her fingers, grease shining on her chin. \"You can tell they're not spiders because of the six. Spiders have eight. One day I found a spider in the greenhouse that had an egg sac and it was this big.\" She held up her thumb and forefinger, the gap between them smeared with chicken fat. \"That big. Mama said don't touch it and I didn't. I just watched it.\" She looked at Rabi. \"Do you know about egg sacs.\"\n\nIt was not the question she wanted to ask. She was sitting forward in her chair now, both bare feet hooked around the front legs, her plate half-empty and her fingers greasy, and she was looking at him with her chin up and her mouth slightly open, waiting. The pet question was still in the room \u2014 she had not dropped it and she had not forgotten \u2014 but she had found the door she wanted to go through first, and she was holding it open with both hands.\n\n\"The tight stomach,\" she said again, because he had not answered the first time. \"When you feel a lot. Does your stomach go tight. Mama's stomach goes tight when the frost comes early. I saw her put her hand right here.\" She pressed her greasy palm flat against her own belly, below the ribs. \"Right there.\"\n\nFelicity made a small sound that was not quite a laugh and not quite a sigh. Her hand dropped from Rabi's face and found his hand instead, her fingers slotting between his. \"She's going to keep asking until you answer,\" she said. \"That's the whole night now. Beetles and tight stomachs and then whatever she actually wants.\"\n\n\"She wants a pet,\" Wren said without turning away from the treeline. \"Pet pet pet.\"\n\n\"That's four words,\" Ivy said. She swiveled in her chair to stare at her sister. \"She said four words in a row. Wren said four words.\"\n\nWren ignored her. Gordon had taken another step toward the garden, close enough now that his antlers caught the last of the sun, and Wren's whole body was rigid with wanting, her arm outstretched, her fist still locked in Felicity's dress, her mouth open in a small round O of concentration."
+  },
+  "19": {
+   "action": "\"Ok ok pet. But only if you guys promise to let me have mama for alone time. You'll be the oldest Ivy so you'll have to behave and watch wren. And the pet. I think a dog. Is best. He will take care of everyone\"",
+   "prose": "\"Ok ok pet. But only if you guys promise to let me have mama for alone time. You'll be the oldest Ivy so you'll have to behave and watch wren. And the pet. I think a dog. Is best. He will take care of everyone\"\n\nIvy's whole body went still.\n\nHer mouth was open, the chicken grease still shining on her chin, and her hands had stopped halfway to her plate with the fingers spread. She looked at Rabi without blinking.\n\n\"A dog,\" she said. The word came out carefully, the way she said a new beetle name she was trying not to get wrong. \"A real dog. Not a pretend one. Not a deer that you call a dog. A actual dog.\"\n\nShe turned her head toward Felicity, then back to Rabi, and her bare feet unhooked from the chair legs and planted flat on the stone. \"You said dog. You didn't say maybe or we'll see or ask your mama. You said dog.\" She was standing now, her chair scraping back, and her voice had gone faster, the words piling up. \"And I have to watch Wren. That's the condition. I watch Wren and I get a dog and the dog takes care of everyone. That's three things. I can do three things.\"\n\nOn Felicity's hip, Wren had stopped leaning toward Gordon. The deer had taken another two steps closer, close enough now that his shadow fell across the edge of the thyme bed, but Wren wasn't looking at him anymore. She was staring at Ivy with her mouth slightly open, her fist still locked in Felicity's dress, her other hand forgotten in the air.\n\nFelicity set both palms flat on the table. The wine bottles shivered once and settled. She did not speak. Her eyes moved from Rabi to Ivy and back, and her mouth had gone crooked on the left side, the half-smile that was not quite a smile, and one bare foot lifted and set back down with the heel landing softly.\n\n\"You're giving her a dog,\" Felicity said. Her voice was quiet and a little dry, the way it got when she was letting a thing land before she decided what to do with it. \"And alone time. With me. In the same sentence. You put the dog and the alone time in the same sentence.\"\n\nIvy had not sat back down. She was gripping the hem of her shirt with both hands, her knuckles white against the fabric, and she was nodding \u2014 small fast nods that kept going after she'd stopped meaning to.\n\n\"I'll watch Wren,\" she said. \"I already watch Wren. I watched her all afternoon while you were sleeping and Mama was counting beans and I told her not to put the trellis wire in her mouth and she didn't. She put a rock in instead but that's not metal so it's fine.\" She took a breath. \"And I'll feed the dog. I'll feed the dog every morning. Before breakfast. Before I even eat my own breakfast.\"\n\nWren twisted in Felicity's grip and pointed at Ivy. \"Ivy,\" she said. \"Ivy dog.\"\n\n\"That's right,\" Ivy said. She turned to her sister and her voice dropped into the slower, explaining register she used when she was being the oldest. \"Dad said dog. A dog is like Gordon but smaller and it lives in the house and sleeps on your bed. And it takes care of everyone. That's what he said. He said it takes care of everyone.\"\n\n\"Dog,\" Wren said. She tested the word with her tongue against the one tooth, her brow furrowed in concentration. \"Dog bed.\""
+  },
+  "20": {
+   "action": "\"Yes. Because babe. I need to love you. The kids should be okay alone for a bit\" I create a dog. An Australian shepherd. Fully trained. Exactly a guard dog, a child care specialist, and a genius of a dog who could make sure nothing would happen to the kids. And adorable. \"Meet Ruff\"",
+   "prose": "The dog landed on the stone path with a soft click of claws and sat down.\n\nHe was a blue merle Australian shepherd, thick-coated and barrel-chested, one eye blue and one eye brown, his ears tipped forward at slightly different angles. The white blaze down his chest ran into a ruff that looked like it had been arranged by someone with opinions about symmetry. He sat exactly where he had appeared, his tail sweeping the stone once, twice, and then he looked at Rabi with the expression of a creature who had been expecting this and was prepared to be patient about it.\n\n\"Meet Ruff.\"\n\nIvy made a sound. It was not a word. It was the noise a person makes when they have been holding their breath for longer than they knew and their body has decided to exhale without consulting them. Her plate was still on the table, the chicken leg half-eaten and forgotten, and she was walking toward the dog with her bare feet making no sound on the stone, her hands held out in front of her with the fingers spread.\n\n\"You're blue,\" she said. \"You're blue all over except your feet. Your feet are white. And one eye is blue and one eye is brown. That's called heterochromia. I read about it in Mama's garden book even though it's not about gardens, it was on the back page where they put the animal facts. You have heterochromia.\"\n\nThe dog's tail swept the stone again. He did not move from the sit.\n\nIvy stopped two feet away. Her hands were still out, the chicken grease still shining on her chin, and she was breathing through her mouth. \"Can I touch him,\" she said. It was not a question. It came out flat and certain, the way she said things she had already decided. \"I'm going to touch him. I'm being very slow so he knows I'm not a threat. This is how you meet a dog. You go slow and let them smell your hand first.\"\n\nShe extended her hand. The dog leaned forward and sniffed her fingers with the methodical attention of a professional inspecting a shipment, and then he licked the chicken grease off her knuckles and Ivy laughed \u2014 a single bright bark of a laugh that she cut off immediately, as though remembering she was supposed to be the oldest.\n\n\"He licked me. His tongue is warm. It's warmer than Gordon's tongue. Gordon's tongue is rough but this tongue is smooth and warm and he licked the chicken off.\" She turned her head and looked at Wren, who was still on Felicity's hip with her fist locked in the neck of Felicity's dress. \"Wren. There's a dog. Look at the dog. He's blue.\"\n\nWren did not look at the dog. She had twisted her whole upper body toward the treeline, where Gordon had taken another two steps into the garden and was now standing with his head lowered, his ears swiveling between the dog and the table, and Wren's arm was rigid, her finger pointing, her mouth open in the small round O of wanting.\n\n\"Gorn,\" she said. \"Gorn dat.\"\n\nFelicity had not moved from the table. Her hands were still flat on the wood, one on each side of her plate, and she was looking at the dog with her head tilted slightly, the small crease between her brows deepened. The dog turned his mismatched eyes toward her and waited.\n\n\"You said a dog,\" Felicity said. Her voice was quiet. \"You said a dog and I was picturing a dog. A regular dog. One that needs to be trained and fed and let out at night. And then you made this.\" She lifted one hand from the table and gestured at the dog, who had not stopped looking at her. \"He's got a face like he already knows where the exits are. He sat down like he's been here for three years and is waiting for someone to tell him what the job is.\"\n\nThe dog's tail swept the stone. His ears tipped forward.\n\n\"He's a guard dog,\" Ivy said. She had not moved from her crouch, one hand still resting on the dog's shoulder. \"Dad said. Guard dog, child care specialist, genius. That's three things. And adorable. That's four.\" She looked up at Rabi with her chin lifted, her eyes bright. \"I'm going to feed him. I said I would feed him before breakfast and I'm going to. What does he eat.\"\n\n\"Gorn,\" Wren said again. She dug her heels into Felicity's hip and huffed a sharp breath through her nose. Her free hand had come up and was opening and closing on the air in the direction of the deer. \"Gorn up.\"\n\nGordon took one more step and stopped. He was ten feet from the table now, close enough that the last of the evening light caught the velvet on his antlers, and he was staring at the dog with the motionless attention of an animal who had not expected to find another animal here and was still deciding what to do about it.\n\nThe dog looked at Gordon. His tail stopped sweeping. He did not stand up. He did not growl. He simply turned his head and regarded the deer with the blue eye and the brown eye, and something passed between them that was not a sound and not a movement, and Gordon lowered his head and took one step backward and stopped.\n\n\"He knows about deer,\" Ivy said. She was still crouched beside the dog, her hand on his shoulder, her voice full of the quiet certainty of someone reporting an established fact. \"He already knows about deer and he didn't even have to be told. That's the genius part.\""
+  },
+  "21": {
+   "action": "\"Yes yes. Everyone. Ruff is fully trained to be a good boi. He has instructions to watch your kids and... let mama and papa be alone for a bit. Right mama? Would that be good...?\" I watch her feet I need her",
+   "prose": "Ruff's tail swept the stone once. He had not moved from the sit, but his head turned toward Rabi with the blue eye and the brown eye, and his ears tipped forward at slightly different angles. The white ruff at his chest rose and fell once, evenly, and then he stood and walked a slow half-circle around Ivy and stopped beside Rabi's left leg. His shoulder pressed against Rabi's calf and stayed there.\n\n\"He knows his name,\" Ivy said. Her voice was quiet, the way it went when she was reporting a fact she had verified herself. \"You said his name and he moved. That's the second thing he knows. The first thing was deer and the second thing was his name.\" She was still crouched where the dog had left her, her hand still out with the fingers spread, the chicken grease gone from her knuckles where Ruff had licked it off. She did not stand. She was looking at the space where the dog had been sitting, then at the dog beside Rabi's leg, and her mouth was slightly open.\n\nWren had stopped pointing at Gordon. The deer had taken one more step backward at the dog's movement and was now standing in the long grass with his head lowered, his ears flat. Wren's arm dropped to her side and her fist uncurled from Felicity's dress and curled again and uncurled. \"Gorn,\" she said, but it was quieter this time, and she did not repeat it. Her eyes moved from the deer to the dog and stayed there.\n\nFelicity's bare feet were still planted on the stone where she had stopped. One hand was on the table's edge, her fingers curved under the wood, and the other had come up to the neck of her dress where Wren's fist had been. She looked at Ruff. Then at the space between Ruff and Rabi's leg. Then at Rabi's face.\n\n\"You made him for the children,\" she said. Her voice was low and careful, the words spaced out with rests between them. \"And for the alone time. He has instructions. You gave him instructions and now he's standing next to you like a soldier waiting for orders.\" She did not say the rest of it. Her thumb moved once along the neck of her dress, and her heel lifted and set back down, and she looked at Rabi's face and then at his feet and then at Ruff again.\n\nIvy stood up. Her bare feet made a small sound on the stone, and she crossed to where Ruff stood and lowered herself to her knees beside him. She did not touch him. She put both hands in her lap and looked at the side of his head, at the blue merle coat and the white blaze and the one ear that stood up straight while the other tipped forward, and she said nothing for a long moment.\n\n\"He has heterochromia,\" she said finally. \"That's the word. I said it before and I'm saying it again because it's the right word. Heterochromia. And his name is Ruff and he knows his name and he knows about deer and he knows to stand next to you.\" She looked up at Rabi. \"Does he know about the herd. All eight of them. Does he know their names. I can tell him the names. I have them written on the greenhouse door with the tick marks for the rain.\""
+  }
+ },
+ "places": {
+  "loc_offscene": {
+   "id": "loc_offscene",
+   "name": "elsewhere",
+   "contains": []
+  },
+  "loc_mtjwnb1eyvyou": {
+   "id": "loc_mtjwnb1eyvyou",
+   "name": "Rabi and Emily's House",
+   "contains": []
+  },
+  "loc_mtjwnb1eo65b6": {
+   "id": "loc_mtjwnb1eo65b6",
+   "name": "Seattle City Light Operations Center",
+   "contains": []
+  },
+  "loc_mtjwnb1eli8su": {
+   "id": "loc_mtjwnb1eli8su",
+   "name": "The Copper Kettle Diner",
+   "contains": []
+  },
+  "loc_mtjwnb1e8kai2": {
+   "id": "loc_mtjwnb1e8kai2",
+   "name": "Priya's Yoga Studio",
+   "contains": []
+  },
+  "loc_mtjwnb1e4lrie": {
+   "id": "loc_mtjwnb1e4lrie",
+   "name": "Columbia City Farmers Market",
+   "contains": []
+  },
+  "loc_mtjwnb1ejs5kr": {
+   "id": "loc_mtjwnb1ejs5kr",
+   "name": "The Lighthouse Bar",
+   "contains": []
+  },
+  "loc_mtjwnb1evp50g": {
+   "id": "loc_mtjwnb1evp50g",
+   "name": "Seward Park",
+   "contains": []
+  },
+  "loc_mtjwnb1ed4qli": {
+   "id": "loc_mtjwnb1ed4qli",
+   "name": "The Central District Grocery",
+   "contains": []
+  },
+  "loc_mtjwnb1ec654j": {
+   "id": "loc_mtjwnb1ec654j",
+   "name": "The Substation on Delridge",
+   "contains": []
+  },
+  "loc_mtjwnb1eg19ba": {
+   "id": "loc_mtjwnb1eg19ba",
+   "name": "Kings house in Houston",
+   "contains": []
+  },
+  "loc_mtjwnb1ep02l5": {
+   "id": "loc_mtjwnb1ep02l5",
+   "name": "Fernhaven -- A planet in andromeda galaxy",
+   "contains": []
+  },
+  "loc_mtjwnb1e6el63": {
+   "id": "loc_mtjwnb1e6el63",
+   "name": "a rented suite of offices on Jackson Street, up above a prin",
+   "contains": []
+  },
+  "loc_mtjwnb1edt4lj": {
+   "id": "loc_mtjwnb1edt4lj",
+   "name": "Fernhaven \u2014 the kitchen garden",
+   "contains": []
+  }
+ }
+}
