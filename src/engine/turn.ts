@@ -59,6 +59,8 @@ import { pronounsOf } from "./anatomy";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { findClaudisms, claudismFix, spokenShape } from "./claudisms";
+import { findSaturation, saturationFix, findApparatus, apparatusFix, saturationNote } from "./saturation";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, longestEchoRun, stripOpeningPlayerLine, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
@@ -2691,7 +2693,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + apparatusFix(state.last_apparatus) + maximFix(state.last_maxim) + claudismFix(state.last_claudism) + saturationFix(state.last_saturation) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2878,7 +2880,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + voiceAnchor(state, state.world.present) + spokenShape() + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3114,6 +3116,31 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // ...and the OTHER dialogue failure, which nothing was watching. A maxim is a line that makes
+      // a claim about the world; a Claudism makes no claim at all and is still unsayable, because
+      // its SHAPE had to be planned — a tag summing up the speaker's own sentence, a parallel
+      // series, a fragment saved for the end. The player named this one directly. See claudisms.ts.
+      const claudisms = findClaudisms(prose, action, Object.values(state.characters ?? {}).map((c) => c?.name ?? ""));
+      state.last_claudism = claudisms.length ? claudisms[0] : null;
+      if (state.last_claudism) noteFire(state, "composed", `"${state.last_claudism.line.slice(0, 70)}" — ${state.last_claudism.shape}`);
+      // ...and the failure none of the above can see, because by every rule they hold it is correct
+      // writing: one speaker's whole turn on one narrow register, engaging nothing that was said to
+      // them. Measured over the turn rather than matched, because there is no phrase to match — the
+      // defect is a distribution. See saturation.ts, which also records where it came from.
+      {
+        const cast = Object.values(state.characters ?? {}).map((c) => c?.name ?? "").filter(Boolean);
+        state.last_saturation = findSaturation(prose, action, cast, state.characters?.char_player?.name ?? "");
+        if (state.last_saturation) {
+          noteFire(state, "register", saturationNote(state.last_saturation));
+          ev.onMeta({ shifts: [`${saturationNote(state.last_saturation)} — the narrator will be shown the count next turn`] });
+        }
+        // ...and the machine turning up inside the fiction, which is not conditional on anything.
+        state.last_apparatus = findApparatus(prose, `${state.world_bible?.era ?? ""} ${state.world_bible?.name ?? ""} ${state.world_bible?.technology_level ?? ""}`);
+        if (state.last_apparatus) {
+          noteFire(state, "apparatus", `${state.last_apparatus.kind}: "${state.last_apparatus.line.slice(0, 60)}"`);
+          ev.onMeta({ shifts: [`a character ${state.last_apparatus.kind} inside the story — it will be corrected next turn`] });
+        }
+      }
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
@@ -3141,6 +3168,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       }
       if (maxims.length >= 2) {
         ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
+      }
+      if (claudisms.length >= 2) {
+        ev.onMeta({ shifts: [`${claudisms.length} lines this turn were composed rather than spoken (${claudisms[0].shape}) — the narrator will be shown one next turn`] });
       }
     }
     if (leaked.length) {

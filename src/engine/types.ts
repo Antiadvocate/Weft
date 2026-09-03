@@ -982,6 +982,22 @@ export interface SaveState {
    *  reliably broken a narrator habit is being shown the sentence at the end of the next turn's
    *  directive. See engine/maxims.ts. */
   last_maxim?: string | null;
+  /** A CLAUDISM last turn — a line of dialogue that was composed rather than said: a tag summing up
+   *  the speaker's own sentence, a parallel series, an opening repeated with an increment, a verbless
+   *  fragment saved for the end. Distinct from `last_maxim`, which catches a line making a claim
+   *  about the world; this catches a line whose SHAPE could only have been planned. Quoted back at
+   *  the end of the next turn's directive and cleared. See engine/claudisms.ts. */
+  last_claudism?: { line: string; shape: string } | null;
+  /** ONE SPEAKER'S WHOLE TURN ON ONE NARROW REGISTER — every line a quantity, or an order, or
+   *  engaging nothing that was said to them. The failure no detector here could see, because by
+   *  every existing rule the dialogue was correct: concrete, present-tense, unaphoristic, and
+   *  authored to spec by a forge instruction that asked for exactly it. See engine/saturation.ts. */
+  last_saturation?: { who: string; kind: "quantities" | "orders" | "not listening"; share: number; lines: number; line: string } | null;
+  /** THE MACHINE IN SOMEBODY'S MOUTH — a character naming Claude, an AI, the narrator or the prose
+   *  inside the fiction, or defending how they talk after the player complained about it. maxims.ts
+   *  names this its worst failure and its correction was unreachable, gated behind the same line
+   *  also being an aphorism. See engine/saturation.ts. */
+  last_apparatus?: { line: string; kind: "named the machine" | "defended how they talk" } | null;
   /** The narrator handing the player's own line back — either demanding they repeat it, or quoting
    *  it back at them. Caught in the OUTPUT rather than forbidden with a quoted example in the
    *  prompt, because a banned line pasted into the context is a line the model has been supplied
