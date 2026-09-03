@@ -55,6 +55,7 @@ const LABEL: Record<string, string> = {
   composed: "a line of dialogue that was composed rather than said",
   register: "one speaker's whole turn in a single narrow register",
   apparatus: "the machine named inside the fiction",
+  expertise: "somebody knowing a trade the record never gave them",
   retold: "a scene restaged rather than continued",
   arrival: "somebody placed where they could not have got to",
   phantom: "somebody moved into the scene the prose never showed arriving",

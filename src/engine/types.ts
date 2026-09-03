@@ -998,6 +998,11 @@ export interface SaveState {
    *  names this its worst failure and its correction was unreachable, gated behind the same line
    *  also being an aphorism. See engine/saturation.ts. */
   last_apparatus?: { line: string; kind: "named the machine" | "defended how they talk" } | null;
+  /** KNOWLEDGE NOBODY GAVE THEM — a speaker using a trade's vocabulary, or citing a code or
+   *  standard, that their own record does not cover. The cast card listed what a person knows and
+   *  never what they do not, which is the hole world_bible.absent exists to close. See
+   *  engine/expertise.ts. */
+  last_expertise?: { who: string; domain: string; term: string; line: string; instead?: string } | null;
   /** The narrator handing the player's own line back — either demanding they repeat it, or quoting
    *  it back at them. Caught in the OUTPUT rather than forbidden with a quoted example in the
    *  prompt, because a banned line pasted into the context is a line the model has been supplied

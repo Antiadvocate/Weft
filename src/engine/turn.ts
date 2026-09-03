@@ -61,6 +61,7 @@ import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor } from "./maxims";
 import { findClaudisms, claudismFix, spokenShape } from "./claudisms";
 import { findSaturation, saturationFix, findApparatus, apparatusFix, saturationNote } from "./saturation";
+import { findExpertise, expertiseFix, expertiseNote } from "./expertise";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, longestEchoRun, stripOpeningPlayerLine, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
@@ -2693,7 +2694,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + apparatusFix(state.last_apparatus) + maximFix(state.last_maxim) + claudismFix(state.last_claudism) + saturationFix(state.last_saturation) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + apparatusFix(state.last_apparatus) + expertiseFix(state.last_expertise) + maximFix(state.last_maxim) + claudismFix(state.last_claudism) + saturationFix(state.last_saturation) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3139,6 +3140,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         if (state.last_apparatus) {
           noteFire(state, "apparatus", `${state.last_apparatus.kind}: "${state.last_apparatus.line.slice(0, 60)}"`);
           ev.onMeta({ shifts: [`a character ${state.last_apparatus.kind} inside the story — it will be corrected next turn`] });
+        }
+        // ...and knowledge nobody gave them. The card lists what a person knows; until now nothing
+        // anywhere said what they do not, and a list of skills is not read as a list of limits.
+        state.last_expertise = findExpertise(state, prose, state.characters?.char_player?.name ?? "");
+        if (state.last_expertise) {
+          noteFire(state, "expertise", expertiseNote(state.last_expertise));
+          ev.onMeta({ shifts: [`${expertiseNote(state.last_expertise)} — it will be corrected next turn`] });
         }
       }
       // The player's own words coming back at them, in either of its two forms.

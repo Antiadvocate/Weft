@@ -15,6 +15,7 @@ import { visibleOnPlayer } from "./reaction";
 import { MAX_LIVE } from "./threads";
 import { isBesieged } from "./pressure";
 import { readAnatomy, anatomyNote } from "./anatomy";
+import { unskilledNote } from "./expertise";
 import { outlivedCanon } from "./canonstate";
 import type { SaveState, Identity, Condition, WorldBible } from "./types";
 import { contextHistory } from "./context";
@@ -1334,7 +1335,15 @@ export function charCard(id: string, ident: Identity, cond: Condition, traits: {
   // for "she has a power, so she can do anything power-shaped" (e.g. a character who can only use a
   // skill she has SEEN suddenly using one she never witnessed).
   const bg = ident.background?.trim() ? ` Nature & abilities (with their LIMITS — obey these exactly; never grant a power beyond what this states or let it break its own rules): ${ident.background.trim()}` : "";
-  const skillNames = ident.skills && Object.keys(ident.skills).length ? ` Established skills: ${Object.keys(ident.skills).join(", ")}.` : "";
+  // A LIST OF SKILLS IS NOT A LIST OF LIMITS, and this line used to be only the list. That is the
+  // same hole world_bible.absent exists to close — absence cannot be inferred from description, so
+  // it has to be stated — and skills had it in the same shape. An eighteen-year-old with three
+  // recorded skills, none of them a trade, quoted the National Electrical Code at a player, in a
+  // room where the domain was live because her brother proofreads HVAC manuals. Nothing on her card
+  // said she could not. See engine/expertise.ts.
+  const skillNames = ident.skills && Object.keys(ident.skills).length
+    ? ` Established skills: ${Object.keys(ident.skills).join(", ")}.${unskilledNote(ident)}`
+    : unskilledNote(ident);
   // Desire shape: who they CAN want (a hard gate) and what draws them (their type). Without this the
   // narrator writes attraction generically — it sees a desire value but not its orientation or flavor,
   // so flirtation comes out as bland warmth instead of THIS person wanting in THEIR particular way.
