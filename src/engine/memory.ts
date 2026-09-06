@@ -172,6 +172,52 @@ const STAGE_LEN: Record<number, number> = { 1: 150, 2: 110, 3: 70 };
  * everything but who and what. `full_content` is kept untouched, so a strong cue still brings the
  * whole thing back — that contrast is the entire point of storing both.
  */
+/** A memory this close to its budget is not one that needs shortening, and cutting it costs more
+ *  than carrying it: three characters over is what destroyed "before I agree to anything." */
+const FADE_SLACK = 1.15;
+
+/** Boundaries a reader would hear as the end of a thought. */
+const CLAUSE_SPLIT = /(\s*[;—–]\s*|,\s+(?:and|but|then|which|while|so|because|though|although|before|after|until|since)\s+)/;
+
+/** A cut landing on one of these has stopped mid-thought — "challenged him to", "making sure he".
+ *  Dropping back one word is always better than shipping the dangle. */
+const DANGLING = /[\s,;:]*\b(?:to|and|but|so|or|nor|of|in|on|at|for|with|from|that|which|who|the|a|an|as|into|onto|about|because|while|then|before|after|until|than|like|by|up|out|off|over|his|her|their|my|its)$/i;
+
+/** Drop trailing function words until the text ends on something that carries meaning. */
+function trimDangling(x: string): string {
+  let out = x.replace(/[\s,;:]+$/, "");
+  for (let i = 0; i < 4 && DANGLING.test(out); i++) out = out.replace(DANGLING, "");
+  return out.replace(/[\s,;:]+$/, "");
+}
+
+/** Keep whole clauses from the head while they fit. A severed clause is worse than a missing one. */
+function clauseCut(t: string, budget: number): string {
+  const parts = t.split(CLAUSE_SPLIT).filter((x) => x && !CLAUSE_SPLIT.test(x));
+  let out = "";
+  for (const c of parts) {
+    const next = out ? `${out} ${c.trim()}` : c.trim();
+    if (next.length > budget && out) break;
+    out = next;
+    if (out.length >= budget) break;
+  }
+  if (!out) out = t;
+  if (out.length > budget * FADE_SLACK) {
+    // one clause, genuinely too long: now a word cut is the only option left, but not a blind one
+    out = trimDangling(out.slice(0, budget).replace(/\s+\S*$/, "")) + "…";
+  } else if (!/[.!?…]$/.test(out)) {
+    out = `${trimDangling(out)}.`;
+  }
+  return out;
+}
+
+/** A cut landing inside a quoted span leaves an opening mark with nothing to close it. The exact
+ *  words are going anyway, so drop the marks rather than ship the orphan. */
+function closeQuotes(x: string): string {
+  const out = x.replace(/[\s,;:]+$/, "").trim();
+  return (out.match(/["“”]/g) ?? []).length % 2 === 1
+    ? out.replace(/["“”]/g, "").replace(/\s+/g, " ").trim() : out;
+}
+
 export function fadeToStage(full: string, stage: 0 | 1 | 2 | 3): string {
   const original = String(full ?? "").replace(/\s+/g, " ").trim();
   if (stage <= 0 || !original) return original;
@@ -195,18 +241,33 @@ export function fadeToStage(full: string, stage: 0 | 1 | 2 | 3): string {
   // 2. AT TERMINAL DECAY ONLY THE HEAD CLAUSE SURVIVES: who, and what, and nothing after it.
   if (stage >= 3) t = t.split(/\s*[;—–]\s*|,\s+(?:and|but|then|which|while|so|because)\s+/)[0];
 
-  // 3. AND THEN IT HAS TO ACTUALLY BE SHORTER. compactGist only ever cuts on sentence boundaries —
-  //    its loop takes the first sentence whole however long it is — and a memory is almost always
-  //    ONE sentence, so on its own it returns the input unchanged and the fade does nothing. Cut to
-  //    the budget on a word boundary after it, never mid-word, which is the failure the render-time
-  //    `slice(0, 170)` has been committing on every long memory in the digest.
+  // 3. AND THEN IT HAS TO ACTUALLY BE SHORTER — WITHOUT AMPUTATING THE POINT.
+  //
+  //    compactGist only cuts on sentence boundaries and a memory is almost always one sentence, so
+  //    it returns the input unchanged and the fade fell through to a character count. A character
+  //    count takes the END of the sentence, and English keeps the point at the end. This file's own
+  //    neighbour in prompts.ts already worked that out for turn records — "a hard slice takes the
+  //    END of the sentence, which is exactly where a summary says whose it was" — and the fix never
+  //    reached here. Retreating to a word boundary does not help when the thing being cut off is
+  //    the predicate. From one save, every line of a woman's remembered life:
+  //
+  //      "...so I leaned in the doorway and challenged him to…"
+  //         — lost: "hide how much the threat of losing my roof terrifies me"
+  //      "...and I stayed right on the couch making sure he…"          — lost: "saw me"
+  //      "...to show me the contract he promised before I agree to…"   — lost: "anything"
+  //
+  //    Every one keeps the aggressive gesture and drops the reason, so a frightened character reads
+  //    as a series of unfinished lunges. The player's report was that she was the dumbest mean
+  //    person in history. Two of those three were over budget by THREE and SIX characters.
+  //
+  //    So: a little slack, because a memory a few characters long is not a memory that needs
+  //    shortening; then a cut on a clause boundary, which leaves a whole thought rather than a
+  //    severed one; and a word cut only when a single clause is genuinely too long, with any
+  //    trailing function word dropped so it never ends on "to" or "and".
+  if (t.length <= budget * FADE_SLACK) return closeQuotes(t);
   let out = compactGist(t, budget);
-  if (out.length > budget) out = out.slice(0, budget).replace(/\s+\S*$/, "").replace(/[\s,;:]+$/, "") + "…";
-  out = out.replace(/[\s,;:]+$/, "").trim();
-  // A cut that lands inside a quoted span leaves an opening mark with nothing to close it. At this
-  // point the exact words are going anyway, so drop the marks rather than ship the orphan.
-  if ((out.match(/["“”]/g) ?? []).length % 2 === 1) out = out.replace(/["“”]/g, "").replace(/\s+/g, " ").trim();
-  return out || original;
+  if (out.length > budget * FADE_SLACK) out = clauseCut(t, budget);
+  return closeQuotes(out) || original;
 }
 
 export function tickMemoryDecay(mem: CharMemory, currentTurn: number): void {
@@ -734,6 +795,44 @@ export function migrateToFirstPerson(mem: CharMemory, name: string, isPlayer: bo
       const after = cleanMemoryContent(before, { name, isPlayer: false });
       if (after && after !== before) { m[key] = after; changed++; }
     }
+  }
+  // FACTS ARE THE SAME BANK AND WERE NOT BEING TOUCHED.
+  //
+  // This walked `episodic` only, and facts arrive by two routes: the bookkeeper writes them, and
+  // terminal decay semanticises an episodic memory into one. Both land in a store that renders to
+  // the narrator as KNOWS (verified facts) — the highest-trust line on the card — and half a bank
+  // could be in the third person while the other half was in the first. What that reads as, from a
+  // real save, all in one row of one character's own facts:
+  //
+  //   "At 10:12 my phone rang with a number she didn't have saved, and she picked up..."
+  //
+  // The owner is "my" and "she" in the same sentence. A model reading that has to decide who is
+  // speaking, and it decided the "I" was the other person in the room — so she remembered being
+  // her brother.
+  changed += cleanFacts(mem, name);
+  return changed;
+}
+
+/** The facts half, on its own, because it cannot be a one-time migration.
+ *
+ *  `first_person` is a flag set once, on the first load that migrates a save — and facts keep being
+ *  written every turn after that, by a bookkeeper that does not always keep the owner straight. A
+ *  save that has already been migrated skips the whole block, so every fact written since has never
+ *  been looked at. Run this on every load instead: it is name-based and idempotent, so a bank that
+ *  is already right comes back unchanged.
+ *
+ *  It repairs names, not pronouns, and that limit is deliberate. A fact reading "I went down two
+ *  flights with a hamper of her own wet things" has the wrong OWNER, not the wrong style — the "I"
+ *  is the other person in the room — and rewriting its pronouns would make a confident lie out of
+ *  an obvious garble. Those have to stop being written; they cannot be cleaned up afterwards. */
+export function cleanFacts(mem: CharMemory, name: string): number {
+  if (!name) return 0;
+  let changed = 0;
+  for (const f of mem.facts ?? []) {
+    const before = f.content;
+    if (typeof before !== "string" || !before) continue;
+    const after = cleanMemoryContent(before, { name, isPlayer: false });
+    if (after && after !== before) { f.content = after; changed++; }
   }
   return changed;
 }

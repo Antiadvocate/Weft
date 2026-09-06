@@ -902,10 +902,48 @@ THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIV
  *  clause boundary inside the budget, fall back to the last whole word, and mark the cut. */
 const clipRecord = clipText;
 
+/**
+ * WHAT GETS IN, AND WHAT THEY DO WITH IT, ARE TWO DIFFERENT READINGS.
+ *
+ * This returned ONE string, and the first branch was `state === "broken"` — so the moment somebody
+ * broke, every other reading stopped. A woman with a conscience of 0.18 had that number reach the
+ * narrator on no turn of the twenty she spent down there. The disposition axis did not lose an
+ * argument to the reception axis; it was never consulted.
+ *
+ * And what the broken branch returned was this:
+ *
+ *     BROKEN (fractured) — the Mirror rule applies: no judgments, only clear reflection of others
+ *
+ * Three things wrong with one line. The Mirror rule is defined in no prompt anywhere, so the model
+ * has a named rule and has to invent it. `break_mode` here reads "fractured" while the rule named
+ * is the mirror's — PHILOSOPHY.md gives four break modes "with its own rendering rules" and the
+ * engine assigns one (social.ts falls through to "fractured" every time) and renders a different
+ * one, unconditionally. And "clear reflection of others" puts the person on the WRONG SIDE of the
+ * verb: it describes what she does to him. The narrator wrote what it says. Over five turns, a
+ * woman being thrown out repeated the last thing said to her, flat, and nothing else:
+ * "Shitty person." / "Good luck with Dad," / "Dad's picking me up."
+ *
+ * WHAT IS ACTUALLY HAPPENING TO A BODY THAT HAS BEEN BRACED THIS LONG. Holding a position costs
+ * something. Arguing costs something, and so does keeping the story about yourself intact. Braced
+ * turn after turn, that runs out — and when it does the defending stops, not as a decision but as
+ * an empty account. What was being deflected then arrives. That is a change in what REACHES them,
+ * and it is the whole of what this branch may say.
+ *
+ * What they do about it is not written here and must not be. Go dismal, get defensive, turn vicious,
+ * or take it in — that comes from conscience, from attachment, from the edge, from what was actually
+ * said, all of which are already on this card. An engine built on clenching and release as the
+ * source of behaviour does not get to hand the narrator the answer at the one moment it matters
+ * most. So both readings render now, always: what reaches them, then what kind of person is
+ * receiving it.
+ */
 function describeOpenness(c: Condition, conscience?: number): string {
-  const r = c.psyche.relaxation;
-  if (c.psyche.state === "broken" || c.psyche.state === "shattered")
-    return `BROKEN (${c.psyche.break_mode}) — the Mirror rule applies: no judgments, only clear reflection of others`;
+  const spent = c.psyche.state === "broken" || c.psyche.state === "shattered"
+    ? `the guard is spent — braced ${c.psyche.consecutive_clenched || "many"} turns straight with nothing left to argue with, so what is said TO them now arrives instead of being deflected on the way in. This is what reaches them, not what they do about it; that comes from the rest of this card. `
+    : "";
+  return spent + disposition(c.psyche.relaxation, conscience);
+}
+
+function disposition(r: number, conscience?: number): string {
   // RUDRA BRANCH — calm is not care. For a constitutionally cold person (low conscience), openness
   // decouples from warmth: relaxation still clears the sight, but what is seen never registers as
   // mattering. Their poise is REAL (low-anxiety, stress-immune by nature) — so more relaxed means
@@ -1463,7 +1501,7 @@ THE NUMBER PRINTED AFTER EACH NAME IS THAT PERSON'S AGE, AND IT IS THE RECORD AS
  *  not "while you were away", it is history, and it competes for a memory slot like anything else. */
 const OFFSTAGE_SIGHTING_TURNS = 25;
 
-export function volatileDigest(state: SaveState, query: string, opts?: { budgetOverride?: number }): string {
+export function volatileDigest(state: SaveState, query = "", opts?: { budgetOverride?: number }): string {
   const k = state.model_settings.context_memories_k;
   const turn = state.world.current_turn;
   const budget = opts?.budgetOverride && opts.budgetOverride > 0
@@ -1607,8 +1645,27 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
       const drv = ident.drive;
       const goalNow = ident.current_goal || drv?.goal;
       if (goalNow) {
-        const stalledHere = drv && (state.world.current_turn - drv.updated_turn) >= 2;
-        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${drv.progress}%]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? " (stalled)" : ""}`);
+        // THE STALL MARKER COULD NEVER FIRE, AND THE NUMBER BESIDE IT WAS RAW.
+        //
+        // `updated_turn` is restamped to the current turn every time the bookkeeper touches a drive,
+        // which is every turn — so this read 0 always and "(stalled)" has never appeared in a
+        // prompt. social.ts already worked this out for want-abandonment and measures against
+        // `progress_turn`, the last turn progress actually MOVED; this is the same question and
+        // gets the same clock.
+        //
+        // What it costs when the signal is missing: a woman written as a manipulator spent
+        // twenty-nine turns on one want, going at it the same way, moving it from 0 to 1.08 out of
+        // 100 — and nothing ever told anybody it was not working. Somebody whose whole character is
+        // reading a room and switching tack cannot switch on information nobody sends them. So the
+        // stall is reported as the plain fact it is, and BOTH answers stay open: a stubborn person
+        // keeps hammering the same door and that is characterisation too. What is not defensible is
+        // a scene where the door is not known to be shut.
+        //
+        // The percentage rode out raw as well — `[1.0852564277701064%]`, sixteen decimals of a
+        // 0..100 field, in the prompt.
+        const sinceMoved = drv?.progress_turn !== undefined ? state.world.current_turn - drv.progress_turn : 0;
+        const stalledHere = sinceMoved >= 3 && (drv?.progress ?? 0) < 100;
+        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${Math.round(drv.progress)}% of the way there]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? ` — ${sinceMoved} turns of going at it this way and it has not moved; they may keep on, or find another way in` : ""}`);
         // The want is what they are after; this is how they go at it. Rendered on its own line
         // because it is the instruction that actually governs their dialogue this turn — the want
         // is not something they say, it is something they work toward sideways.

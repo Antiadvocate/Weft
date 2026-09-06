@@ -163,7 +163,7 @@ const place = (s: SaveState) => s.world.places[s.world.player_location];
   }
   applyReflection(mem, [{ content: "A conclusion.", confidence: 0.8, formed_turn: 200, evidence_turns: [] }], 200);
   check("but it is not kept forever — once it stops being news it competes like anything else",
-    !mem.episodic.some((m) => m.id === "off"), mem.episodic.length);
+    !mem.episodic.some((m) => m.content === "Something from long ago."), mem.episodic.length);
 }
 
 /* ── 6. news cannot arrive before it could have travelled ────────────────────

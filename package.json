@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "lint:tests": "tsc --noEmit -p tsconfig.tests.json",
+    "lint:all": "npm run lint && npm run lint:tests"
   },
   "dependencies": {
     "lucide-react": "^0.546.0",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
+    "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.4",

@@ -46,6 +46,10 @@ function sse(deltas: string[]): Response {
 }
 
 let lastCall: { url: string; body: any; headers: any } | null = null;
+// Read through a function: control-flow analysis narrows `lastCall` to null at every use site
+// (the only assignments it can see are inside the fetch closure), which makes each `last()?.x`
+// a type error on `never`. The getter returns the declared type and stays readable.
+const last = () => lastCall;
 function stubFetch(deltas: string[]) {
   (globalThis as any).fetch = async (url: string, init: any) => {
     lastCall = { url, body: JSON.parse(init.body), headers: init.headers };
@@ -95,7 +99,7 @@ async function drain(gen: AsyncGenerator<string, any, unknown>): Promise<{ yield
   stubFetch(["ok"]);
   await drain(completeStream([{ role: "user", content: "go" }], `${LOCAL_PREFIX}q`, "x", 100));
   check("no control token unless it is explicitly asked for",
-    !/no_?think/i.test(String(lastCall?.body.messages.at(-1)?.content)), lastCall?.body.messages.at(-1));
+    !/no_?think/i.test(String(last()?.body.messages.at(-1)?.content)), last()?.body.messages.at(-1));
 }
 
 setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
@@ -113,23 +117,23 @@ setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
     [{ role: "system", content: "contract" }, { role: "user", content: "I sit down." }],
     `${LOCAL_PREFIX}qwen3-8b`, "google/gemini-3.1-flash-lite", 500, true, "a search query",
   ));
-  check("it posts to the local server, not openrouter", lastCall?.url === "http://localhost:5001/v1/chat/completions", lastCall?.url);
-  check("with no key required", !(lastCall?.headers as any)?.Authorization);
-  check("under the id the server knows", lastCall?.body.model === "qwen3-8b", lastCall?.body.model);
-  check("no provider routing", !("provider" in (lastCall?.body ?? {})));
-  check("no web plugin — grounding is an openrouter capability", !("plugins" in (lastCall?.body ?? {})));
-  check("no usage accounting block", !("usage" in (lastCall?.body ?? {})));
-  check("no reasoning switch", !("reasoning" in (lastCall?.body ?? {})));
-  check("it still streams", lastCall?.body.stream === true);
+  check("it posts to the local server, not openrouter", last()?.url === "http://localhost:5001/v1/chat/completions", last()?.url);
+  check("with no key required", !(last()?.headers as any)?.Authorization);
+  check("under the id the server knows", last()?.body.model === "qwen3-8b", last()?.body.model);
+  check("no provider routing", !("provider" in (last()?.body ?? {})));
+  check("no web plugin — grounding is an openrouter capability", !("plugins" in (last()?.body ?? {})));
+  check("no usage accounting block", !("usage" in (last()?.body ?? {})));
+  check("no reasoning switch", !("reasoning" in (last()?.body ?? {})));
+  check("it still streams", last()?.body.stream === true);
   // A LOCAL SERVER SHIPS NO SAMPLER OPINION. OpenRouter's providers do, which is why the cloud path
   // sends none of this — left bare, a low-bit quant cycles a clause until the budget dies, and says
   // a character's line twice in one scene. One dial drives both penalties that answer that.
-  check("a loop guard is sent", lastCall?.body.frequency_penalty === 0.3, lastCall?.body.frequency_penalty);
-  check("and the gentler presence penalty with it", lastCall?.body.presence_penalty === 0.15, lastCall?.body.presence_penalty);
-  check("and top_p", lastCall?.body.top_p === 0.9, lastCall?.body.top_p);
+  check("a loop guard is sent", last()?.body.frequency_penalty === 0.3, last()?.body.frequency_penalty);
+  check("and the gentler presence penalty with it", last()?.body.presence_penalty === 0.15, last()?.body.presence_penalty);
+  check("and top_p", last()?.body.top_p === 0.9, last()?.body.top_p);
   check("and the prose comes back", out.text === "She looks up.");
   check("a local turn is recorded as free, not as unknown", out.cost === 0, out.cost);
-  const lastUser = lastCall?.body.messages.at(-1);
+  const lastUser = last()?.body.messages.at(-1);
   check("/no_think rides on the last user message", /\/no_think/.test(String(lastUser?.content)), lastUser?.content);
   check("and the search steering line was not added", !/WEB SEARCH TARGET/.test(String(lastUser?.content)));
 }
@@ -140,13 +144,13 @@ setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
   stubFetch(["ok"]);
   await drain(completeStream([{ role: "user", content: "go" }], `${LOCAL_PREFIX}q`, "x", 100));
   check("zero means send nothing and let the server decide",
-    !("frequency_penalty" in (lastCall?.body ?? {})) && !("presence_penalty" in (lastCall?.body ?? {})) && !("top_p" in (lastCall?.body ?? {})),
-    lastCall?.body);
+    !("frequency_penalty" in (last()?.body ?? {})) && !("presence_penalty" in (last()?.body ?? {})) && !("top_p" in (last()?.body ?? {})),
+    last()?.body);
   setLocalEndpoint({ url: "http://localhost:5001/v1", loop_guard: 0.8 });
   stubFetch(["ok"]);
   await drain(completeStream([{ role: "user", content: "go" }], `${LOCAL_PREFIX}q`, "x", 100));
   check("and raising the guard raises both penalties together",
-    lastCall?.body.frequency_penalty === 0.8 && lastCall?.body.presence_penalty === 0.4, lastCall?.body);
+    last()?.body.frequency_penalty === 0.8 && last()?.body.presence_penalty === 0.4, last()?.body);
   setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
 }
 
@@ -155,10 +159,10 @@ setLocalEndpoint({ url: "http://localhost:5001/v1/", no_think: true });
   store.set("weft-openrouter-key", "sk-or-test");
   stubFetch(["Cloud prose."]);
   await drain(completeStream([{ role: "user", content: "go" }], "deepseek/deepseek-v4-pro", "x", 500));
-  check("a cloud call still goes to openrouter", String(lastCall?.url).includes("openrouter.ai"), lastCall?.url);
-  check("and still asks for usage", !!lastCall?.body.usage);
-  check("and carries no local sampler", !("frequency_penalty" in (lastCall?.body ?? {})) && !("presence_penalty" in (lastCall?.body ?? {})), lastCall?.body);
-  check("and is not given a /no_think it never asked for", !/\/no_think/.test(String(lastCall?.body.messages.at(-1)?.content)));
+  check("a cloud call still goes to openrouter", String(last()?.url).includes("openrouter.ai"), last()?.url);
+  check("and still asks for usage", !!last()?.body.usage);
+  check("and carries no local sampler", !("frequency_penalty" in (last()?.body ?? {})) && !("presence_penalty" in (last()?.body ?? {})), last()?.body);
+  check("and is not given a /no_think it never asked for", !/\/no_think/.test(String(last()?.body.messages.at(-1)?.content)));
   store.delete("weft-openrouter-key");
 }
 

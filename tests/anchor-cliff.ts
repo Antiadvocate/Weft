@@ -39,6 +39,9 @@ const hist = (n: number): TurnHistoryEntry[] =>
     turn: i + 1,
     player_action: `action ${i + 1}`,
     narrator_prose: `She set the glass down. "Line ${i + 1}," she said.`,
+    summary: "",
+    offscreen: [],
+    time_label: "",
   }));
 
 /* ── 1. the cliff itself ─────────────────────────────────────────────────────── */
@@ -70,8 +73,8 @@ const before = (t: number) => hist(t - 1);
 {
   // openings and interludes are not turns and never were replayable pairs
   const h: TurnHistoryEntry[] = [
-    { turn: 0, kind: "opening", player_action: "", narrator_prose: "The house was empty." },
-    { turn: 1, kind: "interlude", player_action: "", narrator_prose: "Three days pass." },
+    { turn: 0, kind: "opening", player_action: "", narrator_prose: "The house was empty.", summary: "", offscreen: [], time_label: "" },
+    { turn: 1, kind: "interlude", player_action: "", narrator_prose: "Three days pass.", summary: "", offscreen: [], time_label: "" },
     ...hist(4),
   ];
   const p = replayPairs(h, 1, CAD);
@@ -89,6 +92,9 @@ const before = (t: number) => hist(t - 1);
     turn: 12,
     player_action: "sit down",
     narrator_prose: `She poured the tea.\n\nShe wanted him to stay, though she would never say it. She set the cup down.`,
+    summary: "",
+    offscreen: [],
+    time_label: "",
   }];
   const p = replayPairs(h, 13, CAD);
   check("carried prose is scrubbed, not raw",

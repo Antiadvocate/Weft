@@ -156,7 +156,7 @@ export class Job {
       void (async () => {
         try {
           if (this.text) await w.write(sse({ delta: this.text }));
-          if (this.status === "done") { await w.write(sse({ done: true, usage: this.usage, truncated: this.truncated })); await w.close(); return; }
+          if (this.status === "done") { await w.write(sse({ done: true, usage: this.usage, truncated: this.truncated, text: this.text })); await w.close(); return; }
           if (this.status === "error") { await w.write(sse({ error: this.error })); await w.close(); return; }
           this.readers.add(w);
         } catch { /* reader vanished before we finished catching it up */ }
@@ -220,7 +220,10 @@ export class Job {
       if (!this.text) throw new Error("empty completion");
       this.status = "done";
       await this.state.storage.put({ text: this.text, status: "done", usage: this.usage, truncated: this.truncated });
-      await this.broadcast(sse({ done: true, usage: this.usage, truncated: this.truncated }));
+      // The full text rides the done event: deltas are for the live view only. A reader attaching
+      // mid-generation can miss a token in the gap between its catch-up write and joining the
+      // reader set, and the accumulated stream is what the client would otherwise STORE as the turn.
+      await this.broadcast(sse({ done: true, usage: this.usage, truncated: this.truncated, text: this.text }));
       await this.notify();
     } catch (e) {
       this.status = "error";

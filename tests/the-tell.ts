@@ -36,7 +36,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   if (c) { pass++; console.log(`ok   ${name}`); }
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
-const schema = INTENT_JSON_SCHEMA as { required?: string[]; properties?: Record<string, { description?: string }> };
+const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; properties?: Record<string, { description?: string }> };
 
 /* ── 1. the field is not optional any more ───────────────────────────────────── */
 {

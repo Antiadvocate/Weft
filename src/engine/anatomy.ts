@@ -169,6 +169,9 @@ function recordText(state: SaveState, id: string, c: Identity): Fragment[] {
   return bits;
 }
 
+/** Player-typed names are not regex-safe; a parenthesis or backslash in one must not throw here. */
+const escRe = (x: string): string => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** WHOSE PART IS THIS? A record is full of other people's bodies, and the first version of this
  *  module read Rabi's own core trait — "Loves Emily's cock, fondly nuzzles it" — as evidence about
  *  Rabi. It happened to reach the right answer for him and would reach a catastrophically wrong one
@@ -187,7 +190,7 @@ function attributed(frag: Fragment, term: RegExp, selfFirst: string, castFirsts:
     // The nearest claimant, by position — not by the order the cast happens to be stored in.
     let bestAt = -1, last = "";
     for (const n of castFirsts) {
-      const re = new RegExp(`\\b${n}('s)?\\b`, "g");
+      const re = new RegExp(`\\b${escRe(n)}('s)?\\b`, "g");
       for (const hit of before.matchAll(re)) {
         if (hit.index !== undefined && hit.index > bestAt) { bestAt = hit.index; last = n; }
       }
@@ -248,7 +251,7 @@ function ownsIt(sentence: string, at: number, name: string, pronoun: string, sol
   const before = sentence.slice(0, at).toLowerCase();
   let bestAt = -1, last = "";
   for (const n of castFirsts) {
-    for (const hit of before.matchAll(new RegExp(`\\b${n}('s)?\\b`, "g"))) {
+    for (const hit of before.matchAll(new RegExp(`\\b${escRe(n)}('s)?\\b`, "g"))) {
       if (hit.index !== undefined && hit.index > bestAt) { bestAt = hit.index; last = n; }
     }
   }

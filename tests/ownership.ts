@@ -92,7 +92,7 @@ function room(): SaveState {
   const s = room();
   const shifts = applyDiff(s, { drives_update: [{ char_id: "char_jess", goal: "Jess keeps the mornings quiet so he does not leave early.", progress: 0 }] } as any,
     "I get up.", "Jess is at the table when he comes in.");
-  check("the applier repairs a leading name", s.characters.char_jess.drive?.goal.startsWith("keeps the mornings quiet"), s.characters.char_jess.drive);
+  check("the applier repairs a leading name", !!s.characters.char_jess.drive?.goal.startsWith("keeps the mornings quiet"), s.characters.char_jess.drive);
   check("and the shift reports the repaired want, not the raw one",
     shifts.some((x) => /wants something new: keeps the mornings quiet/.test(x)), shifts.filter((x) => /wants something/.test(x)));
 }

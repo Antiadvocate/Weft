@@ -44,7 +44,7 @@ const edge = (w: number, t: number): SocialEdge[] =>
 /* ── 1. the save's own edge ───────────────────────────────────────────────────── */
 {
   const edges = edge(19, -3);
-  applyEdgeDelta(edges, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: -15,
+  applyEdgeDelta(edges, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: -15, power_delta: 0,
     note: "The restraining order is the final door; she knows it is over and is not chasing" }, 91);
   check("an ending EVENT is a rupture even with no feeling word in it", edges[0].warmth < 5, edges[0]);
   check("...and it does not leave her fond of him", edges[0].warmth <= 4, edges[0].warmth);
@@ -53,18 +53,18 @@ const edge = (w: number, t: number): SocialEdge[] =>
 /* ── 2. zero is not warming ───────────────────────────────────────────────────── */
 {
   const zero = edge(40, 40);
-  applyEdgeDelta(zero, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: 0,
+  applyEdgeDelta(zero, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: 0, power_delta: 0,
     note: "She holds him in open contempt now." }, 10);
   check("a rupture note with a zero delta still moves", zero[0].warmth < 40, zero[0].warmth);
 
   // ...but a genuinely positive delta still blocks it, which is all the direction rule needed
   const warming = edge(40, 40);
-  applyEdgeDelta(warming, { from: "char_s", to: "char_player", warmth_delta: 6, trust_delta: 4,
+  applyEdgeDelta(warming, { from: "char_s", to: "char_player", warmth_delta: 6, trust_delta: 4, power_delta: 0,
     note: "She is moving past her contempt and choosing to align with him." }, 10);
   check("a warming turn is never inverted by a keyword", warming[0].warmth > 40, warming[0].warmth);
 
   const reconciling = edge(40, 40);
-  applyEdgeDelta(reconciling, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: 0,
+  applyEdgeDelta(reconciling, { from: "char_s", to: "char_player", warmth_delta: 0, trust_delta: 0, power_delta: 0,
     note: "She is getting over the betrayal and letting go of it." }, 10);
   check("nor is a note about getting over it", reconciling[0].warmth >= 40, reconciling[0].warmth);
 }

@@ -85,7 +85,7 @@ const say = (s: string, from = 15, to = 20) => restateAge(s, from, to).text;
 
 /* ── 5. the whole save, end to end ────────────────────────────────────────────── */
 {
-  const s: SaveState = newSave("age", "test");
+  const s: SaveState = newSave("age", { name: "test" } as any);
   const her = registerCharacter(s, {
     name: "Mira", age: 15,
     appearance_facts: "A fifteen-year-old girl, black hair cut at the jaw, a burn scar on her left wrist.",

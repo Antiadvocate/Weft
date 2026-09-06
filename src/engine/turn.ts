@@ -2566,7 +2566,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // reader of other people, projecting and missing. So the render must degrade: surface only, and where
   // feeling is implied it is the PLAYER'S (possibly wrong) read, free to omit, misattribute, or fixate
   // on the wrong signal. Only a relaxed player earns accurate insight into what others feel.
-  const pcRelax = state.condition["char_player"]?.psyche.relaxation ?? 0; // -10..+10
+  // (the graded-by-relaxation render this used to feed was removed — the sealed channel in
+  // engine/read.ts owns interpretation now; see the POV note below)
   // INTERIOR-HEAVY GUARD — when a "do" action is mostly the player thinking/planning/musing with
   // little actual physical action, the narrator is most tempted to mine that interior for plot
   // (player muses about electrician work → an NPC volunteers electrician leads). Detect the shape —
@@ -4421,9 +4422,30 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
           const cres = await complete(cmsg, state.model_settings.simulator_model, state.model_settings.fallback_model, false, 300);
           reflectionTokens += cres.usage.prompt_tokens + cres.usage.completion_tokens;
           const tightened = cres.text.trim();
-          if (tightened && tightened.length < (ident.life_history?.length ?? 0)) {
+          // A COMPACTION THAT CAME BACK CUT OFF IS NOT A COMPACTION.
+          //
+          // The only test was "shorter than what it replaces", and a 300-token ceiling on a cheap
+          // model makes short easy to achieve by stopping early. One save's entire accumulated
+          // history — every beat of a character's life since turn 1 — was replaced by this:
+          //
+          //   "When Max escalated his threats to evict her and return"
+          //
+          // Fifty-four characters, cut mid-clause, and it passed because 54 is less than what was
+          // there. Worse, `folded` had already let those beats blur in episodic memory on the
+          // grounds that their gist was safe in life_history, so the story was gone from both
+          // stores at once and the character had no history at all from that turn on.
+          //
+          // So a rewrite has to arrive whole: not truncated by the ceiling, ending on a real stop,
+          // and not so much shorter than its source that it plainly dropped most of it. Failing
+          // any of those, the old history stands — carrying it another turn costs nothing.
+          const prevLen = ident.life_history?.length ?? 0;
+          const whole = !cres.truncated && /[.!?]["'’”]?$/.test(tightened);
+          const plausible = tightened.length >= Math.min(200, prevLen * 0.25);
+          if (tightened && tightened.length < prevLen && whole && plausible) {
             ident.life_history = tightened;
             shifts.push(`${ident.name}'s accumulated history was condensed.`);
+          } else if (tightened) {
+            console.warn(`[history] rejected a compaction for ${ident.name}: ${cres.truncated ? "truncated" : !whole ? "no sentence end" : "lost too much"} (${prevLen} -> ${tightened.length})`);
           }
         } catch (e: any) {
           // if the rewrite fails, fall back to a hard tail-trim so it can't grow unbounded

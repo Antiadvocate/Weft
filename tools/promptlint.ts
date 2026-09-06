@@ -150,6 +150,28 @@ const UNACTIONABLE = /\b(modern literary|literary register|prestige|purple prose
  */
 const LITERARY = /\b(aphorisms?|maxims?|proverbs?|epigrams?|epigraphs?|purple|florid|prose style|literary|movie trailer|melodrama|poetic|lyrical|writerly)\b/i;
 
+/**
+ * 5. A NAMED RULE THE PROMPT NEVER STATES.
+ *
+ * Detector 1 above is the right idea and could not see the worst instance of it in the engine:
+ *
+ *     BROKEN (fractured) — the Mirror rule applies: no judgments, only clear reflection of others
+ *
+ * It needs a quality-noun from a closed list AND an imperative from a closed list. "reflection" is
+ * on neither, and "applies" is not a command — it is a statement that something is already true,
+ * which binds a model at least as hard as an order and reads to it as settled fact. So the line ran
+ * in every prompt for every broken character in every save, and this file reported zero findings.
+ *
+ * A capitalised name in front of rule/principle/law/doctrine is a promise that the name means
+ * something. Either the prompt says what it means, or the model decides — and it decided that
+ * "reflection of others" was an instruction to repeat other people's sentences back at them.
+ * Nothing here objects to naming a rule; the objection is to naming one and then not writing it.
+ * Matched only mid-sentence, after a lowercase word — a capital at a sentence start is ordinary
+ * ("Every rule above is...", "This law is real"), and those are descriptions of rules that ARE
+ * written out, not invocations of a name standing in for one.
+ */
+const NAMED_RULE = /[a-z,]\s+(?:the\s+)?[A-Z][a-z]{2,}\s+(?:rule|principle|law|doctrine)\b/;
+
 export function lint(src: string): Finding[] {
   const out: Finding[] = [];
   for (const raw of modelFacing(src).split(/(?<=[.;!?])\s+/)) {
@@ -169,6 +191,10 @@ export function lint(src: string): Finding[] {
     }
     if (LITERARY.test(s)) {
       out.push({ kind: "literary-vocabulary", text: s, why: "names a literary form; the model must represent it to avoid it. Use a positive requirement that excludes it without naming it" });
+      continue;
+    }
+    if (NAMED_RULE.test(s)) {
+      out.push({ kind: "undefined-named-rule", text: s, why: "invokes a rule by name that no prompt defines; the model supplies a meaning for the name and writes that instead. State the behaviour and drop the name" });
     }
   }
   return out;

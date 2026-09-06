@@ -66,7 +66,7 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   const wrapped = JSON.stringify([{ role: "assistant", content: good }]);
   const footer = parseSceneFooter(salvageProse(wrapped).prose).footer;
   check("a footer inside an envelope is still found after salvage", footer?.place === "The Tiber Embankment", footer);
-  check("with the roster intact", footer?.here?.includes("Titus Aelius Rufus"), footer);
+  check("with the roster intact", !!footer?.here?.includes("Titus Aelius Rufus"), footer);
   // WORSE THAN LOSING IT. Parsed straight out of the envelope, the escaped quotes defeat the
   // attribute regex and the footer comes back non-null with NO place and an EMPTY roster — which
   // the engine reads as the narrator declaring an empty room, and presence gets wiped. So salvage
