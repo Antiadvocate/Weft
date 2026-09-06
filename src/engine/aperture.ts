@@ -386,7 +386,11 @@ function registerLine(name: string, ap: Aperture, rel: number, openRun: number, 
 export function apertureNote(state: SaveState, presentIds: string[]): string {
   const turn = state.world.current_turn;
   const ids = presentIds
-    .filter((id) => id !== "char_player" && state.characters[id] && state.characters[id].central !== false)
+    // Tracked counts too: the engine pays upkeep on a tracked character every turn, and the same
+    // confusion between "background" and "not tracked" is what left a woman on a dinner date with
+    // no card, no register and no line here. See the promotion loop in turn.ts.
+    .filter((id) => id !== "char_player" && state.characters[id]
+      && (state.characters[id].central !== false || state.characters[id].tracked))
     .slice(0, 3);
   if (!ids.length) return "";
 

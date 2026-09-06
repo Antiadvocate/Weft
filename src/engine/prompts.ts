@@ -712,7 +712,12 @@ export function deltaNote(state: SaveState, query: string): string {
       lines.push(`— YOU: ${cond.psyche.active_states.join(", ") || "—"}${cond.conditions.length ? `; ${cond.conditions.join(", ")}` : ""}${ph ? `; BODY: ${ph}` : ""}${dv ? ` | changed since snapshot → ${dv}` : ""}`);
       continue;
     }
-    if (c.central === false) { lines.push(`— ${c.name} (background), ${cond.psyche.mood || "even"}`); continue; }
+    // TRACKED IS THE ENGINE'S OWN STATEMENT THAT THIS PERSON MATTERS. It is set by writing somebody
+    // a drive, a want, or a week of their life — deliberate acts that cost upkeep every turn — and
+    // rendering that person as furniture contradicts it. desire.ts made this argument once already,
+    // in the other direction ("SIMULATION LOD IS NOT RENDER LOD"), when `central` was wrongly
+    // gating simulation; this is the same confusion with the wires crossed the other way.
+    if (c.central === false && !c.tracked) { lines.push(`— ${c.name} (background), ${cond.psyche.mood || "even"}`); continue; }
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
     // STRANGER PHASE: a young relationship (few shared memories, warmth still low) reads as
     // measurement, not ease — small questions, watching, no free compliance. Without this cue the
@@ -1319,7 +1324,12 @@ export function stablePrefix(state: SaveState): string {
   // deterministic order that doesn't shift as the characters map is mutated.
   const cast = Object.entries(state.characters)
     .filter(([, c]) => c.status !== "dead" && c.status !== "departed")
-    .filter(([id, c]) => id === "char_player" || (c.central !== false && !c.paged))  // non-central = environment; paged = cold, card lives out of context until they matter
+    // non-central AND untracked = environment; paged = cold, card lives out of context until they
+    // matter. A tracked character is one the engine is already paying upkeep on every turn — a
+    // drive, a schedule, an authored want — and leaving their card out of the prefix is how a
+    // woman with eleven years in commercial laundry on her card came to do dental billing in the
+    // prose. See the note in turn.ts's promotion loop.
+    .filter(([id, c]) => id === "char_player" || ((c.central !== false || c.tracked) && !c.paged))
     .sort(([a], [b2]) => a.localeCompare(b2))
     .map(([id, c]) => charCard(id, c, state.condition[id], [], true, portraitBodyPlan(state, c), anatomyNote(readAnatomy(state, id, c), c.name ?? "", c.pronouns)))
     .join("\n");
@@ -1503,7 +1513,10 @@ export function volatileDigest(state: SaveState, query: string, opts?: { budgetO
     // NON-CENTRAL characters are background/environment figures — render them minimally regardless of
     // detail level: a name, a bearing, no memory/traits/drives/edges. They cost almost nothing and
     // function as texture (a guard, a vendor, fauna-of-the-crowd) until promoted to central.
-    if (!isPlayer && ident.central === false) return `— ${ident.name} [${id}] (background) — present, ${cond.psyche.mood || "even"}; a minor figure, simple and reactive, not a focus`;
+    // ...and "a minor figure, simple and reactive, not a focus" is an instruction, not a label. Said
+    // about the only other person at the table, for eight turns, it is the whole explanation for
+    // why she was neither simple nor a person. Tracked characters are never described this way.
+    if (!isPlayer && ident.central === false && !ident.tracked) return `— ${ident.name} [${id}] (background) — present, ${cond.psyche.mood || "even"}; a minor figure, simple and reactive, not a focus`;
     const noName = !isPlayer && ident.knows_player_name === false ? " · DOES NOT KNOW YOUR NAME" : "";
     if (detail === 0 && !isPlayer) return `— ${ident.name} [${id}]${ident.pronouns ? ` · ${ident.pronouns}` : ""}${noName} — present, ${cond.psyche.mood || "even"}`;
     const lines = [`— ${ident.name} [${id}]${isPlayer ? " (PLAYER)" : ""}${ident.pronouns ? ` · ${ident.pronouns}` : ""}`];

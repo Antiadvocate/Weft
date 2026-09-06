@@ -57,7 +57,7 @@ import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
-import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix } from "./maxims";
+import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
@@ -2726,7 +2726,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3160,6 +3160,18 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
         prose,
       );
       if (state.last_figure) noteFire(state, "figure", `the same narration frame for ${state.last_figure.runs} turns: "${state.last_figure.line.slice(0, 60)}"`);
+      // ...and a character describing the conversation instead of having it. Same recurrence rule:
+      // an argument about what somebody meant is a scene; two turns running of it is a transcript
+      // with opinions. See maxims.ts, and the promotion loop in this file for what usually causes it.
+      state.last_meta_talk = findMetaTalk(
+        state, state.world.present,
+        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
+        prose,
+      );
+      if (state.last_meta_talk) {
+        noteFire(state, "meta_talk", `${state.last_meta_talk.name} narrated the conversation for ${state.last_meta_talk.runs} turns`);
+        ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation rather than having it — it will be corrected next turn`] });
+      }
       // ...and a line off somebody's own never-says list. The card is printed to the narrator every
       // turn as reference and nothing has ever checked the output against it.
       state.last_never_said = findNeverSaid(state, state.world.present, prose);
@@ -3874,7 +3886,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // from the player's words and the prose they appeared in, and the moment it does, promotion
     // happens as before. This only says that "we do not know who this is" and "they are now one of
     // the six people this story is about" cannot both be true on the same turn.
-    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
+    // AND THE GATE IS CENTRALITY, NOT TRACKING. `tracked` and `central` are two different claims —
+    // "the engine spends upkeep on this person" and "the narrator is told who they are" — and four
+    // separate paths set `tracked` without ever touching `central`: the bookkeeper writing somebody
+    // a drive, the narrator's own `track` promotion, and authoring a want or a schedule from the
+    // Cast screen. Any of them landing before this loop first sees a character shut the door on
+    // them permanently, because the door was `!c.tracked`.
+    //
+    // What that looked like in play. A woman the player met on a dating app, alone with him at a
+    // restaurant table for eight consecutive turns, with a voice card the engine had spent a
+    // voiceforge call on that same evening — eleven years in commercial laundry, sodium
+    // percarbonate, a torn labrum, "no metaphor unless it comes off a machine or a barbell",
+    // "fills silence with inventory rather than questions", five example lines in her own mouth —
+    // and every turn the narrator was handed this and nothing else:
+    //
+    //     — Emily [char_…] (background) — present, even; a minor figure, simple and reactive,
+    //       not a focus
+    //
+    // Her card was not in the cached prefix either (see prompts.ts). So the narrator wrote her out
+    // of its own defaults, which for a woman in a tense dinner argument is fluent conversational
+    // analysis: summarising what was just said, naming the move the other person made, quoting him
+    // back to himself. It also gave her a different job from the one on her card. The player's
+    // question, and it is the right one: "Is Emily a human being or a narrator? Does Emily narrate
+    // or relate? Is she human? No."
+    //
+    // The cast cap was 6. She was the second person in it. Nothing was full; the guard simply could
+    // not see her.
+    if (c && id !== "char_player" && (!c.tracked || c.central === false) && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
       // COUNT THE CAST THE STORY WAS BUILT WITH, NOT ONLY THE ONES THIS LOOP PROMOTED. `central` is

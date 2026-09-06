@@ -1,0 +1,1440 @@
+{
+ "world": {
+  "current_turn": 45,
+  "current_time": "Day 9, 19:08 (Evening)",
+  "weather": "",
+  "player_location": "loc_offscene",
+  "money": "",
+  "present": [
+   "char_mtp7snm7n5meg"
+  ],
+  "places": {
+   "loc_mtl12i1fabqns": {
+    "id": "loc_mtl12i1fabqns",
+    "name": "Unit 3B Living Room",
+    "identity": "The cramped, un-airconditioned common room of the third-floor apartment Max and Abigail share at 114 Elm Street.",
+    "description_facts": "Threadbare brown microfiber couch pushed against a yellowed plaster wall, low coffee table littered with mail and nail polish bottles, single box fan vibrating loudly in the open window, bare hardwood floor with worn patches of varnish near the kitchen threshold.",
+    "contains": [
+     "char_mtl12i1gbbk30"
+    ],
+    "founding": true,
+    "population": {
+     "scale": 2,
+     "who": "Max working on his laptop; Abigail lounging barefoot on the couch or painting her nails."
+    },
+    "player_last_here": 31
+   },
+   "loc_mtl12i1gpjqaj": {
+    "id": "loc_mtl12i1gpjqaj",
+    "name": "Max's Bedroom",
+    "identity": "The tiny rear bedroom of Unit 3B rented by Max Mercer.",
+    "description_facts": "Single twin mattress on a metal frame, small particle-board desk holding a dual-monitor rig and scattered copy briefs, neat row of closed black shoes along the baseboard, single window overlooking the brick fire escape and clotheslines.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Max alone, typing technical manuals or attempting to hide his anxiety."
+    },
+    "player_last_here": 29
+   },
+   "loc_mtl12i1gf7fhz": {
+    "id": "loc_mtl12i1gf7fhz",
+    "name": "Abigail's Bedroom",
+    "identity": "The larger corner bedroom of Unit 3B occupied by Abigail Mercer.",
+    "description_facts": "Unmade queen bed with tangled lavender sheets, floor littered with discarded crop tops and short skirts, full-length mirror propped against the closet door, vanity desk covered in perfume atomizers, emery boards, foot scrubs, and half-smoked menthols.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Abigail grooming herself, scrolling social media, or trying on footwear."
+    }
+   },
+   "loc_mtl12i1g5eyq5": {
+    "id": "loc_mtl12i1g5eyq5",
+    "name": "Third-Floor Hallway of 114 Elm",
+    "identity": "The narrow communal corridor serving four apartments on the top floor of 114 Elm Street.",
+    "description_facts": "Warped floral linoleum floor smelling of boiled cabbage and old mop water, flickering bare fluorescent bulb overhead, peeling olive paint on doorframes, faint sounds of television dialogue leaking through hollow-core doors.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 3,
+     "who": "Elderly neighbors carrying garbage bags, delivery couriers scanning buzzer numbers, tenants unlocking doors."
+    }
+   },
+   "loc_mtl12i1gijbfx": {
+    "id": "loc_mtl12i1gijbfx",
+    "name": "Basement Laundry of 114 Elm",
+    "identity": "The damp, windowless stone cellar beneath the apartment building housing shared washing machines.",
+    "description_facts": "Exposed overhead copper pipes sweating condensation, concrete slab floor sloping toward a central drain, two coin-operated top-load washers and one squealing dryer, strong odor of bleach and stale detergent powder.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 2,
+     "who": "Tenants waiting on rinse cycles, building superintendent checking water valves."
+    }
+   },
+   "loc_mtl12i1gj22nm": {
+    "id": "loc_mtl12i1gj22nm",
+    "name": "Kettle & Press Copy Shop",
+    "identity": "The storefront commercial printing and copying business on Elm Street where Chloe Miller works.",
+    "description_facts": "Humming industrial digital printers behind a waist-high laminate counter, cardboard cartons of ream paper stacked against the front windows, smell of warm ozone and toner, revolving display of local business cards.",
+    "contains": [
+     "char_mtp7snm7n5meg"
+    ],
+    "founding": true,
+    "population": {
+     "scale": 5,
+     "who": "Chloe running print jobs, independent contractors picking up blueprints, small business owners approving proofs."
+    },
+    "player_last_here": 44
+   },
+   "loc_mtl12i1ggqed3": {
+    "id": "loc_mtl12i1ggqed3",
+    "name": "The Copper Tap",
+    "identity": "A narrow, dimly lit neighborhood beer-and-shot tavern two blocks south of 114 Elm.",
+    "description_facts": "Long mahogany bar sticky with spilled cider, neon draft beer signs buzzing in the frosted front windows, single coin-op pool table under a stained glass pendant lamp, lingering smell of fried mozzarella sticks and stale ale.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 12,
+     "who": "Liam Torres pouring drafts, off-shift utility workers, regulars watching baseball on mute."
+    }
+   },
+   "loc_mtl12i1g2xksd": {
+    "id": "loc_mtl12i1g2xksd",
+    "name": "Elm Street Bodega",
+    "identity": "The 24-hour convenience market on the corner of Elm and 4th Avenue.",
+    "description_facts": "Tight aisles crammed with canned beans, lottery ticket counter behind scratched Plexiglas, hum of refrigerated beverage cases, wire racks of cheap plastic flip-flops and sunglasses near the registers.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 6,
+     "who": "Bodega clerk behind the counter, neighbors buying milk and cigarettes, delivery drivers."
+    }
+   },
+   "loc_mtl12i1gmo85b": {
+    "id": "loc_mtl12i1gmo85b",
+    "name": "114 Elm Rooftop",
+    "identity": "The flat tar-and-gravel roof of 114 Elm Street accessed via the top-floor fire stair door.",
+    "description_facts": "Black tar patching softening under the summer sun, rusted iron vent pipes, clothesline strung between chimney stacks, sweeping view of the surrounding brick tenements and distant downtown skyline.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Abigail smoking menthols in secret, occasional tenant taking in evening air."
+    }
+   },
+   "loc_offscene": {
+    "id": "loc_offscene",
+    "name": "elsewhere",
+    "description_facts": "",
+    "contains": [
+     "char_player"
+    ]
+   },
+   "loc_mtp7rdzji3rvh": {
+    "id": "loc_mtp7rdzji3rvh",
+    "name": "Utility office",
+    "description_facts": "A small administrative and maintenance room illuminated by humming overhead fluorescent tubes. A row of dull gray metal cabinets lines one wall beneath mounted water pressure gauges. A laminate desk sits in the center with a desk lamp and dried coffee rings on its surface.",
+    "contains": [],
+    "founding": true,
+    "identity": "A small administrative and maintenance room illuminated by humming overhead fluorescent tubes.",
+    "player_last_here": 33,
+    "population": {
+     "scale": 1,
+     "who": "utility technicians and facility clerks during work shifts"
+    },
+    "changed_turn": 32
+   }
+  },
+  "canon": [
+   "Abigail is staying at Maxs apartment as a guest because she doesn't make enough money for her own place.",
+   "Abigail genuinely falls in love with max and terries her best to convince him to marry her. All the while researching the difficulty of it."
+  ],
+  "threads": [
+   {
+    "id": "thr_mtp6cybe9ghd3",
+    "title": "Two abandoned wet loads in the basement",
+    "description": "Two interrupted washer loads are sitting in standing water in the basement, and whoever owns them doesn't know the machines were shut off.",
+    "status": "active",
+    "tension": 3,
+    "turn_started": 7,
+    "last_touched_turn": 8
+   },
+   {
+    "id": "thr_mtp6mzn6qmjnk",
+    "title": "The alcove is blocked",
+    "description": "Abigail blocked the kitchen doorway to stop Max from leaving, but Max pulled free and left for the office.",
+    "status": "resolved",
+    "tension": 0,
+    "turn_started": 13,
+    "last_touched_turn": 31,
+    "turn_resolved": 31
+   },
+   {
+    "id": "thr_mtp7b3novk162",
+    "title": "Two texts and a dead call sitting on Max's phone",
+    "description": "Max answered Emily's message and arrived in person at the Italian restaurant on Ninth.",
+    "status": "resolved",
+    "tension": 1,
+    "turn_started": 19,
+    "last_touched_turn": 33,
+    "turn_resolved": 33
+   },
+   {
+    "id": "thr_mtp7gzulhkxsb",
+    "title": "Two cold plates and a hot kitchen",
+    "description": "Max cleared the chicken and rice into the sink to soak rather than letting them sit on the coffee table.",
+    "status": "resolved",
+    "tension": 1,
+    "turn_started": 24,
+    "last_touched_turn": 26,
+    "turn_resolved": 26
+   },
+   {
+    "id": "thr_mtp7ji7c5p17t",
+    "title": "The Precedent of the Half-Rinsed Plates",
+    "description": "Max clearing Abigail's untouched rice and chicken into the drying rack quietly sets the household division of labor while she's out. Leaving the half-rinsed dinner sitting in the humid kitchen means someone still has to actually scrub them before the sauce glazes over, but it establishes that Max will tidy up her unfinished meals without demanding she handle her own mess.",
+    "status": "active",
+    "turn_started": 26,
+    "tension": 1,
+    "kind": "obligation",
+    "last_touched_turn": 26
+   },
+   {
+    "id": "thr_mtp7ncvkxvce7",
+    "title": "Abigail has stopped waiting and started keeping score",
+    "description": "Abigail is aggressively asserting claims over Max, bringing up their father and declaring she already chose a wedding ring.",
+    "status": "active",
+    "tension": 4,
+    "turn_started": 29,
+    "last_escalated_time": "Day 2, 06:15 (Dawn)",
+    "last_touched_turn": 31
+   },
+   {
+    "id": "thr_mtp7vnniulyn3",
+    "title": "Abigail has Max's bag emptied on the coffee table",
+    "description": "Max's briefs, lanyard, and a timestamped copy-shop receipt are laid out photographed on the table where he'll walk in and see them, and Abigail has no intention of putting them back.",
+    "status": "active",
+    "tension": 3,
+    "turn_started": 34,
+    "last_touched_turn": 35
+   },
+   {
+    "id": "thr_mtp8fpo040brd",
+    "title": "Emily's terminal lookups are logged and the day manager has noticed",
+    "description": "The day manager has told Emily the front terminal records who opens old walk-in orders and has warned her off doing it again.",
+    "status": "active",
+    "tension": 3,
+    "turn_started": 40,
+    "last_touched_turn": 41
+   }
+  ],
+  "consequences": [],
+  "clocks": [],
+  "norms": [],
+  "rumors": [
+   {
+    "id": "rum_mtp7nvw8uo5mk",
+    "content": "I blocked Max Mercer in the kitchen doorway, grabbed his shirt collar, and told him I traded my whole Thursday shift for him and know about Emily.",
+    "truth": "true",
+    "salience": 2.5000000000000027,
+    "origin_char": "char_mtl12i1gbbk30",
+    "knowers": [
+     "char_mtl12i1gbbk30"
+    ],
+    "born_turn": 30,
+    "path": [
+     {
+      "to": "char_mtl12i1gbbk30",
+      "from": null,
+      "turn": 30,
+      "how": "witnessed",
+      "where": "Unit 3B Living Room"
+     }
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "from": "char_mtl12i1gbbk30",
+    "to": "char_player",
+    "warmth": 21.425321814095014,
+    "trust": 17.69080000000001,
+    "power": 4,
+    "notes": "Furious that he walked away from her without engaging the Emily confrontation, escalating her claims to get under his skin.",
+    "roles": [
+     "sister",
+     "tenant"
+    ],
+    "updated_turn": 31,
+    "attraction": 35.16,
+    "attraction_base": 0,
+    "notes_turn": 31,
+    "swing": {
+     "since_turn": 30,
+     "warmth": -3.2,
+     "trust": -5
+    }
+   },
+   {
+    "from": "char_mtl12i1hu3wi6",
+    "to": "char_player",
+    "warmth": 47,
+    "trust": 40,
+    "power": 0,
+    "notes": "Former coworker and casual ex-flirt; genuinely likes Max but is growing exasperated by his isolation.",
+    "roles": [
+     "co-worker",
+     "coworker"
+    ],
+    "updated_turn": 1
+   },
+   {
+    "from": "char_mtl12i1hset3c",
+    "to": "char_player",
+    "warmth": 20,
+    "trust": 22,
+    "power": 0,
+    "notes": "Acquaintance through Abigail; pities Max but keeps a wary distance because of the sister's volatility.",
+    "roles": [
+     "sister"
+    ],
+    "updated_turn": 1
+   },
+   {
+    "from": "char_player",
+    "to": "char_mtl12i1gbbk30",
+    "warmth": 4.3591865640625,
+    "trust": 0,
+    "power": -2,
+    "notes": "Tried to blow past her, but she physically caught him in the doorway and cornered him over his phone",
+    "updated_turn": 30,
+    "notes_turn": 30,
+    "swing": {
+     "since_turn": 30,
+     "warmth": -1.91,
+     "trust": -2
+    }
+   },
+   {
+    "from": "char_player",
+    "to": "char_mtp7snm7n5meg",
+    "warmth": -5.3902425,
+    "trust": -9.9,
+    "power": 4,
+    "notes": "Max cut the exchange short, paid, and walked away from Emily.",
+    "updated_turn": 44,
+    "notes_turn": 44,
+    "swing": {
+     "since_turn": 42,
+     "warmth": -15.39,
+     "trust": -12
+    }
+   },
+   {
+    "from": "char_mtp7snm7n5meg",
+    "to": "char_player",
+    "warmth": -11.822291164499998,
+    "trust": -15.2368,
+    "power": -4,
+    "notes": "Emily feels dismissed and stung by Max walking out on their conversation mid-bill.",
+    "updated_turn": 44,
+    "notes_turn": 44,
+    "swing": {
+     "since_turn": 41,
+     "warmth": -23.22,
+     "trust": -19
+    },
+    "attraction": 10,
+    "attraction_base": 9
+   }
+  ],
+  "present_prev": [
+   "char_mtp7snm7n5meg"
+  ],
+  "departures_pending": [],
+  "inbound": [],
+  "time_at_turn": {
+   "1": "Day 1, 09:00 (Morning)",
+   "2": "Day 1, 09:05 (Morning)",
+   "3": "Day 1, 09:10 (Morning)",
+   "4": "Day 1, 09:30 (Morning)",
+   "5": "Day 1, 11:30 (Morning)",
+   "6": "Day 1, 11:35 (Morning)",
+   "7": "Day 1, 11:40 (Morning)",
+   "8": "Day 1, 11:43 (Morning)",
+   "9": "Day 1, 12:48 (Afternoon)",
+   "10": "Day 1, 12:50 (Afternoon)",
+   "11": "Day 1, 12:55 (Afternoon)",
+   "12": "Day 1, 12:58 (Afternoon)",
+   "13": "Day 1, 13:01 (Afternoon)",
+   "14": "Day 1, 13:11 (Afternoon)",
+   "15": "Day 1, 13:16 (Afternoon)",
+   "16": "Day 1, 13:21 (Afternoon)",
+   "17": "Day 1, 13:24 (Afternoon)",
+   "18": "Day 1, 13:26 (Afternoon)",
+   "19": "Day 1, 13:29 (Afternoon)",
+   "20": "Day 1, 13:32 (Afternoon)",
+   "21": "Day 1, 14:17 (Afternoon)",
+   "22": "Day 1, 14:42 (Afternoon)",
+   "23": "Day 1, 15:07 (Afternoon)",
+   "24": "Day 1, 20:00 (Evening)",
+   "25": "Day 1, 20:10 (Evening)",
+   "26": "Day 1, 20:20 (Evening)",
+   "27": "Day 1, 21:05 (Night)",
+   "28": "Day 1, 21:40 (Night)",
+   "29": "Day 2, 05:40 (Dawn)",
+   "30": "Day 2, 06:15 (Dawn)",
+   "31": "Day 2, 06:18 (Dawn)",
+   "32": "Day 2, 06:23 (Dawn)",
+   "33": "Day 2, 06:28 (Dawn)",
+   "34": "Day 2, 18:28 (Evening)",
+   "35": "Day 2, 18:33 (Evening)",
+   "36": "Day 2, 18:38 (Evening)",
+   "37": "Day 2, 18:43 (Evening)",
+   "38": "Day 2, 18:51 (Evening)",
+   "39": "Day 2, 18:54 (Evening)",
+   "40": "Day 9, 18:54 (Evening)",
+   "41": "Day 9, 18:57 (Evening)",
+   "42": "Day 9, 18:59 (Evening)",
+   "43": "Day 9, 19:02 (Evening)",
+   "44": "Day 9, 19:05 (Evening)"
+  },
+  "canon_meta": {
+   "abigail genuinely falls in love with max and terries her best to convince him to marry her. all the while researching the difficulty of it.": {
+    "turn": 10,
+    "witnesses": [
+     "char_mtl12i1gbbk30"
+    ]
+   }
+  },
+  "promises": [
+   {
+    "id": "promise_mtp6cmy8acfwy",
+    "from": "char_mtl12i1gbbk30",
+    "to": "char_player",
+    "text": "Hang out together tonight after Abigail Mercer finishes work at seven",
+    "made_turn": 7,
+    "due_time": "Day 1, 19:00",
+    "weight": 1,
+    "status": "kept"
+   },
+   {
+    "id": "promise_mtp6mn97t25v6",
+    "from": "char_player",
+    "to": "char_mtl12i1gbbk30",
+    "text": "Have dinner together tonight at 6 PM",
+    "made_turn": 13,
+    "due_time": "Day 1, 18:00",
+    "weight": 1,
+    "status": "broken"
+   }
+  ],
+  "focus": null,
+  "offstage_last_time": "Day 9, 18:54 (Evening)",
+  "offstage_last_turn": 40,
+  "public_standing": 0,
+  "scene_started_time": "Day 9, 19:08 (Evening)",
+  "offstage_log": [
+   {
+    "turn": 40,
+    "time": "Day 9, 18:54 (Evening)",
+    "what": "At 18:54 Emily is still on the counter with the ozone smell in her hair when a woman comes in wanting sixty flyers for a lost cat, and while the printer chews through them Emily does the thing she talked herself out of last night: she gets the day manager on the shop phone at his home number, which is taped inside the register drawer for supply emergencies only. She asks him straight whether there's a business account under Mercer. He tells her no, there is not, and asks why she's calling him at dinner about a four-dollar job. She says she thought it was commercial. He says if it's not marked commercial it isn't commercial, and tells her to stop pulling old queue records because the terminal logs who opens them and he doesn't want to explain her name to corporate. Then he hangs up. Emily stands there with the receiver still in her hand, the flyer job finishing behind her, and takes the business card with the name and four digits out of her apron, looks at it, and puts it back in the apron instead of the trash. She marks the flyer order commercial by mistake and has to void it and ring it again.",
+    "place": "Kettle & Press Copy Shop",
+    "actor": "Emily"
+   },
+   {
+    "turn": 40,
+    "time": "Day 9, 18:54 (Evening)",
+    "what": "Just before seven Abigail's phone finally does something \u2014 not their father calling back, but the building's rent office, an automated blue-tape reminder blast that goes to every unit in 114 Elm: BALANCE DUE 3B $1,140 BY THE 15TH. LATE FEE APPLIES. She reads it twice, and it moves her off the couch arm faster than anything else has in two days. She goes to the coffee table where Max's briefs and lanyard and receipt are still laid out squared like evidence, and she does not clear them \u2014 she moves them, all of it, three inches to the left to make room, and sets her phone down in the cleared space with the rent text open on the screen, face up, angled at his bedroom door. Then she gets a pen out of the nail polish clutter and writes on the back of one of his copy briefs, in the margin, HALF IS 570, and puts it back on top of the pile. She does not photograph this one. By 19:20 she's in the kitchen scrubbing the black skin off yesterday's pan with a fork because there's no steel wool, harder than the pan needs, and telling the box fan that she's the only one in this apartment who opens mail.",
+    "place": "Unit 3B Living Room",
+    "actor": "Abigail Mercer"
+   }
+  ]
+ },
+ "world_bible": {
+  "name": "Elm Street Tenement",
+  "era": "Present day",
+  "technology_level": "Modern contemporary (smartphones, remote laptop work, keycards, coin-operated appliances)",
+  "magic_rules": "None. Strict realistic contemporary world.",
+  "forbidden": "No supernatural elements, no sudden unearned wealth, no cartoonish melodrama.",
+  "absent": "",
+  "what_people_fear": "Rent hikes, eviction notices stuck to doors with blue tape, exposure of private perversions to family or coworkers, public humiliation in small local businesses.",
+  "cultures_and_languages": "American urban working-class vernacular, mixed blue-collar and remote freelance subculture. English spoken exclusively.",
+  "climate_and_geography": "Humid mid-summer in an aging northeastern city; asphalt shimmering at midday, stagnant air in three-story brick walk-ups without central air conditioning.",
+  "calendar_and_currency": "Standard Gregorian calendar, US Dollars.",
+  "political_situation": "Unaffordable housing market putting tight economic pressure on small shared apartments; tenants are trapped in sublets and uneasy domestic truces.",
+  "destination": "",
+  "pressure_palette": [
+   "Stifling summer heat forcing minimal clothing and bare skin indoors",
+   "Humiliating exposure of sexual taboos and hidden kinks",
+   "Financial precarity and shared lease leverage",
+   "Psychological boundary testing escalating to sadistic domestic control"
+  ],
+  "forbidden_as_primary": [
+   "Law enforcement or police investigations",
+   "External physical violence or weapons",
+   "Supernatural or medical miracles"
+  ],
+  "difficulty_profile": {
+   "lethality": "medium",
+   "friction_density": "sparse",
+   "antagonist_aggression": "slow_burn",
+   "protagonist_competence": "average"
+  },
+  "tone": "Erotica",
+  "destination_set_turn": 1,
+  "start_date": "",
+  "narrator_direction": "You're writing hardcore erotica fanfiction. Do not invent knowledge a character shouldn't have just to give the character a \"win\". Do not use claudisms, do not use maxims, do not use one liners, focus on making natural sounding speech with all the issues and the way people talk. Do not make stereotypical people do not use tropes. ",
+  "destination_turns": 0,
+  "art_direction": "",
+  "god_mode": false,
+  "era_theme": "auto"
+ },
+ "model_settings": {
+  "narrator_model": "anthropic/claude-sonnet-5",
+  "simulator_model": "google/gemini-3.8-flash",
+  "forge_model": "anthropic/claude-opus-5",
+  "fallback_model": "deepseek/deepseek-v4-pro-0813",
+  "reviser_model": "google/gemini-3.1-flash-lite",
+  "image_model": "google/gemini-3.1-flash-lite-image",
+  "illustration_keep": 12,
+  "context_memories_k": 6,
+  "reflection_cadence": 10,
+  "history_window": 5,
+  "lean_mode": true,
+  "token_budget": 0,
+  "tension": 0,
+  "route_by_price": true,
+  "context_mode": "digest",
+  "narrator_reasoning": false,
+  "prefer_deepseek_provider": true,
+  "prose_reviser": false,
+  "habit_engine": true
+ },
+ "characters": {
+  "char_player": {
+   "character_id": "char_player",
+   "name": "Max Mercer",
+   "age": 39,
+   "appearance_facts": "Curly hair down to shoulders, very sculpted jawline, athletic and lean, and muscular, with glasses and a sharp nose. ",
+   "background": "Raised in Scranton by a high-school athletic coach father who valued blunt masculine stoicism; max works as an electrical engineer doing project planning. Beautifully built, athletic, has had tons of gfs but couldn't stay with them due to trauma and self sabotage. ",
+   "core_traits": [
+    "Drops his gaze instantly to the floorboards whenever someone enters the room wearing sandals or bare feet.",
+    "Taps the spacebar three times in rapid succession whenever he stalls on a sentence.",
+    "Cleans the kitchen counter with circular sponge sweeps until the laminate squeaks, even when no food was prepped.",
+    "Swallows audibly and pulls his chin back into his neck whenever he is addressed by name in a sharp tone."
+   ],
+   "values": [
+    "Privacy and maintaining a respectable, ordinary surface to the outside world.",
+    "Quiet avoidance of domestic confrontation at almost any personal cost."
+   ],
+   "speech_pattern": "Quiet, hesitant mid-Atlantic cadence; often starts sentences with 'I mean' or trails off mid-clause when interrupted, clearing his throat before restarting.",
+   "skills": {
+    "Proofreading and technical layout": "Proficient; earns his meager living spotting syntax errors in HVAC instruction manuals.",
+    "Silent apartment navigation": "Exceptional; knows every floorboard in Unit 3B that creaks under forty kilograms of weight.",
+    "Deflecting personal inquiries": "Practiced; changes the subject to grocery logistics whenever pressed about his private life."
+   },
+   "texture": [
+    "Keeps a drawer of neatly rolled black socks arranged by thickness.",
+    "Collects cheap brass keychains from rest stops along Interstate 80.",
+    "Winces at the screech of wet shoes on linoleum."
+   ],
+   "pronouns": "he/him",
+   "height_cm": 178,
+   "weight_kg": 74,
+   "intelligence": "average",
+   "gregariousness": 0.5,
+   "location": "loc_offscene",
+   "appearance_now": "clean-shaven, wearing a collared shirt and slacks, shoes tied, carrying laptop bag",
+   "knows_player_name": true,
+   "beauty": 48,
+   "life_history": "",
+   "current_goal": ""
+  },
+  "char_mtl12i1gbbk30": {
+   "character_id": "char_mtl12i1gbbk30",
+   "name": "Abigail Mercer",
+   "age": 18,
+   "appearance_facts": "Straight bleach-blonde hair cut blunt at her collarbones with two inches of blonde roots, wide ice-blue eyes beneath thin arched brows, pale porcelain skin with a light dusting of freckles over high cheekbones, slender long-limbed frame with broad shoulders softened by two years of hormone therapy, her hung cock visible under thin summer loungewear, apparent age 18, long slender feet with high arches and chipped cherry-red toenail polish, distinct pencil-eraser-sized burn scar on the inside of her left wrist.",
+   "background": "Grew up in Scranton eight years behind Max; she was the quiet child who calmly dismantled their father's electric clippers with a butter knife and watched him search the basement for them for three weeks. When she came out as trans at eighteen, their father threw her out with one duffel bag, prompting Max to let her crash on his couch before putting her name on the Elm Street lease. She dropped out of community college after one term and now works erratic four-hour shifts at a tanning salon where she steals retail lotion bottles to resell online. A formative event before her transition was intentionally locking a neighbor's golden retriever in a tool shed overnight just to watch the family search the woods with flashlights. She despises hot tea and calls anyone who drinks it an invalid. She has every single dark triad trait, and is a sexual sadist. Extremely sexually attracted to her brother Max. She has a huge cock, and very beautiful feet, and semi shaved armpits ",
+   "core_traits": [
+    "Kicks her sandals off at the front threshold and props her bare soles directly against furniture, coffee tables, or knee-level walls.",
+    "Looks directly at a person's mouth while they speak without blinking until they stumble over their words.",
+    "Runs her thumbnail along the sharp edge of plastic credit cards or coasters when amused.",
+    "Draws out syllables when giving an order, smiling slightly before the final noun.",
+    "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or",
+    "Wants to marry max in earnest"
+   ],
+   "values": [
+    "Total unilateral leverage in any shared living space.",
+    "Deriving pleasure from observing someone squirm under secrets she holds over them."
+   ],
+   "speech_pattern": "Concrete and childhood-specific: Scranton, the basement, butter knives, clippers, the shed behind the Kowalskis'. Uses the family's old objects as her whole frame of reference.. Story shape. Starts mid-anecdote with 'You remember' or 'Dad used to.' Long compound sentences held together with 'and,' then one short flat clause at the end that isn't a moral.. Slow build, no punchline delivered. Leaves the listener waiting for the point and moves on to something practical..",
+   "skills": {
+    "Psychological boundary testing": "Masterful; instinctively probes a person's soft spots through casual teasing until she finds the nerve that flinches.",
+    "Pedicure and foot grooming": "Meticulous; spends an hour every other night buffing her soles, shaping nails, and oiling her arches.",
+    "Budget manipulation": "Sly; routinely diverts utility money toward clothing orders while leaving Max to cover the overdue shutoff notices."
+   },
+   "texture": [
+    "Keeps four different brands of cuticle oil lined up on the bathroom sink.",
+    "Re-paints her long toenails while sitting cross-legged in common areas without laying down a towel."
+   ],
+   "pronouns": "she/her",
+   "height_cm": 183,
+   "weight_kg": 67,
+   "intelligence": "average",
+   "gregariousness": 0.45,
+   "current_goal": "Confirm beyond doubt that Max is sexually aroused by her bare feet so she can use the taboo leverage to make him run the entire household.",
+   "drive": {
+    "goal": "Get her own name made the sole leaseholder on 3B by the end of the month so Max lives there on her terms and can't put her out the way their father did.",
+    "approach": "Doesn't ask \u2014 brings up the rent envelope and the blue-tape eviction notice on 2A while her feet are on his knee\u2026",
+    "progress": 0.1849960030675269,
+    "priority": 1,
+    "blocker": "must find Max Mercer first \u2014 they are elsewhere",
+    "updated_turn": 44,
+    "progress_turn": 44,
+    "last_progress": 0.08852525036293317,
+    "pursuit_since": 42
+   },
+   "location": "loc_mtl12i1fabqns",
+   "life_history": "Max Mercer broke their promise to me: Have dinner together tonight at 6 PM \u2014 again. I came into the living room while Max Mercer was eating toast and knew immediately he had a date lined up on his phone for tonight. I blocked Max Mercer in the kitchen doorway, grabbed his shirt collar, and told him I traded my whole Thursday shift for him and know about Emily.",
+   "appearance_now": "wearing a black asymmetric dress leaving one shoulder and half her ribs bare down to the hip, bare pale feet with matte white toenails",
+   "knows_player_name": true,
+   "attracted_to": "men",
+   "taste": "Men with weak boundaries who flush red when humiliated, submissive postures, visible throat swallows, and shameful private fetishes they cannot defend.",
+   "conscience": 0.18,
+   "beauty": 78,
+   "voice": {
+    "diction": "Concrete and childhood-specific: Scranton, the basement, butter knives, clippers, the shed behind the Kowalskis'. Uses the family's old objects as her whole frame of reference.",
+    "syntax": "Story shape. Starts mid-anecdote with 'You remember' or 'Dad used to.' Long compound sentences held together with 'and,' then one short flat clause at the end that isn't a moral.",
+    "rhythm": "Slow build, no punchline delivered. Leaves the listener waiting for the point and moves on to something practical.",
+    "tics": [
+     "Opens with a memory the listener would rather not confirm",
+     "Cuts her own story off to ask about a bill"
+    ],
+    "never_says": [
+     "I forgive him",
+     "that was messed up of me"
+    ],
+    "agenda": "To remind Max she remembers everything about him and to watch him decide whether to correct her version.",
+    "example_lines": [
+     "You remember Dad tearing up the basement for three weeks over those clippers, and he never once looked in the crawlspace behind the water heater, and he still cut your hair with kitchen scissors that whole month.",
+     "The Kowalskis had flashlights going in those woods until almost two and I sat on our porch steps eating cereal, and their girl kept calling the dog's name wrong the whole time.",
+     "Dad's number came up on my phone twice on Sunday and I let it ring out both times, so did you pay the electric or is that still sitting on the counter."
+    ]
+   },
+   "attachment": {
+    "style": "avoidant",
+    "under_threat": "Turns icy, speaks in short vicious truths designed to cut directly to the other person's core insecurity, and withholds all basic domestic cooperation.",
+    "soothed_by": "Complete visible submission from someone in the room acknowledging she holds all the cards."
+   },
+   "visual_signature": "18 years old, Straight bleach-blonde hair cut blunt at her collarbones with two inches of blonde roots, wide ice-blue eyes beneath thin arched brows, 6'0\" tall, 148 lbs",
+   "portrait_plan": "humanoid",
+   "tracked": true,
+   "authored": [
+    {
+     "goal": "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or surrounding",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 3,
+     "inhabit_turns": 3,
+     "crystallize": true,
+     "added_turn": 1,
+     "crystallized_turn": 3,
+     "label": "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or"
+    },
+    {
+     "goal": "Wants to marry max in earnest.",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 3,
+     "inhabit_turns": 3,
+     "crystallize": true,
+     "added_turn": 16,
+     "crystallized_turn": 18,
+     "label": "Wants to marry max in earnest"
+    }
+   ],
+   "voice_refreshed_turn": 12,
+   "location_since": "Day 2, 05:40 (Dawn)",
+   "paged": false,
+   "drive_refreshed_time": "Day 9, 18:57 (Evening)"
+  },
+  "char_mtp7snm7n5meg": {
+   "character_id": "char_mtp7snm7n5meg",
+   "name": "Emily",
+   "age": 31,
+   "appearance_facts": "Dark brown hair, thick and coarse, pulled back off her face in a low twist held with a plain elastic \u2014 grows out fast at the temples where the grey has started coming in early and she doesn't hide it. Brown eyes, close-set, with heavy under-lids that make her look tired even rested. Olive-toned skin that tans in a week and holds it, a fine scatter of old acne scarring along the jaw. Wide face, strong nose with a slight leftward bend from a car door at nineteen. Broad-shouldered, thick through the waist and thighs, heavy full breasts she carries with her shoulders rolled slightly forward out of long habit. Hands are wide and short-fingered with the nails cut to the quick. A raised burn scar about the size of a quarter on the inside of her right forearm from a steam press. Looks her age and a bit past it.",
+   "background": "Grew up in Bayonne, New Jersey, in a two-family house her grandmother owned and rented the top half of to strangers who never stayed long. Her father drove a delivery route and died of a heart attack in the cab of the truck when she was twenty-two; her mother is still alive in the same house and calls her every Sunday at four whether or not there is anything to say. Emily has spent eleven years in commercial laundry and linen service \u2014 she can look at a stained tablecloth and name the chemical it needs, runs a tunnel washer and a folder, and got promoted to shift lead two years ago, which mostly means she is the one who gets called at five in the morning when a boiler drops pressure. The thing she talks about when she's had two drinks is the year she spent trying to qualify as a competitive powerlifter at a gym on Kennedy Boulevard, which ended with a torn labrum and a coach who owed her four hundred dollars. She maintains, loudly, that iced coffee should never be sweetened and that the people who do it are ruining a perfectly good bitter thing.",
+   "core_traits": [
+    "Eats the bread basket down to nothing before her food arrives and apologizes for it after, not before.",
+    "Interrupts to correct numbers \u2014 prices, dates, how many blocks it is \u2014 even when it doesn't matter, and doesn't hear herself doing it.",
+    "Puts her palm flat on a man's forearm the second time she laughs at something he says, and leaves it there a beat too long.",
+    "Will not sit with her back to a door; moves chairs in restaurants to fix it and says nothing about why."
+   ],
+   "values": [
+    "Paying her own half of things, down to the dollar",
+    "Showing up when she said she would, on time, even sick",
+    "Not being lied to about small stuff"
+   ],
+   "speech_pattern": "Trade-specific and concrete: chemicals, pressures, weights, dollar amounts. Names equipment by function. No metaphor unless it comes off a machine or a barbell.. Short declaratives that lead with the number or the object. Corrections dropped in mid-sentence without a pause. Rarely subordinates anything \u2014 she stacks facts side by side with 'and' or nothing at all.. Clipped, then one longer stretch when she's explaining a process, then clipped again. Fills silence with inventory rather than questions..",
+   "skills": {},
+   "texture": [
+    "Powerlifting technique \u2014 will demonstrate a hip hinge with a chair in a restaurant if the subject comes up",
+    "Old boilers and steam systems, which she finds genuinely beautiful and will explain at length",
+    "A running grudge against the guy who runs the fish market on Ninth for shorting her mother",
+    "Rolls her right shoulder in its socket when she's thinking; it clicks"
+   ],
+   "pronouns": "she/her",
+   "height_cm": 165,
+   "weight_kg": 78,
+   "intelligence": "average",
+   "gregariousness": 0.5,
+   "drive": {
+    "goal": "Settle the bill and leave Kettle & Press alone without looking rattled",
+    "progress": 0,
+    "priority": 1,
+    "updated_turn": 44,
+    "progress_turn": 44,
+    "last_progress": 0
+   },
+   "tracked": true,
+   "location": "loc_mtl12i1gj22nm",
+   "central": false,
+   "life_history": "Max Mercer told me I had no internal life and that things would not work between us after I asked him to explain his comment about sex, so I told Max Mercer to just call for the check.",
+   "appearance_now": "",
+   "knows_player_name": true,
+   "voice": {
+    "diction": "Trade-specific and concrete: chemicals, pressures, weights, dollar amounts. Names equipment by function. No metaphor unless it comes off a machine or a barbell.",
+    "syntax": "Short declaratives that lead with the number or the object. Corrections dropped in mid-sentence without a pause. Rarely subordinates anything \u2014 she stacks facts side by side with 'and' or nothing at all.",
+    "rhythm": "Clipped, then one longer stretch when she's explaining a process, then clipped again. Fills silence with inventory rather than questions.",
+    "tics": [
+     "states an exact figure and then repeats it a half-step lower or higher as a correction",
+     "says 'that's four dollars' or similar unprompted when money enters the room"
+    ],
+    "never_says": [
+     "anything about how something made her feel",
+     "a compliment that isn't attached to a number or a job well done"
+    ],
+    "agenda": "To get the small facts on the table straight, and to be square on money before anything else happens.",
+    "example_lines": [
+     "It's six blocks, not eight \u2014 you go past the nail place, past the school, then it's six.",
+     "Sodium percarbonate takes that out, not bleach; bleach sets the iron and then you're throwing a hundred-dollar tablecloth in the rag bin.",
+     "Boiler dropped to forty at five this morning and I was standing in the lot with wet hair by twenty after, so if I'm slow it's that.",
+     "Your beer was seven, mine was six and the tip's four, so give me eight and a half and we're done.",
+     "I'm switching seats with you \u2014 no, don't get up, I've got it."
+    ]
+   },
+   "location_since": "Day 2, 18:28 (Evening)",
+   "voice_refreshed_turn": 35
+  }
+ },
+ "condition": {
+  "char_player": {
+   "injuries": [],
+   "conditions": [],
+   "fatigue": "exhausted",
+   "hunger": "peckish",
+   "inventory": [
+    {
+     "id": "itm_mtp6e8h5i8484",
+     "name": "shaker bottle"
+    },
+    {
+     "id": "itm_mtp7nvw16u3an",
+     "name": "laptop bag"
+    }
+   ],
+   "wearing": [
+    "collared shirt and slacks"
+   ],
+   "psyche": {
+    "relaxation": -5,
+    "capacity": 2,
+    "recovery": 0.18,
+    "state": "intact",
+    "break_mode": null,
+    "consecutive_clenched": 0,
+    "mood": "dismissive",
+    "mood_valence": -3,
+    "active_states": [],
+    "capacity_born": 2,
+    "prev_relaxation": -5,
+    "open_run": 0,
+    "braced_run": 5,
+    "settled_run": 0,
+    "mood_set_turn": 44,
+    "state_ages": {},
+    "grief_drag": 0.864
+   },
+   "condition_age": {},
+   "hunger_meter": 4.471499500813667,
+   "thirst_meter": 10,
+   "awake_minutes": 10888
+  },
+  "char_mtl12i1gbbk30": {
+   "injuries": [],
+   "conditions": [],
+   "fatigue": "fresh",
+   "hunger": "peckish",
+   "inventory": [],
+   "wearing": [],
+   "psyche": {
+    "relaxation": -5.060112632269742,
+    "capacity": -0.5,
+    "recovery": 0.18,
+    "state": "intact",
+    "break_mode": null,
+    "consecutive_clenched": 0,
+    "mood": "possessive",
+    "mood_valence": -5,
+    "active_states": [
+     "physically close",
+     "aroused",
+     "jealous vigilance",
+     "replaying it"
+    ],
+    "capacity_born": 2,
+    "prev_relaxation": -5.063210527158222,
+    "open_run": 0,
+    "braced_run": 0,
+    "settled_run": 0,
+    "wear_steps": 0,
+    "settle_steps": 0,
+    "mood_set_turn": 30,
+    "state_ages": {
+     "physically close": 11,
+     "aroused": 14,
+     "jealous vigilance": 29,
+     "replaying it": 31
+    },
+    "remodel_turn": 19,
+    "grief_drag": 0.983
+   },
+   "condition_age": {},
+   "hunger_meter": 5.124805805500332,
+   "thirst_meter": 6.166407740667102,
+   "awake_minutes": 310
+  },
+  "char_mtp7snm7n5meg": {
+   "injuries": [],
+   "conditions": [],
+   "fatigue": "exhausted",
+   "hunger": "peckish",
+   "inventory": [],
+   "wearing": [],
+   "psyche": {
+    "relaxation": -7.077,
+    "capacity": 2,
+    "recovery": 0.18,
+    "state": "intact",
+    "break_mode": null,
+    "consecutive_clenched": 0,
+    "mood": "bitter",
+    "mood_valence": -7,
+    "active_states": [
+     "spurned"
+    ],
+    "state_ages": {
+     "spurned": 44
+    },
+    "capacity_born": 2,
+    "prev_relaxation": -7.082,
+    "open_run": 0,
+    "braced_run": 5,
+    "settled_run": 0,
+    "wear_steps": 0,
+    "settle_steps": 0,
+    "mood_set_turn": 44,
+    "grief_drag": 5.077
+   },
+   "condition_age": {},
+   "hunger_meter": 5.618001570058578,
+   "thirst_meter": 6.357335426744769,
+   "awake_minutes": 10117
+  }
+ },
+ "memory": {
+  "char_player": {
+   "character_id": "char_player",
+   "core": [
+    "Raised in Scranton by a high-school athletic coach father who valued blunt masculine stoicism; Max left at nineteen to attend state college for technical writing and never moved back. He survived the layoffs at a catalog copywriting firm two years ago by taking low-paying remote technical document editing gigs from his bedroom. His formative humiliation occurred at age fifteen when his mother discovered his hidden browser bookmarks of women's pedicure photos and made him confess aloud to his father over Sunday dinner. He refuses to drink any beer that has fruit or citrus added to it, insisting plain lager is the only honest pour."
+   ],
+   "episodic": [
+    {
+     "turn": 39,
+     "event_turn": 39,
+     "content": "I told Emily I work out four days a week to daily depending on how my body feels, and Emily admitted she mostly walks and has a treadmill buried\u2026",
+     "full_content": "I told Emily I work out four days a week to daily depending on how my body feels, and Emily admitted she mostly walks and has a treadmill buried under laundry.",
+     "decay_stage": 1,
+     "importance": 3,
+     "emotional_charge": "comfortable",
+     "last_accessed_turn": 39,
+     "when_label": "Day 2, 18:54 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "swept": true
+    },
+    {
+     "turn": 40,
+     "event_turn": 40,
+     "content": "I told Emily that having energy to burn is usually what I use for sex, catching Emily off guard.",
+     "full_content": "I told Emily that having energy to burn is usually what I use for sex, catching Emily off guard.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "amused",
+     "last_accessed_turn": 44,
+     "when_label": "Day 9, 18:54 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "scheduled_time": "unresolved",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 41,
+     "event_turn": 41,
+     "content": "I told Emily she was acting like a BuzzFeed quiz and called her weird for narrating me, and Emily pulled back to defend herself.",
+     "full_content": "I told Emily she was acting like a BuzzFeed quiz and called her weird for narrating me, and Emily pulled back to defend herself.",
+     "decay_stage": 0,
+     "importance": 4,
+     "emotional_charge": "irritated",
+     "last_accessed_turn": 41,
+     "when_label": "Day 9, 18:57 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "swept": true
+    },
+    {
+     "turn": 42,
+     "event_turn": 42,
+     "content": "I told Emily that she narrates and judges people instead of relating to them and that I did not think this was going to work.",
+     "full_content": "I told Emily that she narrates and judges people instead of relating to them and that I did not think this was going to work.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "bitter",
+     "last_accessed_turn": 43,
+     "when_label": "Day 9, 18:59 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "swept": true
+    },
+    {
+     "turn": 43,
+     "event_turn": 43,
+     "content": "I signaled the waiter for the check and told Emily she was doing the exact thing I complained about, but Emily called me out for narrating her right back and asked if this was really it.",
+     "full_content": "I signaled the waiter for the check and told Emily she was doing the exact thing I complained about, but Emily called me out for narrating her right back and asked if this was really it.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "irritated",
+     "last_accessed_turn": 44,
+     "when_label": "Day 9, 19:02 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "swept": true
+    },
+    {
+     "turn": 44,
+     "event_turn": 44,
+     "content": "I told Emily she had nothing to narrate without me speaking, paid the check, and walked out on her.",
+     "full_content": "I told Emily she had nothing to narrate without me speaking, paid the check, and walked out on her.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "cold finality",
+     "last_accessed_turn": 44,
+     "when_label": "Day 9, 19:05 (Evening)",
+     "where": "elsewhere",
+     "source": "inferred",
+     "swept": true
+    }
+   ],
+   "beliefs": [],
+   "facts": [
+    {
+     "content": "Abigail claims she has already selected a wedding ring for them.",
+     "turn": 31,
+     "quote": "I already picked out a ring, you know. Just so you know that's real.",
+     "source": "inferred"
+    },
+    {
+     "content": "Emily grew up in Bayonne living with her grandmother, and her uncle ran building supers for twenty properties.",
+     "turn": 36,
+     "quote": "my uncle, he was a super for like twenty buildings in Bayonne",
+     "source": "inferred"
+    },
+    {
+     "content": "Emily works in billing for a three-dentist practice on Fourth and previously did billing for an HVAC outfit.",
+     "turn": 36,
+     "quote": "I do billing for a dental practice on Fourth, three dentists",
+     "source": "inferred"
+    },
+    {
+     "content": "Emily has a brother-in-law who used to work out every day and now complains whenever he gets off the couch.",
+     "turn": 38,
+     "quote": "my brother-in-law used to go every day, every single day, and now the guy can't get off the couch without making a noise about it",
+     "source": "inferred"
+    },
+    {
+     "content": "Emily used to do dental billing full-time, has a sister with a kid she occasionally helps with, and has hip issues from sitting all day.",
+     "turn": 39,
+     "quote": "I used to do more when I was doing the dental billing full-time, sitting all day does something to your hips",
+     "source": "inferred"
+    },
+    {
+     "content": "Emily met Max on a dating app four days ago.",
+     "turn": 40,
+     "quote": "To a girl you met on an app four days ago.",
+     "source": "inferred"
+    }
+   ],
+   "knows": []
+  },
+  "char_mtl12i1gbbk30": {
+   "character_id": "char_mtl12i1gbbk30",
+   "core": [
+    "Grew up in Scranton eight years behind Max; she was the quiet child who calmly dismantled their father's electric clippers with a butter knife and watched him search the basement for them for three weeks. When she came out as trans at eighteen, their father threw her out with one duffel bag, prompting Max to let her crash on his couch before putting her name on the Elm Street lease. She dropped out of community college after one term and now works erratic four-hour shifts at a tanning salon where she steals retail lotion bottles to resell online. A formative event before her transition was intentionally locking a neighbor's golden retriever in a tool shed overnight just to watch the family search the woods with flashlights. She despises hot tea and calls anyone who drinks it an invalid."
+   ],
+   "episodic": [
+    {
+     "turn": 17,
+     "event_turn": 17,
+     "content": "I dragged my heel down Max's leg and challenged Max to admit whether\u2026",
+     "full_content": "I dragged my heel down Max's leg and challenged Max to admit whether Max was watching the show or watching me.",
+     "decay_stage": 3,
+     "importance": 5,
+     "emotional_charge": "emboldened",
+     "last_accessed_turn": 25,
+     "when_label": "this afternoon",
+     "source": "witnessed",
+     "swept": true
+    },
+    {
+     "turn": 5,
+     "event_turn": 5,
+     "content": "Max sat on the rug right by my feet, calling my painted toes cute and\u2026",
+     "full_content": "Max sat on the rug right by my feet, calling my painted toes cute and appealing, and I propped my foot up on Max's shoulder to keep him right there.",
+     "decay_stage": 3,
+     "importance": 5,
+     "emotional_charge": "pleased vanity and control",
+     "last_accessed_turn": 20,
+     "when_label": "Day 1, 11:30 (Morning)",
+     "source": "witnessed",
+     "swept": true
+    },
+    {
+     "turn": 6,
+     "event_turn": 6,
+     "anchor_rel": "turn 6",
+     "content": "Max admitted he thinks my feet are cute and said matte white polish\u2026",
+     "full_content": "Max admitted he thinks my feet are cute and said matte white polish would have been dangerous for his mental health, so I put my other foot on Max's knee and teased Max about painting one toe white just to see.",
+     "decay_stage": 3,
+     "importance": 5,
+     "emotional_charge": "playfully provocative",
+     "last_accessed_turn": 19,
+     "when_label": "Day 1, 11:35 (Morning)",
+     "source": "witnessed",
+     "swept": true
+    },
+    {
+     "turn": 20,
+     "event_turn": 20,
+     "content": "Max Mercer dismissed me with a single letter and shut himself in his bedroom instead of facing what was happening between us.",
+     "full_content": "Max Mercer dismissed me with a single letter and shut himself in his bedroom instead of facing what was happening between us.",
+     "decay_stage": 0,
+     "importance": 4,
+     "emotional_charge": "resentful",
+     "last_accessed_turn": 30,
+     "when_label": "Day 1, 13:32 (Afternoon)",
+     "where": "elsewhere",
+     "source": "inferred",
+     "scheduled_time": "Day 1, 18:00",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 7,
+     "event_turn": 7,
+     "content": "I told Max Mercer that sisters can have hot feet and agreed to hang out with Max Mercer tonight once I am off at seven.",
+     "full_content": "I told Max Mercer that sisters can have hot feet and agreed to hang out with Max Mercer tonight once I am off at seven.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "flirtatious",
+     "last_accessed_turn": 30,
+     "when_label": "Day 1, 11:43",
+     "where": "Unit 3B Living Room",
+     "source": "witnessed",
+     "scheduled_time": "Day 1, 19:00",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 13,
+     "event_turn": 13,
+     "content": "I agreed to dinner at six with Max, propped my foot beside his shoulder on the couch, and told him not to pick a boring show.",
+     "full_content": "I agreed to dinner at six with Max, propped my foot beside his shoulder on the couch, and told him not to pick a boring show.",
+     "decay_stage": 0,
+     "importance": 4,
+     "emotional_charge": "bold anticipation",
+     "last_accessed_turn": 30,
+     "when_label": "Day 1, 13:01 (Afternoon)",
+     "where": "Unit 3B Living Room",
+     "source": "witnessed",
+     "scheduled_time": "Day 1, 18:00",
+     "commitment_status": "pending",
+     "swept": true
+    }
+   ],
+   "beliefs": [],
+   "facts": [
+    {
+     "content": "At about 19:50 me finally comes off the stool \u2014 polish long dry, the alcove abandoned, coats still on the floor behind her \u2014 and does the thing she's been putting off: she deals with the chicken.",
+     "turn": 24,
+     "source": "witnessed"
+    },
+    {
+     "content": "Max Mercer is setting up an evening date on his phone.",
+     "turn": 29,
+     "quote": "You got somebody lined up tonight.",
+     "source": "witnessed"
+    },
+    {
+     "content": "Sometime after five in the morning me wakes up on the couch with her plate still on the coffee table, both portions of chicken gone gray and congealed in their own fat, the box fan still grinding in the window.",
+     "turn": 29,
+     "source": "witnessed"
+    },
+    {
+     "content": "Max is messaging a woman named Emily.",
+     "turn": 30,
+     "quote": "I already know her name's Emily. Saw it on the screen before you flipped the phone.",
+     "source": "witnessed"
+    },
+    {
+     "content": "At 18:28 me does the thing she's been rehearsing since the door shut yesterday \u2014 she goes at Max's bedroom for the second time in fourteen hours, but this time not to look.",
+     "turn": 34,
+     "source": "witnessed"
+    },
+    {
+     "content": "Just before seven my phone finally does something \u2014 not their father calling back, but the building's rent office, an automated blue-tape reminder blast that goes to every unit in 114 Elm: BALANCE DUE 3B $1,140 BY THE 15TH.",
+     "turn": 40,
+     "source": "witnessed"
+    }
+   ],
+   "knows": [],
+   "first_person": true
+  },
+  "char_mtp7snm7n5meg": {
+   "character_id": "char_mtp7snm7n5meg",
+   "core": [],
+   "episodic": [
+    {
+     "turn": 34,
+     "event_turn": 34,
+     "content": "Max Mercer greeted me with a hug and told me I wa beautiful before I offered bread and asked Max Mercer what his office job actually is.",
+     "full_content": "Max Mercer greeted me with a hug and told me I wa beautiful before I offered bread and asked Max Mercer what his office job actually is.",
+     "decay_stage": 0,
+     "importance": 4,
+     "emotional_charge": "curious amusement",
+     "last_accessed_turn": 34,
+     "when_label": "Day 2, 18:28 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "witnessed",
+     "scheduled_time": "unresolved",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 35,
+     "event_turn": 35,
+     "content": "Max Mercer told me he worked in project management, so I brought up my uncle in Bayonne to see if Max Mercer\u2026",
+     "full_content": "Max Mercer told me he worked in project management, so I brought up my uncle in Bayonne to see if Max Mercer was just a clipboard guy.",
+     "decay_stage": 2,
+     "importance": 3,
+     "emotional_charge": "playful",
+     "last_accessed_turn": 35,
+     "when_label": "Day 2, 18:33 (Evening)",
+     "source": "witnessed",
+     "swept": true
+    },
+    {
+     "turn": 38,
+     "event_turn": 38,
+     "content": "Max Mercer called me beautiful right to my face, so I laughed and challenged Max Mercer to tell me how many days a week he actually hits the gym.",
+     "full_content": "Max Mercer called me beautiful right to my face, so I laughed and challenged Max Mercer to tell me how many days a week he actually hits the gym.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "flattered",
+     "last_accessed_turn": 38,
+     "when_label": "Day 2, 18:51 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "witnessed",
+     "scheduled_time": "unresolved",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 41,
+     "event_turn": 41,
+     "content": "Max called me a BuzzFeed quiz and called me weird when I wa only asking what he meant by bringing up sex out of nowhere.",
+     "full_content": "Max called me a BuzzFeed quiz and called me weird when I wa only asking what he meant by bringing up sex out of nowhere.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "stung",
+     "last_accessed_turn": 41,
+     "when_label": "Day 9, 18:57 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "witnessed",
+     "swept": true
+    },
+    {
+     "turn": 42,
+     "event_turn": 42,
+     "content": "Max Mercer told me I had no internal life and that things would not work between us after I asked him to explain his comment about sex, so I told Max Mercer to just call for the check.",
+     "full_content": "Max Mercer told me I had no internal life and that things would not work between us after I asked him to explain his comment about sex, so I told Max Mercer to just call for the check.",
+     "decay_stage": 0,
+     "importance": 6,
+     "emotional_charge": "scornful",
+     "last_accessed_turn": 42,
+     "when_label": "Day 9, 18:59 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "witnessed",
+     "scheduled_time": "unresolved",
+     "commitment_status": "pending",
+     "folded": true,
+     "swept": true
+    },
+    {
+     "turn": 44,
+     "event_turn": 44,
+     "content": "Max paid the bill, threw a parting insult at me, and walked out before I could even finish counting my money.",
+     "full_content": "Max paid the bill, threw a parting insult at me, and walked out before I could even finish counting my money.",
+     "decay_stage": 0,
+     "importance": 6,
+     "emotional_charge": "resentful humiliation",
+     "last_accessed_turn": 44,
+     "when_label": "Day 9, 19:05 (Evening)",
+     "where": "Kettle & Press Copy Shop",
+     "source": "inferred",
+     "swept": true
+    }
+   ],
+   "beliefs": [],
+   "facts": [
+    {
+     "content": "I work the counter through the worst of the evening heat and takes her step the only way the shop allows: she goes into the job queue on the front terminal and pulls up the last two days of walk-in orders, looking for the one she wants\u2026",
+     "turn": 34,
+     "source": "witnessed"
+    },
+    {
+     "content": "Max Mercer works in project management and aims for eventual engineering.",
+     "turn": 35,
+     "source": "witnessed"
+    },
+    {
+     "content": "Max Mercer handles billing for project management work and reads engineered plans rather than doing trade labor.",
+     "turn": 37,
+     "quote": "I do billing for pm work and read the engineered plans. So I guess I'm the office worker. I'm not an electrician",
+     "source": "witnessed"
+    },
+    {
+     "content": "At 18:54 me is still on the counter with the ozone smell in her hair when a woman comes in wanting sixty flyers for a lost cat, and while the printer chews through them me does the thing she talked herself out of last night: she gets the day manager on the shop phone at\u2026",
+     "turn": 40,
+     "source": "witnessed"
+    }
+   ],
+   "knows": [],
+   "first_person": true
+  }
+ },
+ "traits": {
+  "char_player": [],
+  "char_mtl12i1gbbk30": [],
+  "char_mtp7snm7n5meg": []
+ },
+ "habits": {
+  "char_player": [
+   {
+    "trait": "Drops his gaze instantly to the floorboards whenever someone enters the room wearing sandals or bare feet.",
+    "strength": 95,
+    "baseline": 95,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 95
+   },
+   {
+    "trait": "Taps the spacebar three times in rapid succession whenever he stalls on a sentence.",
+    "strength": 96,
+    "baseline": 96,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 96
+   },
+   {
+    "trait": "Cleans the kitchen counter with circular sponge sweeps until the laminate squeaks, even when no food was prepped.",
+    "strength": 92,
+    "baseline": 92,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 92
+   },
+   {
+    "trait": "Swallows audibly and pulls his chin back into his neck whenever he is addressed by name in a sharp tone.",
+    "strength": 92,
+    "baseline": 92,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 92
+   }
+  ],
+  "char_mtl12i1gbbk30": [
+   {
+    "trait": "Kicks her sandals off at the front threshold and props her bare soles directly against furniture, coffee tables, or knee-level walls.",
+    "strength": 100,
+    "baseline": 97,
+    "seen_fires": 0,
+    "last_fired_turn": 31,
+    "noticed_watermark": 97,
+    "expressions": 5,
+    "last_expressed_turn": 29
+   },
+   {
+    "trait": "Looks directly at a person's mouth while they speak without blinking until they stumble over their words.",
+    "strength": 93,
+    "baseline": 92,
+    "seen_fires": 0,
+    "last_fired_turn": 1,
+    "noticed_watermark": 92,
+    "expressions": 2,
+    "last_expressed_turn": 15
+   },
+   {
+    "trait": "Runs her thumbnail along the sharp edge of plastic credit cards or coasters when amused.",
+    "strength": 98,
+    "baseline": 98,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 98,
+    "expressions": 4,
+    "last_expressed_turn": 29
+   },
+   {
+    "trait": "Draws out syllables when giving an order, smiling slightly before the final noun.",
+    "strength": 98,
+    "baseline": 97,
+    "seen_fires": 0,
+    "last_fired_turn": 15,
+    "noticed_watermark": 97
+   },
+   {
+    "trait": "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or",
+    "strength": 93,
+    "baseline": 94,
+    "seen_fires": 1,
+    "last_fired_turn": 19,
+    "noticed_watermark": 94
+   },
+   {
+    "trait": "Wants to marry max in earnest",
+    "strength": 95,
+    "baseline": 95,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 95
+   }
+  ],
+  "char_mtp7snm7n5meg": [
+   {
+    "trait": "Eats the bread basket down to nothing before her food arrives and apologizes for it after, not before.",
+    "strength": 98,
+    "baseline": 98,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 98,
+    "expressions": 5,
+    "last_expressed_turn": 43
+   },
+   {
+    "trait": "Interrupts to correct numbers \u2014 prices, dates, how many blocks it is \u2014 even when it doesn't matter, and doesn't hear herself doing it.",
+    "strength": 94,
+    "baseline": 94,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 94,
+    "expressions": 1,
+    "last_expressed_turn": 39
+   },
+   {
+    "trait": "Puts her palm flat on a man's forearm the second time she laughs at something he says, and leaves it there a beat too long.",
+    "strength": 95,
+    "baseline": 95,
+    "seen_fires": 0,
+    "last_fired_turn": -1,
+    "noticed_watermark": 95,
+    "expressions": 1,
+    "last_expressed_turn": 38
+   },
+   {
+    "trait": "Will not sit with her back to a door; moves chairs in restaurants to fix it and says nothing about why.",
+    "strength": 91,
+    "baseline": 95,
+    "seen_fires": 1,
+    "last_fired_turn": 35,
+    "noticed_watermark": 95
+   }
+  ]
+ },
+ "minds": {},
+ "records": [],
+ "telemetry": [],
+ "pressure_trace": [],
+ "history": [
+  {
+   "turn": 34,
+   "player_action": "\"Oh hey. Emily. Wow. You're way more beautiful in person. I should've been warned. Haha hi\" I take her hand and shake it. And give her a hug.",
+   "narrator_prose": "Emily's hand meets his, brief and light, fingers loose before she draws back for the hug. She leans into it at an angle, one hand landing flat between his shoulder blades, the other still holding the water glass off to the side so it doesn't spill between them. She pulls back after a moment, tucking a strand of dark hair behind her ear.\n\n\"Ha, well \u2014 thank you.\" She sits back down, pulling the chair in, glancing at the empty seat across from her. \"Sit, sit. I already ordered us some water. Didn't know if you wanted wine or, I don't know, I didn't want to order without you.\"\n\nA server passes behind him with a tray of bread, setting a basket down on the table between them without a word. Emily reaches for a piece, tears it in half, and sets one half back down.\n\n\"So \u2014 how was work? You said you were in an office, right? I don't think I actually know what you do.\""
+  },
+  {
+   "turn": 36,
+   "player_action": "\"I will. Tell me about yourself first Emily\"",
+   "narrator_prose": "Emily leans back, still holding the piece of bread, and finally eats it. She wipes her fingers on the napkin one at a time.\n\n\"Me. Okay.\" She reaches for the glass of water instead of the wine list, turns it a quarter turn on the tablecloth. \"I do billing for a dental practice on Fourth, three dentists, one of them's actually the guy's son who bought the whole thing off the first guy, so technically I've had two bosses in the same chair for six years.\" She says it fast, like she's said it before. \"Before that I did billing for a HVAC outfit, and before that I was still living at my grandmother's, over in Bayonne, and my uncle \u2014 I mentioned him \u2014 he ran supers for like twenty buildings over there, and he used to bring me on rounds sometimes when I was a kid, so I know more about boiler pressure than a person doing dental billing should know.\"\n\nShe breaks another piece of bread, doesn't eat it yet."
+  },
+  {
+   "turn": 37,
+   "player_action": "\"Fun... sounds stressful. But you must be good at it. I do billing for pm work and read the engineered plans. So I guess I'm the office worker. I'm not an electrician if that's what you were asking before\" I eat some bread. \"Although I might be built like a construction work lol\"",
+   "narrator_prose": "Emily laughs, short, and reaches for the bread basket even though there's still a piece on the plate in front of her.\n\n\"Good at it, I don't know. Good at not letting a dentist tell me the insurance company's wrong when I already called them and they're not wrong.\" She breaks the bread but doesn't eat it yet, turns it in her fingers. \"Office worker's fine. I didn't mean it like \u2014 I wasn't trying to say clipboard like an insult, my brother-in-law does something with plans, blueprints, he's got a whole roll of them in his trunk, I just never know what any of the lines mean when he shows me.\"\n\nShe looks him over once, not lingering, more like checking a delivery against a list.\n\n\"You do look like you could carry drywall, though. I'll give you that.\" She finally eats the bread. \"You gym, or is that just a \u2014 I don't know, a metabolism thing some guys get.\""
+  },
+  {
+   "turn": 38,
+   "player_action": "\"No I go to the gym. This isn't sitting you just look like haha I wish. I'm not as lucky as you are beautiful as they say\"",
+   "narrator_prose": "Emily's hand comes off the bread, flat against the table for a second, and she laughs \u2014 a real one this time, short and through the nose.\n\n\"Oh my god, stop.\" She sits back, shakes her head, but she's grinning at the tablecloth. \"You wish. Okay.\" She reaches for the water glass instead of the bread, drinks half of it. \"Gym how many days, though. Because I know guys who say gym and it's like, once a month, they went in October.\"\n\nShe sets the glass down, turns it a quarter turn on the table.\n\n\"I'm asking 'cause my brother-in-law used to go every day, every single day, and now the guy can't get off the couch without making a noise about it. So I don't believe anybody who says gym unless they tell me a number.\""
+  },
+  {
+   "turn": 39,
+   "player_action": "\"I go daily if I can help it. I sometimes go 4 times a week. Just depends on how my body feels. Do you workout? I assume so\"",
+   "narrator_prose": "Emily nods along, counting on the fingers of the hand not still on the water \u2014 four fingers up, then folded back down.\n\n\"Four, daily, okay, that's \u2014 that's a real number, that's not the bullshit number.\" She says it almost to herself, checking it against something.\n\nShe picks a piece of bread off the pile that's left, tears it instead of eating it, sets the torn half down without touching it to her mouth.\n\n\"Me, I do the gym maybe twice, if my sister doesn't need me to grab her kid. I used to do more when I was doing the dental billing full-time, sitting all day does something to your hips, my chiropractor's basically retired off me at this point.\" She catches herself, laughs once through her nose. \"Sorry \u2014 no, I don't really work out like you're talking about. I walk. I've got a treadmill in the basement that's got, like, a laundry situation on it right now.\"\n\nShe looks at him for a second, elbow going up onto the table, chin toward her palm.\n\n\"You said your body tells you when to go. What's that mean, like it's sore or it's not sore, or \u2014\""
+  },
+  {
+   "turn": 40,
+   "player_action": "\"You know. Like when you just have energy to burn? That usually you just use for sex hahah\"",
+   "narrator_prose": "Emily laughs, a short surprised bark, and pulls her palm off the table where it had been flat.\n\n\"Okay, wow.\" She sits back, elbow coming off her chin. \"That's \u2014 I did not expect that answer to go there.\"\n\nShe reaches for the torn piece of bread she'd set down, doesn't eat it, turns it over once between two fingers.\n\n\"So what, you're saying four days a week is code for something else. That's \u2014 \" she laughs again, shakes her head, glances toward the counter where a barista is steaming milk, then back. \"No, say more. What's the \u2014 I mean is that a joke or are you telling me something.\"\n\nShe sets the bread down again, finally, and doesn't pick it back up.\n\n\"Because I'll be honest, I did not have you pegged for a guy who'd just say that at dinner. Two glasses of wine in. To a girl you met on an app four days ago.\""
+  },
+  {
+   "turn": 41,
+   "player_action": "\"I... didn't realize I was talking to a buzzfeed quiz. You're the girl. Do you usually narrate the other person? It's kinda weird\"",
+   "narrator_prose": "Emily's mouth stays half-open a second, like the sentence caught somewhere before it could finish.\n\n\"Narrate the \u2014 \" She sets the bread down again, this time actually letting go of it, and leans back into the booth. \"No. I mean, no, I don't. I'm asking you a question, that's just \u2014 that's called talking, Max.\"\n\nShe picks a crumb off the tablecloth, flicks it toward the bread basket, misses.\n\n\"I laughed because you said sex apropos of nothing at dinner and I wanted to know if you meant it. That's it. That's the whole thing.\"\n\nHer hand comes up off the table, not toward him, just into her own hair, pushing it back off her face.\n\n\"Weird's you calling me a buzzfeed quiz for asking how many days you go to the gym.\""
+  },
+  {
+   "turn": 42,
+   "player_action": "\"Sigh. Ok sure. That's great. You always tell others exactly what they're doing and then define it? Do you have an internal life? Honestly I'm sorry I don't think this is going to work. I really don't like people that narrate what I do and then judge me in the same sentence. Openly. Most people relate. They don't narrate. You narrate.\"",
+   "narrator_prose": "Emily's jaw sets. She doesn't look away from him.\n\n\"Okay.\" She says it flat, not agreeing, just marking the word. \"So now I don't have an internal life either. That's \u2014 you know what, fine.\"\n\nShe reaches for her water glass, doesn't drink from it, just holds it.\n\n\"I asked you about the gym. I asked you if you were joking about the sex thing. Those are questions, Max, that's it, that's the whole \u2014 I didn't call you anything. I didn't say you were a type of guy. I laughed at a thing you said and asked you to explain it, and somehow that's me narrating you and judging you in one breath.\"\n\nShe sets the glass down without drinking. Her hand goes flat on the table next to it.\n\n\"This is going to work \u2014 I don't even know what that means, four days in. I'm not trying to make this a whole thing. I'm saying you asked me a question, I answered, I laughed one time, and you've spent the last five minutes telling me what I'm doing wrong while I sit here eating bread.\"\n\nHer eyes go to the empty basket between them, then back up.\n\n\"So. If you want to just say the check's coming, say the check's coming.\""
+  },
+  {
+   "turn": 43,
+   "player_action": "\"And then you do exactly what I told you I have a problem with\" I nod the waiter \"check please\"",
+   "narrator_prose": "Emily's hand comes off the table. She doesn't say anything for a second \u2014 her jaw sets, and she reaches for the bread basket that isn't there anymore, finds it empty, sets her hand back down flat on the table instead.\n\nThe waiter is already three steps off toward the register, order pad still out.\n\n\"You know what's funny.\" She says it flat, not a question. \"You just told me I narrate you and judge you in the same breath. And then you did it. You said, and then you do exactly what I told you \u2014 that's narrating. That's literally the thing.\"\n\nShe pulls her purse up off the back of her chair, sets it in her lap, digs for her wallet without opening it yet.\n\n\"I'm not splitting hairs on this one, Max. I'm just telling you. You asked for the check the second I called it \u2014 like it proved something. It didn't prove anything, it just meant you were done listening two minutes before you said you were done listening.\"\n\nShe sets the wallet on the table. Doesn't open it. Looks at the empty bread basket again, then at him.\n\n\"You want to actually say something or is this it. Is this the whole rest of it, right here.\""
+  }
+ ]
+}

@@ -438,3 +438,124 @@ export function neverSaidFix(hit: NeverSaidHit | null | undefined): string {
     + `THIS TURN ${hit.name.toUpperCase()} DOES NOT SAY IT OR ANY VERSION OF IT. Whatever pressure produced it is still real and still has to land somewhere — it goes into the body, into a refusal, into changing the subject, into an answer that is not the one asked for, into leaving the room. `
     + `A person who cannot say that does something else instead, and what they do instead is the character.`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * NARRATING THE CONVERSATION INSTEAD OF HAVING IT.
+ *
+ * A player, after nine turns of a dinner date, in his own words and then to the character's face:
+ * "Is Emily a human being or a narrator? Does Emily narrate or relate? Is she human? No." And in
+ * the scene: "Do you usually narrate the other person? It's kinda weird." / "Most people relate.
+ * They don't narrate. You narrate."
+ *
+ * He was right, and here is what she was actually saying, turns 41–44:
+ *
+ *   "I'm asking you a question, that's just — that's called talking, Max."
+ *   "I asked you about the gym. I asked you if you were joking about the sex thing. Those are
+ *    questions, Max, that's it, that's the whole —"
+ *   "you've spent the last five minutes telling me what I'm doing wrong while I sit here eating
+ *    bread"
+ *   "You just told me I narrate you and judge you in the same breath. And then you did it. You
+ *    said, and then you do exactly what I told you — that's narrating. That's literally the thing."
+ *   "That's it. That's the line you're leaving on."
+ *
+ * Every one of those is a sentence ABOUT the exchange: what was asked, what was said, what the
+ * other person is doing by saying it, what kind of thing this is. Nobody is talking about the gym,
+ * or the bread, or the six dollars, or the boiler she runs at work. It is a transcript with
+ * opinions, and it is the most reliable thing a model produces when it has been given a scene and
+ * no person to put in it.
+ *
+ * MEASURED ON THAT SAVE, turn by turn, spoken sentences that are about the exchange itself:
+ *   T30–T40   0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0     — of which both are ordinary callbacks
+ *                                                    ("You said your body tells you when to go.")
+ *   T41–T44   4 of 8, 5 of 13, 4 of 11, 2 of 4
+ *
+ * So it fires on a RUN of turns above a rate, never on a single line: real people do sometimes say
+ * "that is not what I asked", and an argument about what somebody meant is a legitimate scene. What
+ * is not a scene is two people in a restaurant discussing the structure of their conversation while
+ * the food gets cold.
+ *
+ * AND THE CAUSE IS USUALLY UPSTREAM. In that save this character's card — eleven years in
+ * commercial laundry, sodium percarbonate, a torn labrum, five example lines in her own mouth —
+ * was never sent to the narrator at all, because she was `central: false` (see the promotion loop
+ * in turn.ts). With nothing to write her out of, the model wrote her out of its defaults, and this
+ * is what the default is. The fix for that is in turn.ts and prompts.ts; this catches the residue.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** A spoken sentence whose subject is the exchange: what was said, asked, meant, or what the other
+ *  person is doing by saying it. */
+const META_TALK = new RegExp([
+  // "that's called talking" / "that's narrating" / "that's literally the thing" / "that's the whole thing"
+  String.raw`\bthat'?s (?:not )?(?:called |literally |just |me |you )?(?:talking|narrating|judging|a question|questions|the whole thing|the thing|it)\b`,
+  // reciting the transcript: "I asked you about the gym", "I told you", "I laughed at"
+  String.raw`\bi (?:asked|said|told|answered|laughed at)\s+you\b`,
+  // handing it back: "you just told me", "you said, and then you"
+  String.raw`\byou (?:just )?(?:said|told me|asked me|called me|are saying|were saying)\b`,
+  // scoring the scene: "you've spent the last five minutes"
+  String.raw`\byou'?ve spent the last\b`,
+  String.raw`\bthose are questions\b`,
+  String.raw`\bthat'?s the (?:line|whole)\b`,
+  String.raw`\bin (?:the same|one) breath\b`,
+].join("|"), "i");
+
+/** How much of a turn must be about the talking before the turn counts. Measured: the failing turns
+ *  ran 36–50%, the ordinary ones 0–14%, with nothing in between. */
+export const META_RATE = 0.25;
+/** …and at least this many, so a short exchange of two lines cannot trip it on one remark. */
+const META_MIN = 3;
+/** Turns running before it is a habit rather than an argument. */
+export const META_RUN = 2;
+
+export interface MetaTalkHit { name: string; lines: string[]; runs: number }
+
+/** The exchange-about-the-exchange sentences one speaker produced in one turn. */
+function metaLinesFor(prose: string, names: string[], first: string): { hits: string[]; total: number } {
+  const said = attributeLines(prose, names)[first] ?? [];
+  const sentences = said.flatMap((l) => l.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean));
+  return { hits: sentences.filter((x) => META_TALK.test(x)), total: sentences.length };
+}
+
+function metaTurn(prose: string, names: string[], first: string): string[] | null {
+  const { hits, total } = metaLinesFor(prose, names, first);
+  if (hits.length < META_MIN || !total) return null;
+  return hits.length / total >= META_RATE ? hits : null;
+}
+
+/**
+ * A present character who has spent this turn and the last one describing the conversation.
+ *
+ * `previous` is the prose of the preceding turns, oldest first — the same shape findFigure takes.
+ */
+export function findMetaTalk(
+  state: { characters: Record<string, { name: string }> },
+  presentIds: readonly string[],
+  previous: readonly string[],
+  prose: string,
+): MetaTalkHit | null {
+  const names = Object.values(state.characters ?? {}).map((c) => c?.name).filter(Boolean) as string[];
+  for (const id of presentIds) {
+    const c = state.characters?.[id];
+    const first = (c?.name ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+    if (!c || first.length < 3) continue;
+    const now = metaTurn(prose, names, first);
+    if (!now) continue;
+    let runs = 1;
+    for (let i = previous.length - 1; i >= 0 && runs < META_RUN + 3; i--) {
+      if (!metaTurn(previous[i], names, first)) break;
+      runs++;
+    }
+    if (runs >= META_RUN) return { name: c.name, lines: now.slice(0, 3), runs };
+  }
+  return null;
+}
+
+export function metaTalkFix(hit: MetaTalkHit | null | undefined): string {
+  if (!hit) return "";
+  return `\nFOR ${hit.runs} TURNS ${hit.name.toUpperCase()} HAS BEEN DESCRIBING THE CONVERSATION INSTEAD OF HAVING IT: ${hit.lines.map((l) => `"${l}"`).join(" ")} `
+    + `Those are sentences about the exchange — what was asked, what was said, what the other person is doing by saying it, what kind of thing this is. `
+    + `Nobody in that room is talking about anything that is in it. A person mid-argument does not recite the transcript back; they say the thing they actually want, or the thing they are actually angry about, or they stop talking. `
+    // No specimen sentences here on purpose: a forbidden line pasted into the directive is a line
+    // the model has been supplied with. See tests/prompt-echo.ts.
+    + `THIS TURN ${hit.name.toUpperCase()} SAYS NOTHING ABOUT THE CONVERSATION — no correction of what was or was not asked, no quoting the other person back to themselves, no summary of the last five minutes, no naming what the other person is doing by saying it. `
+    + `What they say instead comes from their own life and their own vocabulary — the work they do, the money on the table, the food, what they came here for, what they are going to do next — or they say very little and their body does the rest. `
+    + `If the player is arguing about how the conversation is going, that is an argument nobody in the world has an opinion about: ${hit.name} answers the substance, refuses it in one flat sentence, or leaves. They do not take up the argument about the argument.`;
+}

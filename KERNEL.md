@@ -344,6 +344,33 @@ settles only what is asked and leaves the rest of the scene open — the charact
 answer may still be slow, partial or useless; what is unavailable is a third party putting somebody
 where the record does not.
 
+**`tracked` and `central` are two different claims** (`turn.ts` promotion loop, `prompts.ts` × 3,
+`aperture.ts`). `tracked` means the engine spends upkeep on this person — a drive, a schedule, an
+authored want; `central` means the narrator is told who they are. Four paths set `tracked` without
+touching `central` (the bookkeeper writing a drive, the narrator's own `track` promotion, and
+authoring a want or a schedule from the Cast screen), and the promotion loop's gate was
+`!c.tracked` — so any of them landing first shut the door permanently. A woman alone with the
+player at a restaurant table for eight consecutive turns, with a voice card the engine had spent a
+voiceforge call on that same evening, reached the narrator as `— Emily (background) — present,
+even; a minor figure, simple and reactive, not a focus`, with her card excluded from the cached
+prefix entirely. The cast cap was six and she was the second person in it. The gate is centrality
+now, and a *tracked* character is never rendered as furniture — desire.ts made this argument once
+already in the other direction ("SIMULATION LOD IS NOT RENDER LOD") when `central` was wrongly
+gating simulation.
+
+**Narrating the conversation instead of having it** (`findMetaTalk`, maxims.ts). What a model
+writes when it has a scene and no person to put in it: sentences about the exchange — what was
+asked, what was said, what the other person is doing by saying it. Measured on the save above,
+spoken sentences of that kind per turn ran 0–1 through eleven ordinary turns and then 4, 5, 4, 2 —
+so it fires on a rate over a run of turns, never on one line, because an argument about what
+somebody meant is a legitimate scene.
+
+**A frequency is not a span** (`declaredMinutes`, time.ts). "I sometimes go 4 times a week", typed
+mid-conversation at a dinner table, moved the world clock seven days: the article-plus-unit pattern
+matched `a week` inside a rate. Frequencies are rejected now, and quoted speech is masked before
+the line is read at all — the engine masks dialogue everywhere else it reads the player's input,
+and a character talking about a week is not a player spending one.
+
 **Three location bugs that removed a character from a story** (`exit.ts`, `turn.ts`). (1) `left` is
 two verbs. The departure guard's verb list contained a bare `left`, and a narrator writing about
 the room the player had walked out of produced "volume unchanged from where Abigail left it" — her

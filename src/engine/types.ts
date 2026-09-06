@@ -1008,6 +1008,9 @@ export interface SaveState {
    *  and which came back five turns running in the save that produced it. Quoted back next turn,
    *  same mechanism as last_maxim. See engine/maxims.ts. */
   last_figure?: { line: string; frame: string; runs: number } | null;
+  /** A character describing the exchange instead of being in it — "that's called talking, Max" —
+   *  for two turns running. Fires on a rate over a run, never on one line. See engine/maxims.ts. */
+  last_meta_talk?: { name: string; lines: string[]; runs: number } | null;
   /** A line somebody said that their own voice card lists under never_says. The card is read to the
    *  narrator every turn as reference and nothing has ever checked the output against it.
    *  See engine/maxims.ts. */
