@@ -26,8 +26,62 @@ import { mundaneObjective } from "./knowledge";
 import { placeIntent } from "./places";
 import { scheduleDigestLine } from "./schedule";
 import { clipText } from "./text";
+import { cleanMemoryContent } from "./memory";
+import type { SaveState } from "./types";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
+
+/**
+ * THE PERSON WHO DID IT REMEMBERS DOING IT.
+ *
+ * runOffstage moves the ACTOR'S nervous system — "The body that lived it. The actor took the whole
+ * of it; a witness took half" — and then writes a memory for the witnesses and for nobody else. So
+ * a character alone in her own apartment took the relaxation cost of her own afternoon and kept no
+ * recollection of it.
+ *
+ * What that afternoon was, from one save's offstage log, all of it hers and none of it in her head:
+ * a pedicure campaign staged in the sightline of the player's open bedroom door; the whole
+ * operation relocated to the entryway alcove, the four-foot choke point that is the only way out of
+ * the apartment; a text sent rather than a walk to his door, because moving means smudging two
+ * hours of work; the chicken finally dealt with at ten to eight; waking at five in the morning on
+ * the couch with both plates gone gray in their own fat. Twelve memories in her bank at that point,
+ * eleven of them about the player and the twelfth about his shoulder. The player, having read it:
+ * "Is Abigail a human being?"
+ *
+ * Filed one importance step above a witness, because doing a thing is not seeing one, and written
+ * through cleanMemoryContent so it lands in her own mouth rather than as a report about her. That
+ * conversion is why the fronted-adverbial repair in memory.ts had to come first: every line this
+ * pass writes opens with an unpunctuated time phrase — "Around 12:50 …", "At about 19:50 …",
+ * "Sometime after five in the morning …" — and each of them was stored as "me decides", "me finally
+ * comes", "me wakes up".
+ */
+export function rememberOwnAct(
+  state: SaveState,
+  actorId: string | null,
+  what: string,
+  place: string | undefined,
+  turn: number,
+): boolean {
+  if (!actorId || actorId === "char_player" || !state.characters?.[actorId]) return false;
+  const own = cleanMemoryContent(clipText(String(what ?? ""), 280), {
+    name: state.characters[actorId].name ?? "", isPlayer: false,
+  });
+  if (!own) return false;
+  const mem = (state.memory[actorId] ??= { character_id: actorId, core: [], episodic: [], beliefs: [], facts: [], knows: [] });
+  mem.episodic.push({
+    id: uid("mem"),
+    turn,
+    content: own,
+    importance: 8,
+    source: "offstage",
+    where: place,
+    when_label: state.world.current_time,
+    emotional_charge: 0,
+    decay: 0,
+  } as any);
+  return true;
+}
+
 export const OFFSTAGE_INTERVAL_MIN = 360;
 
 export interface OffstageEvent {
@@ -591,9 +645,34 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
       }
     }
 
+    // THE PERSON WHO DID IT REMEMBERS DOING IT.
+    //
+    // The block above moves the ACTOR'S nervous system — "The body that lived it. The actor took the
+    // whole of it; a witness took half" — and then the loop below writes a memory for the witnesses
+    // and for nobody else. So a character alone in her own apartment got the relaxation cost of her
+    // own afternoon and no recollection of it.
+    //
+    // What that afternoon was, from one save's offstage log, all of it hers, none of it in her head:
+    // a pedicure campaign staged in the sightline of the player's open bedroom door; the whole
+    // operation relocated to the entryway alcove, the four-foot choke point that is the only way
+    // out; a text sent rather than a walk to his door, because moving means smudging two hours of
+    // work; the chicken finally dealt with at ten to eight; waking at five in the morning on the
+    // couch with both plates gone gray. Twelve memories in her bank at the time, eleven of them
+    // about the player, and the twelfth about his shoulder. The player's question, after reading it:
+    // "Is Abigail a human being?"
+    //
+    // Filed at importance 8 — one above a witness — because doing a thing is not seeing one, and
+    // written through cleanMemoryContent so it lands in her own mouth rather than as a report about
+    // her. That conversion is why the fronted-adverbial fix in memory.ts had to come first: every
+    // line the offstage pass writes opens "Around 12:50 …", "At about 19:50 …", "Sometime after
+    // five in the morning …", and each of them stored as "me decides", "me finally comes",
+    // "me wakes up".
+    rememberOwnAct(state, actorId, ev.what, ev.place, turn);
+
     for (const w of witnessNames) {
       const id = byName.get(w);
       if (!id) continue;                        // never invent a witness the cast doesn't contain
+      if (id === actorId) continue;             // they already have their own copy, in their own mouth
 
       // SEEING IT CHANGES WHAT YOU THINK OF THEM. Small — this is one thing glimpsed offstage, not a
       // scene the player watched — and asymmetric in the ordinary way: cruelty costs more than

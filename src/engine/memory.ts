@@ -438,6 +438,31 @@ export function compactGist(text: string, maxLen = 170): string {
   return out.replace(/\u0001/g, "."); // restore protected periods
 }
 
+
+/**
+ * A THIRD-PERSON VERB, PUT BACK INTO THE FIRST PERSON.
+ *
+ * Used by rule 4 below, on both sides of a conjunction. "-es" after a sibilant is the whole
+ * subtlety: passes → pass, watches → watch, misses → miss, while takes → take and comes → come.
+ * Getting that wrong turns a verb into a word that is not one ("I passe the shop"), which is worse
+ * than leaving the agreement alone.
+ *
+ * The spare list is words that simply end in s and are not third-person verbs at all. It is
+ * deliberately short: a wrong strip is visible in the prose, a missed one is only slightly wrong.
+ */
+const NOT_A_VERB = /^(?:is|was|has|does|this|his|its|always|perhaps|sometimes|towards?|upstairs|downstairs|thanks|means|hers|theirs|yours|ours|news|glass|dress|address|class|cross|less|unless|bus|us|gas|pass|miss|kiss|boss|mess|guess|press)$/i;
+
+export function firstPersonVerb(word: string): string | null {
+  if (NOT_A_VERB.test(word) || !/s$/i.test(word) || word.length < 4) return null;
+  // -es after a sibilant STEM is a two-letter ending: passes → pass, watches → watch, boxes → box.
+  // A single s before it belongs to the stem, not to the ending — "uses" is use + s, and stripping
+  // two letters gives "us", which is not a word anybody meant.
+  if (/(?:ss|x|z|ch|sh)es$/i.test(word)) return word.slice(0, -2);
+  // -ies → -y ("carries" → "carry")
+  if (/[^aeiou]ies$/i.test(word)) return `${word.slice(0, -3)}y`;
+  return word.slice(0, -1);
+}
+
 /**
  * A MEMORY IS SOMEBODY'S ACCOUNT OF WHAT HAPPENED, NOT A CLIPPING FROM THE PAGE.
  *
@@ -534,7 +559,37 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
       // because the only thing before her is a comma, and wrote "Eight a.m., me is already at a
       // corner table". Three of one character's four stored facts were ungrammatical that way. A
       // comma at the start of the string, or after an opening adverbial, is a subject position.
-      const SUBJECT_BEFORE = /(?:^|[.!?;:]["”')\]]?\s+|^[^.!?]{0,40},\s+|\b(?:and|but|then|or|so|because|which|that|while|when|if|though|although|yet|however|before|after|until|once)\s+)$/i;
+      //
+      // …AND THAT RULE NEVER FIRED ON ITS OWN EXAMPLE. `[^.!?]` refuses a full stop, and "Eight
+      // a.m.," has two of them, so the one sentence written into the comment as the thing being
+      // fixed still came out as "me is already at a corner table". A period inside a fronted phrase
+      // is an abbreviation — it is followed by a letter or a comma, never by a space — so that is
+      // what is allowed through, and a real sentence end still terminates the prefix.
+      const FRONTED_COMMA = String.raw`^(?:[^.!?]|\.(?=\S)){0,44},\s+`;
+      //
+      // AND A FRONTED PHRASE DOES NOT NEED ITS COMMA AT ALL. The offstage pass writes them without
+      // one, every time, and they are the only record a character has of their own life offstage:
+      //
+      //   "Around 12:50 Abigail decides the couch campaign isn't working and relocates the whole
+      //    operation to the entryway alcove"
+      //   "At about 19:50 Abigail finally comes off the stool and deals with the chicken"
+      //   "Sometime after five in the morning Abigail wakes up on the couch"
+      //
+      // Every one of those was stored in her own bank as "me decides", "me finally comes", "me
+      // wakes up" — an afternoon she spent alone in her own apartment, filed in her own head in
+      // somebody else's grammar. A player, having read the save: "Is Abigail a human being?"
+      //
+      // The tell is that the phrase ENDS in the time expression: "Around 12:50 " is an adverbial,
+      // "At noon Max kissed " is a clause with a verb in it and its name is an object. So the time
+      // word has to be the last thing before the name, which is what keeps "At noon Max kissed
+      // Abigail" reading correctly as "Max kissed me".
+      const CLOCK = String.raw`\d{1,2}:\d{2}|\d{1,2}\s*(?:a\.?m|p\.?m)\.?|o'clock|midnight|noon|dawn|dusk|sunrise|sunset`;
+      const WHEN = String.raw`morning|afternoon|evening|night|today|yesterday|tomorrow|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve`;
+      const FRONTED_TIME = String.raw`^[^.!?]{0,44}\b(?:${CLOCK}|${WHEN})\b[\s,]+`;
+      const SUBJECT_BEFORE = new RegExp(
+        `(?:^|[.!?;:]["”')\\]]?\\s+|${FRONTED_COMMA}|${FRONTED_TIME}|\\b(?:and|but|then|or|so|because|which|that|while|when|if|though|although|yet|however|before|after|until|once)\\s+)$`,
+        "i",
+      );
       const selfPronoun = (offset: number, s: string) => (SUBJECT_BEFORE.test(s.slice(0, offset)) ? "I" : "me");
       t = t
         .replace(new RegExp(`\\b${full}(?:'s|’s)\\b`, "g"), "my")
@@ -549,8 +604,12 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
         // ...and every other third-person verb the swap leaves stranded: "Sarah lets herself in"
         // became "I lets myself in". Strip the agreement -s from the verb that immediately follows
         // a converted subject, sparing the handful that are not third-person singular forms at all.
-        .replace(/\bI\s+([a-z]+)s\b(?!\s*')/g, (m, v: string) =>
-          /^(?:i|thi|hi|alway|perhap|sometime|toward|upstair|downstair|need|guess|pas|mis|dres|addres|posses)$/.test(v) ? m : `I ${v}`)
+        // AN ADVERB MAY STAND BETWEEN A SUBJECT AND ITS VERB, and this rule required them to be
+        // adjacent. "At about 19:50 Abigail finally comes off the stool" repaired only as far as
+        // "I finally comes"; so did "she still watches", "she just leaves". Up to two adverbs, and
+        // only adverbs — anything else between a subject and a verb is usually a new clause.
+        .replace(/\bI\s+((?:(?:\w+ly|just|still|already|finally|then|now|never|always|again)\s+){0,2})([a-z]+s)\b(?!\s*')/g,
+          (m, adv: string, w: string) => { const v = firstPersonVerb(w); return v ? `I ${adv}${v}` : m; })
         .replace(/\bI\s+herself\b/g, "I myself").replace(/\bI\s+himself\b/g, "I myself").replace(/\bI\s+themselves\b/g, "I myself")
         // A REFLEXIVE IS SAFE WHERE A FREE PRONOUN IS NOT. Rule 4 refuses to touch "she" mid-
         // sentence because it may belong to somebody introduced earlier, and that caution is right.
@@ -569,6 +628,15 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
       t = t.replace(
         /\bI\b(?:(?!\b[A-Z][a-z])[^.!?])*?\b(?:and|but|then|or)\s+(is|has|does|isn't|hasn't|doesn't)\b/g,
         (m, v: string) => m.slice(0, m.length - v.length) + AGREE[v.toLowerCase()],
+      );
+      // ...and for every other verb, which the six above did not cover. "Abigail gives up on the box
+      // fan and starts a pedicure campaign" repaired to "I give up … and starts", because only the
+      // copula and its two friends were listed. Same guard as above — the conjunction must be
+      // followed immediately by the verb, and no other named person may stand between it and the
+      // "I" — plus the same spare list, so "and needs", "and passes" are not mangled into nouns.
+      t = t.replace(
+        /\bI\b(?:(?!\b[A-Z][a-z])[^.!?])*?\b(?:and|but|then|or)\s+((?:(?:\w+ly|just|still|already|finally|then|now|never|always|again)\s+){0,2})([a-z]+s)\b(?!\s*')/g,
+        (m, _adv: string, w: string) => { const v = firstPersonVerb(w); return v ? m.slice(0, m.length - w.length) + v : m; },
       );
       // a memory that is now nothing but "I" and a verb lost its content to the rewrite
       if (t.split(/\s+/).filter(Boolean).length < 5) return null;
