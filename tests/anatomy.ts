@@ -154,5 +154,29 @@ const save = (present = ["char_player", EMILY]): SaveState => ({
     } as unknown as SaveState, "Nadia's vulva was none of Emily's business.") === null);
 }
 
+/* ── 6. a name is player-typed text, not a pattern ─────────────────────────── */
+/* The cast's first names are interpolated into the regex that finds the nearest claimant in a
+ * sentence. Nothing sanitises what a player types into a name field, so "A(b" reaches `new RegExp`
+ * as an unclosed group and throws SyntaxError from inside the turn pipeline — the turn dies, and
+ * not anywhere near the name that killed it. The subtler half is "J.R.", which does not throw:
+ * the dots match any character, so it claims body parts in sentences it never appears in. */
+{
+  const withCast = (name: string, prose: string) => findAnatomyBreach({
+    ...save(["char_player", EMILY, "char_odd"]),
+    characters: { ...FIX.characters, char_odd: { name, pronouns: "she/her" } as Identity },
+  } as unknown as SaveState, prose);
+
+  for (const name of ["A(b", "J.R.", "C[a", "D\\e", "E*f", "F+g", "G?h", "H$i", "I^j", "K|l"]) {
+    let threw = "";
+    try { withCast(name, "Emily stood at the counter, opening herself against his mouth."); }
+    catch (e) { threw = String((e as Error).message); }
+    check(`a name like ${JSON.stringify(name)} does not crash the turn`, threw === "", threw);
+  }
+
+  // and the dots in "J.R." must not stand in for the letters of a name that IS in the sentence
+  check("a dotted name does not wildcard-match its way onto someone else's body",
+    withCast("J.R.", "Jenny's vulva was none of Emily's business.") === null);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

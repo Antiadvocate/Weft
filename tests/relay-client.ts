@@ -76,7 +76,7 @@ const drain = async (c: RelayConfig) => {
     if (s.done) { tail = s.value; break; }
     text += s.value;
   }
-  return { text, tail: tail as { usage?: { cost?: number }; truncated?: boolean } };
+  return { text, tail: tail as { usage?: { cost?: number }; truncated?: boolean; text?: string } };
 };
 const CFG: RelayConfig = { url: "https://r.example.dev", token: "abc" };
 
@@ -118,6 +118,31 @@ const CFG: RelayConfig = { url: "https://r.example.dev", token: "abc" };
   fakeRelay([`data: ${JSON.stringify({ delta: "cut" })}\n\n`, `data: ${JSON.stringify({ done: true, truncated: true })}\n\n`]);
   const { tail } = await drain(CFG);
   check("a truncated completion says so", tail.truncated === true, tail);
+}
+{
+  // THE ATTACH RACE. A tab joining /sse mid-generation is caught up with the text so far and only
+  // THEN joins the reader set, so a token broadcast in that gap reaches neither and the deltas this
+  // tab saw are short by one. That gap used to be baked into the save forever, because the
+  // accumulated deltas were what got stored. So `done` carries the relay's own accumulation, and
+  // the deltas are demoted to what they always should have been: the live view, and nothing else.
+  fakeRelay([
+    `data: ${JSON.stringify({ delta: "She set the " })}\n\n`,
+    `data: ${JSON.stringify({ done: true, text: "She set the glass down." })}\n\n`,
+  ]);
+  const { text, tail } = await drain(CFG);
+  check("the page still rendered only what it saw", text === "She set the ", text);
+  check("but the authoritative completion rides back on done",
+    tail.text === "She set the glass down.", tail);
+}
+{
+  // A relay deployed before that change sends no text, and a turn through it must still work —
+  // the deltas are all there is, and they are the completion.
+  fakeRelay([
+    `data: ${JSON.stringify({ delta: "She set the glass down." })}\n\n`,
+    `data: ${JSON.stringify({ done: true })}\n\n`,
+  ]);
+  const { text, tail } = await drain(CFG);
+  check("an older relay sends no text and the deltas stand in", tail.text === undefined && text === "She set the glass down.", tail);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

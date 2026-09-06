@@ -1,0 +1,15 @@
+{
+  /* The tests are the engine's written specification, and they only ever RAN — tsx strips types
+     without checking them, so nothing ever told anyone when a test stopped agreeing with the
+     signature it was testing. `npm run lint` covers "src" and nothing else, and under that blind
+     spot the suite drifted 53 compile errors deep across 12 files while staying green.
+
+     So: a second project that type-checks the specs against the engine they specify. Same strictness
+     as the app, plus node types, because a test harness reads fixtures off disk and sets an exit
+     code. Run it with `npm run lint:tests`, or both with `npm run lint:all`. */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["tests", "tools"]
+}

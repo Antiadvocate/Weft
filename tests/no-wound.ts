@@ -46,7 +46,7 @@ const save = (cond: Record<string, unknown>): SaveState => {
   };
   return sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
 };
-const bodyOf = (s: SaveState) => simulatorContext(s, "");
+const bodyOf = (s: SaveState) => simulatorContext(s);
 
 /* ── the exact state from the save ───────────────────────────────────────────── */
 {

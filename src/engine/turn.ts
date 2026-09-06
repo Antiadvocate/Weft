@@ -2566,7 +2566,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // reader of other people, projecting and missing. So the render must degrade: surface only, and where
   // feeling is implied it is the PLAYER'S (possibly wrong) read, free to omit, misattribute, or fixate
   // on the wrong signal. Only a relaxed player earns accurate insight into what others feel.
-  const pcRelax = state.condition["char_player"]?.psyche.relaxation ?? 0; // -10..+10
+  // (the graded-by-relaxation render this used to feed was removed — the sealed channel in
+  // engine/read.ts owns interpretation now; see the POV note below)
   // INTERIOR-HEAVY GUARD — when a "do" action is mostly the player thinking/planning/musing with
   // little actual physical action, the narrator is most tempted to mine that interior for plot
   // (player muses about electrician work → an NPC volunteers electrician leads). Detect the shape —

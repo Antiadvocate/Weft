@@ -79,7 +79,7 @@ export async function fetchJob(c: RelayConfig, id: string): Promise<JobState> {
  *  AbortSignal, and the stop button has to keep working. Losing this reader does not stop the job —
  *  that is the point — so cancelling detaches the view and leaves the completion to be collected or
  *  discarded later. */
-export async function* streamJob(c: RelayConfig, id: string, signal?: AbortSignal): AsyncGenerator<string, { usage?: RawUsage | null; truncated?: boolean }, unknown> {
+export async function* streamJob(c: RelayConfig, id: string, signal?: AbortSignal): AsyncGenerator<string, { usage?: RawUsage | null; truncated?: boolean; text?: string }, unknown> {
   const res = await fetch(`${c.url}/job/${id}/sse`, { signal });
   if (!res.ok || !res.body) throw new Error(`relay stream ${res.status}`);
   const reader = res.body.getReader();
@@ -94,10 +94,12 @@ export async function* streamJob(c: RelayConfig, id: string, signal?: AbortSigna
     for (const rec of records) {
       const line = rec.split("\n").find((l) => l.startsWith("data:"));
       if (!line) continue;
-      let ev: { delta?: string; done?: boolean; error?: string; usage?: RawUsage | null; truncated?: boolean };
+      let ev: { delta?: string; done?: boolean; error?: string; usage?: RawUsage | null; truncated?: boolean; text?: string };
       try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
       if (ev.error) throw new Error(ev.error);
-      if (ev.done) return { usage: ev.usage, truncated: ev.truncated };
+      // `text` is the authoritative full completion, sent with done — prefer it over the
+      // accumulated deltas, which can lose a token to the attach race on the relay's side.
+      if (ev.done) return { usage: ev.usage, truncated: ev.truncated, text: ev.text };
       if (ev.delta) yield ev.delta;
     }
   }

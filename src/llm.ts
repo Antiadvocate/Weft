@@ -505,16 +505,19 @@ export async function* completeStream(messages: any[], model: string, fallback: 
         // way past: the caller gets them for live rendering AND the finished text is the turn.
         const it = streamJob(relay, jobId, signal);
         let full = "";
-        let tail: { usage?: RawUsage | null; truncated?: boolean } = {};
+        let tail: { usage?: RawUsage | null; truncated?: boolean; text?: string } = {};
         for (;;) {
           const step = await it.next();
           if (step.done) { tail = step.value ?? {}; break; }
           full += step.value;
           yield step.value;
         }
-        if (!full.trim()) throw new Error("relay returned an empty stream");
+        // The done event's text is the relay's own accumulation — authoritative over what this
+        // tab happened to see (an SSE re-attach can drop a token between catch-up and joining).
+        const finalText = tail.text ?? full;
+        if (!finalText.trim()) throw new Error("relay returned an empty stream");
         return {
-          text: full,
+          text: finalText,
           usage: {
             prompt_tokens: tail.usage?.prompt_tokens ?? 0,
             completion_tokens: tail.usage?.completion_tokens ?? 0,

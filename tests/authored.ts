@@ -325,8 +325,8 @@ const wantsLines = (s: SaveState) =>
 {
   const s = mk(20);
   s.characters.char_neigh.authored = [newAuthored("ask him about the thing", 20, { inhabit_turns: 10 })];
-  // the percentage only exists once something has been SEEN — feed it three shown turns
-  for (let i = 0; i < 3; i++) { s.world.current_turn++; tickAuthored(s, 15, "She asked him about the thing, or nearly did."); }
+  // the percentage advances on the clock now — three live turns of the budget
+  for (let i = 0; i < 3; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   const line = authoredLine(s.characters.char_neigh.authored![0]);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
   check("and that it must show at exactly that strength and no more", /at exactly this strength and no more/.test(line), line);
@@ -340,7 +340,7 @@ const wantsLines = (s: SaveState) =>
     s.world.current_turn++;
     const shown = "She asked him about the thing again, plainly.";
     s.history.push({ turn: s.world.current_turn, player_action: "", narrator_prose: shown } as any);
-    tickAuthored(s, 15, shown);
+    tickAuthored(s, 15);
   }
   check("reaching the deadline makes it part of who they are",
     !!s.characters.char_neigh.authored?.[0]?.crystallized_turn, s.characters.char_neigh.authored?.[0]);

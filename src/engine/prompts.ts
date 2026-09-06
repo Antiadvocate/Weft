@@ -1463,7 +1463,7 @@ THE NUMBER PRINTED AFTER EACH NAME IS THAT PERSON'S AGE, AND IT IS THE RECORD AS
  *  not "while you were away", it is history, and it competes for a memory slot like anything else. */
 const OFFSTAGE_SIGHTING_TURNS = 25;
 
-export function volatileDigest(state: SaveState, query: string, opts?: { budgetOverride?: number }): string {
+export function volatileDigest(state: SaveState, query = "", opts?: { budgetOverride?: number }): string {
   const k = state.model_settings.context_memories_k;
   const turn = state.world.current_turn;
   const budget = opts?.budgetOverride && opts.budgetOverride > 0
