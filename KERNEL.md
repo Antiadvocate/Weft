@@ -344,6 +344,29 @@ settles only what is asked and leaves the rest of the scene open — the charact
 answer may still be slow, partial or useless; what is unavailable is a third party putting somebody
 where the record does not.
 
+**Three location bugs that removed a character from a story** (`exit.ts`, `turn.ts`). (1) `left` is
+two verbs. The departure guard's verb list contained a bare `left`, and a narrator writing about
+the room the player had walked out of produced "volume unchanged from where Abigail left it" — her
+name inside the matched span, which `owns` treats as settling the question. She was moved offscene
+on the strength of a sentence about her television. `left`/`leaves`/`leaving` now carry a negative
+lookahead for an object pronoun or `behind`; "Abigail left." and "left the apartment" are
+untouched. (2) `elsewhere` is not a place. `loc_offscene` is the null bucket — not on the page, not
+far away — and priced through the distance steps it inherits the world's scale; one save quoted a
+character eighteen hours of travel back from nowhere, on the turn the player typed "continue until
+Abigail is back in the picture". It costs a neighbour's walk now, which still forbids appearing in
+the same minute as vanishing. (3) A stay is not a journey. `travel_log` records where the player
+STOOD on a turn, so measuring a hop between two entries charges the whole intervening stay to the
+walk — a player who read a book in his bedroom for six hours taught the engine that two rooms of
+one flat were five hours apart, which then set the scale for every unmeasured pair in the world. A
+hop is now measured across the turn the move happened on.
+
+**A screen is not the room** (`screenPrivacyNote`, scene.ts). The player's typed action reaches the
+narrator whole, which is correct for everything a body does and wrong for the four inches in front
+of one person's face: "I do something and she instantly knows I'm on hinge." The note hands the
+room the posture — angle, thumb, the light on a face, how long, whether he answers — and withholds
+the content. Wanting to know is the scene; being wrong about it is the best version of it. Silent
+when nobody else is present, and silent when the player is plainly showing it to someone.
+
 **Three output-side voice guards** (`maxims.ts`, `aperture.ts`). All three use the mechanism that
 actually works here — catch it in the committed prose, quote it back at the end of the next
 directive. (1) `findFigure` extends the maxim detector out of the quotation marks: a spoken line

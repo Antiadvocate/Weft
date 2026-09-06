@@ -128,6 +128,54 @@ THE PLAYER IS GOING UNDER (asleep, or otherwise not perceiving). There is no obs
 End the turn on the last thing he could actually register, or cross straight to waking. What happened while he was under reaches him the way anything does: he is told, he finds a trace of it, or he never learns it at all.`;
 }
 
+/* ── A SCREEN IS NOT THE ROOM ────────────────────────────────────────────────────
+ *
+ * A player's report: "I do something and she instantly knows I'm on hinge."
+ *
+ * Nothing in the engine had ever said otherwise. The player's typed action is handed to the
+ * narrator whole, because it is what the player did — and everything the player does physically IS
+ * available to the room, so no rule was needed. A phone breaks that. "I open Hinge and swipe for a
+ * bit" is a real physical act with a real posture attached to it, and the content of it is four
+ * inches from one person's face and legible to nobody else in the world. The narrator, given the
+ * sentence and no rule, writes the room as having read it.
+ *
+ * The engine already has a channel for what nobody can perceive — ((double parens)), stripped
+ * before the narrator sees it (see interior.ts). It is the wrong tool here: this is not a thought,
+ * it is an action, and it belongs in the record. What is private is not the act but the SURFACE.
+ *
+ * The same rule covers a letter held at an angle, a laptop turned away, a name typed into a search
+ * bar. What the room gets is what a body does — thumb, angle, the light on a face, how long, what
+ * the face does — which is a great deal, and is the honest half of it. Anybody who wants the rest
+ * has to look, ask, be shown, or take the phone.
+ */
+
+/** A device or surface whose content lives at reading distance from exactly one person. */
+const SURFACE = /\b(?:phone|cell|mobile|screen|laptop|tablet|ipad|computer|monitor|inbox|browser|app|dm|dms|texts?|messages?|email|notification|letter|note|photo|photos|gallery|feed)\b/i;
+/** …and a verb of USING one. "I put my phone down" is not somebody reading anything. */
+const USES = /\b(?:open(?:s|ed|ing)?|check(?:s|ed|ing)?|pull(?:s|ed|ing)?\s+out|unlock(?:s|ed|ing)?|scroll(?:s|ed|ing)?|swip(?:e|es|ed|ing)|typ(?:e|es|ed|ing)|text(?:s|ed|ing)?|messag(?:e|es|ed|ing)|read(?:s|ing)?|look(?:s|ed|ing)?\s+(?:at|up)|search(?:es|ed|ing)?|googl(?:e|es|ed|ing)|repl(?:y|ies|ied|ying)|answer(?:s|ed|ing)?|delet(?:e|es|ed|ing)|download(?:s|ed|ing)?|install(?:s|ed|ing)?|log(?:s|ged|ging)?\s+(?:in|into)|match(?:es|ed|ing)?|swipes?\s+(?:left|right))\b/i;
+/** The player deliberately handing it over. Then the room absolutely does see it. */
+const SHOWS = /\b(?:show(?:s|ed|ing)?|hand(?:s|ed|ing)?\s+(?:her|him|them|it)|hold(?:s|ing)?\s+(?:it\s+)?up|turn(?:s|ed|ing)?\s+(?:the\s+)?(?:screen|phone|laptop)|read(?:s|ing)?\s+(?:it\s+)?(?:out|aloud)|passes?\s+(?:her|him|them)\s+(?:the|my|his|her))\b/i;
+
+/**
+ * What the room can actually perceive when the player's action happens on a screen.
+ *
+ * Silent when nobody else is there — a man alone with his phone needs no rule — and silent when the
+ * player is plainly showing it to somebody, because then they meant to.
+ */
+export function screenPrivacyNote(action: string, others: readonly string[]): string {
+  const act = String(action ?? "");
+  if (!others.length) return "";
+  if (!SURFACE.test(act) || !USES.test(act)) return "";
+  if (SHOWS.test(act)) return "";
+  const who = others.length === 1 ? others[0] : `${others.slice(0, -1).join(", ")} and ${others[others.length - 1]}`;
+  return `
+
+THE PLAYER'S ACTION THIS TURN HAPPENS ON A SCREEN, AND ${who.toUpperCase()} CANNOT READ IT.
+What is in the room is a body using a phone: the angle it is held at, a thumb moving or stopping, the light on a face, how long it goes on, whether he answers when spoken to, what his face does and whether he turns it away. All of that is fair and most of it is more interesting than the content.
+What is NOT in the room is the content. Not the app, not the name of it, not who is on the other end, not what it says, not what he typed, not what he is looking for. Nobody names it, guesses it correctly, reads it over his shoulder without crossing the room to do it, or reacts to the specific thing rather than to the fact that he is on his phone and has stopped listening.
+Somebody can absolutely want to know, and the wanting is the scene: ask what he's smiling at, lean over, take the phone, go quiet, needle him about it, be wrong about it. Being wrong about it is the best of those. What they may not do is simply know.`;
+}
+
 /**
  * What the narrator is told when a scene is finished.
  *

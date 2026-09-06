@@ -71,7 +71,7 @@ import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
-import { readScene, sceneCutDirective, perceptionGapDirective } from "./scene";
+import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
 import { clipText, clipTail, overlapRatio } from "./text";
 import { clamp } from "./num";
 
@@ -1561,6 +1561,21 @@ const NAME_STOP = new Set(["the","a","an","of","at","on","in","and","old","new",
 export function travelMinutesBetween(state: SaveState, from: string, to: string): number {
   const a = from.trim().toLowerCase(), b = to.trim().toLowerCase();
   if (!a || !b || a === b) return 0;
+  // `ELSEWHERE` IS NOT A PLACE, AND MEASURING A DISTANCE TO IT ERASED A CHARACTER.
+  //
+  // loc_offscene is the engine's null bucket — it means "not on the page", not "somewhere far".
+  // Fed through the steps below it has no authored distance, no travel-log entry and no shared
+  // word with anything, so it falls to step 5 and inherits whatever this world's scale happens to
+  // be. In one save that came out at 1088 minutes: a woman moved offscene by mistake at half past
+  // one was quoted eighteen hours of travel to walk back into the apartment she had never left,
+  // and the shift log said so in as many words — "elsewhere is 1088 minutes away and 408 have
+  // passed" — on the turn the player typed "Continue story until Abigail is back in the picture".
+  //
+  // Somebody unplaced is not far away; they are unaccounted for. Coming back costs a neighbour's
+  // walk, which still stops them appearing in the same minute they vanished (the failure the
+  // arrival gate exists for) without putting them beyond reach of the story.
+  const offscene = (x: string) => x === "elsewhere" || x === OFFSCENE || x.startsWith("loc_offscene");
+  if (offscene(a) || offscene(b)) return NEIGHBOUR_TRAVEL_MIN;
   // 1. an authored distance is the truth
   for (const d of state.world.distances ?? []) {
     const f = String(d.from).trim().toLowerCase(), t = String(d.to).trim().toLowerCase();
@@ -1578,7 +1593,18 @@ export function travelMinutesBetween(state: SaveState, from: string, to: string)
     for (let i = 1; i < log.length; i++) {
       const pair = [log[i - 1].place, log[i].place];
       if (!(pair.includes(ida) && pair.includes(idb)) || pair[0] === pair[1]) continue;
-      const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+      // THE WALK IS THE TURN THE MOVE HAPPENED ON, NOT THE GAP BETWEEN TWO ENTRIES.
+      //
+      // The log records where the player STOOD on a turn, not how long the walk took, so measuring
+      // from the previous entry charges the whole stay to the journey. One save logged the bedroom
+      // at turn 20 and the living room at turn 24 — the player spent six in-world hours in there
+      // reading an electrical code book — and the engine filed that as a five-hour walk between two
+      // rooms of one flat, which then set the scale for every unmeasured pair in the world.
+      // The move happened during log[i].turn, so its cost is that turn's own elapsed minutes.
+      // Precise when the clock has the turn before the move; otherwise the older, coarser reading,
+      // which is all a log whose stamps have aged out of the window can offer.
+      const t0 = state.world.time_at_turn?.[log[i].turn - 1] ?? state.world.time_at_turn?.[log[i - 1].turn];
+      const t1 = state.world.time_at_turn?.[log[i].turn];
       // Stamps are kept to a short window, so an old trip has no clock — but the adjacency it
       // proves does not expire. Fall back to a neighbour's walk rather than throwing it away.
       const mins = t0 && t1 ? Math.max(0, minutesBetween(t0, t1)) : NEIGHBOUR_TRAVEL_MIN;
@@ -1636,7 +1662,11 @@ export function worldScale(state: SaveState): number | undefined {
   const hops: number[] = [];
   for (let i = 1; i < log.length; i++) {
     if (log[i - 1].place === log[i].place) continue;
-    const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+    // Same rule as step 2 above: the journey costs the turn it happened on, not the stay before it.
+    // Without this a player who reads a book in his room all afternoon and then walks to the
+    // kitchen teaches this world that its rooms are five hours apart.
+    const t0 = state.world.time_at_turn?.[log[i].turn - 1] ?? state.world.time_at_turn?.[log[i - 1].turn];
+    const t1 = state.world.time_at_turn?.[log[i].turn];
     if (!t0 || !t1) continue;
     const mins = minutesBetween(t0, t1);
     // A hop measured across a sleep or a montage is not a measurement of the distance — it is a
@@ -2822,7 +2852,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const sceneRead = readScene(state);
   const sceneNote = sceneCutDirective(sceneRead);
   // and the hardest scene ending there is: the player stops perceiving
-  const perceptionNote = perceptionGapDirective(state, action);
+  const perceptionNote = perceptionGapDirective(state, action)
+    // A SCREEN IS NOT THE ROOM. The player's action reaches the narrator whole, which is right for
+    // everything a body does and wrong for the four inches in front of one person's face. See
+    // engine/scene.ts — a player's report of "I do something and she instantly knows I'm on hinge".
+    + screenPrivacyNote(action, state.world.present
+        .filter((id) => id !== "char_player")
+        .map((id) => state.characters[id]?.name ?? "")
+        .filter(Boolean));
   if (sceneNote) ev.onMeta({ shifts: [`the scene has spent itself — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
   // A CALL PUT TO EVERYONE. Recorded before the directive is composed, so a call made THIS turn is
   // already standing when the narrator writes the answer to it — the player should not have to ask
