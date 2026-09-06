@@ -57,7 +57,8 @@ import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
-import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix } from "./maxims";
+import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
@@ -2045,6 +2046,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
+  // AN HOUR SOMEBODY NAMED, THAT THE CLOCK HAS RUN PAST. Nothing in this engine had ever moved a
+  // commitment out of "pending", so an appointment missed at eleven was still being handed to the
+  // narrator as STILL DUE at half past three — and the narrator resolved the impossible timestamp
+  // the only cheap way there is, by writing that she had gone. See engine/commitments.ts.
+  for (const line of resolveOverdue(state)) ev.onMeta({ shifts: [line] });
   const undertow = neutralUndertow();
 
   // 1b ── FATE. When a destination has a turn budget, the ending is not optional. Fate reads the
@@ -2690,7 +2696,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2877,7 +2883,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3103,6 +3109,28 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // ...and the same move one layer out: a figure of speech in the NARRATION, explaining a
+      // spoken line with a comparison. Fires on recurrence rather than on the instance — a simile
+      // is a style choice, the same simile frame three turns running is a tic, and "like she was
+      // checking the weight of it" states an interior with one word in front of it. See maxims.ts.
+      state.last_figure = findFigure(
+        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
+        prose,
+      );
+      if (state.last_figure) noteFire(state, "figure", `the same narration frame for ${state.last_figure.runs} turns: "${state.last_figure.line.slice(0, 60)}"`);
+      // ...and a line off somebody's own never-says list. The card is printed to the narrator every
+      // turn as reference and nothing has ever checked the output against it.
+      state.last_never_said = findNeverSaid(state, state.world.present, prose);
+      if (state.last_never_said) {
+        noteFire(state, "never_says", `${state.last_never_said.name} said "${state.last_never_said.forbidden}"`);
+        ev.onMeta({ shifts: [`${state.last_never_said.name} said a line their card lists under never-says — it will be corrected next turn`] });
+      }
+      // ...and a character claiming they kept an appointment the record has them standing here for.
+      state.last_missed_claim = findMissedClaim(prose, state, state.world.present);
+      if (state.last_missed_claim) {
+        noteFire(state, "confabulation", `${state.last_missed_claim.name} claimed an appointment the record says was missed`);
+        ev.onMeta({ shifts: [`${state.last_missed_claim.name} described keeping an appointment the record has them in this room for — it will be corrected next turn`] });
+      }
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that

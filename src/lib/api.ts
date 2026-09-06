@@ -18,6 +18,7 @@ import { seedDrive } from "../engine/drives";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel, repairAuthoredHabitCounts } from "../engine/authored";
+import { resolveOverdue } from "../engine/commitments";
 import { newBecoming, liveBecomings, CLAIM_MAX } from "../engine/becoming";
 import { excuseElapsedToday, newBlock, placeForBlock, placeForRef, readSchedule } from "../engine/schedule";
 import { forgeSchedule } from "../engine/scheduleforge";
@@ -111,9 +112,16 @@ async function need(id: string): Promise<SaveState> {
   // expressions stops being demanded, and nothing can bring it back from inside the game, because
   // the count only rises and the want can no longer be expressed to correct it. See authored.ts.
   const reset = repairAuthoredHabitCounts(s);
+  // AND EVERY APPOINTMENT THE CLOCK HAS ALREADY RUN PAST. A save made before commitments could be
+  // settled carries hours from days ago still marked pending, still rendered to the narrator as
+  // STILL DUE, and still boosted to the front of the character's mind — which is how one save's
+  // character came to believe she had worked a shift she spent on the couch. Settled once on load,
+  // so an existing save repairs itself the first time it is opened. See engine/commitments.ts.
+  const settled = resolveOverdue(s);
+  if (settled.length) console.warn(`[commitments] settled ${settled.length} appointment${settled.length === 1 ? "" : "s"} the clock had run past:\n  ${settled.join("\n  ")}`);
   if (reset) console.warn(`[authored] reset ${reset} phantom expression count${reset === 1 ? "" : "s"} on load — the wants are being asked for again`);
   if (pruned) console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
-  if (pruned || reset) await putSave(s);
+  if (pruned || reset || settled.length) await putSave(s);
   return s;
 }
 

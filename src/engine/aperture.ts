@@ -230,6 +230,77 @@ export function steeringStreak(state: SaveState, id: string): number {
   return run;
 }
 
+/* ── AND NEVER WANTS ANYTHING ───────────────────────────────────────────────────
+ *
+ * The two detectors above catch a person doing too much: still on their own want, still closing the
+ * scene. Nothing catches the opposite, and the opposite is what a reader actually reports.
+ *
+ *   "No characterization, no personality, no uniqueness, no self desires, no questions about
+ *    wanting something new on her own. No... nothing."
+ *
+ * Measured on that save — thirty-five turns, roughly a hundred and eighty spoken lines from one
+ * character — five lines contain a first-person appetite of any kind. Turns 29 through 33 are five
+ * consecutive turns and twenty-one spoken lines in which she never once says what she wants. Every
+ * line is aimed at something the player said in the line immediately before: his invitation, his
+ * money, his friends, his cardigan. She is not silent and she is not passive — she asks four
+ * questions a turn — and that is exactly what makes it invisible to everything else here. An
+ * interrogation is a very busy way of having no wants.
+ *
+ * AND THE APERTURE ITSELF WAS SILENT FOR HER. Run against that save at turn 34: aperture narrowed
+ * (−5.6), want saturation 2, steering streak 0 — so the gate below skipped her, apertureNote
+ * returned the empty string, and the one paragraph in this module written for a clenched body has
+ * never once been reachable for a clenched body that is merely clenched. The band most of a tense
+ * story sits in was the band with no line.
+ *
+ * This is not a demand that she soften. A narrowed body SHOULD narrow — that half of registerLine
+ * is right and stays. What it was missing is whose one thing it narrows onto.
+ *
+ * TWO WAYS A TURN COUNTS AS HAVING AN INSIDE, because wanting is not the only one. Either the
+ * person asks for something, or they put a subject on the table that is neither them nor the person
+ * they are talking to — "the pour-over at that place on Quarry is the only one in this town anybody
+ * warmed the filter for" is not an appetite and it is unmistakably a person with an interior. Both
+ * are absent across the run measured above: every sentence she speaks contains either "you" or "I",
+ * and nothing else exists for her. */
+
+/** A line in which the speaker wants something, for themselves, out loud: an appetite, a demand, a
+ *  refusal, a plan of their own. Not a question about the other person, which is what fills the gap
+ *  when this is missing. */
+const WANTS_SOMETHING = new RegExp("\\b(?:i\\s+want|i\\s+need|i\\s+wanna|i'?d\\s+(?:rather|like|prefer)|"
+  + "i'?m\\s+(?:going\\s+to|gonna|not\\s+(?:going|doing|gonna))|i'?ll\\s+(?:have|take|be)|i\\s+get\\s+to|"
+  + "give\\s+me|get\\s+me|bring\\s+me|buy\\s+me|hand\\s+me|pour\\s+me|let'?s\\b|"
+  + "come\\s+here|sit\\s+down|take\\s+(?:it|that|them|those)\\s+off|"
+  + "i\\s+(?:decided|already\\s+decided)|what\\s+i\\s+want)\\b", "i");
+
+/** Turns of speech running in which this person has wanted nothing out loud. Silence does not
+ *  count — a turn they said nothing in is not a turn they failed to want anything in. */
+export const APPETITE_GAP = 4;
+const APPETITE_WINDOW = 7;
+
+/** A sentence about something that is neither the speaker nor the person they are speaking to: no
+ *  "you", no "I". Short fragments and questions do not count — a question is what fills this space
+ *  when there is nothing behind it. */
+const SECOND = /\b(?:you|your|yours|you'?re|you'?ll|you'?d|you'?ve)\b/i;
+const FIRST = /\b(?:i|i'?m|i'?ll|i'?d|i'?ve|me|my|mine|we|us|our)\b/i;
+
+function raisesSomething(line: string): boolean {
+  for (const raw of String(line ?? "").split(/(?<=[.!?])\s+/)) {
+    const s = raw.trim();
+    if (s.split(/\s+/).filter(Boolean).length < 5 || s.endsWith("?")) continue;
+    if (!SECOND.test(s) && !FIRST.test(s)) return true;
+  }
+  return false;
+}
+
+export function appetiteGap(state: SaveState, id: string): number {
+  let run = 0;
+  for (const lines of saidPerTurn(state, id, APPETITE_WINDOW)) {
+    if (!lines.length) continue;                          // silence is not evidence either way
+    const inside = lines.some((l) => WANTS_SOMETHING.test(l) || raisesSomething(l));
+    run = inside ? 0 : run + 1;
+  }
+  return run;
+}
+
 /* ── WHAT ELSE IS IN THERE ──────────────────────────────────────────────────── */
 
 /** A standing interest of this person's that the last few turns have not already used, plus a place
@@ -291,7 +362,9 @@ function registerLine(name: string, ap: Aperture, rel: number, openRun: number, 
   if (ap === "narrowed") {
     return `${name} is clenched (${rel.toFixed(1)}). The card is exact right now: the register tightens onto its narrowest form, `
       + `the attention goes to the one thing that matters and stays there, and very little else gets in. That is not a fault to correct — `
-      + `it is what a braced body does, and it is what makes the other state mean anything.`;
+      + `it is what a braced body does, and it is what makes the other state mean anything. `
+      + `WHAT DOES NEED CHECKING IS WHOSE ONE THING IT IS. A braced person narrows onto what THEY are after — the thing they are protecting, the thing they cannot stop wanting, the thing they are afraid of losing. `
+      + `Narrowed onto the other person's subject instead, answering it, pressing it, taking it apart, is not a clenched character; it is a character with nothing of their own, and it reads as nothing at all.`;
   }
   if (ap === "wide") {
     const settled = openRun >= 6 ? ` and has been settled for ${openRun} turns` : "";
@@ -327,10 +400,12 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
     const ap = apertureOf(rel);
     const sat = wantSaturation(state, id);
     const steer = steeringStreak(state, id);
+    const gap = appetiteGap(state, id);
     // Only an open body earns a line for its state alone — the whole finding is that the open state
     // was reaching nothing. A braced or middling body doing exactly what it should is not a finding,
-    // and gets a line only when one of the two detectors has actually caught something.
-    if (ap !== "wide" && sat < SATURATED_AT && steer < STEERING_AT) continue;
+    // and gets a line only when one of the three detectors has actually caught something. The third
+    // is why a clenched body can reach its own paragraph now: it was written and never rendered.
+    if (ap !== "wide" && sat < SATURATED_AT && steer < STEERING_AT && gap < APPETITE_GAP) continue;
 
     const lines: string[] = [registerLine(c.name, ap, rel, psy.open_run ?? 0, pn)];
 
@@ -350,6 +425,23 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
         + `A want is not a schedule read out loud, and a scene one person keeps closing is a scene nobody else is in. `
         + `THIS TURN ${c.name.toUpperCase()} DOES NOT HAND OVER THE NEXT STEP. Either somebody else has the last word, or the turn ends on ${c.name} with nothing asked of anybody — `
         + `a thing done, a thing noticed, a thing said that requires no answer.`);
+    }
+
+    if (gap >= APPETITE_GAP) {
+      // Their own standing business, in their own words, so the note is not asking the narrator to
+      // invent an appetite — it is pointing at the ones already on the card and never used.
+      const own = [
+        c.current_goal?.trim(),
+        c.drive?.goal?.trim(),
+        ...(c.authored ?? []).map((a) => String(a?.goal ?? "").trim()),
+        ...(c.texture ?? []).filter((t) => !isMannerism(t)).map((t) => String(t).trim()),
+        ...Object.keys(c.skills ?? {}),
+      ].filter(Boolean).slice(0, 5);
+      lines.push(`${c.name} has spoken on ${gap} turns running without once saying what ${pn.subject} wants or putting anything on the table that is neither ${pn.object} nor the person ${pn.subject} is talking to. `
+        + `Every line has been aimed at something the player said first — answering it, questioning it, taking it apart. `
+        + `A person who only ever returns serve has no inside, however many questions ${pn.subject} asks, and asking a lot of questions is the busiest possible way of wanting nothing. `
+        + `THIS TURN ${c.name.toUpperCase()} WANTS SOMETHING OUT LOUD AND IT DID NOT COME FROM THE PLAYER'S LAST LINE: something ${pn.subject} asks for, takes, refuses, decides, or brings up that nobody raised — an appetite, an errand, a grievance, a plan for the evening that is ${pn.possessive} own rather than an answer to somebody else's. `
+        + `It does not have to be large and it does not have to be granted.${own.length ? ` This is what ${pn.subject} already has on ${pn.possessive} card and has not used: ${own.join("; ")}.` : ""}`);
     }
 
     if (ap === "wide") {

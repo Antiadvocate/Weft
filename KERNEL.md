@@ -318,6 +318,35 @@ safety net: when a filed promise's text matches the recipient's active drive (to
 clears, and the next goal arrives by the normal drives_update path. Even if the bookkeeper forgets,
 the promise reaching the ledger IS the answer reaching state.
 
+**Commitment settlement** (`commitments.ts`, hooked into the per-turn tail and the load path).
+`commitment_status` has had "fulfilled", "missed" and "cancelled" since the type was written and
+nothing in the engine ever assigned any of them, so a commitment could only ever be born. The
+memory digest therefore went on printing `STILL DUE Day 1, 11:00` at Day 1, 15:26, and
+`commitmentBoost` kept that impossible line at 0.9 — front of mind, above everything else the
+character had — with no upper bound on how overdue it could get. A narrator resolving that
+contradiction resolves it the cheap way: she must have gone. One save's character consequently
+believed she had worked a shift she spent on the couch, and by the end was accusing the player of
+having forgotten an afternoon that was never written. `resolveOverdue` settles the ones the record
+can prove — the scheduled minute passing between two consecutive telemetry rows with the character
+in `present` for both, which is a crossing rather than an inference — and marks them `missed`;
+overdue-but-unwitnessed hours stop being described as upcoming and are rendered to the narrator as
+a hole in the record instead. It never marks anything fulfilled: guessing in that direction is the
+same failure pointed the other way.
+
+**Three output-side voice guards** (`maxims.ts`, `aperture.ts`). All three use the mechanism that
+actually works here — catch it in the committed prose, quote it back at the end of the next
+directive. (1) `findFigure` extends the maxim detector out of the quotation marks: a spoken line
+followed by a comparison explaining it ("She said it flat, like the word had a price on it") is a
+style choice once and a tic on the third turn running, and "like she was —" is an interior leak
+with one word in front of it, which is why MOTIVE_LEAK never saw it. Fires on the run, not the
+instance. (2) `findNeverSaid` checks the output against each present character's own `never_says`
+list, which was printed to the narrator every turn as reference and never once enforced. (3)
+`appetiteGap` counts turns of speech in which a character neither wanted anything out loud nor put
+a subject on the table that was neither them nor the person they were talking to — and the
+narrowed band of `apertureNote`, which had been unreachable (a clenched body was skipped before it
+could reach the paragraph written for it), now speaks: a braced body should narrow, and what needed
+checking was whose one thing it narrows onto.
+
 ## 5b. The attempt frame (`attempt.ts`)
 
 Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine

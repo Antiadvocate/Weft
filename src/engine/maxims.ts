@@ -52,6 +52,8 @@
  * narrator habit — because it is specific, it is evidence, and it arrives at the end.
  */
 
+import { attributeLines } from "./aperture";
+
 /** Only ever run against spoken text. The narration has its own rules and its own guards, and a
  *  metaphor in description is a style choice; a metaphor in somebody's mouth is a character being
  *  replaced by an oracle. */
@@ -273,4 +275,166 @@ LENGTH COMES FROM THAT, NOT FROM A STYLE. Somebody who has explained this a hund
 If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.
 AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.
 BUT A REGISTER IS WHERE THE WORDS COME FROM, NOT A FILTER EVERY LINE PASSES THROUGH. It says what this person reaches for first and what they have vocabulary for — not that every sentence they produce must be on that subject. A woman whose money-and-materials vocabulary is all she is given still has a body, a day, a view out of the window and three standing interests printed on her card; a settled person reaches for those between the sentences that are business. Run at a hundred percent, money and materials produces a woman who can only say what things cost. How much of it is load-bearing this turn is printed on each speaker's card after right now: — braced means all of it, open means the same vocabulary without the same subject.]`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE FIGURE IN THE NARRATION — the same failure, one layer out.
+ *
+ * Everything above only ever runs against quoted speech, and the header says why: "a metaphor in
+ * description is a style choice; a metaphor in somebody's mouth is a character being replaced by an
+ * oracle." That was right about a metaphor. It is not right about a FRAME, and here is the frame,
+ * from the Elm Street save, five consecutive turns, narration only:
+ *
+ *   T29  "Which friends." She said it flat, like the word had a price on it.
+ *   T30  "You have friends outside work." She said it like she was reading a line off a form and
+ *        checking a box.
+ *   T31  "Sarah." She said it flat, like she was putting it somewhere.
+ *   T32  "Both sometimes." She repeated it quietly, like she was checking the weight of it.
+ *   T34  "Missed it." She said it like she was testing the word on her tongue.
+ *
+ * Two things are wrong with it and they compound.
+ *
+ *   · IT IS A TIC. One turn is a nice line. Five turns running is a machine: the frame never
+ *     changes, only the tail does, and the tail is doing all the characterisation the character is
+ *     not being given. A reader's report of this reads "no characterization, no personality, no
+ *     uniqueness" — correctly, because the personality is in the narrator's similes rather than in
+ *     anything she does or wants.
+ *   · IT IS AN INTERIOR LEAK WITH ONE WORD IN FRONT OF IT. "like she was checking the weight of it"
+ *     is a claim about what she was privately doing, and MOTIVE_LEAK does not catch it because the
+ *     sentence is grammatically a comparison. The engine's oldest and most reliable guard is walked
+ *     straight past by the word "like".
+ *
+ * So this fires on RECURRENCE, not on the instance. A simile after a speech verb is ordinary
+ * writing; the same construction on three turns out of the last four is the narrator's hand, and
+ * the fix is the same one that works everywhere else — the actual sentences, quoted, at the end.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Narration only: everything outside the quotation marks. */
+function narration(prose: string): string {
+  return String(prose ?? "").replace(/[“"][^“”"]*[”"]/g, " ");
+}
+
+/** The two shapes this takes, kept apart so a run is counted against the frame that actually
+ *  repeated rather than against "any simile anywhere". */
+const FIGURE_FRAMES: { key: string; re: RegExp }[] = [
+  // "She said it flat, like the word had a price on it." — the attribution plus a comparison.
+  { key: "said-it-like", re: /\b(?:said|says|repeated|repeats|asked|asks|answered|replied|murmured|whispered|added)\b[^.?!\n]{0,60}?\blike\s+(?:a|an|the|she|he|they|it|somebody|someone|you)\b[^.?!\n]{0,80}/i },
+  // "Her voice came out low and unhurried, like she was talking most of the way to herself."
+  { key: "voice-like", re: /\b(?:voice|words?|tone|the sound)\b[^.?!\n]{0,40}?\b(?:came out|went|was|sounded|dropped)\b[^.?!\n]{0,50}?,\s*like\b[^.?!\n]{0,80}/i },
+];
+
+export interface FigureHit { line: string; frame: string; runs: number }
+
+/** Every figure-frame in one turn's narration, by key. */
+function figuresIn(prose: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const bare = narration(prose);
+  for (const sentence of bare.split(/(?<=[.!?])\s+|\n+/)) {
+    const s = sentence.trim();
+    if (s.length < 15) continue;
+    for (const f of FIGURE_FRAMES) {
+      const m = f.re.exec(s);
+      if (m && !out.has(f.key)) out.set(f.key, m[0].trim().slice(0, 160));
+    }
+  }
+  return out;
+}
+
+/** How many turns running this frame has been used. Three is a hand; two is a coincidence. */
+export const FIGURE_RUN = 3;
+/** How far back a run may be interrupted and still count — the save's own run skipped turn 33. */
+const FIGURE_WINDOW = 5;
+
+/**
+ * A narration frame this turn that the last few turns have also used.
+ *
+ * `previous` is the prose of the preceding turns, oldest first. Returns the worst offender: the
+ * frame with the longest run, quoted from THIS turn, so the correction shows the narrator its own
+ * most recent sentence rather than an old one it can disown.
+ */
+export function findFigure(previous: readonly string[], prose: string): FigureHit | null {
+  const now = figuresIn(prose);
+  if (!now.size) return null;
+  const window = previous.slice(-FIGURE_WINDOW).map((p) => figuresIn(p));
+  let best: FigureHit | null = null;
+  for (const [key, line] of now) {
+    const runs = 1 + window.filter((m) => m.has(key)).length;
+    if (runs < FIGURE_RUN) continue;
+    if (!best || runs > best.runs) best = { line, frame: key, runs };
+  }
+  return best;
+}
+
+export function figureFix(hit: FigureHit | null | undefined): string {
+  if (!hit) return "";
+  return `\nTHE SAME SENTENCE SHAPE HAS NOW CARRIED ${hit.runs} OF THE LAST FEW TURNS: "${hit.line}" — somebody speaks, and then the narration explains the line with a comparison. `
+    + `It is one move, repeated, and it is doing two things it should not. It is a tic, so the writing has a signature the characters do not. And "like she was —" states what a person was privately doing with the word "like" in front of it, which is the one thing the narration may never do; a simile is not a loophole in it. `
+    + `THIS TURN NO SPOKEN LINE IS FOLLOWED BY A COMPARISON EXPLAINING IT. What a line meant is carried by what the person does with their hands, their face, where they go, what they pick up, how long they take to answer, or by the next thing they say — or it is not carried at all and the line stands on its own, which is usually right. `
+    + `If a sentence in this turn contains "like" after somebody speaks, cut it and put a physical action in its place.`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * NEVER_SAYS, WHICH NOTHING HAS EVER CHECKED.
+ *
+ * Every character card carries a never_says list. voiceAnchor prints it to the narrator as
+ * reference, above, and that is the entire enforcement: a line in the prompt. From the same save —
+ *
+ *   card:  never_says: ["I don't know", "that's your business"]
+ *   T29:   "Now I'm— I don't know. Confused about whether I'm supposed to be flattered or insulted."
+ *
+ * One hit in two hundred and fifty-five spoken sentences, which is exactly why it is worth
+ * catching: never_says entries are short authored phrases, so a substring test on them is close to
+ * free of false positives, and the one line that slips through is the line where the character
+ * stops being the person on the card. Hers is a woman whose whole register is questions she already
+ * knows the answers to, saying she does not know, in the turn a reader reported her as having no
+ * characterisation left.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+export interface NeverSaidHit { name: string; said: string; forbidden: string }
+
+function normalise(s: string): string {
+  return String(s ?? "").toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * A line somebody spoke this turn that their own card forbids them.
+ *
+ * Attribution is by paragraph (aperture.attributeLines), which is how the narrator actually writes
+ * — the subject of the paragraph is the speaker, and a name inside the quotes is who is being
+ * spoken to. A phrase shorter than three words is skipped: "no" and "sorry" appear inside ordinary
+ * sentences and a card that lists them is asking for a false positive, not for enforcement.
+ */
+export function findNeverSaid(
+  state: { characters: Record<string, { name: string; voice?: { never_says?: string[] } }> },
+  presentIds: readonly string[],
+  prose: string,
+): NeverSaidHit | null {
+  const names = Object.values(state.characters ?? {}).map((c) => c?.name).filter(Boolean) as string[];
+  const byWho = attributeLines(prose, names);
+  for (const id of presentIds) {
+    const c = state.characters?.[id];
+    const forbidden = (c?.voice?.never_says ?? []).map((x) => String(x ?? "").trim()).filter(Boolean);
+    if (!c || !forbidden.length) continue;
+    const first = (c.name ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+    for (const line of byWho[first] ?? []) {
+      const hay = normalise(line);
+      for (const f of forbidden) {
+        const needle = normalise(f);
+        if (needle.split(" ").length < 3) continue;
+        if (hay.includes(needle)) return { name: c.name, said: line.slice(0, 180), forbidden: f };
+      }
+    }
+  }
+  return null;
+}
+
+export function neverSaidFix(hit: NeverSaidHit | null | undefined): string {
+  if (!hit) return "";
+  // The two quoted spans are kept in separate sentences on purpose: a run of prose BETWEEN two
+  // quotation marks inside one instruction is a ready-made line, which is the thing tests/prompt-echo.ts
+  // exists to ratchet down.
+  return `\n${hit.name.toUpperCase()} SAID A LINE THEIR OWN CARD LISTS UNDER NEVER SAYS. It was: "${hit.said}".\nTheir card's entry: ${hit.forbidden}. `
+    + `That list is not a style preference. It is the short definition of who this person is: the thing they will not admit, will not concede, will not hand over. The line came out because the scene wanted somebody to be uncertain there, and ${hit.name} was the mouth that was open. `
+    + `THIS TURN ${hit.name.toUpperCase()} DOES NOT SAY IT OR ANY VERSION OF IT. Whatever pressure produced it is still real and still has to land somewhere — it goes into the body, into a refusal, into changing the subject, into an answer that is not the one asked for, into leaving the room. `
+    + `A person who cannot say that does something else instead, and what they do instead is the character.`;
 }

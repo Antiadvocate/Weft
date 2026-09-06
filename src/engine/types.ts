@@ -999,6 +999,19 @@ export interface SaveState {
   last_line_reprint?: string | null;
   /** A family the prose invented for somebody the record contradicts. See engine/kinship.ts. */
   last_kin?: { owner: string; relation: string; other?: string; because: string; sentence: string } | null;
+  /** A character claiming out loud that they kept an appointment the record says they were standing
+   *  in this room when it passed — and, in the save this was built from, accusing the player of not
+   *  remembering an afternoon that was never written. See engine/commitments.ts. */
+  last_missed_claim?: { name: string; said: string; content: string; due: string } | null;
+  /** A figure of speech in the NARRATION rather than in a mouth — the "she said it flat, like she
+   *  was checking the weight of it" frame, which states an interior with a simile in front of it
+   *  and which came back five turns running in the save that produced it. Quoted back next turn,
+   *  same mechanism as last_maxim. See engine/maxims.ts. */
+  last_figure?: { line: string; frame: string; runs: number } | null;
+  /** A line somebody said that their own voice card lists under never_says. The card is read to the
+   *  narrator every turn as reference and nothing has ever checked the output against it.
+   *  See engine/maxims.ts. */
+  last_never_said?: { name: string; said: string; forbidden: string } | null;
   /** Every contradiction the engine caught, counted rather than forgotten. The detectors each emit
    *  one correction and move on; nothing was keeping the aggregate, which is why a story could come
    *  apart while the engine noticed every individual crack. See engine/integrity.ts. */
