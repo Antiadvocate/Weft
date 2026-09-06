@@ -1,6 +1,6 @@
 /** Save-state lifecycle (browser): init, sanitize, snapshot ring. Persistence lives in src/store.ts. */
 import { factGate, factOverlap } from "./facts";
-import { reconcileStores, migrateToFirstPerson } from "./memory";
+import { reconcileStores, migrateToFirstPerson, fadeToStage, cleanFacts } from "./memory";
 import { ensureHabits } from "./habits";
 import { mergePhantomPlaces } from "./places";
 import { healSchedule } from "./schedule";
@@ -496,6 +496,23 @@ export function sanitize(state: SaveState): SaveState {
     if (id !== "char_player" && !state.memory[id].first_person) {
       migrateToFirstPerson(state.memory[id], state.characters[id]?.name ?? "", false);
       state.memory[id].first_person = true;
+    }
+    // Facts are cleaned on EVERY load, not only on the one-time migration above — they keep being
+    // written after the flag is set, and a migrated save would never look at them again.
+    if (id !== "char_player") cleanFacts(state.memory[id], state.characters[id]?.name ?? "");
+    // AND THE FADED COPIES ARE RE-CUT FROM THE ORIGINALS THEY KEPT.
+    //
+    // Fading used to shorten a memory on a character count, which takes the end of the sentence —
+    // where the point is. A save carries the damage in `content` and the intact text right beside
+    // it in `full_content`, so the repair is free and exact: fade again, from the original, at the
+    // stage it already reached. "...challenged him to…" comes back as a whole thought instead of a
+    // severed one, and a memory three characters over its budget stops being cut at all. Runs on
+    // every load and is idempotent — re-fading an already-correct memory returns it unchanged.
+    for (const m of state.memory[id].episodic ?? []) {
+      const stage = m.decay_stage ?? 0;
+      if (!stage || !m.full_content) continue;
+      const refaded = fadeToStage(m.full_content, stage as 1 | 2 | 3);
+      if (refaded && refaded !== m.content) m.content = refaded;
     }
     state.condition[id].psyche ??= blankCondition().psyche;
     // THE RESTING POINT THEY WERE MADE WITH. Saves written before capacity had a history carry no

@@ -50,7 +50,14 @@ function bank(m: Partial<EpisodicMemory>): CharMemory {
 {
   const lens = ([0, 1, 2, 3] as const).map((s) => fadeToStage(FULL, s).length);
   check("stage 0 is the memory itself", lens[0] === FULL.length, lens);
-  check("every stage is shorter than the last", lens[1] < lens[0] && lens[2] < lens[1] && lens[3] < lens[2], lens);
+  // NOT STRICTLY SHORTER AT EVERY STEP ANY MORE, AND THAT IS THE FIX.
+  // The budgets (150/110/70) are round numbers, and treating them as hard ceilings meant a memory
+  // three characters over one had its last clause amputated — which is where the point of an
+  // English sentence lives. There is a 15% band now, so two adjacent stages can land on the same
+  // clause boundary and tie. What must still hold: the fade never grows a memory, and terminal
+  // decay is decisively shorter than the first fade.
+  check("no stage is longer than the one before", lens[1] <= lens[0] && lens[2] <= lens[1] && lens[3] <= lens[2], lens);
+  check("and terminal decay is decisively shorter than the first fade", lens[3] < lens[1], lens);
   check("terminal decay is a fraction of the original", lens[3] < FULL.length * 0.45, lens);
   for (const s of [1, 2, 3] as const) {
     const out = fadeToStage(FULL, s);
@@ -68,7 +75,9 @@ function bank(m: Partial<EpisodicMemory>): CharMemory {
   // cuts on SENTENCE boundaries and takes the first sentence whole however long it is, and a
   // memory is almost always one sentence.
   check("compactGist leaves a single long sentence untouched", compactGist(FULL, 110) === FULL, compactGist(FULL, 110).length);
-  check("the fade does not", fadeToStage(FULL, 2).length <= 110, fadeToStage(FULL, 2));
+  // ...within the 15% band above, and cutting on a clause rather than a character count.
+  check("the fade does", fadeToStage(FULL, 2).length <= 110 * 1.15, fadeToStage(FULL, 2));
+  check("and what it leaves is a finished clause", /[.!?…]$/.test(fadeToStage(FULL, 2)), fadeToStage(FULL, 2));
 }
 
 /* ── 3. the exact words go first, and the sentence survives losing them ───────── */

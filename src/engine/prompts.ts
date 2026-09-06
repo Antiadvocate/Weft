@@ -1645,8 +1645,27 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       const drv = ident.drive;
       const goalNow = ident.current_goal || drv?.goal;
       if (goalNow) {
-        const stalledHere = drv && (state.world.current_turn - drv.updated_turn) >= 2;
-        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${drv.progress}%]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? " (stalled)" : ""}`);
+        // THE STALL MARKER COULD NEVER FIRE, AND THE NUMBER BESIDE IT WAS RAW.
+        //
+        // `updated_turn` is restamped to the current turn every time the bookkeeper touches a drive,
+        // which is every turn — so this read 0 always and "(stalled)" has never appeared in a
+        // prompt. social.ts already worked this out for want-abandonment and measures against
+        // `progress_turn`, the last turn progress actually MOVED; this is the same question and
+        // gets the same clock.
+        //
+        // What it costs when the signal is missing: a woman written as a manipulator spent
+        // twenty-nine turns on one want, going at it the same way, moving it from 0 to 1.08 out of
+        // 100 — and nothing ever told anybody it was not working. Somebody whose whole character is
+        // reading a room and switching tack cannot switch on information nobody sends them. So the
+        // stall is reported as the plain fact it is, and BOTH answers stay open: a stubborn person
+        // keeps hammering the same door and that is characterisation too. What is not defensible is
+        // a scene where the door is not known to be shut.
+        //
+        // The percentage rode out raw as well — `[1.0852564277701064%]`, sixteen decimals of a
+        // 0..100 field, in the prompt.
+        const sinceMoved = drv?.progress_turn !== undefined ? state.world.current_turn - drv.progress_turn : 0;
+        const stalledHere = sinceMoved >= 3 && (drv?.progress ?? 0) < 100;
+        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${Math.round(drv.progress)}% of the way there]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? ` — ${sinceMoved} turns of going at it this way and it has not moved; they may keep on, or find another way in` : ""}`);
         // The want is what they are after; this is how they go at it. Rendered on its own line
         // because it is the instruction that actually governs their dialogue this turn — the want
         // is not something they say, it is something they work toward sideways.
