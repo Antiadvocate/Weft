@@ -902,10 +902,48 @@ THREAD BUDGET: ${threads.length} of ${MAX_LIVE} open.${threads.length >= MAX_LIV
  *  clause boundary inside the budget, fall back to the last whole word, and mark the cut. */
 const clipRecord = clipText;
 
+/**
+ * WHAT GETS IN, AND WHAT THEY DO WITH IT, ARE TWO DIFFERENT READINGS.
+ *
+ * This returned ONE string, and the first branch was `state === "broken"` — so the moment somebody
+ * broke, every other reading stopped. A woman with a conscience of 0.18 had that number reach the
+ * narrator on no turn of the twenty she spent down there. The disposition axis did not lose an
+ * argument to the reception axis; it was never consulted.
+ *
+ * And what the broken branch returned was this:
+ *
+ *     BROKEN (fractured) — the Mirror rule applies: no judgments, only clear reflection of others
+ *
+ * Three things wrong with one line. The Mirror rule is defined in no prompt anywhere, so the model
+ * has a named rule and has to invent it. `break_mode` here reads "fractured" while the rule named
+ * is the mirror's — PHILOSOPHY.md gives four break modes "with its own rendering rules" and the
+ * engine assigns one (social.ts falls through to "fractured" every time) and renders a different
+ * one, unconditionally. And "clear reflection of others" puts the person on the WRONG SIDE of the
+ * verb: it describes what she does to him. The narrator wrote what it says. Over five turns, a
+ * woman being thrown out repeated the last thing said to her, flat, and nothing else:
+ * "Shitty person." / "Good luck with Dad," / "Dad's picking me up."
+ *
+ * WHAT IS ACTUALLY HAPPENING TO A BODY THAT HAS BEEN BRACED THIS LONG. Holding a position costs
+ * something. Arguing costs something, and so does keeping the story about yourself intact. Braced
+ * turn after turn, that runs out — and when it does the defending stops, not as a decision but as
+ * an empty account. What was being deflected then arrives. That is a change in what REACHES them,
+ * and it is the whole of what this branch may say.
+ *
+ * What they do about it is not written here and must not be. Go dismal, get defensive, turn vicious,
+ * or take it in — that comes from conscience, from attachment, from the edge, from what was actually
+ * said, all of which are already on this card. An engine built on clenching and release as the
+ * source of behaviour does not get to hand the narrator the answer at the one moment it matters
+ * most. So both readings render now, always: what reaches them, then what kind of person is
+ * receiving it.
+ */
 function describeOpenness(c: Condition, conscience?: number): string {
-  const r = c.psyche.relaxation;
-  if (c.psyche.state === "broken" || c.psyche.state === "shattered")
-    return `BROKEN (${c.psyche.break_mode}) — the Mirror rule applies: no judgments, only clear reflection of others`;
+  const spent = c.psyche.state === "broken" || c.psyche.state === "shattered"
+    ? `the guard is spent — braced ${c.psyche.consecutive_clenched || "many"} turns straight with nothing left to argue with, so what is said TO them now arrives instead of being deflected on the way in. This is what reaches them, not what they do about it; that comes from the rest of this card. `
+    : "";
+  return spent + disposition(c.psyche.relaxation, conscience);
+}
+
+function disposition(r: number, conscience?: number): string {
   // RUDRA BRANCH — calm is not care. For a constitutionally cold person (low conscience), openness
   // decouples from warmth: relaxation still clears the sight, but what is seen never registers as
   // mattering. Their poise is REAL (low-anxiety, stress-immune by nature) — so more relaxed means

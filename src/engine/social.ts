@@ -777,10 +777,28 @@ export function tickPsyche(p: Psyche): void {
     p.discharge_lift = +(p.discharge_lift * 0.7).toFixed(3);
     if (p.discharge_lift < 0.2) p.discharge_lift = undefined;
   }
+  // THE WAY OUT HAS TO BE SOMEWHERE THE BODY CAN REACH.
+  //
+  // These four lines used fixed thresholds while the reachable RANGE moves with the person.
+  // settleAfterDeltas bounds relaxation to `eff + above`, and eff is capacity plus discharge_lift
+  // minus grief_drag — so for anybody whose resting point has been pushed down, the fixed exit sits
+  // above the ceiling and the state is permanent. From the save that prompted this: capacity
+  // remodelled to -0.5, grief_drag 5.302, eff -5.802, best reachable relaxation -2.802, and the
+  // door out of "broken" at > -2. She could not have opened it on her best possible turn, and did
+  // not, for nineteen straight turns of a thirty-turn story. Every character who breaks with a
+  // lowered resting point has been in that room.
+  //
+  // So the exits are read against where this body actually rests, and the fixed number is kept as
+  // the other option rather than the only one: whichever is easier to reach is the way out. For
+  // somebody sitting at their ordinary resting point the fixed number still governs, which is why
+  // the old behaviour holds everywhere it was already working. Entry is untouched — going down was
+  // never the part that was broken.
+  const eff = p.capacity + (p.discharge_lift ?? 0) - (p.grief_drag ?? 0);
+  const easeOut = (fixed: number) => Math.min(fixed, eff - 2);
   if (p.state === "intact" && p.consecutive_clenched >= 4) p.state = "fracturing";
-  if (p.state === "fracturing" && p.relaxation > -4) { p.state = "intact"; p.break_mode = null; }
+  if (p.state === "fracturing" && p.relaxation > easeOut(-4)) { p.state = "intact"; p.break_mode = null; }
   if (p.state === "fracturing" && p.relaxation <= -9) { p.state = "broken"; p.break_mode = p.break_mode ?? "fractured"; }
-  if ((p.state === "broken" || p.state === "shattered") && p.relaxation > -2) { p.state = "intact"; p.break_mode = null; }
+  if ((p.state === "broken" || p.state === "shattered") && p.relaxation > easeOut(-2)) { p.state = "intact"; p.break_mode = null; }
   p.mood_valence = clamp(Math.round(p.relaxation * 0.8), -10, 10);
 }
 
