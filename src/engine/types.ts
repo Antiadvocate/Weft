@@ -300,7 +300,8 @@ export interface Identity {
   speech_pattern: string;
   attachment?: {              // how this nervous system behaves around other people under threat — clinical attachment, deterministic in play
     style: "secure" | "anxious" | "avoidant" | "disorganized";
-    under_threat?: string;    // plain sentence: what they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
+    under_threat?: string;    // plain sentence: the FIRST thing they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
+    when_that_fails?: string; // plain sentence: what they do when that first move is visibly not working. ONE static under_threat made every character rigid by construction — one threat, one response, forever — and a person whose whole method is reading the room and switching tack had nowhere to live. A stubborn person's answer here is "the same thing, harder"; a manipulator's is a different door entirely, and for them the switch is the character.
     soothed_by?: string;      // plain sentence: what actually settles them
   };
   conscience?: number;        // 0..1 — how much other people's experience registers as MATTERING. Orthogonal to relaxation: calm is not care. Most people 0.6-0.9 (openness → warmth, the default physics). ≤0.35 = rudra-type: constitutionally cold — their poise is real (low-anxiety, stress-immune) and their openness yields precision without obligation; comfort does not soften them because there is nothing to soften into.
