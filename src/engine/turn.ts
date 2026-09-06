@@ -57,7 +57,8 @@ import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
-import { findMaxims, maximFix, voiceAnchor } from "./maxims";
+import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
+import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
 import { consultDirective } from "./consult";
@@ -70,7 +71,7 @@ import { extractHeuristics, backfillDiff, DEPART_IN_PROSE } from "./extract";
 import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCeiling, physioLabel, reconcilePlayerTightness } from "./physiology";
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
-import { readScene, sceneCutDirective, perceptionGapDirective } from "./scene";
+import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
 import { clipText, clipTail, overlapRatio } from "./text";
 import { clamp } from "./num";
 
@@ -1560,6 +1561,21 @@ const NAME_STOP = new Set(["the","a","an","of","at","on","in","and","old","new",
 export function travelMinutesBetween(state: SaveState, from: string, to: string): number {
   const a = from.trim().toLowerCase(), b = to.trim().toLowerCase();
   if (!a || !b || a === b) return 0;
+  // `ELSEWHERE` IS NOT A PLACE, AND MEASURING A DISTANCE TO IT ERASED A CHARACTER.
+  //
+  // loc_offscene is the engine's null bucket — it means "not on the page", not "somewhere far".
+  // Fed through the steps below it has no authored distance, no travel-log entry and no shared
+  // word with anything, so it falls to step 5 and inherits whatever this world's scale happens to
+  // be. In one save that came out at 1088 minutes: a woman moved offscene by mistake at half past
+  // one was quoted eighteen hours of travel to walk back into the apartment she had never left,
+  // and the shift log said so in as many words — "elsewhere is 1088 minutes away and 408 have
+  // passed" — on the turn the player typed "Continue story until Abigail is back in the picture".
+  //
+  // Somebody unplaced is not far away; they are unaccounted for. Coming back costs a neighbour's
+  // walk, which still stops them appearing in the same minute they vanished (the failure the
+  // arrival gate exists for) without putting them beyond reach of the story.
+  const offscene = (x: string) => x === "elsewhere" || x === OFFSCENE || x.startsWith("loc_offscene");
+  if (offscene(a) || offscene(b)) return NEIGHBOUR_TRAVEL_MIN;
   // 1. an authored distance is the truth
   for (const d of state.world.distances ?? []) {
     const f = String(d.from).trim().toLowerCase(), t = String(d.to).trim().toLowerCase();
@@ -1577,7 +1593,18 @@ export function travelMinutesBetween(state: SaveState, from: string, to: string)
     for (let i = 1; i < log.length; i++) {
       const pair = [log[i - 1].place, log[i].place];
       if (!(pair.includes(ida) && pair.includes(idb)) || pair[0] === pair[1]) continue;
-      const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+      // THE WALK IS THE TURN THE MOVE HAPPENED ON, NOT THE GAP BETWEEN TWO ENTRIES.
+      //
+      // The log records where the player STOOD on a turn, not how long the walk took, so measuring
+      // from the previous entry charges the whole stay to the journey. One save logged the bedroom
+      // at turn 20 and the living room at turn 24 — the player spent six in-world hours in there
+      // reading an electrical code book — and the engine filed that as a five-hour walk between two
+      // rooms of one flat, which then set the scale for every unmeasured pair in the world.
+      // The move happened during log[i].turn, so its cost is that turn's own elapsed minutes.
+      // Precise when the clock has the turn before the move; otherwise the older, coarser reading,
+      // which is all a log whose stamps have aged out of the window can offer.
+      const t0 = state.world.time_at_turn?.[log[i].turn - 1] ?? state.world.time_at_turn?.[log[i - 1].turn];
+      const t1 = state.world.time_at_turn?.[log[i].turn];
       // Stamps are kept to a short window, so an old trip has no clock — but the adjacency it
       // proves does not expire. Fall back to a neighbour's walk rather than throwing it away.
       const mins = t0 && t1 ? Math.max(0, minutesBetween(t0, t1)) : NEIGHBOUR_TRAVEL_MIN;
@@ -1635,7 +1662,11 @@ export function worldScale(state: SaveState): number | undefined {
   const hops: number[] = [];
   for (let i = 1; i < log.length; i++) {
     if (log[i - 1].place === log[i].place) continue;
-    const t0 = state.world.time_at_turn?.[log[i - 1].turn], t1 = state.world.time_at_turn?.[log[i].turn];
+    // Same rule as step 2 above: the journey costs the turn it happened on, not the stay before it.
+    // Without this a player who reads a book in his room all afternoon and then walks to the
+    // kitchen teaches this world that its rooms are five hours apart.
+    const t0 = state.world.time_at_turn?.[log[i].turn - 1] ?? state.world.time_at_turn?.[log[i - 1].turn];
+    const t1 = state.world.time_at_turn?.[log[i].turn];
     if (!t0 || !t1) continue;
     const mins = minutesBetween(t0, t1);
     // A hop measured across a sleep or a montage is not a measurement of the distance — it is a
@@ -2045,6 +2076,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     }
   }
   for (const id of Object.keys(state.memory)) tickMemoryDecay(state.memory[id], state.world.current_turn);
+  // AN HOUR SOMEBODY NAMED, THAT THE CLOCK HAS RUN PAST. Nothing in this engine had ever moved a
+  // commitment out of "pending", so an appointment missed at eleven was still being handed to the
+  // narrator as STILL DUE at half past three — and the narrator resolved the impossible timestamp
+  // the only cheap way there is, by writing that she had gone. See engine/commitments.ts.
+  for (const line of resolveOverdue(state)) ev.onMeta({ shifts: [line] });
   const undertow = neutralUndertow();
 
   // 1b ── FATE. When a destination has a turn budget, the ending is not optional. Fate reads the
@@ -2690,7 +2726,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -2816,7 +2852,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const sceneRead = readScene(state);
   const sceneNote = sceneCutDirective(sceneRead);
   // and the hardest scene ending there is: the player stops perceiving
-  const perceptionNote = perceptionGapDirective(state, action);
+  const perceptionNote = perceptionGapDirective(state, action)
+    // A SCREEN IS NOT THE ROOM. The player's action reaches the narrator whole, which is right for
+    // everything a body does and wrong for the four inches in front of one person's face. See
+    // engine/scene.ts — a player's report of "I do something and she instantly knows I'm on hinge".
+    + screenPrivacyNote(action, state.world.present
+        .filter((id) => id !== "char_player")
+        .map((id) => state.characters[id]?.name ?? "")
+        .filter(Boolean));
   if (sceneNote) ev.onMeta({ shifts: [`the scene has spent itself — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
   // A CALL PUT TO EVERYONE. Recorded before the directive is composed, so a call made THIS turn is
   // already standing when the narrator writes the answer to it — the player should not have to ask
@@ -2877,7 +2920,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
+    // THE PLAYER CHECKING A SETTLED FACT AGAINST SOMETHING OUTSIDE THE ROOM. The verdict goes in
+    // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
+    // invented mid-argument has no record of its own and will agree with whoever spoke last.
+    + verificationLaw(state, action, state.world.present, contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "")
+    + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3103,6 +3151,40 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // ...and the same move one layer out: a figure of speech in the NARRATION, explaining a
+      // spoken line with a comparison. Fires on recurrence rather than on the instance — a simile
+      // is a style choice, the same simile frame three turns running is a tic, and "like she was
+      // checking the weight of it" states an interior with one word in front of it. See maxims.ts.
+      state.last_figure = findFigure(
+        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
+        prose,
+      );
+      if (state.last_figure) noteFire(state, "figure", `the same narration frame for ${state.last_figure.runs} turns: "${state.last_figure.line.slice(0, 60)}"`);
+      // ...and a character describing the conversation instead of having it. Same recurrence rule:
+      // an argument about what somebody meant is a scene; two turns running of it is a transcript
+      // with opinions. See maxims.ts, and the promotion loop in this file for what usually causes it.
+      state.last_meta_talk = findMetaTalk(
+        state, state.world.present,
+        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
+        prose,
+      );
+      if (state.last_meta_talk) {
+        noteFire(state, "meta_talk", `${state.last_meta_talk.name} narrated the conversation for ${state.last_meta_talk.runs} turns`);
+        ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation rather than having it — it will be corrected next turn`] });
+      }
+      // ...and a line off somebody's own never-says list. The card is printed to the narrator every
+      // turn as reference and nothing has ever checked the output against it.
+      state.last_never_said = findNeverSaid(state, state.world.present, prose);
+      if (state.last_never_said) {
+        noteFire(state, "never_says", `${state.last_never_said.name} said "${state.last_never_said.forbidden}"`);
+        ev.onMeta({ shifts: [`${state.last_never_said.name} said a line their card lists under never-says — it will be corrected next turn`] });
+      }
+      // ...and a character claiming they kept an appointment the record has them standing here for.
+      state.last_missed_claim = findMissedClaim(prose, state, state.world.present);
+      if (state.last_missed_claim) {
+        noteFire(state, "confabulation", `${state.last_missed_claim.name} claimed an appointment the record says was missed`);
+        ev.onMeta({ shifts: [`${state.last_missed_claim.name} described keeping an appointment the record has them in this room for — it will be corrected next turn`] });
+      }
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
@@ -3804,7 +3886,33 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // from the player's words and the prose they appeared in, and the moment it does, promotion
     // happens as before. This only says that "we do not know who this is" and "they are now one of
     // the six people this story is about" cannot both be true on the same turn.
-    if (c && id !== "char_player" && !c.tracked && looksNamed(c.name) && !isStub(c)) {
+    // AND THE GATE IS CENTRALITY, NOT TRACKING. `tracked` and `central` are two different claims —
+    // "the engine spends upkeep on this person" and "the narrator is told who they are" — and four
+    // separate paths set `tracked` without ever touching `central`: the bookkeeper writing somebody
+    // a drive, the narrator's own `track` promotion, and authoring a want or a schedule from the
+    // Cast screen. Any of them landing before this loop first sees a character shut the door on
+    // them permanently, because the door was `!c.tracked`.
+    //
+    // What that looked like in play. A woman the player met on a dating app, alone with him at a
+    // restaurant table for eight consecutive turns, with a voice card the engine had spent a
+    // voiceforge call on that same evening — eleven years in commercial laundry, sodium
+    // percarbonate, a torn labrum, "no metaphor unless it comes off a machine or a barbell",
+    // "fills silence with inventory rather than questions", five example lines in her own mouth —
+    // and every turn the narrator was handed this and nothing else:
+    //
+    //     — Emily [char_…] (background) — present, even; a minor figure, simple and reactive,
+    //       not a focus
+    //
+    // Her card was not in the cached prefix either (see prompts.ts). So the narrator wrote her out
+    // of its own defaults, which for a woman in a tense dinner argument is fluent conversational
+    // analysis: summarising what was just said, naming the move the other person made, quoting him
+    // back to himself. It also gave her a different job from the one on her card. The player's
+    // question, and it is the right one: "Is Emily a human being or a narrator? Does Emily narrate
+    // or relate? Is she human? No."
+    //
+    // The cast cap was 6. She was the second person in it. Nothing was full; the guard simply could
+    // not see her.
+    if (c && id !== "char_player" && (!c.tracked || c.central === false) && looksNamed(c.name) && !isStub(c)) {
       // a named character in the scene becomes central (tracked, full fidelity) — but only if
       // there's room under the cap. If we're full, they stay a background/non-central figure.
       // COUNT THE CAST THE STORY WAS BUILT WITH, NOT ONLY THE ONES THIS LOOP PROMOTED. `central` is

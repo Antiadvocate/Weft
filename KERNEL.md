@@ -318,6 +318,96 @@ safety net: when a filed promise's text matches the recipient's active drive (to
 clears, and the next goal arrives by the normal drives_update path. Even if the bookkeeper forgets,
 the promise reaching the ledger IS the answer reaching state.
 
+**Commitment settlement** (`commitments.ts`, hooked into the per-turn tail and the load path).
+`commitment_status` has had "fulfilled", "missed" and "cancelled" since the type was written and
+nothing in the engine ever assigned any of them, so a commitment could only ever be born. The
+memory digest therefore went on printing `STILL DUE Day 1, 11:00` at Day 1, 15:26, and
+`commitmentBoost` kept that impossible line at 0.9 — front of mind, above everything else the
+character had — with no upper bound on how overdue it could get. A narrator resolving that
+contradiction resolves it the cheap way: she must have gone. One save's character consequently
+believed she had worked a shift she spent on the couch, and by the end was accusing the player of
+having forgotten an afternoon that was never written. `resolveOverdue` settles the ones the record
+can prove — the scheduled minute passing between two consecutive telemetry rows with the character
+in `present` for both, which is a crossing rather than an inference — and marks them `missed`;
+overdue-but-unwitnessed hours stop being described as upcoming and are rendered to the narrator as
+a hole in the record instead. It never marks anything fulfilled: guessing in that direction is the
+same failure pointed the other way.
+
+The window on a settled commitment is measured in **world minutes, not turns** — the save that
+prompted this ran forty-one turns across twelve hours, so a turn-counted window aged the missing
+shift out at about seven in the evening, on the exact turn the player finally rang the salon to
+check. And when the player does check, `verificationLaw` puts the verdict in the directive *before*
+the prose, the way `attempt.ts` resolves an attempt before a word is written: a witness invented
+mid-argument has no record of its own to consult and will agree with whoever spoke last, so the
+check the player invented to end a hallucination is otherwise the thing that certifies it. It
+settles only what is asked and leaves the rest of the scene open — the character may still lie, the
+answer may still be slow, partial or useless; what is unavailable is a third party putting somebody
+where the record does not.
+
+**`tracked` and `central` are two different claims** (`turn.ts` promotion loop, `prompts.ts` × 3,
+`aperture.ts`). `tracked` means the engine spends upkeep on this person — a drive, a schedule, an
+authored want; `central` means the narrator is told who they are. Four paths set `tracked` without
+touching `central` (the bookkeeper writing a drive, the narrator's own `track` promotion, and
+authoring a want or a schedule from the Cast screen), and the promotion loop's gate was
+`!c.tracked` — so any of them landing first shut the door permanently. A woman alone with the
+player at a restaurant table for eight consecutive turns, with a voice card the engine had spent a
+voiceforge call on that same evening, reached the narrator as `— Emily (background) — present,
+even; a minor figure, simple and reactive, not a focus`, with her card excluded from the cached
+prefix entirely. The cast cap was six and she was the second person in it. The gate is centrality
+now, and a *tracked* character is never rendered as furniture — desire.ts made this argument once
+already in the other direction ("SIMULATION LOD IS NOT RENDER LOD") when `central` was wrongly
+gating simulation.
+
+**Narrating the conversation instead of having it** (`findMetaTalk`, maxims.ts). What a model
+writes when it has a scene and no person to put in it: sentences about the exchange — what was
+asked, what was said, what the other person is doing by saying it. Measured on the save above,
+spoken sentences of that kind per turn ran 0–1 through eleven ordinary turns and then 4, 5, 4, 2 —
+so it fires on a rate over a run of turns, never on one line, because an argument about what
+somebody meant is a legitimate scene.
+
+**A frequency is not a span** (`declaredMinutes`, time.ts). "I sometimes go 4 times a week", typed
+mid-conversation at a dinner table, moved the world clock seven days: the article-plus-unit pattern
+matched `a week` inside a rate. Frequencies are rejected now, and quoted speech is masked before
+the line is read at all — the engine masks dialogue everywhere else it reads the player's input,
+and a character talking about a week is not a player spending one.
+
+**Three location bugs that removed a character from a story** (`exit.ts`, `turn.ts`). (1) `left` is
+two verbs. The departure guard's verb list contained a bare `left`, and a narrator writing about
+the room the player had walked out of produced "volume unchanged from where Abigail left it" — her
+name inside the matched span, which `owns` treats as settling the question. She was moved offscene
+on the strength of a sentence about her television. `left`/`leaves`/`leaving` now carry a negative
+lookahead for an object pronoun or `behind`; "Abigail left." and "left the apartment" are
+untouched. (2) `elsewhere` is not a place. `loc_offscene` is the null bucket — not on the page, not
+far away — and priced through the distance steps it inherits the world's scale; one save quoted a
+character eighteen hours of travel back from nowhere, on the turn the player typed "continue until
+Abigail is back in the picture". It costs a neighbour's walk now, which still forbids appearing in
+the same minute as vanishing. (3) A stay is not a journey. `travel_log` records where the player
+STOOD on a turn, so measuring a hop between two entries charges the whole intervening stay to the
+walk — a player who read a book in his bedroom for six hours taught the engine that two rooms of
+one flat were five hours apart, which then set the scale for every unmeasured pair in the world. A
+hop is now measured across the turn the move happened on.
+
+**A screen is not the room** (`screenPrivacyNote`, scene.ts). The player's typed action reaches the
+narrator whole, which is correct for everything a body does and wrong for the four inches in front
+of one person's face: "I do something and she instantly knows I'm on hinge." The note hands the
+room the posture — angle, thumb, the light on a face, how long, whether he answers — and withholds
+the content. Wanting to know is the scene; being wrong about it is the best version of it. Silent
+when nobody else is present, and silent when the player is plainly showing it to someone.
+
+**Three output-side voice guards** (`maxims.ts`, `aperture.ts`). All three use the mechanism that
+actually works here — catch it in the committed prose, quote it back at the end of the next
+directive. (1) `findFigure` extends the maxim detector out of the quotation marks: a spoken line
+followed by a comparison explaining it ("She said it flat, like the word had a price on it") is a
+style choice once and a tic on the third turn running, and "like she was —" is an interior leak
+with one word in front of it, which is why MOTIVE_LEAK never saw it. Fires on the run, not the
+instance. (2) `findNeverSaid` checks the output against each present character's own `never_says`
+list, which was printed to the narrator every turn as reference and never once enforced. (3)
+`appetiteGap` counts turns of speech in which a character neither wanted anything out loud nor put
+a subject on the table that was neither them nor the person they were talking to — and the
+narrowed band of `apertureNote`, which had been unreachable (a clenched body was skipped before it
+could reach the paragraph written for it), now speaks: a braced body should narrow, and what needed
+checking was whose one thing it narrows onto.
+
 ## 5b. The attempt frame (`attempt.ts`)
 
 Outcome resolution without dice. A CRPG compresses untracked causes into a roll; this engine

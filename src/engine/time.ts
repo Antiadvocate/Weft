@@ -74,13 +74,46 @@ export function heuristicMinutes(action: string, prose = ""): number {
  * Read ONLY from the player's own words, never the prose — the narrator writing "hours later" is
  * the narrator's guess, and it is the bookkeeper's job to price that. This is the player speaking.
  */
+/**
+ * A FREQUENCY IS NOT A SPAN, AND A LINE OF DIALOGUE IS NOT A DECLARATION.
+ *
+ * Turn 39 of a real save. The player is at a restaurant table, mid-conversation, and types:
+ *
+ *     "I go daily if I can help it. I sometimes go 4 times a week. Just depends on how my body
+ *      feels. Do you workout? I assume so"
+ *
+ * The clock went from Day 2, 18:54 to Day 9, 18:54. The match was `a week` — the article-plus-unit
+ * pattern, sitting inside "4 times a week" — read as a declared duration of seven days, which
+ * outranked the bookkeeper's two-minute bill because a declaration always wins. The rest of the
+ * dinner then ran a week after it started, and the woman across the table was made to say they had
+ * met on an app four days ago, in the middle of the meal she had arrived for.
+ *
+ * Two things were wrong and both are the same mistake — reading a rate or a remark as a duration.
+ *
+ *   · "four times a week", "twice a day", "once an hour" state how OFTEN, not how long. The bare
+ *     article carries no span at all; it only ever looked like one because `a` is in the number
+ *     list, for "a few hours" and "an hour".
+ *   · The sentence is SPEECH. The engine masks quoted dialogue before reading it in every other
+ *     place it reads the player's input (see exit.ts, echo.ts, ooc.ts) precisely because a
+ *     character talking about a week is not a player spending one. This function read the raw line.
+ *
+ * What still declares a span is unchanged: "I wait three hours", "I read until eight", an
+ * overnight, a flight. Those are the player saying what their action costs.
+ */
 export function declaredMinutes(action: string): number {
-  const s = String(action ?? "").toLowerCase();
+  // A character SAYING "four times a week" is not the player spending one. Quoted speech goes
+  // first, the same way it does everywhere else the engine reads this input.
+  const s = String(action ?? "").toLowerCase().replace(/["\u201c][^"\u201d]*["\u201d]?/g, " ");
   // an explicit count, in the player's own words: "three hours", "a couple of days", "20 minutes"
   const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, "a couple of": 2, "a few": 3, several: 4, half: 0.5 };
   const unit: Record<string, number> = { minute: 1, minutes: 1, min: 1, mins: 1, hour: 60, hours: 60, day: 1440, days: 1440, week: 10080, weeks: 10080 };
   let best = 0;
+  // "four times a week", "twice a day", "once an hour", "three days a week" — the words in front of
+  // the match say it is a rate. Checked on the text immediately before it, because that is where
+  // the tell always sits.
+  const RATE = /\b(?:times?|per|once|twice|thrice|every|each)\s*$/i;
   for (const m of s.matchAll(/\b(\d{1,3}|a couple of|a few|several|half|an?|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(minutes?|mins?|hours?|days?|weeks?)\b/g)) {
+    if (RATE.test(s.slice(Math.max(0, m.index - 14), m.index))) continue;
     const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM[m[1]] ?? 0;
     const u = unit[m[2]] ?? 0;
     if (n && u) best = Math.max(best, Math.round(n * u));

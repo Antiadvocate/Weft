@@ -1,0 +1,243 @@
+{
+ "world": {
+  "current_turn": 29,
+  "current_time": "Day 2, 05:40 (Dawn)",
+  "present": [
+   "char_mtl12i1gbbk30"
+  ],
+  "player_location": "loc_mtl12i1gpjqaj",
+  "places": {
+   "loc_mtl12i1fabqns": {
+    "id": "loc_mtl12i1fabqns",
+    "name": "Unit 3B Living Room",
+    "identity": "The cramped, un-airconditioned common room of the third-floor apartment Max and Abigail share at 114 Elm Street.",
+    "description_facts": "Threadbare brown microfiber couch pushed against a yellowed plaster wall, low coffee table littered with mail and nail polish bottles, single box fan vibrating loudly in the open window, bare hardwood floor with worn patches of varnish near the kitchen threshold.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 2,
+     "who": "Max working on his laptop; Abigail lounging barefoot on the couch or painting her nails."
+    },
+    "player_last_here": 27
+   },
+   "loc_mtl12i1gpjqaj": {
+    "id": "loc_mtl12i1gpjqaj",
+    "name": "Max's Bedroom",
+    "identity": "The tiny rear bedroom of Unit 3B rented by Max Mercer.",
+    "description_facts": "Single twin mattress on a metal frame, small particle-board desk holding a dual-monitor rig and scattered copy briefs, neat row of closed black shoes along the baseboard, single window overlooking the brick fire escape and clotheslines.",
+    "contains": [
+     "char_player",
+     "char_mtl12i1gbbk30"
+    ],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Max alone, typing technical manuals or attempting to hide his anxiety."
+    },
+    "player_last_here": 28
+   },
+   "loc_mtl12i1gf7fhz": {
+    "id": "loc_mtl12i1gf7fhz",
+    "name": "Abigail's Bedroom",
+    "identity": "The larger corner bedroom of Unit 3B occupied by Abigail Mercer.",
+    "description_facts": "Unmade queen bed with tangled lavender sheets, floor littered with discarded crop tops and short skirts, full-length mirror propped against the closet door, vanity desk covered in perfume atomizers, emery boards, foot scrubs, and half-smoked menthols.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Abigail grooming herself, scrolling social media, or trying on footwear."
+    }
+   },
+   "loc_mtl12i1g5eyq5": {
+    "id": "loc_mtl12i1g5eyq5",
+    "name": "Third-Floor Hallway of 114 Elm",
+    "identity": "The narrow communal corridor serving four apartments on the top floor of 114 Elm Street.",
+    "description_facts": "Warped floral linoleum floor smelling of boiled cabbage and old mop water, flickering bare fluorescent bulb overhead, peeling olive paint on doorframes, faint sounds of television dialogue leaking through hollow-core doors.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 3,
+     "who": "Elderly neighbors carrying garbage bags, delivery couriers scanning buzzer numbers, tenants unlocking doors."
+    }
+   },
+   "loc_mtl12i1gijbfx": {
+    "id": "loc_mtl12i1gijbfx",
+    "name": "Basement Laundry of 114 Elm",
+    "identity": "The damp, windowless stone cellar beneath the apartment building housing shared washing machines.",
+    "description_facts": "Exposed overhead copper pipes sweating condensation, concrete slab floor sloping toward a central drain, two coin-operated top-load washers and one squealing dryer, strong odor of bleach and stale detergent powder.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 2,
+     "who": "Tenants waiting on rinse cycles, building superintendent checking water valves."
+    }
+   },
+   "loc_mtl12i1gj22nm": {
+    "id": "loc_mtl12i1gj22nm",
+    "name": "Kettle & Press Copy Shop",
+    "identity": "The storefront commercial printing and copying business on Elm Street where Chloe Miller works.",
+    "description_facts": "Humming industrial digital printers behind a waist-high laminate counter, cardboard cartons of ream paper stacked against the front windows, smell of warm ozone and toner, revolving display of local business cards.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 5,
+     "who": "Chloe running print jobs, independent contractors picking up blueprints, small business owners approving proofs."
+    }
+   },
+   "loc_mtl12i1ggqed3": {
+    "id": "loc_mtl12i1ggqed3",
+    "name": "The Copper Tap",
+    "identity": "A narrow, dimly lit neighborhood beer-and-shot tavern two blocks south of 114 Elm.",
+    "description_facts": "Long mahogany bar sticky with spilled cider, neon draft beer signs buzzing in the frosted front windows, single coin-op pool table under a stained glass pendant lamp, lingering smell of fried mozzarella sticks and stale ale.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 12,
+     "who": "Liam Torres pouring drafts, off-shift utility workers, regulars watching baseball on mute."
+    }
+   },
+   "loc_mtl12i1g2xksd": {
+    "id": "loc_mtl12i1g2xksd",
+    "name": "Elm Street Bodega",
+    "identity": "The 24-hour convenience market on the corner of Elm and 4th Avenue.",
+    "description_facts": "Tight aisles crammed with canned beans, lottery ticket counter behind scratched Plexiglas, hum of refrigerated beverage cases, wire racks of cheap plastic flip-flops and sunglasses near the registers.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 6,
+     "who": "Bodega clerk behind the counter, neighbors buying milk and cigarettes, delivery drivers."
+    }
+   },
+   "loc_mtl12i1gmo85b": {
+    "id": "loc_mtl12i1gmo85b",
+    "name": "114 Elm Rooftop",
+    "identity": "The flat tar-and-gravel roof of 114 Elm Street accessed via the top-floor fire stair door.",
+    "description_facts": "Black tar patching softening under the summer sun, rusted iron vent pipes, clothesline strung between chimney stacks, sweeping view of the surrounding brick tenements and distant downtown skyline.",
+    "contains": [],
+    "founding": true,
+    "population": {
+     "scale": 1,
+     "who": "Abigail smoking menthols in secret, occasional tenant taking in evening air."
+    }
+   },
+   "loc_offscene": {
+    "id": "loc_offscene",
+    "name": "elsewhere",
+    "description_facts": "",
+    "contains": []
+   }
+  },
+  "time_at_turn": {
+   "1": "Day 1, 09:00 (Morning)",
+   "2": "Day 1, 09:05 (Morning)",
+   "3": "Day 1, 09:10 (Morning)",
+   "4": "Day 1, 09:30 (Morning)",
+   "5": "Day 1, 11:30 (Morning)",
+   "6": "Day 1, 11:35 (Morning)",
+   "7": "Day 1, 11:40 (Morning)",
+   "8": "Day 1, 11:43 (Morning)",
+   "9": "Day 1, 12:48 (Afternoon)",
+   "10": "Day 1, 12:50 (Afternoon)",
+   "11": "Day 1, 12:55 (Afternoon)",
+   "12": "Day 1, 12:58 (Afternoon)",
+   "13": "Day 1, 13:01 (Afternoon)",
+   "14": "Day 1, 13:11 (Afternoon)",
+   "15": "Day 1, 13:16 (Afternoon)",
+   "16": "Day 1, 13:21 (Afternoon)",
+   "17": "Day 1, 13:24 (Afternoon)",
+   "18": "Day 1, 13:26 (Afternoon)",
+   "19": "Day 1, 13:29 (Afternoon)",
+   "20": "Day 1, 13:32 (Afternoon)",
+   "21": "Day 1, 14:17 (Afternoon)",
+   "22": "Day 1, 14:42 (Afternoon)",
+   "23": "Day 1, 15:07 (Afternoon)",
+   "24": "Day 1, 20:00 (Evening)",
+   "25": "Day 1, 20:10 (Evening)",
+   "26": "Day 1, 20:20 (Evening)",
+   "27": "Day 1, 21:05 (Night)",
+   "28": "Day 1, 21:40 (Night)"
+  }
+ },
+ "travel_log": [
+  {
+   "turn": 1,
+   "place": "loc_mtl12i1fabqns"
+  },
+  {
+   "turn": 20,
+   "place": "loc_mtl12i1gpjqaj"
+  },
+  {
+   "turn": 24,
+   "place": "loc_mtl12i1fabqns"
+  },
+  {
+   "turn": 27,
+   "place": "loc_mtl12i1gpjqaj"
+  }
+ ],
+ "characters": {
+  "char_player": {
+   "character_id": "char_player",
+   "name": "Max Mercer"
+  },
+  "char_mtl12i1gbbk30": {
+   "character_id": "char_mtl12i1gbbk30",
+   "name": "Abigail Mercer",
+   "location": "loc_mtl12i1gpjqaj",
+   "location_since": "Day 1, 13:32 (Afternoon)"
+  }
+ },
+ "history": [
+  {
+   "turn": 19,
+   "player_action": "I tstand up \"to be honest I've answered you. I'm watching the tv. But it wasn't enough and you keep pushing and bringing up dad and it's making me uncomfortable. So maybe I'm just going to go to my room for a bit while you figure out what you're trying to ask\"",
+   "narrator_prose": "Max is on his feet before the fan even catches the movement, its rattle covering the scrape of his knees against the coffee table's edge. He doesn't look at her going past.\n\nAbigail doesn't sit up straight to answer. She lets her spine slide another two inches down the cushion, one bare foot still hooked over the coffee table's edge, her cock outlined against the thin cotton where the leg of her shorts has ridden up. Her arm goes up over her head, elbow bent against the couch back, and the loose neck of her tank top gapes at the shoulder she'd already worked open, the shaved-smooth curve of her underarm on full display under the ceiling light. She doesn't fix that either.\n\n\"Room's like a hundred and ten degrees back there, you know that, right.\" She says it to the television, not turning her head, like she's commenting on the weather report. \"Fan doesn't even reach past the hallway.\"\n\nHer foot slides off the table, toes finding the floor, and she pushes herself up onto both feet in one motion, following him as far as the arm of the couch and stopping there, weight settled on her heels, arms still loose over her head like she forgot to bring them down.\n\n\"Max.\" Flat. Not a question this time. \"I traded my whole shift so we'd have today. You said dinner. Six o'clock.\" A beat, her jaw working like she's deciding whether to keep going. \"Go cook off, then. I'll be here.\"\n\nShe drops back onto the couch, both feet coming up onto the coffee table again, heels first, and reaches for the remote he left behind, thumb finding the volume without looking at it."
+  },
+  {
+   "turn": 20,
+   "player_action": "\"K\". I walk to my room lie in bed and read a book.",
+   "narrator_prose": "The hallway floor gives under his feet the way it always does past the third board, and his bedroom door clicks shut behind him with the same soft catch it's had since he moved in. The heat back here is worse, the fan's reach ending somewhere around the coat hooks, and the air sits thick and unmoving against his skin.\n\nHe drops onto the bed, springs complaining once, and reaches for the paperback splayed spine-up on the nightstand where he left it \u2014 something about municipal water systems, dog-eared past the first third. He finds his page. The print runs small, single columns, a diagram of a cross-section valve taking up half of page one-forty-one.\n\n*Backflow preventers are required at any connection where contamination of the potable supply is possible \u2014 check valves alone are not sufficient under state code, as they can fail silently under pressure loss. A double-check valve assembly, tested annually, is standard for residential risers below a certain flow threshold; anything larger requires a reduced-pressure zone assembly with an air gap. Improperly maintained assemblies are the leading cause of cross-contamination events in older multi-unit buildings, particularly those retrofitted after 1975 without full riser replacement.*\n\nThe paragraph runs on another few lines about testing intervals and licensed inspectors before breaking into a subhead about lead solder joints. He reads it twice without really landing on it, eyes tracking the same sentence about the reduced-pressure assembly, the box fan two rooms over cutting a low steady drone through the wall.\n\nOut in the living room the television keeps playing to nobody in particular, volume unchanged from where Abigail left it. A floorboard somewhere near the couch takes weight, then settles again. No knock comes. No voice calls down the hall. The building does what it does at half past one on a weekday \u2014 someone's dryer thumping faintly through the floor below, a car easing past on Elm with its windows down, radio bleeding out into the street for a few seconds and then gone."
+  },
+  {
+   "turn": 21,
+   "player_action": "I keep reading. Need to study for my NEC anyways",
+   "narrator_prose": "Max shifts the book flat against his chest and picks it back up, thumb finding the dog-eared corner of the page about riser replacement. The text sits there \u2014 testing intervals, licensed inspectors, a diagram of a reduced-pressure assembly he's already looked at twice. He reads the paragraph on lead solder joints, then the one after it about minimum clearances, and somewhere in the middle of a sentence about conduit fill his eyes catch and hold on a footnote he'd skimmed past the first time.\n\nThe box fan keeps turning two rooms over, its drone unbroken. Out past the door the television is still going, some voice delivering a punchline to nobody, laugh track rolling under it and fading. No footsteps come down the hall. The particle-board desk creaks faintly under the weight of one elbow when he shifts his arm to turn the page, a sound the desk has made before and will make again.\n\nSweat has gathered at the back of his neck where his hair sits against the collar of his shirt, the room holding the same still heat it held twenty minutes ago. He reaches for the shaker bottle on the floor beside the mattress, drinks, sets it back down against the leg of the bed frame with a small hollow knock, and returns to the page \u2014 a table now, ampacity ratings by wire gauge, THHN and THWN-2 listed side by side. He runs a finger down the column, checking one figure against a number he's carrying from a job three weeks back, and keeps reading."
+  },
+  {
+   "turn": 22,
+   "player_action": "I keep going",
+   "narrator_prose": "The page turns. Another table, this one for conduit fill by trade size, and he traces the column with the same finger, checking a figure against a job three weeks back. The heat sits against his neck, unmoved, and the shaker bottle waits against the leg of the bed frame where he left it. A row of black shoes lines the baseboard, laces tucked, toes squared to the wall.\n\nOut past the door the television keeps going, some other voice now, some other punchline, laugh track rolling under it. No footsteps. No door. The particle-board desk creaks once when his elbow shifts on it. He flips to the next section \u2014 grounding conductor sizing, a chart he's seen a hundred times \u2014 and reads it again anyway, pencil in hand, marking nothing.\n\nThe window over the fire escape shows a clothesline gone still, no wind to move it. A brass keychain shaped like a pine tree sits on the corner of the desk where it's sat for months, a rest stop somewhere off 80, half a foot from the monitor's edge. He doesn't touch it. He turns another page."
+  },
+  {
+   "turn": 23,
+   "player_action": "I keep going til 8 pm",
+   "narrator_prose": "The light through the fire escape window shifts by degrees, the clothesline going gold and then dim as the afternoon burns down into evening. Max flips pages. The grounding conductor chart gives way to overcurrent protection, then to a section on branch circuit calculations he's read before, twice, in the last two years, and he reads it a third time, pencil tapping against the margin without writing anything there.\n\nThe television keeps going down the hall, changing shows twice, three times, laugh tracks swapping out for the flatter tone of something scripted, then a burst of studio applause, then quiet stretches where it's just talk. No footsteps cross the living room floor. No door opens. At some point the smell of something cooking doesn't happen \u2014 no pan on the stove, no smell of food, nothing but the television's noise threading through the wall.\n\nHis stomach doesn't announce itself the way it usually does around six. He keeps reading. The pencil gets set down at some point and picked back up. The brass keychain on the desk catches the last of the daylight for a while and then doesn't, the window going the color of the brick outside it, then darker. He reaches over without really looking and clicks the desk lamp on. The code book's pages go yellow under it instead of white.\n\nOutside, a car alarm goes off somewhere on Elm and cuts out after four cycles. Someone in the building above runs a shower, pipes knocking once behind the wall near the closet. Max checks the time on his laptop screen without meaning to \u2014 7:52, then 7:58, then the numbers roll to 8:00 and he's still got a finger on the same paragraph about wire gauge minimums, the sentence read enough times now that his eyes go over it without taking anything new from it.\n\nThe television is still on down the hall. Nobody has knocked."
+  },
+  {
+   "turn": 24,
+   "player_action": "I go to the kitchen and grab some food. \"Sorry Abigail I'm not going to go out with you for dinner. That conversation and the way you've talked to me about how I'm like dad wasn't comfortable. I think some boundaries would help\"",
+   "narrator_prose": "Max's stomach makes a sound loud enough that he hears it over his own footsteps. The kitchen light is the fluorescent tube kind, and it buzzes for a second before it settles. The fridge holds a carton of eggs, half a loaf of bread going soft at the heel, some deli turkey in a ziploc bag pushed to the back. He gets out the bread and the turkey and a jar of mustard with a crusted ring around the lid, and puts two slices down on the counter he already cleaned once today.\n\nThe television is still going in the living room, laugh track rolling under something, but there's no answer to what he just said. No footsteps. The couch springs don't shift. He spreads mustard on one slice with a butter knife pulled from the drying rack, folds turkey onto it, and eats standing at the counter with his hip against the edge of it, the plate untouched because there isn't a plate, just a paper towel gone translucent with grease at one corner.\n\nHe gets the shaker bottle down from the cabinet, the black plastic one with the little wire ball inside it, and fills it at the tap, screws the lid, shakes it, drinks half of it standing there. The clock on the microwave says 8:04. Outside on Elm somebody's radio thumps past low and fades. He finishes the sandwich in four bites, rinses the knife, sets it back in the rack, wipes the counter down again even though there's nothing on it, and the sponge squeaks once against the laminate before he stops."
+  },
+  {
+   "turn": 25,
+   "player_action": ".",
+   "narrator_prose": "Max wipes his hands on the paper towel, wads it, and drops it in the trash under the sink. He turns off the tap light and steps out of the kitchen into the living room, the box fan pushing warm air across the coffee table.\n\nTwo plates sit there, chicken gone matte and dark at the edges, cold. One piece bigger than the other. A phone lies face-up near the couch arm, screen still lit faint at the corner, then dark. The coats from earlier are still heaped on the floor by the alcove, and the polish bottles on the table have their caps back on, lined up straight.\n\nHe doesn't pick anything up. He stands at the mouth of the room for a second, looking at the fan where it shudders in the window frame, then crosses toward the couch, careful of the coats, and lowers himself onto the far cushion \u2014 the one not facing the plates directly. The couch springs give under him, the only sound besides the fan's rattle.\n\nHe picks up the remote from where it's wedged in the cushion seam and turns the television on. The screen flickers blue-white across the dim room before it settles into a picture, volume low, some rerun with a laugh track that doesn't quite fill the space the fan leaves behind. He sets the remote down on his knee and watches it, the plates still there in the corner of his eye, cooling."
+  },
+  {
+   "turn": 26,
+   "player_action": "Continue story until Abigail is back in the picture. Max does what he's going to do until then.",
+   "narrator_prose": "The show runs its course and cuts to a commercial, a car dealership shouting prices at half the volume of the actual program. Max thumbs the remote and drops the volume another notch out of habit, though there's nobody to hear it either way.\n\nHe gets up once, goes to the coffee table, and moves the two plates himself \u2014 stacks the chicken on top of the untouched rice, carries both to the kitchen sink where he runs the tap over them until the sauce loosens off the ceramic. He doesn't wash them all the way. He sets them in the rack to deal with later and dries his hands on the dish towel hanging off the oven handle, the same three-swipe motion he'd use on the counter.\n\nBack on the couch he picks his phone up off the cushion, scrolls without reading anything for a while, sets it face-down on his knee. The fan rattles through another cycle of the same pitch. At some point the rerun ends and another one starts, the laugh track different but the rhythm the same, and he stays where he is through most of it, elbow on the armrest, glasses slid a little down his nose, watching without much in his face about it.\n\nKeys turn in the lock \u2014 the scrape of the deadbolt first, then the knob, then the door swinging in against its own weight."
+  },
+  {
+   "turn": 27,
+   "player_action": "I go to bed after having my dinner.",
+   "narrator_prose": "Max carries the bowl and fork to the sink, rinses both, sets them in the rack next to the other dishes already sitting there. He wipes his hands on the towel hanging off the oven handle, three swipes, same as always.\n\nThe box fan keeps its rattle going in the living room window. He crosses past the couch, past the coffee table with its scatter of mail and polish bottles, and flips the TV off on his way. The room drops to just the fan.\n\nHe goes down the short hall to his room, pulls the door most of the way shut behind him \u2014 not latched, just pulled to. Glasses off, set on the desk next to the electrical code binder still open to the same page. He changes out of what he's wearing, drops it in the hamper by the closet, and gets into bed in the dark.\n\nHe lies there a while listening to the fan through the wall, the building's pipes ticking somewhere below the floor, a car passing on Elm with its windows down and a radio going for two seconds before it's gone. His breathing slows. The pillow's warm on one side and he doesn't bother turning it. At some point the ticking pipes stop registering and so does the fan, and so does the rest of it."
+  },
+  {
+   "turn": 28,
+   "player_action": "I sleep",
+   "narrator_prose": "The pillow keeps its shape under his cheek. The fan through the wall keeps going, the same low push of air it's kept all night. A car passes on Elm below, tires loud on the heat-softened asphalt, gone in a second.\n\nHis breathing stays even. Somewhere past the wall a pipe knocks twice and goes quiet. The window unit two floors down cycles off, and the room settles into whatever's left \u2014 the fan, the building, nothing else.\n\nHe doesn't stir again."
+  }
+ ]
+}

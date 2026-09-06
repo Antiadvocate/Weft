@@ -1,4 +1,5 @@
 import { parseTime } from "./time";
+import { dueLabel, MISSED_KEEP_MINUTES } from "./commitments";
 import { factGate, factOverlap } from "./facts";
 /**
  * Generative-agents memory (Park et al. 2023, arXiv:2304.03442), embedding-free.
@@ -257,6 +258,17 @@ function semanticGist(m: EpisodicMemory): string {
 /** Commitment boost: a pending appointment outranks decay — hard when its time is NEAR,
  *  soft when it is still days out (a dinner next week shouldn't crowd out today). */
 function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""): number {
+  // A BLOWN APPOINTMENT IS NOT AN APPOINTMENT ANY MORE. It stays live because there is somebody
+  // owed the time and the character knows it — but at the weight of a consequence rather than at
+  // the weight of a thing about to happen. See engine/commitments.ts for the save where the two
+  // were the same number and a shift missed at eleven was still the loudest thing in her head at
+  // half past three, which is how it turned into a shift she believed she had worked.
+  if (m.commitment_status === "missed") {
+    if (!nowLabel || !m.scheduled_time) return 0.45;
+    const late = (parseTime(nowLabel).day - parseTime(m.scheduled_time).day) * 1440
+      + (parseTime(nowLabel).hour - parseTime(m.scheduled_time).hour) * 60;
+    return late <= MISSED_KEEP_MINUTES ? 0.45 : 0;
+  }
   if (m.commitment_status !== "pending" || !m.scheduled_time) return 0;
   // UNCLOCKED OPEN LOOP: most unfinished business has no due time — an answer owed, a message
   // interrupted, a question left hanging. It used to be unrepresentable, since the boost required a
@@ -280,7 +292,12 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""):
   if (!nowLabel) return 0.8;
   const a = parseTime(nowLabel), b = parseTime(m.scheduled_time);
   const mins = (b.day - a.day) * 1440 + (b.hour - a.hour) * 60 + (b.minute - a.minute);
-  if (mins <= 0) return 0.9;              // due or overdue: front of mind
+  // OVERDUE IS NOT UNBOUNDED. "Due or overdue: front of mind" had no floor under it, so an hour the
+  // clock ran past days ago outranked everything the character had done since, every turn, with
+  // nothing able to close it. Front of mind while it is freshly late; after a day it is either
+  // something they did and forgot to say so, or something they did not do, and neither of those is
+  // an appointment. commitments.ts settles the ones it can prove; this stops the rest shouting.
+  if (mins <= 0) return mins >= -1440 ? 0.9 : 0.3;
   if (mins <= 1440) return 0.8;           // within a day
   if (mins <= 3 * 1440) return 0.5;       // within three days
   return 0.25;                            // distant: present, not dominant
@@ -850,7 +867,7 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
     // time decays first and fastest — exact stamp fuzzes to a range by stage, sticky anchor persists
     const when = fuzzedWhen(m, full);
     const stamp = [when, place].filter(Boolean).join(", ");
-    const due = m.commitment_status === "pending" ? `, STILL DUE ${m.scheduled_time}` : "";
+    const due = dueLabel(m, nowLabel);
     const raw = full ? (m.full_content ?? m.content) : m.content;
     const budget = full ? 300 : 170; // render cap: a memory is a cue for the narrator, not a transcript — verbose bookkeeper output must not flood the digest
     const text = raw.length > budget ? raw.slice(0, budget - 2).trimEnd() + "…" : raw;

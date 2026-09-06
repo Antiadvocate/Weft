@@ -53,9 +53,34 @@ const HONORIFICS = new Set([
   "lady", "father", "sister", "brother", "elder", "master",
 ]);
 
+/**
+ * `LEFT` IS TWO VERBS, AND ONE OF THEM ERASED A CHARACTER FROM A STORY.
+ *
+ * Turn 20 of a real save. The player types "I walk to my room lie in bed and read a book." The
+ * prose follows him down the hall, and four paragraphs in, describing the apartment he has left
+ * behind:
+ *
+ *     Out in the living room the television keeps playing to nobody in particular, volume
+ *     unchanged from where Abigail left it. A floorboard somewhere near the couch takes weight,
+ *     then settles again.
+ *
+ * That sentence says she is still there. It is about her television and her floorboard. The guard
+ * read "Abigail left" — her name inside the matched span, which `owns` treats as settling the
+ * question outright — and moved her out of the story. She went to `elsewhere`, and the arrival
+ * gate then quoted her eighteen hours of travel back from a place that does not exist, so she was
+ * gone for the rest of the session. The player's report: "Abigail vanished for no reason. Into the
+ * abyss."
+ *
+ * `left` transitive means placed, abandoned, put down. "Left it", "left them on the counter",
+ * "left behind" — an object being where somebody put it, which is the opposite of evidence that
+ * anybody went anywhere. The rule is exactly as narrow as the failure: the next word decides.
+ * "Abigail left." and "left the apartment" are untouched.
+ */
+const PLACED = String.raw`(?!\s+(?:it|them|that|this|these|those|one|behind)\b)`;
+
 /** THEY WALKED OUT. The original list, plus the ways people actually end a visit — by car, by
  *  turning around, by being seen to the door. */
-const LEAVES = /\b(left|leaves|leaving|exits?|exiting|departs?|departing|walks? out|walking out|walked out|strode out|hurried off|heads? off|headed off|dismissed|called away|slipped out|steps? out|stepped out|stepping out|took the lift|made (his|her|xer|their) way out|was summoned|retreated|withdrew|withdrawn|drove off|drove away|drives off|pulled away|walked away|walks away|turned and went|ran off|fled|saw (him|her|them) out|let (him|her|them)self out|walked to (his|her|their) car|got into (the|his|her|their) car)\b/i;
+const LEAVES = new RegExp(String.raw`\b((?:left|leaves|leaving)${PLACED}|exits?|exiting|departs?|departing|walks? out|walking out|walked out|strode out|hurried off|heads? off|headed off|dismissed|called away|slipped out|steps? out|stepped out|stepping out|took the lift|made (his|her|xer|their) way out|was summoned|retreated|withdrew|withdrawn|drove off|drove away|drives off|pulled away|walked away|walks away|turned and went|ran off|fled|saw (him|her|them) out|let (him|her|them)self out|walked to (his|her|their) car|got into (the|his|her|their) car)\b`, "i");
 
 /** THEY WERE PUT OUT. A verb of force with somewhere to go — the particle is what keeps "the dish
  *  stayed where she'd pushed it" from reading as an eviction. */

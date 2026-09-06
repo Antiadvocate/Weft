@@ -80,10 +80,18 @@ const MARKET = "Columbia City Farmers Market";
   const walk = travelMinutesBetween(fixed, MARKET, HOUSE);
   check("an unmeasured Seattle pair stays walkable", walk < 4 * 60, walk);
 
+  // THE PRICE OF THE FLIGHT MOVED, AND IT MOVED BECAUSE IT WAS BEING MEASURED WRONG.
+  //
+  // This read 815 minutes and the threshold below was 6 hours to match. 815 was the gap between two
+  // travel_log entries — the house at turn 32 (09:33) and Houston at turn 41 (23:08) — which is the
+  // flight PLUS the whole day the player spent in Seattle before boarding. A hop is now measured
+  // across the turn the move actually happened on (19:08 → 23:08), so a cross-country flight prices
+  // at four hours, which is what a cross-country flight costs. See the note in travelMinutesBetween
+  // about a player who read a book for six hours and taught the engine his flat was five hours wide.
   const flight = travelMinutesBetween(fixed, HOUSE, HOUSTON);
-  check("and the flight is priced as a flight", flight > 6 * 60, flight);
+  check("and the flight is priced as a flight", flight > 3 * 60, flight);
   check("...because the player actually flew it and it was measured", flight !== DEFAULT_TRAVEL_MIN, flight);
-  check("the two coexist — the same world holds a walk and a flight", walk * 4 < flight, { walk, flight });
+  check("the two coexist — the same world holds a walk and a flight", walk < flight, { walk, flight });
 }
 
 /* ── 3. so the arrival guard can refuse ──────────────────────────────────────── */
