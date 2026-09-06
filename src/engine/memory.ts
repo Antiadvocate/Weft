@@ -1,5 +1,5 @@
 import { parseTime } from "./time";
-import { dueLabel, MISSED_KEEP_TURNS } from "./commitments";
+import { dueLabel, MISSED_KEEP_MINUTES } from "./commitments";
 import { factGate, factOverlap } from "./facts";
 /**
  * Generative-agents memory (Park et al. 2023, arXiv:2304.03442), embedding-free.
@@ -264,7 +264,10 @@ function commitmentBoost(m: EpisodicMemory, currentTurn: number, nowLabel = ""):
   // were the same number and a shift missed at eleven was still the loudest thing in her head at
   // half past three, which is how it turned into a shift she believed she had worked.
   if (m.commitment_status === "missed") {
-    return currentTurn - m.turn <= MISSED_KEEP_TURNS ? 0.45 : 0;
+    if (!nowLabel || !m.scheduled_time) return 0.45;
+    const late = (parseTime(nowLabel).day - parseTime(m.scheduled_time).day) * 1440
+      + (parseTime(nowLabel).hour - parseTime(m.scheduled_time).hour) * 60;
+    return late <= MISSED_KEEP_MINUTES ? 0.45 : 0;
   }
   if (m.commitment_status !== "pending" || !m.scheduled_time) return 0;
   // UNCLOCKED OPEN LOOP: most unfinished business has no due time — an answer owed, a message

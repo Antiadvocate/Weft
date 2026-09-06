@@ -1,0 +1,600 @@
+{
+ "world": {
+  "current_turn": 41,
+  "current_time": "Day 1, 19:39 (Evening)",
+  "present": [
+   "char_mtl12i1gbbk30"
+  ],
+  "player_location": "loc_mtl12i1fabqns",
+  "places": {}
+ },
+ "characters": {
+  "char_player": {
+   "character_id": "char_player",
+   "name": "Max Mercer",
+   "age": 39,
+   "appearance_facts": "curly shoulder length hair, thick glasses, bushy eyebrows, very defined jaw, athletic lean, clavicles most women would fight to touch. ",
+   "background": "Raised in Scranton by a high-school athletic coach father who valued blunt masculine stoicism; max works as an electrical engineer doing project planning. Great natural dancer because he knows how to move his hips. Has slept with 30+ women, struggling to maintain relationships due to adhd and need for chaos to focus, a slutty man, moves his body unconsciously sexually. ",
+   "core_traits": [
+    "Drops his gaze instantly to the floorboards whenever someone enters the room wearing sandals or bare feet.",
+    "Taps the spacebar three times in rapid succession whenever he stalls on a sentence.",
+    "Cleans the kitchen counter with circular sponge sweeps until the laminate squeaks, even when no food was prepped.",
+    "Swallows audibly and pulls his chin back into his neck whenever he is addressed by name in a sharp tone."
+   ],
+   "values": [
+    "Privacy and maintaining a respectable, ordinary surface to the outside world.",
+    "Quiet avoidance of domestic confrontation at almost any personal cost."
+   ],
+   "speech_pattern": "Quiet, hesitant mid-Atlantic cadence; often starts sentences with 'I mean' or trails off mid-clause when interrupted, clearing his throat before restarting.",
+   "skills": {
+    "Proofreading and technical layout": "Proficient; earns his meager living spotting syntax errors in HVAC instruction manuals.",
+    "Silent apartment navigation": "Exceptional; knows every floorboard in Unit 3B that creaks under forty kilograms of weight.",
+    "Deflecting personal inquiries": "Practiced; changes the subject to grocery logistics whenever pressed about his private life."
+   },
+   "texture": [
+    "Keeps a drawer of neatly rolled black socks arranged by thickness.",
+    "Collects cheap brass keychains from rest stops along Interstate 80.",
+    "Winces at the screech of wet shoes on linoleum."
+   ],
+   "pronouns": "he/him",
+   "height_cm": 178,
+   "weight_kg": 74,
+   "intelligence": "average",
+   "gregariousness": 0.5,
+   "location": "loc_mtl12i1fabqns",
+   "appearance_now": "",
+   "knows_player_name": true,
+   "beauty": 48,
+   "life_history": "",
+   "current_goal": ""
+  },
+  "char_mtl12i1gbbk30": {
+   "character_id": "char_mtl12i1gbbk30",
+   "name": "Abigail Mercer",
+   "age": 18,
+   "appearance_facts": "Straight bleach-blonde hair cut blunt at her collarbones with two inches of blonde roots, wide ice-blue eyes beneath thin arched brows, pale porcelain skin with a light dusting of freckles over high cheekbones, slender long-limbed frame with broad shoulders softened by two years of hormone therapy, her hung cock visible under thin summer loungewear, apparent age 18, long slender feet with high arches and chipped cherry-red toenail polish, distinct pencil-eraser-sized burn scar on the inside of her left wrist.",
+   "background": "Grew up in Scranton eight years behind Max; she was the quiet child who calmly dismantled their father's electric clippers with a butter knife and watched him search the basement for them for three weeks. When she came out as trans at eighteen, their father threw her out with one duffel bag, prompting Max to let her crash on his couch before putting her name on the Elm Street lease. She dropped out of community college after one term and now works erratic four-hour shifts at a tanning salon where she steals retail lotion bottles to resell online. A formative event before her transition was intentionally locking a neighbor's golden retriever in a tool shed overnight just to watch the family search the woods with flashlights. She despises hot tea and calls anyone who drinks it an invalid. She has every single dark triad trait, and is a sexual sadist. Extremely sexually attracted to her brother Max. She has a huge cock, and very beautiful feet, and semi shaved armpits ",
+   "core_traits": [
+    "Kicks her sandals off at the front threshold and props her bare soles directly against furniture, coffee tables, or knee-level walls.",
+    "Looks directly at a person's mouth while they speak without blinking until they stumble over their words.",
+    "Runs her thumbnail along the sharp edge of plastic credit cards or coasters when amused.",
+    "Draws out syllables when giving an order, smiling slightly before the final noun.",
+    "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or",
+    "Easily flustered by Max when he shows off his own body"
+   ],
+   "values": [
+    "Total unilateral leverage in any shared living space.",
+    "Deriving pleasure from observing someone squirm under secrets she holds over them."
+   ],
+   "speech_pattern": "Body-part plain and grocery-store plain in the same sentence \u2014 soles, pits, thighs, and then rent, bodega, dryer quarters. No euphemism, no clinical words.. Compound sentences hinged on 'while' and 'when' \u2014 she attaches a physical fact about herself to a piece of household business. Second half of the sentence is always the errand.. Loose and drawling in the first clause, brisk in the second. Sounds like she's stretching..",
+   "skills": {
+    "Psychological boundary testing": "Masterful; instinctively probes a person's soft spots through casual teasing until she finds the nerve that flinches.",
+    "Pedicure and foot grooming": "Meticulous; spends an hour every other night buffing her soles, shaping nails, and oiling her arches.",
+    "Budget manipulation": "Sly; routinely diverts utility money toward clothing orders while leaving Max to cover the overdue shutoff notices."
+   },
+   "texture": [
+    "Keeps four different brands of cuticle oil lined up on the bathroom sink.",
+    "Re-paints her long toenails while sitting cross-legged in common areas without laying down a towel."
+   ],
+   "pronouns": "she/her",
+   "height_cm": 183,
+   "weight_kg": 67,
+   "intelligence": "average",
+   "gregariousness": 0.45,
+   "current_goal": "Confirm beyond doubt that Max is sexually aroused by her bare feet so she can use the taboo leverage to make him run the entire household.",
+   "drive": {
+    "goal": "Conceal whether she actually attended her shift from Max while Dana is on the line",
+    "progress": 0,
+    "blocker": "Dana is on speakerphone waiting for a response",
+    "priority": 1,
+    "updated_turn": 40,
+    "progress_turn": 40,
+    "last_progress": 0
+   },
+   "location": "loc_mtl12i1fabqns",
+   "life_history": "After using Max orally on the couch and asserting her \"You call, or I call. Max pressed call on my phone and put Dana on speaker right in front of me to check if I wa actually at work.",
+   "appearance_now": "Arms above her head. Toenails painted matte white. A black silk dress without any straps hangs on her, the dress is asymmetric, from her underarm down it's almost like half the dress is missing so you can see half of her body fully, from the leg all the way up her armpit. In a style of allsaints fashion. A gold anklet.",
+   "knows_player_name": true,
+   "attracted_to": "men",
+   "taste": "Men with weak boundaries who flush red when humiliated, submissive postures, visible throat swallows, and shameful private fetishes they cannot defend.",
+   "conscience": 0.18,
+   "beauty": 78,
+   "voice": {
+    "diction": "Body-part plain and grocery-store plain in the same sentence \u2014 soles, pits, thighs, and then rent, bodega, dryer quarters. No euphemism, no clinical words.",
+    "syntax": "Compound sentences hinged on 'while' and 'when' \u2014 she attaches a physical fact about herself to a piece of household business. Second half of the sentence is always the errand.",
+    "rhythm": "Loose and drawling in the first clause, brisk in the second. Sounds like she's stretching.",
+    "tics": [
+     "Puts her body in the sentence before the request",
+     "Names where her feet are"
+    ],
+    "never_says": [
+     "do you mind",
+     "don't look"
+    ],
+    "agenda": "To keep the other person's eyes where she put them long enough that they agree to whatever she tacked onto the end.",
+    "example_lines": [
+     "My soles are on your keyboard tray because the floor by the radiator's freezing, and you're going to the bodega for me anyway.",
+     "I shaved half of one pit and got bored, so you can hand me the razor off the tank while you're standing there.",
+     "I sat in that salon booth four hours in nothing but flip-flops, so I'm not putting jeans on to go split quarters for the dryer."
+    ]
+   },
+   "attachment": {
+    "style": "avoidant",
+    "under_threat": "Turns icy, speaks in short vicious truths designed to cut directly to the other person's core insecurity, and withholds all basic domestic cooperation.",
+    "soothed_by": "Complete visible submission from someone in the room acknowledging she holds all the cards."
+   },
+   "visual_signature": "18 years old, Straight bleach-blonde hair cut blunt at her collarbones with two inches of blonde roots, wide ice-blue eyes beneath thin arched brows, 6'0\" tall, 148 lbs",
+   "portrait_plan": "humanoid",
+   "tracked": true,
+   "authored": [
+    {
+     "goal": "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or surrounding",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 3,
+     "inhabit_turns": 3,
+     "crystallize": true,
+     "added_turn": 1,
+     "crystallized_turn": 3,
+     "label": "Utilizes her bulging cock, armpits, and feet to sexually tease Max regardless of situation or"
+    },
+    {
+     "goal": "Easily flustered by Max when he shows off his own body.",
+     "because": "Max dancing on her.",
+     "rate": "steady",
+     "stage": 5,
+     "acted": 0,
+     "turns_live": 1,
+     "inhabit_turns": 1,
+     "crystallize": true,
+     "added_turn": 11,
+     "crystallized_turn": 11,
+     "label": "Easily flustered by Max when he shows off his own body"
+    }
+   ],
+   "drive_refreshed_time": "Day 1, 09:38 (Morning)",
+   "voice_refreshed_turn": 37
+  }
+ },
+ "condition": {
+  "char_mtl12i1gbbk30": {
+   "psyche": {
+    "relaxation": -10,
+    "capacity": -0.5,
+    "recovery": 0.18,
+    "state": "broken",
+    "break_mode": "fractured",
+    "consecutive_clenched": 4,
+    "mood": "tense and cornered",
+    "mood_valence": -10,
+    "active_states": [
+     "fixated on Max Mercer",
+     "flustered",
+     "confused",
+     "second-guessing reality",
+     "replaying it"
+    ],
+    "capacity_born": 2,
+    "prev_relaxation": -10,
+    "open_run": 0,
+    "braced_run": 0,
+    "settled_run": 0,
+    "wear_steps": 0,
+    "settle_steps": 0,
+    "mood_set_turn": 40,
+    "state_ages": {
+     "fixated on Max Mercer": 20,
+     "flustered": 36,
+     "confused": 36,
+     "second-guessing reality": 37,
+     "replaying it": 38
+    },
+    "grief_drag": 5.431
+   }
+  }
+ },
+ "memory": {
+  "char_mtl12i1gbbk30": {
+   "character_id": "char_mtl12i1gbbk30",
+   "core": [
+    "Grew up in Scranton eight years behind Max; she was the quiet child who calmly dismantled their father's electric clippers with a butter knife and watched him search the basement for them for three weeks. When she came out as trans at eighteen, their father threw her out with one duffel bag, prompting Max to let her crash on his couch before putting her name on the Elm Street lease. She dropped out of community college after one term and now works erratic four-hour shifts at a tanning salon where she steals retail lotion bottles to resell online. A formative event before her transition was intentionally locking a neighbor's golden retriever in a tool shed overnight just to watch the family search the woods with flashlights. She despises hot tea and calls anyone who drinks it an invalid."
+   ],
+   "episodic": [
+    {
+     "turn": 33,
+     "event_turn": 33,
+     "content": "I told Max Mercer I already said yes to going out tonight after eight, and pressed him to tell me what time we are leaving so I can get ready.",
+     "full_content": "I told Max Mercer I already said yes to going out tonight after eight, and pressed him to tell me what time we are leaving so I can get ready.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "expectant",
+     "last_accessed_turn": 40,
+     "when_label": "Day 1, 15:19 (Afternoon)",
+     "where": "Unit 3B Living Room",
+     "source": "witnessed",
+     "scheduled_time": "Day 1, 20:00",
+     "commitment_status": "pending",
+     "swept": true
+    },
+    {
+     "turn": 20,
+     "event_turn": 20,
+     "content": "Say you'd stay on the floor till I got back.",
+     "full_content": "Say you'd stay on the floor till I got back.",
+     "decay_stage": 2,
+     "importance": 6,
+     "emotional_charge": "commanding dominance",
+     "last_accessed_turn": 23,
+     "when_label": "Day 1, 10:21 (Morning)",
+     "source": "witnessed",
+     "scheduled_time": "unresolved",
+     "commitment_status": "pending",
+     "folded": true,
+     "swept": true
+    },
+    {
+     "turn": 14,
+     "event_turn": 14,
+     "content": "I have to be at the salon by eleven",
+     "full_content": "I have to be at the salon by eleven",
+     "decay_stage": 0,
+     "importance": 6,
+     "emotional_charge": "intrigued",
+     "last_accessed_turn": 40,
+     "when_label": "Day 1, 09:59 (Morning)",
+     "where": "Unit 3B Living Room",
+     "source": "witnessed",
+     "scheduled_time": "Day 1, 11:00",
+     "commitment_status": "pending",
+     "folded": true,
+     "swept": true
+    },
+    {
+     "turn": 15,
+     "event_turn": 15,
+     "content": "I told Max Mercer he had an hour before my salon shift to put his mouth somewhere on me, though I warned Max Mercer away from my lip gloss.",
+     "full_content": "I told Max Mercer he had an hour before my salon shift to put his mouth somewhere on me, though I warned Max Mercer away from my lip gloss.",
+     "decay_stage": 0,
+     "importance": 5,
+     "emotional_charge": "provocative and aroused",
+     "last_accessed_turn": 39,
+     "when_label": "Day 1, 10:02 (Morning)",
+     "where": "Unit 3B Living Room",
+     "source": "witnessed",
+     "scheduled_time": "Day 1, 11:00",
+     "commitment_status": "pending",
+     "swept": true
+    }
+   ],
+   "beliefs": [],
+   "facts": [],
+   "knows": []
+  }
+ },
+ "telemetry": [
+  {
+   "turn": 14,
+   "time_label": "Day 1, 10:02 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 15,
+   "time_label": "Day 1, 10:06 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 16,
+   "time_label": "Day 1, 10:09 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 17,
+   "time_label": "Day 1, 10:14 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 18,
+   "time_label": "Day 1, 10:18 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 19,
+   "time_label": "Day 1, 10:21 (Morning)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 20,
+   "time_label": "Day 1, 14:21 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 21,
+   "time_label": "Day 1, 14:24 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 22,
+   "time_label": "Day 1, 14:27 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 23,
+   "time_label": "Day 1, 14:31 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 24,
+   "time_label": "Day 1, 14:36 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 25,
+   "time_label": "Day 1, 14:41 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 26,
+   "time_label": "Day 1, 14:46 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 27,
+   "time_label": "Day 1, 14:51 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 28,
+   "time_label": "Day 1, 14:56 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 29,
+   "time_label": "Day 1, 14:59 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 30,
+   "time_label": "Day 1, 15:02 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 31,
+   "time_label": "Day 1, 15:17 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 32,
+   "time_label": "Day 1, 15:19 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 33,
+   "time_label": "Day 1, 15:22 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 34,
+   "time_label": "Day 1, 15:26 (Afternoon)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 35,
+   "time_label": "Day 1, 19:26 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 36,
+   "time_label": "Day 1, 19:29 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 37,
+   "time_label": "Day 1, 19:33 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 38,
+   "time_label": "Day 1, 19:35 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 39,
+   "time_label": "Day 1, 19:37 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  },
+  {
+   "turn": 40,
+   "time_label": "Day 1, 19:39 (Evening)",
+   "present": [
+    "char_mtl12i1gbbk30"
+   ]
+  }
+ ],
+ "history": [
+  {
+   "turn": 19,
+   "player_action": "I move up and kiss the head with my lips. Licking it gently. Teasing her.",
+   "narrator_prose": "His lips closed over the head of her cock and Abigail's whole body went still for one second, the kind of still that had her fingers stopped halfway through tracing the hem of her dress, her other hand flat on her stomach, and then she let out a breath through her nose so hard it moved the hair at his temple.\n\nHer foot slid down from his chest and her heel settled against the curve of his shoulder, toes pressing into the muscle there, not shoving, just holding. The dress had bunched up around her waist and she left it there, the open side of it showing the whole long line of her right leg and the jut of her hip.\n\n\"There,\" she said, and the word came out lower than she usually talked, a little rough at the edge. \"Right there. Don't get sloppy with it.\"\n\nHer thumb found the plastic edge of the cardigan's collar where it lay against his neck, and she ran the nail along the weave, slow, back and forth, like she was checking it for loose threads.\n\n\"You keep your mouth that soft and I'm gonna have to call the salon and tell them I'm not coming in.\" She shifted her hips on the couch, just enough that the head of her cock pressed more firmly against his bottom lip. \"And then you'd have me all day with nothing to do but watch you.\"\n\nThe box fan rattled in the window, and from somewhere down the block a car horn hit twice and held.",
+   "time_label": "Day 1, 10:21 (Morning)"
+  },
+  {
+   "turn": 20,
+   "player_action": "\"How about have me all day to fuck my throat against the floor...\" I take a bit more of her into my mouth, keeping my mouth wet",
+   "narrator_prose": "The words came out of him and her hips gave one small push forward, not enough to choke, just enough that the head of her cock rode the flat of his tongue. Her heel slid down off his shoulder and her bare foot settled between his shoulder blades, toes curling against the net of the cardigan.\n\n\"Throat against the floor,\" she said, drawing out the last word. \"That's what you'd do with the whole day.\"\n\nHer other foot found the coffee table again, sole flat on the wood, and she let her knee fall open wider. The dress hung off her left side, the black silk pooled under her hip.\n\n\"I could keep you right there with your mouth on me and still make it to the salon by eleven.\" Her voice had gone thinner at the edges, but the pace of it stayed even. \"Set an alarm on my phone for ten-forty. You'd hear it and you'd know you were about to get left.\"\n\nShe reached down and her fingers went into his hair near the crown, not pulling, not pushing, just holding a handful of it while her foot pressed a little harder between his shoulders.\n\n\"Say you'd stay on the floor till I got back.\"",
+   "time_label": "Day 1, 14:21 (Afternoon)"
+  },
+  {
+   "turn": 21,
+   "player_action": "\"It's 2:21 sweetheart. You missed it already.\" I take the length of her into my throat",
+   "narrator_prose": "Max took the length of her into his throat and kept going.\n\nAbigail's fingers tightened in his hair. Her other hand left his shoulder and found the arm of the couch, gripping the worn brown fabric. The box fan rattled against the sill, pushing warm air across the back of his neck.\n\nHer bare foot slid from between his shoulder blades down the net of the cardigan, toes hooking under the hem where it had ridden up. She pressed the sole flat against the small of his back.\n\n\"Two twenty-one,\" she said. Her voice came out thinner than before, and she shifted her hips forward a little. \"That means the alarm already went off and I didn't hear it.\" Her heel dug in, not hard. \"Guess I'm late.\"\n\nShe let her head fall back against the couch cushion, throat working as she swallowed. The gold anklet caught the light when she flexed her foot against his spine.\n\n\"Phone's in my bag by the door.\" She said it toward the ceiling, breathier now. \"You could get it for me. But you wouldn't get off the floor to do it, would you.\"\n\nHer hips rolled once, slow, and she pulled his hair at the crown.",
+   "time_label": "Day 1, 14:24 (Afternoon)"
+  },
+  {
+   "turn": 22,
+   "player_action": "I start deepthroating her cock in earnest. \"Mmm probably not\" I say inbetween throating her",
+   "narrator_prose": "The box fan rattled against the sill and blew a warm, dusty current across the back of his neck.\n\nAbigail's heel pressed into the small of his back. Her toes curled against the netting of the cardigan, then spread flat again. The gold anklet slid a half inch down her ankle when she shifted.\n\n\"That's fine,\" she said. Her voice had gone a little thick at the edges. \"You can say probably not. You can say whatever you want with your mouth full like that.\"\n\nHer fingers tightened at the crown of his head, then loosened. She pushed her hips up once, not hard, just enough to meet him at the depth she wanted. Her other foot came up off the floor and hooked over the curve of his shoulder, the sole smearing a faint damp print against the black cardigan.\n\n\"I'm not getting my own phone.\" She said it toward the ceiling. \"Keep going. You know what you're doing.\" Her heel dug in, and she let her head tip back against the cushion. The fan rattled again, and the mail on the coffee table lifted at one corner and settled.",
+   "time_label": "Day 1, 14:27 (Afternoon)"
+  },
+  {
+   "turn": 23,
+   "player_action": "I keep going \"mm\"",
+   "narrator_prose": "The fan rattled in the window. Her heel pressed into the small of his back again, hard enough to push him down onto her, and her toes curled against the cardigan's netting where the damp print had already gone dark.\n\n\"Don't lose the rhythm,\" she said. \"You had it and then you started thinking about it.\"\n\nHer other foot slid off the couch cushion and found the floor, knee lifting, the dress falling back against her hip. The gold anklet caught the light when she shifted her calf along his ribs. Her voice came out slow, the last word held a beat too long.\n\n\"Like the dryer downstairs. When it hits the spin cycle you don't stand there waiting for it to change speeds. You just\u2014\" She stopped, and her throat moved once, and she didn't finish the sentence. Her hand went to the back of his head and stayed there, not pushing, just resting with her fingers spread through his hair.\n\n\"Mm is not an answer, but I'll take it.\" Her hips rolled up once under him. \"Keep that up and you can make whatever sound you want.\"\n\nThe mail on the coffee table lifted again at the corner. She looked down the length of her body at him, eyes on his mouth, unblinking.",
+   "time_label": "Day 1, 14:31 (Afternoon)"
+  },
+  {
+   "turn": 24,
+   "player_action": "I don't stop. I just keep deepthroating her. Putting her entire length in my throat and grinding her into me",
+   "narrator_prose": "The box fan rattled against the window frame, its plastic grating buzzing on each rotation. Abigail's thigh pressed along his ribs, the black silk rucked up around her hip. Her fingers stayed spread through his hair, and when he took her to the root her heel came down harder between his shoulder blades, pinning him there a second longer than the rhythm allowed.\n\n\"See, you stopped thinking.\" Her voice came from above him, slow, a little hoarse. \"Now it's just\u2014\" She didn't finish. Her hips rolled up and she held him down through it, her toes curling against his spine where her foot had slipped lower.\n\nThe anklet shifted against his shoulder. She lifted her other leg and set her bare sole flat on the coffee table, scattering two bottles of nail polish into the pile of mail. The couch creaked under her as she pushed up into his mouth again.\n\n\"You're gonna stay right there,\" she said. \"Till I say the word.\" Her thumb traced the shell of his ear once, then her hand tightened in his hair and pulled him back an inch, just enough that her cock slipped almost free of his throat before she eased him down onto it again, slower. Her breath went out through her nose.\n\nThe fan buzzed. Somewhere below, a door slammed in the stairwell.",
+   "time_label": "Day 1, 14:36 (Afternoon)"
+  },
+  {
+   "turn": 25,
+   "player_action": "I keep going. I feel her cum coming",
+   "narrator_prose": "The room narrowed to the heat of her thighs against his ears, the salt on his tongue, the way her whole body went still for half a second and then snapped tight. Her heel dug into the small of his back. The toes of her other foot curled against the edge of the coffee table, knocking a bottle of cuticle oil onto the floor where it rolled under the couch.\n\n\"Unh\u2014\" The sound came out of her in pieces, high and tight, and then her hips came up off the couch and she held there, both hands fisted in his hair, holding him flat against her groin while she pulsed into his throat.\n\nThe fan rattled in the window. Somewhere below, a car stereo went past thumping something with a deep bass line, dopplered off down Elm Street.\n\nHer legs were shaking. She let out a long breath through her nose and her grip in his hair loosened to just her fingertips resting against his scalp, like she was deciding whether to push him away or keep him there.\n\n\"Fuck,\" she said, quiet, to the ceiling. Her chest was still heaving under the black silk, the dress stuck to her ribs with sweat.\n\nShe swallowed, and then her head lolled forward and she looked down at him with her mouth slightly open, her thumb tracing a slow circle behind his ear.\n\n\"Okay.\" Her voice was wrecked, a little thick. \"Okay, you can\u2014\" She stopped, and her heel slid down his spine to rest against the floor. \"Come up here.\"",
+   "time_label": "Day 1, 14:41 (Afternoon)"
+  },
+  {
+   "turn": 26,
+   "player_action": "I swallow her cum. And then come up. \"You feel better now sis?\"",
+   "narrator_prose": "Max pushed himself up from the floor, his knees cracking against the bare wood, and climbed onto the couch beside her. The cushions sagged under his weight. Sweat had pasted the cardigan to his shoulders and he pulled at the collar once, then let his hand drop to his thigh.\n\nAbigail shifted against the armrest, drawing one knee up so her foot rested on the cushion between them. Her dress had ridden high on her hip and she didn't bother smoothing it. She watched his mouth while he spoke and her lips stayed parted after he finished.\n\n\"Mm.\" She let the sound hang there. \"You always ask me that after. Like you want a gold star.\"\n\nHer heel slid along the cushion until it pressed against the outside of his leg, just above his knee. She left it there.\n\n\"I'm not the one who swallowed anything.\" She tilted her head against the back of the couch, eyes still on his face. \"But yeah. I feel good.\" Her fingers picked at a loose thread on the armrest, twisting it around her index finger. \"You know what would make it better?\"\n\nThe fan droned from somewhere behind them. A bead of sweat ran down Max's temple and into the collar of his shirt.\n\n\"Go get me a glass of water. The cold one from the fridge, not the tap.\" She stretched her other leg out across his lap, her bare foot settling against his thigh, toes curling once against the black fabric. \"And then you can ask me how I feel again.\"",
+   "time_label": "Day 1, 14:46 (Afternoon)"
+  },
+  {
+   "turn": 27,
+   "player_action": "\"Always ask you that? I dont always ask for anything... in any case. Are we going dancing tonight or what?\" I bring her a glsss of water. \"Because we can get some lunch and then head out\"",
+   "narrator_prose": "Max came back from the kitchen with the glass. Cold enough that it sweated in his hand, the water already beading down the outside, and he held it out to her.\n\nShe didn't take it right away. She looked at his hand first, then up at his face, then reached for the glass with her fingers brushing his knuckles as she closed them around it.\n\n\"So you're buying me lunch. That's what that means.\"\n\nShe brought the glass to her mouth and drank, and when she lowered it there was a drop of water on her bottom lip. Her tongue came out after it, quick and pink.\n\nHer bare foot shifted off his thigh, and then it was back, higher this time, the arch of it pressing against the inside of his leg through the black athletic pants. Her toes flexed once, deliberate, and she held the glass against her collarbone so the cold touched her skin.\n\n\"Where's Q? Because if it's one of those places with a cover, I'm not paying it.\" She tilted her head. \"You're the one who asked me, so that's on you. Same as lunch, I'm guessing.\"\n\nShe set the glass down on the coffee table and twisted on the couch, one knee pulling up onto the cushion so she was almost facing him. The black silk dress slid over her thigh.\n\n\"Unless you changed your mind.\" She was looking at his mouth. \"Did you change your mind, Max?\"\n\nHer other foot stayed where it was, pressed warm and slow against the inside of his leg.",
+   "time_label": "Day 1, 14:51 (Afternoon)"
+  },
+  {
+   "turn": 28,
+   "player_action": "\"Yeah. Why are you so defensive Abi? I'm paying. I know you don't have a job and it's a date. There's no cover. Don't worry about the money. Are you cool going?\"",
+   "narrator_prose": "The question landed and she went still, the glass halfway to the coffee table. Her mouth opened, then shut.\n\n\"I have a job.\" Her voice came out flat. She set the glass down hard enough that water jumped up the inside. \"I work at the salon. I was there this morning.\"\n\nHer foot slid off his leg and she pulled both knees up onto the cushion, turning so her shoulder pressed into the back of the couch. The black silk dress rode up her thigh.\n\n\"I don't need you to tell me not to worry about money like I'm some broke little sister who can't cover a drink.\" She looked at his mouth, then away, at the fan in the window. \"I can cover a drink.\"\n\nThe box fan rattled against the sill. Outside, a car idled in the alley with its bass turned up, thumping through the floor.\n\n\"Okay.\" She said it to the fan, then turned back. \"Okay, yeah. I'll go. But you don't get to act like I'm some charity case the whole night. I'm not gonna sit there while you order for me and pay and do the whole thing.\"\n\nHer bare foot found the coffee table, heel propped on the edge, toes pointed at the ceiling. She looked at his mouth again and this time stayed there, unblinking.\n\n\"Because if it's a date, then I get to say what I want too.\"",
+   "time_label": "Day 1, 14:56 (Afternoon)"
+  },
+  {
+   "turn": 29,
+   "player_action": "\"I was offering. You're trying to save from that job. I'm not the bad guy you're making me out to be. You sound angry. Are you sure you want to come? I can just go with some friends if you feel antagonistic towards me\"",
+   "narrator_prose": "The fan rattled in the window. The heat lay across the room like a blanket somebody had left on the floor.\n\nAbigail's toes pressed into the coffee table's edge, her heel sliding forward until the arch of her foot rested along the worn laminate. She looked at his mouth the whole time he spoke. When he finished, she let the silence run a second too long.\n\n\"Friends.\" She said it flat, like the word had a price on it. \"Which friends.\"\n\nHer thumb found the corner of a nail polish bottle on the table, worked it back and forth against the cap. The bottle rolled, stopped against a stack of mail.\n\n\"Because last I checked, you don't call anybody. I'm just trying to figure out who you'd even text.\" She shifted on the couch, the black dress sliding up the outside of her thigh, her other foot swinging down to join the first on the table. \"Is it somebody from work? The one with the\u2014\" She made a vague gesture at her own hair, then dropped her hand.\n\nThe dress hung open along her side, baring the long line of her ribs and the jut of her hip where she'd twisted to face him. Her cock pressed visibly against the silk where it draped over her stomach, and she didn't move to cover it, just let her knee fall open a little wider while she waited.\n\n\"Because if you'd rather go with them, you can say that. But you asked me this morning, so.\" She ran her thumbnail along the edge of the polish cap, once, slow. \"Now I'm\u2014 I don't know. Confused about whether I'm supposed to be flattered or insulted.\"",
+   "time_label": "Day 1, 14:59 (Afternoon)"
+  },
+  {
+   "turn": 30,
+   "player_action": "\"I have friends outside work Abigail. You don't know them. But yeah I know if you don't want to come. You don't have to. I just want to be around you while having fun. Is that ok?\"",
+   "narrator_prose": "The fan vibrated against the window frame, and the mail on the coffee table lifted at one corner and settled again.\n\nAbigail's foot slid off the table and hooked over Max's ankle where he sat beside her, her heel pressing into the bone through his pants. The black silk had ridden up past her hip, and she shifted her weight, her knee falling open so her cock lay thick against the inside of her thigh, the head dark against the pale fabric.\n\n\"You have friends outside work.\" She said it like she was reading a line off a form and checking a box. \"Okay. So then who do you text when you're not here? When you're at work, or when I'm at the salon. Who is it.\" Her foot moved up his shin, slow, her toes curling against the muscle. \"Because I'm here all day, Max. And I've never seen your phone light up once.\"",
+   "time_label": "Day 1, 15:02 (Afternoon)"
+  },
+  {
+   "turn": 31,
+   "player_action": "\"We don't text non stop. Friends at 39 are busy. We text from time to time. There's Sarah about 15 minutes south. I hang out with her on some weekends, and Kristi downtown. Everyone has a life and is busy. So I'd need to find out if they're around tonight to go out. But usually they never let me down. Anyways I don't know why we're talking about this\"",
+   "narrator_prose": "Abigail's heel slid back down his shin and settled against the top of his foot. She didn't say anything for a second. Her toes pressed into the laces of his dress shoe, then curled away.\n\n\"Sarah.\" She said it flat, like she was putting it somewhere.\n\nHer knee stayed open where the black silk had ridden up. Her hand came to rest on her own thigh, fingers spread, thumb tracking a slow line toward the crease of her hip.\n\n\"Kristi downtown.\" She tilted her head.\n\nHer foot drew back and she bent one leg, propping her bare sole on the couch cushion so the dress fell away from her completely. The anklet shifted against her bone.\n\n\"Busy lives though, right. Everyone's got one.\" She reached down and ran a finger along the inside of her ankle, just under the gold chain. \"So which one do you text from time to time. Sarah, or Kristi.\"",
+   "time_label": "Day 1, 15:17 (Afternoon)"
+  },
+  {
+   "turn": 32,
+   "player_action": "\"It doesn't matter. Both sometimes? Talk about work or their kids or their husbands or whatever. They're friends\"",
+   "narrator_prose": "Abigail's thumb stopped at the gold chain, her eyes still on his face. The fan rattled behind her head.\n\n\"Both sometimes.\" She repeated it quietly, like she was checking the weight of it. Her other hand slid from her thigh down to the cushion, and she shifted, one bare foot coming to rest flat against the coffee table. The mail stacked there shifted under her heel. \"So you text Sarah about her kids and her husband. And you text Kristi about her job. That's what you're telling me.\"\n\nShe let go of the anklet and reached up, tucking a piece of hair behind her ear. The dress hung open along her side, her ribs rising and falling under the black silk.\n\n\"So which one sends you pictures.\"",
+   "time_label": "Day 1, 15:19 (Afternoon)"
+  },
+  {
+   "turn": 33,
+   "player_action": "\"How about... we not worry about this. I asked you a question if you're down to go out tonight Abi\"",
+   "narrator_prose": "Abigail's heel slid off the stack of mail and she sat up straighter, the dress slipping further off her shoulder. Her eyes stayed on his mouth.\n\n\"You keep saying you asked me. Like I didn't answer you.\" She stretched her arm along the back of the couch, the black silk pulling taut across her chest. \"I said yes. I get off at eight. You're picking the place, remember?\"\n\nThe fan rattled against the window frame. Her bare foot came up again, toes brushing the edge of the coffee table, her ankle chain catching the light.\n\n\"So what time are we leaving. And don't say whenever, because I have to shower and do my hair and figure out what I'm wearing, and you're just gonna stand there with that cardigan on like the date already happened.\"\n\nShe let her head tip to the side, her hair falling over one eye, and ran her thumbnail along the edge of a folded gas bill on the table.",
+   "time_label": "Day 1, 15:22 (Afternoon)"
+  },
+  {
+   "turn": 34,
+   "player_action": "\"I think like 8 is probably good. You've already missed your salon shift. Sadly\"",
+   "narrator_prose": "Abigail's mouth opened, then closed. Her foot slid off the coffee table and planted flat on the floor.\n\n\"Missed it.\" She said it like she was testing the word on her tongue. \"I was there this morning, Max. I told you they asked me to cover the lunch rush. So which one is it, did I miss my shift or did I cover it.\"\n\nShe leaned forward, elbows on her knees, and the dress gaped open along her side where the fabric wasn't. Her cock shifted against the black silk as she moved, the outline of it pressed against the inside of her thigh.\n\n\"Because if I missed it, that's a whole thing. That's me calling my manager and explaining why my brother kept me on the couch all day with his mouth\u2014\" She cut herself off, tilted her head. \"But I didn't miss it. I was there. I came home after. You saw me leave at ten forty. You watched me go.\"\n\nShe stood up from the couch in one long uncoiling motion. The dress fell back around her but the side still hung open, her bare hip and the lean line of her torso visible from armpit to ankle.\n\n\"You don't remember watching me leave.\" Her voice went flat. \"That's fine. I remember.\"\n\nShe walked around the coffee table toward him, slow, her bare feet silent on the floorboards. When she stopped she was close enough that the fan's breeze pushed strands of her hair against his shoulder.\n\n\"So eight. We're leaving at eight. You said it.\" She reached out and ran two fingers up the inside of his forearm, light, from wrist to elbow. \"And if you're gonna stand there in that cardigan all afternoon, maybe you should take it off. It's like ninety degrees in here and you're dressed for a funeral.\"\n\nHer fingers kept moving, tracing up to the cuff of his sleeve, and her eyes stayed on his mouth.",
+   "time_label": "Day 1, 15:26 (Afternoon)"
+  },
+  {
+   "turn": 35,
+   "player_action": "\"Yeah no you've been here all day since 7 am.\"",
+   "narrator_prose": "Abigail's fingers stopped on his forearm. She looked up at him, her chin tilted, and the fan blew a strand of bleach-blonde hair across her mouth. She let it sit there.\n\n\"Seven.\" She said it flat, like she was correcting a receipt. \"You think I've been here since seven.\"\n\nHer hand slid off his arm. She took a half step back, and the open side of the dress shifted with her, the black silk pulling against her hip.\n\n\"I was at work at eleven, Max. I came back.\" Her eyes moved from his mouth to the collar of the cardigan. \"You were on your laptop when I walked in. You didn't even look up.\"\n\nShe reached up and hooked two fingers into the top button of the cardigan, through the knitted wool, and gave it a small tug.\n\n\"Take this off. I'm serious. You're gonna be all sweaty by the time we leave and I'm not sitting next to that at a bar.\"",
+   "time_label": "Day 1, 19:26 (Evening)"
+  },
+  {
+   "turn": 36,
+   "player_action": "\"No. I was here at 11 am. You were talking to me. I was here sucking your dick. You haven't gone anywhere. Are you ok?\"",
+   "narrator_prose": "The fan rattled in the window and pushed the hot air around without making it cooler.\n\nAbigail's fingers stayed hooked in the wool of his cardigan. Her mouth opened and then closed. She looked at his mouth, then at the floor, then back at his mouth, and her hand dropped away from the button.\n\n\"I was\u2014\" She stopped. Her bare feet shifted on the floorboards, one heel lifting and then coming back down. She crossed her arms and then uncrossed them, and the open side of the dress gaped and settled. \"No. I was here. I was talking to you at eleven.\" Her voice had gone smaller, the way it hadn't all afternoon. \"I came home from work and you were on your laptop and I asked you something and you\u2014\" She looked at the couch, at the coffee table, at the polish bottles lined up by the mail. \"Right? That happened?\"\n\nShe waited, and the fan clattered again, and she pressed the ball of her foot against the leg of the coffee table like she was checking whether it would hold her.",
+   "time_label": "Day 1, 19:29 (Evening)"
+  },
+  {
+   "turn": 37,
+   "player_action": "\"No. You did not go to work. Are you high? You didn't go anywhere\"",
+   "narrator_prose": "The room went very still. The fan kept rattling in the window, and the air from it was warm and wet.\n\nAbigail stood with her weight on one foot, the other bare sole still pressed flat against the coffee table leg. Her arms hung at her sides. She looked at him for a long moment, mouth slightly open, and then her chin came up and she laughed once, short and breathy, like she'd been hit with a joke she didn't get.\n\n\"You're serious.\" She said it the way a person might say it to themselves. Her hand went to the open side of the dress and then dropped. \"You think I've been here all day. Like I just\u2014what, stood in this living room for twelve hours while you had your whole morning?\"\n\nShe stepped away from the coffee table and walked toward the kitchen doorway, then stopped and turned back around. Her feet left faint patches on the floorboards where the heat had made them damp.\n\n\"Max, I was at the salon at eleven. I covered the lunch rush. I came home and I asked you\u2014\" She stopped, and her eyes moved over his face, then down to the cardigan, then back up to his mouth. For a second her voice went smaller. \"I asked you to take that off. And you said something about eight. That happened. That was this afternoon.\"\n\nShe crossed her arms under her chest, and the movement did something to the dress, pulling the missing side wider so the whole long line of her was bare from armpit to hip. She didn't seem to notice. She was still looking at his mouth.\n\n\"Are you okay?\" she asked, and the question came out soft, almost careful, like she was choosing each word as she went. \"Like actually. Because you're looking at me like I'm the one who's confused and I know I went to work. I remember locking the door. I remember the keycard.\"\n\nShe uncrossed one arm and reached over to the coffee table, picked up the bottle of matte white polish, and held it against her palm without looking at it.\n\n\"So if you're gonna stand there and tell me I didn't leave this apartment, you better tell me what you think I did instead. Because from where I'm standing, I worked a shift and came back, and now you're acting like I'm a ghost.\"",
+   "time_label": "Day 1, 19:33 (Evening)"
+  },
+  {
+   "turn": 38,
+   "player_action": "\"Yeah? Any proof? That you did? Let's call your manager\"",
+   "narrator_prose": "Abigail's thumb stopped against the edge of the polish bottle. She looked at Max for a second, then set the bottle down on the coffee table with a click and reached for her phone where it lay half under a folded flyer.\n\n\"Fine,\" she said. Her voice had gone flat and quick, the softness from a minute ago gone out of it. \"Call her. You got the number?\"\n\nShe unlocked the phone and turned it toward him, the salon's contact page already up on the screen, her thumb resting just below the manager's name. Her other hand came up to push her hair back from her neck where the heat had stuck a few pale strands to her skin. The fan in the window rattled and pushed a gust of warm air across the room that smelled like nail polish remover and the bodega roses wilting on the kitchen counter.\n\n\"Because I already texted her from the back room at 11:12 when Tanya was late for her station.\" She tilted the phone a little, like she was waiting for him to take it. \"So if you're gonna stand there talking about proof, go ahead. Ask her what time I clocked out.\"\n\nHer bare foot slid off the couch cushion and found the edge of the coffee table, heel against the corner, and she let the dress fall open along her hip without moving to fix it. She watched him, not his mouth now but his hands, and her voice dropped into something slower.\n\n\"You call, or I call. But one of us is calling, because I'm not gonna keep standing here in this heat while you act like I imagined my whole morning.\"",
+   "time_label": "Day 1, 19:35 (Evening)"
+  },
+  {
+   "turn": 39,
+   "player_action": "\"I don't work with you. You call her she's your manager put her on speaker. Let's see if you were actually at work\"",
+   "narrator_prose": "Abigail's thumb stopped moving against the edge of her phone. She looked at him flat for a second, then held the screen out toward him, the contact already pulled up. Her other hand came up and pushed the dress off her shoulder, not fixing it, just letting the black silk hang off one arm so the whole pale line of her side showed from armpit to hip.\n\n\"Fine. You dial it.\" She waggled the phone once. \"Put her on speaker and ask her yourself. I told you I was there, but go ahead, Max. Call my manager and find out what time I clocked out.\"\n\nShe shifted on the couch, drawing one knee up so her bare foot came to rest on the cushion beside her, her toes curling against the fabric. The hem of the dress slid higher along her thigh. Her other hand moved to her collarbone, and she dragged a fingernail slowly down along the strap that was still in place.\n\n\"Go on. It's ringing in your hand if you hit the green button.\"",
+   "time_label": "Day 1, 19:37 (Evening)"
+  },
+  {
+   "turn": 40,
+   "player_action": "I press the button and ask \"hi. Did Abigail work today?\"",
+   "narrator_prose": "The phone's speaker crackled against the heat, the dial tone warping into a thin electronic ring. Abigail sat forward on the couch, one bare foot still tucked under her, the other sliding off the cushion until her heel found the coffee table's edge. Her dress hung loose around her waist where the missing side exposed her ribs, and she watched the phone in his hand with her teeth set into her bottom lip.\n\nA woman's voice answered, flat and rushed. \"Solstice Tanning, this is Dana.\"\n\nAbigail's mouth opened a little, then shut. She dragged her thumbnail down the corner of her phone case and said nothing.\n\nThere was a pause on the line. \"Hello? You called here.\"\n\nThe fan rattled on the floor by the couch, batting warm air across the room. Abigail shifted, drawing her knee up so the sole of her foot pressed flat against the edge of the coffee table, her toes curling once. She looked at Max's throat, then at the phone, then away toward the kitchen doorway where the light was going gray.\n\n\"Sir, if you're there, I got two people waiting on the stand-up beds,\" Dana said. \"You calling about a session?\"",
+   "time_label": "Day 1, 19:39 (Evening)"
+  }
+ ]
+}

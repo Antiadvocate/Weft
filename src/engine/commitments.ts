@@ -53,10 +53,20 @@ import { absMinutes } from "./time";
  *  usually still the turn that mattered. */
 export const OVERDUE_GRACE = 40;
 
-/** How long a blown appointment stays live in retrieval. Missing a shift is a consequence, not a
- *  deletion — she has a manager to answer to — but it is not the front of her mind forever the way
- *  the unresolved version was. */
-export const MISSED_KEEP_TURNS = 25;
+/**
+ * How long a blown appointment stays a live fact about somebody's day — MEASURED IN WORLD TIME.
+ *
+ * The first version of this was twenty-five TURNS, borrowed from how long an offstage sighting
+ * survives reflection, and it was wrong for the same reason the STILL DUE label was wrong: turns
+ * are not time. The save this came from ran forty-one turns across twelve hours, three minutes at
+ * a stretch, so the shift missed at eleven fell out of the window at about seven in the evening —
+ * on the very turn the player finally called the salon to check. The guard went quiet and the
+ * claim detector went blind at the exact moment both existed for.
+ *
+ * Two days of world time. A shift missed this morning is still this morning's shift tonight; it is
+ * not still an open question next week.
+ */
+export const MISSED_KEEP_MINUTES = 2 * 1440;
 
 export interface MissedCommitment {
   id: string;
@@ -133,13 +143,20 @@ export function resolveOverdue(state: SaveState): string[] {
 
 /** Every appointment this person is now known to have blown, newest first. */
 export function missedFor(state: SaveState, id: string): MissedCommitment[] {
-  const turn = state.world?.current_turn ?? 0;
+  const now = state.world?.current_time ?? "";
   const mem = state.memory?.[id];
   if (!mem?.episodic?.length) return [];
   const name = state.characters?.[id]?.name ?? "";
   return mem.episodic
-    .filter((m) => m.commitment_status === "missed" && turn - m.turn <= MISSED_KEEP_TURNS && scheduledAt(m))
-    .sort((a, b) => b.turn - a.turn)
+    .filter((m) => {
+      if (m.commitment_status !== "missed") return false;
+      const due = scheduledAt(m);
+      return !!due && (!now || absMinutes(now) - absMinutes(due) <= MISSED_KEEP_MINUTES);
+    })
+    // Newest hour first, and where two promises name the SAME hour the plainer wording wins — the
+    // save this came from filed "I have to be at the salon by eleven" and a forty-word version of
+    // the same sentence five minutes apart, and the long one is not what she promised.
+    .sort((a, b) => (b.turn - a.turn) || (String(a.full_content ?? a.content).length - String(b.full_content ?? b.content).length))
     .map((m) => ({
       id, name,
       content: String(m.full_content ?? m.content).replace(/\s+/g, " ").trim(),
@@ -180,13 +197,21 @@ export function dueLabel(m: EpisodicMemory, nowLabel: string): string {
  * she can be dropped from. That is hers.
  */
 export function missedNote(state: SaveState, presentIds: readonly string[]): string {
-  const rows: string[] = [];
+  // Two promises about the same hour are ONE missed appointment. The save this came from filed "I
+  // have to be at the salon by eleven" and a forty-word version of the same sentence five minutes
+  // apart, and printing both said the same thing twice, louder, in the wordier of the two voices.
+  // One row per hour, in the plainest words the character used for it.
+  const byHour = new Map<string, MissedCommitment>();
   for (const id of presentIds) {
     if (id === "char_player") continue;
-    for (const mc of missedFor(state, id).slice(0, 2)) {
-      rows.push(`${mc.name} said: ${mc.content.slice(0, 120)} — due ${mc.due}. It is now ${state.world.current_time}. ${mc.name} was in this room when that hour passed, and did not go.`);
+    for (const mc of missedFor(state, id)) {
+      const key = `${id}|${mc.due}`;
+      const held = byHour.get(key);
+      if (!held || mc.content.length < held.content.length) byHour.set(key, mc);
     }
   }
+  const rows = [...byHour.values()].map((mc) =>
+    `${mc.name} said: ${mc.content.slice(0, 120)} — due ${mc.due}. It is now ${state.world.current_time}. ${mc.name} was in this room when that hour passed, and did not go.`);
   if (!rows.length) return "";
   // It stays for as long as the memory does (MISSED_KEEP_TURNS) rather than for a few turns after
   // the hour: the save this was built from produced its worst confabulation twenty turns after the
@@ -195,7 +220,9 @@ export function missedNote(state: SaveState, presentIds: readonly string[]): str
   return `\n\nAN HOUR SOMEBODY NAMED WENT PAST WHILE THEY WERE STANDING HERE.\n· ${rows.join("\n· ")}\n`
     + `They know it. Nobody in this scene says they went, says they were there, describes what happened while they were there, or refers to anybody having watched them leave — none of that is in the record and none of it happened. `
     + `If it comes up, what is true is that the hour passed and they were here, and whatever they feel about that is theirs: brazen about it, sore about it, lying about it to somebody who was in the room and knows better, or already working out what they will say to whoever is owed the time. `
-    + `A person who blows off work has somebody to answer to and something they would rather do instead, and both of those are things they can want out loud without being asked.`;
+    + `A person who blows off work has somebody to answer to and something they would rather do instead, and both of those are things they can want out loud without being asked.\n`
+    + `AND NOTHING OFF-SCREEN CORROBORATES IT. No manager, no coworker, no timesheet, no keycard log, no text sent from the back room, no schedule on a wall and no camera puts them there, because they were not there. `
+    + `If somebody in this scene reaches for proof, the proof is on the side of the record.`;
 }
 
 /**
@@ -216,9 +243,37 @@ function keyWords(text: string): string[] {
   return [...new Set((String(text ?? "").toLowerCase().match(/[a-z][a-z'-]{3,}/g) ?? []).filter((w) => !STOP.has(w)))];
 }
 
-/** "I was there this morning" / "I went" / "I came home after" / "you saw me leave" — a past-tense
- *  assertion that the thing happened, as opposed to talking about the hour. */
-const DID_IT = /\b(?:i\s+(?:was|went|worked|covered|made it|got there|showed up|came (?:back|home)|did)\b|i'?ve\s+(?:been|already)\b|(?:you|he|she|they)\s+(?:saw|watched)\s+me\b|was\s+there\b|been\s+there\b)/i;
+/**
+ * A FIRST-PERSON PAST CLAIM, and the three things that are not one.
+ *
+ * The real turns this has to separate, from one save, four consecutive turns of the same argument:
+ *
+ *   T35  "I was at work at eleven, Max. I came back."                        ← the claim
+ *   T36  "No. I was here. I was talking to you at eleven."                   ← TRUE, and the opposite
+ *   T36  "I came home from work and you were on your laptop"                 ← the claim
+ *   T37  "You think I've been here all day. Like I just—what, stood in       ← quoting HIM
+ *         this living room for twelve hours"
+ *   T37  "Max, I was at the salon at eleven. I covered the lunch rush."      ← the claim
+ *   T38  "I already texted her from the back room at 11:12"                  ← manufactured evidence
+ *
+ * A first draft on whole lines flagged the T37 rebuttal and missed the T37 claim in the same line,
+ * because both live inside one pair of quotation marks. So it runs per SENTENCE, and it throws out
+ * the two shapes that are not assertions about the appointment: a sentence repeating what the other
+ * person just said, and a sentence claiming they were HERE — which is the true version, and the one
+ * a character says while their memory is being argued with.
+ */
+const PAST_FIRST_PERSON = /\b(?:i\s+(?:was|went|worked|covered|clocked|left|took|had|made|got|did|saw|told|texted|called|[a-z]+ed)|i'?ve\s+been\s+(?:at|to|in)|i\s+came\s+(?:back|home|in)|(?:you|he|she|they)\s+(?:saw|watched)\s+me)\b/i;
+/** Repeating the other person's version back at them is not a claim of your own. */
+const REBUTTAL = /\b(?:you\s+think|you'?re\s+saying|you\s+said|you'?re\s+telling\s+me|according\s+to\s+you|like\s+i\s+just|as\s+if\s+i|you\s+want\s+me\s+to)\b/i;
+/** "Say you'd stay on the floor till I got back." A verb under till/until/before/when/if is not a
+ *  claim that anything happened — it is a plan, and in the save this came from it was said an hour
+ *  BEFORE the shift she then did not go to. */
+const HYPOTHETICAL = /\b(?:till|until|before|when|while|if|unless|so\s+that|in\s+case)\s+i\b/i;
+/** "I was here", "I've been home" — the true version, said by somebody being told they imagined
+ *  their morning. It must never be quoted back at the narrator as the fault. */
+const WAS_HERE = /\bi(?:'?ve\s+been|\s+was|\s+stayed)\s+(?:right\s+)?(?:here|home|in\s+this|on\s+(?:the|that)\s+couch)\b/i;
+/** Having gone and having come back — a departure claim needs no place name to be a claim. */
+const WENT_AND_RETURNED = /\b(?:i\s+came\s+(?:back|home)|i\s+left\b|i\s+got\s+back|(?:you|he|she|they)\s+(?:saw|watched)\s+me\s+(?:leave|go)|i\s+clocked\s+(?:in|out))/i;
 
 /** Which part of the day an hour falls in, in the words people actually use for it. */
 function dayPart(hour: number): string {
@@ -226,14 +281,14 @@ function dayPart(hour: number): string {
 }
 
 /**
- * Does this line point at the missed hour?
+ * Does this sentence point at the missed hour?
  *
  * Three ways, because a person lying about an appointment mostly does not name it. The real turn 34
- * says "I was there this morning", "they asked me to cover the lunch rush", "you saw me leave at
- * ten forty" — the word "salon" appears nowhere in any of it. So: the commitment's own distinctive
- * words, or the part of the day it fell in, or a clock time within a few hours of it. All three are
- * only ever consulted for a character who already has a commitment the record says they missed,
- * which is what keeps this from firing on ordinary talk about the morning.
+ * of the first save says "I was there this morning", "they asked me to cover the lunch rush", "you
+ * saw me leave at ten forty" — the word "salon" appears nowhere in any of it. So: the commitment's
+ * own distinctive words, or the part of the day it fell in, or a clock time within a few hours of
+ * it. All three are only ever consulted for a character who already has a commitment the record
+ * says they missed, which is what keeps this off ordinary talk about the morning.
  */
 function pointsAtHour(line: string, marks: string[], due: string): boolean {
   const low = line.toLowerCase();
@@ -267,9 +322,14 @@ export function findMissedClaim(prose: string, state: SaveState, presentIds: rea
       const marks = keyWords(mc.content).filter((w) => w.length > 3);
       if (!marks.length) continue;
       for (const line of said) {
-        if (!DID_IT.test(line)) continue;
-        if (!pointsAtHour(line, marks, mc.due)) continue;
-        return { name: mc.name, said: line.slice(0, 180), content: mc.content.slice(0, 120), due: mc.due };
+        for (const raw of line.split(/(?<=[.!?])\s+|\s+—\s+/)) {
+          const sentence = raw.trim();
+          if (sentence.split(/\s+/).length < 4) continue;
+          if (REBUTTAL.test(sentence) || WAS_HERE.test(sentence) || HYPOTHETICAL.test(sentence)) continue;
+          if (!PAST_FIRST_PERSON.test(sentence)) continue;
+          if (!WENT_AND_RETURNED.test(sentence) && !pointsAtHour(sentence, marks, mc.due)) continue;
+          return { name: mc.name, said: sentence.slice(0, 180), content: mc.content.slice(0, 120), due: mc.due };
+        }
       }
     }
   }
@@ -282,4 +342,85 @@ export function missedClaimFix(hit: MissedClaim | null | undefined): string {
     + `the record has "${hit.content}" due ${hit.due}, and it has ${hit.name} in this room when that hour went past. There is no turn in which ${hit.name} leaves, arrives, or is anywhere else. `
     + `The player did not watch anything, was not told anything, and did not forget anything. A character may lie; a character may not be handed an afternoon the story never wrote and then accuse the player of not remembering it. `
     + `THIS TURN nothing invented last turn is treated as having happened. If ${hit.name} is lying about it, the prose is written from the outside — what ${hit.name} says, what ${hit.name} does with their hands, and the plain fact that the other person was standing right there — and the player is never told they forgot, missed, or failed to notice a scene that does not exist.`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE WITNESS WHO AGREES WITH WHOEVER SPOKE LAST.
+ *
+ * The player did the one thing that should end this. Same save, four turns later:
+ *
+ *   T35  Abigail: "I was at work at eleven, Max. I came back."
+ *   T36  player:  "No. I was here at 11 am. You were talking to me. You haven't gone anywhere."
+ *   T37  Abigail: "Max, I was at the salon at eleven. I covered the lunch rush. … I remember
+ *                  locking the door. I remember the keycard."
+ *   T38  player:  "Yeah? Any proof? That you did? Let's call your manager"
+ *        Abigail: "Because I already texted her from the back room at 11:12 when Tanya was late
+ *                  for her station. … Ask her what time I clocked out."
+ *   T40  player:  I press the button and ask "hi. Did Abigail work today?"
+ *        → "Solstice Tanning, this is Dana."
+ *
+ * Between the demand and the dial tone the engine invented a text message at 11:12, a back room, a
+ * late coworker named Tanya, a keycard and a locked door. Then it put a manager on speakerphone
+ * with nothing anywhere telling it what that manager knows. A voice generated fresh, mid-argument,
+ * with no record of its own, agrees with whatever the prose most recently asserted — so the check
+ * the player invented to end the hallucination becomes the thing that certifies it.
+ *
+ * WHAT IT COST, IN THE SAVE'S OWN NUMBERS. By turn 40 Abigail is at relaxation −10, state "broken",
+ * break_mode "fractured", and her active states read: flustered, confused, SECOND-GUESSING REALITY.
+ * The engine gaslit its own character into a breakdown because its record and its prose disagreed
+ * and only the prose ever got to speak. Her drive, rewritten that turn, is "Conceal whether she
+ * actually attended her shift from Max while Dana is on the line" — the simulator had worked out
+ * what was true and the narrator was still free to have Dana say otherwise.
+ *
+ * So the verdict arrives BEFORE the prose, the way attempt.ts resolves a stakes-bearing action
+ * before a word is written. The engine already knows the answer; a scene where the player asks for
+ * it is the one place it must not be re-derived from the conversation.
+ */
+
+/** The player reaching for something outside the room to settle it. */
+const VERIFYING = /\b(?:call|calls|calling|phone|phoning|ring|dial|dials|speaker|speakerphone|text|texts|texting|manager|boss|supervisor|co-?workers?|colleagues?|time\s?sheet|timesheet|time\s?card|timecard|punch\s?card|key\s?card|keycard|badge|roster|rota|clock(?:ed)?\s+(?:in|out)|payslip|pay\s?stub|receipt|cameras?|footage|cctv|proof|prove|verify|verified|confirm|check\s+with|find\s+out\s+(?:if|whether))\b/i;
+
+/**
+ * THE CHANNEL, as opposed to the demand — a much shorter list, read against the previous turn's
+ * PROSE rather than the player's typed line.
+ *
+ * It has to be short. Narration says "called" and "asked" and "confirmed" constantly about nothing
+ * in particular, and a law that fires on those is a hundred and fifty words of correction landing
+ * on turns where nobody is checking anything. This is only the vocabulary of a line that is
+ * actually open: something ringing, somebody on speaker, a roster, a workplace on the other end.
+ */
+const CHANNEL_OPEN = /\b(?:speakerphone|on\s+speaker|the\s+speaker|phone(?:'s)?\s+(?:speaker|ringing)|dial(?:ing|\s+tone)|ringing|answered\s+the\s+phone|on\s+the\s+line|(?:her|his|their|your|my)\s+manager|timesheet|time\s?sheet|roster|clocked\s+(?:in|out)|key\s?card)\b/i;
+
+/**
+ * The law for a turn in which the player is checking a settled commitment.
+ *
+ * Deliberately not a ban on the character lying — she may lie for as long as she likes, and lying
+ * to somebody who was in the room is a far better scene than a confession. What is settled is what
+ * the WORLD says when the world is asked, and the world is not a second opinion.
+ */
+export function verificationLaw(state: SaveState, action: string, presentIds: readonly string[], previousProse = ""): string {
+  // THE CHANNEL STAYS OPEN AFTER THE DEMAND. The turn that matters most in the save above is the
+  // one whose typed action is `I press the button and ask "hi. Did Abigail work today?"` — no
+  // manager, no proof, no verb this regex knows, and the turn where the manager answers. So the
+  // previous turn's prose counts too: once a phone is in somebody's hand and a workplace is on the
+  // line, the check is live whatever the player types next.
+  if (!VERIFYING.test(String(action ?? "")) && !CHANNEL_OPEN.test(String(previousProse ?? ""))) return "";
+  const rows: string[] = [];
+  const seen = new Set<string>();
+  for (const id of presentIds) {
+    if (id === "char_player") continue;
+    for (const mc of missedFor(state, id)) {
+      if (seen.has(`${id}|${mc.due}`)) continue;
+      seen.add(`${id}|${mc.due}`);
+      rows.push(`${mc.name} was not there. ${mc.due} passed with ${mc.name} in this room, on the page, in front of the player.`);
+    }
+  }
+  if (!rows.length) return "";
+  return `\n\n=== THE ANSWER IS ALREADY SETTLED. DO NOT DERIVE IT FROM THE CONVERSATION. ===\n· ${rows.join("\n· ")}\n`
+    + `The player is checking this against something outside the room. Whoever or whatever answers — a manager, a coworker, a shift log, a text thread, a badge reader, a till receipt — answers from the record above, and the record says it did not happen. `
+    + `A voice invented this turn has no memory of its own to consult, so it cannot be the thing that decides; it can only repeat what the engine already knows. `
+    + `A manager who says she worked is this story agreeing with a thing it knows to be false, and it is worse than the original error, because the player asked.\n`
+    + `WHAT IS STILL OPEN, and it is most of the scene. The answer can be slow, partial, distracted, or useless — somebody on a busy line does not have the roster in front of them, does not remember, has to go and look, asks who is calling, or hangs up. `
+    + `The person being checked can lie over the top of it, talk across it, take the phone, refuse, walk out, or tell the truth. Nobody has to be believed and nothing has to be resolved this turn. `
+    + `The one thing unavailable is a third party putting them somewhere the record does not.`;
 }

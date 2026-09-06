@@ -333,6 +333,17 @@ overdue-but-unwitnessed hours stop being described as upcoming and are rendered 
 a hole in the record instead. It never marks anything fulfilled: guessing in that direction is the
 same failure pointed the other way.
 
+The window on a settled commitment is measured in **world minutes, not turns** — the save that
+prompted this ran forty-one turns across twelve hours, so a turn-counted window aged the missing
+shift out at about seven in the evening, on the exact turn the player finally rang the salon to
+check. And when the player does check, `verificationLaw` puts the verdict in the directive *before*
+the prose, the way `attempt.ts` resolves an attempt before a word is written: a witness invented
+mid-argument has no record of its own to consult and will agree with whoever spoke last, so the
+check the player invented to end a hallucination is otherwise the thing that certifies it. It
+settles only what is asked and leaves the rest of the scene open — the character may still lie, the
+answer may still be slow, partial or useless; what is unavailable is a third party putting somebody
+where the record does not.
+
 **Three output-side voice guards** (`maxims.ts`, `aperture.ts`). All three use the mechanism that
 actually works here — catch it in the committed prose, quote it back at the end of the next
 directive. (1) `findFigure` extends the maxim detector out of the quotation marks: a spoken line
