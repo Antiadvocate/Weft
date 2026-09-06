@@ -344,6 +344,51 @@ settles only what is asked and leaves the rest of the scene open — the charact
 answer may still be slow, partial or useless; what is unavailable is a third party putting somebody
 where the record does not.
 
+**Bearing — how a person stands in a room** (`bearing.ts`). A player, on a cast of five: "being shy,
+or being confident, or being all these personality types is not arising within the emergent
+behavior. All the characters are obnoxious and direct and maximally efficient." Nothing ever told
+the narrator otherwise. `gregariousness` is written by four forges and READ in exactly one place —
+social.ts, for offscreen bond drift — so the one number that could mean shy never reached the point
+of writing. `attachment.style` is rendered four times and every one is a stress reading
+(`under_threat` at relaxation ≤ −3, the clenched branch at ≤ −7, `soothed_by` at ≥ +4), so between
+−3 and +4, where ordinary turns sit, disposition did not exist. With a voice card (what words this
+person has) and no bearing (what they do with a room), the model supplies its default: a fluent
+adult who says the right thing at the right length.
+
+Bearing is **climate, not weather** — the same distinction §2 draws for mood. It reads the standing
+card and `capacity_born`, never this turn's relaxation, because a settled shy person is still shy.
+Three axes: how much room they take (gregariousness), how they get at a hard thing (attachment
+style), and whose claim comes first (conscience). Shy is a *combination* — a small social appetite
+carried with a large sense of what the other person is owed — not simply a low number. The note is
+silent for anyone whose card sits in the middle on every axis, and half of what it emits is
+permission: not finishing the sentence, answering the easier question, needing three goes at it,
+going quiet and letting somebody else fill it.
+
+The schema was also handing the model the answer. `"gregariousness":0.5`, `"conscience":0.7` and
+`"capacity":2` were literal values in the forge/sketch/bookkeeper JSON shapes while every field
+around them carried a description, and a character sketched in play came out at exactly 0.5 with
+conscience and attachment unset — the median of everything, which is the default voice. They are
+descriptions now, and the description says the spread is the point.
+
+**The person who did it remembers doing it** (`rememberOwnAct`, offstage.ts + the first-person
+repair in memory.ts). `runOffstage` moves the ACTOR'S nervous system — its own comment reads "The
+body that lived it. The actor took the whole of it; a witness took half" — and then writes a memory
+for the witnesses and for nobody else. A character alone in her own apartment is nobody's witness,
+so she took the relaxation cost of her whole afternoon and kept no recollection of it: twelve
+memories in her bank, eleven naming the player, and a day of her own staged pedicure campaigns,
+relocations to the entryway choke point, and a plate gone gray at five in the morning that existed
+only in the world log. The actor is now written their own copy, one importance step above a
+witness, through `cleanMemoryContent` so it lands in their mouth rather than as a report about them.
+
+That conversion had to be fixed first. Every line the offstage pass writes opens with an
+unpunctuated time phrase, and rule 4's subject-position test only recognised a fronted adverbial
+when it was followed by a comma — so "Around 12:50 Abigail decides…" stored as "me decides", "At
+about 19:50 Abigail finally comes off the stool" as "me finally comes". The comma case itself never
+fired on the example written into its own comment, because the pattern refuses a full stop and
+"Eight a.m.," has two. Also fixed alongside: an adverb may now stand between a swapped subject and
+its verb, the agreement repair reaches across a coordinating conjunction for every verb rather than
+for the copula alone, and `firstPersonVerb` gets `-es` right (passes → pass, but uses → use).
+
 **`tracked` and `central` are two different claims** (`turn.ts` promotion loop, `prompts.ts` × 3,
 `aperture.ts`). `tracked` means the engine spends upkeep on this person — a drive, a schedule, an
 authored want; `central` means the narrator is told who they are. Four paths set `tracked` without

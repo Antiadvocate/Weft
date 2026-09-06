@@ -48,6 +48,7 @@ import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { apertureNote, heardYouNote } from "./aperture";
+import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -2260,6 +2261,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // percent and her whole want out loud, every turn, deaf to a room full of things she likes.
   // See engine/aperture.ts.
   const apertureNote_ = apertureNote(state, state.world.present);
+  // HOW WIDE THE ATTENTION IS is weather; how a person stands in a room is climate, and nothing
+  // rendered it. `gregariousness` reached the narrator nowhere at all, and attachment style only as
+  // a stress response — so between −3 and +4 relaxation every character was a fluent adult who says
+  // the right thing at the right length. See engine/bearing.ts.
+  const bearingNote_ = bearingNote(state, state.world.present);
   // WHAT THIS WORLD IS TURNING INTO. A fact the player wrote that is not true yet: the world moves
   // one step toward it per turn, through its own causes, and lands in canon when it gets there.
   // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
@@ -2975,13 +2981,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
