@@ -989,7 +989,7 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
       const add = t.label.toLowerCase();
       if (!ident.speech_pattern.toLowerCase().includes(add)) {
-        ident.speech_pattern = `${ident.speech_pattern}; has become ${add}`.replace(/^;\s*/, "");
+        if (!ident.voice_locked) ident.speech_pattern = `${ident.speech_pattern}; has become ${add}`.replace(/^;\s*/, "");
       }
     }
     return false; // retire from acquired — it's core now

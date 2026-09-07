@@ -47,6 +47,11 @@ export interface ModelSettings {
    *  false only when somebody has explicitly turned it off, so the backfill in state.sanitize can
    *  tell "never set" from "declined". */
   habit_engine?: boolean;
+  /** OFF by default, and off is the fix. A voice card is a spec written once and read every turn,
+   *  and its rules turned out to define one register rather than describe a person: measured over a
+   *  four-person cast, all four syntax fields said short-declarative-no-hedging and nine of thirteen
+   *  example lines named a number or a price. On, the card is rendered as before. */
+  voice_cards?: boolean;
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   /** PAINT THE SCENE EVERY TURN, without being asked.
@@ -300,7 +305,8 @@ export interface Identity {
   speech_pattern: string;
   attachment?: {              // how this nervous system behaves around other people under threat — clinical attachment, deterministic in play
     style: "secure" | "anxious" | "avoidant" | "disorganized";
-    under_threat?: string;    // plain sentence: what they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
+    under_threat?: string;    // plain sentence: the FIRST thing they DO when scared or hurt (pursues and escalates / goes flat and leaves / wants comfort and fears it in the same motion)
+    when_that_fails?: string; // plain sentence: what they do when that first move is visibly not working. ONE static under_threat made every character rigid by construction — one threat, one response, forever — and a person whose whole method is reading the room and switching tack had nowhere to live. A stubborn person's answer here is "the same thing, harder"; a manipulator's is a different door entirely, and for them the switch is the character.
     soothed_by?: string;      // plain sentence: what actually settles them
   };
   conscience?: number;        // 0..1 — how much other people's experience registers as MATTERING. Orthogonal to relaxation: calm is not care. Most people 0.6-0.9 (openness → warmth, the default physics). ≤0.35 = rudra-type: constitutionally cold — their poise is real (low-anxiety, stress-immune) and their openness yields precision without obligation; comfort does not soften them because there is nothing to soften into.
@@ -317,6 +323,12 @@ export interface Identity {
    *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
    *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
   voice_refreshed_turn?: number;
+  /** THE PLAYER WROTE THIS VOICE AND IT STAYS WRITTEN. Three separate passes rewrite how somebody
+   *  sounds — the periodic re-forge (voiceforge), trait consolidation appending to speech_pattern
+   *  (social), and the per-turn drift that adds an age cadence and acquired traits (prompts). All
+   *  three are useful on a character the engine authored and all three are vandalism on one a person
+   *  sat down and wrote. Set here, every one of them steps around this character. */
+  voice_locked?: boolean;
   /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
    *  no traits, no conscience, background copied from the sentences they appeared in. The simulator
    *  is asked to complete it; until it does, nothing should treat this as a finished person. */

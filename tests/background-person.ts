@@ -70,7 +70,8 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
 /* ── 2. a tracked person is never rendered as furniture ──────────────────────── */
 {
   const s = load();
-  const card = charCard(EMILY, s.characters[EMILY], s.condition[EMILY], [], true);
+  // voice cards are off by default now; this assertion is about the card, so ask for one
+  const card = charCard(EMILY, s.characters[EMILY], s.condition[EMILY], [], true, undefined, "", true);
   check("her card renders in full", card.length > 400, card.length);
   check("...carrying her trade", /laundry|linen|tunnel washer/i.test(card), card.slice(0, 200));
   check("...and her register", /barbell|metaphor|inventory/i.test(card), card);

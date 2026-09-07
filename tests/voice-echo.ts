@@ -1,3 +1,5 @@
+/* Voice cards are OFF by default now (they converged the cast — see tests/no-voice-card.ts).
+ * This file tests the card itself, so it asks for one explicitly. */
 /* Smoke test: ONE COPY OF THE VOICE, NOT THREE.
  *
  * "Her voice and tone are monotone reflecting an uninvented personality across characters."
@@ -40,7 +42,7 @@ const cond = (relaxation = 0): Condition =>
 
 /* ── the card says it once ───────────────────────────────────────────────────── */
 {
-  const card = charCard("char_clara", ident(), cond(), []);
+  const card = charCard("char_clara", ident(), cond(), [], false, undefined, "", true);
   const n = (card.match(/comma splice of small sensations/g) ?? []).length;
   check("the fingerprint appears exactly once on the card", n === 1, n);
   check("and the voice is still there at all", /sensual-precise/.test(card));
@@ -49,20 +51,20 @@ const cond = (relaxation = 0): Condition =>
   // a character whose fingerprint genuinely differs from the baseline keeps both — this is a
   // deduplication, not a deletion
   const other = ident({ speech_pattern: "Blunt. Short. Never explains herself twice." });
-  const card = charCard("char_clara", other, cond(), []);
+  const card = charCard("char_clara", other, cond(), [], false, undefined, "", true);
   check("a real second voice field is not swallowed", /sensual-precise/.test(card) && /Blunt/.test(card), card.slice(0, 300));
 }
 
 /* ── the per-turn line carries what CHANGED ──────────────────────────────────── */
 {
-  const line = deriveVoice(ident(), cond(0), []);
+  const line = deriveVoice(ident(), cond(0), [], undefined, true);
   check("the per-turn line no longer restates the whole baseline",
     !/comma splice of small sensations/.test(line), line);
   check("it carries what is under the words", /leaned toward/.test(line), line);
 }
 {
-  const calm = deriveVoice(ident(), cond(8), []);
-  const clenched = deriveVoice(ident(), cond(-9), []);
+  const calm = deriveVoice(ident(), cond(8), [], undefined, true);
+  const clenched = deriveVoice(ident(), cond(-9), [], undefined, true);
   check("a settled body and a braced one do not produce the same line", calm !== clenched);
   check("and the braced one says so", /clenched/.test(clenched), clenched);
 }
@@ -76,7 +78,7 @@ const cond = (relaxation = 0): Condition =>
 {
   // a character with nothing dynamic must not end up with an empty voice line
   const bare = ident({ voice: undefined });
-  const line = deriveVoice(bare, cond(0), []);
+  const line = deriveVoice(bare, cond(0), [], undefined, true);
   check("with nothing else to say, the baseline comes back rather than nothing",
     line.length > 0 && /sensual-precise/.test(line), line);
 }
@@ -84,8 +86,8 @@ const cond = (relaxation = 0): Condition =>
   // acquired traits are the main thing that SHOULD make a voice drift over a long story — and the
   // save this came from had a character 108 turns deep with none at all
   const t = [{ label: "Boundary-eroding possessiveness", intensity: 7, behavioral_impact: "presses" }];
-  check("a learned trait colours the voice", /Boundary-eroding/.test(deriveVoice(ident(), cond(), t)));
-  check("a faint one does not", !/faint/.test(deriveVoice(ident(), cond(), [{ label: "faint", intensity: 2, behavioral_impact: "x" }])));
+  check("a learned trait colours the voice", /Boundary-eroding/.test(deriveVoice(ident(), cond(), t, undefined, true)));
+  check("a faint one does not", !/faint/.test(deriveVoice(ident(), cond(), [{ label: "faint", intensity: 2, behavioral_impact: "x" }], undefined, true)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
