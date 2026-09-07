@@ -67,7 +67,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [revoicing, setRevoicing] = useState(false);
   const [retraiting, setRetraiting] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "" });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "", speech_pattern: "", voice_diction: "", voice_syntax: "", voice_rhythm: "", voice_tics: "", voice_never_says: "", voice_example_lines: "", voice_locked: false });
   const [editNote, setEditNote] = useState("");
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -120,6 +120,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
     setDraft({
       name: c.name, age: String(c.age), background: c.background, life_history: c.life_history ?? "", appearance_facts: c.appearance_facts, appearance_now: c.appearance_now ?? "", visual_signature: c.visual_signature ?? "", height_ft: c.height_cm ? String(Math.floor(Math.round(c.height_cm / 2.54) / 12)) : "", height_in: c.height_cm ? String(Math.round(c.height_cm / 2.54) % 12) : "", weight_lb: c.weight_kg ? String(Math.round(c.weight_kg * 2.20462)) : "",
       current_goal: c.current_goal ?? "", core_traits: c.core_traits.join("\n"),
+      speech_pattern: c.speech_pattern ?? "",
+      voice_diction: c.voice?.diction ?? "", voice_syntax: c.voice?.syntax ?? "", voice_rhythm: c.voice?.rhythm ?? "",
+      voice_tics: (c.voice?.tics ?? []).join("\n"),
+      voice_never_says: (c.voice?.never_says ?? []).join("\n"),
+      voice_example_lines: (c.voice?.example_lines ?? []).join("\n"),
+      voice_locked: !!c.voice_locked,
     });
     setEditing(true);
   };
@@ -144,6 +150,17 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         // in high school, and never at the thing that's actually breaking her heart" came back as
         // three fragments — and the fragment that carried the whole character was the one lost.
         core_traits: splitLines(draft.core_traits),
+        // THE VOICE IS EDITABLE NOW, WHICH IS THE HALF THAT MAKES THE LOCK WORTH HAVING. Before
+        // this the only control over how somebody talks was a button that rolled a new one.
+        speech_pattern: draft.speech_pattern,
+        voice: {
+          ...(c?.voice ?? {}),
+          diction: draft.voice_diction, syntax: draft.voice_syntax, rhythm: draft.voice_rhythm,
+          tics: splitLines(draft.voice_tics),
+          never_says: splitLines(draft.voice_never_says),
+          example_lines: splitLines(draft.voice_example_lines),
+        },
+        voice_locked: draft.voice_locked,
       } },
     });
     setSave(s); setEditing(false);
@@ -417,10 +434,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                                 note="same person, described one level deeper — originals kept"
                                 busy={retraiting}
                                 on={async () => { setRetraiting(true); try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits */ } finally { setRetraiting(false); } }} />
-                              <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
+                              {!c.voice_locked && <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
                                 note="regenerate how they talk from the card, ignoring recent drift"
                                 busy={revoicing}
-                                on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />
+                                on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />}
                               <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
                                 note={typeof c.beauty === "number" ? `currently ${c.beauty} — recomputes from appearance` : "recomputes from appearance"}
                                 busy={scoring} on={rescore} />
@@ -533,6 +550,27 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (one per line)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} rows={4} />
+                    <div className="py-1.5 mt-2 border-t" style={{ borderColor: "var(--line)" }}>
+                      <label className="flex items-start gap-2 cursor-pointer py-1.5">
+                        <input type="checkbox" className="mt-0.5" checked={draft.voice_locked}
+                          onChange={(e) => setDraft((d) => ({ ...d, voice_locked: e.target.checked }))} />
+                        <span>
+                          <span className="text-[12.5px]">Lock this voice</span>
+                          <span className="block text-[11px] leading-snug" style={{ color: "var(--text-lo)" }}>
+                            Nothing rewrites it — not the periodic re-forge, not an acquired trait, and not the
+                            age cadence the engine adds from their birthday. How they sound when they are
+                            frightened still moves; that comes from the scene, not from this card.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                    <EditField label="Speech pattern" v={draft.speech_pattern} set={(v) => setDraft((d) => ({ ...d, speech_pattern: v }))} rows={3} />
+                    <EditField label="Diction — the words they actually have" v={draft.voice_diction} set={(v) => setDraft((d) => ({ ...d, voice_diction: v }))} rows={2} />
+                    <EditField label="Syntax — how their sentences are built" v={draft.voice_syntax} set={(v) => setDraft((d) => ({ ...d, voice_syntax: v }))} rows={2} />
+                    <EditField label="Rhythm — how their talking moves" v={draft.voice_rhythm} set={(v) => setDraft((d) => ({ ...d, voice_rhythm: v }))} rows={2} />
+                    <EditField label="Verbal tics (one per line)" v={draft.voice_tics} set={(v) => setDraft((d) => ({ ...d, voice_tics: v }))} rows={2} />
+                    <EditField label="Never says (one per line) — what they could not produce, not warmth they might deploy" v={draft.voice_never_says} set={(v) => setDraft((d) => ({ ...d, voice_never_says: v }))} rows={3} />
+                    <EditField label="Example lines (one per line) — the narrator copies these" v={draft.voice_example_lines} set={(v) => setDraft((d) => ({ ...d, voice_example_lines: v }))} rows={4} />
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
                   </Section>
                 )}

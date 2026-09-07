@@ -1227,11 +1227,19 @@ export function deriveVoice(
     if (v.agenda) parts.push(`under the words: ${v.agenda}`);
     if (v.tics?.length) parts.push(`tic (≤once a scene): ${v.tics.join(" / ")}`);
   }
-  const band = ageBand(ident.age);
-  if (band) parts.push(band);
-  // strong acquired traits color the voice (intensity ≥ 5), strongest first
-  const strong = [...traits].filter((t) => t.intensity >= 5).sort((a, b) => b.intensity - a.intensity).slice(0, 2);
-  for (const t of strong) parts.push(`speech now carries: ${t.label}`);
+  // AND THE DRIFT IS OFF WHEN THE VOICE IS LOCKED. An age band is a guess from a number — an
+  // eighteen-year-old gets "a teenager's slangy, testing cadence" on every turn of her life,
+  // whoever the player wrote her as — and acquired traits keep adding to it. Both are how the
+  // engine keeps an authored-by-nobody character moving; on a voice somebody sat down and wrote
+  // they are the thing overwriting it. The stress register below stays: how a person sounds when
+  // they are frightened is the clench engine, not a description of their voice.
+  if (!ident.voice_locked) {
+    const band = ageBand(ident.age);
+    if (band) parts.push(band);
+    // strong acquired traits color the voice (intensity ≥ 5), strongest first
+    const strong = [...traits].filter((t) => t.intensity >= 5).sort((a, b) => b.intensity - a.intensity).slice(0, 2);
+    for (const t of strong) parts.push(`speech now carries: ${t.label}`);
+  }
   // present openness/mood
   const rel = cond.psyche.relaxation;
   // CLENCH IS PRESSURE, NOT A VOLUME KNOB. This line read "clipped, guarded, or barbed", and every

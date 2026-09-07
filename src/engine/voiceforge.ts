@@ -159,6 +159,10 @@ export async function refreshVoice(
 ): Promise<boolean> {
   const c = state.characters?.[charId];
   if (!c) return false;
+  // A LOCKED VOICE IS NOT REFRESHED, BY THE CLOCK OR BY HAND. The button in Cast is hidden while
+  // the lock is on, and this is the guard behind it: the whole point of the lock is that nothing
+  // gets to rewrite what the player typed, and "nothing" has to include the deliberate path.
+  if (c.voice_locked) return false;
 
   // Who play has made them — a woman who acquired "openly bitter about the raid" should sound like
   // it. The refresh reads the CURRENT card, so voices move with the character instead of resetting.
@@ -200,6 +204,7 @@ export async function refreshStaleVoices(state: any, model: string): Promise<str
     if (id === "char_player") continue;
     const c = state.characters?.[id];
     if (!c) continue;
+    if (c.voice_locked) continue;
     const last = c.voice_refreshed_turn ?? 0;
     if (turn - last < VOICE_REFRESH_INTERVAL) continue;
     if (await refreshVoice(state, id, model)) done.push(c.name);

@@ -318,6 +318,12 @@ export interface Identity {
    *  imitates its own last paragraph; the refresh re-reads the card WITHOUT seeing any prose and
    *  overwrites example_lines, which is what breaks the copy-of-a-copy loop. */
   voice_refreshed_turn?: number;
+  /** THE PLAYER WROTE THIS VOICE AND IT STAYS WRITTEN. Three separate passes rewrite how somebody
+   *  sounds — the periodic re-forge (voiceforge), trait consolidation appending to speech_pattern
+   *  (social), and the per-turn drift that adds an age cadence and acquired traits (prompts). All
+   *  three are useful on a character the engine authored and all three are vandalism on one a person
+   *  sat down and wrote. Set here, every one of them steps around this character. */
+  voice_locked?: boolean;
   /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
    *  no traits, no conscience, background copied from the sentences they appeared in. The simulator
    *  is asked to complete it; until it does, nothing should treat this as a finished person. */
