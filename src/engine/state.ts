@@ -69,6 +69,10 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     conscience: asNum(ident.conscience, 0, 1),
     beauty: typeof ident.beauty === "number" ? Math.max(0, Math.min(100, ident.beauty)) : undefined,
     voice: ident.voice,
+    // …and the lock on it. Dropped here, a voice the player wrote by hand quietly came unlocked the
+    // moment the cast was carried into a new chapter — the same class of loss the comment above
+    // records for `central` and life_history.
+    voice_locked: ident.voice_locked,
     attachment: ident.attachment,
   };
   // CAPACITY = resting openness the person's nature drifts toward. When the forge gives an explicit

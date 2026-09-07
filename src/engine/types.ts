@@ -47,6 +47,11 @@ export interface ModelSettings {
    *  false only when somebody has explicitly turned it off, so the backfill in state.sanitize can
    *  tell "never set" from "declined". */
   habit_engine?: boolean;
+  /** OFF by default, and off is the fix. A voice card is a spec written once and read every turn,
+   *  and its rules turned out to define one register rather than describe a person: measured over a
+   *  four-person cast, all four syntax fields said short-declarative-no-hedging and nine of thirteen
+   *  example lines named a number or a price. On, the card is rendered as before. */
+  voice_cards?: boolean;
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   /** PAINT THE SCENE EVERY TURN, without being asked.

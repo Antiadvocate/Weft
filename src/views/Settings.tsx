@@ -942,6 +942,9 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <Toggle on={draft.paging !== false} onFlip={() => setDraft((d) => ({ ...d, paging: d.paging === false ? true : false }))}
           title="Page out cold characters"
           desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is untouched — only their card leaves the room." />
+        <Toggle on={!!draft.voice_cards} onFlip={() => setDraft((d) => ({ ...d, voice_cards: !d.voice_cards }))}
+          title="Voice cards"
+          desc="Off: nobody carries a written-down spec for how they talk, and the narrator works from who they are — where they're from, the trade they actually have, what they bring up unprompted, who they're talking to and what they want out of it. On: each character also carries a diction/syntax/rhythm card. It was on by default and it converged the cast — across one four-person save every syntax field said short, declarative, no hedging, and nine of thirteen sample lines named a number or a price. A character whose voice you locked by hand keeps their card either way." />
         <Toggle on={draft.habit_engine !== false} onFlip={() => setDraft((d) => ({ ...d, habit_engine: d.habit_engine === false ? true : false }))}
           title="Habit engine"
           desc="Core traits become firing habits that loosen only when a character sees themselves do them (clarity, not kindness) and deepen when they don't. Change is slow, directionless, and never chosen — a character finds out they've changed when someone else notices. Watch it in each character's drawer." />

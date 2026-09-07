@@ -16,6 +16,9 @@
  * All three are how the engine keeps a character it authored moving, and all three are vandalism on
  * one a person sat down and wrote. `voice_locked` turns every one of them off for that character.
  *
+ * (Voice cards are off globally by default now; these cases pass cards=true so the LOCK is what is
+ * being measured rather than the global setting.)
+ *
  * What it does NOT turn off is the stress register — how somebody sounds when they are frightened
  * comes from the scene and the clench engine, and is not a description of their voice. */
 import { deriveVoice } from "../src/engine/prompts";
@@ -47,11 +50,11 @@ const TRAITS = [{ label: "openly bitter about the eviction", intensity: 8, behav
 
 /* ── 1. the per-turn drift stops ─────────────────────────────────────────────── */
 {
-  const open = deriveVoice(person(false), cond(0), TRAITS);
+  const open = deriveVoice(person(false), cond(0), TRAITS, undefined, true);
   check("unlocked, an age band is read off her birthday", /teenager's slangy/.test(open), open);
   check("...and acquired traits are added to how she talks", /speech now carries/.test(open), open);
 
-  const shut = deriveVoice(person(true), cond(0), TRAITS);
+  const shut = deriveVoice(person(true), cond(0), TRAITS, undefined, true);
   check("LOCKED: no cadence invented from her age", !/teenager's slangy/.test(shut), shut);
   check("LOCKED: no acquired trait bolted onto her voice", !/speech now carries/.test(shut), shut);
   check("...but what she was written as still renders", /time window|booking an appointment/.test(shut), shut);
@@ -59,8 +62,8 @@ const TRAITS = [{ label: "openly bitter about the eviction", intensity: 8, behav
 
 /* ── 2. being frightened is not part of the lock ─────────────────────────────── */
 {
-  const shut = deriveVoice(person(true), cond(-8), TRAITS);
-  const calm = deriveVoice(person(true), cond(0), TRAITS);
+  const shut = deriveVoice(person(true), cond(-8), TRAITS, undefined, true);
+  const calm = deriveVoice(person(true), cond(0), TRAITS, undefined, true);
   check("a locked voice still sounds different under pressure", shut !== calm, { shut, calm });
 }
 
