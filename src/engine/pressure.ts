@@ -369,10 +369,23 @@ export function selectBeat(inp: BeatInput): Beat {
   // COOLDOWN. When the caller knows how long it has actually been, the in-world clock is the gate
   // and the turn count is only the floor that keeps two discharges off consecutive pages. Without
   // it (old save, or nothing has fired yet) fall back to the turn ladder as before.
+  // ...AND THE IN-WORLD CLOCK CANNOT HOLD THE GATE FOREVER. Hours are the right unit for how a
+  // person feels blows landing, and they stop being the right unit when a story barely spends any.
+  // A single morning in one apartment ran 139 in-world minutes across 43 turns; against the
+  // 300-minute cooldown for its tension that is ninety more turns before anything may discharge,
+  // which is not a quiet story, it is a stopped one. So the minutes gate is capped by a patience
+  // measured in turns read — generous, well past the turn ladder that governed before the clock
+  // existed, and only ever a ceiling on waiting.
+  const patienceTurns = beatCooldown(inp.tension, inp.clocks) * 4;
   const cooling = inp.minutesSinceBeat === undefined
     ? sinceBeat < beatCooldown(inp.tension, inp.clocks)
-    : inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) || sinceBeat < MIN_GAP_TURNS;
-  const standing: { ref: string; kind: string; mk: () => Beat }[] = [];
+    : (inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) && sinceBeat < patienceTurns)
+      || sinceBeat < MIN_GAP_TURNS;
+  // `quiet` is what this source becomes during the cooldown, when an incident is not allowed but
+  // texture is. Without one a source falls back to a bare reminder, which for a CLOCK meant handing
+  // the narrator `faction: objective` verbatim — the private objective the clock table is withheld
+  // to protect — and then asking for it "lightly", which produces nothing anybody can see.
+  const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "threat", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130),
@@ -384,6 +397,10 @@ export function selectBeat(inp: BeatInput): Beat {
       // with nothing observable attached, the narrator wrote a line of foreboding and moved on,
       // which is a clock flaring with nothing in the prose to show for it.
       signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 3),
+      filled: c.filled, segments: c.segments,
+    }), quiet: () => ({
+      kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
+      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
       filled: c.filled, segments: c.segments,
     }) });
   // ── AND A CLOCK THAT HAS ONLY JUST STARTED MOVING ───────────────────────────────────────────
@@ -408,6 +425,12 @@ export function selectBeat(inp: BeatInput): Beat {
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
       && c.filled > 0 && c.filled / c.segments < 0.75 && (c.visible_signs ?? []).some((x) => String(x ?? "").trim()))
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "reminder", mk: () => ({
+      kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
+      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
+      filled: c.filled, segments: c.segments,
+    }), quiet: () => ({
+      // A young clock is ALREADY only a sign, so its quiet form and its loud form are the same
+      // thing — which is the point: it is the one source that is safe to run during a cooldown.
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
       signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
       filled: c.filled, segments: c.segments,
@@ -506,7 +529,14 @@ export function selectBeat(inp: BeatInput): Beat {
     // world's clock, but a reminder is texture on the page — the rule it obeys is "don't echo the
     // thing we just did", which is measured in scenes read, not hours lived.
     if (remind && sinceBeat >= 3 && inp.tension >= 3 && !inp.restoration && rng() < 0.5) {
-      return { kind: "reminder", ref: remind.ref };
+      // A SIGN IS NOT AN INCIDENT, so the incident cooldown is the wrong gate for it. This is the
+      // branch a slow-clock story spends most of its life in: measured on one save, 139 in-world
+      // minutes across 43 turns — about three minutes a turn — against a 300-minute cooldown, which
+      // is ninety-odd turns of waiting. What the player got in the meantime was this branch handing
+      // back a bare reminder, and for a clock source that reminder was the objective itself, said
+      // lightly. So a source that has a quiet form uses it: the sign goes on the page, the objective
+      // does not, and nothing is discharged.
+      return remind.quiet ? remind.quiet() : { kind: "reminder", ref: remind.ref };
     }
     return { kind: "none" };
   }
