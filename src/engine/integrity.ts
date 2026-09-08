@@ -157,3 +157,11 @@ export function povDrift(
   if (third >= 3 && third > second) return { third, second };
   return null;
 }
+
+/** The correction for the next turn. Every other fault the engine catches feeds one of these into
+ *  the prompt; a log that nobody reads corrects nothing. Written as the operation rather than as a
+ *  rule about narration, since a rule about keeping the person is the sentence that already failed. */
+export function povFix(hit: { third: number; second: number } | null | undefined): string {
+  if (!hit) return "";
+  return `\nLAST TURN WROTE THE PLAYER FROM OUTSIDE. Their name or a he/she stood where "you" belongs, ${hit.third} times, against ${hit.second} second-person words in the whole turn. The player is the person this story is told TO. In narration and in interior alike they are addressed in the second person; their own name and any third-person pronoun belong to other people and never to them. This holds hardest when they are ALONE, which is where it broke: a scene with nobody else in it is still their scene and is still addressed to them, and a solo turn written about a man at a desk has quietly changed who is being spoken to. Other characters stay in the third person as always. Write this turn to them.`;
+}

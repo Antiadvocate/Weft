@@ -18,7 +18,7 @@
  * the output worse because the instruction was wrong, and following it faithfully is the failure.
  *
  * The rule is fixed. This catches the next one, from any model. */
-import { povDrift } from "../src/engine/integrity";
+import { povDrift, povFix } from "../src/engine/integrity";
 import { NARRATOR_SYSTEM } from "../src/engine/prompts";
 
 let pass = 0, fail = 0;
@@ -66,6 +66,31 @@ const AFTER = `She doesn't laugh. Her eyes stay on him, bright and steady, and t
     "the ban on second person is still in the narrator prompt");
   check("...and the second person is stated as the mode", /THE PLAYER IS "YOU"/.test(NARRATOR_SYSTEM));
   check("...with what was actually meant kept", /turning to the AUDIENCE|dear reader/i.test(NARRATOR_SYSTEM));
+}
+
+/* ── 6. it corrects the next turn, rather than only logging ──────────────────── */
+{
+  check("a clean turn adds nothing to the next prompt", povFix(null) === "");
+  const fix = povFix({ third: 9, second: 0 });
+  check("a caught turn tells the narrator what it did", /wrote the player from outside/i.test(fix), fix);
+  check("...with the count, so it is a measurement and not a scolding", /9 times/.test(fix), fix);
+  // ...without pasting a specimen of the wrong form: a quoted example of the thing being banned puts
+  // that sentence in the context, which tests/prompt-echo.ts ratchets against and caught here first
+  check("...and names the shape it must take instead", /addressed in the second person/i.test(fix), fix);
+  check("...handing over no ready-made example of the wrong form",
+    !/\b(Max|he|she) (crosses|moves|walks|sits)\b/.test(fix), fix);
+  check("...and covers the solo scene, which is where it actually broke",
+    /ALONE/.test(fix), fix);
+  check("...while leaving everybody else in the third person", /Other characters stay in the third person/.test(fix));
+}
+
+/* ── 7. the case from the replay: nobody else in the room ────────────────────── */
+{
+  // Gemini held the second person for 47 turns and went the moment Emily left the scene
+  const solo = `Max moves back to his desk, the space between the door and the workstation feeling wide and unmapped. He sits, the chair sinking slightly under his weight, and pulls his keyboard forward. He settles his hands on the home row, his shoulders dropping from their high, locked position, and begins to type.`;
+  check("a solo scene written about the player is caught", povDrift(solo, "Max", "he/him", []) !== null, "missed the solo case");
+  const soloRight = `You move back to your desk, the space between the door and the workstation feeling wide and unmapped. You sit, the chair sinking under your weight, and pull the keyboard forward, and your shoulders come down out of their locked position.`;
+  check("...and the same scene written to them is not", povDrift(soloRight, "Max", "he/him", []) === null);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
