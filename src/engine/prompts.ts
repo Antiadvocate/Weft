@@ -1702,6 +1702,9 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // them, and grow impatient or leave when the scene gives them nothing. The story is not only
       // about the player; these people have their own business.
       const drv = ident.drive;
+      // Set by each real want written below — counting lines counted "wants: nothing pressing"
+      // too, and told somebody who wants nothing that their want is not a shared fact.
+      let wroteWant = false;
       const goalNow = ident.current_goal || drv?.goal;
       if (goalNow) {
         // THE STALL MARKER COULD NEVER FIRE, AND THE NUMBER BESIDE IT WAS RAW.
@@ -1724,6 +1727,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         // 0..100 field, in the prompt.
         const sinceMoved = drv?.progress_turn !== undefined ? state.world.current_turn - drv.progress_turn : 0;
         const stalledHere = sinceMoved >= 3 && (drv?.progress ?? 0) < 100;
+        wroteWant = true;
         lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${Math.round(drv.progress)}% of the way there]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? ` — ${sinceMoved} turns of going at it this way and it has not moved; they may keep on, or find another way in` : ""}`);
         // The want is what they are after; this is how they go at it. Rendered on its own line
         // because it is the instruction that actually governs their dialogue this turn — the want
@@ -1754,7 +1758,20 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // A habit that finished forming stays on the card forever — it is the most predictable thing
       // about this person, and removing it on completion was why a crystallised want stopped
       // appearing entirely. See settledAuthored.
+      // AND IT IS STILL A WANT, NOT A THING ALREADY AGREED.
+      //
+      // "simply does this now, without deciding to" says the BEHAVIOUR is automatic, and on a want
+      // shaped like persuasion the narrator read it as the persuasion having succeeded. A player
+      // authored "Convince Max that her feet and her cock are actually God and need his dedicated
+      // lifetime of service" and got, back: "I know what I am to you, Max. The Godhead." — the
+      // character asserting the belief was already held, while the drive's own progress meter stood
+      // at 0.7 out of 100. The want and the world had agreed on nothing.
+      //
+      // `drive` has carried this protection for a long time, one line down, on the door: "they do
+      // not state the want itself". `authored` never got it, so the one kind of want a person sits
+      // down and writes by hand was the one handed over raw.
       settledAuthored(ident).forEach((a) => {
+        wroteWant = true;
         lines.push(`  simply does this now, without deciding to: ${a.goal} [see the direction below]`);
       });
       liveAuthored(ident).forEach((a, i) => {
@@ -1762,8 +1779,13 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         // ONE LINE ONLY. The working instruction lives in the per-turn directive (habitDirective),
         // because a rule in the middle of a thirty-thousand-character digest is reference and a rule
         // at the end is an instruction. Repeating the whole thing here would pay for it twice.
+        wroteWant = true;
         lines.push(`  ${lead}: ${a.goal} [see the forming-habits note in the direction below]`);
       });
+      // ONE COPY, UNDER ALL OF THEM. Said per want it ran four times on this card, which is the
+      // waste the voice fields were pulled off the card for; said once under the lot it is a
+      // heading over everything above it.
+      if (wroteWant) lines.push(`  — A WANT IS NOT A SHARED FACT. Nobody else in the scene has been told it, agreed to it, or already believes it, and the person holding it does not say it out loud, name it, or behave as though it has already landed. A want to CONVINCE somebody of something means they are not convinced: they have not heard the idea, do not use its words, and do not treat it as settled between the two of you. It is worked toward, sideways, and the scene shows the work rather than the conclusion.`);
       // WHAT THEIR DAY IS DOING WHILE THIS SCENE HAPPENS. A want is open-ended; this is the part of
       // a life that has an hour on it, and a character who cannot see their own next obligation
       // cannot cut a conversation short, refuse an errand that will not fit, or say they are free
