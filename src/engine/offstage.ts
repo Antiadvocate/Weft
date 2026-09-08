@@ -724,7 +724,9 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
         clock.last_advanced_time = state.world.current_time;
         const signs = clock.visible_signs ?? [];
         const frac = clock.filled / Math.max(1, clock.segments);
-        if (signs.length && frac >= 0.5) log.push(`SIGN (${clock.faction}): ${signs[Math.min(signs.length - 1, frac >= 0.85 ? signs.length - 1 : 0)]}`);
+        // The 0.5 gate meant the first half of every clock's life left no trace anywhere — and the
+        // beat channel opened at 0.75, so a young clock was observable through nothing at all.
+        if (signs.length) log.push(`SIGN (${clock.faction}): ${signs[Math.min(signs.length - 1, frac >= 0.85 ? signs.length - 1 : 0)]}`);
         log.push(clock.filled >= clock.segments ? `${clock.faction}'s clock has run out.` : `${clock.faction} moved closer to their objective.`);
       }
     }

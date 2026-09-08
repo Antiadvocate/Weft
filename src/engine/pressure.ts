@@ -299,7 +299,7 @@ export type Beat =
   | { kind: "none" }
   | { kind: "reminder"; ref: string }
   | { kind: "consequence"; ref: string; consequence: ConsequenceEvent }
-  | { kind: "clock"; ref: string; signs?: string[]; filled?: number; segments?: number }
+  | { kind: "clock"; ref: string; signs?: string[]; filled?: number; segments?: number; young?: boolean }
   | { kind: "thread"; ref: string }
   | { kind: "agent"; ref: string; goal: string }
   | { kind: "exogenous" };
@@ -386,6 +386,33 @@ export function selectBeat(inp: BeatInput): Beat {
       signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 3),
       filled: c.filled, segments: c.segments,
     }) });
+  // ── AND A CLOCK THAT HAS ONLY JUST STARTED MOVING ───────────────────────────────────────────
+  //
+  // The loop above is the only channel a clock has into the prose, and it opens at 75% full. The
+  // narrator is never shown the clock table — correctly, that is the omniscience leak — so below
+  // that line a clock is invisible to the story entirely. From a save at turn 43: a clock reading
+  // "the voice Joe hears from Amber's feet grows stronger and more seductive, trying to influence
+  // him", running, 1 of 6, with signs already written for it — "Joe hears whispers even when Amber
+  // is not in the room." The player's report was that no storyline was firing at all, and he was
+  // right: the one he was waiting for could not reach the page until it was five-sixths over.
+  //
+  // The forge prompt says what these are for in the same breath it asks for them — visible_signs
+  // are "what leaks into ordinary scenes AS IT ADVANCES". As it advances, not in its last quarter.
+  //
+  // So a clock that has moved at least once and carries signs is eligible early, as a REMINDER
+  // rather than a pressure beat: one sign on the page, nobody knowing what it is for, nothing
+  // demanded and nothing escalated. It gives the thing a body in the world while it is still small,
+  // which is the only way the player meets it before it is a crisis. Per-source fatigue below keeps
+  // it from becoming its own drumbeat; a clock at 0 has genuinely done nothing yet and is left to
+  // the offstage pass, which is already told to find its next ordinary step.
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
+      && c.filled > 0 && c.filled / c.segments < 0.75 && (c.visible_signs ?? []).some((x) => String(x ?? "").trim()))
+    standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "reminder", mk: () => ({
+      kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
+      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
+      filled: c.filled, segments: c.segments,
+    }) });
+
   // A thread had to reach tension 6 to be pickable, which is a CRISIS threshold. Everything that is
   // merely the world's ordinary business — an upkeep dispute, an office that must be told, a
   // neighbour who now wants the same engineers — opens low and matures slowly, so under the old
@@ -397,8 +424,20 @@ export function selectBeat(inp: BeatInput): Beat {
     // is real and the player may still act on it; the world does not press through it. See
     // fictionHeat above for why this gate exists in two places.
     if (t.forbidden_engine) continue;
-    const kind = t.kind ?? "threat";
-    const bar = kind === "threat" ? 6 : 2;
+    // ...AND AN UNLABELLED THREAD IS NOT A CRISIS BY DEFAULT.
+    //
+    // The paragraph above lowered the bar to 2 for everything that is not a threat, and then this
+    // line handed every thread WITHOUT a kind the threat bar of 6 — so the fix reached only threads
+    // the bookkeeper had happened to label. From a save at turn 43: nine threads, and the only two
+    // carrying a kind were both already resolved. All five ACTIVE ones — tensions 2, 3, 3, 4, 4 —
+    // were unlabelled, held to the crisis threshold, and therefore unpickable. Sampled four hundred
+    // times against that save's state, the selector returned "no incident this turn" four hundred
+    // times. The player's report was that no storyline was firing at all.
+    //
+    // So the crisis bar is for a thread somebody actually called a threat. Silence is not evidence
+    // of one.
+    const kind = t.kind ?? "situation";
+    const bar = t.kind === "threat" ? 6 : 2;
     if ((t.tension ?? 0) >= bar)
       standing.push({ ref: clipText(t.title, 130), kind, mk: () => ({ kind: "thread", ref: clipText(t.title, 130) }) });
   }
@@ -435,12 +474,25 @@ export function selectBeat(inp: BeatInput): Beat {
   const recentKinds = new Set((inp.recent ?? []).filter((r) => inp.turn - r.turn <= 6).map((r) => r.kind ?? "threat"));
   const pickStanding = () => {
     if (!eligible.length) return null;
-    let best = eligible[0], bestAge = -1;
+    let best = eligible[0], bestAge = -1, tied = 0;
     for (const sd of eligible) {
       const h = hist.get(sd.ref);
       const raw = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
       const age = raw === Number.MAX_SAFE_INTEGER ? raw : raw + (recentKinds.has(sd.kind) ? 0 : 12);
-      if (age > bestAge) { best = sd; bestAge = age; }
+      // TIES GO TO CHANCE, NOT TO ARRAY ORDER. Every source that has never fired scores
+      // MAX_SAFE_INTEGER, so a strict `>` handed the pick to whichever loop pushed first — clocks,
+      // then threads, then people — permanently. A world with four fresh threads and a fresh clock
+      // ran the clock every time and the threads stayed unread, which looks exactly like the
+      // threads not existing. The rng is injected, so tests stay deterministic.
+      // TIES GO TO CHANCE, NOT TO ARRAY ORDER — uniformly, by reservoir. Every source that has
+      // never fired scores MAX_SAFE_INTEGER, so a strict `>` handed the pick to whichever loop
+      // pushed first (clocks, then threads, then people) permanently: a world with four fresh
+      // threads and a fresh clock ran the clock every turn and the threads stayed unread, which
+      // looks exactly like the threads not existing. A flat coin-flip per candidate is not the fix
+      // either — it biases toward whatever comes last, and put the clock at 2 picks in 400. Replace
+      // the k-th tied candidate with probability 1/k and every tied source gets an equal share.
+      if (age > bestAge) { best = sd; bestAge = age; tied = 1; }
+      else if (age === bestAge && rng() < 1 / ++tied) best = sd;
     }
     return best;
   };
@@ -500,6 +552,10 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
         lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
         break;
       case "clock":
+        if (beat.young) {
+          lines.push(`A SIGN, NOT AN INCIDENT. Something in this world is moving that the player does not know about yet, and one visible trace of it reaches this scene: ${(beat.signs ?? []).join("; ")}. Put ONE of those on the page as a thing that is simply there — witnessed in passing, in the middle of the turn, not at the end of it. Nobody in the scene knows what it means, nobody remarks on its significance, and nobody investigates: they see it and read it however their own life tells them to, or do not react at all. It demands nothing, interrupts nothing, and answers nothing. Do NOT escalate it, do not explain it, and do not have anyone name the thing behind it.`);
+          break;
+        }
         lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}"${
           typeof beat.filled === "number" && beat.segments ? `, ${beat.filled} of ${beat.segments} of the way to happening` : ""
         }.${
