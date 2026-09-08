@@ -56,7 +56,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
-import { noteFire, integrityAlarm } from "./integrity";
+import { noteFire, integrityAlarm, povDrift, povFix } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -2733,7 +2733,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3212,6 +3212,19 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       if (state.last_anatomy) {
         noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
         ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
+      }
+      // THE PLAYER STOPPED BEING "YOU". Cheap, silent, and ruinous — a save can be twenty turns deep
+      // in third person before anybody works out that the only thing that changed was the model.
+      // See engine/integrity.povDrift.
+      {
+        const pc = state.characters["char_player"];
+        const others = state.world.present.filter((x) => x !== "char_player").map((x) => state.characters[x]?.pronouns);
+        const drift = pc ? povDrift(prose, pc.name, pc.pronouns, others) : null;
+        state.last_pov = drift;
+        if (drift) {
+          noteFire(state, "pov", `the player was written in the third person ${drift.third}× and addressed as "you" ${drift.second}×`);
+          ev.onMeta({ shifts: [`this turn wrote you from outside instead of addressing you — the narrator will be told next turn`] });
+        }
       }
       if (state.last_reprint) {
         noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
