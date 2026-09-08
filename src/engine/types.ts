@@ -887,6 +887,12 @@ export interface TurnTelemetry {
   turn: number;
   pressure: number;
   pressure_source: string;
+  /** WHAT WAS ACTUALLY DELIVERED, which `pressure_source` is not. That column is fictionHeat naming
+   *  the hottest thing in the world to justify a pressure NUMBER; the beat is a separate decision
+   *  and was recorded nowhere. One save read "clock: The Voice" on sixteen turns while that clock
+   *  had produced no beat in its life — the player, and two rounds of debugging, took the column at
+   *  its word. "none" is a real answer and is worth as much as any other. */
+  beat?: string;
   narrator_tokens_in: number;
   cached_tokens?: number;      // input tokens served from prompt cache (billed ~0.25x) — measures cache effectiveness
   turn_cost?: number;          // actual $ cost of this turn from the provider, when reported

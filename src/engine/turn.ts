@@ -56,7 +56,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
-import { noteFire, integrityAlarm, povDrift, povFix } from "./integrity";
+import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -2142,6 +2142,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     });
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   state.pressure_state.recent ??= [];
+  // THE PLAYER SAYING IT IS NOT REAL IS THE END OF IT. NARRATOR_SYSTEM already promises this — "if
+  // the player challenges something you wrote as impossible, they are almost certainly right: do not
+  // defend it, do not build lore to justify it. Drop it" — and the engine has `retcons` for exactly
+  // that, reachable only by striking text by hand in the UI. Said in play it reached nothing: one
+  // save has the player typing that Mrs. Gable does not exist and the bookkeeper filing it as
+  // "Joe claims Mrs. Gable does not exist", plus two memories of him seeming to lose his mind, while
+  // the invented receptionist kept her place under KNOWS (verified facts). See integrity.deniedEntities.
+  for (const name of deniedEntities(action, knownNameWhitelist(state))) {
+    const gone = strikeEntity(state, name);
+    noteFire(state, "invention", `${name} was invented and the player struck it — ${gone.facts} fact(s), ${gone.memories} memor(ies) removed`);
+    ev.onMeta({ shifts: [`${name} never existed — struck from the story, and removed from ${gone.facts + gone.memories} record(s)`] });
+    console.warn(`[retcon] struck "${name}" on the player's word: ${gone.facts} facts, ${gone.memories} memories`);
+  }
   // Pacing runs on the in-world clock, not the turn counter — a turn is ~10 minutes, so turn-based
   // cooldowns produced a fresh crisis every half hour of the character's life.
   const nowT = state.world.current_time;
@@ -2169,11 +2182,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // longer silence each time. Reminders don't count — being reminded is not the threat acting.
   {
     const ref = (beat as { ref?: string }).ref;
-    if (ref && ["clock", "thread", "agent", "consequence"].includes(beat.kind)) {
+    // "palette" belongs here or the premise never enters the fatigue list at all: `starving` would
+    // read it as never-fired on every turn and it would run as a metronome, which is the exact
+    // failure the 0.6 coin-flip in pickStanding was added to avoid. Caught by reading this list
+    // while tracing why a save showed four beats in eighty-six turns.
+    if (ref && ["clock", "thread", "agent", "consequence", "palette"].includes(beat.kind)) {
       const rec = state.pressure_state.recent!;
       // Record WHAT KIND fired, so the selector can spread across kinds rather than only across
       // individual sources — four fresh threats in a row is four fresh sources and one flavour.
-      const srcKind = beat.kind === "clock" ? "threat"
+      const srcKind = beat.kind === "palette" ? "palette"
+        : beat.kind === "clock" ? "threat"
         : beat.kind === "agent" ? "relationship"
         : beat.kind === "thread" ? (state.world.threads.find((t) => String(t.title ?? "").slice(0, 90) === ref)?.kind ?? "threat")
         : "obligation";
@@ -4685,6 +4703,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // telemetry
   const tel: TurnTelemetry = {
     turn, ts: Date.now(), pressure: verdict.pressure, pressure_source: verdict.source,
+    beat: beat.kind === "none" ? "none" : `${beat.kind}: ${(beat as any).ref ?? ""}`.slice(0, 140),
     narrator_tokens_in: narratorUsage.prompt_tokens, narrator_tokens_out: narratorUsage.completion_tokens,
     simulator_tokens_in: simUsage.prompt_tokens, simulator_tokens_out: simUsage.completion_tokens,
     cached_tokens: (narratorUsage.cached_tokens ?? 0) + (simUsage.cached_tokens ?? 0),

@@ -56,6 +56,7 @@ const LABEL: Record<string, string> = {
   arrival: "somebody placed where they could not have got to",
   phantom: "somebody moved into the scene the prose never showed arriving",
   swap: "the cast list disagreeing with the prose",
+  invention: "a person or place the prose invented and the player struck",
   pov: "the player written from outside instead of addressed as you",
 };
 
@@ -164,4 +165,117 @@ export function povDrift(
 export function povFix(hit: { third: number; second: number } | null | undefined): string {
   if (!hit) return "";
   return `\nLAST TURN WROTE THE PLAYER FROM OUTSIDE. Their name or a he/she stood where "you" belongs, ${hit.third} times, against ${hit.second} second-person words in the whole turn. The player is the person this story is told TO. In narration and in interior alike they are addressed in the second person; their own name and any third-person pronoun belong to other people and never to them. This holds hardest when they are ALONE, which is where it broke: a scene with nobody else in it is still their scene and is still addressed to them, and a solo turn written about a man at a desk has quietly changed who is being spoken to. Other characters stay in the third person as always. Write this turn to them.`;
+}
+
+/**
+ * THE PLAYER SAID IT DOES NOT EXIST, AND THE ENGINE WROTE THAT DOWN AS A SYMPTOM.
+ *
+ * From a save at turn 81. The narrator introduced a manager called Marcus on turn 71 and a
+ * receptionist called Mrs. Gable on turn 78 — neither registered as a character, neither in any
+ * place, neither anywhere in the world bible. The bookkeeper then ledgered them, because the gate
+ * on a fact asks whether its specifics are traceable to THIS TURN'S PROSE, and the prose is exactly
+ * where they were invented. Joe's bank, under KNOWS (verified facts):
+ *
+ *   "Mrs. Gable at the front desk told Amber that receptionists should wear closed shoes and that
+ *    front desk staff share impressions with Marcus."
+ *
+ * On turn 80 the player typed that Mrs. Gable does not exist and that they had never been to any
+ * lobby. What the engine recorded:
+ *
+ *   Joe:   "I told Amber that Mrs. Gable does not exist, but Amber stared at me like I had lost
+ *           my mind."
+ *   Amber: "I worried that Joe might be losing his mind when Joe insisted Mrs. Gable does not
+ *           exist and that we never saw her at the front desk."
+ *   Amber (fact): "Joe claims Mrs. Gable does not exist and that they have not visited any lobby."
+ *
+ * The correction became evidence that the player is unreliable, and the invention kept its place in
+ * the ledger. NARRATOR_SYSTEM already says what should happen — "If the player challenges something
+ * you wrote as impossible or as wrongly defaulted, they are almost certainly right: do not defend
+ * it, do not build lore to justify it. Drop it, and continue as though it was never said" — and the
+ * engine has the machinery for it in `retcons`, reachable only by striking text by hand in the UI.
+ * A player saying it in play reached none of it.
+ *
+ * Deliberately narrow. It reads the PLAYER'S OWN TYPED WORDS and nothing else, it fires only on a
+ * flat denial of an entity that is NAMED, and it never touches a name the world actually holds — a
+ * player shouting that Amber does not exist is playing, not filing a bug.
+ */
+const DENIAL: RegExp[] = [
+  /\b([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})\s+(?:does\s?n[o']?t|do\s?n[o']?t|did\s?n[o']?t)\s+exist\b/gi,
+  /\bthere\s+(?:is|was|are|were)\s+no\s+([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
+  /\b([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})\s+(?:is|was)\s?n[o']?t\s+real\b/gi,
+  /\b(?:we|i|you)\s+never\s+(?:went\s+to|met|saw|spoke\s+to|visited)\s+(?:a\s+|an\s+|any\s+|the\s+)?([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
+  /\byou\s+(?:made\s+up|invented|hallucinated)\s+(?:a\s+|an\s+|the\s+)?([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
+];
+/** Words that begin a sentence and are not what is being denied. */
+const NOT_A_NAME = new Set(["I", "We", "You", "He", "She", "They", "It", "That", "This", "There", "The", "A", "An", "And", "But", "So", "No", "Nobody", "Nothing", "Never", "Why", "What", "Who", "Where", "When", "How", "Ok", "Okay", "Yes", "Yeah", "Well", "Look", "Listen", "Wait", "Stop",
+  // contractions of a pronoun read as capitalised words and are never somebody's name
+  "I'm", "I've", "I'll", "I'd", "I’m", "I’ve", "I’ll", "I’d", "We're", "We've", "You're", "You've", "They're", "It's", "That's", "There's"]);
+
+/** Entities the player's own words have just declared nonexistent, minus anything the world holds. */
+export function deniedEntities(action: string, known: Iterable<string>): string[] {
+  const text = String(action ?? "");
+  if (!text.trim()) return [];
+  const real = new Set([...known].map((k) => String(k ?? "").toLowerCase().trim()).filter(Boolean));
+  const out = new Set<string>();
+  for (const re of DENIAL) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      const raw = (m[1] ?? "").trim().replace(/[,;:!?'"]+$/, "");
+      if (!raw) continue;
+      // A NAME IS CAPITALISED and the words around it are not, so the capital is checked here
+      // rather than in the pattern — requiring it inside the pattern made the pattern itself
+      // case-sensitive, and "We never met Marcus" and "You made up Mrs. Gable" are how people
+      // actually type, sentence-initial. Trim uncapitalised words off both ends: what is left is
+      // the name, and "the store. Denise" yields Denise rather than nothing.
+      // The LAST unbroken run of capitalised words is the name. Trimming from the outside in was
+      // not enough: "I told Amber that Mrs. Gable does not exist" starts capitalised and yielded
+      // "Amber that Mrs. Gable". A lowercase word between two capitals ends the name.
+      const all = raw.split(/\s+/);
+      const words: string[] = [];
+      for (let i = all.length - 1; i >= 0 && /^[A-Z]/.test(all[i]); i--) words.unshift(all[i]);
+      if (!words.length) continue;
+      const trimmed = words.join(" ").replace(/\.$/, (d, i, str) => (/\b(Mr|Mrs|Ms|Dr|St|Prof)$/.test(str.slice(0, -1)) ? d : ""));
+      if (NOT_A_NAME.has(words[0])) continue;
+      if (real.has(trimmed.toLowerCase())) continue;
+      if ([...real].some((r) => r.split(/\s+/).includes(trimmed.toLowerCase()))) continue;
+      out.add(trimmed);
+      continue;
+      // A name the world actually holds is never struck on a line of dialogue. The player denying
+      // their own sister is a scene; the engine does not delete her over it.
+      if (real.has(raw.toLowerCase())) continue;
+      if ([...real].some((r) => r.split(/\s+/).includes(raw.toLowerCase()))) continue;
+      out.add(raw);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Strike a denied entity out of the world: veto it for the narrator, and take it out of the banks
+ * it had already been written into. A retcon the narrator obeys while the ledger still says the
+ * thing is true produces a character who "remembers" it and a player who is told he is confused.
+ */
+export function strikeEntity(state: SaveState, name: string): { facts: number; memories: number } {
+  const turn = state.world?.current_turn ?? 0;
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\b${esc}\\b`, "i");
+  let facts = 0, memories = 0;
+  for (const mem of Object.values(state.memory ?? {})) {
+    if (Array.isArray(mem.facts)) {
+      const before = mem.facts.length;
+      mem.facts = mem.facts.filter((f) => !re.test(String(f?.content ?? "")));
+      facts += before - mem.facts.length;
+    }
+    if (Array.isArray(mem.episodic)) {
+      const before = mem.episodic.length;
+      mem.episodic = mem.episodic.filter((m) => !re.test(`${m?.content ?? ""} ${m?.full_content ?? ""}`));
+      memories += before - mem.episodic.length;
+    }
+    if (Array.isArray(mem.beliefs)) mem.beliefs = mem.beliefs.filter((b) => !re.test(String(b?.content ?? "")));
+  }
+  state.world.rumors = (state.world.rumors ?? []).filter((r) => !re.test(String(r?.content ?? "")));
+  state.world.threads = (state.world.threads ?? []).filter((t) => !re.test(`${t?.title ?? ""} ${t?.description ?? ""}`));
+  const text = `${name} does not exist and never did. Nothing involving ${name} happened. Never write ${name} again, and never have anyone refer to, remember, or account for ${name}.`;
+  state.retcons = [...(state.retcons ?? []).filter((r) => r.text !== text), { text, turn, kind: "veto" as const }].slice(-12);
+  return { facts, memories };
 }

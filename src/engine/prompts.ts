@@ -1567,6 +1567,25 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
   const canonBlock = state.world.canon?.length
     ? `=== ESTABLISHED CANON (world-altering facts; settled entries are common knowledge, FRESH entries are not yet) ===\n${state.world.canon.map(canonLine).join("\n")}\n\nCANON OVERRIDES YOUR DEFAULTS — this is the deepest rule of rendering. Your training carries a default meaning for every word, object, gesture, relationship, body, and social act. Where a canon line REDEFINES any of these — what a thing means, what a word refers to, how bodies or sex or society work, what pronouns or forms of address people use, what an ordinary act signifies — you write the CANON version, never the default your training reaches for first. A term that names one thing in the ordinary world may name something entirely different here; render what canon says it is, not what it usually is. If canon establishes a pronoun set or language rule, every native character obeys it in every sentence, with no drift back to the familiar form even when a character reads to you as a type that would normally take it — a single lapse is a canon violation. Whatever canon redefines, the prose treats as ordinary and matter-of-fact, because to the people living there it IS ordinary. When your instinct renders something the familiar way and canon says otherwise, canon wins every time; catch the default before it lands. CANON IS ALSO A CONSTRAINT ON WHAT MAY EXIST: before any person, creature, or thing enters a scene — even in one throwaway line, even offstage, even as a sound through a wall — check it against every line above. If canon says a kind of being does not exist here, one does not knock at the door, shout from the street, or turn out to have been living two blocks over all along. You may not introduce an exception and then explain it; the explanation is the violation. If the player challenges something you wrote as impossible or as wrongly defaulted, they are almost certainly right: do not defend it, do not build lore to justify it. Drop it, and continue as though it was never said. Sometimes the player does the opposite — they remind you of a rule of this world that should hold, or ask whether it still holds. When they do, they are right about that too: the rule is real. Do not drop it. Have the world and its characters acknowledge the rule as something that was always true, apply any consequences the rule states, and do not invent exceptions, argue the rule away, or treat the player as wrong for bringing it up. CANON IS DIRECTIONAL: a line that says WHO does a thing binds that person and nobody else. Before rendering one, read its subject and its object, and put the act where the line puts it — the named party performs it, upon the named party it names. What everyone ELSE does around that act is not specified by the line and comes from their own state, their own wants and the scene. A world whose canon assigns one person a way of looking, speaking, standing or touching has said nothing about how anyone looks at, speaks to, stands near or touches THEM; supplying the matching half is inventing canon that is not there. Where a line reads oddly if only one party obeys it, one party obeying it is still what it says.\n\n`
     : "";
+  // WHAT ALREADY HAPPENED AND IS STILL TRUE.
+  //
+  // A consequence fires once, becomes status "fired", and is then rendered to nobody — only the
+  // PENDING ones reach the bookkeeper, and neither list ever reached the narrator. So the payoff of
+  // a whole storyline lands on one page and is gone. From a save at turn 89: a clock called The
+  // Voice climbed from 1 to 6 over eighty-odd turns without producing a single beat, then delivered
+  // its consequence — "Joe begins to lose his grip on reality, unable to distinguish the voice from
+  // his own thoughts" — as one obligation beat at turn 86, and the clock went to "fired", which
+  // makes it ineligible as a source forever. The player: "Talks to me ONCE after I ask for it.
+  // Never talks again." That is the whole mechanism, exactly.
+  //
+  // A fired consequence is not an event that is over. It is the condition the world is now in, and
+  // it belongs on the card for as long as it is true, the way canon does.
+  const landed = (state.world.consequences ?? []).filter((c) => c.status === "fired").slice(-4);
+  const landedBlock = landed.length
+    ? `=== ALREADY HAPPENED, AND STILL TRUE (these are not events to re-run; they are the state the world is in now) ===\n`
+      + landed.map((c) => `\u2022 ${clipText(c.description, 200)}`).join("\n")
+      + `\nEach of these has ALREADY landed. Nobody announces it, discovers it, or resolves it again \u2014 it is the condition the story is being told inside, and it goes on showing in what people do and what the world is like, this turn and every turn after, until something in the story changes it.\n\n`
+    : "";
   const chaptersBlock = state.chapters?.length
     ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`
     : "";
@@ -1963,7 +1982,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
     // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
     // guaranteed to change every turn — goes as late as possible.
-    return `${canonBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}=== NOW ===
+    return `${canonBlock}${landedBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time}${dateLabel(state.world.current_time, state.world_bible.start_date) ? ` — ${dateLabel(state.world.current_time, state.world_bible.start_date)}` : ""} | Weather: ${state.world.weather}
 Scene: ${loc ? `${loc.name}${loc.identity?.trim() ? ` — ${loc.identity.trim()} (this does not change)` : ""}${loc.description_facts?.trim() ? ` | as it stands now: ${loc.description_facts.trim()}` : ""}` : state.world.player_location}${hostFrame}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""} | scene running ~${Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time))} min
 Player carries: ${state.world.money || "—"}${(() => {
