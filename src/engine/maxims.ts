@@ -57,11 +57,46 @@ import { attributeLines } from "./aperture";
 /** Only ever run against spoken text. The narration has its own rules and its own guards, and a
  *  metaphor in description is a style choice; a metaphor in somebody's mouth is a character being
  *  replaced by an oracle. */
-export function spokenLines(prose: string): string[] {
+/**
+ * ONE SHORT LINE OF DIALOGUE AND THE REST OF THE TURN WAS NARRATION.
+ *
+ * This read `/[“"]([^“”"]{12,400})[”"]/g` — a length range inside the PAIRING rather than applied
+ * to the result — and a length range inside the pairing changes which marks pair up. Given:
+ *
+ *     "Nothing," she says, her voice light. "They're trying to build a castle out of spun sugar
+ *      and hope, and it's already leaning."
+ *
+ * the first quote opens on `Nothing,`, which is eight characters and under the minimum, so the
+ * match fails there; the scanner moves on to the NEXT mark — the closing one — and pairs it with
+ * the following opener. What comes back is `she says, her voice light`, and every real line in the
+ * turn is gone. Any turn whose first line of dialogue is shorter than twelve characters had every
+ * subsequent line replaced by the narration between them, and short first lines are extremely
+ * ordinary: "Nothing," "Sit down." "Yeah?" "Two." Measured on the save that found this, findMaxims
+ * caught zero across nineteen turns while the player was reading an eighteen-year-old talk like a
+ * philosopher on turn one. The detector was reading stage directions.
+ *
+ * This is the same failure tools/promptlint.ts records for its own template-literal scanner — a
+ * regex that pairs the first mark with the second and shreds everything after. So: pair the marks
+ * properly, resume after the close, and let length FILTER what comes back instead of steering it.
+ *
+ * (speech.ts has its own spokenLines with a `{2,}` minimum, which is why the same bug never showed
+ * up there. Kept separate because that one rejoins dialogue split around a speech tag, which is
+ * right for measuring how much of a turn was spoken and wrong for pattern-matching single lines.)
+ */
+export function spokenLines(prose: string, min = 12, max = 400): string[] {
+  const s = String(prose ?? "");
   const out: string[] = [];
-  for (const m of prose.matchAll(/[“"]([^“”"]{12,400})[”"]/g)) {
-    const said = m[1].trim();
-    if (said) out.push(said);
+  let i = 0;
+  while (i < s.length) {
+    const rel = s.slice(i).search(/[“"]/);
+    if (rel < 0) break;
+    const open = i + rel;
+    const after = s.slice(open + 1);
+    const close = after.search(/[”"]/);
+    if (close < 0) break;
+    const said = after.slice(0, close).trim();
+    if (said.length >= min && said.length <= max) out.push(said);
+    i = open + 1 + close + 1;          // resume AFTER the closing mark, never on it
   }
   return out;
 }
@@ -114,7 +149,10 @@ const SHAPES: { name: string; re: RegExp }[] = [
   // THE PARALLEL FOLK SAYING. "X doesn't take A. It takes B." The two-beat correction structure is
   // the single most reliable marker of wisdom-voice in this engine's output.
   // Both apostrophes, everywhere: see the note above about matching spellings.
-  { name: "not this, but that", re: /\b(?:does\s?n['’]?t|do\s?n['’]?t|never)\s+\w+[^.;!?]{2,40}\.\s*(?:It|They|He|She)\s+\w+s?\b/ },
+  // "You" belongs in that list and was missing, which is most of the instances: the two-beat
+  // correction is nearly always aimed AT somebody. "You don't need a reminder to be useful. You
+  // just need to be here, and you're already here."
+  { name: "not this, but that", re: /\b(?:does\s?n['’]?t|do\s?n['’]?t|never)\s+\w+[^.;!?]{2,40}\.\s*(?:It|They|He|She|You)\s+\w+s?\b/ },
 
   // THE APPEAL TO COMMON KNOWLEDGE. "Everyone knows that." "That's what they say." Tags that turn a
   // remark into received wisdom, usually attached to something nobody asked about.
@@ -132,6 +170,31 @@ const SHAPES: { name: string; re: RegExp }[] = [
   // hearing a lesson." That is the model using a character to tell the player they are wrong about
   // the model's own failure, and it is worse than the failure. It gets its own shape so the
   // correction can name it.
+  // ── THE THIRD GENERATION: SAYING WHAT THE LISTENER IS REALLY DOING ────────────────────────────
+  //
+  // The shapes above are all pronouncements about the world. This one is a pronouncement about the
+  // person being spoken to, and it is what a player actually feels as being lectured. From one
+  // save, an eighteen-year-old, on turns 1 through 8:
+  //
+  //   "Like you're waiting for an excuse to be somewhere else."
+  //   "You say it whenever you're trying to figure out how to be anywhere else but here."
+  //   "You don't need a reminder to be useful. You just need to be here, and you're already here."
+  //
+  // The same player had already typed it into the game as an out-of-character complaint on another
+  // save: "a kind person that doesn't narrate my internal being as if you know what I'm thinking."
+  // The voice prompt forbids it for example_lines — nobody "tells them what their behaviour means"
+  // — and nothing measured it in the prose, where it is produced turn after turn.
+  //
+  // What is barred is the ASSERTION about their inner state, not the subject. Asking is fine and
+  // ordinary ("are you waiting for something?"), and so is anything about what they will DO: "you'll
+  // be out of the shower in ten minutes" is a prediction about the plumbing, not a reading of him.
+  { name: "telling them what they are really doing", re: /\b(?:like\s+)?you(?:['’]re|\s+are)\s+(?:just\s+|always\s+|still\s+|only\s+|really\s+|not\s+)*(?:trying\s+to|waiting\s+for|waiting\s+to|hoping|pretending|afraid|scared|looking\s+for\s+an?\s+\w+\s+to)\b/i },
+
+  // "...a castle out of spun sugar and hope." An abstract noun coupled to concrete things in a list
+  // of materials — the tell of a line written to be quoted rather than said. Anchored on the
+  // construction verbs, because "sugar and hope" on its own is somebody listing two real nouns.
+  { name: "made of a thing and an abstraction", re: /\b(?:build|built|building|made|make|making|hold|holding|held\s+together|running|runs|run|stitch|stitched|glued|patched|cobbled|assembled)\s+(?:\w+\s+){0,3}(?:out\s+of|of|on|with|from)\s+[^.,;!?"]{2,40}\s+and\s+(?:a\s+|an\s+|the\s+)?(?:hope|prayer|prayers|faith|luck|spite|grief|memory|memories|silence|regret|shame|pride|fear|love|patience|nerve|denial|habit|instinct|momentum|inertia|goodwill|optimism|guesswork|willpower|stubbornness|wishful\s+thinking)\b/i },
+
   { name: "arguing that it is not a maxim", re: /\b(?:are\s?n['’]?t|is\s?n['’]?t|not)\s+(?:a\s+)?(?:maxims?|metaphors?|riddles?|lessons?|proverbs?)\b|\bkeep\s+hearing\s+a\s+lesson\b|\bI\s+(?:am|keep)\s+(?:saying|speaking)\s+it\s+plain/i },
 ];
 
