@@ -278,6 +278,8 @@ export interface BeatInput {
   clocks: FactionClock[];
   consequences: ConsequenceEvent[];
   agents: AgentCandidate[];        // offscreen central chars whose drive intersects the player's orbit
+  /** The world bible's own pressure_palette — what the player said this story runs on. */
+  palette?: string[];
   last_beat_turn: number;
   last_exo_turn: number;
   /** In-world minutes elapsed since the last discharge / the last exogenous event (never negative).
@@ -302,6 +304,7 @@ export type Beat =
   | { kind: "clock"; ref: string; signs?: string[]; filled?: number; segments?: number; young?: boolean }
   | { kind: "thread"; ref: string }
   | { kind: "agent"; ref: string; goal: string }
+  | { kind: "palette"; ref: string; quiet?: boolean }
   | { kind: "exogenous" };
 
 /** Refractory period between incident beats — the world does not stack. Tightens as clocks
@@ -376,7 +379,11 @@ export function selectBeat(inp: BeatInput): Beat {
   // which is not a quiet story, it is a stopped one. So the minutes gate is capped by a patience
   // measured in turns read — generous, well past the turn ladder that governed before the clock
   // existed, and only ever a ceiling on waiting.
-  const patienceTurns = beatCooldown(inp.tension, inp.clocks) * 4;
+  // Twice the turn ladder, not four times: that ladder IS this engine's own idea of pacing at a
+  // given tension (2 turns at 9, 10 at 2), and a ceiling four times above it made a maxed dial wait
+  // longer than the design ever asked for. Doubling keeps a calm story genuinely calm — twenty
+  // turns at tension 2 — while letting a story set to 9 actually run at 9.
+  const patienceTurns = beatCooldown(inp.tension, inp.clocks) * 2;
   const cooling = inp.minutesSinceBeat === undefined
     ? sinceBeat < beatCooldown(inp.tension, inp.clocks)
     : (inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) && sinceBeat < patienceTurns)
@@ -436,6 +443,28 @@ export function selectBeat(inp: BeatInput): Beat {
       filled: c.filled, segments: c.segments,
     }) });
 
+  // ── THE THING THE STORY IS ACTUALLY ABOUT ────────────────────────────────────────────────────
+  //
+  // Every source above is bookkeeping the engine generated: clocks the forge wrote, threads the
+  // bookkeeper opened, people with drives. `pressure_palette` is the one place the PLAYER says what
+  // this world runs on, and it has only ever been a filter on the others — "Draw pressure only
+  // from: ..." — never a source in its own right. The comment at the top of fictionHeat records
+  // what that costs, on a save with nothing to do with this one: thirty-six of fifty-seven turns
+  // carried pressure, every one naming a clock or a thread, "not one named anything from the
+  // bible's own pressure palette, which is five lines about a marriage".
+  //
+  // Here the palette is a single line — "Amber's Feet Talking directly into Joe's Thoughts, with
+  // insistent, seductive, need for worship and prayer" — and it is the entire premise. The threads
+  // the bookkeeper had opened by turn 64 were a job application, a clipboard, a receipt and a
+  // corporate complaint. The engine was pressing faithfully and pressing on none of it.
+  //
+  // A palette line needs no tension, no fill and no maturing: it is the premise, true from turn one
+  // and available from turn one. Fatigue still rotates it against everything else.
+  for (const line of inp.palette ?? []) if (String(line ?? "").trim())
+    standing.push({ ref: clipText(String(line).trim(), 130), kind: "palette",
+      mk: () => ({ kind: "palette", ref: clipText(String(line).trim(), 130) }),
+      quiet: () => ({ kind: "palette", ref: clipText(String(line).trim(), 130), quiet: true }) });
+
   // A thread had to reach tension 6 to be pickable, which is a CRISIS threshold. Everything that is
   // merely the world's ordinary business — an upkeep dispute, an office that must be told, a
   // neighbour who now wants the same engineers — opens low and matures slowly, so under the old
@@ -482,12 +511,28 @@ export function selectBeat(inp: BeatInput): Beat {
   const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
   const RETIRE_AT = 4;
   const quietFor = (count: number) => 6 + count * 10;   // 1st repeat waits 16 turns, 2nd 26, 3rd 36
+  // THE PREMISE IS NOT A THREAT THAT CAN LOSE. RETIRE_AT and the escalating quiet exist because "a
+  // threat that keeps losing is a threat that stops coming" — four discharges and a source is done.
+  // Applied to a palette line that is the entire subject of the story, that says the story stops
+  // being about itself on its fifth appearance. A palette line rests briefly and never retires.
+  const PALETTE_QUIET = 5;
   const eligible = standing.filter((sd) => {
     const h = hist.get(sd.ref);
     if (!h) return true;
+    if (sd.kind === "palette") return inp.turn - h.turn >= PALETTE_QUIET;
     if (h.count >= RETIRE_AT) return false;
     return inp.turn - h.turn >= quietFor(h.count);
   });
+  // AND IT DOES NOT WAIT ITS TURN BEHIND THE BOOKKEEPING. Least-recently-used rotates sources
+  // evenly, which is right when they are all the world's incidental business and wrong when one of
+  // them is what the player said the story is. Measured on this save: threads 373, palette 66 out of
+  // 600 — the premise once in nine turns, against four threads about a job application, a clipboard,
+  // a receipt and a corporate complaint. So a palette line that has gone hungry takes the pick
+  // outright. It still rests afterwards; this is a floor under how often the story is about its own
+  // subject, not a ceiling on anything else.
+  const PALETTE_STARVED = 6;
+  const starving = eligible.filter((sd) => sd.kind === "palette"
+    && inp.turn - (hist.get(sd.ref)?.turn ?? -Infinity) >= PALETTE_STARVED);
   // Prefer the source that has been silent longest, rather than sampling uniformly. Uniform choice
   // over a small set re-picks the same thing constantly; least-recently-used rotates the world.
   // SPREAD. Least-recently-used rotates individual sources but says nothing about VARIETY: a world
@@ -496,6 +541,10 @@ export function selectBeat(inp: BeatInput): Beat {
   // gets a bonus that puts it ahead of a slightly staler source of a kind we just used.
   const recentKinds = new Set((inp.recent ?? []).filter((r) => inp.turn - r.turn <= 6).map((r) => r.kind ?? "threat"));
   const pickStanding = () => {
+    // A STRONG PREFERENCE, NOT A METRONOME. Taken as an absolute the floor becomes a schedule: the
+    // premise every sixth turn forever, and the rest of the world starved behind it. It wins most of
+    // the time it has gone hungry and otherwise takes its chances in the rotation like everything.
+    if (starving.length && rng() < 0.6) return starving[Math.floor(rng() * starving.length)];
     if (!eligible.length) return null;
     let best = eligible[0], bestAge = -1, tied = 0;
     for (const sd of eligible) {
@@ -555,7 +604,11 @@ export function selectBeat(inp: BeatInput): Beat {
   if (exoReady && rng() < 0.5) return { kind: "exogenous" };
 
   const tail = pickStanding();
-  if (tail && rng() < 0.3) return { kind: "reminder", ref: tail.ref };
+  // The same rule as the cooling branch: a source with a quiet form uses it rather than being
+  // announced by its ref. For a clock that ref is `faction: objective` — the private objective —
+  // and a bare reminder handed it straight to the narrator. Caught by tests/nothing-fires.ts only
+  // after the patience ceiling started letting turns reach this line that used to cool out above.
+  if (tail && rng() < 0.3) return tail.quiet ? tail.quiet() : { kind: "reminder", ref: tail.ref };
   return { kind: "none" };
 }
 
@@ -593,6 +646,11 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
             ? `\nWHAT A PERSON HERE WOULD ACTUALLY SEE OF IT — put at least one of these ON THE PAGE this turn, as a thing that happens where the player is, not as a mood: ${beat.signs.join("; ")}. Nobody in the scene knows what it is FOR; they see the sign and read it however their own life tells them to.`
             : ""
         } Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
+        break;
+      case "palette":
+        lines.push(beat.quiet
+          ? `THE STORY'S OWN SUBJECT TOUCHES THE SCENE, lightly and unprompted: ${beat.ref}. Once, small, in the middle of the turn — the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them and the scene carries on.`
+          : `THE ENGINE OF THIS STORY PRESSES, NOW: ${beat.ref}. This is what the player said this world runs on, and this turn is one of the turns it runs. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. Not foreshadowing, not a mood, not somebody almost saying something. The thing itself, happening, on the page.`);
         break;
       case "thread":
         lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);

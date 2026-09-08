@@ -2153,13 +2153,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const beat: Beat = selectBeat({
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
-    agents, last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
+    agents, palette: state.world_bible.pressure_palette,
+    last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     restoration: RESTORE_INTENT.test(action),
     // A zombie story does not get an eight-turn quiet opening. See isBesieged.
     besieged: isBesieged(state.world_bible.tone, state.world_bible.pressure_palette),
   });
-  if (["consequence", "clock", "thread", "agent", "exogenous"].includes(beat.kind)) {
+  if (["consequence", "clock", "thread", "agent", "exogenous", "palette"].includes(beat.kind)) {
     state.pressure_state.last_beat_turn = turn;
     state.pressure_state.last_beat_time = nowT;
   }
