@@ -172,8 +172,20 @@ export function worldDigest(state: any): string {
     [hasAuthored(c) && !c.authored.paused ? authoredLine(c.authored) : null,
      c.drive?.goal, ...(c.drive_queue ?? []).map((d: any) => d?.goal)].filter(Boolean).join("; ");
 
+  // SOMEBODY IN THE ROOM IS NOT ELSEWHERE. This filter excluded the player, the dead and the
+  // departed, and nothing else — so a character standing in the scene was handed to a pass whose
+  // own opening line is "you report what happened ELSEWHERE, to people who were not thinking about
+  // the protagonist". From a save at turn 61: Amber is in `world.present`, in a coffee shop, with
+  // her hand on Joe's sleeve — and the world report for that same turn opens "Elsewhere: Amber
+  // takes the receipt slip, folds it once, and gets up... gets her right sneaker off standing up,
+  // heel against the baseboard". Two hundred words of her being somewhere else while the player
+  // was looking at her. Both versions are then filed: the bookkeeper wrote "Amber's history now
+  // carries 1 defining moment" off the one that never happened. The player's report was that he had
+  // no clue what was happening, and that is the honest response to reading both.
+  const inScene = new Set(state.world?.present ?? []);
   const cast = Object.entries<any>(state.characters ?? {})
-    .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed")
+    .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed"
+      && !inScene.has(id))
     .map(([cid, c]) => {
       const where = state.world.places[c.location]?.name ?? "unknown";
       const wants = wantsOf(c);
@@ -193,6 +205,7 @@ export function worldDigest(state: any): string {
   const byPlace = new Map<string, string[]>();
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
     if (id === "char_player" || c.status === "dead" || c.status === "departed") continue;
+    if (inScene.has(id)) continue;   // in the room with the player; they witness the SCENE, not this
     const where = state.world.places[c.location]?.name;
     if (!where) continue;
     byPlace.set(where, [...(byPlace.get(where) ?? []), c.name]);
@@ -731,6 +744,22 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
       }
     }
 
+    // AND A PERSON WHO DOES NOT EXIST DOES NOT GET A LIFE. `actorId` is null when the named actor
+    // is not in the cast, and everything below it — the memory, the edges, the witnesses — is
+    // already skipped for that case. The narrative was not: it went into the log in full.
+    //
+    // From the same save: two hundred words of "Denise comes out of the back at last... goes down on
+    // one knee at the register, and spends eleven minutes trying to shim the spindle", plus three
+    // threads opened about her, across twelve turns. Denise is not a character. She has no card, no
+    // location, no memory and no voice, so nothing she does can be consistent with anything she did
+    // before, and the player is reading a subplot about a person the engine cannot hold.
+    //
+    // Ambient events have no actor and are the point of this pass ("rain gathers against the curb"),
+    // so they pass through. A NAMED actor who is nobody does not.
+    if (ev.actor && String(ev.actor).trim() && !actorId) {
+      console.warn(`[offstage] dropped an event for "${ev.actor}", who is not in the cast: ${clipText(String(ev.what ?? ""), 80)}`);
+      continue;
+    }
     log.push(`Elsewhere: ${ev.what}`);
   }
 
