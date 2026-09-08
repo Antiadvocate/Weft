@@ -118,5 +118,41 @@ const sample = (inp: any, n = 400) => {
   check("...nor does it monopolise them", thread > clock, { clock, thread });
 }
 
+/* ── 6. the in-world clock cannot hold the gate forever ──────────────────────── */
+{
+  // The save that prompted all this runs a single morning in one apartment: 139 in-world minutes
+  // across 43 turns, about three a turn. Its tension dial is 9, whose cooldown is 40 in-world
+  // minutes — and thirty had passed, so the gate stayed shut turn after turn. At lower tensions the
+  // arithmetic is worse: 300 minutes at tension 4 is ninety more turns of that pace.
+  const stuck = { clocks: [VOICE], threads: THREADS, tension: 9, last_beat_turn: 32, minutesSinceBeat: 30 };
+  const m = sample(stuck);
+  check("a story that spends little in-world time still gets beats", (m.get("none") ?? 0) < 400, m);
+  check("...incidents, not only reminders", (m.get("thread") ?? 0) > 0, m);
+
+  // and the ceiling is a ceiling on WAITING, not a bypass: two turns after a beat, nothing yet
+  const fresh = sample({ ...stuck, last_beat_turn: 42, minutesSinceBeat: 6 });
+  check("...but a beat two turns ago still holds the world off",
+    (fresh.get("thread") ?? 0) === 0 && (fresh.get("clock") ?? 0) === 0, fresh);
+  // a calm world waits far longer in turns than a hot one
+  const calm = sample({ ...stuck, tension: 2, last_beat_turn: 33, minutesSinceBeat: 30 });
+  check("...and a calm story is left alone much longer", (calm.get("thread") ?? 0) === 0, calm);
+}
+
+/* ── 7. during a cooldown a clock shows a sign, not its private objective ─────── */
+{
+  const m = sample({ clocks: [VOICE], threads: [], tension: 9, last_beat_turn: 39, minutesSinceBeat: 12 });
+  check("a cooling turn can still carry a sign", (m.get("clock") ?? 0) > 0, m);
+  // the bare-reminder path handed the narrator `faction: objective` verbatim — the one thing the
+  // clock table is withheld to protect — and then asked for it "lightly"
+  let leaked = 0, signed = 0;
+  for (let i = 0; i < 300; i++) {
+    const b = selectBeat(base({ clocks: [VOICE], threads: [], tension: 9, last_beat_turn: 39, minutesSinceBeat: 12 })) as Beat;
+    if (b.kind === "reminder" && /grows stronger and more seductive/.test(b.ref)) leaked++;
+    if (b.kind === "clock" && (b as any).young) signed++;
+  }
+  check("a clock never reaches the page as its own objective", leaked === 0, { leaked });
+  check("...it reaches it as something somebody could see", signed > 0, { signed });
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
