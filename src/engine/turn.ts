@@ -56,7 +56,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
-import { noteFire, integrityAlarm, povDrift, povFix } from "./integrity";
+import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -2142,6 +2142,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     });
   state.pressure_state ??= { last_beat_turn: 0, last_exo_turn: 0 };
   state.pressure_state.recent ??= [];
+  // THE PLAYER SAYING IT IS NOT REAL IS THE END OF IT. NARRATOR_SYSTEM already promises this — "if
+  // the player challenges something you wrote as impossible, they are almost certainly right: do not
+  // defend it, do not build lore to justify it. Drop it" — and the engine has `retcons` for exactly
+  // that, reachable only by striking text by hand in the UI. Said in play it reached nothing: one
+  // save has the player typing that Mrs. Gable does not exist and the bookkeeper filing it as
+  // "Joe claims Mrs. Gable does not exist", plus two memories of him seeming to lose his mind, while
+  // the invented receptionist kept her place under KNOWS (verified facts). See integrity.deniedEntities.
+  for (const name of deniedEntities(action, knownNameWhitelist(state))) {
+    const gone = strikeEntity(state, name);
+    noteFire(state, "invention", `${name} was invented and the player struck it — ${gone.facts} fact(s), ${gone.memories} memor(ies) removed`);
+    ev.onMeta({ shifts: [`${name} never existed — struck from the story, and removed from ${gone.facts + gone.memories} record(s)`] });
+    console.warn(`[retcon] struck "${name}" on the player's word: ${gone.facts} facts, ${gone.memories} memories`);
+  }
   // Pacing runs on the in-world clock, not the turn counter — a turn is ~10 minutes, so turn-based
   // cooldowns produced a fresh crisis every half hour of the character's life.
   const nowT = state.world.current_time;
