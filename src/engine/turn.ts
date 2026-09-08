@@ -56,7 +56,7 @@ import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
-import { noteFire, integrityAlarm } from "./integrity";
+import { noteFire, integrityAlarm, povDrift } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -3212,6 +3212,18 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       if (state.last_anatomy) {
         noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
         ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
+      }
+      // THE PLAYER STOPPED BEING "YOU". Cheap, silent, and ruinous — a save can be twenty turns deep
+      // in third person before anybody works out that the only thing that changed was the model.
+      // See engine/integrity.povDrift.
+      {
+        const pc = state.characters["char_player"];
+        const others = state.world.present.filter((x) => x !== "char_player").map((x) => state.characters[x]?.pronouns);
+        const drift = pc ? povDrift(prose, pc.name, pc.pronouns, others) : null;
+        if (drift) {
+          noteFire(state, "pov", `the player was written in the third person ${drift.third}× and addressed as "you" ${drift.second}×`);
+          ev.onMeta({ shifts: [`this turn wrote you from outside instead of addressing you — the narrator will be told next turn`] });
+        }
       }
       if (state.last_reprint) {
         noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
