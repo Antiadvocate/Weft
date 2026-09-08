@@ -47,6 +47,8 @@ function play(palette: string[] | undefined, threads: any[]) {
     const b = selectBeat(base({ turn, threads, palette, last_beat_turn: lastBeatTurn,
       minutesSinceBeat: minutes - lastBeatTurn * 3, recent })) as Beat;
     tally.set(b.kind, (tally.get(b.kind) ?? 0) + 1);
+    // mirrors turn.ts: the kinds that enter the fatigue list. If "palette" is missing there the
+    // premise never rests and becomes a metronome, so the harness records it exactly as the engine does.
     if (["consequence", "clock", "thread", "agent", "exogenous", "palette"].includes(b.kind)) {
       lastBeatTurn = turn;
       const ref = (b as any).ref ?? "";

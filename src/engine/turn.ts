@@ -2182,11 +2182,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // longer silence each time. Reminders don't count — being reminded is not the threat acting.
   {
     const ref = (beat as { ref?: string }).ref;
-    if (ref && ["clock", "thread", "agent", "consequence"].includes(beat.kind)) {
+    // "palette" belongs here or the premise never enters the fatigue list at all: `starving` would
+    // read it as never-fired on every turn and it would run as a metronome, which is the exact
+    // failure the 0.6 coin-flip in pickStanding was added to avoid. Caught by reading this list
+    // while tracing why a save showed four beats in eighty-six turns.
+    if (ref && ["clock", "thread", "agent", "consequence", "palette"].includes(beat.kind)) {
       const rec = state.pressure_state.recent!;
       // Record WHAT KIND fired, so the selector can spread across kinds rather than only across
       // individual sources — four fresh threats in a row is four fresh sources and one flavour.
-      const srcKind = beat.kind === "clock" ? "threat"
+      const srcKind = beat.kind === "palette" ? "palette"
+        : beat.kind === "clock" ? "threat"
         : beat.kind === "agent" ? "relationship"
         : beat.kind === "thread" ? (state.world.threads.find((t) => String(t.title ?? "").slice(0, 90) === ref)?.kind ?? "threat")
         : "obligation";
@@ -4698,6 +4703,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // telemetry
   const tel: TurnTelemetry = {
     turn, ts: Date.now(), pressure: verdict.pressure, pressure_source: verdict.source,
+    beat: beat.kind === "none" ? "none" : `${beat.kind}: ${(beat as any).ref ?? ""}`.slice(0, 140),
     narrator_tokens_in: narratorUsage.prompt_tokens, narrator_tokens_out: narratorUsage.completion_tokens,
     simulator_tokens_in: simUsage.prompt_tokens, simulator_tokens_out: simUsage.completion_tokens,
     cached_tokens: (narratorUsage.cached_tokens ?? 0) + (simUsage.cached_tokens ?? 0),
