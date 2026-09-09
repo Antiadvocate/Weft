@@ -613,55 +613,80 @@ export function selectBeat(inp: BeatInput): Beat {
 }
 
 /** Compact directive injected into the narrator's volatile digest. */
-export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat): string {
-  const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) — source: ${v.source}.`];
+/**
+ * THE BEAT IS THE ONE THING THIS TURN IS SUPPOSED TO DO, AND IT WAS FIFTH OF FORTY-TWO.
+ *
+ * `fullDirective` in turn.ts concatenates about forty instruction blocks, and the pressure
+ * directive — which carries the beat — is the fifth of them, followed by thirty-seven more, almost
+ * all of them constraints on what NOT to write. prompts.ts already states the principle this
+ * violates, about a different field: "a rule in the middle of a thirty-thousand-character digest is
+ * reference and a rule at the end is an instruction."
+ *
+ * Measured on a fresh save at turn 22: the palette fired four times, twice as "The voice from
+ * Amber's feet becoming more insistent and seductive", and both of those turns came back as
+ * domestic banter about eggs and candles with no voice anywhere in them. The engine had chosen the
+ * story's own subject and said render it now, buried among thirty-seven other paragraphs.
+ *
+ * So it is returned separately and placed LAST, against the player's action, where the engine's own
+ * comment says an instruction goes. Nothing about its content changed.
+ */
+export function beatDirective(beat?: Beat, tension?: number): string {
+  // At rest the world is explicitly not supposed to press, and pressureDirective already says so in
+  // its own paragraph. Repeating a source here would be arguing with it.
+  if ((tension ?? 5) <= 0) return "";
+  const body = beatBody(beat);
+  return body ? `\n\n=== WHAT THIS TURN IS FOR ===\n${body}` : "";
+}
+
+/** The one instruction that says what the world does this turn. Rendered by pressureDirective when
+ *  nothing has asked for it separately, and by beatDirective when the caller places it last. */
+function beatBody(beat?: Beat): string {
+  // A missing beat used to emit NO LINE AT ALL, which the narrator reads as permission rather
+  // than as silence — and with the genre paragraph telling it that a quiet stretch is a failure
+  // to fix, it fills the vacuum with raiders. Absence of a source is a constraint, not a gap.
+  if (!beat) return "NO SOURCE FOR THIS TURN. Nothing new arrives or develops from outside; the scene runs on the people already in it.";
+  // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
+  switch (beat.kind) {
+    case "none":
+      return "NO NEW INCIDENT THIS TURN — no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions; people acting on what they want IS the scene, and quiet is correct rather than a failure. THIS IS NOT A CHANGE OF SETTING. Whatever is permanently true of this world is still true and still on the page — its weather, its ruin, its dead, its dark, whatever the people here have to keep doing to stay alive. A world where the danger is the ordinary condition does not become a safe one because nothing new happened; it is simply not interrupted this turn. Withhold the EVENT, never the place.";
+    case "reminder":
+      return `REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`;
+    case "consequence":
+      return `A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`;
+    case "clock":
+      if (beat.young) {
+        return `A SIGN, NOT AN INCIDENT. Something in this world is moving that the player does not know about yet, and one visible trace of it reaches this scene: ${(beat.signs ?? []).join("; ")}. Put ONE of those on the page as a thing that is simply there — witnessed in passing, in the middle of the turn, not at the end of it. Nobody in the scene knows what it means, nobody remarks on its significance, and nobody investigates: they see it and read it however their own life tells them to, or do not react at all. It demands nothing, interrupts nothing, and answers nothing. Do NOT escalate it, do not explain it, and do not have anyone name the thing behind it.`;
+      }
+      return `PRESSURE BEAT from a maturing faction clock — "${beat.ref}"${
+        typeof beat.filled === "number" && beat.segments ? `, ${beat.filled} of ${beat.segments} of the way to happening` : ""
+      }.${
+        beat.signs?.length
+          ? `\nWHAT A PERSON HERE WOULD ACTUALLY SEE OF IT — put at least one of these ON THE PAGE this turn, as a thing that happens where the player is, not as a mood: ${beat.signs.join("; ")}. Nobody in the scene knows what it is FOR; they see the sign and read it however their own life tells them to.`
+          : ""
+      } Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`;
+    case "palette":
+      return beat.quiet
+        ? `THE STORY'S OWN SUBJECT TOUCHES THE SCENE, lightly and unprompted: ${beat.ref}. Once, small, in the middle of the turn — the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them and the scene carries on.`
+        : `THE ENGINE OF THIS STORY PRESSES, NOW: ${beat.ref}. This is what the player said this world runs on, and this turn is one of the turns it runs. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. Not foreshadowing, not a mood, not somebody almost saying something. The thing itself, happening, on the page.`;
+    case "thread":
+      return `PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`;
+    case "agent":
+      return `PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, not plot convenience.`;
+    case "exogenous":
+      return `EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player — witnessed, not targeted at them. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you, not to you.`;
+  }
+  return "";
+}
+
+export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat, deferBeat = false): string {
+  const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) \u2014 source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
-    lines.push("TENSION 0 — THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does — let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate — if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
-  } else if (!beat) {
-    // A missing beat used to emit NO LINE AT ALL, which the narrator reads as permission rather
-    // than as silence — and with the genre paragraph telling it that a quiet stretch is a failure
-    // to fix, it fills the vacuum with raiders. Absence of a source is a constraint, not a gap.
-    lines.push("NO SOURCE FOR THIS TURN. Nothing new arrives or develops from outside; the scene runs on the people already in it.");
-  } else {
-    // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
-    switch (beat.kind) {
-      case "none":
-        lines.push("NO NEW INCIDENT THIS TURN — no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions; people acting on what they want IS the scene, and quiet is correct rather than a failure. THIS IS NOT A CHANGE OF SETTING. Whatever is permanently true of this world is still true and still on the page — its weather, its ruin, its dead, its dark, whatever the people here have to keep doing to stay alive. A world where the danger is the ordinary condition does not become a safe one because nothing new happened; it is simply not interrupted this turn. Withhold the EVENT, never the place.");
-        break;
-      case "reminder":
-        lines.push(`REMINDER BEAT — NOT an incident. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`);
-        break;
-      case "consequence":
-        lines.push(`A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`);
-        break;
-      case "clock":
-        if (beat.young) {
-          lines.push(`A SIGN, NOT AN INCIDENT. Something in this world is moving that the player does not know about yet, and one visible trace of it reaches this scene: ${(beat.signs ?? []).join("; ")}. Put ONE of those on the page as a thing that is simply there — witnessed in passing, in the middle of the turn, not at the end of it. Nobody in the scene knows what it means, nobody remarks on its significance, and nobody investigates: they see it and read it however their own life tells them to, or do not react at all. It demands nothing, interrupts nothing, and answers nothing. Do NOT escalate it, do not explain it, and do not have anyone name the thing behind it.`);
-          break;
-        }
-        lines.push(`PRESSURE BEAT from a maturing faction clock — "${beat.ref}"${
-          typeof beat.filled === "number" && beat.segments ? `, ${beat.filled} of ${beat.segments} of the way to happening` : ""
-        }.${
-          beat.signs?.length
-            ? `\nWHAT A PERSON HERE WOULD ACTUALLY SEE OF IT — put at least one of these ON THE PAGE this turn, as a thing that happens where the player is, not as a mood: ${beat.signs.join("; ")}. Nobody in the scene knows what it is FOR; they see the sign and read it however their own life tells them to.`
-            : ""
-        } Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`);
-        break;
-      case "palette":
-        lines.push(beat.quiet
-          ? `THE STORY'S OWN SUBJECT TOUCHES THE SCENE, lightly and unprompted: ${beat.ref}. Once, small, in the middle of the turn — the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them and the scene carries on.`
-          : `THE ENGINE OF THIS STORY PRESSES, NOW: ${beat.ref}. This is what the player said this world runs on, and this turn is one of the turns it runs. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. Not foreshadowing, not a mood, not somebody almost saying something. The thing itself, happening, on the page.`);
-        break;
-      case "thread":
-        lines.push(`PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`);
-        break;
-      case "agent":
-        lines.push(`PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, not plot convenience.`);
-        break;
-      case "exogenous":
-        lines.push(`EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player — witnessed, not targeted at them. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you, not to you.`);
-        break;
-    }
+    lines.push("TENSION 0 \u2014 THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does \u2014 let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate \u2014 if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
+  } else if (!deferBeat) {
+    // WHEN THE CALLER PLACES THE BEAT ITSELF, IT IS NOT ALSO SAID HERE. Two copies of the same
+    // instruction in one prompt is worse than one in the wrong place: the narrator reads the
+    // repetition as emphasis on the paragraph it can see best, which is the last one anyway.
+    lines.push(beatBody(beat));
   }
   if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
   if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
