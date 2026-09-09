@@ -100,6 +100,42 @@ The CORS flag is not optional — a browser calling a local server from a page i
 
 > Note: as with a local text model, a page served over `https` will refuse a plain-`http://localhost` call — run Weft locally (`npm run dev`) when you use this.
 
+## Typing to the engine instead of the world
+
+Two things you can put in the action box that are not story. Both are stripped before a single
+character of them reaches the narrator or the bookkeeper, so nothing you type here can turn up in
+the prose or in the world's record of what happened.
+
+`((double parens))` names exactly what to ground a web search on for this turn, and forces grounding
+on whether or not the toggle is: *I lead the Guard into the breach ((Astra Militarum tactics))*.
+
+`[[beat]]` is the one that exists because of a save that spent forty turns discussing a job
+application. Every turn, the engine decides whether the world presses on you and through which of
+its standing sources — the palette lines you wrote, the faction clocks, the open threads, the people
+offstage. That decision runs through a refractory period, a fatigue table, a rotation and a coin
+flip, and each of those is defensible on its own. Stacked, they are opaque. When nothing has
+happened for thirty turns you cannot tell a cooldown from a fatigued source from bad luck, and the
+only way anyone ever found out was by exporting the save and reading the telemetry.
+
+So you can just ask:
+
+- `[[beat]]` — the world moves this turn. The engine still chooses what through.
+- `[[beat: voice]]` — and it moves through the source matching that text. A word is enough; the
+  palette is searched first, so if a word fits both a clock and the line you wrote about your
+  story's own subject, you get the line you wrote.
+- `[[beat: thread]]`, `[[beat: clock]]`, `[[beat: palette]]`, `[[beat: exogenous]]` — by kind.
+- `[[beat: nothing]]` — a quiet turn on purpose.
+- `[[beat: ?]]` — press with nothing, and print every source the world *could* have pressed with
+  and how many turns each has been waiting. It lands in the turn's own notes, so it is still there
+  when you scroll back.
+
+A forced beat skips the cooldown, the fatigue table and every probability gate, and it can call a
+source that is resting off a recent appearance. It outranks the opening grace window and a tension
+dial set to rest, because a debug command that silently does nothing is worse than not having one.
+What it does *not* skip is the bookkeeping afterward: the beat discharges, the source goes on the
+fatigue list, and the next few turns cool off exactly as they would have. It is a way to see the
+machine, not a way to cheat it.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.
