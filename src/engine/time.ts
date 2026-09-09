@@ -103,7 +103,19 @@ export function heuristicMinutes(action: string, prose = ""): number {
 export function declaredMinutes(action: string): number {
   // A character SAYING "four times a week" is not the player spending one. Quoted speech goes
   // first, the same way it does everywhere else the engine reads this input.
-  const s = String(action ?? "").toLowerCase().replace(/["\u201c][^"\u201d]*["\u201d]?/g, " ");
+  //
+  // ...AND SO DOES EVERY OTHER FORM THIS ENGINE ALREADY TREATS AS SAID-OR-THOUGHT RATHER THAN DONE.
+  // The bookkeeper contract states the convention outright — `"quotes" are spoken aloud; *asterisks*
+  // and (parentheses) are private` — and this function honoured a third of it. From a real save: the
+  // player typed `I text her *hey hope it went well. ... I think 10 hours of being tense about your
+  // interview and questions and all rattled me.*` The words "10 hours" are the message. This read
+  // them as a declaration that the turn took ten hours, billed 600 minutes, and moved a 1:36 in the
+  // afternoon to 23:36 at night — while the narrator, handed the same scene, wrote "the gray light
+  // has thinned and brightened past noon". The state and the page disagreed about what day it was.
+  const s = String(action ?? "").toLowerCase()
+    .replace(/["\u201c][^"\u201d]*["\u201d]?/g, " ")
+    .replace(/\*[^*]*\*?/g, " ")
+    .replace(/\([^)]*\)?/g, " ");
   // an explicit count, in the player's own words: "three hours", "a couple of days", "20 minutes"
   const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, "a couple of": 2, "a few": 3, several: 4, half: 0.5 };
   const unit: Record<string, number> = { minute: 1, minutes: 1, min: 1, mins: 1, hour: 60, hours: 60, day: 1440, days: 1440, week: 10080, weeks: 10080 };
