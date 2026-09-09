@@ -81,9 +81,16 @@ const sample = (inp: any, n = 400) => {
 {
   const young = sample({ clocks: [VOICE] });
   check("a clock at 1 of 6 is reachable", (young.get("clock") ?? 0) > 0, young);
+  // AND ONE THAT HAS NEVER MOVED IS REACHABLE TOO, which reverses what this test used to assert.
+  // "Left to the offstage pass" assumed the offstage pass could advance a clock. It cannot — only
+  // the bookkeeper's clocks_advance can, through a knowledge gate that is closed for every faction
+  // the forge invents before any character exists to belong to it, and a three-hour time gate that
+  // a story told in rooms cannot pay. So a clock at 0 could not be seen because it had not moved
+  // and could not move because nothing could see it, and twelve turns later the stall path retired
+  // it. Every forge-written clock in the game began inside that deadlock.
   const unmoved = sample({ clocks: [{ ...VOICE, filled: 0 }] });
-  check("...but one that has never moved is left to the offstage pass",
-    (unmoved.get("clock") ?? 0) === 0, unmoved);
+  check("...and one that has not moved yet is reachable too — a sign is what it has before it moves",
+    (unmoved.get("clock") ?? 0) > 0, unmoved);
   const blind = sample({ clocks: [{ ...VOICE, visible_signs: [] }] });
   check("...and one with nothing anybody could SEE stays private",
     (blind.get("clock") ?? 0) === 0, blind);

@@ -57,6 +57,38 @@ export function factionMembers(state: SaveState, faction: string): string[] {
   return out;
 }
 
+/**
+ * Has anyone in this world ever belonged to this faction — living, dead or departed?
+ *
+ * The knowledge gate exists to stop a faction acting on something nobody told it, and the example
+ * it was written for is exact: "armed men who somehow knew about a stranger nobody had reported."
+ * That is a gate on a faction of PEOPLE. Applied to a faction that has no people in the save at all
+ * it says something different and false — that a body the player has never met cannot get on with
+ * its own business until someone has gossiped about the player. A municipal works department does
+ * not need to have heard of you to finish rewiring a substation.
+ *
+ * And the forge writes every clock at world creation, before a single character exists to match its
+ * name, so `factionMembers` is empty for all of them and the gate closes on every clock in the game
+ * from turn one. Twelve turns later the stall path rewrites the objective to "ordinary business" and
+ * sets the status to stalled, which nothing anywhere sets back. That is the whole life of a faction
+ * clock in this engine: invisible at 0, dead at 13.
+ *
+ * So the gate holds where it has meaning — a faction with members, none of whom knows anything, and
+ * a faction whose members are all dead, which is the case it was written to protect. It stands down
+ * for a faction that is pure offstage machinery, where there is nobody to be omniscient.
+ */
+export function factionEverInPlay(state: SaveState, faction: string): boolean {
+  const key = content(faction);
+  if (!key.length) return false;
+  for (const [id, c] of Object.entries(state.characters) as [string, Identity][]) {
+    if (id === "char_player") continue;
+    const aff = (c as { affiliation?: string }).affiliation ?? "";
+    const hay = `${aff} ${c.background ?? ""} ${(c.core_traits ?? []).join(" ")}`.toLowerCase();
+    if (key.some((k) => hay.includes(k))) return true;
+  }
+  return false;
+}
+
 // ── SEEDING ──────────────────────────────────────────────────────────────────
 
 /**
@@ -198,6 +230,34 @@ export function wordCouldReach(
   const needed = roundTrip ? one * 2 : one;
   const elapsed = minutesBetween(sinceTime, state.world.current_time);
   return { possible: elapsed >= needed, needed, elapsed };
+}
+
+/**
+ * A STALL IS NOT A FUNERAL, AND IT HAD NO WAY BACK.
+ *
+ * When a faction has members and none of them knows anything, the clock's objective is rewritten to
+ * ordinary business and its status set to "stalled" — which is honest, and was final. Every consumer
+ * in the engine filters on `status === "running"`: beat selection, the headline, the digests handed
+ * to the narrator and the bookkeeper, and the advance loop itself. Nothing anywhere set a clock back
+ * to running except a player clicking "fire this clock" in the inspector. So the moment a faction's
+ * information dried up for twelve turns, the storyline the forge wrote for it was over, permanently,
+ * and the player was never told.
+ *
+ * Word arrives late all the time — that is what the rumor graph is FOR. When it does, the faction
+ * picks up what it was doing. Run once a turn, costs nothing, and reports so the player sees it.
+ */
+export function reviveStalledClocks(state: SaveState): string[] {
+  const log: string[] = [];
+  for (const c of state.world.clocks ?? []) {
+    if (c.status !== "stalled" || !c.original_objective?.trim()) continue;
+    if (!factionKnows(state, c.faction, c.original_objective).knows) continue;
+    c.objective = c.original_objective;
+    delete c.original_objective;
+    delete c.stalled_since;
+    c.status = "running";
+    log.push(`${c.faction} has heard something, and is back on what it was doing.`);
+  }
+  return log;
 }
 
 export function mundaneObjective(faction: string): string {

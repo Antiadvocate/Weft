@@ -25,9 +25,15 @@
  *  not what the story is about this afternoon. */
 import type { SaveState, Thread } from "./types";
 
-/** Turns without a mention before a thread stops counting as live. Generous on purpose: stories here
- *  run a few days across a hundred-odd turns, and a situation can reasonably sit for a night. */
-export const DORMANT_AFTER = 12;
+/** Turns without a touch before a thread stops counting as live.
+ *
+ *  It was 12, which is shorter than the world can possibly come back round. The beat selector picks
+ *  ONE source a turn out of everything standing, and at six live threads plus a palette line and a
+ *  clock, any given thread is chosen about once in forty turns. So eleven turns after a thread was
+ *  the subject of the scene it went dormant, dormant threads were unpickable, and the pool drained
+ *  to whichever one had been chosen most recently — which then went dormant too. The window has to
+ *  be longer than the rotation it is measuring, or it is not a dormancy rule, it is a countdown. */
+export const DORMANT_AFTER = 25;
 /** Live threads the pressure system may choose from. Past this, the oldest untouched ones go quiet
  *  regardless of the clock: a story is about a handful of things at once, and a list of twelve is
  *  not a world with twelve live situations in it, it is a list. */
@@ -54,7 +60,7 @@ export function mentioned(t: Thread, prose: string): boolean {
  *  Returns lines for the world-motion feed. A thread going quiet is worth one line — it is the
  *  engine saying "this stopped being what the story is about", which the player may disagree with,
  *  and disagreeing is as easy as mentioning it again. */
-export function sweepThreads(state: SaveState, prose: string): string[] {
+export function sweepThreads(state: SaveState, prose: string, beatThreadId?: string): string[] {
   const turn = state.world.current_turn;
   const log: string[] = [];
   // Taken BEFORE anything is demoted. A thread must actually spend time dormant — where a single
@@ -66,9 +72,30 @@ export function sweepThreads(state: SaveState, prose: string): string[] {
   for (const t of state.world.threads ?? []) {
     if (t.status === "resolved" || t.status === "abandoned") continue;
 
+    // THE ENGINE ALREADY KNOWS WHAT THIS TURN WAS ABOUT — IT CHOSE IT.
+    //
+    // Everything below this is `mentioned`, which reads the prose and guesses. That guess was the
+    // only way a thread could stay alive, and it is wrong most of the time by construction: it
+    // wants a third of a thread's distinctive words back verbatim, and a scene that IS the thread
+    // rarely repeats its wording. Three scenes written straight at their own thread — the shut door
+    // at the end of the hall, the phone screen going dark too fast, the envelope nobody opens —
+    // score zero between them.
+    //
+    // So the thread the beat selector NAMED as this turn's subject is touched because the engine
+    // assigned it, not because a word count agreed afterwards. That is the one signal in the loop
+    // that is a fact rather than an inference, and it was the one thing not being used. Without it
+    // a thread was picked as the subject of the scene and demoted for inactivity on the same turn.
+    if (beatThreadId && t.id === beatThreadId) {
+      t.last_touched_turn = turn;
+      delete t.last_cooled_turn;
+      if (t.status === "dormant") { t.status = "active"; log.push(`Back in play: ${t.title}.`); }
+      continue;
+    }
+
     // Touch first: anything the prose is actually about is live, including a dormant one waking.
     if (mentioned(t, prose)) {
       t.last_touched_turn = turn;
+      delete t.last_cooled_turn;
       if (t.status === "dormant") {
         t.status = "active";
         log.push(`Back in play: ${t.title}.`);
@@ -91,15 +118,31 @@ export function sweepThreads(state: SaveState, prose: string): string[] {
     }
   }
 
-  // AND DORMANT IS NOT A RESTING PLACE. A thread that has sat untouched for four times the dormancy
-  // window is not a situation the story is holding in reserve, it is a note nobody has read in fifty
-  // turns. Left alone it stays on the list forever, which is what the list being long actually is.
-  // Abandoned still keeps the text — nothing is deleted, and the player can read it in the Chronicle
-  // — but it stops counting as something the world owes an answer to.
+  // AND DORMANT IS NOT A RESTING PLACE — BUT LETTING GO IS SOMETHING THAT HAPPENS TO A THREAD, NOT
+  // SOMETHING A TIMER DOES TO IT.
+  //
+  // This used to abandon anything untouched for four dormancy windows, full stop. With the world
+  // picking one source a turn out of eight or nine, a thread waits about forty turns between visits
+  // and a hundred is ordinary variance — so a situation still sitting at tension 8, that the engine
+  // would have been happy to press on any turn it came up, was quietly retired for having lost a
+  // few coin flips. Abandonment is final; nothing was ever the story's fault.
+  //
+  // So a thread nobody comes back to COOLS, a point per dormancy window, and is let go when it
+  // reaches nothing. A situation genuinely nobody is thinking about does fade like that, which is
+  // the fiction as well as the bookkeeping — and a hot one simply waits, still on the list, still
+  // pickable, for however long it takes the world to come round to it. Nothing is deleted either
+  // way: the text stays in the Chronicle.
   for (const t of state.world.threads ?? []) {
     if (t.status !== "dormant" || !wasDormant.has(t.id)) continue;
     const idle = turn - (t.last_touched_turn ?? t.turn_started ?? turn);
-    if (idle >= DORMANT_AFTER * 4) {
+    const sinceCooled = turn - (t.last_cooled_turn ?? t.last_touched_turn ?? t.turn_started ?? turn);
+    // Slowly: two dormancy windows a point, so a situation the world has not come back to in a
+    // hundred and fifty turns is the one that fades, not one that lost a few coin flips.
+    if (sinceCooled >= DORMANT_AFTER * 2 && (t.tension ?? 0) > 0) {
+      t.tension = Math.max(0, (t.tension ?? 0) - 1);
+      t.last_cooled_turn = turn;
+    }
+    if ((t.tension ?? 0) <= 0 && idle >= DORMANT_AFTER * 2) {
       t.status = "abandoned";
       t.turn_resolved = turn;
       log.push(`Let go: ${t.title}.`);

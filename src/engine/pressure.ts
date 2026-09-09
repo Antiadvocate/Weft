@@ -76,6 +76,17 @@ export function bandMean(target: number[]): number {
 /** How many recent turns of named sources are weighed when picking this turn's headline. */
 const SOURCE_MEMORY = 8;
 
+/** Discharges after which a source goes properly quiet — "a threat that keeps losing is a threat
+ *  that stops coming". Exported because turn.ts, which does the counting, has to know when a source
+ *  is coming back from one so it can start the count again rather than leaving it retired forever. */
+export const RETIRE_AT = 4;
+/** ...and how long that lasts. A world is allowed to remember a thing it set down. */
+const RETIRE_FOR = 40;
+/** How many turns of staleness a dormant source concedes to a live one in the rotation. Big enough
+ *  that the world works through what it is currently about first, small enough that a thread which
+ *  was set aside forty turns ago can still be the thing that happens next. */
+const DORMANT_PENALTY = 20;
+
 /**
  * THE HEADLINE IS A SOURCE TOO, AND IT HAD NO MEMORY AND NO FILTER.
  *
@@ -306,7 +317,7 @@ export type Beat =
   | { kind: "reminder"; ref: string }
   | { kind: "consequence"; ref: string; consequence: ConsequenceEvent }
   | { kind: "clock"; ref: string; signs?: string[]; filled?: number; segments?: number; young?: boolean }
-  | { kind: "thread"; ref: string }
+  | { kind: "thread"; ref: string; id?: string; dormant?: boolean }
   | { kind: "agent"; ref: string; goal: string }
   | { kind: "palette"; ref: string; quiet?: boolean }
   | { kind: "exogenous" };
@@ -415,7 +426,7 @@ export function selectBeat(inp: BeatInput): Beat {
   // texture is. Without one a source falls back to a bare reminder, which for a CLOCK meant handing
   // the narrator `faction: objective` verbatim — the private objective the clock table is withheld
   // to protect — and then asking for it "lightly", which produces nothing anybody can see.
-  const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat }[] = [];
+  const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat; dormant?: boolean }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "threat", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130),
@@ -452,8 +463,17 @@ export function selectBeat(inp: BeatInput): Beat {
   // which is the only way the player meets it before it is a crisis. Per-source fatigue below keeps
   // it from becoming its own drumbeat; a clock at 0 has genuinely done nothing yet and is left to
   // the offstage pass, which is already told to find its next ordinary step.
+  //
+  // ...AND IT DOES NOT HAVE TO HAVE MOVED FIRST. This clause used to require `filled > 0`, on the
+  // reasoning that "a clock at 0 has genuinely done nothing yet and is left to the offstage pass".
+  // The offstage pass cannot advance a clock either — only the bookkeeper's clocks_advance can, and
+  // that runs through a knowledge gate and a three-hour time gate. So a forge-written clock starts
+  // at 0, cannot be seen because it has not moved, and cannot move because nothing in the world has
+  // had a chance to learn about a faction the player has never met. It is a deadlock, and every
+  // clock the forge writes at world creation begins inside it. A sign is the one thing that is safe
+  // to show from a standing start: nobody in the scene knows what it means, nothing escalates.
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
-      && c.filled > 0 && c.filled / c.segments < 0.75 && (c.visible_signs ?? []).some((x) => String(x ?? "").trim()))
+      && c.filled / c.segments < 0.75 && (c.visible_signs ?? []).some((x) => String(x ?? "").trim()))
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "reminder", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
       signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
@@ -493,8 +513,14 @@ export function selectBeat(inp: BeatInput): Beat {
   // neighbour who now wants the same engineers — opens low and matures slowly, so under the old
   // rule it could sit in state forever and never once reach the page. Non-threat threads qualify
   // at 2. That is the whole point of authoring them.
+  // A DORMANT THREAD IS SET ASIDE, NOT BURIED. `status !== "active"` here was the second half of
+  // the death spiral: sweepThreads demoted a thread the world had not come back to in a while, and
+  // this line then made it unreachable, so the world could never come back to it, so it aged out to
+  // abandoned. "Any mention wakes it" was the promise; a mention is a thing the PLAYER does, and
+  // the world had no way of its own to pick a subject back up. Now it does — dormant sources stay
+  // in the pool and lose the tie-break to live ones, which is what dormant should have meant.
   for (const t of inp.threads) {
-    if (t.status !== "active") continue;
+    if (t.status !== "active" && t.status !== "dormant") continue;
     // Marked by the chapter auditor as one of this world's never-the-engine things. The situation
     // is real and the player may still act on it; the world does not press through it. See
     // fictionHeat above for why this gate exists in two places.
@@ -512,9 +538,16 @@ export function selectBeat(inp: BeatInput): Beat {
     // So the crisis bar is for a thread somebody actually called a threat. Silence is not evidence
     // of one.
     const kind = t.kind ?? "situation";
-    const bar = t.kind === "threat" ? 6 : 2;
+    // The bar answers "is this hot enough to press the player with". A DORMANT thread is not being
+    // pressed with — it is the world picking something back up that it set down — so it does not
+    // have to clear it. This matters because a dormant thread cools while nobody returns to it, and
+    // gating the return on the tension it is losing is a spiral: cool below the bar, become
+    // unpickable, cool to nothing, get let go, having never been offered once.
+    const bar = t.status === "dormant" ? 0 : t.kind === "threat" ? 6 : 2;
+    const dormant = t.status === "dormant";
     if ((t.tension ?? 0) >= bar)
-      standing.push({ ref: clipText(t.title, 130), kind, mk: () => ({ kind: "thread", ref: clipText(t.title, 130) }) });
+      standing.push({ ref: clipText(t.title, 130), kind, dormant,
+        mk: () => ({ kind: "thread", ref: clipText(t.title, 130), id: t.id, dormant }) });
   }
   // Agents gated at priority 6 meant a person only pressed the world when they were in crisis.
   // People acting on ordinary wants IS how a world turns; 3 lets them.
@@ -532,7 +565,6 @@ export function selectBeat(inp: BeatInput): Beat {
   // it is retired outright until something changes its underlying tension, which is the world
   // admitting the approach failed rather than running it a fifth time.
   const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
-  const RETIRE_AT = 4;
   const quietFor = (count: number) => 6 + count * 10;   // 1st repeat waits 16 turns, 2nd 26, 3rd 36
   // THE PREMISE IS NOT A THREAT THAT CAN LOSE. RETIRE_AT and the escalating quiet exist because "a
   // threat that keeps losing is a threat that stops coming" — four discharges and a source is done.
@@ -543,7 +575,14 @@ export function selectBeat(inp: BeatInput): Beat {
     const h = hist.get(sd.ref);
     if (!h) return true;
     if (sd.kind === "palette") return inp.turn - h.turn >= PALETTE_QUIET;
-    if (h.count >= RETIRE_AT) return false;
+    // AND RETIREMENT IS A LONG SILENCE, NOT A TOMBSTONE. `return false` here was permanent: the
+    // count only ever rose, nothing anywhere reset it, and it rose on SELECTION rather than on
+    // anything that happened in the fiction — so a source was retired for having been chosen four
+    // times, whether or not the narrator ever put it on the page. Simulated over a hundred and
+    // twenty turns at tension 10, six of a world's seven sources were permanently retired by turn
+    // 110 and the story could only ever be about the one that is exempt. Four discharges still buy
+    // a long quiet, and then the world is allowed to remember the thing exists.
+    if (h.count >= RETIRE_AT) return inp.turn - h.turn >= RETIRE_FOR;
     return inp.turn - h.turn >= quietFor(h.count);
   });
   // AND IT DOES NOT WAIT ITS TURN BEHIND THE BOOKKEEPING. Least-recently-used rotates sources
@@ -573,7 +612,8 @@ export function selectBeat(inp: BeatInput): Beat {
     for (const sd of eligible) {
       const h = hist.get(sd.ref);
       const raw = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
-      const age = raw === Number.MAX_SAFE_INTEGER ? raw : raw + (recentKinds.has(sd.kind) ? 0 : 12);
+      const age = raw === Number.MAX_SAFE_INTEGER ? (sd.dormant ? raw - DORMANT_PENALTY : raw)
+        : raw + (recentKinds.has(sd.kind) ? 0 : 12) - (sd.dormant ? DORMANT_PENALTY : 0);
       // TIES GO TO CHANCE, NOT TO ARRAY ORDER. Every source that has never fired scores
       // MAX_SAFE_INTEGER, so a strict `>` handed the pick to whichever loop pushed first — clocks,
       // then threads, then people — permanently. A world with four fresh threads and a fresh clock
@@ -693,9 +733,9 @@ export function beatSources(inp: BeatInput): string[] {
     const ref = clipText(`${c.faction}: ${c.objective}`, 130);
     seen.set(ref, { kind: `clock ${c.filled}/${c.segments}`, turn: hist.get(ref)?.turn });
   }
-  for (const t of inp.threads) if (t.status === "active" && !t.forbidden_engine) {
+  for (const t of inp.threads) if ((t.status === "active" || t.status === "dormant") && !t.forbidden_engine) {
     const ref = clipText(t.title, 130);
-    seen.set(ref, { kind: `thread ${t.kind ?? "situation"} @${t.tension ?? 0}`, turn: hist.get(ref)?.turn });
+    seen.set(ref, { kind: `thread ${t.kind ?? "situation"} @${t.tension ?? 0}${t.status === "dormant" ? " (dormant)" : ""}`, turn: hist.get(ref)?.turn });
   }
   for (const a of inp.agents) {
     const ref = clipText(`${a.name} — ${a.goal}`, 130);

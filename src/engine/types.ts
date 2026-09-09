@@ -235,7 +235,12 @@ export interface FactionClock {
   consequence: string;       // what fires at completion
   visible_signs: string[];   // what leaks into scenes as it advances
   last_advanced_time?: string; // in-world timestamp of the last segment — gates the next one (see MINUTES_PER_SEGMENT)
+  last_advanced_turn?: number; // ...and the same in turns, for a story whose scenes cost minutes (TURNS_PER_SEGMENT)
   stalled_since?: number;      // turn this clock first found itself with nothing to act on
+  /** What this clock was for before it stalled and its objective was rewritten to ordinary
+   *  business. Kept so the stall can be undone: a faction that later learns the thing it was
+   *  waiting on picks up where it left off instead of being retired by a bookkeeping step. */
+  original_objective?: string;
   knowledge_chain?: string[];  // how this faction came to know — printed in the World tab, oldest hop first
   status: "running" | "fired" | "stalled";
   /** Set by the chapter auditor, exactly as on Thread — this clock's objective is one of the things
@@ -732,6 +737,8 @@ export interface MindModel {
 export interface Thread {
   /** In-world timestamp of the last RISE in tension — gates the next one (MINUTES_PER_ESCALATION). */
   last_escalated_time?: string;
+  /** ...and the same in turns, for a story whose scenes cost minutes (TURNS_PER_ESCALATION). */
+  last_escalated_turn?: number;
   id: string;
   title: string;
   status: "active" | "resolved" | "abandoned" | "dormant";
@@ -740,6 +747,9 @@ export interface Thread {
   /** Last turn this thread was written to, or its subject appeared in the prose. A thread nobody has
    *  touched in a long time is not a live situation, it is a note — see sweepThreads. */
   last_touched_turn?: number;
+  /** Last turn a dormant thread lost a point of tension for want of anybody returning to it. Cleared
+   *  the moment it is touched again — see sweepThreads. */
+  last_cooled_turn?: number;
   turn_resolved?: number;
   tension: number;             // 0–10 how due it is; pressure controller reads this
   /** What KIND of standing source this is. threat is one flavour of demand on the player, not the
