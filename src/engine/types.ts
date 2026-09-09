@@ -252,6 +252,20 @@ export interface FactionClock {
   forbidden_engine?: boolean;
 }
 
+/** EVERY VALUE `Thread.status` MAY HOLD, as data rather than as four string literals retyped at
+ *  each place that validates one.
+ *
+ *  `sanitize` coerced an unrecognised status back to "active" against a hand-written allow-list of
+ *  ["active", "resolved", "abandoned"] — and "dormant" was not on it. Every load ran that list, and
+ *  a load happens at the top of every turn, so the entire dormancy system was being undone between
+ *  turns for as long as it has existed. The line below is what would have caught it: add a status
+ *  to the union above without adding it here and the build fails. */
+export const THREAD_STATUSES = ["active", "dormant", "resolved", "abandoned"] as const;
+type UncoveredThreadStatus = Exclude<Thread["status"], (typeof THREAD_STATUSES)[number]>;
+export type ThreadStatusCoverage =
+  [UncoveredThreadStatus] extends [never] ? true : ["missing from THREAD_STATUSES:", UncoveredThreadStatus];
+export const THREAD_STATUSES_COVER_THE_UNION: ThreadStatusCoverage = true;
+
 export interface Norm {
   id: string;
   rule: string;              // "no open flame after the horn sounds"

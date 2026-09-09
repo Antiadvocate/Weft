@@ -7,7 +7,7 @@ import { healSchedule } from "./schedule";
 import { cleanMood } from "./emotions";
 import { ensureBorn } from "./remodel";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
-import { DEFAULT_MODELS } from "./types";
+import { DEFAULT_MODELS, THREAD_STATUSES } from "./types";
 import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood, clipWords, LABEL_MAX } from "./coerce";
 import { clipText } from "./text";
 
@@ -229,7 +229,17 @@ export function sanitize(state: SaveState): SaveState {
       id: String(t.id ?? uid("thr")),
       title: String(t.title ?? "").trim(),
       description: String(t.description ?? "").trim(),
-      status: ["active", "resolved", "abandoned"].includes(t.status) ? t.status : "active",
+      // ── THE LINE THAT UNDID THE WHOLE THREAD SYSTEM ──────────────────────────────────────────
+      // This read ["active", "resolved", "abandoned"] — no "dormant" — so every load reset every
+      // dormant thread to active. `getSave` sanitizes, and every turn begins with a `getSave`, so
+      // the sweep demoted a thread, the next turn woke it, and the sweep demoted it again, forever.
+      // On one save that is 458 lines of "Nobody has thought about it in a while" across 128 turns
+      // (105 of them about a single thread), 77% of everything the player was shown of the world
+      // moving. Nothing could ever reach "abandoned" either, since that needs a thread to have BEEN
+      // dormant at the start of a sweep — so the list only ever grew, and the narrator was handed
+      // every situation that had ever existed on every turn. THREAD_STATUSES is compiler-checked
+      // against the union so this cannot go stale again.
+      status: (THREAD_STATUSES as readonly string[]).includes(t.status) ? t.status : "active",
       tension: Number.isFinite(Number(t.tension)) ? Math.max(0, Math.min(10, Number(t.tension))) : 3,
       turn_started: Number.isFinite(Number(t.turn_started)) ? Number(t.turn_started) : (state.world.current_turn ?? 0),
     }))
