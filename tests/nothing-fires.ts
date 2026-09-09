@@ -133,9 +133,16 @@ const sample = (inp: any, n = 400) => {
   const fresh = sample({ ...stuck, last_beat_turn: 42, minutesSinceBeat: 6 });
   check("...but a beat two turns ago still holds the world off",
     (fresh.get("thread") ?? 0) === 0 && (fresh.get("clock") ?? 0) === 0, fresh);
-  // a calm world waits far longer in turns than a hot one
-  const calm = sample({ ...stuck, tension: 2, last_beat_turn: 33, minutesSinceBeat: 30 });
-  check("...and a calm story is left alone much longer", (calm.get("thread") ?? 0) === 0, calm);
+  // A calm world waits far longer in turns than a hot one. The number this asserts moved once:
+  // it used to be the doubled patience ceiling (twenty turns at tension 2) and it is now the turn
+  // ladder itself (ten), because in a story whose scenes run in minutes the minutes gate is
+  // unreachable at every setting of the dial and the ceiling was silently serving as the cadence —
+  // handing every such story half the tension it was set to. See selectBeat.
+  const calm = (t: number) => sample({ ...stuck, tension: 2, last_beat_turn: 43 - t, minutesSinceBeat: 3 * t });
+  check("...and a calm story is left alone much longer", (calm(9).get("thread") ?? 0) === 0, calm(9));
+  check("...for the ten turns its own dial asks for, not twenty", (calm(11).get("thread") ?? 0) > 0, calm(11));
+  const hot = sample({ ...stuck, tension: 9, last_beat_turn: 41, minutesSinceBeat: 9 });
+  check("...which is five times what a story set to 9 waits", (hot.get("thread") ?? 0) > 0, hot);
 }
 
 /* ── 7. during a cooldown a clock shows a sign, not its private objective ─────── */

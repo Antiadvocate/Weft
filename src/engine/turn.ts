@@ -2173,7 +2173,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // A zombie story does not get an eight-turn quiet opening. See isBesieged.
     besieged: isBesieged(state.world_bible.tone, state.world_bible.pressure_palette),
   });
-  if (["consequence", "clock", "thread", "agent", "exogenous", "palette"].includes(beat.kind)) {
+  // A SIGN IS NOT A DISCHARGE, AND IT WAS BUYING THE WHOLE COOLDOWN.
+  //
+  // `quiet` and `young` are the forms a source takes when the world is NOT allowed to press: the
+  // directive for both says outright that they demand nothing, interrupt nothing and escalate
+  // nothing. A young clock has no other form at all — below 75% full the only channel it has is the
+  // sign — so every appearance of one was landing here as a full discharge and restarting the
+  // refractory period.
+  //
+  // From a save at turn 38, tension on 10, where the player's report was that the story's own
+  // premise had not fired once in seventeen turns. Amber's Belief fired at 20; at 23 the cooling
+  // branch put ONE SIGN of the Voice clock on the page — nobody in the scene knowing what it was —
+  // and that sign reset last_beat_turn, so 24, 25 and 26 were cooling too. Consequences at 26 and
+  // 34 did the same. Across turns 21-37 exactly two turns were ever free for the selector to press
+  // on anything, and the palette lost the coin flip on both.
+  const sign = (beat as { quiet?: boolean; young?: boolean }).quiet || (beat as { young?: boolean }).young;
+  if (!sign && ["consequence", "clock", "thread", "agent", "exogenous", "palette"].includes(beat.kind)) {
     state.pressure_state.last_beat_turn = turn;
     state.pressure_state.last_beat_time = nowT;
   }
@@ -2195,9 +2210,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
         : beat.kind === "agent" ? "relationship"
         : beat.kind === "thread" ? (state.world.threads.find((t) => String(t.title ?? "").slice(0, 90) === ref)?.kind ?? "threat")
         : "obligation";
+      // Recency is recorded for a sign too, so the same one does not run twice in a row — but not
+      // the COUNT, which drives the escalating silence and the retirement at four. Those exist
+      // because "a threat that keeps losing is a threat that stops coming", and a clock nobody in
+      // the story has recognised yet has not lost anything. Retiring it on its fourth sign is how a
+      // clock at 2 of 6 goes permanently silent without ever having reached the page as itself.
       const prior = rec.find((r) => r.ref === ref);
-      if (prior) { prior.turn = turn; prior.time = nowT; prior.count += 1; prior.kind = srcKind; }
-      else rec.push({ ref, turn, time: nowT, count: 1, kind: srcKind });
+      if (prior) { prior.turn = turn; prior.time = nowT; if (!sign) prior.count += 1; prior.kind = srcKind; }
+      else rec.push({ ref, turn, time: nowT, count: sign ? 0 : 1, kind: srcKind });
       if (rec.length > 24) state.pressure_state.recent = rec.slice(-24);
     }
   }

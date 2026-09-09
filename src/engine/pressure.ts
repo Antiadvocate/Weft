@@ -383,9 +383,25 @@ export function selectBeat(inp: BeatInput): Beat {
   // given tension (2 turns at 9, 10 at 2), and a ceiling four times above it made a maxed dial wait
   // longer than the design ever asked for. Doubling keeps a calm story genuinely calm — twenty
   // turns at tension 2 — while letting a story set to 9 actually run at 9.
-  const patienceTurns = beatCooldown(inp.tension, inp.clocks) * 2;
+  //
+  // …EXCEPT IT DID NOT, BECAUSE THE CEILING WAS NEVER A CEILING. Measured on a save running at
+  // roughly two and a half in-world minutes a turn, which is what a conversation in an apartment
+  // costs, the minutes gate is unreachable at EVERY setting of the dial — 17 turns to pay it at
+  // tension 10, 250 at tension 2. So the patience is not a cap on an occasional long wait, it is
+  // the cadence, on every turn of every story whose scenes run in minutes. At twice the ladder,
+  // that story gets half the dial it was set to: tension 10 means a beat every four turns, and the
+  // player watched 62% of turns come back with nothing while asking why nothing was happening.
+  //
+  // So the ladder governs whenever this world's own pace cannot reach the minutes gate inside the
+  // ladder's window. A story that skips hours between scenes still reaches the gate on its own and
+  // keeps the doubled patience for the odd long wait, which is what the doubling was for.
+  const ladder = beatCooldown(inp.tension, inp.clocks);
+  const perTurn = inp.minutesSinceBeat !== undefined && sinceBeat >= 2 ? inp.minutesSinceBeat / sinceBeat : undefined;
+  const patienceTurns = perTurn !== undefined && perTurn * ladder < beatCooldownMinutes(inp.tension, inp.clocks)
+    ? ladder
+    : ladder * 2;
   const cooling = inp.minutesSinceBeat === undefined
-    ? sinceBeat < beatCooldown(inp.tension, inp.clocks)
+    ? sinceBeat < ladder
     : (inp.minutesSinceBeat < beatCooldownMinutes(inp.tension, inp.clocks) && sinceBeat < patienceTurns)
       || sinceBeat < MIN_GAP_TURNS;
   // `quiet` is what this source becomes during the cooldown, when an incident is not allowed but
