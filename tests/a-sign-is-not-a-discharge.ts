@@ -135,7 +135,9 @@ check("not billing signs is the better of the two", now > then, { now, then });
 const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
 check("turn.ts reads the sign mark off the beat", /const sign = \(beat as \{ quiet\?: boolean; young\?: boolean \}\)\.quiet \|\| \(beat as \{ young\?: boolean \}\)\.young;/.test(src));
 check("...and a sign does not restart the cooldown", /if \(!sign && \["consequence", "clock", "thread", "agent", "exogenous", "palette"\]\.includes\(beat\.kind\)\)/.test(src));
-check("...and does not count toward retirement", /if \(!sign\) prior\.count \+= 1;/.test(src) && /count: sign \? 0 : 1/.test(src));
+check("...and does not count toward retirement",
+  /if \(!sign\) prior\.count = prior\.count >= RETIRE_AT \? 1 : prior\.count \+ 1;/.test(src)
+  && /count: sign \? 0 : 1/.test(src));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

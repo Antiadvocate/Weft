@@ -105,13 +105,26 @@ function world(threadCount = 0) {
 
 /* ── 5. dormant is not a resting place ───────────────────────────────────────── */
 {
+  // LETTING GO IS SOMETHING THAT HAPPENS TO A THREAD, NOT SOMETHING A TIMER DOES TO IT. This used
+  // to be a single flat wait — four dormancy windows untouched and out, whatever tension it was
+  // still carrying. With the world picking one source a turn out of eight, a hundred turns between
+  // visits is ordinary variance, so live situations were being retired for losing coin flips. Now a
+  // dormant thread COOLS while nobody comes back to it and is let go when it reaches nothing, so
+  // the sweep has to be run over the turns that cooling actually takes.
   const s = world(1);
   s.world.threads[0].status = "dormant";
   s.world.threads[0].last_touched_turn = 1;
-  s.world.current_turn = 1 + DORMANT_AFTER * 4;
-  const log = sweepThreads(s, "nothing to do with it");
-  check("a thread nobody has touched in a very long time is let go",
+  const start = s.world.threads[0].tension ?? 3;
+  let log: string[] = [];
+  for (let turn = 2; turn <= 1 + DORMANT_AFTER * 2 * (start + 2); turn++) {
+    s.world.current_turn = turn;
+    log = sweepThreads(s, "nothing to do with it");
+    if (log.length) break;
+  }
+  check("a thread nobody comes back to cools, and is then let go",
     s.world.threads[0].status === "abandoned", s.world.threads[0].status);
+  check("...only once it has actually cooled to nothing", (s.world.threads[0].tension ?? 0) === 0,
+    s.world.threads[0].tension);
   check("and it says so once", log.some((l) => /Let go:/.test(l)), log);
   check("the text is kept, not deleted", !!s.world.threads[0].title);
 

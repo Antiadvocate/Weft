@@ -11,7 +11,7 @@
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { contextHistory } from "./context";
-import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, RETIRE_AT, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
@@ -29,7 +29,7 @@ import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNo
 import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
 import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
-import { factionKnows, mundaneObjective, seedWitnessRumors } from "./knowledge";
+import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
@@ -1269,11 +1269,27 @@ export function updatePaging(state: SaveState, action: string): void {
 /** In-world minutes a faction clock must wait between segments. A warband sends a rider, hears
  *  back, and decides — that is hours, not "however many times the player pressed enter". */
 export const MINUTES_PER_SEGMENT = 180;
+/** ...OR THIS MANY TURNS, WHICHEVER COMES FIRST.
+ *
+ *  Hours are the right unit for how long a faction takes to send a rider and hear back, and they
+ *  stop being the right unit when a story barely spends any. A conversation in a kitchen costs two
+ *  or three in-world minutes a turn, so against a three-hour gate one segment is sixty turns and a
+ *  six-segment clock is three hundred and sixty turns from the consequence it promised. That is not
+ *  a slow clock, it is a stopped one, and every clock in a domestic story is one.
+ *
+ *  This is the same shape as the patience ceiling selectBeat already applies to its own cooldown,
+ *  for the same reason, in the same words: the clock gate is right for a story that skips hours
+ *  between scenes and cannot be allowed to be the whole cadence of one that does not. */
+export const TURNS_PER_SEGMENT = 10;
 
 /** In-world minutes a thread must wait between rises in tension. Turns are cheap — fifty of them
  *  fit in a morning — so escalation has to cost time or the story sprints while the world stands
  *  still. Lowering tension is never gated. */
 export const MINUTES_PER_ESCALATION = 90;
+/** ...or this many turns. Same argument as TURNS_PER_SEGMENT: at conversation pace ninety in-world
+ *  minutes is thirty turns per point, so a thread born at 3 needs ninety turns to become a crisis
+ *  and no thread in a story told in rooms ever escalates at all. */
+export const TURNS_PER_ESCALATION = 6;
 
 /** How long this character has actually known the player, in plain words. Reflection was writing
  *  settled convictions about someone's whole nature after a day and a half — "he can be turned
@@ -2250,7 +2266,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const srcKind = beat.kind === "palette" ? "palette"
         : beat.kind === "clock" ? "threat"
         : beat.kind === "agent" ? "relationship"
-        : beat.kind === "thread" ? (state.world.threads.find((t) => String(t.title ?? "").slice(0, 90) === ref)?.kind ?? "threat")
+        : beat.kind === "thread" ? (state.world.threads.find((t) => t.id === (beat as { id?: string }).id)?.kind ?? "threat")
         : "obligation";
       // Recency is recorded for a sign too, so the same one does not run twice in a row — but not
       // the COUNT, which drives the escalating silence and the retirement at four. Those exist
@@ -2258,7 +2274,14 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       // the story has recognised yet has not lost anything. Retiring it on its fourth sign is how a
       // clock at 2 of 6 goes permanently silent without ever having reached the page as itself.
       const prior = rec.find((r) => r.ref === ref);
-      if (prior) { prior.turn = turn; prior.time = nowT; if (!sign) prior.count += 1; prior.kind = srcKind; }
+      // A SOURCE COMING BACK FROM RETIREMENT STARTS ITS COUNT AGAIN. selectBeat lets a source that
+      // has discharged RETIRE_AT times back into the pool after a long silence; if the count stayed
+      // where it was, the next appearance would retire it again on the spot and the silence would
+      // be permanent after all, one turn at a time.
+      if (prior) {
+        prior.turn = turn; prior.time = nowT; prior.kind = srcKind;
+        if (!sign) prior.count = prior.count >= RETIRE_AT ? 1 : prior.count + 1;
+      }
       else rec.push({ ref, turn, time: nowT, count: sign ? 0 : 1, kind: srcKind });
       if (rec.length > 24) state.pressure_state.recent = rec.slice(-24);
     }
@@ -4153,7 +4176,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // A LIST OF EVERY SITUATION THAT EVER EXISTED IS NOT A LIST OF WHAT THE STORY IS ABOUT. Threads
   // that nobody has touched in a long time go dormant, and any mention wakes them. See threads.ts —
   // this exists because the bookkeeper was never once asked to close one, and never did.
-  offscreenLog.push(...sweepThreads(state, prose));
+  // ...and it is TOLD which thread this turn was assigned to, rather than trying to read that back
+  // out of the prose afterwards. See the note at the top of the loop in threads.ts.
+  offscreenLog.push(...sweepThreads(state, prose, beat.kind === "thread" ? (beat as { id?: string }).id : undefined));
   // AND THE PROMISE LEDGER, for exactly the same reason threads needed it: nothing ever took an
   // entry OFF except the bookkeeper choosing to, so small favours the story moved past accumulated
   // forever — each one holding a slot in the ten shown to the bookkeeper every turn and a line on a
@@ -4265,6 +4290,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // before cooldowns and grace) discharges it into the scene at full scale. Without this, a clock
   // that filled mid-scene just flipped status and its promised crisis never arrived.
   for (const line of dischargeFiredClocks(state, turn)) shifts.push(line);
+  // ...and a clock that stalled for want of information starts again when the information arrives.
+  // See reviveStalledClocks: without it, "stalled" was a state nothing in the engine could leave.
+  for (const line of reviveStalledClocks(state)) shifts.push(line);
 
   // history + time
   //
@@ -6605,13 +6633,20 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         if (tu.tension <= cur) {
           existing.tension = clamp(tu.tension, 0, 10);
         } else {
+          // ...OR ENOUGH TURNS, WHICHEVER COMES FIRST. The minutes gate alone is unreachable in a
+          // story told in rooms: at two or three in-world minutes a turn it is thirty turns per
+          // point of tension, so a thread opens at 3 and stays at 3 for the length of the game
+          // while the contract asks the bookkeeper, every turn, to move it. See TURNS_PER_ESCALATION.
           const lastEsc = (existing as { last_escalated_time?: string }).last_escalated_time;
+          const lastEscTurn = (existing as { last_escalated_turn?: number }).last_escalated_turn;
           const waited = lastEsc ? minutesBetween(lastEsc, state.world.current_time) : MINUTES_PER_ESCALATION;
-          if (waited >= MINUTES_PER_ESCALATION) {
+          const turnsWaited = lastEscTurn === undefined ? TURNS_PER_ESCALATION : turn - lastEscTurn;
+          if (waited >= MINUTES_PER_ESCALATION || turnsWaited >= TURNS_PER_ESCALATION) {
             existing.tension = clamp(Math.min(tu.tension, cur + 1), 0, 10);
             (existing as { last_escalated_time?: string }).last_escalated_time = state.world.current_time;
+            (existing as { last_escalated_turn?: number }).last_escalated_turn = turn;
           } else {
-            console.info(`[threads] "${existing.title}" held at ${cur} — ${Math.round(waited)}min since last escalation, needs ${MINUTES_PER_ESCALATION}`);
+            console.info(`[threads] "${existing.title}" held at ${cur} — ${Math.round(waited)}min / ${turnsWaited} turns since last escalation, needs ${MINUTES_PER_ESCALATION}min or ${TURNS_PER_ESCALATION} turns`);
           }
         }
       }
@@ -6725,12 +6760,21 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // told it by someone who did, with the whole route recorded. Kill the witnesses and the
       // route genuinely does not exist — which is the correct outcome, not a bug to route around.
       const verdict = factionKnows(state, clock.faction, clock.objective);
-      if (!verdict.knows) {
+      // A FACTION NOBODY IN THIS WORLD BELONGS TO CANNOT BE OMNISCIENT, AND CANNOT BE HELD FOR IT.
+      // The gate is right about armed men who somehow knew about a stranger nobody reported. It has
+      // nothing to say about a works department finishing a substation, and the forge writes every
+      // clock before a single character exists to match its name — so it was closing on all of them
+      // from turn one and the stall path below was killing them at turn thirteen. See
+      // factionEverInPlay: a faction whose members are all DEAD still fails the gate, which is the
+      // case it was written for.
+      const abstract = !factionEverInPlay(state, clock.faction);
+      if (!verdict.knows && !abstract) {
         console.warn(`[clocks] ${clock.faction} held at ${clock.filled}/${clock.segments} — ${verdict.gap}`);
         // A faction with no knowledge is not frozen, it's just doing something else. Rewriting the
         // objective is honest; firing the old one on a fiction is what produced armed men who
         // somehow knew about a stranger nobody had reported.
         if (clock.filled === 0 && state.world.current_turn - (clock.stalled_since ?? state.world.current_turn) > 12) {
+          clock.original_objective ??= clock.objective;   // so reviveStalledClocks can put it back
           clock.objective = mundaneObjective(clock.faction);
           clock.status = "stalled";
           shifts.push(`${clock.faction} has nothing to act on and turns to its own business.`);
@@ -6746,15 +6790,21 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // events were already fixed to fire on the in-world calendar; clocks never were. A faction
       // needs real hours to send a rider, hear the answer and decide, so a segment now costs
       // MINUTES_PER_SEGMENT of in-world time since that clock last moved.
+      // ...OR ENOUGH TURNS. See TURNS_PER_SEGMENT: a story whose scenes cost three in-world minutes
+      // a turn cannot reach a three-hour gate inside a hundred turns, so the gate was not pacing
+      // those clocks, it was stopping them.
       const now = state.world.current_time;
       const last = (clock as { last_advanced_time?: string }).last_advanced_time;
+      const lastTurn = clock.last_advanced_turn;
       const waited = last ? minutesBetween(last, now) : MINUTES_PER_SEGMENT;
-      if (waited < MINUTES_PER_SEGMENT) {
-        console.info(`[clocks] ${clock.faction} held — ${Math.round(waited)}min since last segment, needs ${MINUTES_PER_SEGMENT}`);
+      const turnsWaited = lastTurn === undefined ? TURNS_PER_SEGMENT : state.world.current_turn - lastTurn;
+      if (waited < MINUTES_PER_SEGMENT && turnsWaited < TURNS_PER_SEGMENT) {
+        console.info(`[clocks] ${clock.faction} held — ${Math.round(waited)}min / ${turnsWaited} turns since last segment, needs ${MINUTES_PER_SEGMENT}min or ${TURNS_PER_SEGMENT} turns`);
         continue;
       }
       clock.filled = clamp(clock.filled + Math.min(1, ca.segments ?? 1), 0, clock.segments); // a clock ADVANCES — one segment per turn; a clock that leaps is a jump scare, not a clock
       (clock as { last_advanced_time?: string }).last_advanced_time = now;
+      clock.last_advanced_turn = state.world.current_turn;
       console.info(`[clocks] ${clock.faction} → ${clock.filled}/${clock.segments} via: ${verdict.chain.join(" → ")}`);
       // ── VISIBLE SIGNS ── the Forge writes these, the save stores them, and until now NOTHING read
       // them: a clock filled in total silence and then detonated its consequence with no foreshadow,
