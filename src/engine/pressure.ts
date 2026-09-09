@@ -290,6 +290,10 @@ export interface BeatInput {
   restoration?: boolean;           // rest turns never receive incident beats (protection handled upstream too)
   /** True when the premise IS the threat — zombies, a war, a hunt, a siege. See GRACE_TURNS. */
   besieged?: boolean;
+  /** THE DIRECTOR'S OVERRIDE, off a [[beat]] the player typed. Empty string means "something, you
+   *  choose"; any other text names the source to run. It skips the cooldown, the fatigue table and
+   *  every probability gate — the player asked for this turn to be about something, so it is. */
+  force?: string;
   /** What has already fired, and how often. Without this, `standing` is a flat bag sampled
    *  uniformly every turn, so the loudest source keeps being re-picked — which is how the same
    *  raiders came back and died to the player three times. A source that has just discharged is
@@ -339,7 +343,10 @@ const EXO_MINUTES = (tension: number): number => (tension <= 3 ? 2880 : tension 
 
 export function selectBeat(inp: BeatInput): Beat {
   const rng = inp.rng ?? Math.random;
-  if (inp.tension <= 0) {
+  // A FORCED BEAT OUTRANKS BOTH OF THE EARLY EXITS BELOW. A debug command that silently does
+  // nothing at a rest dial, or inside the opening grace window, is worse than not having one — the
+  // player asks the engine a direct question and gets the same silence they were trying to explain.
+  if (inp.tension <= 0 && inp.force === undefined) {
     const due0 = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
     return due0 ? { kind: "consequence", ref: clipText(due0.description, 120), consequence: due0 } : { kind: "none" };
   }
@@ -360,7 +367,7 @@ export function selectBeat(inp: BeatInput): Beat {
   // in one is the point of the first act. In a siege the threat IS the ordinary life. Establishing
   // that world means showing it.
   const grace = inp.besieged ? BESIEGED_GRACE : GRACE_TURNS;
-  if (inp.turn <= grace) {
+  if (inp.turn <= grace && inp.force === undefined) {
     const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
     const minRemind = inp.besieged ? 1 : 4;
     return early && inp.turn >= minRemind && (inp.rng ?? Math.random)() < (inp.besieged ? 0.7 : 0.35)
@@ -585,6 +592,48 @@ export function selectBeat(inp: BeatInput): Beat {
     return best;
   };
 
+  // ── THE DIRECTOR'S OVERRIDE ────────────────────────────────────────────────────────────────────
+  //
+  // Everything above is the engine's own judgement about when the world may move, and it is right
+  // often enough to be worth keeping. It is also opaque: a player watching forty turns go by with
+  // nothing happening cannot see whether the source was on cooldown, fatigued, outvoted in the
+  // rotation, or simply unlucky, and has no way to settle it except to send a save file to
+  // somebody who can read the telemetry. So there is a way to just ask.
+  //
+  // A forced beat skips the cooldown, the fatigue table and every probability gate, and picks from
+  // `standing` rather than `eligible` so a source resting off a recent appearance can still be
+  // called. The turn's own bookkeeping is unchanged: it discharges, it goes on the fatigue list,
+  // and the next few turns cool off exactly as they would have.
+  if (inp.force !== undefined) {
+    const want = inp.force.trim().toLowerCase();
+    if (!want) { const any = pickStanding(); return any ? any.mk() : { kind: "none" }; }
+    // A kind, then a substring of the source's own text, then any word of three letters or more —
+    // "voice" should find "The voice from Amber's feet becoming more insistent and seductive".
+    //
+    // Matched on the kind of BEAT a source produces, not on its fatigue kind: those are "threat",
+    // "situation", "relationship" and so on, so [[beat: thread]] found nothing and fell through to
+    // a random pick, which looks identical to the command not working.
+    //
+    // And the palette is searched first. A world can easily hold a clock and a palette line about
+    // the same thing — here a clock literally named "The Voice" alongside the premise line about
+    // the voice — and the clock is pushed into `standing` before the palette, so it won every
+    // ambiguous name. The palette is the one place the player said what this story runs on, and if
+    // they type a word that fits both, that is the one they meant.
+    const words = want.split(/[^a-z0-9']+/).filter((w) => w.length >= 3);
+    const byKind = (sd: typeof standing[number]) => sd.mk().kind === want || sd.kind.toLowerCase() === want;
+    const byText = (sd: typeof standing[number]) => sd.ref.toLowerCase().includes(want);
+    const byWord = (sd: typeof standing[number]) => words.some((w) => sd.ref.toLowerCase().includes(w));
+    const premise = standing.filter((sd) => sd.kind === "palette");
+    const rest = standing.filter((sd) => sd.kind !== "palette");
+    const hit = premise.find(byKind) ?? premise.find(byText) ?? premise.find(byWord)
+      ?? rest.find(byKind) ?? rest.find(byText) ?? rest.find(byWord);
+    if (hit) return hit.mk();
+    if (want === "exogenous" || want === "exo") return { kind: "exogenous" };
+    if (want === "quiet" || want === "none" || want === "nothing") return { kind: "none" };
+    const any = pickStanding();
+    return any ? any.mk() : { kind: "none" };
+  }
+
   if (cooling || inp.restoration) {
     // between discharges: reminder beats keep the weight felt — never during rest at low tension
     // Reminders may reference a fatigued source — being reminded of a standing threat is not the
@@ -626,6 +675,34 @@ export function selectBeat(inp: BeatInput): Beat {
   // after the patience ceiling started letting turns reach this line that used to cool out above.
   if (tail && rng() < 0.3) return tail.quiet ? tail.quiet() : { kind: "reminder", ref: tail.ref };
   return { kind: "none" };
+}
+
+/**
+ * EVERY SOURCE THE WORLD COULD PRESS WITH RIGHT NOW, and how long each has been quiet. This is the
+ * table selectBeat picks from, printed — so "why is nothing happening" is a question the player can
+ * answer at the keyboard instead of by exporting a save. Off [[beat: ?]].
+ */
+export function beatSources(inp: BeatInput): string[] {
+  const seen = new Map<string, { kind: string; turn?: number }>();
+  const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
+  for (const line of inp.palette ?? []) if (String(line ?? "").trim()) {
+    const ref = clipText(String(line).trim(), 130);
+    seen.set(ref, { kind: "palette", turn: hist.get(ref)?.turn });
+  }
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine) {
+    const ref = clipText(`${c.faction}: ${c.objective}`, 130);
+    seen.set(ref, { kind: `clock ${c.filled}/${c.segments}`, turn: hist.get(ref)?.turn });
+  }
+  for (const t of inp.threads) if (t.status === "active" && !t.forbidden_engine) {
+    const ref = clipText(t.title, 130);
+    seen.set(ref, { kind: `thread ${t.kind ?? "situation"} @${t.tension ?? 0}`, turn: hist.get(ref)?.turn });
+  }
+  for (const a of inp.agents) {
+    const ref = clipText(`${a.name} — ${a.goal}`, 130);
+    seen.set(ref, { kind: `person p${a.priority ?? 1}`, turn: hist.get(ref)?.turn });
+  }
+  return [...seen.entries()].map(([ref, m]) =>
+    `${m.kind} — ${ref} — ${m.turn === undefined ? "never fired" : `last fired turn ${m.turn}, ${inp.turn - m.turn} ago`}`);
 }
 
 /** Compact directive injected into the narrator's volatile digest. */

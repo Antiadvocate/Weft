@@ -11,7 +11,7 @@
  */
 import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
 import { contextHistory } from "./context";
-import { decidePressure, isDue, pressureDirective, beatDirective, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
+import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
 import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
@@ -1955,6 +1955,29 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   let searchTarget = "";
   const cleanedAction = action.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
   action = cleanedAction;
+  // THE DIRECTOR'S CHANNEL — [[double brackets]], on the same principle as the ((search)) above:
+  // a line to the engine, never story text, stripped before the narrator or the bookkeeper sees a
+  // word of it. See selectBeat's own override for what it does to the turn.
+  //
+  //   [[beat]]           the world moves this turn, engine's choice
+  //   [[beat: voice]]    ...and it moves through the source matching "voice"
+  //   [[beat: ?]]        list every source the world could press with, and how long each has waited
+  //
+  // The reason it exists: forty turns of a story about a job application, with the premise sitting
+  // in the table the whole time losing coin flips, and no way to tell that from the outside.
+  let forceBeat: string | undefined;
+  // Filled by [[beat: ?]] and folded into this turn's own shifts, because a twelve-row table
+  // delivered as toasts that dismiss themselves after three seconds is not an answer.
+  const beatTable: string[] = [];
+  action = action.replace(/\[\[\s*beat\s*(?::\s*([^\]]*))?\]\]/gi, (_m, what) => {
+    forceBeat = String(what ?? "").trim();
+    return "";
+  }).replace(/\s{2,}/g, " ").trim();
+  // A PLAYER WHO TYPES [[beat]] AT A REST DIAL HAS OVERRULED THEIR OWN DIAL FOR ONE TURN. Both the
+  // pressure block and the beat block go silent at tension 0 — correctly, that is what 0 means —
+  // and without this the forced beat would be selected, toasted, recorded, and then never reach
+  // the narrator at all.
+  const dial = forceBeat !== undefined ? Math.max(1, state.model_settings.tension ?? 5) : (state.model_settings.tension ?? 5);
   // THE PRIVATE CHANNEL IS NOT HANDED OVER. The narrator writes what the room can see, and it
   // cannot leak a thought it never received. What replaces the words is a bearing computed from the
   // player's own grip — see engine/interior.ts. The bookkeeper still gets the action whole, because
@@ -2163,16 +2186,35 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const sinceStamp = (stamp?: string) => (stamp ? Math.max(0, minutesBetween(stamp, nowT)) : undefined);
   const minutesSinceBeat = sinceStamp(state.pressure_state.last_beat_time);
   const minutesSinceExo = sinceStamp(state.pressure_state.last_exo_time);
-  const beat: Beat = selectBeat({
+  const beatInput = {
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
     agents, palette: state.world_bible.pressure_palette,
     last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
-    restoration: RESTORE_INTENT.test(action),
+    // A forced beat is the player saying the world moves now, so a rest reading of their own line
+    // does not get to veto it — they typed both halves.
+    restoration: forceBeat === undefined && RESTORE_INTENT.test(action),
     // A zombie story does not get an eight-turn quiet opening. See isBesieged.
     besieged: isBesieged(state.world_bible.tone, state.world_bible.pressure_palette),
-  });
+  };
+  // [[beat: ?]] — print the table instead of pressing with it. Nothing is forced and nothing is
+  // spent; the turn runs as it would have.
+  if (forceBeat === "?" || forceBeat === "list") {
+    const rows = beatSources(beatInput);
+    beatTable.push(...(rows.length
+      ? [`the world can press with ${rows.length} source(s), oldest first:`, ...rows]
+      : ["nothing standing — no palette lines, no running clocks, no active threads"]));
+    ev.onMeta({ shifts: beatTable });
+    forceBeat = undefined;
+  }
+  const beat: Beat = selectBeat({ ...beatInput, force: forceBeat });
+  if (forceBeat !== undefined) {
+    const ref = (beat as { ref?: string }).ref;
+    ev.onMeta({ shifts: [beat.kind === "none"
+      ? `forced: nothing standing to press with${forceBeat ? ` for "${forceBeat}"` : ""}`
+      : `forced ${beat.kind}${ref ? `: ${ref}` : ""}`] });
+  }
   // A SIGN IS NOT A DISCHARGE, AND IT WAS BUYING THE WHOLE COOLDOWN.
   //
   // `quiet` and `young` are the forms a source takes when the world is NOT allowed to press: the
@@ -2311,7 +2353,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const becomingNote = becomingDirective(state) + becomingBehind(state) + becomingLaw(state) + arrivalDirective(state.pending_arrivals ?? []);
   // LAST, ON PURPOSE. The beat is the single thing the engine decided this turn is for, and it sits
   // here against the player's own line rather than five paragraphs into a forty-paragraph digest.
-  const beatNote = beatDirective(beat, state.model_settings.tension ?? 5);
+  const beatNote = beatDirective(beat, dial);
   state.pending_arrivals = undefined;   // said once, on the turn after it landed
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);
@@ -2382,7 +2424,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // is the fifth of about forty in fullDirective, and the one sentence naming what the world does
   // this turn was being read as reference rather than as an instruction. Everything else the
   // pressure verdict has to say — the band, the focus, the tier, the palette — still belongs here.
-  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, state.model_settings.tension ?? 5, standingTier, beat, true);
+  let directive = pressureDirective(verdict, state.world_bible.pressure_palette, dial, standingTier, beat, true);
   // CROSS-TALK NUDGE — when two or more NPCs share the scene, the narrator tends to line them all up
   // facing the player. Remind it they have each other: with 2+ present NPCs, at least one exchange this
   // turn should run NPC↔NPC (they address, answer, needle, or side-deal with each other), not everyone
@@ -3864,6 +3906,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
   // from being ignored, so the reasonable response is to type it again, louder.
   if (voided) shifts.unshift(voidNotice(voided));
+  // The [[beat: ?]] table lives on the turn, not in a toast — it is the answer to "why is nothing
+  // happening" and it should still be there when the player scrolls back to look at it.
+  if (beatTable.length) shifts.unshift(...beatTable);
   for (const s of arrivalShifts) shifts.push(s);
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
@@ -4385,7 +4430,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     reads: turnReads.length ? turnReads : undefined,
     summary: diff.scene_summary || prose.slice(0, 120),
     present: presentDuringTurn,
-    shifts: shifts.slice(0, 8), weather: state.world.weather, directive: fullDirective.slice(0, 240),
+    shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, tell: i.tell, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
