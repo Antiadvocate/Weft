@@ -52,6 +52,19 @@ export interface ModelSettings {
    *  four-person cast, all four syntax fields said short-declarative-no-hedging and nine of thirteen
    *  example lines named a number or a price. On, the card is rendered as before. */
   voice_cards?: boolean;
+  /** SAMPLING FOR PROSE CALLS, which had none. See llm.ts proseSampler for the whole argument; the
+   *  short version is that the cloud path sent temperature 0.85 and not one other parameter, on the
+   *  biggest and most style-sensitive call of the turn, while the local path has had a sampler for
+   *  as long as it has existed.
+   *
+   *  These do not fix the register and are not sold as doing so — the aphorism is the MODE, and no
+   *  truncation reaches the top of a distribution. They widen what a turn can reach, which is worth
+   *  having and costs nothing.
+   *
+   *  Unset on an existing save means the old behaviour exactly: 0.85, no floor. New games start
+   *  warmer, in the same spirit as the cost defaults below. */
+  prose_temperature?: number;     // 0.6–1.2. Warmer widens what the narrator considers.
+  prose_min_p?: number;           // 0–0.2. Relative probability floor; what keeps a warm temperature from going to pieces. 0 = off.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
   /** PAINT THE SCENE EVERY TURN, without being asked.
@@ -1220,6 +1233,10 @@ export const DEFAULT_MODELS: ModelSettings = {
   narrator_reasoning: false,        // narrator thinking is billed as output; prose doesn't need it
   prefer_deepseek_provider: true,   // first-party DeepSeek carries the 0.8–2% cache-hit rate
   prose_reviser: false,             // opt-in: one extra call on turns that trip the tic detector
+  // PROSE SAMPLING (new games): a little warmer than the old fixed 0.85, with the floor that makes
+  // that safe. Existing saves keep the old behaviour until somebody moves these in Tuning.
+  prose_temperature: 0.95,
+  prose_min_p: 0.05,
   // THE KERNEL'S SLOWEST CHANNEL, and it is not optional any more. Zero tokens: all of it is
   // engine-side arithmetic, and the narrator only ever receives a concrete behaviour to render.
   habit_engine: true,
