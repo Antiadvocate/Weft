@@ -152,6 +152,55 @@ automaticity at drywall strength (60) rather than a forged wall (95). `ensureHab
 longer reads the habit list as competence — it is a mirror of `core_traits` that can go stale, and it
 was double-counting.
 
+**Habit power — the figure meaning what it reads as** (`habits.ts`). A character was forged with a
+pattern at 95 and it surfaced in about one scene in twenty. Both numbers were in the save at once:
+the drawer printed 95, and the roll was `unpromptedRate(relaxation) × strength/100`, which in a
+settled body is `0.05 × 0.95`. A player could not plan around either figure.
+
+The occasion gate was not wrong — nobody recalculates a restaurant bill in a scene with no bill in
+it — but it was applied to the whole scale, including the part that has no occasion because the
+occasion is being awake. The scale now reads as **percentage of eligible occasions**, and what counts
+as an occasion widens as the figure climbs: below 92 a subject trait still needs its subject (and a
+manner trait's occasion is being present, which the mannerism path always claimed and then damped by
+grip anyway); from 92 to 100 the pattern supplies its own occasion and the refractory gap and page
+budget recede with it; at **100 it is in every scene, no gate, no budget, uncapped**, and the
+narrator is handed it as law it may not decline — still with no number and no lexicon, only the
+behaviour and the words "without exception".
+
+The forge drops to **88** so the compulsion band is empty unless something deliberately fills it, and
+a trait whose own wording says it is involuntary ("every time he speaks", "cannot leave it alone")
+is minted into that band on sight. Drift stops at **96**: grooving can harden a pattern into a
+compulsion but cannot assemble the ceiling out of a hundred `+1`s. Measured before that clamp
+existed — 200 turns clenched and quiet, nobody touching anybody — three patterns walked to a flat 100
+by turn ninety and ran in every beat for the remaining hundred and ten. 421 fires against 36 at rest.
+
+**Two curves, not one**, and conflating them cost a simulation. *How hard is this to argue somebody
+out of* is steep: `yieldFactor` is squared above a knee at 60, so a push at 90 is worth a twelfth of
+one at 50. *How hard is this to see yourself doing* is not steeper for a deep pattern, and it is the
+channel self-liberation runs on, so `driftYield` is flat 1.0 below the compulsion line and only tapers
+inside it. The first version ran both through the push curve and froze the engine's oldest arc: 200
+turns at full volume produced zero loosened patterns and nobody noticing anything.
+
+| | | |
+|---|---|---|
+| settled (r +4) | 18 fires, 83% seen | slack — the patterns mostly do not run |
+| clenched, quiet (r −7) | 227 fires, 8% seen | runs constantly, blind, grooves to the 96 clamp |
+| clenched, loud (r −7, sal 9) | 106 fires, 23% seen | the second road — the deepest loosening, and somebody else notices |
+
+**And a handle on it.** `detectPressure` reads the player's typed action for a push against a named
+pattern — the one place lexical matching is the *right* instrument, because a push cannot avoid
+naming the thing where prose only ever enacts it. A try that lands (the habit did not occur that
+scene) takes the baseline down with it so re-groove cannot undo the work; a try that was ignored is
+worth half, because being ignored is not the same as not trying. Consecutive tries compound to
+2.25×, and re-groove is held off while somebody is still working on it — stop, and the pattern climbs
+back to its floor. Turns of pushing to move a figure ten points: **29 from 100, 27 from 95, 16 from
+88, 6 from 75, 4 from 60.** It accelerates as it gives way, which is the momentum the mechanic is for.
+
+After the prose, `reconcileHabits` settles every ordered pattern against the simulator's
+`traits_expressed` read — the only instrument that can judge whether an *enacted* behaviour occurred.
+Delivered grooves it deeper; absent is an extinction trial. A ceiling the prose skipped twice says so
+in the shift log, and is restated harder in the next turn's direction rather than repeated verbatim.
+
 **Somatic remodelling** (`remodel.ts`). `capacity` was the only number in the psyche with no history
 in it: a body eighty turns braced came to rest exactly where one that arrived this morning did.
 Measured on the Ashford save at turn 29, all four characters sat on the integer the forge wrote on

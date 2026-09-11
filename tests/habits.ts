@@ -97,8 +97,16 @@ function simulate(relax: number, salience: number, turns = 200, seedN = 12345) {
   // THE SECOND ROAD. The most change in the whole table happens to the most clenched character, when
   // what is arising is loud enough that it cannot be looked past. This is the claim PHILOSOPHY.md
   // makes and the engine could not previously demonstrate.
-  check("the same body at full volume sees far more than in quiet",
-    loud.seen > blind.seen * 1.5, { quiet: blind.seen, loud: loud.seen });
+  //
+  // MEASURED AS A RATE, not a count, and the difference matters now. When the firing probability was
+  // a fixed gate, the two runs fired about as often and the raw seen count was a fair proxy. Now that
+  // the figure IS the frequency (see THE NUMBER IS A PROMISE in habits.ts), seeing a pattern loosens
+  // it and a loosened pattern fires less — so the run that sees the most ends up with the FEWEST
+  // chances to see anything, and the count reads backwards for exactly the reason the feature works.
+  // 25 seen out of 99 against 17 out of 217 is the claim; 25 against 17 is noise.
+  const rate = (r: typeof loud) => r.seen / Math.max(1, r.fires);
+  check("the same body at full volume sees far more of what it does than in quiet",
+    rate(loud) > rate(blind) * 2, { quiet: rate(blind), loud: rate(loud) });
   check("...and that is where the real loosening happens",
     loud.loosened > settled.loosened && loud.loosened >= 1,
     { settled: settled.loosened, quiet: blind.loosened, loud: loud.loosened });

@@ -155,6 +155,32 @@ export interface CoreHabit {
    *  else. Without this count the narrator re-performs the discovery every time. */
   expressions?: number;
   last_expressed_turn?: number;
+
+  /* ── POWER: the number as a promise ────────────────────────────────────────────────────────────
+   * `strength` was always a percentage and never behaved like one. A trait forged at 95 surfaced in
+   * about one scene in twenty, because the fire roll was multiplied by an occasion gate that a calm
+   * body almost never opened. The fields below are what makes the figure mean what it reads as, and
+   * what gives the player a handle on it. See engine/habits.ts. */
+
+  /** The turn the engine last ORDERED this habit into the prose. Paired against what the simulator
+   *  reports actually landed, which is the only honest read on whether a mandate was obeyed. */
+  mandated_turn?: number;
+  /** Scenes where it was ordered and did not appear. A habit that keeps being skipped is a habit
+   *  coming loose, whether anybody meant it to or not. */
+  held?: number;
+  /** Turn the player last pushed this person to stop — matched off their typed action, which is the
+   *  one place a habit gets NAMED rather than enacted. */
+  last_pressed_turn?: number;
+  /** Consecutive turns of pushing. Momentum: the fourth try in a row moves more than the first,
+   *  which is the difference between nagging somebody and actually helping them. Decays to 0 when
+   *  the player lets it go. */
+  pressure_streak?: number;
+  /** Total pushes that landed (pushed, and the habit did not occur). Shown in the drawer so the
+   *  player can see the work they have put in. */
+  pressed_clear?: number;
+  /** The player set this figure by hand. Re-groove leaves it alone until something in play moves
+   *  it, so a correction is not quietly undone over the next five turns. */
+  pinned?: boolean;
 }
 
 /** A promise on the ledger — who swore what to whom. Weight scales the emotional payoff/damage. */

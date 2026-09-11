@@ -69,6 +69,28 @@ function distinctiveWords(trait: string): string[] {
     .filter((w) => w.length > 2 && !STOP.has(w));
 }
 
+/** DID A LINE THE PLAYER TYPED NAME THIS TRAIT?
+ *
+ *  Deliberately looser than expressionCoverage, and for the opposite reason that one is strict.
+ *  expressionCoverage reads PROSE, where a trait's own words turn up by accident all day and a false
+ *  credit is expensive; so it wants two hits and a third of the phrase. This reads a short line the
+ *  player typed AT somebody, already filtered by a stop/quit/don't cue, where the words are present
+ *  because the player put them there on purpose. "I ask her to stop tapping" is unambiguous and
+ *  carries exactly one of the trait's seven words, so the ratio test throws it away.
+ *
+ *  One specific word is enough; one vague one is not. */
+export function namedInPush(trait: string, text: string): boolean {
+  const words = distinctiveWords(trait).filter((w) => w.length >= 3);
+  if (!words.length) return false;
+  const hay = ` ${String(text ?? "").toLowerCase().replace(/[^a-z0-9\s']/g, " ")} `;
+  const hits = words.filter((w) => {
+    const stem = w.replace(/'s$/, "").replace(/(ing|ed|es|s)$/, "");
+    return stem.length >= 3 && new RegExp(`\\b${stem}`, "i").test(hay);
+  });
+  if (hits.length >= 2) return true;
+  return hits.length === 1 && hits[0].length >= 4;
+}
+
 /**
  * FALLBACK ONLY — string containment, used when the simulator did not report for
  * this character (a failed or thin bookkeeping turn).
@@ -198,6 +220,12 @@ export function mannerismGap(h: CoreHabit): number {
 /** Has this mannerism been on the page too recently to be worth it again? */
 export function mannerismSuppressed(h: CoreHabit, turn: number): boolean {
   if (h.dormant || !isMannerism(h.trait)) return false;
+  // A COMPULSION IS NOT WALLPAPER, however often it has been on the page. This budget exists because
+  // the ninth tic in twenty turns reads as wallpaper — true of a tic somebody merely has, and false
+  // of one they cannot not do, where the repetition IS the characterisation. Above the compulsion
+  // line the figure has already said "every occasion" and this may not quietly say otherwise. The
+  // number lives in habits.ts; inlined here rather than imported because habits.ts imports this file.
+  if (Math.round(h.strength) >= 92) return false;
   const gap = mannerismGap(h);
   if (gap <= 0) return false;
   const last = h.last_expressed_turn;

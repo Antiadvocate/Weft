@@ -10,7 +10,8 @@ import { attractionWord } from "../engine/desire";
 import { clockLabel, dayOf, minutesOfDay, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
 import { daysLabel, readSchedule, runsOn } from "../engine/schedule";
 import { DayRibbon, WeekPips, type DaySegment } from "../lib/charts";
-import type { SaveState } from "../engine/types";
+import type { CoreHabit, SaveState } from "../engine/types";
+import { COMPULSION_AT } from "../engine/habits";
 
 const CARD_TABS: { k: CardTab; label: string; icon: React.ReactNode }[] = [
   { k: "now", label: "Now", icon: <Activity size={13} /> },
@@ -805,19 +806,15 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {(save.habits?.[sel!] ?? []).length > 0 && (
-                  <Section title="How set their patterns are" group="self">
-                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. Seen clearly as it fires, a pattern loosens; unseen, it deepens. No one changes on purpose.</div>
+                  <Section title="How often their patterns show up" group="self">
+                    <div className="text-[11px] mb-2.5" style={{ color: "var(--text-lo)" }}>
+                      The share of scenes each pattern actually surfaces in, where it has any occasion to. Drag it to set it by hand.
+                      Past {COMPULSION_AT}% it stops waiting for an occasion; at 100% it is in every scene without exception.
+                      It also moves on its own — running blind deepens a pattern, and scenes that go by without it wear it down.
+                    </div>
                     {(save.habits?.[sel!] ?? []).map((h) => (
-                      <div key={h.trait} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-[12.5px]" style={{ color: h.dormant ? "var(--text-lo)" : "var(--text-mid)", textDecoration: h.dormant ? "line-through" : "none" }}>{nice(h.trait)}</span>
-                          <span className="text-[10px] font-mono" style={{ color: "var(--text-lo)" }}>{h.dormant ? "loosened" : `${Math.round(h.strength)}`}</span>
-                        </div>
-                        <div style={{ height: 4, borderRadius: 2, background: "var(--ink-2)", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, h.strength))}%`, background: h.dormant ? "var(--text-lo)" : h.strength > 70 ? "var(--text-mid)" : "var(--accent, #8a7a9e)", transition: "width .3s" }} />
-                        </div>
-                        {h.seen_fires > 0 && <div className="text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>seen {h.seen_fires}×</div>}
-                      </div>
+                      <HabitPower key={h.trait} h={h}
+                        onSet={async (v) => { try { setSave(await api.setHabitPower(save.id, sel!, h.trait, v)); } catch { /* gone */ } }} />
                     ))}
                   </Section>
                 )}
@@ -1277,6 +1274,55 @@ function Row({ k, v }: { k: string; v: string }) {
     <div className="flex items-baseline gap-2.5 py-1">
       <span className="text-[11px] shrink-0" style={{ color: "var(--text-lo)" }}>{k}</span>
       <span className="text-[13.5px] flex-1 min-w-0" style={{ color: "var(--text-hi)" }}>{v}</span>
+    </div>
+  );
+}
+
+
+/* ── ONE PATTERN, AND THE DIAL ON IT ───────────────────────────────────────────────────────────
+ *
+ * The figure used to be printed and nothing else: a bar, a number, no handle. It moves on its own —
+ * a run of blind fires grooves it up, a run of scenes that skipped it wears it down — so it lands
+ * places nobody chose, and from inside the fiction there is no way to argue with it. Hence the drag.
+ *
+ * Committing on release rather than on every input event, because each commit writes the save. */
+function HabitPower({ h, onSet }: { h: CoreHabit; onSet: (v: number) => void }) {
+  const settled = Math.max(0, Math.min(100, Math.round(h.strength)));
+  const [v, setV] = React.useState(settled);
+  const [dragging, setDragging] = React.useState(false);
+  React.useEffect(() => { if (!dragging) setV(settled); }, [settled, dragging]);
+  const shown = dragging ? v : settled;
+  const tone = h.dormant ? "var(--text-lo)" : shown >= COMPULSION_AT ? "var(--danger, #b4543f)" : shown > 70 ? "var(--text-mid)" : "var(--accent, #8a7a9e)";
+  const band =
+    h.dormant ? "loosened — not running, and can come back"
+    : shown >= 100 ? "every scene, without exception"
+    : shown >= COMPULSION_AT ? "makes its own occasion — barely waits for the scene"
+    : shown >= 70 ? "most times it comes up"
+    : shown >= 40 ? "about half the times it comes up"
+    : shown > 0 ? "now and then, when the scene asks for it"
+    : "never";
+  const worked = h.pressed_clear ?? 0;
+  const streak = h.pressure_streak ?? 0;
+  return (
+    <div className="py-2" style={{ borderBottom: "1px solid var(--ink-2)" }}>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <span className="text-[12.5px] leading-snug" style={{ color: h.dormant ? "var(--text-lo)" : "var(--text-mid)", textDecoration: h.dormant ? "line-through" : "none" }}>{nice(h.trait)}</span>
+        <span className="text-[11px] font-mono shrink-0" style={{ color: tone }}>{shown}%</span>
+      </div>
+      <input type="range" min={0} max={100} step={1} value={shown} style={{ width: "100%", accentColor: tone }}
+        onChange={(e) => { setDragging(true); setV(Number(e.target.value)); }}
+        onPointerUp={() => { setDragging(false); if (v !== settled) onSet(v); }}
+        onBlur={() => { setDragging(false); if (v !== settled) onSet(v); }}
+        onKeyUp={() => { setDragging(false); if (v !== settled) onSet(v); }} />
+      <div className="flex items-center justify-between gap-2 text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>
+        <span>{band}</span>
+        <span className="font-mono shrink-0">
+          {h.pinned ? "set by hand · " : ""}
+          {h.seen_fires > 0 ? `caught ${h.seen_fires}×` : ""}
+          {worked > 0 ? `${h.seen_fires > 0 ? " · " : ""}gave way ${worked}×` : ""}
+          {streak > 1 ? ` · pushed ${streak} in a row` : ""}
+        </span>
+      </div>
     </div>
   );
 }

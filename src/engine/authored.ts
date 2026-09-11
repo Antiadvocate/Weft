@@ -345,7 +345,13 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
     if (!c || id === "char_player" || !c.core_traits?.length) continue;
     const eligible = c.core_traits.filter((t) => {
       const h = (state.habits?.[id] ?? []).find((x) => x.trait.trim().toLowerCase() === String(t).trim().toLowerCase());
-      return !h || noveltyStage(h) !== "ground";
+      if (!h) return true;
+      // ...AND NOT ONE THE HABIT ENGINE HAS ALREADY ORDERED INTO THIS SAME TURN. Both blocks land in
+      // the same prompt, so a pattern the engine fired this beat would arrive twice, once as law that
+      // already happened and once as a beat to write — which reads to the narrator as two separate
+      // occurrences and is how a compulsion ends up staged twice in one scene.
+      if (h.mandated_turn === state.world.current_turn) return false;
+      return noveltyStage(h) !== "ground";
     });
     if (!eligible.length) continue;
     const pick = eligible[(state.world.current_turn + id.length) % eligible.length];

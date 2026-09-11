@@ -15,6 +15,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
+import { ensureHabits, setHabitPower } from "../engine/habits";
 import { resolvePromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel, repairAuthoredHabitCounts } from "../engine/authored";
@@ -1392,6 +1393,24 @@ export const api = {
       mem.beliefs = mem.beliefs.filter((b) => b.content !== what.belief);
       if (mem.beliefs.length === before) throw new Error("that belief is already gone");
     }
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** A HAND ON THE DIAL — set how often one of somebody's patterns actually shows up.
+   *
+   *  The figure is a percentage of eligible occasions, and past 92 the pattern starts supplying its
+   *  own occasion until, at 100, it is in every scene without exception. See engine/habits.ts.
+   *
+   *  This exists because the number moves on its own. A run of blind fires grooves it up, a run of
+   *  scenes that skipped it wears it down, and either can land somewhere the player did not intend
+   *  and cannot argue with from inside the fiction. Setting it by hand also sets the baseline and
+   *  pins it, so the drift does not spend the next five turns undoing the correction. */
+  setHabitPower: async (id: string, char_id: string, trait: string, power: number): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!s.characters[char_id]) throw new Error("unknown character");
+    ensureHabits(s, char_id);
+    if (!setHabitPower(s, char_id, trait, power)) throw new Error("that pattern is not on their sheet");
     await putSave(s);
     return clientView(s);
   },

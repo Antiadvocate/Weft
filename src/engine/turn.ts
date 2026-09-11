@@ -23,7 +23,8 @@ import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote,
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
-import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
+import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits,
+         detectPressure, applyPress, reconcileHabits, heldMandateNote, type HabitFire } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
@@ -2307,10 +2308,19 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // stay engine-side. Change moves in the dark; only an observer can ever surface it.
   let habitVerdict = "";
   const habitShifts: string[] = [];
+  let habitFires: HabitFire[] = [];
+  // WHO THE PLAYER JUST LEANED ON, AND ABOUT WHAT. Read off the typed action before anything rolls,
+  // because a push has to be able to change this beat rather than only the bookkeeping after it. See
+  // detectPressure in engine/habits.ts for why this one lexical match is the right instrument where
+  // every other one in this engine is the wrong one: a push NAMES the habit, prose only enacts it.
+  let pressedNow: { key: string; char_id: string; trait: string }[] = [];
   if (state.model_settings.habit_engine) {
     const presentForHabits = state.world.present.filter((pid) => pid !== "char_player");
     const beatText = `${action} ${contextHistory(state).slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 800);
-    const hb = tickHabits(state, presentForHabits, beatText, verdict.pressure ?? 3);
+    pressedNow = detectPressure(state, presentForHabits, action);
+    const hb = tickHabits(state, presentForHabits, beatText, verdict.pressure ?? 3, Math.random,
+      new Set(pressedNow.map((p) => p.key)));
+    habitFires = hb.fires;
     habitVerdict = habitVerdicts(hb.fires, state);
     for (const s of hb.shifts) habitShifts.push(s);
     for (const d of hb.dwellings) {
@@ -3038,7 +3048,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + (state.model_settings.habit_engine ? heldMandateNote(state, state.world.present) : "") + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
     // THE PLAYER CHECKING A SETTLED FACT AGAINST SOMETHING OUTSIDE THE ROOM. The verdict goes in
     // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
     // invented mid-argument has no record of its own and will agree with whoever spoke last.
@@ -4377,6 +4387,27 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const simAnswered = Array.isArray(diff.traits_expressed);
     for (const pid of state.world.present)
       recordExpressions(state, pid, prose, turn, simAnswered ? (reportedBy.get(pid) ?? []) : undefined);
+    // ── HABIT POWER, SETTLED AGAINST WHAT THE SCENE ACTUALLY DID ──────────────────────────────
+    // Everything the habit engine did earlier in this turn was a prediction. This is where it finds
+    // out. Ordered and delivered grooves the pattern a little deeper; ordered and absent is an
+    // extinction trial, which is the only shape a habit ever really comes apart in. Both damped by
+    // inertia, so nothing near the ceiling moves much on one scene. See engine/habits.ts.
+    for (const line of reconcileHabits(state, state.world.present, reportedBy, turn, simAnswered)) shifts.push(line);
+    // ...AND THE PUSHES. A try lands when the thing the player asked them to stop did not happen —
+    // judged off the engine's own fire record first (it knows) and the simulator's read second. A try
+    // that was ignored still moves the figure, by half; being ignored is not the same as not trying.
+    for (const pr of pressedNow) {
+      const h = (state.habits?.[pr.char_id] ?? []).find((x) => x.trait === pr.trait);
+      if (!h) continue;
+      const fired = habitFires.some((f) => f.char_id === pr.char_id && f.trait === pr.trait);
+      const shown = (reportedBy.get(pr.char_id) ?? []).some((r) =>
+        r.trim().toLowerCase() === pr.trait.trim().toLowerCase());
+      const moved = applyPress(h, turn, !fired && !shown);
+      if (moved >= 1) {
+        const nm = state.characters[pr.char_id]?.name ?? "They";
+        shifts.push(`${nm} gave a little on it.`);
+      }
+    }
     // AND WAS THE ORDERED ACT AMONG THEM? Read straight off what recordExpressions just filed —
     // the simulator judges expression by meaning, which is the only instrument that can answer this
     // (a lexical one ranks the misses above the hits; it was built, measured and thrown away). Runs
