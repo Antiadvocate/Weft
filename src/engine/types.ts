@@ -63,6 +63,14 @@ export interface ModelSettings {
    *
    *  Unset on an existing save means the old behaviour exactly: 0.85, no floor. New games start
    *  warmer, in the same spirit as the cost defaults below. */
+  /** VERBALIZED SAMPLING on the dialogue (engine/verbalized.ts). One small extra call per turn on
+   *  the bookkeeper-class model: ask for candidate lines WITH probabilities and take the ones the
+   *  model itself rates below the tail threshold, then hand those to the narrator as options.
+   *
+   *  Off by default because it is a real per-turn cost, not because it is doubtful. It is the only
+   *  thing in this engine that attacks the register at its cause rather than catching it afterwards
+   *  — see the header of verbalized.ts for why catching it afterwards cannot work. */
+  verbalized_sampling?: boolean;
   prose_temperature?: number;     // 0.6–1.2. Warmer widens what the narrator considers.
   prose_min_p?: number;           // 0–0.2. Relative probability floor; what keeps a warm temperature from going to pieces. 0 = off.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)

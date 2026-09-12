@@ -59,6 +59,7 @@ import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
+import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
@@ -3046,6 +3047,28 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     // invented mid-argument has no record of its own and will agree with whoever spoke last.
     + verificationLaw(state, action, state.world.present, contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "")
     + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+  // ── VERBALIZED SAMPLING (engine/verbalized.ts) ─────────────────────────────
+  // Asked for BEFORE the narrator writes, because it goes into the narrator's directive: one cheap
+  // call on the bookkeeper-class model for candidate lines with probabilities, of which the tail is
+  // kept. Awaited rather than raced, unlike the read channel below — the whole point is that the
+  // narrator sees it. Fails open to "" on every path, so a slow or dead pass costs a moment and
+  // nothing else. Skipped entirely on the resume path, where the prose already exists.
+  //
+  // IT GOES SECOND-TO-LAST, NOT LAST, AND THAT IS DELIBERATE. Position is the whole reason this
+  // note works at all — the same reason maxims.ts and authored.ts give — so the temptation is to
+  // put it against the player's line. That slot belongs to the beat, and tests/what-this-turn-is-for
+  // exists because it once did not: the engine picked the story's subject, buried it fifth of forty
+  // blocks, and the narrator wrote domestic banter through four consecutive fires. Only one block
+  // can be last. WHAT this turn is about outranks HOW the people in it talk, so the beat keeps the
+  // slot and the candidate lines sit immediately before it.
+  const vsNote = state.model_settings.verbalized_sampling && !opts?.proseOverride
+    ? await verbalizeLines(
+        state,
+        state.world.present,
+        `${contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? ""}\n\n[the player now:] ${action}`.trim(),
+        { model: state.model_settings.simulator_model, fallback: state.model_settings.fallback_model, signal },
+      )
+    : "";
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
@@ -3095,13 +3118,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
