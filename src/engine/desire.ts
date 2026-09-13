@@ -414,8 +414,8 @@ export function desireLine(state: SaveState, id: string): string {
   if (a >= 30 && e.warmth < COOL && !romantic) {
     const sore = e.warmth < 0;
     return `desire toward you: real (${a}) with ${sore ? `no goodwill left in it (warmth ${Math.round(e.warmth)}, and they are annoyed with you)` : `no attachment behind it (warmth ${Math.round(e.warmth)})`} — they want you and ${sore ? "are angry at you, and both are true at once. Neither one cancels the other" : "have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet"}. `
-      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. What is missing is courtship, not appetite: interest in your body and your presence, none in your day; they do not ask after you and do not soften${sore ? ", and everything they do arrives with an edge on it — standing closer than the argument needs, a hand that is not kind, needling as a way of making contact" : ", and they are unbothered by whether you like them"}. `
-      + `A person who wants somebody does not drift off and leave them to it${sore ? "; being angry is a reason to get in their face, not a reason to go home" : ""}. They stop only when they are refused outright, and then they are cold about it and come back later. `
+      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. They want your body and your presence and take no interest in your day; they never ask after you and never soften${sore ? ", and everything they do arrives with an edge on it — standing closer than the argument needs, a hand that is not kind, needling as a way of making contact" : ", and whether you like them does not come up"}. `
+      + `They stay in the room${sore ? ", and the anger brings them closer to you rather than sending them home" : ""}. They stop when they are refused outright, and then they go cold and come back later. `
       + `NEVER render this as fondness, tenderness, or the beginning of caring${sore ? ", and never let the anger resolve into liking you" : ""}, and never narrate the wanting outright — it is in what they do.`;
   }
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
@@ -424,7 +424,7 @@ export function desireLine(state: SaveState, id: string): string {
   if (cold) return adm >= 0.4
     ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth deployed as a tool, gifts with strings; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
     : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, tallying who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
-  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, angles for closeness, makes and takes openings, and lets you be when you want to be let be; a settled wanting is not a passive one; NEVER state the wanting outright — render it as behavior`;
+  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, angles for closeness, makes and takes openings, and lets you be when you want to be let be; they act on it in the scene rather than waiting to be approached; NEVER state the wanting outright — render it as behavior`;
   if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, a claim dressed as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
   return `desire toward you: real (${a}), not yet settled — SHOW: surfaces in small glances and half-gestures when the moment allows; NEVER state it outright — behavior only`;
 }
@@ -539,7 +539,7 @@ export function effectiveStanding(power: number, witnessedTier?: string | null):
 }
 
 function standingCue(power: number): string {
-  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They do not hold the floor, do not deliver verdicts on you, do not get the closing line. Disagreement comes out sideways or not at all — a half-sentence, a look away, doing the thing while plainly not wanting to. If they refuse, it is short, and it costs them visibly.";
+  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They yield the floor, keep any verdict on you to themselves, and let you close the exchange. Disagreement comes out sideways or stays in — a half-sentence, a look away, doing the thing while plainly not wanting to. A refusal from them is short, and it costs them visibly.";
   if (power <= -6) return " — AND THEY STAND BELOW YOU (standing " + Math.round(power) + "): they measure their words around you, let you finish, and do not summarise your character back at you. They can still refuse and still hold a line, but they do it briefly and without the last word.";
   if (power >= 20) return " — AND THEY HOLD THE POWER HERE (standing " + Math.round(power) + "): they can afford to be unhurried, to interrupt, to decline without explaining.";
   return "";

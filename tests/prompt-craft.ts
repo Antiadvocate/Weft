@@ -116,7 +116,13 @@ const prompt = \`Match the register of the story you are given and keep the tone
 
 /* ── 5. THE RATCHET ─────────────────────────────────────────────────────────── */
 {
-  const total = lintDir("src/engine").reduce((n, r) => n + r.findings.length, 0);
+  /* SCOPED TO THE FOUR CHECKS THIS ZERO WAS EARNED ON. A fifth was added later —
+   * `contrastive-instruction`, the "X, not Y" shape — and it landed on a backlog of 262 sentences
+   * that nobody has rewritten yet. Folding those into this total would mean either raising a budget
+   * that was driven to zero on purpose, or pretending the backlog does not exist. It gets its own
+   * ratchet instead, in tests/prompt-shapes.ts, and this one keeps its hard zero. */
+  const total = lintDir("src/engine")
+    .reduce((n, r) => n + r.findings.filter((f) => f.kind !== "contrastive-instruction").length, 0);
   // The backlog is gone: every instruction the four checks found has been rewritten as a procedure
   // over a named field, a check applicable to a finished sentence, or a positive requirement that
   // excludes a form without naming it. Zero is now the standing budget, so the next one written as

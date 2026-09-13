@@ -90,8 +90,10 @@ const at = (s: SaveState, t: number) => { (s.world as { current_turn: number }).
   check("...and is asked for contradictions by name", /"contradictions"/.test(CHAPTER_SYSTEM));
   check("...with the shapes spelled out",
     /a relative somebody does not have, a person in two places/.test(CHAPTER_SYSTEM));
+  // Reworded out of the "X is not the same question as Y" epigram when promptlint learned that
+  // shape (see tests/prompt-shapes.ts); the separation it asks for is unchanged.
   check("...kept separate from the genre question",
-    /NOT the same question as on_contract/.test(CHAPTER_SYSTEM));
+    /Answer this separately from on_contract/.test(CHAPTER_SYSTEM));
   check("...explicitly, so neither softens the other",
     /do not let one soften the other/.test(CHAPTER_SYSTEM));
   check("the field is in the output schema", /"contradictions":\[/.test(CHAPTER_SYSTEM));

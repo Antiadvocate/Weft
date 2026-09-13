@@ -122,10 +122,40 @@ const COMMANDED = /\b(take|match|use|keep|hold|find|choose|pick|set|write in|der
  *    teaches an epigram, which turn.ts:1079 already worked out once and fixed in exactly one place.
  */
 const MAXIM = [
-  /\b(?:is|are)\s+not\s+the\s+same\s+as\b/i,
+  /\b(?:is|are)\s+not\s+the\s+same\s+\w*\s*as\b/i,
   /\b(?:is|are)\s+not\s+a\s+\w+[,;]\s*(?:it|they)\s+(?:is|are)\b/i,
   /\bnever\s+\w+[^.;]{2,30},\s*always\b/i,
   /\bthe\s+\w+\s+is\s+not\s+the\s+\w+\b/i,
+];
+
+/**
+ * 2b. THE CONTRASTIVE, WHICH IS THE ONE EVERYBODY ELSE ALSO BANS.
+ *
+ * "X, not Y." The four shapes above were mined from this engine's own worst sentences and none of
+ * them covers the commonest form of the same move. That omission is expensive, because this exact
+ * construction is:
+ *
+ *   · a SHAPE in engine/maxims.ts, listed there as "not X, but Y", mined out of a real save;
+ *   · 25% of the entire EQ-Bench Slop Score, weighted third behind slop words at 60%;
+ *   · banned by name in OpenAI's own GPT-6 Astra prompting guide — "Do not use contrastive
+ *     phrasing such as 'X, not Y' or 'X—not Y'".
+ *
+ * Three independent parties treat it as a top-three marker of machine prose, and the engine that
+ * detects it in its OUTPUT was writing its INSTRUCTIONS in it ninety-four times.
+ *
+ * That is not an irony, it is a supply problem, and it is the same one tests/prompt-echo.ts was
+ * written for: a prompt is a corpus the model conditions on. Ninety-four instructional sentences in
+ * a shape carry that shape into the prose far more reliably than one sentence saying to avoid it,
+ * and the rebound work (arXiv 2511.12381) says the sentence saying to avoid it primes it too.
+ *
+ * WHAT IT DOES NOT FLAG. A bare "not" is ordinary and necessary; what is caught is the balanced
+ * pair — a comma, "not", and a replacement term — which is where the epigram lives. Rewriting one
+ * is usually a matter of stating the positive requirement and stopping.
+ */
+const CONTRASTIVE = [
+  /\b\w+,\s+not\s+(?:a|an|the|what|who|whether|how|why|by|because|to|in|on|for|from|about|as)?\s*\w+/i,
+  /\b\w+\s+—\s*not\s+(?:a|an|the)?\s*\w+\b/i,
+  /\bis\s+not\s+(?:a|an|the)?\s*\w+[,;]\s*(?:it|they|and)\b/i,
 ];
 
 /**
@@ -183,6 +213,10 @@ export function lint(src: string): Finding[] {
     }
     if (MAXIM.some((re) => re.test(s))) {
       out.push({ kind: "maxim-instruction", text: s, why: "written as an epigram; an instruction in that shape teaches that shape" });
+      continue;
+    }
+    if (CONTRASTIVE.some((re) => re.test(s))) {
+      out.push({ kind: "contrastive-instruction", text: s, why: "the 'X, not Y' shape — banned in this engine's own output detector, weighted 25% of EQ-Bench's slop score, and named in OpenAI's Astra guide. State the positive requirement and stop" });
       continue;
     }
     if (UNACTIONABLE.test(s)) {
