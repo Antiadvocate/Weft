@@ -1301,7 +1301,7 @@ export function deriveVoice(
   // was nothing, so it spoke out of its card and only its card. See engine/aperture.ts — the long
   // form of this lives in the direction; what a card can carry is the one clause that changes.
   else if (apertureOf(rel) === "narrowed") parts.push("right now: braced — the register above is at its most concentrated, and the attention is on the one thing that matters and stays there. Correct, and what makes the open state mean anything");
-  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the register above is the shape this person takes UNDER LOAD, and they are not under load. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
+  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the voice card above describes this person braced, defending something, doing business. They are not doing that now. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
   // The middle band carries the least, so it is the one band that does not count as "something to
   // say about this voice this turn": a card with nothing else on it still falls back to its
   // baseline below, with this appended rather than instead.

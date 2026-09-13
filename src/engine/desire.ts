@@ -440,9 +440,22 @@ export function desireLine(state: SaveState, id: string): string {
     }
   }
   if (a >= BURNS && e.warmth <= HOSTILE) {
+    /* WRITTEN FLAT ON PURPOSE, AND THIS PARAGRAPH USED NOT TO BE.
+     *
+     * It read: "they stand nearer than the argument needs; they touch you in ways that are not
+     * kind; contempt that keeps coming back for more of you; needling as a way of making contact;
+     * punishing you for a pull they will not own." Six clauses, six epigrams. The player spotted it
+     * in one glance, and the file this engine keeps for exactly that purpose scored it zero,
+     * because every shape its maxim detector knew was a contrastive and none of those are.
+     *
+     * It matters most HERE. This is the loudest instruction in the character block — the whole
+     * reason the cap above that line exists — so it was teaching the narrator a register at the
+     * same time as commanding a behaviour, and the register it taught is the one the player's very
+     * first report in this whole project was about. Below: the same six behaviours, said as things
+     * a body does, with nothing balanced and nothing turned. */
     return adm <= 0.4
-      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they keep ending up where you are and are angry about it; they stand nearer than the argument needs; they touch you in ways that are not kind; contempt that keeps coming back for more of you; needling as a way of making contact; punishing you for a pull they will not own. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER narrate the wanting — the hostility is real, the wanting is real, and this does not develop into a bond.`
-      : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: frank, unsentimental appetite with no affection attached — they will say the cold thing and want you in the same breath, seek you out and give you nothing, be unembarrassed about the contradiction. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
+      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they turn up wherever you are and are angry to find themselves there; they stand too close during an argument; when they touch you it hurts a little and they do not apologise; they say something cutting and then do not leave; they start on you about a small thing to get you talking. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER say on the page that they want you. The hostility is real, the wanting is real, and it does not become a bond.`
+      : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: they want you and they are not fond of you, and they are not embarrassed by either; they will say the cold thing and still want you an hour later; they seek you out and give you nothing while they are there. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
   }
   /* WANTING SOMEBODY YOU DO NOT MUCH LIKE, which is the ordinary version of the above and far
    * commoner than the extreme one. It produces distance, not pursuit: you avoid the person, you are

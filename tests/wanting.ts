@@ -57,8 +57,17 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   check("hostility and desire are both stated", /cannot stand you/i.test(line) && /60/.test(line), line);
   check("neither is allowed to cancel the other", /Do not let either one cancel the other/i.test(line), line);
   check("it is not written as flirtation", !/flirts|teases/.test(line), line);
-  check("and not as secret tenderness on the way to a bond", /this does not develop into a bond/i.test(line), line);
-  check("the behaviour named is contact-as-friction", /stand nearer than the argument needs|needling as a way of making contact/.test(line), line);
+  check("and not as secret tenderness on the way to a bond", /it does not become a bond/i.test(line), line);
+  /* The behaviour named has to be contact-as-friction, and it has to be named as things a body
+   * DOES. This assertion used to quote the directive's own phrasing back at it — "stand nearer than
+   * the argument needs", "needling as a way of making contact" — which pinned the test to five
+   * epigrams and would have failed the moment they were rewritten flat. It did. Assert the
+   * behaviour instead: somebody arriving, standing too close, touching without apology, staying
+   * after saying the cutting thing. */
+  check("the behaviour named is contact-as-friction",
+    /stand too close/.test(line) && /do not apologise/.test(line) && /do not leave/.test(line), line);
+  check("…and it is written as things a body does, not as figures",
+    !/as a way of|than the argument needs|in ways that are not/.test(line), line);
 }
 {
   const s = world();

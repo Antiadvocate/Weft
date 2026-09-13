@@ -67,6 +67,31 @@ function countIn(dir: string, kind: string): { total: number; byFile: Record<str
   check("nor has the epigram count grown", total <= BUDGET, total);
 }
 
+/* ── AND THE EPIGRAM THAT USES NO CONTRAST ────────────────────────────────────────────────────
+ *
+ * Every shape the maxim detector knew was a contrastive wearing a different hat, so it could only
+ * find epigrams built out of opposition. It scored this at zero — the hostile-desire directive,
+ * which is the loudest single instruction in the character block:
+ *
+ *   they stand nearer than the argument needs
+ *   they touch you in ways that are not kind
+ *   contempt that keeps coming back for more of you
+ *   needling as a way of making contact
+ *   punishing you for a pull they will not own
+ *
+ * Five clauses, five epigrams, no contrast anywhere in them. The player caught it by reading it,
+ * having already caught the same thing once before in this project.
+ *
+ * It is worth a hard zero rather than a budget because there are only a handful of these shapes and
+ * they are always rewritable — every one of the eight found on the first honest run was gone inside
+ * an hour, and none of the rewrites lost anything. A budget invites the count to sit at it.
+ */
+{
+  const { total, byFile } = countIn("src/engine", "figured-instruction");
+  console.log(`     (figured instructions in src/engine: ${total})`);
+  check("no instruction is written as a figure", total === 0, byFile);
+}
+
 /* ── and the shapes the detector must keep catching ───────────────────────────── */
 {
   // Either kind counts as caught: the older MAXIM list already owns some of these shapes, and which
@@ -106,6 +131,32 @@ function countIn(dir: string, kind: string): { total: number; byFile: Record<str
     ]) if (hay.includes(gone)) check(`${what} no longer supplies "${gone.slice(0, 40)}"`, false, gone);
   }
   check("the instructions added in this branch carry no contrastive epigram", true);
+
+/* ── AND THE FOUR SHAPES THE DETECTOR LEARNED FROM THE ONE IT MISSED ────────────────────────── */
+{
+  const figured = (t: string) => lint("const X = `" + t + "`;").some((f) => f.kind === "figured-instruction");
+  for (const t of [
+    "they stand nearer than the argument needs and will not say why to anyone",
+    "they touch you in ways that are not kind and do not apologise afterwards",
+    "contempt that keeps coming back for more of you, again and again this scene",
+    "needling as a way of making contact with somebody they will not address",
+    "punishing you for a pull they will not own and cannot put down",
+    "the silence does the work here and nobody in the room fills it",
+    "let them stay longer than the errand warrants and say nothing about it",
+    "it was not unkind of her, whatever the others in the room decided",
+  ]) check(`figure caught: ${t.slice(0, 46)}`, figured(t), t);
+  /* AND THE ORDINARY RULE-WRITING IT MUST LEAVE ALONE. A first cut opened the litotes family with
+   * a plain restrictive clause and flagged thirty-odd of these — two thirds of everything it found.
+   * A detector wrong two times in three teaches you to skip its output. */
+  for (const t of [
+    "A capability or a past event that is not in the bible does not exist until the player adds it",
+    "Do not invent events that are not already in the raw memories you were given",
+    "Give one present character something to say that is not about the plot or the player",
+    "Do not put a text in his hands that was not already there before this turn began",
+    "Change nothing that was not already changing before the player walked into the room",
+    "manufacture desire that is not already recorded in these people's edges",
+  ]) check(`plain rule left alone: ${t.slice(0, 40)}`, !figured(t), t);
+}
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

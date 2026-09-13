@@ -165,5 +165,5 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
 
   const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received — not to the other characters and not to the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
 
-  return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is not a camera in the room; it is what the player's attention did with the room. Resolution is not uniform and is not a style choice — it is the state.\n${lines}\nAPERTURE — ${aperture}${drawn}${order}${bare}`;
+  return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is what the player's attention did with the room. How much detail each thing gets is set by the state below, and it differs from one thing to the next.\n${lines}\nAPERTURE — ${aperture}${drawn}${order}${bare}`;
 }

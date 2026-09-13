@@ -159,6 +159,72 @@ const CONTRASTIVE = [
 ];
 
 /**
+ * 2c. THE FIGURED INSTRUCTION — an epigram that never uses a contrast.
+ *
+ * Every shape in MAXIM above is a contrastive wearing a different hat: "not the same as", "not a X
+ * it is Y", "never X always Y", "the X is not the Y". So the detector could only ever find epigrams
+ * built out of opposition, and it scored this at zero — the hostile-desire directive in
+ * engine/desire.ts, which the previous commit established is the single loudest instruction in the
+ * whole character block:
+ *
+ *   they keep ending up where you are and are angry about it
+ *   they stand nearer than the argument needs
+ *   they touch you in ways that are not kind
+ *   contempt that keeps coming back for more of you
+ *   needling as a way of making contact
+ *   punishing you for a pull they will not own
+ *
+ * Six clauses, six epigrams, zero contrastives, zero findings. And the player who reads this
+ * engine's output for a living spotted it in one glance, having already caught the same thing in my
+ * prose once this session.
+ *
+ * It matters more here than anywhere else for the reason the file header already gives: a prompt is
+ * a corpus the model conditions on. The loudest instruction in the character block was also the
+ * most literary one in it, so it was teaching the register at the same time as commanding the
+ * behaviour — and the register it teaches is the one the player's very first report was about.
+ *
+ * Four shapes, mined from those six clauses:
+ *
+ *   LITOTES        a quality asserted by negating its opposite — "in ways that are not kind",
+ *                  "not unkind", "no small thing". The most reliable single marker of the register.
+ *   ABSTRACT ACTOR an abstraction handed a verb — "contempt that keeps coming back", "the silence
+ *                  does the work", "a pull they will not own". Nothing in the room is doing it.
+ *   NOMINAL GLOSS  "X-ing as a way of Y-ing", which restates an action as its own interpretation.
+ *   MEASURED AGAINST AN ABSTRACTION  "nearer than the argument needs", "longer than the moment
+ *                  warranted" — a comparison whose yardstick is a concept.
+ *
+ * Each is narrow on purpose. A bare "not" is ordinary, an abstract noun is ordinary, and "as a way
+ * of" is ordinary; what is caught is the figure.
+ */
+const ABSTRACTION = String.raw`contempt|silence|grief|shame|anger|hunger|want|pull|need|fear|desire|appetite|longing|tenderness|cruelty|kindness|distance|absence|memory|guilt|doubt|hope|dread|affection|resentment|violence|intimacy`;
+const FIGURED = [
+  /* Litotes: a quality asserted by negating its opposite.
+   *
+   * A first cut opened this with /(that|which) (is|are) not \w+/, which is not litotes at all — it
+   * is the ordinary restrictive clause every rule in this corpus is built from. "A room that is not
+   * in the bible", "events that are not in the raw memories", "something to say that is not about
+   * the plot": thirty-odd findings, and about two thirds of them were that. A detector wrong two
+   * times in three teaches you to skip its output, which is worse than not having it — the same
+   * reasoning that took the absent-speaking check out of the coherence gate.
+   *
+   * So the litotes patterns are the ones where the negation is doing rhetorical work: a manner
+   * phrase, an un- prefix, or the "no small thing" frame. */
+  /\bin\s+(?:a\s+way|ways)\s+that\s+(?:is|are)\s+not\b/i,
+  /\bnot\s+un\w{3,}/i,
+  /\bno\s+(?:small|little|ordinary|accident|mistake)\b/i,
+  // an abstraction handed a verb of its own
+  // The verb has to be a real one. `\w+s` matches "is", so this first read "desire that is not
+  // already in these people" — a plain rule — as an abstraction given a life of its own.
+  new RegExp(String.raw`\b(?:${ABSTRACTION})\s+(?:that|which)\s+(?!is\b|was\b|has\b|does\b|goes\b|seems\b)\w+s\b`, "i"),
+  new RegExp(String.raw`\b(?:the|a|an)\s+(?:${ABSTRACTION})\s+(?:does|did|keeps|kept|comes|came|goes|went|takes|took|arrives|arrived|answers|answered)\b`, "i"),
+  new RegExp(String.raw`\bfor\s+a\s+(?:${ABSTRACTION})\s+(?:they|he|she|it)\s+(?:will|would|do|does|did)\s+not\b`, "i"),
+  // an action restated as its own interpretation
+  /\b\w+ing\s+as\s+(?:a\s+)?(?:way|form|kind|means|version|sort)\s+of\b/i,
+  // a comparison whose yardstick is a concept
+  /\b(?:nearer|closer|longer|harder|softer|quieter|louder|slower|more|less)\s+than\s+the\s+\w+\s+(?:needs|need|warrants|warranted|requires|deserves|allows|asks|calls)\b/i,
+];
+
+/**
  * 3. CLAIMS THE MODEL CANNOT ACT ON. Assertions about literary history, taste, or what "real"
  *    writing does. They read as authoritative and contain no operation: there is nothing to DO
  *    with "this is a modern literary register."
@@ -218,6 +284,9 @@ export function lint(src: string): Finding[] {
     if (CONTRASTIVE.some((re) => re.test(s))) {
       out.push({ kind: "contrastive-instruction", text: s, why: "the 'X, not Y' shape — banned in this engine's own output detector, weighted 25% of EQ-Bench's slop score, and named in OpenAI's Astra guide. State the positive requirement and stop" });
       continue;
+    }
+    if (FIGURED.some((re) => re.test(s))) {
+      out.push({ kind: "figured-instruction", text: s, why: "an epigram built without a contrast — litotes, an abstraction given a verb, an action restated as its own meaning, or a comparison measured against a concept. The prompt is a corpus: this teaches the register while it commands the behaviour" });
     }
     if (UNACTIONABLE.test(s)) {
       out.push({ kind: "unactionable-claim", text: s, why: "a claim about style with no operation in it — nothing to do" });
