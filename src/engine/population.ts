@@ -82,9 +82,42 @@ function scaleWord(n: number): string {
 }
 
 /** One line per place for the LOCATIONS block, so the world reads as inhabited everywhere. */
-export function populationLine(place: Place): string {
+/**
+ * A PLACE GOES ON NAMING THE DEAD.
+ *
+ * The forge contract for `population.who` says "trades and roles, NEVER names", and the forge
+ * writes names anyway. From a save at turn 109, in the gazetteer the narrator reads every turn:
+ *
+ *     Arthur's Yard — A lorry yard and warehouse in Camden, Arthur Penhale's base of operations.
+ *       — ordinarily a handful of people about: Arthur, his drivers, a mechanic, and a couple of
+ *         casual labourers.
+ *
+ * Present tense, and Arthur had been shot in the face ten turns earlier and his corpse atomised.
+ * So the narrator held two contradicting statements about the same man in one document, and the
+ * one that was easy to read said he was around. He walked into the Ritz on the next turn.
+ *
+ * A place description is written once and never revisited, so anyone named in one is preserved
+ * alive in the prompt forever. Strip the names of people the story has finished, at render: the
+ * yard still has its drivers, its mechanic and its labourers, which is what the field was for.
+ */
+export function populationLine(place: Place, gone?: ReadonlySet<string>): string {
   const p = populationOf(place);
-  return p ? ` — ordinarily ${scaleWord(p.scale)} about: ${p.who}` : "";
+  if (!p) return "";
+  let who = p.who;
+  if (gone?.size) {
+    for (const name of gone) {
+      const first = name.split(/\s+/)[0];
+      for (const form of [name, first]) {
+        if (form.length < 3) continue;
+        const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // the name plus whatever list punctuation carried it, so no orphan comma is left behind
+        who = who.replace(new RegExp(`(?:^|,\\s*|\\band\\s+)${esc}(?:'s)?\\b(?=$|[,.;]|\\s)`, "gi"), "");
+      }
+    }
+    who = who.replace(/\s{2,}/g, " ").replace(/^[\s,]+|[\s,]+$/g, "").replace(/,\s*,/g, ",").replace(/,\s*and\b/gi, " and").trim();
+    if (!who || who.length < 3) return "";
+  }
+  return ` — ordinarily ${scaleWord(p.scale)} about: ${who}`;
 }
 
 /**

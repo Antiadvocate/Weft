@@ -1995,6 +1995,32 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     const clocksBlock = "";
     const offBlock = offscreenCast ? `=== NOT IN THIS SCENE (do not speak for them, do not let anyone present report their doings — you do not know where they are or what they're doing) ===\n${offscreenCast}\n` : "";
 
+    /* ── THE DEAD AND THE GONE, SAID OUT LOUD ────────────────────────────────────────────────
+     *
+     * Every block above filters `status === "dead"` out. Every one. So a character the player
+     * killed is not marked dead to the narrator — they are DELETED, and absence is not information.
+     *
+     * From a save at turn 109: Arthur Penhale is shot in the face at turn 99, his corpse is
+     * atomised at 101, and his record is immaculate — status dead, exit_turn 102, exit_note "Shot
+     * dead in The pub and his corpse subsequently disintegrated by Rabi." At turn 108 he walks in
+     * through the revolving door of the Ritz, orders nothing, and says "There's a thing I've come to
+     * say to you." The bookkeeping was perfect and nobody read it to the one pass that writes.
+     *
+     * Chatlog context makes it certain rather than likely: prior turns replay as conversation, so
+     * the model's context is ninety-nine turns of a man walking and talking, and then his quiet
+     * disappearance from a list. In a transcript that reads as an omission to be repaired.
+     *
+     * goneMap() has existed for exactly this and feeds the belief pass and the memory digest — its
+     * own header is about a narrator handed a dead woman as a live read. The scene never got it.
+     * It gets it now, as a statement rather than a silence. */
+    const gone = Object.entries(state.characters)
+      .filter(([id, c]) => id !== "char_player" && (c.status === "dead" || c.status === "departed"))
+      .map(([, c]) => `${c.name} — ${c.status === "dead" ? "DEAD" : "gone from the story"}${c.exit_note ? `: ${clipText(c.exit_note, 120)}` : ""}`);
+    const goneBlock = gone.length
+      ? `=== DEAD AND GONE (they are not absent; they are finished) ===\n${gone.join("\n")}\n`
+        + `None of these people walks in, speaks, is glimpsed, sends word, or turns out to have survived. A body the story destroyed stays destroyed. Where the record above says how they died, that is settled and nothing you write reopens it. People who knew them may speak ABOUT them, in the past tense, and that is the only way they appear.\n`
+      : "";
+
     // HOST FRAME. A named place ("Rabi's Apartment", "Liora's Rooftop Garden") has an owner, and
     // ownership sets the social frame: guests do not act like hosts. Without this anchor a visiting
     // character slips into their own home-turf register and talks about the player's apartment as
@@ -2010,7 +2036,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
     // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
     // guaranteed to change every turn — goes as late as possible.
-    return `${canonBlock}${landedBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}=== NOW ===
+    return `${canonBlock}${landedBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}${goneBlock}=== NOW ===
 Turn ${turn} | ${state.world.current_time}${dateLabel(state.world.current_time, state.world_bible.start_date) ? ` — ${dateLabel(state.world.current_time, state.world_bible.start_date)}` : ""} | Weather: ${state.world.weather}
 Scene: ${loc ? `${loc.name}${loc.identity?.trim() ? ` — ${loc.identity.trim()} (this does not change)` : ""}${loc.description_facts?.trim() ? ` | as it stands now: ${loc.description_facts.trim()}` : ""}` : state.world.player_location}${hostFrame}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""} | scene running ~${Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time))} min
 Player carries: ${state.world.money || "—"}${(() => {
@@ -2034,7 +2060,12 @@ Player carries: ${state.world.money || "—"}${(() => {
   // not only where a cast member happens to be standing. See engine/population.ts.
   // The fixed half rides with the name everywhere the list appears. It is short by construction and
   // it is the thing that must not drift, so it is cheaper to repeat than to have re-invented.
-  const list = named.map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}${populationLine(p)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
+  // A place description is authored once and never revisited, so anyone named in one stays alive in
+  // the prompt forever — see populationLine. Strip the finished.
+  const goneNames = new Set(Object.values(state.characters)
+    .filter((c) => c.status === "dead" || c.status === "departed")
+    .map((c) => String(c.name ?? "").trim()).filter(Boolean));
+  const list = named.map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}${populationLine(p, goneNames)}${p.stale_note ? `\n    ⚠ ${p.stale_note}` : ""}`).join("\n");
   const away = Object.entries(state.characters)
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && c.location && c.location !== state.world.player_location)
     // held = in custody. It rides with the name because a narrator has no other reason to remember

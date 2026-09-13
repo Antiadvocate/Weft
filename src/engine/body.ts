@@ -40,15 +40,67 @@ const MODERATE = /\b(broken|fractur\w*|dislocat\w*|deep (cut|gash|wound)|lacerat
 /** Everyday wear the story can carry in the background — the case the old model assumed for all of it. */
 const MILD = /\b(bruis\w*|scrap\w*|graz\w*|sore|ach\w*|sprain\w*|winded|blister\w*|scratch\w*|nosebleed|shaken|hungover|chilled|drenched|limping)\b/i;
 
-/** Grade one recorded string. Unrecognised text scores 1: something was worth recording. */
-export function severityOfText(text: string): BodySeverity {
+/* ── THE PART THAT IS NOT A WORD LIST ────────────────────────────────────────────────────────
+ *
+ * Every list above is a synonym set, and the bookkeeper does not write synonyms — it writes plain
+ * English. From a real save, a woman the player had taken apart limb by limb:
+ *
+ *     injuries : "missing left arm" · "missing right arm" · "missing both legs"
+ *     conditions: "quadriplegic" · "partially blind"
+ *
+ * All five scored 1. MILD. The lists know "amputated" and got "missing left arm"; they know
+ * "paralysed" and got "quadriplegic"; they know "blinded" and got "partially blind". Three
+ * near-misses on one body, and the default for unrecognised text was 1, so every miss failed in the
+ * direction of "she is fine".
+ *
+ * WHAT THAT COST, because it is not one bug, it is four:
+ *   · bodySeverity read 1, so `[BODY WRECKED — dominates everything they do]` never rendered;
+ *   · bodyMarks returned EMPTY, so the directive that names a wrecked body had nothing to name;
+ *   · fadesOnItsOwn is `severity <= 2`, so at CONDITION_LIFESPAN the engine HEALED HER — ten turns
+ *     after the mutilation the ledger silently dropped all five records, with nothing in the prose
+ *     restoring anything. The comment on fadesOnItsOwn predicted this exact failure and was gated
+ *     on this exact function;
+ *   · and with the ledger empty the narrator's line read `body: fatigue fresh, hunger peckish`,
+ *     beside an inventory holding a basket and a trait reading "cannot sit still; she is always
+ *     adjusting something, a hem, a cushion, her own hair". The prose then had her walk across a
+ *     hotel lobby with the basket over her arm.
+ *
+ * So grade the SHAPE as well as the vocabulary. A part of a body plus a word for it being gone is
+ * catastrophic whatever verb the bookkeeper reached for, and a faculty plus a word for its loss is
+ * severe. These run BEFORE the lists, because a list that has already been walked around cannot be
+ * the thing that decides. */
+
+/** Parts whose loss ends a body as a functioning one. */
+const PART = String.raw`arms?|legs?|hands?|feet|foot|fingers?|thumbs?|toes?|limbs?|eyes?|ears?|jaw|face|tongue|spine|head|shoulders?|knees?|elbows?`;
+/** Ways the bookkeeper writes "it is not there any more". */
+const GONE = String.raw`missing|lost|loss of|gone|removed|taken|severed|cut off|torn off|blown off|amputated|absent|no longer has|without`;
+/** "missing left arm", "both legs gone", "loss of the right hand", "no longer has arms". */
+const PART_GONE = new RegExp(
+  String.raw`\b(?:${GONE})\b[^.;]{0,24}\b(?:${PART})\b|\b(?:${PART})\b[^.;]{0,16}\b(?:${GONE})\b`, "i");
+
+/** Faculties whose loss dominates behaviour without ending the body. */
+const FACULTY = String.raw`sight|vision|hearing|speech|voice|balance|the use of \w+`;
+const FACULTY_GONE = new RegExp(
+  String.raw`\b(?:${GONE}|cannot|can't|unable to|no)\b[^.;]{0,20}\b(?:${FACULTY}|see|hear|speak|walk|stand|move|talk)\b`
+  + String.raw`|\b(?:quadripleg\w*|parapleg\w*|hemipleg\w*|tetrapleg\w*|blind|deaf|mute|crippled|immobile|bedridden|comatose|unconscious)\b`, "i");
+
+/**
+ * Grade one recorded string.
+ *
+ * UNRECOGNISED TEXT NO LONGER SCORES MILD BY DEFAULT — not for an injury. Somebody wrote it down
+ * because something happened to a body, and "we do not have a word for it" is not evidence that it
+ * was a scratch. An unclassified CONDITION is still 1 (conditions carry ordinary states — "tired",
+ * "peckish", "damp" — and grading those as real damage would put the whole cast in a hospital), so
+ * the caller says which channel it is reading.
+ */
+export function severityOfText(text: string, kind: "injury" | "condition" = "condition"): BodySeverity {
   const t = String(text ?? "");
   if (!t.trim()) return 0;
-  if (CATASTROPHIC.test(t)) return 4;
-  if (SEVERE.test(t)) return 3;
+  if (CATASTROPHIC.test(t) || PART_GONE.test(t)) return 4;
+  if (SEVERE.test(t) || FACULTY_GONE.test(t)) return 3;
   if (MODERATE.test(t)) return 2;
   if (MILD.test(t)) return 1;
-  return 1;
+  return kind === "injury" ? 2 : 1;
 }
 
 /** The worst thing currently true of this body, across BOTH channels. */
@@ -57,7 +109,7 @@ export function bodySeverity(cond: Condition | undefined): BodySeverity {
   let worst: BodySeverity = 0;
   for (const c of cond.conditions ?? []) { const s = severityOfText(c); if (s > worst) worst = s; }
   for (const i of cond.injuries ?? []) {
-    const s = severityOfText(`${i.type} ${i.functional_impact ?? ""}`);
+    const s = severityOfText(`${i.type} ${i.functional_impact ?? ""}`, "injury");
     if (s > worst) worst = s;
   }
   return worst;
@@ -68,7 +120,7 @@ export function bodyMarks(cond: Condition | undefined, min: BodySeverity = 3): s
   if (!cond) return [];
   const out: string[] = [];
   for (const c of cond.conditions ?? []) if (severityOfText(c) >= min) out.push(c);
-  for (const i of cond.injuries ?? []) if (severityOfText(`${i.type} ${i.functional_impact ?? ""}`) >= min) out.push(i.type);
+  for (const i of cond.injuries ?? []) if (severityOfText(`${i.type} ${i.functional_impact ?? ""}`, "injury") >= min) out.push(i.type);
   return out;
 }
 
