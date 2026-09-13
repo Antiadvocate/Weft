@@ -345,6 +345,45 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         </div>
       </Fade>
 
+      {/* THE REGISTER GAUGE. Everything else on this page is about what happened; this is about how
+          it reads. It exists because the engine's thirteen dialogue detectors went silent for the
+          last twenty-seven turns of a save whose author had just said everybody sounded the same,
+          and silence from a tripwire is indistinguishable from a story going fine. A number that
+          drifts is legible where a tripwire that stopped firing is not. */}
+      {(() => {
+        const conc = tel.filter((t) => typeof t.template_concentration === "number");
+        if (conc.length < 3) return null;
+        const vals = conc.map((t) => t.template_concentration!);
+        const now = vals[vals.length - 1];
+        const first = vals[0];
+        const latest = [...tel].reverse().find((t) => t.template_top);
+        const conv = [...tel].reverse().find((t) => typeof t.voice_convergence === "number")?.voice_convergence;
+        return (
+          <Fade delay={0.05}>
+            <div className="card p-4">
+              <Title>How much of the dialogue is one shape</Title>
+              <Sparkline values={vals} w={340} h={34} yMin={0} yMax={Math.max(0.25, ...vals)} fill />
+              <div className="flex items-baseline gap-3 mt-2">
+                <span className="font-mono text-[18px]" style={{ color: now > first * 1.4 ? "var(--danger)" : "var(--accent)" }}>{(now * 100).toFixed(1)}%</span>
+                <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+                  from {(first * 100).toFixed(1)}% at turn {conc[0].turn}
+                  {typeof conv === "number" ? ` · speakers ${(conv * 100).toFixed(0)}% alike` : ""}
+                </span>
+              </div>
+              {latest?.template_example && (
+                <div className="text-[12px] mt-2 italic" style={{ color: "var(--text-lo)" }}>
+                  the shape that grew most: <span className="font-mono not-italic text-[10px]">{latest.template_top}</span><br />
+                  “{latest.template_example}”
+                </div>
+              )}
+              <Note>
+                The share of spoken lines built from the ten commonest part-of-speech patterns, over a rolling window. Low is a cast reaching for different sentences; climbing is a register closing in on itself, whatever the words are. Measured after each turn, locally, at no token cost — it never reaches the narrator.
+              </Note>
+            </div>
+          </Fade>
+        );
+      })()}
+
       <Fade delay={0.05}>
         <div className="card p-4">
           <Title>Pressure across the chronicle</Title>
