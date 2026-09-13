@@ -152,9 +152,9 @@ export function candidateNote(cands: Candidate[]): string {
   const rows = [...byWho].map(([who, lines]) => `${who}:\n${lines.map((l) => `    – ${l}`).join("\n")}`);
   // No prohibition anywhere in this text, and no example of what is being avoided. See the header.
   return `\n\n[LINES ALREADY IN THESE PEOPLE'S MOUTHS.
-Each of these came back as an unlikely thing for this person to say here, and each one still fits them. They are not a menu and not a script — nothing obliges you to use any of them.
+Each of these came back as an unlikely thing for this person to say here, and each one still fits them. Treat them as a range to write inside; using any one of them is optional.
 · ${rows.join("\n· ")}
-Write this turn's dialogue from the same region these came from: the thing this person might actually say that is not the first line available. If one of them is right, use it. If none is, the useful part is the range — they came back this varied because each one was reached for separately, and two people in a room reaching separately land in different places.]`;
+Write this turn's dialogue from the same region these came from: the second or third thing this person might say rather than the first one available. If one of them is right, use it. Otherwise take the range — each was reached for separately, and two people in a room reaching separately land in different places.]`;
 }
 
 export interface VerbalizeOpts { model: string; fallback: string; signal?: AbortSignal }

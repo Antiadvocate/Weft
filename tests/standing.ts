@@ -30,7 +30,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   const plain = dispositionCue(-17, -14.8, 0);
   check("with no standing, the cue is what it always was", !/BELOW YOU|HOLD THE POWER/.test(plain));
   const below = dispositionCue(-17, -14.8, -25);
-  check("someone far below says nothing about the last word", /do not get the closing line/.test(below), below.slice(-120));
+  check("someone far below lets the player close the exchange", /let you close the exchange/.test(below), below.slice(-140));
   check("…and still refuses — deference is not obedience", /If they refuse|can still refuse/.test(below + dispositionCue(-17, -14.8, -8)));
   check("a middling gap is its own, milder line",
     /stand below you/i.test(dispositionCue(0, 0, -8)) && !/FAR BELOW/i.test(dispositionCue(0, 0, -8)));
@@ -95,7 +95,7 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const sys = narratorSystem(false);
   check("the contract distinguishes where a turn stops from who speaks last",
-    /NOT THE SAME QUESTION AS WHO SPEAKS LAST/.test(sys));
+    /TWO SEPARATE DECISIONS EVERY TURN/.test(sys));
   check("…and says a dismissal lands", /THE PLAYER ENDING AN EXCHANGE ENDS IT/.test(sys));
   check("…and names the parting-shot reflex specifically",
     /do not get a parting line|They do not get a parting line/.test(sys));

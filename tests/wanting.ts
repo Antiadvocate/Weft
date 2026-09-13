@@ -74,7 +74,8 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   const line = feel(s, 0, 65, 3);
   check("desire at zero warmth is not rendered as fondness", !/flirts, teases, seeks closeness/.test(line), line);
   check("it is named as a complete state, not an unfinished bond", /Treat that as finished rather than as a bond that has not formed yet/i.test(line), line);
-  check("interest in the body, not in the day", /none in your day/i.test(line), line);
+  // wording changed when the contrastive epigram came out of this line; the requirement did not
+  check("interest in the body, and none in the day", /take no interest in your day/i.test(line), line);
   check("and it is not the beginning of caring", /NEVER render this as fondness, tenderness, or the beginning of caring/i.test(line), line);
 }
 
