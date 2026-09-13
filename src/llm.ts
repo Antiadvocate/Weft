@@ -14,6 +14,8 @@ export interface LLMPrefs {
   routeByPrice?: boolean;
   narratorReasoning?: boolean;   // default OFF: prose rarely needs visible thinking, and reasoning tokens bill as output
   preferDeepSeek?: boolean;      // first-party DeepSeek first for deepseek/* models — the 0.8–2% cache-hit rate lives there
+  proseTemp?: number;            // sampling temperature for PROSE calls only (bookkeeping stays cold)
+  proseMinP?: number;            // relative probability floor, which is what makes a warm temperature safe
 }
 let prefs: LLMPrefs = {};
 export function setLLMPrefs(p: LLMPrefs): void { prefs = { ...p }; }
@@ -156,6 +158,49 @@ function localSampler(): Record<string, number> {
     ...(guard > 0 ? { frequency_penalty: guard, presence_penalty: Math.round(guard * 50) / 100 } : {}),
     ...(topP > 0 ? { top_p: topP } : {}),
   };
+}
+
+/* ── THE PROSE CALL HAD NO SAMPLER ON IT ──────────────────────────────────────────────────────
+ *
+ * localSampler() above shapes the distribution for a model on the player's own machine. The
+ * OpenRouter path — which is every cloud turn anybody has ever played — sent `temperature: 0.85`
+ * and nothing else. Not min_p, not top_a, not a penalty, on the largest and most style-sensitive
+ * call of the turn.
+ *
+ * OpenRouter accepts min_p, top_a, repetition_penalty, frequency_penalty, presence_penalty and
+ * logit_bias, forwards whatever the chosen provider understands, and silently drops the rest — so
+ * sending a parameter a model does not implement costs nothing and fails safe.
+ *
+ * WHAT THIS IS AND IS NOT FOR. It is not a fix for the register. The literature is blunt about
+ * that: mode collapse comes from typicality bias in the preference data (Zhang et al., Verbalized
+ * Sampling, 2510.01171), and the maxim is not an unlikely token the sampler can be talked out of —
+ * it is the mode itself, sitting at the top of the distribution where no truncation reaches it.
+ * Hamilton & Mimno (2605.26492) measured eleven words appearing in 88.3% of twenty thousand stories
+ * across four different models, and showed those tokens are rare in pretraining data and common in
+ * preference data. You cannot sample your way out of that, and this does not claim to.
+ *
+ * What it does is give the turn somewhere else to go. A warmer temperature widens what gets
+ * considered; min_p is the floor that keeps the widening from turning into garbage, by cutting
+ * every token below a fraction of the leader's probability rather than at a fixed rank. The two
+ * only work as a pair, which is why they are one block and not two settings in different places.
+ *
+ * NO PENALTIES HERE, deliberately, and this is the difference from localSampler. frequency_penalty
+ * and presence_penalty act within a single response. The failure this was written for is a frame
+ * recurring ACROSS turns — "that's the whole thing" twelve times over seventy-four turns, each one
+ * a separate API call with a fresh context — and a penalty cannot see the previous call. Adding one
+ * here would cost novelty inside a scene to buy nothing between them.
+ *
+ * AND BOOKKEEPING IS NOT PROSE. A diff is transcription; it runs at 0.2 with no sampler at all, and
+ * warming it would corrupt state to no benefit.
+ */
+const PROSE_TEMP_DEFAULT = 0.85;   // what every call used before this existed
+const PROSE_MIN_P_DEFAULT = 0;     // and no floor, which is why the default above cannot move on its own
+
+/** Sampler fields for a cloud PROSE call. Never applied to a JSON/bookkeeping call. */
+function proseSampler(): Record<string, number> {
+  const t = prefs.proseTemp ?? PROSE_TEMP_DEFAULT;
+  const mp = prefs.proseMinP ?? PROSE_MIN_P_DEFAULT;
+  return { temperature: t, ...(mp > 0 ? { min_p: mp } : {}) };
 }
 
 /** Cap a PROSE budget for a local server. Bookkeeping calls are untouched: a diff is JSON and
@@ -348,7 +393,9 @@ async function once(messages: any[], model: string, json: JsonMode, maxTokens: n
     body: JSON.stringify({
       model, messages: groundMsgs, max_tokens: maxTokens,
       ...(webPlugin ? { plugins: webPlugin } : {}),
-      temperature: json ? 0.2 : 0.85,
+      // A DIFF IS TRANSCRIPTION AND PROSE IS NOT. See proseSampler: bookkeeping stays cold and
+      // unshaped, prose gets the temperature and the floor the save is configured with.
+      ...(json ? { temperature: 0.2 } : proseSampler()),
       ...rf,
       // ROUTING: an explicit per-call sort (the bookkeeper routes for throughput) beats the
       // global price preference; first-party DeepSeek priority rides on top for deepseek models.
@@ -471,7 +518,7 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       // enough that a 5000-token ask can eat a third of it, and a looping model fills whatever it
       // is given. TURN ENDINGS still decides where the scene stops; this only bounds the room.
       ? { model: tgt.model, messages: outMsgs, max_tokens: localMaxTokens(maxTokens), temperature: 0.85, stream: true, ...localSampler() }
-      : { model: m, messages: outMsgs, max_tokens: maxTokens, temperature: 0.85, stream: true, usage: { include: true },
+      : { model: m, messages: outMsgs, max_tokens: maxTokens, ...proseSampler(), stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.
       ...(reroute ? { provider: { sort: "throughput", allow_fallbacks: true } } : providerParam(m)),

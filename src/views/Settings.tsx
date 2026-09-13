@@ -945,6 +945,32 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <Toggle on={!!draft.voice_cards} onFlip={() => setDraft((d) => ({ ...d, voice_cards: !d.voice_cards }))}
           title="Voice cards"
           desc="Off: nobody carries a written-down spec for how they talk, and the narrator works from who they are — where they're from, the trade they actually have, what they bring up unprompted, who they're talking to and what they want out of it. On: each character also carries a diction/syntax/rhythm card. It was on by default and it converged the cast — across one four-person save every syntax field said short, declarative, no hedging, and nine of thirteen sample lines named a number or a price. A character whose voice you locked by hand keeps their card either way." />
+        <Toggle on={!!draft.verbalized_sampling} onFlip={() => setDraft((d) => ({ ...d, verbalized_sampling: !d.verbalized_sampling }))}
+          title="Verbalized sampling (dialogue)"
+          desc="One extra small call per turn, on the bookkeeper model. Before the narrator writes, it asks for five possible next lines per speaker WITH the model's own probability on each, and keeps only the ones it rated unlikely — then hands those to the narrator as options. Asking for a distribution instead of a line is what makes a model reach past its first idea; asking for the tail is what stops the first idea being the only one it considered. This is the one setting here that goes at the cause of everybody-sounds-the-same rather than catching it afterwards, and the reason it is off by default is the call, not any doubt about it." />
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+          <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Prose sampling</div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[14px]">Temperature</span>
+            <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{(draft.prose_temperature ?? 0.85).toFixed(2)}</span>
+          </div>
+          <input type="range" min={0.6} max={1.2} step={0.05} value={draft.prose_temperature ?? 0.85}
+            onChange={(e) => setDraft((d) => ({ ...d, prose_temperature: Number(e.target.value) }))}
+            className="w-full" style={{ accentColor: "var(--accent)" }} />
+          <div className="flex items-center justify-between mb-1 mt-2">
+            <span className="text-[14px]">Min-p floor</span>
+            <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{(draft.prose_min_p ?? 0).toFixed(2)}</span>
+          </div>
+          <input type="range" min={0} max={0.2} step={0.01} value={draft.prose_min_p ?? 0}
+            onChange={(e) => setDraft((d) => ({ ...d, prose_min_p: Number(e.target.value) }))}
+            className="w-full" style={{ accentColor: "var(--accent)" }} />
+          <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
+            Applies to the narrator and every other prose call. Bookkeeping is untouched — a diff is transcription and runs cold.
+            Temperature widens what a turn can reach; min-p is the floor that keeps the widening from going to pieces, cutting anything below that fraction of the likeliest token{"'"}s probability. They work as a pair: raising one without the other either does nothing or produces mush.
+            {" "}Old saves sit at 0.85 with no floor, which is what every turn ran at before these existed; new games start at 0.95 / 0.05.
+            {" "}This will not fix a cast who all talk the same. That register is the most probable thing the model can say, and no floor reaches the top of a distribution — it is headroom, not a cure.
+          </div>
+        </div>
         <Toggle on={draft.habit_engine !== false} onFlip={() => setDraft((d) => ({ ...d, habit_engine: d.habit_engine === false ? true : false }))}
           title="Habit engine"
           desc="Core traits become firing habits that loosen only when a character sees themselves do them (clarity, not kindness) and deepen when they don't. Change is slow, directionless, and never chosen — a character finds out they've changed when someone else notices. Watch it in each character's drawer." />

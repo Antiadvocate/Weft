@@ -525,6 +525,114 @@ export function firstPersonVerb(word: string): string | null {
 }
 
 /**
+ * AN UNQUOTED CLIPPING IS STILL A CLIPPING — and it is where the aphorisms come from.
+ *
+ * Rule 1 below rejects a span that ARRIVES in quotation marks. The bookkeeper does not always send
+ * them. From one save at turn 74, stored as episodic memory and indistinguishable, to every later
+ * reader, from a thing that happened:
+ *
+ *   Emily's bank:  Tell Her what you are.
+ *                  Like, don't even think about the gym.
+ *                  Bet that's better than the gym, huh.
+ *                  You got someplace to be, or is this just for me?
+ *   Max's bank:    You don't have to look up past it.
+ *                  That's worship. That's the whole religion.
+ *                  A throat that opens when I push.
+ *                  Her toes curl once against your thigh.
+ *
+ * Eight of Emily's twenty-nine entries and five of Max's twenty-six. Every one is a line lifted off
+ * the page with the quotation marks taken off on the way in — six of them dialogue, two of them
+ * second-person narration — and every one clears rule 1, because rule 1 tests for a quote mark and
+ * there is no quote mark, and clears the five-word floor, because a good line of dialogue is five
+ * words long.
+ *
+ * WHY IT MATTERS MORE THAN AN UNTIDY LEDGER. `context_memories_k` sends the top few memories of
+ * every present character into the narrator prompt on every single turn. So a clipped line does not
+ * sit in the bank being wrong; it is read back to the narrator as WHAT THIS PERSON REMEMBERS, next
+ * to the request to write what she says next. The most quotable line of turn 64 is handed back as
+ * Emily's memory on turn 65 and the model does the obvious thing with it. The register is not being
+ * generated fresh each turn — it is being recirculated, and the memory bank is the loop.
+ *
+ * That is also why the prompt rule did not hold. "No raw quotes in any store" is in the bookkeeper
+ * contract twice (prompts.ts, the two memory-kinds paragraphs) and both copies sit in the cached
+ * prefix, which this engine has written down more than once — see maxims.ts, authored.ts — is the
+ * position where a rule is REFERENCE rather than instruction.
+ *
+ * WHAT SEPARATES AN ACCOUNT FROM A CLIPPING, given that both are one short sentence:
+ *
+ *   · AN ACCOUNT DOES NOT ADDRESS ANYBODY. It is what happened, told by the person it happened to.
+ *     A "you" in it means the text is still pointed at a listener, which a memory never is — it is
+ *     either dialogue with the marks stripped, or this engine's second-person narration clipped
+ *     whole ("across your skin"). Reported speech survives on the far side of it: "Emily told me I
+ *     could put my hand back" is an account and contains no second person at all.
+ *   · AN ACCOUNT OPENS WITH AN ACTOR. "I" or somebody's name, doing something. A clipping opens with
+ *     a bare imperative (Tell, Stay), a verdict on the present moment (That's worship), or a noun
+ *     phrase with no main clause (A throat that opens when I push). A fronted time or place is
+ *     allowed to come first, because the offstage pass writes them that way all day: "Around 12:50
+ *     Abigail decides…".
+ *
+ * Both tests only apply to SHORT entries. A long one has room to be badly formed and still be an
+ * account of something, and dropping it costs more than keeping it.
+ */
+const SECOND_PERSON = /\b(?:you|your|yours|yourself|you're|you'll|you've|you'd|u r)\b/i;
+/** A fronted adverbial the actor is allowed to stand behind. Same two shapes rule 4 already knows
+ *  about: a phrase closed by a comma, or one that ends in a time word. */
+const FRONTED = new RegExp(
+  String.raw`^(?:(?:[^.!?]|\.(?=\S)){0,44},\s+`
+  + String.raw`|[^.!?]{0,44}\b(?:\d{1,2}:\d{2}|\d{1,2}\s*(?:a\.?m|p\.?m)\.?|o'clock|midnight|noon|dawn|dusk|morning|afternoon|evening|night|today|yesterday|tomorrow|later|afterwards?)\b[\s,]+)`,
+  "i",
+);
+/** A SUBORDINATE CLAUSE MAY COME FIRST, and the actor stand after its comma. "When I apologized and
+ *  pulled my hand away from Emily's leg, Emily set her foot on my knee" is an account of an evening
+ *  and opens on a conjunction; FRONTED will not take it, because that one is capped at the length of
+ *  an adverbial and this is a whole clause. */
+const SUBORDINATE = /^(?:when|while|after|before|because|since|as|if|once|though|although|until|whenever|now that)\b[^,.!?]{0,70},\s+/i;
+/** "I <verb>" or "<Name> <verb>" — an actor and something they did. `I` alone is not enough: "I
+ *  think so" is a line of dialogue, and so the verb has to be there for the clause to be an event.
+ *
+ *  AND A DEMONSTRATIVE IS NOT A NAME, which is the whole of the failure this test exists to catch.
+ *  `[A-Z][a-z]+` matched "That's" in "That's worship. That's the whole religion." and "Nobody" in
+ *  "Nobody thinks about the ottoman", so the two purest specimens in the save — a verdict on the
+ *  moment and a pronouncement about the world, which is to say the two shapes maxims.ts is entirely
+ *  about — were the only ones this rule let through. A demonstrative or an indefinite in the subject
+ *  slot is the tell that the sentence is ABOUT something rather than an account of somebody doing
+ *  anything. A third-person pronoun is left alone: "She told me she'd be late" is a poor memory but
+ *  it is still a memory, and rule 4 has its own long argument about not guessing at those. */
+const NOT_AN_ACTOR = /^(?:that|this|these|those|it|there|here|all|none|both|each|nobody|no one|everybody|everyone|somebody|someone|anybody|anyone|nothing|everything|something|anything|what|which|who|why|how|maybe|well|okay|yeah|yes|no)(?:'s|’s)?$/i;
+/** …AND A VERB IN THE SUBJECT SLOT IS AN IMPERATIVE, WHICH IS SPEECH. "Bet that's better than the
+ *  gym, huh." reads to the test above as a person called Bet doing something called that's, because
+ *  nothing here can tell a proper noun from a capitalised verb. Second person catches most of these
+ *  ("Tell Her what you are") and this catches the rest.
+ *
+ *  DELIBERATELY SHORT, AND SPECIFICALLY MISSING THE WORDS THAT ARE ALSO NAMES. Hope, Grace, Faith,
+ *  Joy, May, Rose, Summer and Will are all imperatives or auxiliaries and all people, and a cast
+ *  member called Hope whose every memory is silently discarded is a far worse failure than one
+ *  clipping surviving. When in doubt the word stays off this list. */
+const IMPERATIVE_OPENER = /^(?:bet|tell|stay|say|leave|ask|come|go|look|keep|don't|do|just|like|please|let|get|take|make|try|stop|wait|listen|guess|sorry|thanks|anyway|actually|honestly|seriously|christ|jesus|god)$/i;
+const OPENS_WITH_ACTOR = /^(I|We|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?(?:'s|’s)?)\s+(?:(?:\w+ly|just|still|already|finally|then|now|never|always|again|once|only|almost)\s+){0,2}[a-z]/;
+
+/** Words at most, before an entry stops being short enough for these tests to run. Measured on the
+ *  save that prompted this: every clipping was 12 words or fewer, and no account under 16 was
+ *  rejected by either test, so the line sits between them where it costs nothing either way. */
+const CLIP_MAX_WORDS = 14;
+
+/** Why this text is a line off the page rather than an account, or null if it is an account. */
+export function clippedLine(t: string): string | null {
+  if (t.split(/\s+/).filter(Boolean).length > CLIP_MAX_WORDS) return null;
+  if (SECOND_PERSON.test(t)) return "addressed to somebody — a memory is an account, not a line";
+  // THE STRIP IS A FALLBACK, NEVER THE FIRST READ. Applied unconditionally, FRONTED's time-word arm
+  // ate the actor out of "Emily Brenner told me I stayed put all NIGHT and that it wasn't nothing"
+  // — a perfectly good account, left as "and that it wasn't nothing" and refused. The adverbial
+  // rules exist to find an actor standing behind a fronted phrase, so they only earn their keep
+  // when the text does not already open with one.
+  for (const body of [t, t.replace(SUBORDINATE, ""), t.replace(FRONTED, "")]) {
+    const actor = OPENS_WITH_ACTOR.exec(body);
+    if (actor && !NOT_AN_ACTOR.test(actor[1]) && !IMPERATIVE_OPENER.test(actor[1])) return null;
+  }
+  return "no actor doing anything — a clipped line, not an event";
+}
+
+/**
  * A MEMORY IS SOMEBODY'S ACCOUNT OF WHAT HAPPENED, NOT A CLIPPING FROM THE PAGE.
  *
  * The contract asks for "one tight sentence, the core of what happened" and says nothing about
@@ -557,6 +665,10 @@ export function cleanMemoryContent(content: unknown, opts: { name: string; isPla
   // A fragment with no clause in it is a line off the page, not an account of anything. Four words
   // cannot say who did what: `How about you?` was sitting in a character's memory bank.
   if (t.length < 12 || t.split(/\s+/).length < 5) return null;
+  //    …AND THE MARKS ARE OFTEN ALREADY OFF. See clippedLine above: the same line of dialogue with
+  //    no quote marks around it passes every test to this point, and is then read back to the
+  //    narrator as this character's memory on the following turn.
+  { const why = clippedLine(t); if (why) { console.warn(`[memory] clipping refused (${why}): "${t.slice(0, 70)}"`); return null; } }
 
   // 2. THE PLAYER'S OWN WORDS ARE NEVER SOMEBODY ELSE'S MEMORY. Verbatim, or near enough that it is
   //    plainly a copy rather than an account of having heard it.
