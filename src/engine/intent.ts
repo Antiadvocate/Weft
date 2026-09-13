@@ -22,7 +22,7 @@
 import type { SaveState } from "./types";
 import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
-import { dispositionCue } from "./desire";
+import { effectiveStanding, dispositionCue } from "./desire";
 import { relevance } from "./memory";
 import { clipText } from "./text";
 import { doorFromVoice } from "./coerce";
@@ -245,7 +245,7 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
                return door ? `How they go at it (their door — the surface should BE this, not the want): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
-      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0)}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",
+      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player — polite, measuring, noncommittal about favors, trust, and risk. That is NOT blanket refusal: their ordinary trade or duty they perform for a stranger as they would for anyone, at the usual price.",
       `WHY THEY HAVE STAKES THIS BEAT: ${reason}`,
       priorIntentBlock(state, id),
       // THE LOOP THIS PASS CANNOT SEE FROM INSIDE ONE CALL. priorIntentBlock catches a want that

@@ -826,3 +826,95 @@ export function repairAuthoredHabitCounts(state: SaveState): number {
   }
   return reset;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * A LAW THE PLAYER WROTE ABOUT ONE PERSON, WITH NOTHING BEHIND IT.
+ *
+ * From a save at turn 20, in `world.canon`, sitting between "The year is 1932" and "Class
+ * determines almost everything":
+ *
+ *     Emily Clarke falls desperately in love with Rabi and must marry him.
+ *
+ * That is the strongest statement in the entire save and it is a STRING IN A LIST. Everything in
+ * this file — the stages, the ratchet, the miss counter, the escalation, MISS_CEILING, the
+ * crystallisation into a trait — operates on `character.authored[]`, and Emily's was empty. So the
+ * law was rendered into the prompt as world background, next to the weather and the Empire, and
+ * competed on equal footing with her recorded warmth of −1.6. It lost, every turn, and the player's
+ * report was "Emily is... not interested in me."
+ *
+ * Canon is the right place to WRITE it — it is a fact about the world. It is the wrong place for it
+ * to LIVE, because a fact about the world that is really an instruction about one person needs the
+ * machinery that makes instructions about people happen.
+ *
+ * DELIBERATELY NARROW. This only fires on a canon line whose subject is a cast member by name and
+ * whose verb is a standing obligation or disposition — must, falls in love with, will always, is
+ * to, cannot stop. "Class determines almost everything" names nobody and is left alone; so is "The
+ * law forbids sexual acts between men", which is a law about the world rather than about a person.
+ * A line that does not clear both tests stays exactly where it is and does nothing, which is the
+ * behaviour every canon line has today.
+ *
+ * IDEMPOTENT, AND ONE-WAY. It runs every turn (the player can edit the bible at any time) and adds
+ * a want only when nothing resembling it is already on the person. It never removes, never edits,
+ * and never touches a want the player wrote by hand — if they delete it, it does not come back,
+ * because `canon_adopted` remembers the line rather than the want.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** A standing obligation or disposition aimed at somebody — the shape of a law about a person, as
+ *  opposed to a fact about the world. The captured group is the predicate, which becomes the want. */
+const CANON_LAW = /\b(must\s+\w+|falls?\s+(?:desperately\s+|deeply\s+|hopelessly\s+)?in\s+love\s+with\b|will\s+always\s+\w+|will\s+never\s+\w+|is\s+to\s+\w+|cannot\s+(?:stop|help|resist)\b|is\s+obsessed\s+with\b|is\s+devoted\s+to\b|is\s+sworn\s+to\b|has\s+to\s+\w+)/i;
+
+/** Turn "Emily Clarke falls desperately in love with Rabi and must marry him." into a want in her
+ *  own mouth, with her own name out of it — a goal naming its owner is the exact shape this engine
+ *  keeps having to correct elsewhere (see the drives_update contract). */
+function lawToGoal(line: string, ownerName: string): string | null {
+  let t = String(line ?? "").trim().replace(/\s+/g, " ");
+  const first = ownerName.split(/\s+/)[0];
+  // cut everything up to and including the owner's name — the predicate is what they do
+  const at = t.search(new RegExp(`\\b${ownerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b|\\b${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"));
+  if (at < 0) return null;
+  t = t.slice(at).replace(new RegExp(`^\\S+(\\s+\\S+)?\\s*`), (m) => (new RegExp(`^\\s*${first}`, "i").test(m) ? "" : m));
+  t = t.replace(new RegExp(`\\b${ownerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b|\\b${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), "").trim();
+  t = t.replace(/^(?:,|\.|and|who|that)\s+/i, "").replace(/[.\s]+$/, "").trim();
+  // third person to the bare verb: "falls in love with Rabi" reads as a want, "she falls" does not
+  t = t.replace(/^(?:she|he|they|it)\s+/i, "").trim();
+  return t.split(/\s+/).length >= 3 ? t : null;
+}
+
+/**
+ * Adopt canon laws about named people as standing wants on those people.
+ *
+ * Returns the shifts to report. Safe to call every turn.
+ */
+export function adoptCanonLaws(state: SaveState): string[] {
+  const out: string[] = [];
+  const turn = state.world.current_turn;
+  const adopted = (state.world.canon_adopted ??= []);
+  for (const raw of state.world.canon ?? []) {
+    const line = String(raw ?? "").trim();
+    if (!line || adopted.includes(line)) continue;
+    if (!CANON_LAW.test(line)) continue;
+    // whose law is it? the cast member the line opens on, so "Emily Clarke falls in love with Rabi"
+    // belongs to Emily and not to Rabi, who is only named in the predicate.
+    let owner: { id: string; name: string } | null = null, at = Infinity;
+    for (const [id, c] of Object.entries(state.characters)) {
+      if (id === "char_player" || !c?.name) continue;
+      const i = line.toLowerCase().indexOf(String(c.name).toLowerCase().split(/\s+/)[0]);
+      if (i >= 0 && i < at) { owner = { id, name: c.name }; at = i; }
+    }
+    if (!owner) continue;
+    const goal = lawToGoal(line, owner.name);
+    if (!goal) continue;
+    const c = state.characters[owner.id];
+    const list = (c.authored ??= []);
+    adopted.push(line);
+    if (state.world.canon_adopted!.length > 60) state.world.canon_adopted = state.world.canon_adopted!.slice(-60);
+    if (findSameWant(list, goal) >= 0) continue;   // the player already wrote it by hand
+    list.push(newAuthored(goal, turn, {
+      because: `the world is written this way: ${line}`,
+      rate: "steady",
+    }));
+    out.push(`${owner.name} carries a standing want the world's own canon states: ${goal}`);
+    console.warn(`[canon] adopted a law about ${owner.name} as a standing want: "${goal}"`);
+  }
+  return out;
+}

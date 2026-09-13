@@ -388,8 +388,35 @@ export function desireLine(state: SaveState, id: string): string {
       ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they keep ending up where you are and are angry about it; they stand nearer than the argument needs; they touch you in ways that are not kind; contempt that keeps coming back for more of you; needling as a way of making contact; punishing you for a pull they will not own. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER narrate the wanting — the hostility is real, the wanting is real, and this does not develop into a bond.`
       : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: frank, unsentimental appetite with no affection attached — they will say the cold thing and want you in the same breath, seek you out and give you nothing, be unembarrassed about the contradiction. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
   }
+  /* ── THE DEAD ZONE, AND WHAT IT COST ────────────────────────────────────────────────────────
+   *
+   * From a save at turn 20: Emily at attraction 100 toward the player, warmth −1.6, trust −17.9,
+   * after he asked her to dinner and then said something about her in the street. Attraction 0
+   * toward the other man in the scene; he holds 38 toward her. She is maxed on the player and
+   * wants nobody else, and what the prose did was walk her off down the Embankment with him while
+   * the player sat in the car. The report: "Emily is... not interested in me."
+   *
+   * She was not in the hostile branch above — that opens at warmth −20 and she is at −1.6 — so she
+   * got this line, which used to end: "they do not ask after you, do not soften, DO NOT SEEK YOUR
+   * COMPANY FOR ITS OWN SAKE, and are unbothered by whether you like them." Handed to the narrator
+   * beside a disposition cue reading cold and distrustful, that is two instructions saying stay
+   * away and one number saying she wants him more than anything, and the number is the only one of
+   * the three that is not a sentence. The narrator wrote the only consistent scene available.
+   *
+   * The distinction this line was reaching for is real and worth keeping: appetite is not courtship,
+   * and "no interest in your day" is exactly right. What was wrong is that it went on to forbid
+   * PURSUIT, which is the one thing every level of wanting has in common. A person who wants you and
+   * does not like you does not drift away; they turn up. They just turn up for their own reasons.
+   *
+   * AND THE BAND BELOW ZERO IS ITS OWN REGISTER. Between the hostile floor and neutral sits the
+   * commonest situation in any story with people in it — wanting somebody you are currently angry
+   * with — and the engine had no line for it at all. */
   if (a >= 30 && e.warmth < COOL && !romantic) {
-    return `desire toward you: real (${a}) with no attachment behind it (warmth ${Math.round(e.warmth)}) — they want you and have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet. SHOW: direct appetite without courtship — interest in your body and your presence, none in your day; they do not ask after you, do not soften, do not seek your company for its own sake, and are unbothered by whether you like them. NEVER render this as fondness, tenderness, or the beginning of caring, and never narrate the wanting outright — it is in what they do.`;
+    const sore = e.warmth < 0;
+    return `desire toward you: real (${a}) with ${sore ? `no goodwill left in it (warmth ${Math.round(e.warmth)}, and they are annoyed with you)` : `no attachment behind it (warmth ${Math.round(e.warmth)})`} — they want you and ${sore ? "are angry at you, and both are true at once. Neither one cancels the other" : "have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet"}. `
+      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. What is missing is courtship, not appetite: interest in your body and your presence, none in your day; they do not ask after you and do not soften${sore ? ", and everything they do arrives with an edge on it — standing closer than the argument needs, a hand that is not kind, needling as a way of making contact" : ", and they are unbothered by whether you like them"}. `
+      + `A person who wants somebody does not drift off and leave them to it${sore ? "; being angry is a reason to get in their face, not a reason to go home" : ""}. They stop only when they are refused outright, and then they are cold about it and come back later. `
+      + `NEVER render this as fondness, tenderness, or the beginning of caring${sore ? ", and never let the anger resolve into liking you" : ""}, and never narrate the wanting outright — it is in what they do.`;
   }
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
   // convert the desire into a quotable interior sentence ("she resented not having him"). Magnitude (a)
@@ -397,7 +424,7 @@ export function desireLine(state: SaveState, id: string): string {
   if (cold) return adm >= 0.4
     ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth deployed as a tool, gifts with strings; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
     : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, tallying who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
-  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, seeks closeness, lets you be; NEVER state the wanting outright — render it as behavior`;
+  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, angles for closeness, makes and takes openings, and lets you be when you want to be let be; a settled wanting is not a passive one; NEVER state the wanting outright — render it as behavior`;
   if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, a claim dressed as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
   return `desire toward you: real (${a}), not yet settled — SHOW: surfaces in small glances and half-gestures when the moment allows; NEVER state it outright — behavior only`;
 }
@@ -467,7 +494,58 @@ export function tickDesire(state: SaveState): string[] {
  *  They diverge: someone can care deeply while still not trusting (warm but cautious), which reads as
  *  warmth WITH guardedness, never as coldness. The key failure this fixes is a narrator fixating on
  *  low trust and writing a loyal, warming companion as a hostile stranger. */
-export function dispositionCue(warmth: number, trust: number): string {
+/**
+ * STANDING, WHICH NOTHING HAS EVER READ.
+ *
+ * Every edge in this engine carries `power` — "a's perceived standing over b (deference if
+ * negative)". social.ts writes it, montage interpolates it, the bookkeeper emits power_delta for
+ * it. No prompt anywhere reads it. From a save at turn 49, all three edges pointing at the player:
+ * Emily −7, Arthur −6, Olga −2 — the state saying plainly that all three defer to him — while an
+ * eighteen-year-old immigrant clerk in 1932 and a fifty-two-year-old smuggler both met a man who
+ * materialises motor-cars out of nothing as exact social equals, and out-argued him every turn.
+ *
+ * The reason it never mattered is that dispositionCue takes warmth and trust and nothing else, and
+ * both are INTIMACY axes. Neither can say "is frightened of you". So at negative warmth the only
+ * register the function can produce is cold composure — and a frightened person and a contemptuous
+ * one get the identical cue. The player's report: "Everyone is terrified of me… everyone even a
+ * fucking 18 year old somehow has my moral judgement at hand."
+ *
+ * Deference is not warmth and it is not agreement. It changes the SHAPE of a refusal rather than
+ * whether one happens: someone who defers still says no, and says it in fewer words, without the
+ * closing line, and while looking for the door.
+ */
+/**
+ * …AND THE LEDGER'S OWN NUMBER IS USUALLY ZERO, BECAUSE NOTHING WRITES IT EITHER.
+ *
+ * `power_delta` appears exactly once in the whole bookkeeper contract — inside the JSON schema
+ * example, as `"power_delta":0`. warmth, trust and attraction each get a paragraph explaining what
+ * moves them and by how much; power gets a slot and no instruction, so it moves by accident if at
+ * all. On the save this was written from, the eighteen-year-old who had spent forty-eight turns
+ * "shaken by the player's impossible power" carried an edge power of −2.
+ *
+ * But the engine already holds a far better signal and reads it nowhere near here: `power_witnessed`
+ * is the tier the world has actually SEEN the player operate at, detected from the prose, decaying a
+ * rung every forty turns. That same save reads `{tier: "mythic", turn: 33}`. A person who has
+ * watched somebody do the impossible does not need a bookkeeper to write them a deference number.
+ *
+ * So standing is the LOWER of what the ledger says and what the tier implies. The tier only ever
+ * pushes toward deference and never away from it, so a character the ledger records as genuinely
+ * powerful in their own right keeps their footing.
+ */
+const TIER_STANDING: Record<string, number> = { mortal: 0, empowered: -8, mythic: -25, cosmic: -45 };
+export function effectiveStanding(power: number, witnessedTier?: string | null): number {
+  const floor = TIER_STANDING[String(witnessedTier ?? "mortal")] ?? 0;
+  return Math.min(power ?? 0, floor);
+}
+
+function standingCue(power: number): string {
+  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They do not hold the floor, do not deliver verdicts on you, do not get the closing line. Disagreement comes out sideways or not at all — a half-sentence, a look away, doing the thing while plainly not wanting to. If they refuse, it is short, and it costs them visibly.";
+  if (power <= -6) return " — AND THEY STAND BELOW YOU (standing " + Math.round(power) + "): they measure their words around you, let you finish, and do not summarise your character back at you. They can still refuse and still hold a line, but they do it briefly and without the last word.";
+  if (power >= 20) return " — AND THEY HOLD THE POWER HERE (standing " + Math.round(power) + "): they can afford to be unhurried, to interrupt, to decline without explaining.";
+  return "";
+}
+
+export function dispositionCue(warmth: number, trust: number, power = 0): string {
   // warmth band on the full scale, with what it looks like in behavior. Every band says what the
   // person DOES, including how they disagree — warmth lowers ceremony, not independence, and a
   // band that only describes affection renders as a compliance machine.
@@ -500,7 +578,7 @@ export function dispositionCue(warmth: number, trust: number): string {
   // wages in gold spends three turns deciding whether to pour, and the player stops asking anyone
   // for anything. Coldness is about what someone will GIVE, never about whether their trade works.
   const trade = " — TRANSACTIONS ARE NOT FAVORS: whatever this person does for a living they still do, for a stranger, at the usual price, without needing to like them. Selling, serving, ferrying, directing, renting, answering a question any passer-by could answer — none of that is a concession and none of it needs warmth. Withhold favors, trust, secrets, loyalty, and risk; do not withhold the ordinary business of the world.";
-  return `${care} ${rely}${note}${trade}`;
+  return `${care} ${rely}${note}${trade}` + standingCue(power);
 }
 
 // ─────────────────────────── RIVALRY ───────────────────────────

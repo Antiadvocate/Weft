@@ -49,6 +49,7 @@ import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, v
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
+import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
@@ -59,6 +60,7 @@ import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
+import { adoptCanonLaws } from "./authored";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -3950,7 +3952,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // capture the cast BEFORE the diff runs — applyDiff may move people, and the history entry
   // must record who was actually in this scene (scene illustrations of old paragraphs use it)
   const presentDuringTurn = [...state.world.present];
-  const shifts = applyDiff(state, diff, action, prose, !!footer);
+  // `let`, not `const`: everything below pushes into it, and the sift just before the history
+  // push replaces it with the part a person should actually read. See engine/shifts.ts.
+  let shifts = applyDiff(state, diff, action, prose, !!footer);
   // AND THE PLAYER IS TOLD. "I CREATE A GUN AND KILL MYSELF" was typed four times in one save
   // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
   // from being ignored, so the reasonable response is to type it again, louder.
@@ -4477,6 +4481,21 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       ev.onMeta?.({ shifts: [`reviser: ${rev.skipped} — you are reading the narrator's own words`] });
     }
   }
+
+  // ── WHAT OF ALL THAT THE PLAYER IS ACTUALLY TOLD ──────────────────────────
+  // Every push site above still pushes; one place decides what a person sees. See engine/shifts.ts
+  // for the count that forced this — on one save, a third of every notification ever shown was a
+  // single internal counter, and "X will remember that" fired on thirty-one turns, which is a
+  // progress bar for a process that never stops.
+  //
+  // Held lines are not lost. They go to the console for whoever is debugging the subsystem that
+  // wrote them, which is who they were written for.
+  // Through contextHistory, not state.history directly — tests/clear-log holds every recent-story
+  // read to the boundary, and a player who cleared the log getting one repeated toast is a much
+  // smaller thing than an exception in that rule.
+  const sifted = sift(shifts, contextHistory(state).slice(-REPEAT_WINDOW).flatMap((h) => h.shifts ?? []));
+  if (sifted.held.length) console.debug(`[shifts] held ${sifted.held.length} this turn:`, sifted.held);
+  shifts = sifted.shown;
 
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
@@ -6020,6 +6039,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // a stranger's beauty-and-taste read has no business overwriting it. Catches edges seeded before
   // this existed and edges whose person was authored into a partner long after they met.
   shifts.push(...repairAuthoredBonds(state));
+  // A canon line that is really an instruction about one person becomes a standing want on that
+  // person, so the machinery in authored.ts can enforce it. See adoptCanonLaws.
+  shifts.push(...adoptCanonLaws(state));
 
   // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
   // or alive on a later turn (it sees them lingering in a scene and writes them acting), which

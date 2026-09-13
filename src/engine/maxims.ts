@@ -384,6 +384,26 @@ const FIGURE_FRAMES: { key: string; re: RegExp }[] = [
   { key: "said-it-like", re: /\b(?:said|says|repeated|repeats|asked|asks|answered|replied|murmured|whispered|added)\b[^.?!\n]{0,60}?\blike\s+(?:a|an|the|she|he|they|it|somebody|someone|you)\b[^.?!\n]{0,80}/i },
   // "Her voice came out low and unhurried, like she was talking most of the way to herself."
   { key: "voice-like", re: /\b(?:voice|words?|tone|the sound)\b[^.?!\n]{0,40}?\b(?:came out|went|was|sounded|dropped)\b[^.?!\n]{0,50}?,\s*like\b[^.?!\n]{0,80}/i },
+
+  // ── AND THE SAME TIC WITH THE SIMILE TAKEN OFF ──────────────────────────────────────────────
+  //
+  // Both frames above require the word `like`, because both were mined from a save where the
+  // narrator was writing similes. The register dropped the simile and kept everything else, and the
+  // detector went to zero. From a save at turn 49, eight of the last ten turns:
+  //
+  //   T39 voice is low and even      T44 voice is steady        T47 voice is clear and level
+  //   T40 voice is still calm        T45 voice is even          T48 voice is low and unhurried
+  //   T43 voice is low and even      T46 voice stays level
+  //
+  // Eleven uses across the save; findFigure fired zero times in forty-nine turns. Two independent
+  // reasons it missed the same sentence: no `like`, and `is` is not in the verb list above — that
+  // one only knows the past tense.
+  //
+  // It is also not a neutral tic. Every one of those adjectives is COMPOSURE, and the composure was
+  // being written onto a character whose own record read "shaken by the player's impossible power"
+  // for forty-eight turns. The frame is how a narrator with nothing else to say about somebody
+  // renders them as unflappable, and unflappable is what the player was reading as moral authority.
+  { key: "composed-voice", re: /\b(?:voice|tone|words?)\b[^.?!\n]{0,30}?\b(?:is|was|stays?|stayed|remains?|remained|comes?\s+out|came\s+out|sounds?)\b\s+(?:still\s+|quite\s+|very\s+|perfectly\s+|entirely\s+)?(?:low|level|even|steady|calm|quiet|flat|mild|measured|unhurried|controlled|neutral)\b[^.?!\n]{0,60}/i },
 ];
 
 export interface FigureHit { line: string; frame: string; runs: number }
@@ -552,7 +572,13 @@ const META_TALK = new RegExp([
   // reciting the transcript: "I asked you about the gym", "I told you", "I laughed at"
   String.raw`\bi (?:asked|said|told|answered|laughed at)\s+you\b`,
   // handing it back: "you just told me", "you said, and then you"
-  String.raw`\byou (?:just )?(?:said|told me|asked me|called me|are saying|were saying)\b`,
+  //
+  // …AND IN THE PERFECT TENSE, WHICH IS HOW IT ACTUALLY GETS WRITTEN. This matched "you told me"
+  // and not "you HAVE told me", so the purest specimen in a whole save walked straight past it:
+  // "You have told me now that I am difficult, and a coward, and a liar." That is the recitation
+  // this detector exists for — the summary of the exchange, delivered as a verdict — and one
+  // auxiliary verb was the whole difference. findMetaTalk fired zero times in forty-nine turns.
+  String.raw`\byou (?:just |now |already )?(?:have |had |'ve )?(?:just |now )?(?:said|told me|asked me|called me|are saying|were saying|been saying)\b`,
   // scoring the scene: "you've spent the last five minutes"
   String.raw`\byou'?ve spent the last\b`,
   String.raw`\bthose are questions\b`,
@@ -567,6 +593,30 @@ export const META_RATE = 0.25;
 const META_MIN = 3;
 /** Turns running before it is a habit rather than an argument. */
 export const META_RUN = 2;
+
+/* ── AND THE OTHER SHAPE IT TAKES: ONE VERDICT A TURN, FOREVER ─────────────────────────────────
+ *
+ * Everything above is calibrated for an ARGUMENT about the argument — the save it was mined from
+ * ran 4 of 8 spoken sentences, then 5 of 13, then 4 of 11, over four consecutive turns. That is a
+ * burst, and the thresholds catch a burst.
+ *
+ * The same move also arrives as a drip, and the drip is what a player actually complains about.
+ * From a save at turn 49, the last five turns of one character:
+ *
+ *   T45  1 of 11   T46  1 of 10   T47  0   T48  2 of 7
+ *        "You have told me now that I am difficult, and a coward, and a liar."
+ *
+ * One summary of the player's conduct per turn, delivered as the closing line, for ten turns. Never
+ * three in a turn, so META_MIN refused it; never two turns running, so META_RUN refused it too.
+ * findMetaTalk fired zero times in forty-nine turns while the player's report was "one line mic
+ * drops on everyone… everyone is the moral righteousness of the final word."
+ *
+ * So: a second trigger for the same fault at a lower rate over a longer window. Both bars have to
+ * clear — enough turns carrying it, and enough of it in total — so that three passing mentions of
+ * something somebody said do not read as a habit. */
+const DRIP_WINDOW = 5;
+const DRIP_TURNS = 3;
+const DRIP_TOTAL = 4;
 
 export interface MetaTalkHit { name: string; lines: string[]; runs: number }
 
@@ -600,13 +650,26 @@ export function findMetaTalk(
     const first = (c?.name ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "";
     if (!c || first.length < 3) continue;
     const now = metaTurn(prose, names, first);
-    if (!now) continue;
-    let runs = 1;
-    for (let i = previous.length - 1; i >= 0 && runs < META_RUN + 3; i--) {
-      if (!metaTurn(previous[i], names, first)) break;
-      runs++;
+    if (now) {
+      let runs = 1;
+      for (let i = previous.length - 1; i >= 0 && runs < META_RUN + 3; i--) {
+        if (!metaTurn(previous[i], names, first)) break;
+        runs++;
+      }
+      if (runs >= META_RUN) return { name: c.name, lines: now.slice(0, 3), runs };
     }
-    if (runs >= META_RUN) return { name: c.name, lines: now.slice(0, 3), runs };
+    // …and the drip. Counted over the window rather than as a run, because the run is exactly what
+    // this shape does not form — see DRIP_WINDOW above.
+    const window = [...previous.slice(-(DRIP_WINDOW - 1)), prose];
+    let carrying = 0, total = 0;
+    const sample: string[] = [];
+    for (const p of window) {
+      const { hits } = metaLinesFor(p, names, first);
+      if (hits.length) { carrying++; total += hits.length; sample.push(...hits); }
+    }
+    if (carrying >= DRIP_TURNS && total >= DRIP_TOTAL) {
+      return { name: c.name, lines: sample.slice(-3), runs: carrying };
+    }
   }
   return null;
 }

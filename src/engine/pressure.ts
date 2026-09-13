@@ -86,6 +86,36 @@ const RETIRE_FOR = 40;
  *  that the world works through what it is currently about first, small enough that a thread which
  *  was set aside forty turns ago can still be the thing that happens next. */
 const DORMANT_PENALTY = 20;
+/** Staleness score for a source that has never once been picked — a large finite number rather
+ *  than MAX_SAFE_INTEGER, so heat and variety can still order sources that are all fresh. */
+const NEVER_FIRED = 10_000;
+/** How much one point of a thread's tension multiplies its chance of being picked from among the
+ *  sources that are equally stale.
+ *
+ *  A WEIGHT, NOT A BONUS ON THE AGE. Added to the score instead, heat does not tilt the rotation —
+ *  it replaces it. Every source that has never fired scores the same staleness, so any deterministic
+ *  term fully orders them, and the first version of this handed the hottest thread 62% of all beats
+ *  and every other source in the world exactly zero. Sampling weighted by heat gives a tension-7
+ *  thread several times the pull of a tension-2 errand while leaving the errand able to happen. */
+const HEAT_WEIGHT = 0.5;
+/** Staleness scores within this much of the freshest are treated as equally stale, and the pick
+ *  among them is by heat.
+ *
+ *  DELIBERATELY NARROWER THAN DORMANT_PENALTY. At 24 the band swallowed the penalty whole — twenty
+ *  points off a dormant source's score sits inside a band of twenty-four, so a thread the world had
+ *  set aside and a live one of the same tension came out at a coin flip, and "a live thread
+ *  outranks an equally stale dormant one" started failing two runs in five. Trying to fix that with
+ *  a weight instead over-corrected the other way: dormant threads stopped being picked at all and
+ *  aged out to abandoned, which is the death spiral the dormant pool exists to prevent. Below the
+ *  penalty, both properties hold for the original reason — an equally stale dormant source falls
+ *  out of the running, and one that is genuinely staler climbs back into it. Still above the
+ *  variety bonus of 12, so that stays a tilt. */
+const TIE_BAND = 16;
+/** The heat a palette line carries into the rotation. It has no tension of its own — nothing
+ *  measures a premise — so without this it competed at the weight of the dullest errand in the
+ *  world and only ever reached the page through the starvation floor. Five is a mid thread: the
+ *  premise is normally worth as much as the story's middling business, and no more. */
+const PALETTE_HEAT = 5;
 
 /**
  * THE HEADLINE IS A SOURCE TOO, AND IT HAD NO MEMORY AND NO FILTER.
@@ -426,7 +456,11 @@ export function selectBeat(inp: BeatInput): Beat {
   // texture is. Without one a source falls back to a bare reminder, which for a CLOCK meant handing
   // the narrator `faction: objective` verbatim — the private objective the clock table is withheld
   // to protect — and then asking for it "lightly", which produces nothing anybody can see.
-  const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat; dormant?: boolean }[] = [];
+  /* `heat` is how hot this source is in the fiction — a thread's tension, an agent's priority. It
+   * was missing entirely, so a tension-7 thread the player created two turns ago and a tension-2
+   * errand that has sat in state since the opening were indistinguishable to the rotation. See the
+   * pick below. */
+  const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat; dormant?: boolean; heat?: number }[] = [];
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "threat", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130),
@@ -504,7 +538,7 @@ export function selectBeat(inp: BeatInput): Beat {
   // A palette line needs no tension, no fill and no maturing: it is the premise, true from turn one
   // and available from turn one. Fatigue still rotates it against everything else.
   for (const line of inp.palette ?? []) if (String(line ?? "").trim())
-    standing.push({ ref: clipText(String(line).trim(), 130), kind: "palette",
+    standing.push({ ref: clipText(String(line).trim(), 130), kind: "palette", heat: PALETTE_HEAT,
       mk: () => ({ kind: "palette", ref: clipText(String(line).trim(), 130) }),
       quiet: () => ({ kind: "palette", ref: clipText(String(line).trim(), 130), quiet: true }) });
 
@@ -546,13 +580,13 @@ export function selectBeat(inp: BeatInput): Beat {
     const bar = t.status === "dormant" ? 0 : t.kind === "threat" ? 6 : 2;
     const dormant = t.status === "dormant";
     if ((t.tension ?? 0) >= bar)
-      standing.push({ ref: clipText(t.title, 130), kind, dormant,
+      standing.push({ ref: clipText(t.title, 130), kind, dormant, heat: t.tension ?? 0,
         mk: () => ({ kind: "thread", ref: clipText(t.title, 130), id: t.id, dormant }) });
   }
   // Agents gated at priority 6 meant a person only pressed the world when they were in crisis.
   // People acting on ordinary wants IS how a world turns; 3 lets them.
   for (const a of inp.agents) if ((a.priority ?? 1) >= 3)
-    standing.push({ ref: clipText(`${a.name} — ${a.goal}`, 130), kind: "relationship", mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
+    standing.push({ ref: clipText(`${a.name} — ${a.goal}`, 130), kind: "relationship", heat: a.priority ?? 1, mk: () => ({ kind: "agent", ref: a.name, goal: a.goal }) });
 
   // ── PER-SOURCE FATIGUE ──────────────────────────────────────────────────────
   // Every source in `standing` used to be equally eligible on every turn, chosen by a flat random
@@ -592,9 +626,33 @@ export function selectBeat(inp: BeatInput): Beat {
   // a receipt and a corporate complaint. So a palette line that has gone hungry takes the pick
   // outright. It still rests afterwards; this is a floor under how often the story is about its own
   // subject, not a ceiling on anything else.
-  const PALETTE_STARVED = 6;
-  const starving = eligible.filter((sd) => sd.kind === "palette"
-    && inp.turn - (hist.get(sd.ref)?.turn ?? -Infinity) >= PALETTE_STARVED);
+  const PALETTE_STARVED = 5;
+  /* THE PREMISE IS ONE VOICE, NOT ONE PER LINE — and this is what broke a save.
+   *
+   * The floor above was written against a world whose palette was a SINGLE line that was the whole
+   * premise ("Amber's feet talking directly into Joe's thoughts"), and for that world it is exactly
+   * right. A forge writing a historical setting produces something else: five lines of ambient
+   * period texture — the dole, class and propriety, the price of bread. Each line starves on its
+   * own clock, a line that has NEVER fired starves permanently, and five lines rotating on a
+   * five-turn quiet can never all be fed. So `starving` was non-empty on every turn forever and the
+   * floor stopped being a floor and became a 60% tax on every beat in the game.
+   *
+   * Measured on that save at turn 20, 4000 samples: 50.0% of beats went to generic period texture,
+   * while "The Impossible Black Motor-Car on Piccadilly" — tension 7, opened two turns earlier
+   * because the player conjured a car out of nothing in 1932 London — was picked 2.70% of the time.
+   * Every thread and both clocks had fired exactly zero times in twenty turns. The player's report
+   * was "I'm doing wild things. No one cares."
+   *
+   * So hunger is measured across the palette AS A WHOLE. The premise speaks, then rests, then may
+   * speak again — which is identical behaviour for the one-line world this was built for, because
+   * there the palette and the line are the same thing. */
+  const lastPalette = Math.max(-Infinity, ...standing.filter((sd) => sd.kind === "palette")
+    .map((sd) => hist.get(sd.ref)?.turn ?? -Infinity));
+  const paletteHungry = inp.turn - lastPalette >= PALETTE_STARVED;
+  const starving = paletteHungry
+    ? eligible.filter((sd) => sd.kind === "palette"
+        && inp.turn - (hist.get(sd.ref)?.turn ?? -Infinity) >= PALETTE_STARVED)
+    : [];
   // Prefer the source that has been silent longest, rather than sampling uniformly. Uniform choice
   // over a small set re-picks the same thing constantly; least-recently-used rotates the world.
   // SPREAD. Least-recently-used rotates individual sources but says nothing about VARIETY: a world
@@ -603,33 +661,57 @@ export function selectBeat(inp: BeatInput): Beat {
   // gets a bonus that puts it ahead of a slightly staler source of a kind we just used.
   const recentKinds = new Set((inp.recent ?? []).filter((r) => inp.turn - r.turn <= 6).map((r) => r.kind ?? "threat"));
   const pickStanding = () => {
-    // A STRONG PREFERENCE, NOT A METRONOME. Taken as an absolute the floor becomes a schedule: the
-    // premise every sixth turn forever, and the rest of the world starved behind it. It wins most of
-    // the time it has gone hungry and otherwise takes its chances in the rotation like everything.
-    if (starving.length && rng() < 0.6) return starving[Math.floor(rng() * starving.length)];
+    // A STRONG PREFERENCE, AND THE GATE IS WHAT KEEPS IT FROM BEING A METRONOME. The probability
+    // used to be the only brake, because hunger was per-line and therefore permanent; now hunger is
+    // palette-wide and resets the moment any line fires, so the floor can fire at most once every
+    // PALETTE_STARVED turns however high this is set. That bound is the real limit, which frees the
+    // probability to be what it should be — when the premise has genuinely gone quiet for five
+    // turns, it should nearly always be next. Swept against two saves: at 0.6 the two-line premise
+    // world reached the page on 14% of turns, under the one-in-six floor its own test asserts; at
+    // 0.85 it reaches 18%, while the five-line texture world sits at 10% and the tension-7 thread
+    // the player created outranks it at 13%.
+    if (starving.length && rng() < 0.85) return starving[Math.floor(rng() * starving.length)];
     if (!eligible.length) return null;
-    let best = eligible[0], bestAge = -1, tied = 0;
-    for (const sd of eligible) {
+    // THE PALETTE ENTERS THE ROTATION AS ONE CANDIDATE, NOT AS ONE PER LINE.
+    //
+    // Same root cause as the hunger fix above, one layer down. Five lines of ambient period texture
+    // are five separate competitors against the threads, so the premise outvoted the whole rest of
+    // the world by having been written as a list. Collapsed to its stalest line, a two-line premise
+    // palette lands around a quarter of the rotation and a five-line texture palette around a
+    // seventh — which is the difference the engine could never see and which is entirely the point.
+    const pal = eligible.filter((sd) => sd.kind === "palette");
+    const staleness = (sd: typeof standing[number]) => inp.turn - (hist.get(sd.ref)?.turn ?? -Infinity);
+    const running = pal.length > 1
+      ? [...eligible.filter((sd) => sd.kind !== "palette"), pal.reduce((a, b) => (staleness(a) >= staleness(b) ? a : b))]
+      : eligible;
+    const scored = running.map((sd) => {
       const h = hist.get(sd.ref);
-      const raw = h ? inp.turn - h.turn : Number.MAX_SAFE_INTEGER;
-      const age = raw === Number.MAX_SAFE_INTEGER ? (sd.dormant ? raw - DORMANT_PENALTY : raw)
-        : raw + (recentKinds.has(sd.kind) ? 0 : 12) - (sd.dormant ? DORMANT_PENALTY : 0);
-      // TIES GO TO CHANCE, NOT TO ARRAY ORDER. Every source that has never fired scores
-      // MAX_SAFE_INTEGER, so a strict `>` handed the pick to whichever loop pushed first — clocks,
-      // then threads, then people — permanently. A world with four fresh threads and a fresh clock
-      // ran the clock every time and the threads stayed unread, which looks exactly like the
-      // threads not existing. The rng is injected, so tests stay deterministic.
-      // TIES GO TO CHANCE, NOT TO ARRAY ORDER — uniformly, by reservoir. Every source that has
-      // never fired scores MAX_SAFE_INTEGER, so a strict `>` handed the pick to whichever loop
-      // pushed first (clocks, then threads, then people) permanently: a world with four fresh
-      // threads and a fresh clock ran the clock every turn and the threads stayed unread, which
-      // looks exactly like the threads not existing. A flat coin-flip per candidate is not the fix
-      // either — it biases toward whatever comes last, and put the clock at 2 picks in 400. Replace
-      // the k-th tied candidate with probability 1/k and every tied source gets an equal share.
-      if (age > bestAge) { best = sd; bestAge = age; tied = 1; }
-      else if (age === bestAge && rng() < 1 / ++tied) best = sd;
-    }
-    return best;
+      // NEVER-FIRED IS A BIG NUMBER, NOT AN INFINITE ONE. MAX_SAFE_INTEGER saturated: every source
+      // that had never fired scored identically, so nothing about the FICTION could break the tie
+      // and a tension-7 thread took its chances against a tension-2 errand by coin flip. A finite
+      // constant lets heat and the variety bonus still be read off a fresh source. Ten thousand
+      // turns is past any real save, so a never-fired source still outranks anything that has.
+      const raw = h ? inp.turn - h.turn : NEVER_FIRED;
+      const age = raw + (recentKinds.has(sd.kind) ? 0 : 12) - (sd.dormant ? DORMANT_PENALTY : 0);
+      return { sd, age };
+    });
+    // TIES GO TO CHANCE, NOT TO ARRAY ORDER, AND THEN TO HEAT.
+    //
+    // Every source that has never fired scores the same staleness, so a strict `>` handed the pick
+    // to whichever loop pushed first — clocks, then threads, then people — permanently. A world
+    // with four fresh threads and a fresh clock ran the clock every turn and the threads stayed
+    // unread, which looks exactly like the threads not existing.
+    //
+    // So: everything within TIE_BAND of the freshest is in the running, and the pick among them is
+    // weighted by heat. That is the half that was missing — the rotation knew how long a source had
+    // waited and nothing at all about whether it mattered, so the world pressed with an errand and
+    // a tension-7 thread at the same rate. The rng is injected, so tests stay deterministic.
+    const top = Math.max(...scored.map((x) => x.age));
+    const band = scored.filter((x) => x.age >= top - TIE_BAND);
+    const weight = (sd: typeof standing[number]) => 1 + Math.max(0, sd.heat ?? 0) * HEAT_WEIGHT;
+    let roll = rng() * band.reduce((a, x) => a + weight(x.sd), 0);
+    for (const x of band) { roll -= weight(x.sd); if (roll <= 0) return x.sd; }
+    return band[band.length - 1].sd;
   };
 
   // ── THE DIRECTOR'S OVERRIDE ────────────────────────────────────────────────────────────────────
