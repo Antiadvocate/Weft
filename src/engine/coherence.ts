@@ -31,7 +31,7 @@
  * unfashionable is far worse than any tic. The taste detectors stay where they are, downstream,
  * feeding forward, which is the right place for taste.
  */
-import { bodySeverity, bodyMarks } from "./body";
+import { bodySeverity, bodyMarks, lostFaculties, FACULTY_LOSS, type Faculty } from "./body";
 import { findRisen } from "./exit";
 import type { SaveState } from "./types";
 
@@ -43,51 +43,25 @@ export interface Violation { kind: string; line: string; why: string }
  * hotel lobby with a basket over one arm. The severity fix upstream means the ledger now says
  * plainly what she is; this is the half that checks the sentence against it.
  *
- * TWO THINGS HAVE TO BE TRUE BEFORE A SENTENCE IS CUT, and the first draft of this got both wrong.
- *
- * The part has to be ENTIRELY gone. "Partially blind" is a woman who can see the door; one missing
- * arm still reaches for the teacup with the other. A rule that reads the word `blind` and stops
- * there deletes the only sentences a half-sighted character has. So each rule asks whether the
- * record shows total loss — both sides named, a plural part, or a diagnosis that covers it.
+ * Which faculties are actually gone is body.lostFaculties, shared with the card gate in prompts.ts
+ * so there is one answer to "can she still do this" and not two that drift. All that lives here is
+ * the verb list — what a sentence has to contain before it counts as her doing it.
  *
  * And the verb has to be HERS. "The porter wheels Emily across the lobby toward the lift" was
  * flagged for `lifts?` finding the noun `lift` forty characters downstream, which is the same
  * mistake findRisen already learned: only the verb immediately after the subject counts. */
-const LOSS = /\b(?:missing|lost|loss|no|none|without|amputat\w*|sever\w*|remov\w*|gone|destroyed|crushed|mangled|useless|paralys\w*|paralyz\w*|nonfunctional|non-functional)\b/i;
-/** "Partially blind" is not blind, and "blind in one eye" is not blind. */
-const PARTIAL = /\b(?:partial\w*|part|half|near\w*|almost|going|legally|colou?r|night|one\s+eye|in\s+one)\b/i;
-
-const has = (marks: readonly string[], re: RegExp) => marks.some((m) => re.test(m));
-/** Marks that name a part AND say it is gone — "missing left arm", not "aching left arm". */
-const lost = (marks: readonly string[], part: RegExp) => marks.some((m) => part.test(m) && LOSS.test(m));
-
-interface Rule { verbs: RegExp; why: string; gone(marks: readonly string[]): boolean }
-
-/* Anchored: the verb opens what follows the subject, give or take an adverb. */
 const V = (body: string) => new RegExp(`^(?:(?:\\w+ly|then|just|still|again|now|already|simply|only|finally)[,\\s]+){0,2}(?:${body})\\b`, "i");
 
-const CANNOT: Rule[] = [
-  { why: "has no arms or hands",
-    gone: (m) => has(m, /\b(?:quadripleg|tetrapleg)/i)
-      || lost(m, /\b(?:arms|hands)\b/i)
-      || (lost(m, /\b(?:left|l\.?)\s+(?:arm|hand)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:arm|hand)\b/i)),
-    verbs: V("reach(?:es|ed)?|grab(?:s|bed)?|hold(?:s)?|held|take(?:s)?|took|carr(?:ies|ied|ying)|lift(?:s|ed)?|point(?:s|ed)?|wave(?:s|d)?|clap(?:s|ped)?|hand(?:s|ed)?|push(?:es|ed)?|pull(?:s|ed)?|wipe(?:s|d)?|fold(?:s|ed)?|clutch(?:es|ed)?|grip(?:s|ped)?|catch(?:es)?|caught|throw(?:s)?|threw|set(?:s)?|put(?:s)?|pour(?:s|ed)?|open(?:s|ed)?|shut(?:s)?|close(?:s|d)?|strike(?:s)?|struck|hit(?:s)?|slap(?:s|ped)?") },
-
-  { why: "cannot move under their own power",
-    gone: (m) => has(m, /\b(?:quadripleg|tetrapleg|parapleg|bedridden|immobile)/i)
-      || lost(m, /\b(?:legs|feet)\b/i)
-      || (lost(m, /\b(?:left|l\.?)\s+(?:leg|foot)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:leg|foot)\b/i)),
-    verbs: V("walk(?:s|ed|ing)?|run(?:s|ning)?|ran|stand(?:s|ing)?|stood|step(?:s|ped|ping)?|cross(?:es|ed|ing)?|kneel(?:s|ing)?|knelt|pace(?:s|d)?|climb(?:s|ed)?|rise(?:s|n)?|rose|rising|get(?:s)?\\s+up|got\\s+up|stride(?:s)?|strode|approach(?:es|ed)?|follow(?:s|ed)?|come(?:s)?|came|go(?:es)?|went|leave(?:s)?|left|enter(?:s|ed)?|storm(?:s|ed)?|march(?:es|ed)?|wander(?:s|ed)?|move(?:s|d)?\\s+(?:to|toward|across|away)") },
-
-  { why: "cannot see",
-    gone: (m) => m.some((x) => /\bblind\b/i.test(x) && !PARTIAL.test(x)) || lost(m, /\beyes\b/i),
-    verbs: V("see(?:s)?|saw|seeing|watch(?:es|ed|ing)?|read(?:s)?|glance(?:s|d)?|stare(?:s|d)?|peer(?:s|ed)?|eye(?:s|d)?|look(?:s|ed)?|study|studies|studied|scan(?:s|ned)?|spot(?:s|ted)?") },
-
-  { why: "cannot speak",
-    gone: (m) => has(m, /\bmute\b|\baphasi|\bcannot\s+speak\b|\bunable\s+to\s+speak\b|\bvocal\s+cords?\b/i)
-      || lost(m, /\btongue\b|\bjaw\b|\bvoice\b|\blarynx\b|\bthroat\b/i),
-    verbs: V("say(?:s)?|said|speak(?:s)?|spoke|whisper(?:s|ed)?|shout(?:s|ed)?|call(?:s|ed)?|answer(?:s|ed)?|repl(?:ies|ied)|mutter(?:s|ed)?|murmur(?:s|ed)?|ask(?:s|ed)?|tell(?:s)?|told") },
-];
+const CANNOT: Record<Faculty, RegExp> = {
+  hands: V("reach(?:es|ed)?|grab(?:s|bed)?|hold(?:s)?|held|take(?:s)?|took|carr(?:ies|ied|ying)|lift(?:s|ed)?|point(?:s|ed)?|wave(?:s|d)?|clap(?:s|ped)?|hand(?:s|ed)?|push(?:es|ed)?|pull(?:s|ed)?|wipe(?:s|d)?|fold(?:s|ed)?|clutch(?:es|ed)?|grip(?:s|ped)?|catch(?:es)?|caught|throw(?:s)?|threw|set(?:s)?|put(?:s)?|pour(?:s|ed)?|open(?:s|ed)?|shut(?:s)?|close(?:s|d)?|strike(?:s)?|struck|hit(?:s)?|slap(?:s|ped)?"),
+  legs: V("walk(?:s|ed|ing)?|run(?:s|ning)?|ran|stand(?:s|ing)?|stood|step(?:s|ped|ping)?|cross(?:es|ed|ing)?|kneel(?:s|ing)?|knelt|pace(?:s|d)?|climb(?:s|ed)?|rise(?:s|n)?|rose|rising|get(?:s)?\\s+up|got\\s+up|stride(?:s)?|strode|approach(?:es|ed)?|follow(?:s|ed)?|come(?:s)?|came|go(?:es)?|went|leave(?:s)?|left|enter(?:s|ed)?|storm(?:s|ed)?|march(?:es|ed)?|wander(?:s|ed)?|move(?:s|d)?\\s+(?:to|toward|across|away)"),
+  sight: V("see(?:s)?|saw|seeing|watch(?:es|ed|ing)?|read(?:s)?|glance(?:s|d)?|stare(?:s|d)?|peer(?:s|ed)?|eye(?:s|d)?|look(?:s|ed)?|study|studies|studied|scan(?:s|ned)?|spot(?:s|ted)?"),
+  speech: V("say(?:s)?|said|speak(?:s)?|spoke|whisper(?:s|ed)?|shout(?:s|ed)?|call(?:s|ed)?|answer(?:s|ed)?|repl(?:ies|ied)|mutter(?:s|ed)?|murmur(?:s|ed)?|ask(?:s|ed)?|tell(?:s)?|told"),
+  // Not a violation on its own: somebody deaf still turns, still notices, still answers wrong.
+  // Nothing in prose reliably distinguishes "heard you" from "saw you say it", so this one stays
+  // out of the gate and lives only on the card, where being wrong costs a paragraph of framing.
+  hearing: /(?!)/,
+};
 
 /** Sentences, keeping punctuation, so a quote can be shown back and a cut can be exact. */
 export function sentences(prose: string): string[] {
@@ -117,8 +91,8 @@ export function checkCoherence(state: SaveState, prose: string, presentIds: read
     if (!c?.name || !cond || bodySeverity(cond) < 3) continue;
     const marks = bodyMarks(cond);
     if (!marks.length) continue;
-    const rules = CANNOT.filter((r) => r.gone(marks));
-    if (!rules.length) continue;
+    const gone = lostFaculties(cond).filter((f) => CANNOT[f].source !== "(?!)");
+    if (!gone.length) continue;
     const first = String(c.name).split(/\s+/)[0];
     if (first.length < 3) continue;
     const esc = first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -138,11 +112,11 @@ export function checkCoherence(state: SaveState, prose: string, presentIds: read
         // an accurate sentence: "Emily's head turns after you as you rise" is exactly right for a
         // quadriplegic, and the verb belongs to the head. Same rule findRisen needs, for the same
         // reason — the thing after the apostrophe is what is doing it.
-        if (/^['’]s\b/.test(m[1])) continue;
-        const rule = rules.find((r) => r.verbs.test(m![1]));
-        if (rule) {
+        if (/^['\u2019]s\b/.test(m[1])) continue;
+        const f = gone.find((g) => CANNOT[g].test(m![1]));
+        if (f) {
           add({ kind: "impossible-body", line: s.trim().slice(0, 200),
-                why: `${c.name} ${rule.why} — the record reads: ${marks.join(", ").slice(0, 80)}` });
+                why: `${c.name} ${FACULTY_LOSS[f]} — the record reads: ${marks.join(", ").slice(0, 80)}` });
           break;
         }
       }

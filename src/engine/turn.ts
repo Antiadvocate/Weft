@@ -32,7 +32,7 @@ import { obduracyIn, isObdurate } from "./obduracy";
 import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
-import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
+import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
 import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
@@ -5021,16 +5021,33 @@ export function addCondition(c: { conditions: string[]; condition_age?: Record<s
   value = typeof value === "string" ? value : String(value ?? "");
   if (!value) return;
   c.condition_age ??= {};
-  const dup = c.conditions.find((x) => typeof x === "string" && (x.toLowerCase() === value.toLowerCase() || wordOverlap(x, value)));
+  // A PERMANENT LOSS IS ONLY EVER A DUPLICATE OF THE SAME PART. The overlap test asks whether two
+  // strings share a content word, which is the right question for "shaken" against "badly shaken"
+  // and catastrophic for "missing left arm" against "missing right arm": they share `missing`, so
+  // recording the second DELETED the first, and recording the legs then deleted the arm. Traced on
+  // one save, five amputations at turn 83 had annihilated one another down to nothing by 108, and
+  // the woman was walking again. See body.lossKey.
+  const nk = lossKey(value);
+  const dup = c.conditions.find((x) => {
+    if (typeof x !== "string") return false;
+    if (x.toLowerCase() === value.toLowerCase()) return true;
+    const xk = lossKey(x);
+    if (nk || xk) return nk !== null && nk === xk;   // same part, reworded — genuinely one record
+    return wordOverlap(x, value);
+  });
   if (dup) {
     delete c.condition_age[dup];
     c.conditions = c.conditions.filter((x) => x !== dup);
   }
   c.conditions.push(value);
   c.condition_age[value] = turn;
-  // hard cap: oldest fall off
+  // Hard cap: the oldest FADEABLE one falls off. A limb is not a cache entry — somebody with five
+  // amputations and two states of shock loses a limb off the end of this list otherwise. When
+  // everything on the list is permanent the list is simply longer than six, which is correct.
   while (c.conditions.length > 6) {
-    const oldest = c.conditions.reduce((m, x) => ((c.condition_age![x] ?? 0) < (c.condition_age![m] ?? 0) ? x : m), c.conditions[0]);
+    const fadeable = c.conditions.filter((x) => !lossKey(x));
+    if (!fadeable.length) break;
+    const oldest = fadeable.reduce((m, x) => ((c.condition_age![x] ?? 0) < (c.condition_age![m] ?? 0) ? x : m), fadeable[0]);
     c.conditions = c.conditions.filter((x) => x !== oldest);
     delete c.condition_age[oldest];
   }
@@ -6201,9 +6218,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       }
       case "condition_add": addCondition(c, f.value, turn); break;
       case "condition_remove": {
+        // Loose on both sides — substring either way, or one shared content word — which is right
+        // for "shivering" clearing "shivering hard" and wrong for anything permanent: a single fact
+        // removing "shock" or "missing" swept the amputations out with it. A limb may still be
+        // GIVEN BACK, by surgery, a prosthesis, or the player rewriting the world, and everything
+        // that depended on it returns by itself when it is — but the fact has to name it.
         const q = f.value.toLowerCase();
+        const qk = lossKey(f.value);
         c.conditions = c.conditions.filter((x) => {
-          const keep = !(x.toLowerCase().includes(q) || q.includes(x.toLowerCase()) || wordOverlap(x, f.value));
+          const xk = lossKey(x);
+          const keep = xk
+            ? !(x.toLowerCase() === q || (qk !== null && qk === xk))
+            : !(x.toLowerCase().includes(q) || q.includes(x.toLowerCase()) || wordOverlap(x, f.value));
           if (!keep) delete c.condition_age?.[x];
           return keep;
         });
@@ -6236,12 +6262,22 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         const key = f.value.trim().toLowerCase();
         const had = c.injuries.find((i) => i.type.trim().toLowerCase() === key);
         if (had) { had.turn = turn; had.cause = "this turn"; break; }
-        c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: false, functional_impact: f.value, turn });
+        // `permanent` was hard-coded false, so nothing written through this path was ever permanent
+        // and a severed arm aged out on the injury timer like a bruise. An amputation recorded as an
+        // injury is exactly as permanent as one recorded as a condition. See body.lossKey.
+        c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: isPermanentLoss(f.value), functional_impact: f.value, turn });
         break;
       }
       case "injury_remove": {
+        // Same rule as condition_remove: a wound closes on a loose match, a lost part has to be named.
         const q = f.value.toLowerCase();
-        c.injuries = c.injuries.filter((inj) => !(inj.type.toLowerCase().includes(q) || q.includes(inj.type.toLowerCase())));
+        const qk = lossKey(f.value);
+        c.injuries = c.injuries.filter((inj) => {
+          const ik = lossKey(inj.type);
+          return ik
+            ? !(inj.type.toLowerCase() === q || (qk !== null && qk === ik))
+            : !(inj.type.toLowerCase().includes(q) || q.includes(inj.type.toLowerCase()));
+        });
         break;
       }
     }

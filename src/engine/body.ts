@@ -153,3 +153,177 @@ export function bodyDirective(cond: Condition | undefined, name: string): string
   }
   return `\nBODY — ${name} is carrying real damage (${what}); let it cost them visibly in movement and attention rather than being mentioned once and dropped.`;
 }
+
+/* ══ WHAT A BODY CAN NO LONGER DO, AND WHAT ON THE CARD DEPENDED ON IT ═══════════════════════
+ *
+ * A character card is written once, at the moment the person enters the story, and it describes the
+ * body they had then. The condition ledger is what has happened to them since. Nothing reconciles
+ * the two, and the narrator contract makes that actively dangerous, because it declares core traits
+ * supreme: "where a trait and the rest of that character's block disagree — the running log, the
+ * relationship note, the mood — the TRAIT wins."
+ *
+ * From the save that produced the coherence gate. Emily Clarke, recorded as quadriplegic, partially
+ * blind, missing both arms and both legs, still carrying the card she was written with:
+ *
+ *   trait  "Touches people when she talks to them — a hand on the arm, a brush of the shoulder —
+ *           and does not notice she is doing it."
+ *   trait  "Cannot sit still; she is always adjusting something, a hem, a cushion, her own hair."
+ *   skill  "Sewing and dressmaking — Expert. She can copy any garment from a picture."
+ *   skill  "Hairdressing — Good. She cuts and sets her own hair and her friends'."
+ *
+ * Every turn, the engine handed the narrator those four things and told it they outrank the body
+ * block. She reached for people with arms she does not have because she was ordered to. That is not
+ * the model failing to reason; it is the document.
+ *
+ * THE FIX IS NOT TO REWRITE THE CARD, and the player who found this said why: "these are her
+ * original things, but now she has no legs. So maybe if her legs are restored she can dance again."
+ * Editing traits out is lossy and one-way — it destroys who the person is to record what happened
+ * to them, and it cannot be undone if the story gives the part back. A card is not a status report.
+ *
+ * So the card is left exactly as written and filtered at render time, every turn, against the body
+ * as it currently is. Restore the arms and the trait comes back by itself, because nothing was ever
+ * removed. It is the same mechanism the mannerism-resting pass already uses for a different reason:
+ * the cached prefix cannot vary per turn, so the volatile block is where a card gets qualified.
+ *
+ * A blocked trait is not deleted from the prompt either — it is moved out of the binding line and
+ * shown as what it now is, which is usually the better scene anyway. A woman who touched everyone
+ * she talked to and cannot any more is a specific person in a specific grief. A woman whose card
+ * simply never mentioned it is nobody.
+ */
+export type Faculty = "hands" | "legs" | "sight" | "speech" | "hearing";
+
+export const FACULTY_LOSS: Record<Faculty, string> = {
+  hands: "has no working arms or hands",
+  legs: "cannot move under their own power",
+  sight: "cannot see",
+  speech: "cannot speak",
+  hearing: "cannot hear",
+};
+
+/** A recorded mark saying a part is not merely hurt but gone or dead. */
+const LOSS = /\b(?:missing|lost|loss|no|none|without|amputat\w*|sever\w*|remov\w*|gone|destroyed|crushed|mangled|useless|paralys\w*|paralyz\w*|nonfunctional|non-functional)\b/i;
+/** "Partially blind" is not blind, and "deaf in one ear" is not deaf. */
+const PARTIAL = /\b(?:partial\w*|part|half|near\w*|almost|going|legally|colou?r|night|one\s+(?:eye|ear)|in\s+one)\b/i;
+
+const marked = (marks: readonly string[], re: RegExp) => marks.some((m) => re.test(m));
+/** Marks that name a part AND say it is gone — "missing left arm", never "aching left arm". */
+const lost = (marks: readonly string[], part: RegExp) => marks.some((m) => part.test(m) && LOSS.test(m));
+
+/**
+ * The faculties this body has ENTIRELY lost.
+ *
+ * Entirely is the whole word. One missing arm still reaches for the teacup with the other; a woman
+ * partially blind can see the door; deaf in one ear is a person who hears you. A rule that reads
+ * `blind` and stops there takes away the only things a half-sighted character still has, which is
+ * the opposite of the point. So a faculty counts as gone only when both sides are named, the part
+ * is written in the plural, or the diagnosis covers it outright.
+ */
+export function lostFaculties(cond: Condition | undefined): Faculty[] {
+  const m = bodyMarks(cond);
+  if (!m.length) return [];
+  const out: Faculty[] = [];
+  if (marked(m, /\b(?:quadripleg|tetrapleg)/i) || lost(m, /\b(?:arms|hands)\b/i)
+    || (lost(m, /\b(?:left|l\.?)\s+(?:arm|hand)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:arm|hand)\b/i))) out.push("hands");
+  if (marked(m, /\b(?:quadripleg|tetrapleg|parapleg|bedridden|immobile)/i) || lost(m, /\b(?:legs|feet)\b/i)
+    || (lost(m, /\b(?:left|l\.?)\s+(?:leg|foot)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:leg|foot)\b/i))) out.push("legs");
+  if (m.some((x) => /\bblind\b/i.test(x) && !PARTIAL.test(x)) || lost(m, /\beyes\b/i)) out.push("sight");
+  if (marked(m, /\bmute\b|\baphasi|\bcannot\s+speak\b|\bunable\s+to\s+speak\b|\bvocal\s+cords?\b/i)
+    || lost(m, /\btongue\b|\bjaw\b|\bvoice\b|\blarynx\b|\bthroat\b/i)) out.push("speech");
+  if (m.some((x) => /\bdeaf\b/i.test(x) && !PARTIAL.test(x)) || lost(m, /\bears\b|\beardrums?\b|\bhearing\b/i)) out.push("hearing");
+  return out;
+}
+
+/* WHAT A LINE OF CARD TEXT NEEDS A BODY FOR.
+ *
+ * Deliberately narrower than it could be, and it errs toward saying nothing. Getting this wrong
+ * does not delete anybody's prose — it moves one line of a card into a different paragraph — but a
+ * trait wrongly filed as impossible is a person quietly diminished, and that is worth avoiding.
+ * So: only verbs and nouns that plainly require the part, and no inference from tone.
+ *
+ * The near-misses are instructive, and several words were cut for being idioms far more often than
+ * they are bodies. "Carry" flagged Emily's Singing skill, whose card value reads "she can carry a
+ * tune"; "hold" is hold forth, "reach" is reach for the right word, "carriage" is a vehicle,
+ * "notice" and "pitch" are not organs. What is left names the part or the craft outright.
+ *
+ * "Reading people" is perception rather than eyesight, and a blind woman does it by ear; it still
+ * matches `sight` through `read`, and that is the acceptable cost of not writing a parser.
+ * "Restless" is not legs. "Warm" is not hands. */
+const NEEDS: Record<Faculty, RegExp> = {
+  hands: /\b(?:hands?|fingers?|arms?|touch\w*|grip\w*|grab\w*|sew\w*|stitch\w*|knit\w*|needlework|embroider\w*|dressmak\w*|tailor\w*|garment|hairdress\w*|barber\w*|cook\w*|bak(?:e|es|ing)|writ(?:e|es|ing)|handwriting|draw(?:s|ing)?|sketch\w*|paint\w*|whittl\w*|carpentr\w*|joiner\w*|blacksmith\w*|mend\w*|repair\w*|adjust\w*|fiddl(?:e|es|ing)\s+with|tinker\w*|fidget\w*|brush\w*|comb\w*|typ(?:e|es|ing)|pour\w*|shoot\w*|marksman\w*|box(?:es|ing)|punch\w*|wield\w*|dext\w*|deft\w*|nimble\s+finger\w*|play(?:s|ing)?\s+(?:the\s+)?(?:piano|fiddle|violin|guitar|cards)|pickpocket\w*)\b/i,
+  legs: /\b(?:walk\w*|run(?:s|ning)?|ran|danc\w*|strid\w*|pac(?:e|es|ing)|gait|footwork|feet|step\w*|climb\w*|kick\w*|athlet\w*|roam\w*|wander\w*|prowl\w*|stand\w*|kneel\w*|sit\s+still|light\s+on\s+(?:her|his|their)\s+feet|quick\s+on\s+(?:her|his|their)\s+feet)\b/i,
+  sight: /\b(?:see(?:s|ing)?|saw|sight|eyes?|eyesight|look\w*|watch\w*|observ\w*|read(?:s|ing)?|glanc\w*|stare\w*|marksman\w*|paint\w*|sketch\w*|draw(?:s|ing)?)\b/i,
+  speech: /\b(?:talk\w*|speak\w*|speech|says?|said|sing(?:s|ing|er)?|song|voice|chatter\w*|orat\w*|banter|gossip\w*|storytell\w*|jokes?|preach\w*)\b/i,
+  hearing: /\b(?:hear\w*|listen\w*|ears?|overhear\w*|eavesdrop\w*)\b/i,
+};
+
+/** Which of the given faculties this piece of card text depends on. Empty is the common answer. */
+export function needsFaculty(text: string, among: readonly Faculty[]): Faculty[] {
+  const t = String(text ?? "");
+  if (!t.trim()) return [];
+  return among.filter((f) => NEEDS[f].test(t));
+}
+
+/* ══ A LIMB IS NOT A MOOD ═══════════════════════════════════════════════════════════════════
+ *
+ * `conditions` is one array of free strings holding two completely different kinds of thing: what
+ * a body is doing this hour ("winded", "shivering", "in shock") and what has been permanently
+ * taken off it ("missing left arm"). Everything that manages the array was written for the first
+ * kind, and applies to the second without noticing.
+ *
+ * Traced through one save, Emily Clarke at turn 83:
+ *
+ *   quadriplegic, partially blind, missing left arm, missing right arm, missing both legs
+ *
+ * and at turn 108, alive, fatigue "fresh":
+ *
+ *   (nothing)
+ *
+ * Four separate mechanisms will do that, and none of them needs a timer:
+ *
+ *  1. THE DEDUPE. addCondition treats a new condition as a variant of an old one when they share
+ *     any content word. "missing left arm" and "missing right arm" share `missing`, so recording
+ *     the second DELETES the first; recording the legs then deletes the arm. Amputations
+ *     annihilate one another pairwise and the ledger keeps whichever came last.
+ *  2. THE CAP. Six conditions maximum, oldest evicted. Five limbs and two states of shock, and a
+ *     limb falls off the end of the list.
+ *  3. condition_remove MATCHES LOOSELY — substring either way, or one shared word. A single fact
+ *     removing "missing" or "shock" takes the amputations with it.
+ *  4. A MULTI-DAY GAP wipes every condition wholesale, on a comment that says "all transient
+ *     conditions resolve over multi-day spans". Nothing checked that any of them were transient.
+ *
+ * So the player who reported "Emily. Arm removed. Still questioning me" was not looking at a
+ * narrator ignoring the ledger. By then the ledger agreed with the narrator: she had her arms back.
+ *
+ * lossKey is what tells the two kinds apart. It returns a stable identity for a structural loss —
+ * side and part, or the diagnosis — and null for everything else, which is nearly everything. Two
+ * losses are the same record only when they name the same part, so a left arm and a right arm can
+ * never stand in for each other. A loss is never evicted by the cap, never wiped by a passing week,
+ * and only removed by a fact that names it.
+ *
+ * IT REMAINS REMOVABLE, and that is deliberate. A story may give a limb back — surgery, a
+ * prosthesis, magic, the player rewriting the world — and when it does, `condition_remove: missing
+ * left arm` still works and everything that depended on the arm returns by itself, because nothing
+ * downstream was ever edited. The card gate and the coherence gate both read this live.
+ */
+const LOSS_DX = /\b(quadripleg|tetrapleg|parapleg|hemipleg|paralys|paralyz|amputat|blind|deaf|mute|aphasi|crippled|bedridden|immobile)\w*/i;
+/* GONE is deliberately not widened for this: it feeds severityOfText, which is graded against a
+ * test suite. A part that was destroyed rather than removed is still a part that is not coming
+ * back, so lossKey reads a slightly longer list of its own. */
+const LOSS_VERB = new RegExp(String.raw`\b(?:${GONE}|destroyed|crushed|mangled|ruined|shattered|useless|shot off|burned away|burnt away|dead)\b`, "i");
+const PART_LOST = new RegExp(
+  String.raw`${LOSS_VERB.source}[^.;]{0,24}\b(?:${PART})\b|\b(?:${PART})\b[^.;]{0,16}${LOSS_VERB.source}`, "i");
+
+export function lossKey(text: string): string | null {
+  const t = String(text ?? "").toLowerCase();
+  if (!t.trim()) return null;
+  if (!PART_LOST.test(t) && !FACULTY_GONE.test(t) && !LOSS_DX.test(t)) return null;
+  const part = t.match(new RegExp(String.raw`\b(?:${PART})\b`, "i"))?.[0]
+    ?.replace(/^feet$/, "foot").replace(/^teeth$/, "tooth").replace(/s$/, "");
+  const side = t.match(/\b(left|right|both|upper|lower)\b/)?.[1] ?? "";
+  if (part) return `${side}|${part}`;
+  const dx = t.match(LOSS_DX)?.[1];
+  return dx ? `dx|${dx}` : null;
+}
+
+/** True for anything the ledger must not lose by accident — see lossKey. */
+export const isPermanentLoss = (text: string): boolean => lossKey(text) !== null;

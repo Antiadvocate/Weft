@@ -27,7 +27,7 @@ import { outwardOnly } from "./interior";
 import { doorFromVoice } from "./coerce";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue, effectiveStanding } from "./desire";
-import { bodySeverity } from "./body";
+import { bodySeverity, lostFaculties, needsFaculty, FACULTY_LOSS, type Faculty } from "./body";
 import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
@@ -1681,9 +1681,52 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // the only place the every-turn assertion can be quieted, and the novelty note names it as
     // resting on top. Subject traits are never dropped: they are what the person cares about.
     const restingNow = new Set(suppressedMannerisms(state, id));
-    const shownTraits = ident.core_traits.filter((t) => !restingNow.has(t));
-    if (!isPlayer) lines.push(`  as: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
-    else if (shownTraits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
+    const awake = ident.core_traits.filter((t) => !restingNow.has(t));
+    /* ── AND WHAT THE BODY CAN NO LONGER CARRY OUT ────────────────────────────────────────────
+     *
+     * The card was written when this person entered the story and describes the body they had
+     * then. The condition ledger is what has happened since. Nothing reconciled them, and the
+     * "as:" rule above makes that dangerous rather than merely untidy, because it declares traits
+     * supreme over everything else on the block.
+     *
+     * Emily Clarke, recorded quadriplegic, partially blind, both arms and both legs gone, was
+     * still being handed to the narrator every turn as "Touches people when she talks to them — a
+     * hand on the arm" and "always adjusting something, a hem, a cushion, her own hair", plus
+     * Expert dressmaking and Good hairdressing, all of it outranking the body block by the rule
+     * three lines up. She reached for people with arms she does not have because the document told
+     * her to.
+     *
+     * NOTHING IS EDITED OUT. The player who found this said why: "these are her original things,
+     * but now she has no legs. So maybe if her legs are restored she can dance again." Rewriting
+     * the card destroys who somebody is in order to record what happened to them, and it cannot be
+     * undone. This filters instead, here, every turn, against the body as it currently reads — so
+     * restoring the arms restores the trait by itself, with no repair pass and no bookkeeping.
+     *
+     * The blocked entries are still SHOWN, moved out of the binding line into what they now are.
+     * A woman who touched everyone she talked to and cannot any more is a specific person in a
+     * specific grief; a woman whose card never mentioned it is nobody. */
+    const goneF = lostFaculties(cond);
+    const blocked: { what: string; needs: Faculty[] }[] = [];
+    if (goneF.length) {
+      for (const t of awake) { const n = needsFaculty(t, goneF); if (n.length) blocked.push({ what: t, needs: n }); }
+      for (const [k, v] of Object.entries(ident.skills ?? {}).slice(0, 6)) {
+        const n = needsFaculty(`${k} ${v ?? ""}`, goneF);
+        if (n.length) blocked.push({ what: `${k} — a skill on their card`, needs: n });
+      }
+    }
+    const blockedSet = new Set(blocked.map((b) => b.what));
+    const shownTraits = awake.filter((t) => !blockedSet.has(t));
+    const holds = ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : "";
+    if (!isPlayer && (shownTraits.length || !blocked.length)) lines.push(`  as: ${shownTraits.join("; ")}${holds}`);
+    else if (!isPlayer && holds) lines.push(` ${holds.replace(/^ — /, " ")}`);
+    else if (isPlayer && shownTraits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${shownTraits.join("; ")}${holds}`);
+    if (blocked.length) {
+      const who = isPlayer ? "the player" : ident.name;
+      const cant = [...new Set(goneF.filter((f) => blocked.some((b) => b.needs.includes(f))))].map((f) => FACULTY_LOSS[f]).join("; ");
+      lines.push(`  THE CARD DESCRIBES THE BODY ${who.toUpperCase()} WAS WRITTEN WITH. ${who} now ${cant}. Everything on the card is still true of who they are; some of it has stopped being true of what they can do, and the rule that makes traits binding stops at that line:`);
+      for (const b of blocked.slice(0, 6)) lines.push(`    · ${clipText(b.what, 150)}  [needs ${b.needs.join(" and ")}]`);
+      lines.push(`  None of those happen on the page. What survives of each is the wanting: the impulse arriving with nowhere to go, the thing they now have to ask somebody else to do, the half-second where they have already started before they remember. Never narrate the loss as a lesson learned or a peace made with it. If the story gives the part back, every one of them returns exactly as written — nothing has been removed.`);
+    }
     // ── AND THE LOG DOES NOT GET TO BURY THEM ────────────────────────────────────────────────
     // `life_history` accretes a line per significant beat and was rendered here in full, every
     // turn. One character's had reached 1,100 characters — eight times the length of her trait
