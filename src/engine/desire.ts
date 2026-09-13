@@ -494,7 +494,58 @@ export function tickDesire(state: SaveState): string[] {
  *  They diverge: someone can care deeply while still not trusting (warm but cautious), which reads as
  *  warmth WITH guardedness, never as coldness. The key failure this fixes is a narrator fixating on
  *  low trust and writing a loyal, warming companion as a hostile stranger. */
-export function dispositionCue(warmth: number, trust: number): string {
+/**
+ * STANDING, WHICH NOTHING HAS EVER READ.
+ *
+ * Every edge in this engine carries `power` — "a's perceived standing over b (deference if
+ * negative)". social.ts writes it, montage interpolates it, the bookkeeper emits power_delta for
+ * it. No prompt anywhere reads it. From a save at turn 49, all three edges pointing at the player:
+ * Emily −7, Arthur −6, Olga −2 — the state saying plainly that all three defer to him — while an
+ * eighteen-year-old immigrant clerk in 1932 and a fifty-two-year-old smuggler both met a man who
+ * materialises motor-cars out of nothing as exact social equals, and out-argued him every turn.
+ *
+ * The reason it never mattered is that dispositionCue takes warmth and trust and nothing else, and
+ * both are INTIMACY axes. Neither can say "is frightened of you". So at negative warmth the only
+ * register the function can produce is cold composure — and a frightened person and a contemptuous
+ * one get the identical cue. The player's report: "Everyone is terrified of me… everyone even a
+ * fucking 18 year old somehow has my moral judgement at hand."
+ *
+ * Deference is not warmth and it is not agreement. It changes the SHAPE of a refusal rather than
+ * whether one happens: someone who defers still says no, and says it in fewer words, without the
+ * closing line, and while looking for the door.
+ */
+/**
+ * …AND THE LEDGER'S OWN NUMBER IS USUALLY ZERO, BECAUSE NOTHING WRITES IT EITHER.
+ *
+ * `power_delta` appears exactly once in the whole bookkeeper contract — inside the JSON schema
+ * example, as `"power_delta":0`. warmth, trust and attraction each get a paragraph explaining what
+ * moves them and by how much; power gets a slot and no instruction, so it moves by accident if at
+ * all. On the save this was written from, the eighteen-year-old who had spent forty-eight turns
+ * "shaken by the player's impossible power" carried an edge power of −2.
+ *
+ * But the engine already holds a far better signal and reads it nowhere near here: `power_witnessed`
+ * is the tier the world has actually SEEN the player operate at, detected from the prose, decaying a
+ * rung every forty turns. That same save reads `{tier: "mythic", turn: 33}`. A person who has
+ * watched somebody do the impossible does not need a bookkeeper to write them a deference number.
+ *
+ * So standing is the LOWER of what the ledger says and what the tier implies. The tier only ever
+ * pushes toward deference and never away from it, so a character the ledger records as genuinely
+ * powerful in their own right keeps their footing.
+ */
+const TIER_STANDING: Record<string, number> = { mortal: 0, empowered: -8, mythic: -25, cosmic: -45 };
+export function effectiveStanding(power: number, witnessedTier?: string | null): number {
+  const floor = TIER_STANDING[String(witnessedTier ?? "mortal")] ?? 0;
+  return Math.min(power ?? 0, floor);
+}
+
+function standingCue(power: number): string {
+  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They do not hold the floor, do not deliver verdicts on you, do not get the closing line. Disagreement comes out sideways or not at all — a half-sentence, a look away, doing the thing while plainly not wanting to. If they refuse, it is short, and it costs them visibly.";
+  if (power <= -6) return " — AND THEY STAND BELOW YOU (standing " + Math.round(power) + "): they measure their words around you, let you finish, and do not summarise your character back at you. They can still refuse and still hold a line, but they do it briefly and without the last word.";
+  if (power >= 20) return " — AND THEY HOLD THE POWER HERE (standing " + Math.round(power) + "): they can afford to be unhurried, to interrupt, to decline without explaining.";
+  return "";
+}
+
+export function dispositionCue(warmth: number, trust: number, power = 0): string {
   // warmth band on the full scale, with what it looks like in behavior. Every band says what the
   // person DOES, including how they disagree — warmth lowers ceremony, not independence, and a
   // band that only describes affection renders as a compliance machine.
@@ -527,7 +578,7 @@ export function dispositionCue(warmth: number, trust: number): string {
   // wages in gold spends three turns deciding whether to pour, and the player stops asking anyone
   // for anything. Coldness is about what someone will GIVE, never about whether their trade works.
   const trade = " — TRANSACTIONS ARE NOT FAVORS: whatever this person does for a living they still do, for a stranger, at the usual price, without needing to like them. Selling, serving, ferrying, directing, renting, answering a question any passer-by could answer — none of that is a concession and none of it needs warmth. Withhold favors, trust, secrets, loyalty, and risk; do not withhold the ordinary business of the world.";
-  return `${care} ${rely}${note}${trade}`;
+  return `${care} ${rely}${note}${trade}` + standingCue(power);
 }
 
 // ─────────────────────────── RIVALRY ───────────────────────────
