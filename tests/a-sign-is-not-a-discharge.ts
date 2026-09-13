@@ -129,7 +129,29 @@ for (let i = 0; i < runs; i++) { now += replay(false); then += replay(true); }
 now /= runs; then /= runs;
 console.log(`     (premise on the page: ${(100 * then).toFixed(0)}% of turns when signs are billed, ${(100 * now).toFixed(0)}% when they are not)`);
 check("the premise reaches the page at least one turn in six", now > 1 / 6, now);
-check("not billing signs is the better of the two", now > then, { now, then });
+/* THIS USED TO ASSERT `now > then`, AND IT NO LONGER HOLDS. Recorded rather than deleted, with
+ * the numbers, because the change that broke it was deliberate and the cost is real.
+ *
+ * It passed by one point — 25% not-billed against 24% billed, stable across runs, so a real
+ * relationship and not noise. It inverted when the palette's starvation floor stopped being
+ * measured per-line and started being measured across the palette as a whole (PALETTE_STARVED in
+ * pressure.ts). Under a bounded gate the floor fires at most once every five turns whichever way
+ * signs are billed, so premise share stops responding to the billing decision at all; what it
+ * responds to instead is cooling, and billing signs produces more cooling, which produces more
+ * quiet-branch palette. Higher, and worse — quiet beats demand nothing, as this file's own header
+ * says.
+ *
+ * WHAT IT COST. This world drops from 25% premise to 18%. WHAT IT BOUGHT: a world whose palette is
+ * five lines of ambient period texture rather than a two-line premise went from spending 50% of its
+ * beats on the price of bread — with the tension-7 thread the player had just created picked 2.7%
+ * of the time, every thread and both clocks never once fired in twenty turns — to 10% texture and
+ * 13% for the thread. The player's report on that save was "I'm doing wild things. No one cares."
+ *
+ * So the surviving claim is the one that still means something and holds in both arms: the premise
+ * clears the one-in-six floor whether or not signs are billed. The pacing argument this file was
+ * written to make is unaffected and is covered by every other check above. */
+console.log(`     (the floor holds in both arms: ${(100 * now).toFixed(0)}% / ${(100 * then).toFixed(0)}%)`);
+check("the premise clears its floor whether or not signs are billed", now > 1 / 6 && then > 1 / 6, { now, then });
 
 // ---- and turn.ts keys off the mark ------------------------------------------------------------
 const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
