@@ -1188,6 +1188,9 @@ export interface SaveState {
    *  three-turn prose window, so how the world orients to a known power outlives the last sentence
    *  that happened to describe it. */
   power_witnessed?: { tier: "mortal" | "empowered" | "mythic" | "cosmic"; turn: number };
+  /** Spoken lines from the last turn that opened by repeating the player's own words. Counted
+   *  rather than banned — one is speech, two is a tic. See engine/echo.ts echoOpeners. */
+  last_openers?: string[] | null;
   /** Provenance of the file this save was imported from (see engine/version.ts). Absent for saves
    *  created in this build, and for imports of exports made before stamping existed. */
   imported_from?: { schema: number; app: string; exported_at: string; turn: number; engine?: string };

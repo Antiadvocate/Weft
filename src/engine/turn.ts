@@ -66,8 +66,8 @@ import { adoptCanonLaws } from "./authored";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
-import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer } from "./echo";
-import { applyUnexplained, reactionDirective, arrivalOrder } from "./reaction";
+import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
+import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
@@ -2864,7 +2864,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3050,6 +3050,12 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   const door = doorFor(state, focused.map((f) => f.id));
   const groundShared = door ? commonGroundNote(state, door.speaker, door.listener) : "";
   const actNote = reactionDirective(state, action, mode);
+  // …AND WHAT THE ROOM ALREADY KNEW BEFORE THIS TURN. reactionDirective governs the turn an act
+  // happens on and re-derives "is this impossible here" from the player's typed words each time —
+  // so "I lay out a plate of gold coins" read as an ordinary rich man's gesture, and the standing
+  // fact that this man makes matter out of air reached the prompt only as a politeness modifier.
+  // See reaction.witnessedDirective.
+  const seenNote = witnessedDirective(state);
   // THE ANSWER IS THE TURN. When the player reads something or asks something that answers in
   // words, the words are what the turn owes them — see engine/consult.ts for the two turns of a
   // save where a phone was consulted twice and the prose described the lit screen both times.
@@ -3059,7 +3065,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + risenNote + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
+  const fullDirective = actNote + seenNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + risenNote + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
     // THE PLAYER CHECKING A SETTLED FACT AGAINST SOMETHING OUTSIDE THE ROOM. The verdict goes in
     // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
     // invented mid-argument has no record of its own and will agree with whoever spoke last.
@@ -3422,6 +3428,9 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       }
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
+      // …and the short quote-back opener, which findEcho's five-word floor is deliberately above.
+      // Counted, not banned: one repeat is speech, two in a turn is how lines are being started.
+      state.last_openers = echoOpeners(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
       // actually produced prose, so an interlude or a montage in between does not mask it.
       state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
