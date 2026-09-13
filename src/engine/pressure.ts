@@ -20,6 +20,58 @@ import { absMinutes } from "./time";
 import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock, SaveState } from "./types";
 import { clipText } from "./text";
 
+/* ── A SOURCE THAT NAMES A CORPSE ─────────────────────────────────────────────────────────────
+ *
+ * The coherence gate catches the dead ACTING once the narrator has written them. This is the other
+ * end of the same failure: the engine handing the narrator a reason to write them in the first
+ * place. Measured across the six saves of the game where a man came back through the revolving
+ * doors of the Ritz six times after being shot, every one of them was still carrying threads like
+ * these, eligible to be chosen as the thing the turn is about:
+ *
+ *   [dormant] Hollis is sending a boy at three      — Hollis is dead
+ *   [dormant] Halloran holds Vance's letter         — Vance has left the story
+ *
+ * One or two a save, always dormant, and dormant is not a reprieve: dormant threads are
+ * deliberately kept eligible so the world can pick a subject back up, and a dormant thread does not
+ * have to clear the tension bar. So the likeliest use of "Hollis is sending a boy at three" is the
+ * turn the world decides to return to it, which is the turn a dead man sends a boy.
+ *
+ * Clocks are filtered on the same rule and on each visible_sign separately, because a live clock
+ * can carry a dead man in one of its signs while its own objective is clean. (The Penhale clock
+ * from that save — "Arthur's men are seen in new suits" — had fired before he died, so it was not
+ * the culprit there. The hole is real whether or not that particular clock fell through it.)
+ *
+ * The posture is the one forbidden_engine already uses: the thread stays open, the clock keeps
+ * ticking, they simply stop being the reason for a scene. The world may still be dealing with the
+ * consequences of a dead man. It does not get to be prompted with his name.
+ *
+ * Every part of the name, not just the whole of it, because these strings are written casually and
+ * a man is his surname as often as his first: "Arthur Penhale's network", "Arthur's men" and "what
+ * Penhale owed the Cattermoles" are one dead man three times.
+ *
+ * A single token only counts CAPITALISED, and that is the whole defence against eating a live
+ * source. Surnames are ordinary English words — Baker, Cook, Bell, Rose, Ward, Green — and so are
+ * plenty of first names, so a bare lowercase `rose` in "the rose beds have gone over" is a flower.
+ * Thread titles and clock objectives capitalise the people in them; they do not capitalise the
+ * flowers. Tokens under three letters are skipped outright.
+ */
+export function namesTheGone(text: string, gone: readonly string[]): boolean {
+  const t = String(text ?? "");
+  if (!t.trim()) return false;
+  const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const raw of gone) {
+    const full = String(raw ?? "").trim();
+    if (full.length < 3) continue;
+    if (new RegExp(`\\b${esc(full)}\\b`, "i").test(t)) return true;
+    for (const tok of full.split(/\s+/)) {
+      if (tok.length < 3) continue;
+      const m = new RegExp(`\\b${esc(tok)}\\b`, "gi").exec(t);
+      if (m && /^[A-Z]/.test(m[0])) return true;
+    }
+  }
+  return false;
+}
+
 export interface PressureInput {
   turn: number;
   now?: string;                    // current in-world time ("Day N, HH:MM") — gates time-scheduled consequences
@@ -33,6 +85,9 @@ export interface PressureInput {
   /** The last several turns' pressure sources, oldest first. Stops one thread from naming itself
    *  as the reason for every scene — see fictionHeat. */
   recentSources?: string[];
+  /** Everyone the story has lost, full names. A thread or clock naming one of them is not a
+   *  reason for a scene — see namesTheGone. */
+  gone?: readonly string[];
   focusMode?: "build" | "active" | null;  // phase: build suppresses new chaos, active runs hot
   focusLabel?: string | null;      // what we're converging on / in (for the directive text)
   tension?: number;                // 0-10 master dial; 0 = engine originates nothing new
@@ -159,6 +214,8 @@ export function fictionHeat(
   threads: Thread[], clocks: FactionClock[], consequences: ConsequenceEvent[], turn: number, now?: string,
   /** The last several turns' chosen sources, oldest first — telemetry's `pressure_source` column. */
   recentSources?: string[],
+  /** Everyone the story has lost — see namesTheGone. */
+  gone: readonly string[] = [],
 ): { heat: number; source: string } {
   let heat = 0;
   let source = "ambient world texture";
@@ -171,13 +228,14 @@ export function fictionHeat(
   }
   const staleness = (label: string) => named.get(label) ?? 0;
   const hot = threads
-    .filter((t) => t.status === "active" && !t.forbidden_engine)
+    .filter((t) => t.status === "active" && !t.forbidden_engine && !namesTheGone(t.title, gone))
     .map((t) => ({ t, score: (t.tension ?? 0) - staleness(`thread: ${t.title}`) }))
     .sort((a, b) => b.score - a.score)[0];
   if (hot && hot.score > heat) { heat = hot.t.tension; source = `thread: ${hot.t.title}`; }
   for (const c of clocks) {
     if (c.status !== "running" || c.segments === 0) continue;
     if (c.forbidden_engine) continue;              // the auditor named this one; it still ticks, it just stops being the reason
+    if (namesTheGone(`${c.faction} ${c.objective}`, gone)) continue;   // and so does one that runs on somebody gone
     const label = `clock: ${c.faction} — ${c.objective}`;
     const raw = (c.filled / c.segments) * 8;
     // Damped exactly like a thread: each recent turn that named this clock costs it a point of
@@ -219,7 +277,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) { band = i; break; } if (i === p.length - 1) band = i; }
 
   // fiction heat: pressure ≥ 8 must be earned (C4); heat also pulls band up
-  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.recentSources);
+  let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.recentSources, input.gone);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
     if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
@@ -321,6 +379,8 @@ export interface BeatInput {
   agents: AgentCandidate[];        // offscreen central chars whose drive intersects the player's orbit
   /** The world bible's own pressure_palette — what the player said this story runs on. */
   palette?: string[];
+  /** Everyone the story has lost, full names — see namesTheGone. */
+  gone?: readonly string[];
   last_beat_turn: number;
   last_exo_turn: number;
   /** In-world minutes elapsed since the last discharge / the last exogenous event (never negative).
@@ -409,7 +469,8 @@ export function selectBeat(inp: BeatInput): Beat {
   // that world means showing it.
   const grace = inp.besieged ? BESIEGED_GRACE : GRACE_TURNS;
   if (inp.turn <= grace && inp.force === undefined) {
-    const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5);
+    const early = inp.threads.find((t) => t.status === "active" && (t.tension ?? 0) >= 5
+      && !namesTheGone(t.title, inp.gone ?? []));
     const minRemind = inp.besieged ? 1 : 4;
     return early && inp.turn >= minRemind && (inp.rng ?? Math.random)() < (inp.besieged ? 0.7 : 0.35)
       ? { kind: "reminder", ref: clipText(early.title, 130) }
@@ -461,7 +522,14 @@ export function selectBeat(inp: BeatInput): Beat {
    * errand that has sat in state since the opening were indistinguishable to the rotation. See the
    * pick below. */
   const standing: { ref: string; kind: string; mk: () => Beat; quiet?: () => Beat; dormant?: boolean; heat?: number }[] = [];
-  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine && c.filled / c.segments >= 0.75)
+  // A source naming somebody the story has lost is not a source. See namesTheGone — this is the
+  // input end of the same failure the coherence gate catches at the output end, and a sign is
+  // filtered on its own because a live clock can still carry a dead man's name in one of them.
+  const gone = inp.gone ?? [];
+  const liveSigns = (c: FactionClock, n: number) =>
+    (c.visible_signs ?? []).map((x) => String(x ?? "").trim()).filter((x) => x && !namesTheGone(x, gone)).slice(0, n);
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
+      && !namesTheGone(`${c.faction} ${c.objective}`, gone) && c.filled / c.segments >= 0.75)
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "threat", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130),
       // THE SIGNS TRAVEL WITH THE BEAT. The narrator is deliberately not shown the clock table —
@@ -471,11 +539,11 @@ export function selectBeat(inp: BeatInput): Beat {
       // this clock into the player's awareness" needs and was never given. Told to advance a clock
       // with nothing observable attached, the narrator wrote a line of foreboding and moved on,
       // which is a clock flaring with nothing in the prose to show for it.
-      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 3),
+      signs: liveSigns(c, 3),
       filled: c.filled, segments: c.segments,
     }), quiet: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
-      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
+      signs: liveSigns(c, 2),
       filled: c.filled, segments: c.segments,
     }) });
   // ── AND A CLOCK THAT HAS ONLY JUST STARTED MOVING ───────────────────────────────────────────
@@ -507,16 +575,17 @@ export function selectBeat(inp: BeatInput): Beat {
   // clock the forge writes at world creation begins inside it. A sign is the one thing that is safe
   // to show from a standing start: nobody in the scene knows what it means, nothing escalates.
   for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
-      && c.filled / c.segments < 0.75 && (c.visible_signs ?? []).some((x) => String(x ?? "").trim()))
+      && !namesTheGone(`${c.faction} ${c.objective}`, gone)
+      && c.filled / c.segments < 0.75 && liveSigns(c, 1).length)
     standing.push({ ref: clipText(`${c.faction}: ${c.objective}`, 130), kind: "reminder", mk: () => ({
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
-      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
+      signs: liveSigns(c, 2),
       filled: c.filled, segments: c.segments,
     }), quiet: () => ({
       // A young clock is ALREADY only a sign, so its quiet form and its loud form are the same
       // thing — which is the point: it is the one source that is safe to run during a cooldown.
       kind: "clock", ref: clipText(`${c.faction}: ${c.objective}`, 130), young: true,
-      signs: (c.visible_signs ?? []).filter((x) => String(x ?? "").trim()).slice(0, 2),
+      signs: liveSigns(c, 2),
       filled: c.filled, segments: c.segments,
     }) });
 
@@ -559,6 +628,9 @@ export function selectBeat(inp: BeatInput): Beat {
     // is real and the player may still act on it; the world does not press through it. See
     // fictionHeat above for why this gate exists in two places.
     if (t.forbidden_engine) continue;
+    // …and neither is one whose title names somebody who is gone. "Hollis is sending a boy at
+    // three", dormant, eligible, and Hollis dead — see namesTheGone.
+    if (namesTheGone(t.title, gone)) continue;
     // ...AND AN UNLABELLED THREAD IS NOT A CRISIS BY DEFAULT.
     //
     // The paragraph above lowered the bar to 2 for everything that is not a threat, and then this
@@ -806,16 +878,21 @@ export function selectBeat(inp: BeatInput): Beat {
  */
 export function beatSources(inp: BeatInput): string[] {
   const seen = new Map<string, { kind: string; turn?: number }>();
+  // The table has to agree with the selector, or `[[beat: ?]]` offers the player a dead man's
+  // clock and then silently declines to run it.
+  const gone = inp.gone ?? [];
   const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
   for (const line of inp.palette ?? []) if (String(line ?? "").trim()) {
     const ref = clipText(String(line).trim(), 130);
     seen.set(ref, { kind: "palette", turn: hist.get(ref)?.turn });
   }
-  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine) {
+  for (const c of inp.clocks) if (c.status === "running" && c.segments > 0 && !c.forbidden_engine
+      && !namesTheGone(`${c.faction} ${c.objective}`, gone)) {
     const ref = clipText(`${c.faction}: ${c.objective}`, 130);
     seen.set(ref, { kind: `clock ${c.filled}/${c.segments}`, turn: hist.get(ref)?.turn });
   }
-  for (const t of inp.threads) if ((t.status === "active" || t.status === "dormant") && !t.forbidden_engine) {
+  for (const t of inp.threads) if ((t.status === "active" || t.status === "dormant") && !t.forbidden_engine
+      && !namesTheGone(t.title, gone)) {
     const ref = clipText(t.title, 130);
     seen.set(ref, { kind: `thread ${t.kind ?? "situation"} @${t.tension ?? 0}${t.status === "dormant" ? " (dormant)" : ""}`, turn: hist.get(ref)?.turn });
   }

@@ -32,7 +32,11 @@ export interface NpcIntent {
   char_id: string;
   name: string;
   surface: string;   // what they let show — for the narrator
-  truth: string;     // what's actually true (lie/hidden want/withheld feeling) — for the bookkeeper
+  /** What is actually true underneath — for the BOOKKEEPER only, and absent when the model failed
+   *  to write one distinct from the surface. See the collapse handling in runIntentPass: an intent
+   *  with no truth is still a committed stance for the narrator to render, and the bookkeeper
+   *  simply hears nothing about this person's interior that turn. */
+  truth?: string;
   tell?: string;     // optional deniable behavioral leak — the narrator may show it, the player may read/misread it
   lying: boolean;    // convenience flag: is the surface a deliberate deception?
 }
@@ -283,16 +287,35 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       // nothing underneath to keep back. Now a collapse is detected and the intent is dropped: the
       // character gets rendered normally, which is honest, instead of carrying a hollow interior.
       const rawTruth = j.truth === undefined || j.truth === null ? "" : clip(deQuoteIntent(String(j.truth)), 300);
-      if (!rawTruth || collapsed(surface, rawTruth)) {
-        console.warn(`[intent] ${c.name}: surface and truth collapsed — dropping the intent rather than filing posture as inner state`);
-        return null;
-      }
+      /* A COLLAPSE COSTS THE TRUTH. IT USED TO COST THE WHOLE INTENT, AND THAT WAS THE EXPENSIVE HALF.
+       *
+       * Filing a description of somebody's posture as their "true inner state" is a real harm — the
+       * bookkeeper reads this block as authoritative about interiority, and a hollow interior makes
+       * the prose have people announce their feelings aloud because there is nothing underneath to
+       * keep back. So the truth goes. But `return null` threw the SURFACE away with it, and the
+       * surface is the only thing the narrator ever sees: intentForNarrator is deliberately given
+       * surface and tell and never truth. Dropping it puts the character back to being written
+       * free-hand from the card, which is the failure this whole module exists to prevent.
+       *
+       * Measured across five saves of one game — every present, living, central character-turn,
+       * counted against the intents actually recorded — a character in the room got a committed
+       * stance on 22-27% of their turns, and it decayed with game length: 50% at turn 20, 24% by
+       * turn 169. Three turns in four, the narrator was choosing what everybody in the room was
+       * doing, with nothing pre-committed to hold it. The pass was firing; the results were being
+       * binned. The player's report on those saves was that the cast made no sense and the story
+       * came apart the longer it ran.
+       *
+       * So: keep the stance, withhold the interior. The narrator gets what it was always given, the
+       * bookkeeper hears nothing rather than something false, and `lying` goes false because a
+       * concealment claim with no concealed fact behind it is the same lie in the other direction. */
+      const clean = rawTruth && !collapsed(surface, rawTruth);
+      if (!clean) console.warn(`[intent] ${c.name}: no distinct inner state came back — keeping the stance, filing no interior`);
       return {
         char_id: id, name: c.name,
         surface,
-        truth: rawTruth,
+        truth: clean ? rawTruth : undefined,
         tell: j.tell ? clip(deQuoteIntent(String(j.tell)), 200) : undefined,
-        lying: !!j.lying,
+        lying: clean ? !!j.lying : false,
       } as NpcIntent;
     } catch {
       return null; // a failed intent call just means this NPC gets rendered normally this turn
@@ -355,6 +378,9 @@ export function intentForNarrator(intents: NpcIntent[]): string {
  * Events are the prose's job and nothing else's.
  */
 export function intentForBookkeeper(intents: NpcIntent[]): string {
+  // Only the ones that came back with an interior distinct from the posture. A stance-only intent
+  // is real and useful and it is the narrator's; there is nothing here for the bookkeeper to file.
+  intents = intents.filter((i) => i.truth?.trim());
   if (!intents.length) return "";
   const lines = intents.map((i) =>
     `- ${i.name} [${i.char_id}] — ${i.lying ? `WAS CONCEALING SOMETHING. What they hid: ${i.truth}` : `true inner state: ${i.truth}`}`);

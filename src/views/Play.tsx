@@ -279,7 +279,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
-        onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
+        onMeta: (m) => { if ((m as any).restream) setLiveProse(""); if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => {
           setSave(s); setLiveProse(""); setReads([]); setPhase(null); localStorage.removeItem(draftKey); flushPostTurn(s);
           // the stop landed after the last exit — the world already moved, so say so rather than
@@ -465,7 +465,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onPhase: setPhase,
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
-        onMeta: (m) => { if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
+        onMeta: (m) => { if ((m as any).restream) setLiveProse(""); if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); flushPostTurn(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
         onCancel: () => { setLiveProse(""); setReads([]); pushToasts(["stopped — that beat was not recorded"]); resolve(); },

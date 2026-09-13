@@ -14,7 +14,7 @@ import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, RETIRE_AT, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
-import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
+import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock, goneMap } from "./prompts";
 import { updateMind } from "./mind";
 import { tickRemodel, dampen, remodelReport } from "./remodel";
 import { tickArrivals } from "./ground";
@@ -32,7 +32,7 @@ import { obduracyIn, isObdurate } from "./obduracy";
 import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
-import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText } from "./body";
+import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
 import { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 import { addCanon, expandAliases, pushSnapshot, registerCharacter, uid } from "./state";
@@ -52,8 +52,10 @@ import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
+import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
+import { tickNeglect } from "./neglect";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
@@ -2144,6 +2146,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 1c ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
+  // THE DEAD DO NOT GET TO BE THE REASON FOR A SCENE. A clock reading "Arthur Penhale's network"
+  // with the sign "Arthur's men are seen in new suits", and seven dormant threads carrying his
+  // name, were all still standing in the save where he walked back in six times. The prose gate
+  // catches him once written; this stops the engine asking for him. See pressure.namesTheGone.
+  const goneNames = [...goneMap(state).keys()];
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
@@ -2154,6 +2161,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // argmax every turn, so the hottest thread named itself as the reason for every scene until its
     // tension moved — which in one save meant forty turns whose directive opened on the same line.
     recentSources: (state.telemetry ?? []).slice(-8).map((t) => t.pressure_source).filter(Boolean) as string[],
+    gone: goneNames,
   });
   // fate's floor: the ending is coming and the world knows it. Never lowers pressure, only raises.
   const floor = fatePressureFloor(fate);
@@ -2211,7 +2219,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const beatInput = {
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
-    agents, palette: state.world_bible.pressure_palette,
+    agents, palette: state.world_bible.pressure_palette, gone: goneNames,
     last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     // A forced beat is the player saying the world moves now, so a rest reading of their own line
@@ -2353,6 +2361,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // cannot answer "I am done with this marriage" with "okay". See engine/severance.ts.
   tickSeverance(state, action, state.world.present);
   const severNote = severanceDirective(state);
+
+  // WHAT THEY HAVE BEEN PUTTING OFF, AND THE MOMENT THE ROOM PUTS IT BACK IN FRONT OF THEM.
+  // Charged before the intent pass on purpose: the drop in openness it causes is part of the state
+  // that pass reads, so a character reminded of the thing they have been avoiding brings THAT into
+  // the beat rather than arriving composed and being sad about it afterwards. See engine/neglect.ts.
+  { const nl = tickNeglect(state, turn); if (nl.length) ev.onMeta({ shifts: nl }); }
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   // SOVEREIGN PERCEPTION — god mode plus a declared act of reading somebody. The engine authors
@@ -3280,6 +3294,66 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       ev.onMeta?.({ shifts: salvaged.notes });
     }
   }
+  // ══ THE COHERENCE GATE ══════════════════════════════════════════════════════════════════════
+  //
+  // Everything below this line READS the prose: the scene footer, the leak and maxim detectors, the
+  // bookkeeper, the summary, memory, canon, the chatlog replay. So this is the last moment at which
+  // an impossible turn can be prevented rather than argued with.
+  //
+  // It is here because every other correction in this engine is feed-forward and that is why none
+  // of them converge — see the header of engine/coherence.ts. A dead man walked back into one save
+  // six times WITH a guard in place, because the guard defended the ledger while the story recorded
+  // the resurrection, and by the next turn the summary, the memory and the recall all said he was
+  // alive. One line of correction against twelve lines of history is not a fix.
+  //
+  // ONE REGENERATION, THEN THE KNIFE. A rewrite is a whole narrator call on the biggest prompt of
+  // the turn, so it happens at most once; if the rewrite is still impossible the offending sentences
+  // are cut instead. A hole does not propagate, and a contradiction does.
+  if (!opts?.proseOverride) {
+    let violations: Violation[] = checkCoherence(state, prose, state.world.present);
+    if (violations.length) {
+      console.warn(`[coherence] ${violations.length} violation(s) in the committed prose:`, violations.map((v) => `${v.kind}: ${v.why}`));
+      ev.onPhase("narrator");
+      try {
+        const fixMsgs = [...narratorMsgs];
+        const last = fixMsgs[fixMsgs.length - 1];
+        // Appended to the final user turn, which is where this engine has repeatedly found that an
+        // instruction is read as an instruction rather than as reference.
+        if (last && typeof last.content === "string") fixMsgs[fixMsgs.length - 1] = { ...last, content: last.content + retryNote(violations) };
+        // WIPE WHAT IS ON THE PAGE BEFORE THE REWRITE STREAMS IN. The reader has been watching the
+        // first draft arrive a token at a time, and the UI appends deltas — without this the
+        // corrected turn lands UNDER the impossible one and the player reads the scene twice, the
+        // wrong version first. Carried on onMeta because that already crosses the transport as a
+        // free-form object; a caller that ignores it is exactly where it was before.
+        ev.onMeta({ restream: true });
+        const again = completeStream(fixMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, false, undefined, signal);
+        let rewritten = "";
+        while (true) {
+          const { done, value } = await again.next();
+          if (done) { rewritten = value.text; if (value.usage) { narratorUsage = { ...narratorUsage, prompt_tokens: narratorUsage.prompt_tokens + (value.usage.prompt_tokens ?? 0), completion_tokens: narratorUsage.completion_tokens + (value.usage.completion_tokens ?? 0) }; } break; }
+          ev.onDelta(value);
+        }
+        rewritten = salvageProse(rewritten).prose;
+        if (rewritten.trim() && !isRefusal(rewritten, state.world_bible)) {
+          const after = checkCoherence(state, rewritten, state.world.present);
+          if (after.length < violations.length) { prose = rewritten; violations = after; }
+        }
+      } catch (e) {
+        if (isCancel(e)) throw new Cancelled();
+        console.warn(`[coherence] the rewrite failed, falling through to excision: ${e}`);
+      }
+      if (violations.length) {
+        const { prose: cutProse, cut } = excise(prose, violations);
+        if (cut) { prose = cutProse; console.warn(`[coherence] excised ${cut} impossible sentence(s)`); }
+        ev.onMeta({ shifts: [cut
+          ? `${cut} sentence${cut > 1 ? "s" : ""} could not happen and ${cut > 1 ? "were" : "was"} cut — ${violations[0].why}`
+          : `the turn contradicts the record and could not be repaired — ${violations[0].why}`] });
+      } else {
+        ev.onMeta({ shifts: ["the turn was rewritten: what it first wrote could not have happened"] });
+      }
+    }
+  }
+
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
@@ -4954,16 +5028,33 @@ export function addCondition(c: { conditions: string[]; condition_age?: Record<s
   value = typeof value === "string" ? value : String(value ?? "");
   if (!value) return;
   c.condition_age ??= {};
-  const dup = c.conditions.find((x) => typeof x === "string" && (x.toLowerCase() === value.toLowerCase() || wordOverlap(x, value)));
+  // A PERMANENT LOSS IS ONLY EVER A DUPLICATE OF THE SAME PART. The overlap test asks whether two
+  // strings share a content word, which is the right question for "shaken" against "badly shaken"
+  // and catastrophic for "missing left arm" against "missing right arm": they share `missing`, so
+  // recording the second DELETED the first, and recording the legs then deleted the arm. Traced on
+  // one save, five amputations at turn 83 had annihilated one another down to nothing by 108, and
+  // the woman was walking again. See body.lossKey.
+  const nk = lossKey(value);
+  const dup = c.conditions.find((x) => {
+    if (typeof x !== "string") return false;
+    if (x.toLowerCase() === value.toLowerCase()) return true;
+    const xk = lossKey(x);
+    if (nk || xk) return nk !== null && nk === xk;   // same part, reworded — genuinely one record
+    return wordOverlap(x, value);
+  });
   if (dup) {
     delete c.condition_age[dup];
     c.conditions = c.conditions.filter((x) => x !== dup);
   }
   c.conditions.push(value);
   c.condition_age[value] = turn;
-  // hard cap: oldest fall off
+  // Hard cap: the oldest FADEABLE one falls off. A limb is not a cache entry — somebody with five
+  // amputations and two states of shock loses a limb off the end of this list otherwise. When
+  // everything on the list is permanent the list is simply longer than six, which is correct.
   while (c.conditions.length > 6) {
-    const oldest = c.conditions.reduce((m, x) => ((c.condition_age![x] ?? 0) < (c.condition_age![m] ?? 0) ? x : m), c.conditions[0]);
+    const fadeable = c.conditions.filter((x) => !lossKey(x));
+    if (!fadeable.length) break;
+    const oldest = fadeable.reduce((m, x) => ((c.condition_age![x] ?? 0) < (c.condition_age![m] ?? 0) ? x : m), fadeable[0]);
     c.conditions = c.conditions.filter((x) => x !== oldest);
     delete c.condition_age[oldest];
   }
@@ -6134,9 +6225,18 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       }
       case "condition_add": addCondition(c, f.value, turn); break;
       case "condition_remove": {
+        // Loose on both sides — substring either way, or one shared content word — which is right
+        // for "shivering" clearing "shivering hard" and wrong for anything permanent: a single fact
+        // removing "shock" or "missing" swept the amputations out with it. A limb may still be
+        // GIVEN BACK, by surgery, a prosthesis, or the player rewriting the world, and everything
+        // that depended on it returns by itself when it is — but the fact has to name it.
         const q = f.value.toLowerCase();
+        const qk = lossKey(f.value);
         c.conditions = c.conditions.filter((x) => {
-          const keep = !(x.toLowerCase().includes(q) || q.includes(x.toLowerCase()) || wordOverlap(x, f.value));
+          const xk = lossKey(x);
+          const keep = xk
+            ? !(x.toLowerCase() === q || (qk !== null && qk === xk))
+            : !(x.toLowerCase().includes(q) || q.includes(x.toLowerCase()) || wordOverlap(x, f.value));
           if (!keep) delete c.condition_age?.[x];
           return keep;
         });
@@ -6169,12 +6269,22 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         const key = f.value.trim().toLowerCase();
         const had = c.injuries.find((i) => i.type.trim().toLowerCase() === key);
         if (had) { had.turn = turn; had.cause = "this turn"; break; }
-        c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: false, functional_impact: f.value, turn });
+        // `permanent` was hard-coded false, so nothing written through this path was ever permanent
+        // and a severed arm aged out on the injury timer like a bruise. An amputation recorded as an
+        // injury is exactly as permanent as one recorded as a condition. See body.lossKey.
+        c.injuries.push({ id: uid("inj"), type: f.value, cause: "this turn", permanent: isPermanentLoss(f.value), functional_impact: f.value, turn });
         break;
       }
       case "injury_remove": {
+        // Same rule as condition_remove: a wound closes on a loose match, a lost part has to be named.
         const q = f.value.toLowerCase();
-        c.injuries = c.injuries.filter((inj) => !(inj.type.toLowerCase().includes(q) || q.includes(inj.type.toLowerCase())));
+        const qk = lossKey(f.value);
+        c.injuries = c.injuries.filter((inj) => {
+          const ik = lossKey(inj.type);
+          return ik
+            ? !(inj.type.toLowerCase() === q || (qk !== null && qk === ik))
+            : !(inj.type.toLowerCase().includes(q) || q.includes(inj.type.toLowerCase()));
+        });
         break;
       }
     }

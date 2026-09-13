@@ -65,7 +65,7 @@ const TURN_11: NpcIntent[] = [
 /* ── 2. what it IS for still gets through ─────────────────────────────────────── */
 {
   const b = intentForBookkeeper(TURN_11);
-  for (const i of TURN_11) check(`${i.name}'s true state is filed`, b.includes(i.truth), b);
+  for (const i of TURN_11) check(`${i.name}'s true state is filed`, b.includes(i.truth!), b);
   check("the liar is marked as concealing", /WAS CONCEALING SOMETHING/.test(b), b);
   check("the honest ones are not", (b.match(/WAS CONCEALING SOMETHING/g) ?? []).length === 1, b);
   check("ids are carried so the diff can write to them", TURN_11.every((i) => b.includes(`[${i.char_id}]`)), b);
@@ -87,7 +87,26 @@ const TURN_11: NpcIntent[] = [
 {
   const n = intentForNarrator(TURN_11);
   check("the narrator still gets the stances", TURN_11.every((i) => n.includes(i.surface)), n);
-  check("and never the decoded answer", !TURN_11.some((i) => n.includes(i.truth)), n);
+  check("and never the decoded answer", !TURN_11.some((i) => n.includes(i.truth!)), n);
+}
+
+/* ── 5. A STANCE WITH NO INTERIOR IS STILL A STANCE ───────────────────────────────
+ * When the cheap model writes the posture twice, the truth is dropped and the intent used to be
+ * dropped with it — so the narrator lost the commitment too and wrote the character free-hand from
+ * the card. Measured across five saves of one game, a present, living, central character got a
+ * committed stance on only 22-27% of the turns they were in the room for, decaying from 50% at
+ * turn 20 to 24% by turn 169. The pass was firing the whole time; three results in four were being
+ * binned. Now the stance survives and only the interior is withheld. */
+{
+  const stanceOnly = [{ char_id: "c1", name: "Vela", surface: "keeps her back to the counter and answers short", tell: "her thumb goes still on the cloth", lying: false }];
+  const n = intentForNarrator(stanceOnly);
+  check("the narrator still gets a committed stance", n.includes("keeps her back to the counter"), n);
+  check("…and the tell with it", n.includes("thumb goes still"), n);
+  const b = intentForBookkeeper(stanceOnly);
+  check("the bookkeeper is told nothing rather than something false", b === "", b);
+  const mixed = intentForBookkeeper([...stanceOnly, ...TURN_11]);
+  check("…and a stance-only one does not suppress the real ones", TURN_11.every((i) => mixed.includes(i.truth!)), mixed);
+  check("…while still contributing no interior of its own", !mixed.includes("keeps her back to the counter"), mixed);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

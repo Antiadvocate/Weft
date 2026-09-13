@@ -25,6 +25,7 @@ import { pushSnapshot, uid } from "./state";
 import { relevance } from "./memory";
 import { clipText } from "./text";
 import { clamp } from "./num";
+import { isPermanentLoss } from "./body";
 
 
 export interface ForwardReport {
@@ -68,10 +69,16 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   // bodies recover across days
   for (const [id, c] of Object.entries(state.condition)) {
     c.fatigue = "fresh"; c.hunger = "fed";
-    const healed = c.conditions.filter(() => true); // all transient conditions resolve over multi-day spans
+    // "all transient conditions resolve over multi-day spans" — and nothing checked that any of
+    // them were transient. Two days off the page wiped the whole array, amputations included, so a
+    // long journey grew somebody's arms back. What fades is what can fade. See body.lossKey.
+    const healed = c.conditions.filter((x) => !isPermanentLoss(x));
     if (days >= 2 && healed.length) {
       report.conditions_healed.push(...healed.map((h) => `${state.characters[id]?.name}: ${h}`));
-      c.conditions = []; c.condition_age = {};
+      const kept = c.conditions.filter((x) => isPermanentLoss(x));
+      const ages: Record<string, number> = {};
+      for (const k of kept) if (c.condition_age?.[k] !== undefined) ages[k] = c.condition_age[k];
+      c.conditions = kept; c.condition_age = ages;
     }
     // non-permanent injuries close over a week+
     if (days >= 7) {

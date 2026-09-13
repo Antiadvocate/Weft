@@ -27,7 +27,9 @@ import { outwardOnly } from "./interior";
 import { doorFromVoice } from "./coerce";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue, effectiveStanding } from "./desire";
-import { bodySeverity } from "./body";
+import { bodySeverity, lostFaculties, needsFaculty, FACULTY_LOSS, type Faculty } from "./body";
+import { clenchDirective } from "./clench";
+import { neglectCue, liveWant } from "./neglect";
 import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
@@ -1299,7 +1301,7 @@ export function deriveVoice(
   // was nothing, so it spoke out of its card and only its card. See engine/aperture.ts — the long
   // form of this lives in the direction; what a card can carry is the one clause that changes.
   else if (apertureOf(rel) === "narrowed") parts.push("right now: braced — the register above is at its most concentrated, and the attention is on the one thing that matters and stays there. Correct, and what makes the open state mean anything");
-  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the register above is the shape this person takes UNDER LOAD, and they are not under load. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
+  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the voice card above describes this person braced, defending something, doing business. They are not doing that now. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
   // The middle band carries the least, so it is the one band that does not count as "something to
   // say about this voice this turn": a card with nothing else on it still falls back to its
   // baseline below, with this appended rather than instead.
@@ -1681,9 +1683,52 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // the only place the every-turn assertion can be quieted, and the novelty note names it as
     // resting on top. Subject traits are never dropped: they are what the person cares about.
     const restingNow = new Set(suppressedMannerisms(state, id));
-    const shownTraits = ident.core_traits.filter((t) => !restingNow.has(t));
-    if (!isPlayer) lines.push(`  as: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
-    else if (shownTraits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${shownTraits.join("; ")}${ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : ""}`);
+    const awake = ident.core_traits.filter((t) => !restingNow.has(t));
+    /* ── AND WHAT THE BODY CAN NO LONGER CARRY OUT ────────────────────────────────────────────
+     *
+     * The card was written when this person entered the story and describes the body they had
+     * then. The condition ledger is what has happened since. Nothing reconciled them, and the
+     * "as:" rule above makes that dangerous rather than merely untidy, because it declares traits
+     * supreme over everything else on the block.
+     *
+     * Emily Clarke, recorded quadriplegic, partially blind, both arms and both legs gone, was
+     * still being handed to the narrator every turn as "Touches people when she talks to them — a
+     * hand on the arm" and "always adjusting something, a hem, a cushion, her own hair", plus
+     * Expert dressmaking and Good hairdressing, all of it outranking the body block by the rule
+     * three lines up. She reached for people with arms she does not have because the document told
+     * her to.
+     *
+     * NOTHING IS EDITED OUT. The player who found this said why: "these are her original things,
+     * but now she has no legs. So maybe if her legs are restored she can dance again." Rewriting
+     * the card destroys who somebody is in order to record what happened to them, and it cannot be
+     * undone. This filters instead, here, every turn, against the body as it currently reads — so
+     * restoring the arms restores the trait by itself, with no repair pass and no bookkeeping.
+     *
+     * The blocked entries are still SHOWN, moved out of the binding line into what they now are.
+     * A woman who touched everyone she talked to and cannot any more is a specific person in a
+     * specific grief; a woman whose card never mentioned it is nobody. */
+    const goneF = lostFaculties(cond);
+    const blocked: { what: string; needs: Faculty[] }[] = [];
+    if (goneF.length) {
+      for (const t of awake) { const n = needsFaculty(t, goneF); if (n.length) blocked.push({ what: t, needs: n }); }
+      for (const [k, v] of Object.entries(ident.skills ?? {}).slice(0, 6)) {
+        const n = needsFaculty(`${k} ${v ?? ""}`, goneF);
+        if (n.length) blocked.push({ what: `${k} — a skill on their card`, needs: n });
+      }
+    }
+    const blockedSet = new Set(blocked.map((b) => b.what));
+    const shownTraits = awake.filter((t) => !blockedSet.has(t));
+    const holds = ident.values.length ? ` — holds to ${ident.values.slice(0, 3).join(", ")}` : "";
+    if (!isPlayer && (shownTraits.length || !blocked.length)) lines.push(`  as: ${shownTraits.join("; ")}${holds}`);
+    else if (!isPlayer && holds) lines.push(` ${holds.replace(/^ — /, " ")}`);
+    else if (isPlayer && shownTraits.length) lines.push(`  built like this — render it in the body and the involuntary, never in their choices: ${shownTraits.join("; ")}${holds}`);
+    if (blocked.length) {
+      const who = isPlayer ? "the player" : ident.name;
+      const cant = [...new Set(goneF.filter((f) => blocked.some((b) => b.needs.includes(f))))].map((f) => FACULTY_LOSS[f]).join("; ");
+      lines.push(`  THE CARD DESCRIBES THE BODY ${who.toUpperCase()} WAS WRITTEN WITH. ${who} now ${cant}. Everything on the card is still true of who they are; some of it has stopped being true of what they can do, and the rule that makes traits binding stops at that line:`);
+      for (const b of blocked.slice(0, 6)) lines.push(`    · ${clipText(b.what, 150)}  [needs ${b.needs.join(" and ")}]`);
+      lines.push(`  None of those happen on the page. What survives of each is the wanting: the impulse arriving with nowhere to go, the thing they now have to ask somebody else to do, the half-second where they have already started before they remember. Never narrate the loss as a lesson learned or a peace made with it. If the story gives the part back, every one of them returns exactly as written — nothing has been removed.`);
+    }
     // ── AND THE LOG DOES NOT GET TO BURY THEM ────────────────────────────────────────────────
     // `life_history` accretes a line per significant beat and was rendered here in full, every
     // turn. One character's had reached 1,100 characters — eight times the length of her trait
@@ -1703,6 +1748,11 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${ph ? `, ${ph}` : ""}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}${bodySeverity(cond) >= 3 ? " — BODY WRECKED" : ""}`); }
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond, ident.conscience)}`);
+      // …AND WHAT THAT DOES TO THE SENTENCES. The line above says what they SEE, which is a note
+      // about their inner life; this says what they then produce, which is the only part the reader
+      // gets. Measured before it existed: one scene rendered across the whole clench range moved
+      // four lines of a fifty-six-line block, two of them the mood word. See engine/clench.ts.
+      { const cl = clenchDirective(cond, ident.name); if (cl) lines.push(`  ${cl.trim()}`); }
       // WHAT THE STORY HAS DONE TO THIS BODY, when it has done anything. Comparative and
       // behavioural — what they no longer react to, or what they can now take — never the number.
       // Empty for everybody still resting where they started, which is most people. See remodel.ts.
@@ -1782,8 +1832,18 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         // same fallback as the intent pass: a want with no door still has a PERSON with one
         { const door = drv?.approach?.trim() || doorFromVoice(ident);
           if (door) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${door}`); }
+        // WHAT NOT DEALING WITH IT HAS TURNED IT INTO. The stall line above reports that a want has
+        // not moved; this reports what that has COST them, which is a different thing and the only
+        // one a scene can show. A want set aside long enough stops being a plan and becomes weight:
+        // they flinch off the subject and do the easy thing in front of them. See engine/neglect.ts.
+        { const nc = drv ? neglectCue(drv, state.world.current_turn) : ""; if (nc) lines.push(`  and: ${nc}`); }
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
+        // …AND WHICH OF THEM THEY ACTUALLY TAKE UP, which is not reliably the most important one.
+        // The room decides first, then whether they have the reserve to face it; importance only
+        // breaks ties between things that pass both.
+        { const lw = liveWant(state, id, state.world.current_turn);
+          if (lw && lw.goal !== goalNow) lines.push(`  BUT THE ONE THEY ACTUALLY TAKE UP THIS TURN: ${lw.goal} — ${lw.why}. The other stays where it is, and gets heavier.`); }
       } else if (!hasAuthored(ident) && !settledAuthored(ident).length) {
         lines.push(`  wants: nothing pressing`);
       }
