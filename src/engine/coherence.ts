@@ -1,0 +1,199 @@
+/**
+ * THE COHERENCE GATE — the one check that runs BEFORE a turn is allowed to exist.
+ *
+ * A player, after a long session of finding bugs in this engine: "coherency is completely ignored
+ * by the LLM which should be defacto rule 1. Like is this shit logically coherent? No? Fuck I
+ * fucked up. It should be able to say 'ignore that last part' … the law or strike or whatever was
+ * meant to do that but instead it never fixed the present, just added more guardrails."
+ *
+ * He is right, and it is the shape of every guard in this file's neighbourhood. EVERY correction in
+ * this engine is FEED-FORWARD: last_leak, the maxim quote-back, the figure tic, findRisen, the
+ * register gauge. Each one reads committed prose, holds the offending sentence, and argues with the
+ * NEXT turn about it. By then the sentence has already become:
+ *
+ *     prose → scene summary → replayed verbatim in chatlog context
+ *           → episodic memory → read back later as a verified fact
+ *           → canon, consequences, clocks
+ *
+ * The error is laundered into truth before the correction arrives, and then the correction is one
+ * line arguing against a history that now asserts the opposite. Measured on one save: a dead man
+ * walked back in six times WITH a guard already in place, because the guard defended the ledger's
+ * location field while the story recorded the resurrection. The DEAD AND GONE block that named him
+ * dead was one line against twelve elsewhere in the same prompt showing him alive.
+ *
+ * So this runs at the only point where the damage is still undone: after the narrator writes and
+ * BEFORE anything reads what it wrote.
+ *
+ * WHAT IT MAY CHECK, AND WHAT IT MAY NOT. Only facts with a yes/no answer the state already holds —
+ * a dead person acting, a body doing what that body does not have the parts for, somebody who is
+ * not in the room speaking in it. Never register, never pacing, never whether a line is any good.
+ * A gate that ventures an opinion will eat somebody's story, and a turn deleted for being
+ * unfashionable is far worse than any tic. The taste detectors stay where they are, downstream,
+ * feeding forward, which is the right place for taste.
+ */
+import { bodySeverity, bodyMarks } from "./body";
+import { findRisen } from "./exit";
+import type { SaveState } from "./types";
+
+export interface Violation { kind: string; line: string; why: string }
+
+/* ── WHAT A BODY CANNOT DO ────────────────────────────────────────────────────────────────────
+ *
+ * From the save that prompted this: a woman with both arms and both legs removed walks across a
+ * hotel lobby with a basket over one arm. The severity fix upstream means the ledger now says
+ * plainly what she is; this is the half that checks the sentence against it.
+ *
+ * TWO THINGS HAVE TO BE TRUE BEFORE A SENTENCE IS CUT, and the first draft of this got both wrong.
+ *
+ * The part has to be ENTIRELY gone. "Partially blind" is a woman who can see the door; one missing
+ * arm still reaches for the teacup with the other. A rule that reads the word `blind` and stops
+ * there deletes the only sentences a half-sighted character has. So each rule asks whether the
+ * record shows total loss — both sides named, a plural part, or a diagnosis that covers it.
+ *
+ * And the verb has to be HERS. "The porter wheels Emily across the lobby toward the lift" was
+ * flagged for `lifts?` finding the noun `lift` forty characters downstream, which is the same
+ * mistake findRisen already learned: only the verb immediately after the subject counts. */
+const LOSS = /\b(?:missing|lost|loss|no|none|without|amputat\w*|sever\w*|remov\w*|gone|destroyed|crushed|mangled|useless|paralys\w*|paralyz\w*|nonfunctional|non-functional)\b/i;
+/** "Partially blind" is not blind, and "blind in one eye" is not blind. */
+const PARTIAL = /\b(?:partial\w*|part|half|near\w*|almost|going|legally|colou?r|night|one\s+eye|in\s+one)\b/i;
+
+const has = (marks: readonly string[], re: RegExp) => marks.some((m) => re.test(m));
+/** Marks that name a part AND say it is gone — "missing left arm", not "aching left arm". */
+const lost = (marks: readonly string[], part: RegExp) => marks.some((m) => part.test(m) && LOSS.test(m));
+
+interface Rule { verbs: RegExp; why: string; gone(marks: readonly string[]): boolean }
+
+/* Anchored: the verb opens what follows the subject, give or take an adverb. */
+const V = (body: string) => new RegExp(`^(?:(?:\\w+ly|then|just|still|again|now|already|simply|only|finally)[,\\s]+){0,2}(?:${body})\\b`, "i");
+
+const CANNOT: Rule[] = [
+  { why: "has no arms or hands",
+    gone: (m) => has(m, /\b(?:quadripleg|tetrapleg)/i)
+      || lost(m, /\b(?:arms|hands)\b/i)
+      || (lost(m, /\b(?:left|l\.?)\s+(?:arm|hand)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:arm|hand)\b/i)),
+    verbs: V("reach(?:es|ed)?|grab(?:s|bed)?|hold(?:s)?|held|take(?:s)?|took|carr(?:ies|ied|ying)|lift(?:s|ed)?|point(?:s|ed)?|wave(?:s|d)?|clap(?:s|ped)?|hand(?:s|ed)?|push(?:es|ed)?|pull(?:s|ed)?|wipe(?:s|d)?|fold(?:s|ed)?|clutch(?:es|ed)?|grip(?:s|ped)?|catch(?:es)?|caught|throw(?:s)?|threw|set(?:s)?|put(?:s)?|pour(?:s|ed)?|open(?:s|ed)?|shut(?:s)?|close(?:s|d)?|strike(?:s)?|struck|hit(?:s)?|slap(?:s|ped)?") },
+
+  { why: "cannot move under their own power",
+    gone: (m) => has(m, /\b(?:quadripleg|tetrapleg|parapleg|bedridden|immobile)/i)
+      || lost(m, /\b(?:legs|feet)\b/i)
+      || (lost(m, /\b(?:left|l\.?)\s+(?:leg|foot)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:leg|foot)\b/i)),
+    verbs: V("walk(?:s|ed|ing)?|run(?:s|ning)?|ran|stand(?:s|ing)?|stood|step(?:s|ped|ping)?|cross(?:es|ed|ing)?|kneel(?:s|ing)?|knelt|pace(?:s|d)?|climb(?:s|ed)?|rise(?:s|n)?|rose|rising|get(?:s)?\\s+up|got\\s+up|stride(?:s)?|strode|approach(?:es|ed)?|follow(?:s|ed)?|come(?:s)?|came|go(?:es)?|went|leave(?:s)?|left|enter(?:s|ed)?|storm(?:s|ed)?|march(?:es|ed)?|wander(?:s|ed)?|move(?:s|d)?\\s+(?:to|toward|across|away)") },
+
+  { why: "cannot see",
+    gone: (m) => m.some((x) => /\bblind\b/i.test(x) && !PARTIAL.test(x)) || lost(m, /\beyes\b/i),
+    verbs: V("see(?:s)?|saw|seeing|watch(?:es|ed|ing)?|read(?:s)?|glance(?:s|d)?|stare(?:s|d)?|peer(?:s|ed)?|eye(?:s|d)?|look(?:s|ed)?|study|studies|studied|scan(?:s|ned)?|spot(?:s|ted)?") },
+
+  { why: "cannot speak",
+    gone: (m) => has(m, /\bmute\b|\baphasi|\bcannot\s+speak\b|\bunable\s+to\s+speak\b|\bvocal\s+cords?\b/i)
+      || lost(m, /\btongue\b|\bjaw\b|\bvoice\b|\blarynx\b|\bthroat\b/i),
+    verbs: V("say(?:s)?|said|speak(?:s)?|spoke|whisper(?:s|ed)?|shout(?:s|ed)?|call(?:s|ed)?|answer(?:s|ed)?|repl(?:ies|ied)|mutter(?:s|ed)?|murmur(?:s|ed)?|ask(?:s|ed)?|tell(?:s)?|told") },
+];
+
+/** Sentences, keeping punctuation, so a quote can be shown back and a cut can be exact. */
+export function sentences(prose: string): string[] {
+  return (String(prose ?? "").match(/[^.!?]*[.!?]+["'”’)]*\s*|[^.!?]+$/g) ?? []).filter((s) => s.trim());
+}
+
+/**
+ * Every hard incoherence in one turn's prose.
+ *
+ * `presentIds` is who the engine had in the room when the turn was written.
+ */
+export function checkCoherence(state: SaveState, prose: string, presentIds: readonly string[]): Violation[] {
+  const out: Violation[] = [];
+  const seen = new Set<string>();
+  const add = (v: Violation) => { const k = `${v.kind}|${v.line}`; if (!seen.has(k)) { seen.add(k); out.push(v); } };
+
+  // 1. THE DEAD, ACTING. Already a solved detection — see exit.ts findRisen for why a corpse being
+  //    described is fine and only the verb immediately following the name counts.
+  const risen = findRisen(state.characters ?? {}, prose);
+  if (risen) add({ kind: "dead-acting", line: risen.line, why: `${risen.name} is ${risen.status}` });
+
+  // 2. A BODY DOING WHAT IT HAS NOT GOT THE PARTS FOR.
+  const cast = state.characters ?? {};
+  const others = Object.values(cast).map((c: any) => String(c?.name ?? "").split(/\s+/)[0]).filter((n) => n.length > 2);
+  for (const id of presentIds) {
+    const c = cast[id]; const cond = state.condition?.[id];
+    if (!c?.name || !cond || bodySeverity(cond) < 3) continue;
+    const marks = bodyMarks(cond);
+    if (!marks.length) continue;
+    const rules = CANNOT.filter((r) => r.gone(marks));
+    if (!rules.length) continue;
+    const first = String(c.name).split(/\s+/)[0];
+    if (first.length < 3) continue;
+    const esc = first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const named = new RegExp(`\\b${esc}\\b`, "i");
+    for (const s of sentences(prose)) {
+      if (!named.test(s)) continue;
+      // A PRONOUN NEEDS AN UNAMBIGUOUS ROOM. "Emily watches from the chair as he crosses the lobby"
+      // has two people in it and only one of them is walking. Where anybody else is named in the
+      // same sentence, only her own name may carry the verb.
+      const alone = !others.some((n) => n.toLowerCase() !== first.toLowerCase() && new RegExp(`\\b${n}\\b`, "i").test(s));
+      // Lookahead, not consumption: "Emily is in the doorway, and then she walks" has two subjects
+      // in it and a greedy match would swallow the second inside the first one's tail.
+      const subject = new RegExp(alone ? `\\b(?:${esc}|she|he|they)\\b(?=\\s*([^.?!]{0,40}))` : `\\b${esc}\\b(?=\\s*([^.?!]{0,40}))`, "gi");
+      let m: RegExpExecArray | null;
+      while ((m = subject.exec(s))) {
+        // A POSSESSIVE IS NOT A SUBJECT, and for a body it is the difference between a violation and
+        // an accurate sentence: "Emily's head turns after you as you rise" is exactly right for a
+        // quadriplegic, and the verb belongs to the head. Same rule findRisen needs, for the same
+        // reason — the thing after the apostrophe is what is doing it.
+        if (/^['’]s\b/.test(m[1])) continue;
+        const rule = rules.find((r) => r.verbs.test(m![1]));
+        if (rule) {
+          add({ kind: "impossible-body", line: s.trim().slice(0, 200),
+                why: `${c.name} ${rule.why} — the record reads: ${marks.join(", ").slice(0, 80)}` });
+          break;
+        }
+      }
+    }
+  }
+
+  /* 3. SOMEBODY NOT IN THE ROOM, TALKING IN IT — TRIED, AND CUT, AND THE REASON IS THE POINT.
+   *
+   * It was the obvious third check and it does not survive contact. It needs two things this engine
+   * cannot give it precisely enough to DELETE somebody's prose over: paragraph attribution, which is
+   * a heuristic, and a `present` list that is accurate for the moment the sentence was written.
+   * Replayed against three saves it flagged twenty-three turns, and the ones I read were attribution
+   * errors — an opening line where a character introduces herself ("Oh! I'm Terri--") credited to a
+   * different woman entirely, a lorry driver's question credited to a constable.
+   *
+   * This file's own header says a gate that ventures an opinion will eat somebody's story, and a
+   * check whose evidence is a guess is an opinion however confident it sounds. Two exact checks are
+   * worth more than three where one is wrong a third of the time. Somebody speaking from offstage
+   * stays with the feed-forward detectors, where being wrong costs a note and not a paragraph. */
+  return out;
+}
+
+/** What the narrator is told when the turn is sent back. Quotes each offence and names the fact it
+ *  contradicts — the same three properties that make last_leak work, minus the delay. */
+export function retryNote(vs: readonly Violation[]): string {
+  if (!vs.length) return "";
+  const rows = vs.slice(0, 4).map((v) => `· "${v.line.trim()}" — ${v.why}.`).join("\n");
+  return `\n\nSTOP. WHAT YOU JUST WROTE CONTRADICTS THE RECORD, AND IT HAS NOT BEEN KEPT. Write the turn again from the beginning.\n${rows}\n`
+    + `Each of those states something the state says is not so. Write the same beat with those facts intact: the people who are gone stay gone, a body does only what it has the parts for, and nobody speaks who is not in the room. `
+    + `Keep everything else about the turn — the same scene, the same pressure, the same people who ARE here. Change only what was impossible, and do not have anyone remark on the difference.`;
+}
+
+/**
+ * The fallback, when a rewrite comes back still wrong: cut the offending sentences.
+ *
+ * A hole is better than a contradiction, because a hole does not propagate. The sentence that never
+ * lands never becomes a summary, a memory, or a line of canon. Kept surgical — the sentence, never
+ * the paragraph — and it refuses to run if it would take most of the turn with it, since a turn cut
+ * to nothing is its own failure.
+ */
+export function excise(prose: string, vs: readonly Violation[]): { prose: string; cut: number } {
+  if (!vs.length) return { prose, cut: 0 };
+  const bad = new Set(vs.map((v) => v.line.trim()));
+  let cut = 0;
+  const kept = sentences(prose).filter((s) => {
+    const t = s.trim();
+    const hit = [...bad].some((b) => t === b || t.startsWith(b) || b.startsWith(t.slice(0, 120)));
+    if (hit) cut++;
+    return !hit;
+  });
+  const out = kept.join("").replace(/\n{3,}/g, "\n\n").trim();
+  if (!out || out.length < String(prose).length * 0.4) return { prose, cut: 0 };
+  return { prose: out, cut };
+}

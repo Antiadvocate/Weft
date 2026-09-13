@@ -14,7 +14,7 @@ import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, RETIRE_AT, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
 import { asList, detectWorldPronoun, normalizeDiffArrays, repairNativePronouns, tidyPhrase, ownWant } from "./coerce";
-import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock } from "./prompts";
+import { narratorSystem, simulatorSystem, REFLECTION_SYSTEM, CHAPTER_SYSTEM, simulatorSchemaHint, stablePrefix, volatileDigest, simulatorContext, deltaNote, ledgerSnapshot, ownLifeBlock, goneMap } from "./prompts";
 import { updateMind } from "./mind";
 import { tickRemodel, dampen, remodelReport } from "./remodel";
 import { tickArrivals } from "./ground";
@@ -52,6 +52,7 @@ import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
+import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
@@ -2144,6 +2145,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // 1c ── pressure (deterministic), heat amplified when the world is primed
   ev.onPhase("pressure");
+  // THE DEAD DO NOT GET TO BE THE REASON FOR A SCENE. A clock reading "Arthur Penhale's network"
+  // with the sign "Arthur's men are seen in new suits", and seven dormant threads carrying his
+  // name, were all still standing in the save where he walked back in six times. The prose gate
+  // catches him once written; this stops the engine asking for him. See pressure.namesTheGone.
+  const goneNames = [...goneMap(state).keys()];
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
     threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
@@ -2154,6 +2160,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     // argmax every turn, so the hottest thread named itself as the reason for every scene until its
     // tension moved — which in one save meant forty turns whose directive opened on the same line.
     recentSources: (state.telemetry ?? []).slice(-8).map((t) => t.pressure_source).filter(Boolean) as string[],
+    gone: goneNames,
   });
   // fate's floor: the ending is coming and the world knows it. Never lowers pressure, only raises.
   const floor = fatePressureFloor(fate);
@@ -2211,7 +2218,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const beatInput = {
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
     threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
-    agents, palette: state.world_bible.pressure_palette,
+    agents, palette: state.world_bible.pressure_palette, gone: goneNames,
     last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     // A forced beat is the player saying the world moves now, so a rest reading of their own line
@@ -3280,6 +3287,66 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
       ev.onMeta?.({ shifts: salvaged.notes });
     }
   }
+  // ══ THE COHERENCE GATE ══════════════════════════════════════════════════════════════════════
+  //
+  // Everything below this line READS the prose: the scene footer, the leak and maxim detectors, the
+  // bookkeeper, the summary, memory, canon, the chatlog replay. So this is the last moment at which
+  // an impossible turn can be prevented rather than argued with.
+  //
+  // It is here because every other correction in this engine is feed-forward and that is why none
+  // of them converge — see the header of engine/coherence.ts. A dead man walked back into one save
+  // six times WITH a guard in place, because the guard defended the ledger while the story recorded
+  // the resurrection, and by the next turn the summary, the memory and the recall all said he was
+  // alive. One line of correction against twelve lines of history is not a fix.
+  //
+  // ONE REGENERATION, THEN THE KNIFE. A rewrite is a whole narrator call on the biggest prompt of
+  // the turn, so it happens at most once; if the rewrite is still impossible the offending sentences
+  // are cut instead. A hole does not propagate, and a contradiction does.
+  if (!opts?.proseOverride) {
+    let violations: Violation[] = checkCoherence(state, prose, state.world.present);
+    if (violations.length) {
+      console.warn(`[coherence] ${violations.length} violation(s) in the committed prose:`, violations.map((v) => `${v.kind}: ${v.why}`));
+      ev.onPhase("narrator");
+      try {
+        const fixMsgs = [...narratorMsgs];
+        const last = fixMsgs[fixMsgs.length - 1];
+        // Appended to the final user turn, which is where this engine has repeatedly found that an
+        // instruction is read as an instruction rather than as reference.
+        if (last && typeof last.content === "string") fixMsgs[fixMsgs.length - 1] = { ...last, content: last.content + retryNote(violations) };
+        // WIPE WHAT IS ON THE PAGE BEFORE THE REWRITE STREAMS IN. The reader has been watching the
+        // first draft arrive a token at a time, and the UI appends deltas — without this the
+        // corrected turn lands UNDER the impossible one and the player reads the scene twice, the
+        // wrong version first. Carried on onMeta because that already crosses the transport as a
+        // free-form object; a caller that ignores it is exactly where it was before.
+        ev.onMeta({ restream: true });
+        const again = completeStream(fixMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, false, undefined, signal);
+        let rewritten = "";
+        while (true) {
+          const { done, value } = await again.next();
+          if (done) { rewritten = value.text; if (value.usage) { narratorUsage = { ...narratorUsage, prompt_tokens: narratorUsage.prompt_tokens + (value.usage.prompt_tokens ?? 0), completion_tokens: narratorUsage.completion_tokens + (value.usage.completion_tokens ?? 0) }; } break; }
+          ev.onDelta(value);
+        }
+        rewritten = salvageProse(rewritten).prose;
+        if (rewritten.trim() && !isRefusal(rewritten, state.world_bible)) {
+          const after = checkCoherence(state, rewritten, state.world.present);
+          if (after.length < violations.length) { prose = rewritten; violations = after; }
+        }
+      } catch (e) {
+        if (isCancel(e)) throw new Cancelled();
+        console.warn(`[coherence] the rewrite failed, falling through to excision: ${e}`);
+      }
+      if (violations.length) {
+        const { prose: cutProse, cut } = excise(prose, violations);
+        if (cut) { prose = cutProse; console.warn(`[coherence] excised ${cut} impossible sentence(s)`); }
+        ev.onMeta({ shifts: [cut
+          ? `${cut} sentence${cut > 1 ? "s" : ""} could not happen and ${cut > 1 ? "were" : "was"} cut — ${violations[0].why}`
+          : `the turn contradicts the record and could not be repaired — ${violations[0].why}`] });
+      } else {
+        ev.onMeta({ shifts: ["the turn was rewritten: what it first wrote could not have happened"] });
+      }
+    }
+  }
+
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
