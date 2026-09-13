@@ -460,6 +460,37 @@ export function sanitize(state: SaveState): SaveState {
   // A VERDICT ALREADY WRITTEN INTO AN EDGE STAYS THERE FOREVER — roles never decay. Strip them on
   // load so a save carrying "enemy" from one bad evening is not stuck with it. The feeling it stood
   // for is in warmth and trust, which are right there beside it.
+  /* NOTHING EVER CHECKED THAT AN EDGE'S NUMBERS WERE POSSIBLE.
+   *
+   * From a real save: attraction_base 420 and desire_admissibility 1.58, on the same edge. Every
+   * engine path that writes those clamps them — seedAttraction to 80, authoredPull to 65,
+   * admissibility to 0..1 — so they came in through an editor with god mode on, and once in they
+   * stayed, because load validated everything about an edge except its values.
+   *
+   * It is not cosmetic. tickDesire reads `ceiling = base >= 15 ? 100 : max(40, warmth)`, so a base
+   * of 420 silently pinned that character's attraction ceiling at 100 and let it run there while
+   * her warmth collapsed to −1.6 — which is the exact state that then produced a woman at maximum
+   * desire being written as indifferent. A number outside its own range does not announce itself;
+   * it just quietly changes what every formula downstream computes. */
+  for (const e of state.world.edges ?? []) {
+    const fix = (v: unknown, lo: number, hi: number): number | undefined => {
+      const n = Number(v);
+      if (v === undefined || v === null || !Number.isFinite(n)) return undefined;
+      return n < lo ? lo : n > hi ? hi : n;
+    };
+    for (const k of ["warmth", "trust", "attraction", "attraction_base"] as const) {
+      if ((e as any)[k] !== undefined) {
+        const c = fix((e as any)[k], -100, 100);
+        if (c !== undefined && c !== (e as any)[k]) console.warn(`[edges] ${e.from}->${e.to} ${k} was ${(e as any)[k]}, clamped to ${c}`);
+        (e as any)[k] = c;
+      }
+    }
+    if (e.desire_admissibility !== undefined) {
+      const c = fix(e.desire_admissibility, 0, 1);
+      if (c !== undefined && c !== e.desire_admissibility) console.warn(`[edges] ${e.from}->${e.to} desire_admissibility was ${e.desire_admissibility}, clamped to ${c}`);
+      e.desire_admissibility = c;
+    }
+  }
   for (const e of state.world.edges ?? []) {
     if (!e.roles?.length) continue;
     const kept = e.roles.filter((r) => !VERDICT_ROLE_HEAL.test(String(r ?? "").trim()));

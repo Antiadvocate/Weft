@@ -902,6 +902,10 @@ export interface WorldState {
    *  world has only ever reached the player through witnesses and rumor, which models a village and
    *  nothing else; a woman in an apartment across the city could not send a message to a man in a
    *  hotel. Written by the offstage pass, rendered by the narrator on the next turn, then cleared. */
+  /** Canon lines already turned into standing wants (see authored.ts adoptCanonLaws). Remembering
+   *  the LINE rather than the want is what makes the adoption one-way: a player who deletes the
+   *  want does not get it handed back next turn. */
+  canon_adopted?: string[];
   inbound?: { from: string; how: string; content: string; turn: number }[];
   present_prev?: string[];      // who was in the scene before the last presence rebuild — so the narrator delta can SAY who left, rather than leaving it to be inferred from a shorter list
   offstage_last_turn?: number;  // turn of the last offstage pass — the turn-based floor on the interval, so a story told in conversation doesn't freeze the world for forty turns

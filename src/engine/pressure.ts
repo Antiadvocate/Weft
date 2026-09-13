@@ -99,9 +99,18 @@ const NEVER_FIRED = 10_000;
  *  thread several times the pull of a tension-2 errand while leaving the errand able to happen. */
 const HEAT_WEIGHT = 0.5;
 /** Staleness scores within this much of the freshest are treated as equally stale, and the pick
- *  among them is by heat. Wide enough to cover the variety bonus and the dormant penalty, so those
- *  stay tilts on who is in the running rather than hard orderings. */
-const TIE_BAND = 24;
+ *  among them is by heat.
+ *
+ *  DELIBERATELY NARROWER THAN DORMANT_PENALTY. At 24 the band swallowed the penalty whole — twenty
+ *  points off a dormant source's score sits inside a band of twenty-four, so a thread the world had
+ *  set aside and a live one of the same tension came out at a coin flip, and "a live thread
+ *  outranks an equally stale dormant one" started failing two runs in five. Trying to fix that with
+ *  a weight instead over-corrected the other way: dormant threads stopped being picked at all and
+ *  aged out to abandoned, which is the death spiral the dormant pool exists to prevent. Below the
+ *  penalty, both properties hold for the original reason — an equally stale dormant source falls
+ *  out of the running, and one that is genuinely staler climbs back into it. Still above the
+ *  variety bonus of 12, so that stays a tilt. */
+const TIE_BAND = 16;
 /** The heat a palette line carries into the rotation. It has no tension of its own — nothing
  *  measures a premise — so without this it competed at the weight of the dullest errand in the
  *  world and only ever reached the page through the starvation floor. Five is a mid thread: the

@@ -82,7 +82,13 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
 {
   const s = world();
   const warm = feel(s, 60, 60, 3);
-  check("desire inside a bond still reads as a bond", /flirts, teases, seeks closeness/.test(warm), warm);
+  // Matched on the branch and its behaviour rather than on its exact sentence: the settled line was
+  // reworded when the pursuit fix went in ("seeks closeness" -> "angles for closeness, makes and
+  // takes openings"), and what this check is for is that a warm, admitted desire still reads as
+  // ordinary flirtation rather than falling into one of the colder registers.
+  check("desire inside a bond still reads as a bond",
+    /settled/.test(warm) && /flirts, teases/.test(warm) && !/no attachment|annoyed with you|CANNOT STAND/.test(warm), warm);
+  check("…and a settled bond is not a passive one either", /angles for closeness|makes and takes openings/.test(warm), warm);
   const s2 = world();
   const partner = feel(s2, 10, 55, 3, ["girlfriend"]);
   check("a stated partner at low warmth is not treated as a stranger's appetite", !/no attachment behind it/.test(partner), partner);

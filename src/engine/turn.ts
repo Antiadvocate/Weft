@@ -60,6 +60,7 @@ import { findAnatomyBreach, anatomyFix } from "./anatomy";
 import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
+import { adoptCanonLaws } from "./authored";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -6038,6 +6039,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // a stranger's beauty-and-taste read has no business overwriting it. Catches edges seeded before
   // this existed and edges whose person was authored into a partner long after they met.
   shifts.push(...repairAuthoredBonds(state));
+  // A canon line that is really an instruction about one person becomes a standing want on that
+  // person, so the machinery in authored.ts can enforce it. See adoptCanonLaws.
+  shifts.push(...adoptCanonLaws(state));
 
   // ── DEATH LOCK ── the dead stay dead. A weak simulator can re-emit a killed character as present
   // or alive on a later turn (it sees them lingering in a scene and writes them acting), which

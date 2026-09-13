@@ -53,6 +53,51 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
     else candidates.push(`look out for ${nm(hottest.to)} without being asked`);
   }
 
+  /* ── WANTING SOMEBODY, WHICH THIS FUNCTION COULD NOT SEE ─────────────────────────────────────
+   *
+   * The three sorts above read warmth, warmth and trust. The word `attraction` did not appear in
+   * this file. So the relational section had a branch for hostility, a branch for distrust and a
+   * branch for fondness, and none for wanting someone — and a character at attraction 100 with
+   * warmth 5 cleared no threshold at all and fell through to trait filler. From a real save: a
+   * woman at maximum desire toward the player whose actual goal for the evening was set by
+   * `has("survi","street") -> "line up the next score and stay unseen"`.
+   *
+   * The one goal the warm branch can produce is "look out for X without being asked", which is
+   * care. Nothing anywhere in this engine meant GO AND GET THEM. The player's report: "Most people
+   * super attracted to someone will go after them. They'll flirt, they will do things. They will
+   * not immediately just vanish."
+   *
+   * A pursuit want is an ACTION with a target, which is what keeps it clear of the rule against
+   * player-orbiting goals: "watch the player" is passive and is still forbidden everywhere; getting
+   * someone alone, or getting an answer out of them, is a thing a person does. And it needs no
+   * special decay — a want that never progresses is abandoned by the stalled-want sweep in
+   * social.ts, which is exactly what being turned down should look like.
+   *
+   * The register follows the same split desire.ts already draws: how much liking is under the pull,
+   * and whether the body it arises in can own it. */
+  const wanted = [...out].filter((e) => (e.attraction ?? 0) >= 30)
+    .sort((a, b) => (b.attraction ?? 0) - (a.attraction ?? 0))[0];
+  if (wanted) {
+    const who = nm(wanted.to);
+    const adm = wanted.desire_admissibility ?? 0.5;
+    if (wanted.warmth < 0) {
+      // wanting somebody you are currently angry with: contact as friction
+      candidates.push(`get back in front of ${who} and make them deal with it`);
+      candidates.push(`get ${who} to admit there is something between them`);
+    } else if (wanted.warmth < 15) {
+      // appetite with no attachment: direct, uncourtly, and still pursuit
+      candidates.push(`get ${who} alone somewhere`);
+      candidates.push(`find out how far ${who} will actually go`);
+    } else if (adm <= 0.35) {
+      // it cannot be said out loud, so it comes out as claim
+      candidates.push(`keep ${who} within reach and keep others away from them`);
+      candidates.push(`find a reason to be wherever ${who} is`);
+    } else {
+      candidates.push(`get ${who} to themselves for an evening`);
+      candidates.push(`find out whether ${who} wants this back`);
+    }
+  }
+
   // 2) live threads they could insert themselves into
   for (const th of state.world.threads.filter((t) => t.status === "active")) {
     if (th.tension >= 4) candidates.push(`get to the bottom of ${String(th.title ?? "").toLowerCase()}`);
