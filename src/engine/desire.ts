@@ -382,12 +382,76 @@ export function desireLine(state: SaveState, id: string): string {
    *
    * These sit ABOVE the admissibility lines because warmth outranks texture here: how a pull is
    * held matters less than whether there is any liking under it at all. */
-  const HOSTILE = -20, COOL = 15;
-  if (a >= 30 && e.warmth <= HOSTILE) {
+  /* ── HOW MANY PEOPLE CAN BE OBSESSED WITH YOU AT ONCE ──────────────────────────────────────
+   *
+   * The branch below is the strongest instruction in this module and it was reachable from very
+   * ordinary numbers: warmth −20 is mild dislike and attraction 30 is mild interest. Measured
+   * across one game's saves, counting every edge toward the player that carries any attraction:
+   *
+   *   turn  19    0 of 1 in this quadrant
+   *   turn  48    1 of 2      Emily (warmth −48, attraction 100)
+   *   turn  83    2 of 3      Emily (−100, 95)   Olga (−28, 38)
+   *   turn 108    1 of 3
+   *   turn 168    1 of 3
+   *
+   * Olga qualified on mild dislike and mild interest and was handed "contempt that keeps coming
+   * back for more of you" — a directive about a woman coming apart, off numbers that describe
+   * somebody who finds you a bit irritating and a bit attractive. And Emily entered at turn 48 and
+   * was still in it at 168: a hundred and twenty consecutive turns of being told to needle, stand
+   * too close, and punish him for a pull she will not own.
+   *
+   * THIS IS THE MECHANISM BEHIND "THE NARRATOR LOVES CRAZY". The narrator has no preference. It was
+   * handed the strongest, most concrete, most emphatic instruction in the character block and told
+   * to run it every turn, on more than one person at a time, for the length of a game — and the
+   * numbers that unlocked it drift there on their own, because warmth slides down as a story gets
+   * rough while attraction is held up by its own floors.
+   *
+   * So: the bar is where the words actually are. "Cannot stand you and want you anyway" is an
+   * extreme state and it takes extreme numbers. Between the old bar and the new one there is a real
+   * and much commoner condition — wanting somebody you do not much like — which mostly produces
+   * distance rather than approach, and now says so.
+   *
+   * AND ONE AT A TIME. Not a taste rule: one person in this state is a story, two is a genre, and
+   * the genre is not the one anybody chose. Where several qualify the strongest keeps it — most
+   * hostile first, then most attracted, then by id so it never flickers between turns — and the
+   * others get the milder line, which is still true of them. */
+  /* The boundaries are this module's OWN, already tuned and already rendered to the narrator in
+   * words: dispositionCue reads above −20 as "cool toward you — distant, polite brush-offs", −20 to
+   * −45 as "dislikes you — sharp, unwelcoming", and past −45 as "resents or hates you". And
+   * attractionWord calls 55 the line where wanting becomes aching. So the extreme branch needs
+   * hatred and aching, the middle branch needs real dislike, and everything above −20 is somebody
+   * merely cool who should still pursue — which is the dead-zone fix, and it stays untouched.
+   * Inventing a second set of thresholds beside these would only give the engine two opinions. */
+  const HOSTILE = -45, MILD_DISLIKE = -20, COOL = 15;
+  const BURNS = 55;
+  const hostileClaim = (x: { warmth?: number; attraction?: number }) =>
+    (x.attraction ?? 0) >= BURNS && (x.warmth ?? 0) <= HOSTILE;
+  if (hostileClaim(e)) {
+    // Only the worst case in the cast runs it. Deterministic and stable across turns.
+    const rivals = state.world.edges
+      .filter((x) => x.to === "char_player" && x.from !== id && hostileClaim(x))
+      .sort((x, y) => (x.warmth ?? 0) - (y.warmth ?? 0) || (y.attraction ?? 0) - (x.attraction ?? 0) || x.from.localeCompare(y.from));
+    const worst = rivals[0];
+    const outranked = !!worst && ((worst.warmth ?? 0) < (e.warmth ?? 0)
+      || ((worst.warmth ?? 0) === (e.warmth ?? 0) && ((worst.attraction ?? 0) > (e.attraction ?? 0)
+        || ((worst.attraction ?? 0) === (e.attraction ?? 0) && worst.from.localeCompare(id) < 0))));
+    if (outranked) {
+      return `desire toward you: real (${a}) and they do not like you (warmth ${Math.round(e.warmth)}) — SHOW: they keep their distance and are short with you, and the wanting shows only as where they choose to stand and what they cannot quite stop noticing. They do not pursue you and they do not touch you. NEVER write this as flirtation, as banter, or as warmth breaking through.`;
+    }
+  }
+  if (a >= BURNS && e.warmth <= HOSTILE) {
     return adm <= 0.4
       ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they keep ending up where you are and are angry about it; they stand nearer than the argument needs; they touch you in ways that are not kind; contempt that keeps coming back for more of you; needling as a way of making contact; punishing you for a pull they will not own. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER narrate the wanting — the hostility is real, the wanting is real, and this does not develop into a bond.`
       : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: frank, unsentimental appetite with no affection attached — they will say the cold thing and want you in the same breath, seek you out and give you nothing, be unembarrassed about the contradiction. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
   }
+  /* WANTING SOMEBODY YOU DO NOT MUCH LIKE, which is the ordinary version of the above and far
+   * commoner than the extreme one. It produces distance, not pursuit: you avoid the person, you are
+   * curt with them, and the wanting shows in where you stand rather than in what you do. This band
+   * is what most of the cast was getting the extreme line for. */
+  if (a >= 30 && e.warmth <= MILD_DISLIKE) {
+    return `desire toward you: real (${a}) alongside genuine dislike (warmth ${Math.round(e.warmth)}) — both true, and the dislike governs the behaviour. SHOW: they keep away from you more than they need to, they are curt when they cannot, and the pull shows only in where they end up standing and what they notice. They do not flirt, do not seek you out, and do not touch you. NEVER write this as tension that is going somewhere, as banter, or as warmth breaking through; and never narrate the wanting.`;
+  }
+
   /* ── THE DEAD ZONE, AND WHAT IT COST ────────────────────────────────────────────────────────
    *
    * From a save at turn 20: Emily at attraction 100 toward the player, warmth −1.6, trust −17.9,
