@@ -206,8 +206,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   // Pulled from turn history, newest first. This is how the player verifies the intent system:
   // what xe actually meant vs. what the prose let show. Only meaningful when it diverges.
   const gmIntents = useMemo(() => {
-    if (!sel) return [] as { turn: number; surface: string; truth: string; lying: boolean }[];
-    const out: { turn: number; surface: string; truth: string; lying: boolean }[] = [];
+    if (!sel) return [] as { turn: number; surface: string; truth?: string; lying: boolean }[];
+    // truth is optional: when the pass returns a posture instead of an interior, the stance is
+    // kept for the narrator and nothing is filed as inner state. See engine/intent.ts.
+    const out: { turn: number; surface: string; truth?: string; lying: boolean }[] = [];
     for (let i = save.history.length - 1; i >= 0 && out.length < 5; i--) {
       const hit = save.history[i].gm_intents?.find((g) => g.char_id === sel);
       if (hit) out.push({ turn: save.history[i].turn, surface: hit.surface, truth: hit.truth, lying: hit.lying });
@@ -748,7 +750,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                             not their spoken words. Labelling it as speech made the system look like it was
                             inventing dialogue that never appeared in the prose. */}
                         <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>intended to show:</span> {g.surface}</div>
-                        <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
+                        {g.truth
+                          ? <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
+                          : <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>no separate interior came back this beat — the stance was used, nothing was filed</div>}
                       </div>
                     ))}
                   </Section>
