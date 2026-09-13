@@ -28,6 +28,8 @@ import { doorFromVoice } from "./coerce";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue, effectiveStanding } from "./desire";
 import { bodySeverity, lostFaculties, needsFaculty, FACULTY_LOSS, type Faculty } from "./body";
+import { clenchDirective } from "./clench";
+import { neglectCue, liveWant } from "./neglect";
 import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
@@ -1746,6 +1748,11 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     lines.push(`  body: fatigue ${cond.fatigue}, hunger ${cond.hunger}${ph ? `, ${ph}` : ""}${cond.conditions.length ? `, ${cond.conditions.join(", ")}` : ""}${cond.injuries.length ? `; hurt: ${cond.injuries.map((i) => i.type).join(", ")}` : ""}${bodySeverity(cond) >= 3 ? " — BODY WRECKED" : ""}`); }
     if (!isPlayer) {
       lines.push(`  mood: ${cond.psyche.mood || "even"}${cond.psyche.active_states.length ? ` (${cond.psyche.active_states.join(", ")})` : ""}; seeing: ${describeOpenness(cond, ident.conscience)}`);
+      // …AND WHAT THAT DOES TO THE SENTENCES. The line above says what they SEE, which is a note
+      // about their inner life; this says what they then produce, which is the only part the reader
+      // gets. Measured before it existed: one scene rendered across the whole clench range moved
+      // four lines of a fifty-six-line block, two of them the mood word. See engine/clench.ts.
+      { const cl = clenchDirective(cond, ident.name); if (cl) lines.push(`  ${cl.trim()}`); }
       // WHAT THE STORY HAS DONE TO THIS BODY, when it has done anything. Comparative and
       // behavioural — what they no longer react to, or what they can now take — never the number.
       // Empty for everybody still resting where they started, which is most people. See remodel.ts.
@@ -1825,8 +1832,18 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         // same fallback as the intent pass: a want with no door still has a PERSON with one
         { const door = drv?.approach?.trim() || doorFromVoice(ident);
           if (door) lines.push(`  goes at it by (this is what they DO about it — they do not state the want itself): ${door}`); }
+        // WHAT NOT DEALING WITH IT HAS TURNED IT INTO. The stall line above reports that a want has
+        // not moved; this reports what that has COST them, which is a different thing and the only
+        // one a scene can show. A want set aside long enough stops being a plan and becomes weight:
+        // they flinch off the subject and do the easy thing in front of them. See engine/neglect.ts.
+        { const nc = drv ? neglectCue(drv, state.world.current_turn) : ""; if (nc) lines.push(`  and: ${nc}`); }
         const queue = (ident.drive_queue ?? []).filter((q) => q.goal !== goalNow);
         if (queue.length) lines.push(`  backup wants: ${queue.slice(0, 2).map((q) => q.goal).join("; ")}`);
+        // …AND WHICH OF THEM THEY ACTUALLY TAKE UP, which is not reliably the most important one.
+        // The room decides first, then whether they have the reserve to face it; importance only
+        // breaks ties between things that pass both.
+        { const lw = liveWant(state, id, state.world.current_turn);
+          if (lw && lw.goal !== goalNow) lines.push(`  BUT THE ONE THEY ACTUALLY TAKE UP THIS TURN: ${lw.goal} — ${lw.why}. The other stays where it is, and gets heavier.`); }
       } else if (!hasAuthored(ident) && !settledAuthored(ident).length) {
         lines.push(`  wants: nothing pressing`);
       }

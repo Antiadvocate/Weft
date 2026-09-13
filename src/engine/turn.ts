@@ -55,6 +55,7 @@ import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit"
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
+import { tickNeglect } from "./neglect";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
 import { sceneRegister } from "./register";
 import { findAnatomyBreach, anatomyFix } from "./anatomy";
@@ -2360,6 +2361,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // cannot answer "I am done with this marriage" with "okay". See engine/severance.ts.
   tickSeverance(state, action, state.world.present);
   const severNote = severanceDirective(state);
+
+  // WHAT THEY HAVE BEEN PUTTING OFF, AND THE MOMENT THE ROOM PUTS IT BACK IN FRONT OF THEM.
+  // Charged before the intent pass on purpose: the drop in openness it causes is part of the state
+  // that pass reads, so a character reminded of the thing they have been avoiding brings THAT into
+  // the beat rather than arriving composed and being sad about it afterwards. See engine/neglect.ts.
+  { const nl = tickNeglect(state, turn); if (nl.length) ev.onMeta({ shifts: nl }); }
 
   const intents: NpcIntent[] = await runIntentPass(state, action);
   // SOVEREIGN PERCEPTION — god mode plus a declared act of reading somebody. The engine authors
