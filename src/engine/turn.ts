@@ -51,7 +51,7 @@ import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
-import { departureEvidence, releaseEvidence } from "./exit";
+import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
@@ -2860,6 +2860,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const over = overusedAmbient(recent, names);
     return over.length ? ambientFix(over, ambientExample(recent[recent.length - 1] ?? "", over[0])) : "";
   })();
+  const risenNote = risenFix(state.last_risen);
   const leakFix = state.last_leak
     ? `\nYOU DID THIS LAST TURN AND IT IS THE ONE THING YOU MAY NOT DO: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
     : "";
@@ -3044,7 +3045,7 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
   const heardNote = heardYouNote(action);
-  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
+  const fullDirective = actNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + risenNote + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
     // THE PLAYER CHECKING A SETTLED FACT AGAINST SOMETHING OUTSIDE THE ROOM. The verdict goes in
     // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
     // invented mid-argument has no record of its own and will agree with whoever spoke last.
@@ -3291,6 +3292,20 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     const sents = prose.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [];
     const leaked = sents.map((x) => x.trim()).filter((x) => x.length > 25 && MOTIVE_LEAK.test(x));
     state.last_leak = leaked.length ? leaked.sort((a, b) => b.length - a.length)[0].slice(0, 180) : null;
+    // ── AND SOMEBODY THE STORY HAS FINISHED, ACTING ────────────────────────────────────────────
+    // The location guard downstream refuses to move them into the scene and stops there, so the
+    // prose that walked them through a door is committed, summarised, and remembered. Catch it
+    // here, keep it out of the record below, and quote it back next turn. See exit.ts findRisen.
+    state.last_risen = findRisen(state.characters, prose);
+    if (state.last_risen) {
+      const r = state.last_risen;
+      console.warn(`[cast] ${r.name} is ${r.status} and acted in this turn's prose: "${r.line.slice(0, 90)}"`);
+      // `shifts` does not exist yet at this point in the turn — this runs on the committed prose,
+      // before applyDiff builds it — so the player is told through the same mid-turn channel the
+      // other pre-diff corrections use.
+      ev.onMeta({ shifts: [`${r.name} is ${r.status} — that did not happen, and the record does not keep it`] });
+      noteFire(state, "risen", `${r.name} (${r.status}) acted in the prose`);
+    }
     // AND THE SAME FOR DIALOGUE. The interior leak is the narrator saying what somebody felt; this
     // is the narrator saying what the world MEANS, through whichever mouth is open. One quoted
     // example is the whole mechanism — see engine/maxims.ts.
@@ -4501,7 +4516,13 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     ...(proseRead ? { narrator_prose_read: proseRead } : {}),
     reads: turnReads.length ? turnReads : undefined,
-    summary: diff.scene_summary || prose.slice(0, 120),
+    /* THE SUMMARY IS WHAT GETS REPLAYED, so it is where a hallucination becomes history. On the
+     * save that forced this, the digest carried "Rabi sat waiting on the floor by the bar amongst
+     * the dead policemen as Arthur Penhale walked back through the revolving doors" as a plain
+     * account of turn 131 — and every later turn was written against a record in which he came
+     * back. The correction has to travel with the claim, because the claim is what is re-read. */
+    summary: (diff.scene_summary || prose.slice(0, 120))
+      + (state.last_risen ? ` [DID NOT HAPPEN: ${state.last_risen.name} is ${state.last_risen.status} and was not there]` : ""),
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather, directive: fullDirective.slice(0, 240),
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
@@ -6359,6 +6380,14 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       continue;
     }
     { const v = driftVeto(state, id, m.content); if (v) { console.warn(`[drift] refused memory: ${v}`); shifts.push(`the ledger held the line: ${nameOf(id)} doesn't change against their grain without cause.`); continue; } }
+    /* AND NOBODY REMEMBERS A THING THAT DID NOT HAPPEN. Left alone, the bookkeeper files the
+     * resurrection as a verified recollection — "I sat on the floor of The Ritz waiting beside the
+     * dead constables, and Arthur Penhale walked back inside through the revolving doors ALIVE" —
+     * and from then on the memory system asserts it every turn on its own authority. */
+    if (state.last_risen && findRisen(state.characters, String(m.content))) {
+      console.warn(`[cast] refused a memory of ${state.last_risen.name} (${state.last_risen.status}) acting: "${String(m.content).slice(0, 80)}"`);
+      continue;
+    }
     const g = groundMemoryContent(m.content, m.anchor, sourceText, whitelist);
     if (g.repaired) m.content = g.content;
     else if (g.suspects.length) console.warn(`[memory] suspect specifics in ${nameOf(id)}'s memory (${g.suspects.join(", ")}) — no source sentence matched; stored as-is`);

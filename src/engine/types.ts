@@ -1061,6 +1061,10 @@ export interface SaveState {
    *  learn from its own violations) and has never told anyone it caught one — least of all the
    *  narrator, which went on making the same move. Quoted back at it next turn, then cleared. */
   last_leak?: string | null;
+  /** A character the story has finished, caught ACTING in last turn's prose. Same mechanism as
+   *  last_leak: the location guard already refuses to move them back into the scene, which defends
+   *  the ledger and leaves the prose free to walk them through a door. See exit.ts findRisen. */
+  last_risen?: { name: string; status: string; line: string } | null;
   /** A MAXIM somebody was made to say last turn — a short, closed, portable sentence stating a
    *  general truth. Same mechanism as `last_leak` and for the same reason: the rules that forbid
    *  this all live in the cached prefix, where they are reference, and the one thing that has ever

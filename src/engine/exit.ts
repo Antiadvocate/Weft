@@ -298,3 +298,106 @@ export function releaseEvidence(opts: { prose: string; action?: string; name: st
   const deeds = String(opts.action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " ").toLowerCase();
   return RELEASED.test(deeds) && probes.some((p) => deeds.includes(p));
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE DEAD WALKING BACK IN, AND THE LEDGER WRITING IT DOWN.
+ *
+ * A player, after the third time: "Again and again Arthur comes back."
+ *
+ * The guard in turn.ts already refuses to MOVE a dead character into the scene — "the gone do not
+ * walk back in" — and it works: after his death at turn 102 Arthur Penhale never appears in a
+ * `present` list again. What it defends is the ledger's location field, and nothing else, so the
+ * turn it blocks is a turn whose PROSE has already had him walk through a revolving door. The
+ * engine then records that turn faithfully. From the save at turn 132, all of it in the digest the
+ * narrator reads:
+ *
+ *   summary T128  Rabi shot Arthur Penhale dead in the head across the lobby of The Ritz.
+ *   summary T131  Rabi sat waiting on the floor by the bar amongst the dead policemen as
+ *                 Arthur Penhale walked back through the revolving doors.
+ *   RECALLS       I sat on the floor of The Ritz waiting beside the dead constables, and
+ *                 Arthur Penhale walked back inside through the revolving doors ALIVE.
+ *
+ * So one hallucination became canon, and from there the evidence compounds: every later turn is
+ * written against a history in which he came back, and he had died twice more by turn 131 — once
+ * strangled, once shot — each death generating its own consequence record.
+ *
+ * A block naming him dead does not survive that. Measured on that save, the DEAD AND GONE block is
+ * one line against twelve elsewhere in the same prompt that show him alive and acting. Telling the
+ * narrator the truth once, in a document where the story itself says otherwise twelve times, is not
+ * a fix. The contradiction has to be refused where it enters.
+ *
+ * So: catch it in the committed prose, keep it out of the record, and quote it back — the mechanism
+ * this engine trusts everywhere else (see last_leak, maxims.ts) and the only one that has reliably
+ * stopped a narrator habit.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Verbs that only a living person performs. A corpse can be described, moved, bled from and
+ *  stepped over — "the blood spreading from Arthur Penhale" is correct prose about a dead man and
+ *  must not trip this. What a dead man does not do is arrive, speak, or act on his own. */
+const LIVING_VERB = /^(?:says?|said|asks?|asked|answers?|answered|answer|replies|replied|reply|speaks?|spoke|speak|calls?|called|call|shouts?|shouted|whispers?|murmurs?|adds?|nods?|shrugs?|smiles?|laughs?|laugh|turns?|turned|turn|looks?|looked|look|walks?|walked|walk|steps?|stepped|step|comes?|came|come|enters?|entered|enter|arrives?|arrived|arrive|stands?|stood|stand|sits?|sat|sit|moves?|moved|move|takes?|took|take|reaches?|reached|reach|holds?|held|hold|puts?|put|lifts?|lift|raises?|raise|pulls?|pull|pushes?|push|opens?|open|closes?|close|crosses?|crossed|cross|drinks?|drank|drink|eats?|ate|eat|watches?|watched|watch|waits?|waited|wait|follows?|followed|follow|leans?|leaned|lean|appears?|appeared|appear|returns?|returned|return)\b/i;
+
+/** Words that may stand between a subject and its verb without changing who the subject is.
+ *  "Arthur Penhale does not answer at once." — the verb is his; the auxiliary and the negation are
+ *  not another person. */
+const BEFORE_VERB = /^(?:\s*(?:does|did|do|is|was|are|were|has|had|have|will|would|can|could|must|not|n't|never|then|still|also|already|just|again|slowly|only|finally|now|simply|almost|nearly|\w+ly)\b)*\s*/i;
+
+/** Titles are not names: splitting "Dr. Eleanor Vance" on whitespace gives "Dr." as the first
+ *  token, and a full stop also ends a sentence, so the whole name never survives the split. */
+const TITLE = /^(?:dr|mr|mrs|ms|miss|sir|lord|lady|fr|st|prof|capt|sgt|lt|col|gen|rev)\.?$/i;
+
+export interface RisenHit { name: string; status: string; line: string }
+
+/**
+ * A character the story has finished, acting in this turn's prose.
+ *
+ * Sentence by sentence, on the UNMASKED text, because a dead man being given dialogue is the
+ * clearest case of all. Only fires when the name is the grammatical subject — the name, then a
+ * living verb before any other capitalised name intervenes — so "he too is looking at Arthur" and
+ * "the blood spreading from Arthur Penhale" are left alone.
+ */
+export function findRisen(
+  characters: Record<string, { name?: string; status?: string }>,
+  prose: string,
+): RisenHit | null {
+  const gone = Object.values(characters ?? {})
+    .filter((c) => c?.name && (c.status === "dead" || c.status === "departed"))
+    .map((c) => ({
+      name: String(c.name),
+      status: String(c.status),
+      // every usable token, because a title both hides the given name and breaks the sentence split
+      forms: [String(c.name), ...String(c.name).split(/\s+/).filter((w) => w.length >= 3 && !TITLE.test(w))],
+    }));
+  if (!gone.length) return null;
+  for (const raw of String(prose ?? "").split(/(?<=[.!?])\s+|\n+/)) {
+    const s = raw.trim();
+    if (s.length < 12) continue;
+    for (const g of gone) {
+      for (const form of g.forms) {
+        const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const m = new RegExp(`\\b${esc}\\b([^.?!]{0,48})`, "i").exec(s);
+        if (!m) continue;
+        const tail = m[1];
+        // A POSSESSIVE IS NOT A SUBJECT. "Arthur Penhale's name" and "Arthur Penhale's mouth" put a
+        // noun in the subject slot; the name is only describing it.
+        if (/^['’]s\b/.test(tail)) continue;
+        // AND THE VERB HAS TO BE THEIRS. Scanning the next forty characters for any living verb
+        // reads "The body on the floor is Arthur Penhale, and the blood has REACHED the pillar" and
+        // "Nobody has said Arthur Penhale's name since the police CAME" as the dead man acting — the
+        // subject in both is something else that arrived in between. Only the verb that immediately
+        // follows the name, past auxiliaries and adverbs, belongs to it.
+        if (LIVING_VERB.test(tail.replace(BEFORE_VERB, ""))) return { name: g.name, status: g.status, line: s.slice(0, 200) };
+      }
+    }
+  }
+  return null;
+}
+
+/** The correction, at the end of the directive where instructions live. */
+export function risenFix(hit: RisenHit | null | undefined): string {
+  if (!hit) return "";
+  return `\nLAST TURN YOU PUT SOMEBODY BACK IN THE STORY WHO IS FINISHED. ${hit.name.toUpperCase()} IS ${hit.status.toUpperCase()}, and this sentence has them acting: "${hit.line}"`
+    + `\nThat did not happen and it is not in the record. ${hit.name} does not walk in, speak, arrive, turn, look, wait or reach for anything, this turn or any turn after it. `
+    + `Where the story has already shown them gone, they stay gone; a body remains a body and may be described, stepped around, or carried, and that is the whole of what they can do now. `
+    + `If the scene wants them, it wants somebody else: another person arrives, or nobody does, or what the moment needed turns out to be their absence. `
+    + `Write this turn as though the sentence above was never written, and do not have anyone in the scene remark on their return, explain it, or wonder at it — there was no return to notice.`;
+}
