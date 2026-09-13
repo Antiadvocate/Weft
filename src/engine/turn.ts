@@ -47,7 +47,8 @@ import { tickSeverance, severanceDirective } from "./severance";
 import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
 import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
-import { apertureNote, heardYouNote } from "./aperture";
+import { apertureNote, heardYouNote, attributeLines } from "./aperture";
+import { measure as measureTemplates, readingNote } from "./templates";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence } from "./exit";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
@@ -4825,6 +4826,27 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     } catch (e: any) { console.warn(`[turn] chaptering failed: ${e.message}`); }
   }
 
+  // ── THE REGISTER GAUGE ─────────────────────────────────────────────────────
+  // Runs AFTER the prose is written and committed, reads it, and records a number. It cannot touch
+  // the turn: no directive, no correction, nothing said to the narrator. See engine/templates.ts
+  // for why this is an instrument rather than a fourteenth tripwire.
+  //
+  // A null reading means "could not measure" — tagger unavailable, or too little speech — and is
+  // recorded as an ABSENT field rather than as a zero. Thirteen detectors reading zero for
+  // twenty-seven turns is what the failing save looked like from in here.
+  let templateReading: Awaited<ReturnType<typeof measureTemplates>> = null;
+  if (state.model_settings.template_gauge !== false) {
+    try {
+      const castNames = Object.values(state.characters).map((c) => c.name).filter(Boolean) as string[];
+      templateReading = await measureTemplates(
+        [...state.history.map((h) => String(h.narrator_prose ?? "")), prose].filter((x) => x.trim()),
+        (p) => attributeLines(p, castNames),
+      );
+      const note = readingNote(templateReading);
+      if (note) shifts.push(note);
+    } catch (e) { console.warn(`[templates] gauge failed, turn unaffected: ${e}`); }
+  }
+
   // telemetry
   const tel: TurnTelemetry = {
     turn, ts: Date.now(), pressure: verdict.pressure, pressure_source: verdict.source,
@@ -4840,6 +4862,14 @@ JUXTAPOSITION, NOT ATTRIBUTION: observable detail and any conclusion sit side by
     edge_snapshot: playerEdgeSnapshot(state),
     lyapunov: undertow.lyapunov, coherence: undertow.coherence,
     regime: undertow.regime, early_warning: undertow.early_warning,
+    ...(templateReading ? {
+      template_concentration: Math.round(templateReading.concentration * 1000) / 1000,
+      ...(templateReading.convergence !== null ? { voice_convergence: Math.round(templateReading.convergence * 1000) / 1000 } : {}),
+      ...(templateReading.hot[0] ? {
+        template_top: templateReading.hot[0].pattern,
+        template_example: templateReading.hot[0].examples[0]?.slice(0, 120),
+      } : {}),
+    } : {}),
   };
   state.telemetry.push(tel);
   // sliding window: long campaigns (thousands of turns) would otherwise bloat every save with raw

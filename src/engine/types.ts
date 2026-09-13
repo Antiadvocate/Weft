@@ -70,6 +70,11 @@ export interface ModelSettings {
    *  Off by default because it is a real per-turn cost, not because it is doubtful. It is the only
    *  thing in this engine that attacks the register at its cause rather than catching it afterwards
    *  — see the header of verbalized.ts for why catching it afterwards cannot work. */
+  /** THE REGISTER GAUGE (engine/templates.ts). Zero tokens and no model call — part-of-speech
+   *  tagging in the browser, after the turn has already been written, purely to record a number.
+   *  On unless explicitly turned off. The one real cost is a ~1MB tagger downloaded once per
+   *  session on the first turn it measures, which is why it can be turned off at all. */
+  template_gauge?: boolean;
   verbalized_sampling?: boolean;
   prose_temperature?: number;     // 0.6–1.2. Warmer widens what the narrator considers.
   prose_min_p?: number;           // 0–0.2. Relative probability floor; what keeps a warm temperature from going to pieces. 0 = off.
@@ -952,6 +957,19 @@ export interface TurnTelemetry {
   present: string[];
   time_label: string;
   edge_snapshot: { pair: string; warmth: number; trust: number }[]; // player edges
+  /** THE REGISTER GAUGE (engine/templates.ts). Share of dialogue carried by its few commonest
+   *  part-of-speech templates, over a rolling window — how much of the speech is coming out of how
+   *  few shapes. Absent when the gauge is off or there was too little dialogue to measure, and
+   *  absent is NOT zero: reading a missing measurement as a clean one is the exact failure this
+   *  whole subsystem exists to end. */
+  template_concentration?: number;
+  /** Mean pairwise similarity of the present speakers' template profiles — "everybody sounds the
+   *  same" as a number. Absent whenever fewer than two people said enough to compare, which is most
+   *  two-hander scenes. */
+  voice_convergence?: number;
+  /** The shape that grew most this window, and one line written in it, so the number can be read. */
+  template_top?: string;
+  template_example?: string;
   lyapunov?: number;           // λ̂ of the social map this turn
   coherence?: number;          // Kuramoto order parameter R
   regime?: "damped" | "critical" | "cascading";
