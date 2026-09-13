@@ -313,11 +313,22 @@ export async function measure(
   return compare(profileOf(tagger, recent), profileOf(tagger, before), convergence);
 }
 
-/** One line for the shift toast, or "" when there is nothing worth saying. Descriptive only — it
- *  reports what is being repeated and shows an instance, and it never tells anybody to stop. */
+/** Concentration a save has to reach before this is worth interrupting anybody about.
+ *
+ *  A gauge that speaks every time it has a reading is the thing the player was already complaining
+ *  about — see engine/shifts.ts, where one internal counter turned out to be a third of every
+ *  notification a save ever produced. The healthy stretch of the save this was built on sits at
+ *  7–11%; it is only past 12 that the register is visibly closing. So: silent below the bar, and
+ *  the detail lives in the Chronicle where somebody has gone looking for it. */
+export const NOTABLE = 0.12;
+
+/** One line for the shift feed, or "" — which is the answer almost every turn.
+ *
+ *  No example sentence in it, deliberately. Partly so the wording is stable enough for the repeat
+ *  filter to recognise this as the same piece of news two turns running, and partly because quoting
+ *  a line back as a fault is the move the rebound work (arXiv 2511.12381) says primes it — the
+ *  player reads these, but so does the person deciding what to write next. */
 export function readingNote(r: Reading | null): string {
-  if (!r || !r.hot.length) return "";
-  const top = r.hot[0];
-  const ex = top.examples[0] ? ` e.g. "${top.examples[0].slice(0, 60)}"` : "";
-  return `one sentence shape now carries ${Math.round(top.now * 100)}% of the dialogue, up from ${Math.round(top.before * 100)}%.${ex}`;
+  if (!r || !r.hot.length || r.concentration < NOTABLE) return "";
+  return `the dialogue is narrowing — ${Math.round(r.concentration * 100)}% of it is coming out of ten sentence shapes. The Chronicle shows which.`;
 }

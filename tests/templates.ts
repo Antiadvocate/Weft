@@ -82,9 +82,14 @@ async function main() {
     (await measure(["He crossed the room.", "The kettle clicked off."])) === null);
   check("null produces no toast", readingNote(null) === "");
   const rn = readingNote(r);
-  check("a reading produces one descriptive line", rn.includes("%"), rn);
+  check("a notable reading produces one descriptive line", rn.includes("%"), { rn, conc: r.concentration });
   check("and it does not tell anybody to stop",
     !/\b(never|do not|don't|avoid|must|stop|wrong|instead)\b/i.test(rn), rn);
+  check("it quotes no line back, so it cannot prime what it reports", !/["“”]/.test(rn), rn);
+  // A gauge that speaks on every reading is the complaint it was built to answer.
+  check("an ordinary reading stays quiet",
+    readingNote({ ...r, concentration: 0.08 }) === "", readingNote({ ...r, concentration: 0.08 }));
+  check("and a reading with nothing rising stays quiet", readingNote({ ...r, hot: [] }) === "");
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
