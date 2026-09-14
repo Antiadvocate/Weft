@@ -47,4 +47,17 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   new_places: A(S({ name: str, description_facts: str }, ["name"])),
   places_update: A(S({ place: str, description_facts: str, note: str, population: S({ scale: num, who: str }, []) }, ["place", "description_facts"])),
   offscreen: strA,
+  /* THE FIELD THE ENGINE DEPENDS ON AND THE MODEL WAS NEVER SHOWN.
+   *
+   * `unexplained` is described at length in the simulator contract, typed in types.ts, and consumed
+   * by reaction.applyUnexplained, which is the ONLY thing that ever sets `power_witnessed` — the
+   * tier that effectiveStanding reads to decide whether anybody defers to the player. It was not
+   * declared here. The root object is additionalProperties:true so a volunteered field still gets
+   * through, which is why this works sometimes: set in seven of eleven saves and missing in the
+   * rest, including one where the player conjured and vanished furniture in front of a witness on
+   * turn 9 and the world recorded nothing.
+   *
+   * The player's report: "Power means. Nothing… I have servants back talking me." With the tier
+   * unset, TIER_STANDING contributes zero and a man who rewrites matter has a stranger's standing. */
+  unexplained: S({ what: str, witnesses: strA }, ["what"]),
 }, ["scene_summary", "elapsed_minutes"]);

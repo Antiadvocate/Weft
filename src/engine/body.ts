@@ -82,7 +82,14 @@ const PART_GONE = new RegExp(
 const FACULTY = String.raw`sight|vision|hearing|speech|voice|balance|the use of \w+`;
 const FACULTY_GONE = new RegExp(
   String.raw`\b(?:${GONE}|cannot|can't|unable to|no)\b[^.;]{0,20}\b(?:${FACULTY}|see|hear|speak|walk|stand|move|talk)\b`
-  + String.raw`|\b(?:quadripleg\w*|parapleg\w*|hemipleg\w*|tetrapleg\w*|blind|deaf|mute|crippled|immobile|bedridden|comatose|unconscious)\b`, "i");
+  + String.raw`|\b(?:quadripleg\w*|parapleg\w*|hemipleg\w*|tetrapleg\w*|blind|deaf|mute|crippled|immobile|bedridden|comatose|unconscious)\b`
+  /* HELD, BY WHATEVER DID IT. A player froze somebody where she stood and it was filed as "held
+   * fast" — which graded as an ordinary condition, never reached bodyMarks, and so mapped to no
+   * lost faculty and let her walk out of the room. A body that cannot move is a body that cannot
+   * move; the cause is the story's business and the grading is not. These are severe, so they wait
+   * for the prose to lift them rather than ageing off a timer — the contract now asks the
+   * bookkeeper to record the release with condition_remove. */
+  + String.raw`|\b(?:immobilis\w*|immobiliz\w*|rooted to the spot)\b|\bfrozen (?:in place|solid|stiff|where (?:he|she|they) stood)\b|\bheld (?:fast|in place|rigid)\b`, "i");
 
 /**
  * Grade one recorded string.
@@ -224,7 +231,13 @@ export function lostFaculties(cond: Condition | undefined): Faculty[] {
   const out: Faculty[] = [];
   if (marked(m, /\b(?:quadripleg|tetrapleg)/i) || lost(m, /\b(?:arms|hands)\b/i)
     || (lost(m, /\b(?:left|l\.?)\s+(?:arm|hand)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:arm|hand)\b/i))) out.push("hands");
-  if (marked(m, /\b(?:quadripleg|tetrapleg|parapleg|bedridden|immobile)/i) || lost(m, /\b(?:legs|feet)\b/i)
+  /* HELD IN PLACE IS LOST MOBILITY, however it got that way. The list below was written for
+   * diagnoses and amputations, so a player who froze somebody where they stood — and had it filed
+   * as "frozen in place, cannot move" — got nothing, and the coherence gate let her walk off. What
+   * matters to the gate is that the legs do not work, not why. */
+  if (marked(m, /\b(?:quadripleg|tetrapleg|parapleg|bedridden|immobile|immobilis|immobiliz)/i)
+    || marked(m, /\b(?:cannot|can't|cant|unable to|no longer able to)\s+(?:move|walk|stand)\b|\bfrozen (?:in place|where|solid|stiff)\b|\bheld (?:fast|in place|rigid)\b|\brooted to the spot\b/i)
+    || lost(m, /\b(?:legs|feet)\b/i)
     || (lost(m, /\b(?:left|l\.?)\s+(?:leg|foot)\b/i) && lost(m, /\b(?:right|r\.?)\s+(?:leg|foot)\b/i))) out.push("legs");
   if (m.some((x) => /\bblind\b/i.test(x) && !PARTIAL.test(x)) || lost(m, /\beyes\b/i)) out.push("sight");
   if (marked(m, /\bmute\b|\baphasi|\bcannot\s+speak\b|\bunable\s+to\s+speak\b|\bvocal\s+cords?\b/i)

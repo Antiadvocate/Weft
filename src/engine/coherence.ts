@@ -102,7 +102,12 @@ export function checkCoherence(state: SaveState, prose: string, presentIds: read
       // A PRONOUN NEEDS AN UNAMBIGUOUS ROOM. "Emily watches from the chair as he crosses the lobby"
       // has two people in it and only one of them is walking. Where anybody else is named in the
       // same sentence, only her own name may carry the verb.
-      const alone = !others.some((n) => n.toLowerCase() !== first.toLowerCase() && new RegExp(`\\b${n}\\b`, "i").test(s));
+      /* A NAME INSIDE DIALOGUE IS BEING ADDRESSED, NOT ACTING. The ambiguity guard asks whether
+       * anybody else is named in the sentence, and a vocative counted: `"I have no answer for
+       * that, Rabi," she said` names the player, so the pronoun was declared ambiguous and a mute
+       * woman's dialogue tag went unchecked. Speech is masked before the question is asked. */
+      const outside = s.replace(/["“][^"”]*["”]/g, " ");
+      const alone = !others.some((n) => n.toLowerCase() !== first.toLowerCase() && new RegExp(`\\b${n}\\b`, "i").test(outside));
       // Lookahead, not consumption: "Emily is in the doorway, and then she walks" has two subjects
       // in it and a greedy match would swallow the second inside the first one's tail.
       const subject = new RegExp(alone ? `\\b(?:${esc}|she|he|they)\\b(?=\\s*([^.?!]{0,40}))` : `\\b${esc}\\b(?=\\s*([^.?!]{0,40}))`, "gi");
