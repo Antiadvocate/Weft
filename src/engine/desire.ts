@@ -488,11 +488,25 @@ export function desireLine(state: SaveState, id: string): string {
    * AND THE BAND BELOW ZERO IS ITS OWN REGISTER. Between the hostile floor and neutral sits the
    * commonest situation in any story with people in it — wanting somebody you are currently angry
    * with — and the engine had no line for it at all. */
+  /* SORE NEEDS REAL DISPLEASURE, AND USED TO NEED ONLY A DIP BELOW THE LINE.
+   *
+   * `sore = warmth < 0` meant any drift under zero was anger. Emily, sixty-five turns in: attraction
+   * 52, warmth MINUS THREE — three below a stranger — and the engine told the narrator "no goodwill
+   * left in it… they are angry at you." This module's own dispositionCue reads anything above −20 as
+   * merely cool. Eight is where the older desire tests put the line for annoyance, so that is where
+   * it goes; below it is genuinely put out, and −3 is a woman who is not especially fond of you.
+   *
+   * The rest of this branch is unchanged on purpose. The first pass at the player's report moved the
+   * whole ceiling down to zero as well, which handed warmth 0-15 to the flirtation ladder and broke
+   * two older fixes — the dead-zone one (a maxed-out woman told not to pursue) and the
+   * wanting-without-liking one. Neither was wrong. The band boundaries were not the problem; see
+   * tickDesire below for what was. */
+  const SORE = -8;
   if (a >= 30 && e.warmth < COOL && !romantic) {
-    const sore = e.warmth < 0;
+    const sore = e.warmth <= SORE;
     return `desire toward you: real (${a}) with ${sore ? `no goodwill left in it (warmth ${Math.round(e.warmth)}, and they are annoyed with you)` : `no attachment behind it (warmth ${Math.round(e.warmth)})`} — they want you and ${sore ? "are angry at you, and both are true at once. Neither one cancels the other" : "have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet"}. `
-      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. They want your body and your presence and take no interest in your day; they never ask after you and never soften${sore ? ", and everything they do arrives with an edge on it — standing closer than the argument needs, a hand that is not kind, needling as a way of making contact" : ", and whether you like them does not come up"}. `
-      + `They stay in the room${sore ? ", and the anger brings them closer to you rather than sending them home" : ""}. They stop when they are refused outright, and then they go cold and come back later. `
+      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. They want your body and your presence and take no interest in your day; they never ask after you and never soften${sore ? ", and everything they do arrives with an edge on it: they stand closer than they need to and are sharp while they do it, they touch you roughly and do not remark on it, they start on you about a small thing to keep you there" : ", and whether you like them does not come up"}. `
+      + `They stay in the room${sore ? ", and being cross brings them nearer rather than sending them home" : ""}. They stop when they are refused outright, and then they go cold and come back later. `
       + `NEVER render this as fondness, tenderness, or the beginning of caring${sore ? ", and never let the anger resolve into liking you" : ""}, and never narrate the wanting outright — it is in what they do.`;
   }
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
@@ -538,16 +552,41 @@ export function tickDesire(state: SaveState): string[] {
     }
     const cond = state.condition[id];
     if (!cond) continue;
-    // ADMISSIBILITY DRIFT — the stamped grasp/awe texture migrates toward CURRENT relaxation, but
-    // asymmetrically: learning to see rather than pick is slow work; losing it under stress is fast.
-    // Target = where this body's current openness would place the wanting. Creeps UP (+0.02/turn) when
-    // the target is higher than now; drops DOWN (−0.06/turn, ~3× faster) when clench pulls it lower.
-    // The groove down is always easier to fall into than the climb out.
+    /* ── ADMISSIBILITY DRIFT, AND WHY IT DECIDED EVERYTHING ────────────────────────────────────
+     *
+     * This one number picks which of three renderings the player ever sees: at 0.6 and up a woman
+     * "flirts, teases, angles for closeness"; in the middle she "surfaces in small glances and
+     * half-gestures"; at 0.35 and below the wanting "leaks as grasping — possessiveness, sharpness,
+     * a claim dressed as care". Only the top band looks like being wanted.
+     *
+     * Measured across nine saves of two games, every edge toward the player carrying real
+     * attraction: nine of thirteen sit below 0.5, and the clearest case is a woman at warmth
+     * NINETY-FOUR with attraction 100 and ordinary relaxation, rendering as half-gestures. The
+     * player's report was "women do not desire me", and he was reading the output correctly.
+     *
+     * TWO THINGS WERE WRONG.
+     *
+     * The target read only the body: `0.5 + relaxation * 0.05`. Whether wanting somebody can reach
+     * your own self-report is not a fact about how tense you are in general — it is about whether
+     * it is safe with THAT PERSON. A woman at warmth 94 has her answer; the ledger held it and this
+     * line never looked. So warmth moves the target now, and does most of the work at the top,
+     * where a real bond exists to make the wanting ownable.
+     *
+     * And the asymmetry was terminal rather than merely slow. Up at 0.02 a turn against down at
+     * 0.06 means one clenched turn costs three good ones, and since relaxation dips constantly the
+     * equilibrium sat far below the target instead of at it: eighteen turns of unbroken calm to
+     * climb from 0.14 to 0.5, undone by three bad ones. Losing it faster than you regain it is
+     * true; losing it three times faster than you can ever regain it is a ratchet. Recovery is
+     * still slower than collapse, and warmth buys it back faster, which is what actually happens
+     * between people. */
     if (e.desire_admissibility !== undefined && e.attraction >= 12) {
-      const target = clamp(0.5 + cond.psyche.relaxation * 0.05, 0, 1);
+      const safety = clamp((e.warmth ?? 0) / 100, -0.35, 0.35);
+      const target = clamp(0.5 + cond.psyche.relaxation * 0.05 + safety, 0, 1);
       const cur = e.desire_admissibility;
-      if (target > cur) e.desire_admissibility = +Math.min(target, cur + 0.02).toFixed(2);
-      else if (target < cur) e.desire_admissibility = +Math.max(target, cur - 0.06).toFixed(2);
+      // Being treated well is how somebody learns to hold a want openly, so warmth sets the climb.
+      const up = 0.02 + clamp((e.warmth ?? 0) / 100, 0, 1) * 0.04;   // 0.02/turn cold → 0.06 at warmth 100
+      if (target > cur) e.desire_admissibility = +Math.min(target, cur + up).toFixed(2);
+      else if (target < cur) e.desire_admissibility = +Math.max(target, cur - 0.05).toFixed(2);
     }
     const label = `fixated on ${player?.name ?? "you"}`;
     const has = cond.psyche.active_states.includes(label);

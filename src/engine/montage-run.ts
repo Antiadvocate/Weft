@@ -86,7 +86,7 @@ Output ONLY strict JSON:
 "threads_new":[{"title":"a new open question these days raised","description":"","tension":3}],
 "traits_expressed":[{"char_id":"","traits":["EXACT core trait string, verbatim from that character's Core: list"]}]}
 
-TRAITS_EXPRESSED: which of a character's core traits these days actually put on screen — judged by MEANING, not wording. Someone whose trait is "loves ice cream" expresses it by eating gelato or sorbet; "loves basketball" by a pickup game. Copy the trait string verbatim so it can be matched, but decide by what the scene means. Omit anyone whose traits didn't surface.`;
+TRAITS_EXPRESSED: which of a character's core traits these days actually put on screen — judged by MEANING; the same beat reworded is the same beat. Someone whose trait is "loves ice cream" expresses it by eating gelato or sorbet; "loves basketball" by a pickup game. Copy the trait string verbatim so it can be matched, but decide by what the scene means. Omit anyone whose traits didn't surface.`;
 
 export interface MontageOptions {
   days: number;
