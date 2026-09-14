@@ -51,7 +51,7 @@ import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
-import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
+import { departureEvidence, releaseEvidence, findRisen, risenFix, findDeparted } from "./exit";
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -5890,6 +5890,26 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           shifts.push(`${c.name} has been taken — they are not free to walk back in.`);
         }
       }
+      /* …AND THE DEPARTURE NOBODY CLAIMED. Everything above verifies a move the bookkeeper asked
+       * for. Nothing anywhere reads the prose and notices somebody leaving when the bookkeeper says
+       * nothing at all, and that is a loop with no exit in the literal sense: Constance Wexford
+       * announces she is going on turn 13, walks out on 15, and is standing by the pool again on 16
+       * because she never left `present`, so the directive puts her in the room, so she has to
+       * leave again. On the turn she went the bookkeeper recorded that she tensed up, cooled,
+       * trusted him less, and wanted to distance herself from him. It read the feeling and missed
+       * the fact. See exit.findDeparted for how strict this is and why. */
+      for (const hit of findDeparted(prose, state.world.present
+        .filter((id) => id !== "char_player")
+        .map((id) => state.characters[id]?.name ?? "")
+        .filter(Boolean))) {
+        const id = state.world.present.find((x) => state.characters[x]?.name === hit.name);
+        if (!id) continue;
+        state.world.present = state.world.present.filter((x) => x !== id);
+        state.characters[id].location = OFFSCENE;
+        shifts.push(`${hit.name} left, and the bookkeeper did not record it — the prose is taken at its word.`);
+        console.info(`[exit] ${hit.name} walked out and nothing filed it: "${hit.line}"`);
+      }
+
       // ARRIVAL EVIDENCE GUARD — the mirror of the above, and the half that was missing.
       //
       // Nothing stopped the bookkeeper moving a character INTO the player's scene. That matters

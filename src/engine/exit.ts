@@ -401,3 +401,157 @@ export function risenFix(hit: RisenHit | null | undefined): string {
     + `If the scene wants them, it wants somebody else: another person arrives, or nobody does, or what the moment needed turns out to be their absence. `
     + `Write this turn as though the sentence above was never written, and do not have anyone in the scene remark on their return, explain it, or wonder at it — there was no return to notice.`;
 }
+
+/* ══ SHE LEFT THREE TIMES AND NEVER LEFT ════════════════════════════════════════════════════
+ *
+ * departureEvidence above is a VERIFIER. It answers "the bookkeeper says this person went — did
+ * they?", and it is good at refusing a departure the prose does not support. Nothing anywhere asks
+ * the opposite question: the prose says this person went, and the bookkeeper never mentioned it.
+ *
+ * From a save seventeen turns long. Constance Wexford, on the terrace:
+ *
+ *   T13  "If you do not want me here, Rabi, you need only tell me to leave. I will not come back
+ *         a thirteenth time."
+ *   T15  "I will leave the grounds now. I won't come back."  …she turned, her movements precise,
+ *         and began the long walk back toward the front of the club.
+ *   T16  Constance stood by the stone edge, her back to the water.  …took a half-turn toward the
+ *         club, and began to walk.
+ *
+ * She is in `present` on every one of those turns, `status: alive`, `exit_turn` unset, standing in
+ * the player's location at the end of the save. The bookkeeper on T15 recorded that she tensed up,
+ * cooled, trusted him less and was holding on too tight, and on T16 gave her a fresh want —
+ * "distance myself from Rabi's influence". It read the feeling and missed the fact.
+ *
+ * And because she stays in `present`, the next turn's directive puts her in the room, so the
+ * narrator writes her in the room, so she has to leave again. It is a loop with no exit, in the
+ * literal sense.
+ *
+ * THE VOCABULARY WOULD HAVE MISSED HER ANYWAY. LEAVES is written for decisive exits — walked out,
+ * strode out, slipped out. "Began the long walk back toward the front of the club" is a woman
+ * leaving and matches none of it, so DRIFTS_OFF below covers the unhurried kind.
+ *
+ * Conservative on purpose, because this REMOVES somebody from a scene and the mirror-image bug is
+ * a character vanishing mid-conversation: STAYS still vetoes, the motion has to belong to them by
+ * the same ownership test the verifier uses, it has to happen in the last part of the turn, and
+ * they must not speak after it. Somebody who walks to the door and then says one more thing has
+ * not gone.
+ */
+const DRIFTS_OFF = new RegExp(String.raw`\b(?:began|begins|started|starts) (?:the |a )?(?:long )?walk\b|\b(?:began|begins|started|starts) to walk\b|\bwalk(?:ed|s|ing) (?:back )?(?:toward|towards|to) the (?:door|gate|front|street|road|hall|stairs|exit)\b|\bmade for the (?:door|gate|stairs|street)\b|\bwas gone\b|\bwent down the (?:step|steps|stair|stairs|path|drive)\b`, "i");
+
+/* WHOSE SENTENCE IS THIS. Used where the roster cannot help — the scene holds one named character
+ * and any number of porters, guards and groundsmen the cast list has never heard of.
+ *
+ * The departure sentence is theirs when it names them, or when it opens on a pronoun and the
+ * sentence before it does not hand the floor to somebody else. "She turned… and began the long
+ * walk" after "She did not look at you again" is hers. "He shifted his weight… and began to push
+ * it" after "The groundsman watched her pass" is his. */
+// A capital at the head of a sentence is not automatically a new subject: "She did not look at you
+// again" IS the continuity, and a first cut matched its "She" as somebody else and rejected every
+// real departure in the save. Pronouns are excluded by name.
+const OTHER_SUBJECT = /^(?:the\s+[a-z]{3,}\b|(?!She\b|He\b|They\b|You\b|It\b|Her\b|His\b|Their\b)[A-Z][a-z]{2,}\b)/;
+
+export function subjectIsTheirs(narration: string, probes: readonly string[], at?: number): boolean {
+  const sentences = narration.match(/[^.!?]+[.!?]*/g) ?? [];
+  let cursor = 0;
+  const idx = sentences.findIndex((sn) => {
+    const start = cursor; cursor += sn.length;
+    return at === undefined ? false : at >= start && at < cursor;
+  });
+  const here = idx >= 0 ? sentences[idx] : sentences[sentences.length - 1] ?? narration;
+  const low = here.toLowerCase();
+  if (probes.some((pr) => low.includes(pr))) return true;
+  if (!/^\s*(?:she|he|they)\b/i.test(here)) return false;
+  const before = (idx > 0 ? sentences[idx - 1] : sentences[sentences.length - 2] ?? "").trim();
+  if (!before) return true;
+  if (probes.some((pr) => before.toLowerCase().includes(pr))) return true;
+  // somebody else has the floor in the sentence before, and the pronoun most likely belongs to them
+  return !OTHER_SUBJECT.test(before);
+}
+
+export interface DepartedHit { name: string; line: string }
+
+/**
+ * Who the prose shows leaving, among the people the ledger still has in the room.
+ *
+ * `names` is the present cast by display name; the player is never passed in and never leaves
+ * their own scene.
+ */
+function m0Index(low: string, re: RegExp, tail: number): number | undefined {
+  const g = new RegExp(re.source, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = g.exec(low))) { if (g.lastIndex === m.index) g.lastIndex++; if (m.index >= tail) return m.index; }
+  return undefined;
+}
+
+export function findDeparted(prose: string, names: readonly string[]): DepartedHit[] {
+  const raw = String(prose ?? "");
+  if (!raw.trim() || !names.length) return [];
+  /* ONE INDEX SPACE FOR ALL THREE STRINGS. maskQuotes is character-for-character, so masking a
+   * whitespace-normalised string keeps every offset aligned; doing it the other way round collapses
+   * the blanked dialogue into one space and shifts everything after it. A first pass masked first
+   * and then read `raw` at a masked offset, which landed mid-dialogue and threw away a real
+   * departure for having speech after it. */
+  const flat = raw.replace(/\s+/g, " ");
+  const masked = maskQuotes(flat);
+  const low = masked.toLowerCase();
+  // THE LAST PART OF THE TURN. A departure in the opening paragraph that the scene then plays on
+  // through is somebody arriving, being described, or going and coming back.
+  /* THE LAST SENTENCE, AND ONLY THAT.
+   *
+   * A percentage of the way through the turn was too loose — six passes at tuning it kept finding
+   * new mid-turn noise to credit to somebody, including a drizzle thickening behind two people who
+   * were standing still. An exit that ends a scene is the last thing on the page; anything earlier
+   * is somebody crossing a room, and crossing a room is not leaving. This is deliberately strict.
+   * A missed departure costs one turn of the narrator writing somebody who has gone, which the
+   * scene footer usually catches. A false one deletes a person mid-conversation. */
+  const sents = masked.match(/[^.!?]+[.!?]*/g) ?? [];
+  const tail = Math.max(0, masked.length - (sents[sents.length - 1] ?? "").length);
+  const out: DepartedHit[] = [];
+  for (const name of names) {
+    const probes = nameProbes(name);
+    if (!probes.length) continue;
+    const others = names.filter((n) => n !== name).flatMap(nameProbes).filter((p) => !probes.includes(p));
+    if (owns(low, probes, others, STAYS)) continue;
+    let evidence = "";
+    for (const re of [LEAVES, DRIFTS_OFF]) {
+      /* WHO IT BELONGS TO, AND WHEN THAT IS EVEN A QUESTION.
+       *
+       * An exit is almost always narrated with a pronoun — "She turned… and began the long walk
+       * back toward the front of the club" — so a window around the verb holds no name at all. The
+       * ownership test measures name-to-verb distance against WINDOW (160), and on the real turn
+       * the last "Constance" sits 305 characters back, on the far side of a paragraph of dialogue.
+       * It rejected every genuine departure in the save.
+       *
+       * The obvious shortcut — skip ownership when only one person is rostered — is wrong, and the
+       * same save says why: a groundsman who is IN the scene and not in the cast list "began to
+       * push it slowly toward the service yard", and with nobody in `others` to object that
+       * wheelbarrow became Constance leaving. Unrostered figures are exactly who the ownership test
+       * protects against and they are invisible to it.
+       *
+       * So the subject of the sentence decides. */
+      /* THE SUBJECT TEST APPLIES ALWAYS, and it took an embarrassing bug to work that out. LEAVES
+       * contains the word `leaves`, so "the smell of wet leaves rises from the pavement" is a
+       * departure — and with two people rostered the distance-based ownership path found "Arthur"
+       * within its 160-character window and had him walk off into the autumn foliage. Distance is
+       * the wrong question. Whose sentence it is, is the right one, and it rejects the leaves.
+       * `owns` stays as an extra filter where there is somebody to be confused with. */
+      const idx = m0Index(low, re, tail);
+      if (!subjectIsTheirs(masked, probes, idx)) continue;
+      if (others.length && !owns(low, probes, others, re)) continue;
+      const g = new RegExp(re.source, "gi");
+      let m: RegExpExecArray | null;
+      while ((m = g.exec(low))) {
+        if (g.lastIndex === m.index) g.lastIndex++;
+        if (m.index < tail) continue;                       // too early in the turn to be the exit
+        // …and they must not speak after going. Somebody who walks to the door and then says one
+        // more thing has not gone.
+        if (/["“][^"”]{2,}["”]/.test(flat.slice(m.index))) continue;
+        evidence = masked.slice(Math.max(0, m.index - 70), m.index + m[0].length + 40).trim();
+        break;
+      }
+      if (evidence) break;
+    }
+    if (evidence) out.push({ name, line: evidence.slice(0, 160) });
+  }
+  return out;
+}
