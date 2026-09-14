@@ -18,6 +18,39 @@ const pick = <T,>(xs: T[], rng: () => number): T => xs[Math.floor(rng() * xs.len
 /** Build a fresh drive for a character from their relational + narrative context.
  *  `dispersion` (0..1) and `avoid` (a char_id the cast is over-focused on) bias the pick
  *  toward self-interested, magnet-avoiding goals so the cast spreads instead of swarming. */
+/**
+ * The wants that are about going and getting somebody. Extracted so the offscreen seeder and the
+ * present-character pass can share one definition of what pursuit looks like — see the note in
+ * regenerateDrives for why the people standing in the room could not reach this at all.
+ *
+ * The register follows the split desire.ts already draws: how much liking is under the pull, and
+ * whether the body it arises in can own it.
+ */
+export function pursuitWants(state: SaveState, id: string): string[] {
+  const nm = (x: string) => state.characters[x]?.name ?? x;
+  const wanted = state.world.edges
+    .filter((e) => e.from === id && e.to !== id && (e.attraction ?? 0) >= 30)
+    .sort((a, b) => (b.attraction ?? 0) - (a.attraction ?? 0))[0];
+  if (!wanted) return [];
+  const who = nm(wanted.to);
+  const adm = wanted.desire_admissibility ?? 0.5;
+  if (wanted.warmth < 0) {
+    // wanting somebody you are currently angry with: contact as friction
+    return [`get back in front of ${who} and make them deal with it`,
+            `get ${who} to admit there is something between them`];
+  }
+  if (wanted.warmth < 15) {
+    // appetite with no attachment: direct, uncourtly, and still pursuit
+    return [`get ${who} alone somewhere`, `find out how far ${who} will actually go`];
+  }
+  if (adm <= 0.35) {
+    // it cannot be said out loud, so it comes out as claim
+    return [`keep ${who} within reach and keep others away from them`,
+            `find a reason to be wherever ${who} is`];
+  }
+  return [`get ${who} to themselves for an evening`, `find out whether ${who} wants this back`];
+}
+
 export function seedDrive(state: SaveState, id: string, rng: () => number = Math.random, dispersion = 0, avoid: string | null = null): { goal: string; progress: number; priority: number; updated_turn: number } | null {
   const c = state.characters[id];
   if (!c) return null;
@@ -75,28 +108,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
    *
    * The register follows the same split desire.ts already draws: how much liking is under the pull,
    * and whether the body it arises in can own it. */
-  const wanted = [...out].filter((e) => (e.attraction ?? 0) >= 30)
-    .sort((a, b) => (b.attraction ?? 0) - (a.attraction ?? 0))[0];
-  if (wanted) {
-    const who = nm(wanted.to);
-    const adm = wanted.desire_admissibility ?? 0.5;
-    if (wanted.warmth < 0) {
-      // wanting somebody you are currently angry with: contact as friction
-      candidates.push(`get back in front of ${who} and make them deal with it`);
-      candidates.push(`get ${who} to admit there is something between them`);
-    } else if (wanted.warmth < 15) {
-      // appetite with no attachment: direct, uncourtly, and still pursuit
-      candidates.push(`get ${who} alone somewhere`);
-      candidates.push(`find out how far ${who} will actually go`);
-    } else if (adm <= 0.35) {
-      // it cannot be said out loud, so it comes out as claim
-      candidates.push(`keep ${who} within reach and keep others away from them`);
-      candidates.push(`find a reason to be wherever ${who} is`);
-    } else {
-      candidates.push(`get ${who} to themselves for an evening`);
-      candidates.push(`find out whether ${who} wants this back`);
-    }
-  }
+  candidates.push(...pursuitWants(state, id));
 
   // 2) live threads they could insert themselves into
   for (const th of state.world.threads.filter((t) => t.status === "active")) {
@@ -250,9 +262,55 @@ export function regenerateDrives(state: SaveState, rng: () => number = Math.rand
       }
     }
 
-    // SEEDING a brand-new want is offscreen-only — for a present character with no goal, the
-    // narrator and simulator give them one from what's happening in the scene, not this background tick.
-    if (present) continue;
+    /* ── THE PURSUIT WANT HAS TO REACH THE PEOPLE IN THE ROOM ────────────────────────────────
+     *
+     * Seeding is offscreen-only below, on the reasoning that a present character gets their wants
+     * from the scene via the bookkeeper. That is right for most wants and catastrophic for this
+     * one, because the drives contract the bookkeeper reads says goals should point at the WORLD
+     * rather than at the player — so the deterministic pursuit branch above, which is the only
+     * thing in this engine that can produce "get them alone", was unreachable for anybody actually
+     * standing in front of him.
+     *
+     * Measured across eleven saves: eleven characters hold attraction of 40 or more toward the
+     * player. Not one carries a want that moves TOWARD him. Six have wants naming him and all six
+     * are escape or surveillance — "put distance between herself and Rabi to salvage her dignity",
+     * "get clear of Rabi's club and report what he saw", "walk away into the rain". The other five
+     * are errands. A woman at attraction 100 and warmth 94 wanted a delivery of nail polish.
+     *
+     * So a player watched a woman court him for nine turns — the ledger records her letting him
+     * feed her grapes — ask her what she wanted, and hear that she had come about a glasshouse and
+     * had never wanted anything else. The desire system said she ached for him and the want system,
+     * which is what answers "what do you want", had never once been able to say so.
+     *
+     * It goes in the QUEUE rather than displacing what they are doing: wanting somebody and having
+     * your own business are not alternatives. liveWant surfaces it when he is in the room, because
+     * a want that names a person present is a want the room affords. */
+    if (present) {
+      const pull = state.world.edges
+        .filter((e) => e.from === id && e.to !== id && (e.attraction ?? 0) >= 30)
+        .sort((a, b) => (b.attraction ?? 0) - (a.attraction ?? 0))[0];
+      const target = pull ? (state.characters[pull.to]?.name ?? "") : "";
+      /* NAMING SOMEBODY IS NOT WANTING THEM. A first cut asked only whether an existing goal
+       * mentioned the target, and skipped two of the clearest cases in the corpus — "Put distance
+       * between herself and Rabi to salvage her dignity" and "distance myself from Rabi's
+       * influence", both held by women at attraction 57 and 100. Those name him and point away
+       * from him, which is the whole failure. A want counts as pursuit only if it moves toward. */
+      const AVOIDS = /\b(?:distance|away from|avoid|escape|escaping|clear of|rid of|be free of|out of (?:his|her|their|\w+'s) (?:life|influence|way|reach)|never (?:see|speak|go back))\b/i;
+      const carries = (g?: string) => {
+        if (!g || !target) return false;
+        const first = target.split(/\s+/)[0].toLowerCase();
+        return g.toLowerCase().includes(first) && !AVOIDS.test(g);
+      };
+      if (pull && target && !carries(active?.goal) && !queue.some((q) => carries(q.goal)) && queue.length < 2) {
+        const wants = pursuitWants(state, id);
+        if (wants.length) {
+          queue.push({ goal: wants[Math.floor(rng() * wants.length)], progress: 0,
+                       priority: Math.max(1, active?.priority ?? 1), updated_turn: state.world.current_turn });
+          log.push(`${c.name} has not stopped thinking about ${target.split(/\s+/)[0]}.`);
+        }
+      }
+      continue;
+    }
 
     if (active && active.progress < 100) continue;          // still actively wanting something
     // nothing active (or it just completed and queue empty) — seed a fresh want.
