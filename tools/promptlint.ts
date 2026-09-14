@@ -268,9 +268,25 @@ const LITERARY = /\b(aphorisms?|maxims?|proverbs?|epigrams?|epigraphs?|purple|fl
  */
 const NAMED_RULE = /[a-z,]\s+(?:the\s+)?[A-Z][a-z]{2,}\s+(?:rule|principle|law|doctrine)\b/;
 
+/* A SENTENCE TOO LONG TO LINT IS NOT A SENTENCE, IT IS SEVERAL.
+ *
+ * The cap below exists so a giant blob cannot collect a spurious match across half a paragraph, and
+ * it was skipping the text outright. This engine writes enormous run-on directives, so what it
+ * skipped was 3.7% of all prompt text — including the desire branch that carried "standing closer
+ * than the argument needs, a hand that is not kind, needling as a way of making contact" straight
+ * through a pass that had just been built to catch exactly those three shapes, and reported zero.
+ *
+ * So an over-long sentence is broken at the boundaries its author actually used — the semicolons
+ * and em-dashes it is strung together with — and the clauses are linted. Anything still over the
+ * cap after that really is one unbroken blob and is still skipped. */
+function clauses(s: string): string[] {
+  if (s.length <= 400) return [s];
+  return s.split(/\s*[;—]\s+/).map((x) => x.trim()).filter((x) => x.length >= 25 && x.length <= 400);
+}
+
 export function lint(src: string): Finding[] {
   const out: Finding[] = [];
-  for (const raw of modelFacing(src).split(/(?<=[.;!?])\s+/)) {
+  for (const sentence of modelFacing(src).split(/(?<=[.;!?])\s+/)) for (const raw of clauses(sentence.trim())) {
     const s = raw.trim();
     if (s.length < 25 || s.length > 400) continue;
     if (ABSTRACT_RE.test(s) && COMMANDED.test(s)) {

@@ -277,3 +277,61 @@ export function applyUnexplained(
   }
   return log;
 }
+
+/* ══ WHAT THE ROOM KNOWS ABOUT THE PLAYER, AFTER IT HAS SEEN HIM DO IT ══════════════════════
+ *
+ * From the save that prompted this. Turn 6: `power_witnessed` is stamped `cosmic`. Turn 10: the
+ * player puts a plate of 24-carat gold on a table at the Ritz, out of nothing, in front of a
+ * maître d', a waiter, and a man reading the Financial Times. The prose:
+ *
+ *   "May I ask how you'd like it valued?"
+ *   "The kitchen doesn't have a till for it. And I can't make change for a sovereign."
+ *   "Sir, I can't carry a plate of sovereigns through the dining room."
+ *
+ * Matter appeared from nowhere and the reply was a BILLING QUESTION. The player's report: "They see
+ * me make gold, refuse it. Refuse cash. Roll their eyes at me making a car. Totally normal."
+ *
+ * TWO SOURCES DISAGREED AND THE WRONG ONE WON. `power_witnessed` said the world had seen it at turn
+ * six. Canon, written at world creation and never revisited, said:
+ *
+ *   "the only anomalies are Rabi's phone and matter creator, which are unknown to anyone but him."
+ *
+ * And reactionDirective, correctly, tells the narrator to measure the act against the canon. So it
+ * measured a man conjuring gold against a line stating that nobody knows he can, and wrote a room
+ * where nobody knows. Meanwhile the tier itself reached the prompt through exactly one channel: a
+ * standing modifier inside dispositionCue, which lowers how much deference a character shows. A
+ * number about politeness, carrying the fact that this man rewrites matter.
+ *
+ * The canon line is not struck. It was true when it was written and the story may yet make it true
+ * again, and rewriting somebody's world bible to record what happened in it is the same lossy move
+ * as editing a character card to record an injury. It is overridden here, per turn, from state —
+ * the same shape as the body gate in prompts.ts, and reversible for the same reason.
+ */
+const TIER_SEEN: Record<string, string> = {
+  empowered: "do things no ordinary person can do",
+  mythic: "do things that cannot be explained",
+  cosmic: "make matter appear and disappear at will",
+};
+
+export function witnessedDirective(state: SaveState): string {
+  const w = state.power_witnessed;
+  const tier = w?.tier;
+  if (!tier || tier === "mortal") return "";
+  const seen = TIER_SEEN[tier] ?? TIER_SEEN.mythic;
+  const since = w!.turn;
+  const ago = Math.max(0, (state.world?.current_turn ?? since) - since);
+
+  // Only when canon actually claims secrecy, so an ordinary world never carries this sentence.
+  const secret = (state.world?.canon ?? []).find((c) =>
+    /\b(?:unknown|unaware|secret|hidden|conceal\w*|nobody knows|no one knows|known only)\b/i.test(String(c))
+    && /\b(?:anomal\w*|power\w*|abilit\w*|device|creator|technolog\w*|machine)\b/i.test(String(c)));
+
+  return `\n[WHAT THIS ROOM ALREADY KNOWS ABOUT THE PLAYER — established at turn ${since}${ago ? `, ${ago} turns ago` : ""}, and true every turn since.
+The people here have watched the player ${seen}. Not been told about it. Watched it, more than once, with their own eyes.
+Everything an ordinary person's life rests on — that money is scarce, that work is how you get things, that an object had to be made by somebody and carried here — has been shown to them to be optional for this one man. That is the largest standing fact any of them carry, larger than their job, their errand, or their opinion of him.
+SO IT IS NEVER A PROCEDURAL PROBLEM. The failure this note exists to stop, quoted from a real turn: the player conjured a plate of gold and the reply was about the till, making change, and how the item should be valued. Nobody asks the accounting question about a miracle. What people actually do in front of proven power is want something from it, test it, ask him to do it again, ask what he wants in return, get frightened and hide the fright, refuse to look directly at it, pray, or try to get away from him — and which of those, for each person, comes off their own card.
+TAKING IT IS THE DEFAULT; REFUSING IS A POSITION AND IT COSTS. A hotel man handed a year's wages, or a dresser in 1932 handed five thousand guineas, does not decline out of dignity. If somebody here does refuse, their own state has to say why — a fear, a debt, a rule they live by, something they want more — and the refusal visibly costs them, and it does not read as the scene's moral verdict on the player.
+IT DOES NOT BECOME ORDINARY, IT BECOMES SOMETHING THEY LIVE WITH. After the third time nobody gasps; they have arranged themselves around it. That arrangement shows as changed behaviour — what they now ask him for, what they have stopped bothering to plan, what they will not say in front of him, who they have told — and never as a shrug or a rolled eye.${secret
+    ? `\nCANON SAYS OTHERWISE AND CANON IS OUT OF DATE: "${String(secret).slice(0, 180)}" was written before any of this happened. It held until turn ${since}. The people in this room have seen it since, so for them it is no longer true, and the record of what they witnessed outranks it. Everything else in canon still stands.`
+    : ""}]`;
+}

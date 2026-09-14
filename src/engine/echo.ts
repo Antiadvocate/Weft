@@ -320,3 +320,65 @@ export function lineReprintFix(line: string | null | undefined): string {
   return `\nLAST TURN SOMEBODY SAID A LINE THIS STORY HAS ALREADY PRINTED, WORD FOR WORD: "${line}"
 It was on the page once already and the reader recognised it. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
 }
+
+/* ══ THE QUOTE-BACK OPENER ══════════════════════════════════════════════════════════════════
+ *
+ * findEcho above is floored at five words on purpose — "come here" and "I know" coming back are
+ * ordinary speech and flagging them would be worse than missing them. The tic that dominates this
+ * engine's dialogue lives entirely under that floor:
+ *
+ *   "A date," she said, and the word came out soft, almost to herself.
+ *   "Trust you," she said, and the word came out with a little breath behind it.
+ *   "Fun," she said, as if you had handed her something to hold that she did not want.
+ *   "The waiter," she said, and let the word drop.
+ *   "The Ritz," / "The hotel." / "Breakfast," / "With you. At the Ritz."   — one turn, four of them
+ *
+ * Measured across seven saves of two games: the player's own words open a short spoken line on
+ * 48%, 53%, 53%, 67% and 75% of turns, at up to two per turn. On the save where the player wrote
+ * "she repeats my exact words several times" it is 52 openers across 28 turns.
+ *
+ * Length is the wrong thing to measure here and that is why the floor missed it. What makes it a tic
+ * is POSITION AND FUNCTION: the line opens on the player's phrase and the rest of it is the
+ * character turning that phrase over rather than saying anything. Any one of those is a real thing
+ * people do. Two in a turn, every turn, is the narrator using it as a way to start a line.
+ *
+ * So this counts rather than bans — the same design as the register gauge and the template rate.
+ * One is speech. The note fires at two.
+ */
+const OPENER_MAX_WORDS = 14;   // a long reply that happens to begin on a shared word is not this
+const OPENER_RATE = 2;         // one per turn is a person; two is a habit
+/* A ONE-WORD HEAD HAS TO CARRY SOMETHING. "Fun," and "Breakfast," are the tic; "I'm Emily. Emily
+ * Clarke." opening on `I'm` is a woman introducing herself, and the player having said "I'm Rabi"
+ * earlier is a coincidence of the commonest words in English. Two words or more need no such test —
+ * a two-word span lifted whole is already the move. */
+const THIN = new Set(("i i'm im a an the and or but so if is are was were be been am you your yours he she it we they "
+  + "my mine me him her them this that these those to of in on at for with from by as not no yes do does did done "
+  + "have has had will would can could should what who how why when where there here well oh ah okay ok").split(" "));
+
+/** Short spoken lines whose opening words are lifted verbatim from what the player just said. */
+export function echoOpeners(prose: string, playerSaid: string): string[] {
+  const said = flatten(playerSaid);
+  if (said.trim().split(" ").filter(Boolean).length < 3) return [];
+  const out: string[] = [];
+  for (const line of quotedLines(prose)) {
+    const w = flatten(line).trim().split(" ").filter(Boolean);
+    if (!w.length || w.length > OPENER_MAX_WORDS) continue;
+    for (let k = Math.min(5, w.length); k >= 1; k--) {
+      const head = w.slice(0, k).join(" ");
+      if (head.length < 3) continue;
+      if (k === 1 && THIN.has(head)) continue;
+      if (said.includes(` ${head} `)) { out.push(clipText(line, 120)); break; }
+    }
+  }
+  return out;
+}
+
+/** The correction, fired only when it has become the way lines get started. */
+export function openerFix(lines: readonly string[] | null | undefined): string {
+  const n = lines?.length ?? 0;
+  if (n < OPENER_RATE) return "";
+  const quoted = lines!.slice(0, 4).map((l) => `"${l}"`).join("  ");
+  return `\nLAST TURN ${n} SPOKEN LINES OPENED BY REPEATING A WORD THE PLAYER HAD JUST SAID: ${quoted}
+That is how every one of those lines got started, and a character who opens on the player's phrase and then weighs it has not said anything of their own. It also puts the player's vocabulary in everybody's mouth, so the whole cast ends up speaking his words back at him.
+THIS TURN: every spoken line opens on the speaker's own words. Somebody may repeat a phrase once, if that person would, and then it is done for the scene. Where a character has taken the player's meaning, show it in what they DO with it — they answer the part that concerns them, they act on it, they ask about something adjacent, they go and get the thing, they change the subject to their own business.`;
+}
