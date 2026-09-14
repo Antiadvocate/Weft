@@ -145,14 +145,30 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
     ? atts.map((a) => `- ${a.name}: ${SCAN_TEXT[band(a.scan)]} ${PULL_TEXT[band(a.pull)]}`).join("\n")
     : `- Nobody in this scene is someone the player has a settled model of. ${SCAN_TEXT.high} Strangers are the most scanned people there are; resolution is high and stays on whoever is doing something.`;
 
-  // APERTURE. Clench narrows the world to the social business; ease lets the
-  // irrelevant in. What gets in is the player's own conditioning, not scenery.
+  /* ── APERTURE, AND THE POLARITY IT HAD BACKWARDS ─────────────────────────────────────────────
+   *
+   * This read: clench narrows to the social business, ease lets the irrelevant in. The author of
+   * the system, describing what he built it for: "When I'm relaxed it gives me less details about
+   * pointless bullshit. When I'm not relaxed I get more noise."
+   *
+   * Both are real states and the old one is the wrong one to have as the common case. Acute threat
+   * does tunnel the vision, and that is kept at the bottom of the scale. But the ordinary
+   * not-relaxed state of a person in a room is not terror, it is distractibility: the mind will not
+   * stay on the conversation, it lands on a spider in the corner, it goes to last night's argument,
+   * it comes back late. That is the state most turns are in, and it was producing the least noise
+   * of any band.
+   *
+   * The distinction that actually matters is not how MUCH gets in but whether it was CHOSEN. At
+   * ease, few things get in and they are the ones this person cares about. Under strain, more gets
+   * in and none of it was invited. */
   const affinities = [...(pc?.texture ?? []), ...(pc?.core_traits ?? [])].slice(0, 5);
-  const aperture = effective <= -3
-    ? `NARROW: nothing enters the frame that is not the people and the immediate business between them. No weather, no room, no passers-by, no ambient sound, no time of day. If something irrelevant would normally be noticed, it is not noticed this turn — the absence is the state, and you must not remark on the absence either.`
+  const aperture = effective <= -6
+    ? `TUNNELLED: nothing enters the frame that is not the people and the immediate business between them. No weather, no room, no passers-by, no ambient sound, no time of day. This is fear doing it, and the absence is the state — do not remark on the absence either.`
+    : effective <= -2
+    ? `INTRUSIVE: the attention will not stay where it is put. Three or four things arrive uninvited across the turn — an object on the floor, something in the corner, a sound from another room, a piece of unfinished business from earlier today — and NONE of them are relevant, connected, or picked up again. The person is trying to attend to the conversation and keeps failing. Do not tidy this into a mood or explain why any of it surfaced.`
     : effective < 3
     ? `MIDDLING: one thing from outside the social business may enter, briefly, and is not returned to.`
-    : `OPEN: two or three things outside the business may enter — including things that have nothing to do with anything, that go nowhere, and that are never picked back up. Irrelevance is the signal here; do not make the stray detail turn out to matter.`;
+    : `CLEAR: little gets in and what does was worth it — one or two things this person would actually choose to notice, and no ambient furnishing. A settled attention is not a wandering one.`;
 
   const drawn = affinities.length && effective > -3
     ? `\nWhat gets through is not generic scenery — it is what THIS person's attention snags on unbidden, given: ${affinities.join("; ")}. Not the character demonstrating a trait; the world arriving pre-sorted by one.`
@@ -163,7 +179,35 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
   const first = atts[0];
   const order = `\nORDER IS ATTENTION: whatever appears first in a paragraph is what caught the player first. Sequence the turn so the ordering is true — this turn the pull is toward ${first?.name ?? "whoever is acting"}. Never explain or justify the ordering, and never write a sentence about the player noticing, attending, or being drawn to anything; the selection does that work silently and naming it destroys it.`;
 
+  /* ── HOW A NOTICING IS WRITTEN, WHICH NOTHING HERE HAD EVER SAID ────────────────────────────
+   *
+   * Every dial above governs how MUCH gets in and in what ORDER. Nothing governed the grammar, and
+   * the grammar is the whole difference between an attention and a camera. So the strays came out
+   * as composed description: "The servant with the tray had set it down on a table near the wall
+   * and was counting glasses, touching each one with a forefinger, and through the long front
+   * windows the street was black and wet." One sentence, three clauses, two conjunctions, past
+   * perfect, a settled omniscient calm. Nobody's attention has ever done that.
+   *
+   * What it does instead, in the author's own words: "she's talking about that kitchen mess last
+   * night. Fuck. Eli's toy, a yellow shell, turned sideways." / "corner of the room, a spider. Is
+   * it dead? Asleep. Maybe." Fragments. No connective between one landing and the next. A question
+   * it does not answer. Two facts about the toy and no third.
+   *
+   * ONE THING IS DELIBERATELY NOT COPIED FROM THOSE EXAMPLES. His has "I gotta take care of her
+   * better" in it, and that is the player's own verdict on himself, which this engine does not get
+   * to write — see the bare-acts rule below. The resolution is better than the compromise sounds:
+   * the frame puts the toy on the floor and stops. The player supplies the rest, which is what he
+   * came for. */
+  // Only where there are strays to write. Under TUNNELLED nothing gets in at all, so a rule about
+  // how the strays should read would be describing something the band has just forbidden.
+  const grammar = effective <= -6 ? ""
+    : effective <= -2
+    ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it lands and it stops. A fragment is correct and a whole sentence is usually wrong. No conjunction joins one noticing to the next — full stop, then the jump, with nothing explaining the jump. Two facts about a thing and no third; name it rather than describing it. The attention may ask itself something and not answer it. It may go somewhere and come back late, mid-exchange, having missed a line. Never write that the player noticed, was distracted, or found their mind wandering — the jump on the page IS the distraction, and naming it turns it back into description.`
+    : effective >= 3
+    ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it can be a whole sentence and settle for a moment, because this attention is not being dragged anywhere. Still no cataloguing, and still no more than the one or two things.`
+    : "";
+
   const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received — not to the other characters and not to the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
 
-  return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is what the player's attention did with the room. How much detail each thing gets is set by the state below, and it differs from one thing to the next.\n${lines}\nAPERTURE — ${aperture}${drawn}${order}${bare}`;
+  return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is what the player's attention did with the room. How much detail each thing gets is set by the state below, and it differs from one thing to the next.\n${lines}\nAPERTURE — ${aperture}${grammar}${drawn}${order}${bare}`;
 }
