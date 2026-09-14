@@ -1944,8 +1944,25 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         if (saw.length) lines.push(`  saw while you were elsewhere: ${saw.map((m) => `"${m.content}"${m.where ? ` (at ${m.where})` : ""}`).join("; ")}`);
       }
       if (detail >= 2) {
-        const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to) && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15 || e.roles?.length));
-        if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${n ? ` (${n})` : ""}`; }).join("; ")}`);
+        /* ── WHO ELSE THEY WANT, WHICH THIS LINE HAS NEVER SAID ──────────────────────────────
+         *
+         * This is the only place the narrator learns how one present character feels about
+         * another, and it rendered warmth and trust and nothing else. Attraction was not shown and
+         * was not even a reason to show the line: the filter asked for |warmth| > 15, |trust| > 15,
+         * or a named role, so Olga wanting Emily at 54 with warmth 0, trust 0 and no role between
+         * them failed every clause and vanished.
+         *
+         * Measured across the saves: fifty NPC-to-NPC attraction edges, nineteen of them at 30 or
+         * above — Olga toward Emily at 54, Betty at 49, Ames at 53, Bert at 54 — and not one of
+         * them could reach the page. The engine models same-sex desire, generates orientations that
+         * are not straight, seeds attraction between any pair and gates it correctly, and then told
+         * the narrator about none of it unless the player was one of the two people involved.
+         *
+         * So a cast could not cheat, could not want each other, and could not be jealous over
+         * anybody but him. The state was there the whole time. */
+        const lateral = state.world.edges.filter((e) => e.from === id && e.to !== "char_player" && state.world.present.includes(e.to)
+          && (Math.abs(e.warmth) > 15 || Math.abs(e.trust) > 15 || (e.attraction ?? 0) >= 30 || e.roles?.length));
+        if (lateral.length) lines.push(`  toward others here: ${lateral.map((e) => { const n = edgeNote(e, state.world.current_turn); const d = (e.attraction ?? 0) >= 30 ? `, ${attractionWord(e.attraction!)} them` : ""; return `${state.characters[e.to]?.name}: ${e.roles?.length ? `${e.roles.join(" & ")}, ` : ""}w${e.warmth}/t${e.trust}${d}${n ? ` (${n})` : ""}`; }).join("; ")}`);
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
       if (pedge) {
