@@ -80,6 +80,19 @@ export interface ModelSettings {
   prose_min_p?: number;           // 0–0.2. Relative probability floor; what keeps a warm temperature from going to pieces. 0 = off.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
+  /** HOW MANY PEOPLE GET THEIR OWN CALL WHEN THE WORLD MOVES. 0 or unset = off, and the omniscient
+   *  world pass runs exactly as it always has. 1–4 = that many offstage characters are each handed
+   *  a briefing containing only what THEY know and asked what they did, in place of one model being
+   *  handed the whole world and asked to forget most of it. See engine/agency.ts for the argument
+   *  and for the measured cost, which is lower than the pass it replaces rather than higher.
+   *  Off by default because it changes what the background is made of, and that is a choice about
+   *  the story rather than a fix. */
+  agency_actors?: number;
+  /** ...and how often the world pass still runs underneath it. Every Nth offstage interval, the
+   *  omniscient pass runs instead of the actors, so weather, illness, a herd, a flood and the
+   *  factions nobody in the cast belongs to keep existing. Default 3. 0 retires the world pass
+   *  entirely, which costs less and makes the background purely the cast's own doing. */
+  agency_world_ratio?: number;
   /** PAINT THE SCENE EVERY TURN, without being asked.
    *
    *  Off by default and deliberately so on the cloud path, where every turn would be a few cents.
@@ -318,7 +331,25 @@ export interface NPCDrive {
   progress: number;          // 0–100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
+  /** WHO THIS WANT IS ABOUT, when it is about a person — a char_id, and never the player's.
+   *
+   *  A drive has always been a sentence with a name in it, which is a name to the reader and
+   *  nothing to the engine. Three things need the id. The mind layer prunes any belief about
+   *  somebody outside modeledTargets, so a character who formed an intention about a person who is
+   *  not their sharpest tie had the belief deleted on the next turn they were in a scene — the
+   *  intention survived and the picture behind it did not. The brief needs to know which of the
+   *  people in the room this want is pointed at. And an intention that resolves has to be able to
+   *  say who it resolved about. See engine/agency.ts formIntent. */
+  about?: string;
   updated_turn: number;
+  /** WHY THEY FORMED IT — in their life, from what they saw or were told, in their words.
+   *
+   *  Same field and same argument as AuthoredDrive.because: a want with no cause gets a new cause
+   *  invented for it every time it is read. The difference here is that this one is written by the
+   *  person who formed it, out of a briefing that may have been wrong, so it preserves the reason
+   *  they had at the time even after the world has moved past it. That is what makes an intention
+   *  formed on stale news stay legibly stale instead of quietly becoming correct. */
+  because?: string;
   /** Turn this drive's PROGRESS last actually moved, and the value it moved to. Separate from
    *  updated_turn because the bookkeeper restamps that every turn it rewrites the blocker — which
    *  it does constantly while a question is on the table, disarming any staleness check built on
@@ -886,6 +917,10 @@ export interface WorldState {
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
   offstage_last_time?: string;
+  /** How many offstage intervals have run since agency was switched on. The world pass rides every
+   *  `agency_world_ratio`-th one of them, so the weather and the factions nobody stands in keep
+   *  existing while the cast moves itself the rest of the time. See engine/agency.ts. */
+  agency_passes?: number;
   /** In-world timestamp at each turn, so elapsed travel time can be measured between two turns
    *  rather than assumed from a turn count. Trimmed to the recent window. */
   time_at_turn?: Record<number, string>;

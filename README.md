@@ -146,6 +146,77 @@ What it does *not* skip is the bookkeeping afterward: the beat discharges, the s
 fatigue list, and the next few turns cool off exactly as they would have. It is a way to see the
 machine, not a way to cheat it.
 
+## Letting the cast move itself
+
+Between scenes, Weft has always moved the background with one model call. That call is handed the
+whole world — every place, every person's wants and blockers and week, who is standing where, every
+faction clock, every open thread — and then asked, in 2,489 tokens of instruction, to behave as
+though it had not been handed most of it. Read the headings of that prompt in order and they are a
+casualty list. A barista the player had met once, reading a private text aloud down a phone line,
+word for word, to a friend nobody had told. A smith laying out two iron rims a foreign hand had
+sketched for him, when no such drawing was ever made. A woman told which flight the player was on
+and why.
+
+None of those are the model being careless. They are what happens when a fact is put in a context
+and the only thing standing between it and the page is a sentence asking for it to stay unused.
+
+**Tuning → The world offstage → People who move themselves** takes the other road. Set it to 1–4
+and that many offstage characters are each handed a briefing containing what *they* know — their
+own card, their own want and what is blocking it, the room they are standing in and who is in it,
+their own memories, the rumours they have actually been told, what they wrongly believe about
+somebody, the faction they actually stand in — and asked what they did with the next few hours.
+Nothing else is in the call. A person who was never told a thing cannot repeat it.
+
+What comes back is a world that misunderstands itself. Somebody calls and gets no answer, because
+their briefing never said where the other person was. Somebody acts on news that was true two days
+ago. Two people in the same room have the same afternoon from opposite sides, and each becomes a
+witness to the other's, so an edge moves between two people you have never watched interact. The
+stale news, the wrong guess, the crossed wire — none of it is written by a rule asking for it. It
+falls out of the shape of the call.
+
+**It costs less than the report it replaces.** A world digest grows with the cast; a briefing does
+not — thirty more villagers in the world add nothing to any one person's head. The system block is
+identical for every actor and every turn, so a caching provider serves it from cache after the
+first one, which the world digest can never be because it changes every turn by construction.
+Roughly: one world report is ~4–5k input on a ten-person cast, two briefings are ~3k. And it runs
+on the schedule the world already moved on, so it adds no calls to a turn you are waiting on.
+
+Two things stay as they were. **Nobody in your cast is the weather**, so every Nth interval (default
+3, tunable, 0 to switch it off) the old omniscient report still runs and illness, a flood, a herd, a
+season and the factions none of your people stand in keep happening. And **nothing new touches the
+world** — an act becomes the same offstage event the applier already knew how to write, so memory,
+edges, rumours, clocks, threads and the guard that catches a forged signature all keep their single
+write path, and no save needs migrating.
+
+**What one afternoon leaves behind.** An act that stops at the end of the interval buys a world of
+strangers having unrelated afternoons — the next pass starts them again from a want the engine
+seeded off how much one card resembles another, so nothing accumulates. So an actor can end a few
+hours meaning to do something about a named person, and that intention is written onto their card
+as an ordinary want with the target's id on it and the reason kept in their own words. Every piece
+of machinery that already reads a want reads this one: their next briefing prints it, the drive
+system protects it while it is live and shelves it when it stalls, and the narrator sees it when
+that person walks into a scene.
+
+The reason is never reconciled against what actually happened. It is what they believed at the
+moment they formed it, out of a briefing that was one room's view, and it stays exactly as written
+until something gets in its way. That is one person carrying a misunderstanding for a week, which
+the engine could not previously hold — a want used to be a sentence with a name in it and no record
+of where the sentence came from.
+
+**And the picture moves while nobody is watching.** The mind layer — what a person *expects* of
+somebody, allowed to be wrong — ran in exactly one place: the people standing in the room with you.
+Everywhere else the true edge moved every interval and the belief behind it never did, so a pair
+across town could wreck each other's regard completely and walk back into the story holding the same
+read of each other they left with. It now runs over everyone an interval touched, including
+witnesses to the old world report, and it runs through the same percept filter: a witness reads what
+they saw through their own edge toward the person who did it and their own attachment style, so a
+warm act from somebody they already distrust reads as a move, and a settled picture attenuates
+whatever contradicts it. Zero tokens. A wrong belief formed out here can crystallise into something
+concrete they are wrong about, with you nowhere near it.
+
+Off by default, because it changes what your background is made of, and that is a choice about your
+story rather than a fix for a bug.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.
