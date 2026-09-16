@@ -331,7 +331,25 @@ export interface NPCDrive {
   progress: number;          // 0–100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
+  /** WHO THIS WANT IS ABOUT, when it is about a person — a char_id, and never the player's.
+   *
+   *  A drive has always been a sentence with a name in it, which is a name to the reader and
+   *  nothing to the engine. Three things need the id. The mind layer prunes any belief about
+   *  somebody outside modeledTargets, so a character who formed an intention about a person who is
+   *  not their sharpest tie had the belief deleted on the next turn they were in a scene — the
+   *  intention survived and the picture behind it did not. The brief needs to know which of the
+   *  people in the room this want is pointed at. And an intention that resolves has to be able to
+   *  say who it resolved about. See engine/agency.ts formIntent. */
+  about?: string;
   updated_turn: number;
+  /** WHY THEY FORMED IT — in their life, from what they saw or were told, in their words.
+   *
+   *  Same field and same argument as AuthoredDrive.because: a want with no cause gets a new cause
+   *  invented for it every time it is read. The difference here is that this one is written by the
+   *  person who formed it, out of a briefing that may have been wrong, so it preserves the reason
+   *  they had at the time even after the world has moved past it. That is what makes an intention
+   *  formed on stale news stay legibly stale instead of quietly becoming correct. */
+  because?: string;
   /** Turn this drive's PROGRESS last actually moved, and the value it moved to. Separate from
    *  updated_turn because the bookkeeper restamps that every turn it rewrites the blocker — which
    *  it does constantly while a question is on the table, disarming any staleness check built on

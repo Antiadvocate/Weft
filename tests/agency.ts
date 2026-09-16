@@ -14,8 +14,9 @@
  * So: the first block below is the whole argument for the module, written as assertions about
  * what is absent from a string. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { actorBrief, pickActors, actToEvent, collide, MAX_ACTORS } from "../src/engine/agency";
-import { agencyTurn, applyOffstage } from "../src/engine/offstage";
+import { actorBrief, pickActors, actToEvent, collide, formIntent, MAX_ACTORS } from "../src/engine/agency";
+import { agencyTurn, applyOffstage, readOffstage } from "../src/engine/offstage";
+import { regenerateDrives } from "../src/engine/drives";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -300,6 +301,184 @@ function makeState(): SaveState {
   const brief = actorBrief(s, ID.smith);
   check("thirty more people in the world do not enter her head",
     brief.length < 2000 && !brief.includes("Villager"), { chars: brief.length });
+}
+
+/* ── 13. AN AFTERNOON THAT LEAVES SOMETHING BEHIND ──────────────────────────────
+ *
+ * Without a persisting intention, isolation buys a world of strangers having unrelated afternoons:
+ * each call is a few hours and then it is over, and the next interval starts again from a want the
+ * engine seeded off how much one card resembles another. A cast that cannot accumulate cannot
+ * arrive anywhere. */
+{
+  const s = makeState();
+  const brief = actorBrief(s, ID.smith);
+  const line = formIntent(s, ID.smith, {
+    about: "Tomas", goal: "find out who the boy has been talking to",
+    because: "he was not at the bench when the tax men came past and he has not said where he was",
+  }, brief);
+
+  check("an intention is formed", !!line, line);
+  const d = [s.characters[ID.smith].drive, ...(s.characters[ID.smith].drive_queue ?? [])].find((x) => x?.about === ID.boy);
+  check("it is a want like any other want", !!d?.goal, s.characters[ID.smith]);
+  check("it is aimed at a person by id, so the engine can read who", d?.about === ID.boy);
+  check("the reason she had at the time is kept", !!d?.because?.includes("not at the bench"), d);
+  check("it outranks a want seeded off card similarity", (d?.priority ?? 0) >= 2);
+}
+
+/* ── 14. ...AND ONLY ABOUT SOMEBODY THE BRIEFING NAMED ──────────────────────────
+ *
+ * An intention is the one output that persists, so a name arriving from anywhere but the briefing
+ * writes a lasting want about a person this character has never seen, heard of or been told about,
+ * and it sits on their card for the rest of the save. */
+{
+  const s = makeState();
+  const brief = actorBrief(s, ID.smith);
+  check("the priest across town is not in her briefing", !brief.includes("Caelus"));
+  check("so she cannot form a plan about him",
+    formIntent(s, ID.smith, { about: "Father Caelus", goal: "warn him" }, brief) === null);
+  check("nor about somebody who does not exist",
+    formIntent(s, ID.smith, { about: "Denise", goal: "pay her back" }, brief) === null);
+  check("nor about the protagonist, whom the pass may never invent a relationship to",
+    formIntent(s, ID.smith, { about: "Rabi", goal: "find him" }, brief) === null);
+  check("nothing was written to her card", !(s.characters[ID.smith].drive_queue ?? []).some((d) => d.about));
+}
+
+/* ── 15. ONE PLAN PER PERSON ────────────────────────────────────────────────────
+ *
+ * A character pursuing four separate schemes about one neighbour is a queue, not a person. */
+{
+  const s = makeState();
+  const brief = actorBrief(s, ID.smith);
+  formIntent(s, ID.smith, { about: "Tomas", goal: "find out who the boy talks to" }, brief);
+  formIntent(s, ID.smith, { about: "Tomas", goal: "put the boy out of the forge for good", because: "he answered wrong" }, brief);
+  const all = [s.characters[ID.smith].drive, ...(s.characters[ID.smith].drive_queue ?? [])].filter((d) => d?.about === ID.boy);
+  check("the second replaces the first", all.length === 1, all);
+  check("and it is the newer one", !!all[0]?.goal.includes("out of the forge"), all[0]);
+}
+
+/* ── 16. IT SURVIVES THE INTERVAL AND COMES BACK IN THE BRIEFING ────────────────
+ *
+ * The whole point. regenerateDrives protects a live want, so the next interval hands the same
+ * person the same plan and the same reason — including the reason that was never true. */
+{
+  const s = makeState();
+  formIntent(s, ID.smith, {
+    about: "Tomas", goal: "find out who the boy has been talking to",
+    because: "he was not at the bench when the tax men came past",
+  }, actorBrief(s, ID.smith));
+
+  for (let t = 0; t < 3; t++) { s.world.current_turn++; regenerateDrives(s, () => 0.9); }
+
+  const later = actorBrief(s, ID.smith);
+  check("three turns on, the plan is still in front of her", later.includes("find out who the boy has been talking to"), later);
+  check("...named as being about him", later.includes("About Tomas"), later);
+  check("...still carrying the reason she had", later.includes("not at the bench when the tax men came past"), later);
+}
+
+/* ── 17. AND THE REASON IS NEVER QUIETLY CORRECTED ──────────────────────────────
+ *
+ * A want formed on a misread stays a want formed on a misread. Nothing reconciles `because`
+ * against what actually happened — which is what lets one person carry a misunderstanding around
+ * for a week, and is exactly what the engine could not represent before: a drive's goal was a
+ * sentence with a name in it and no record of where the sentence came from. */
+{
+  const s = makeState();
+  formIntent(s, ID.smith, {
+    about: "Tomas", goal: "keep the boy away from the order",
+    because: "he told the tax men where the iron was",
+  }, actorBrief(s, ID.smith));
+
+  // The truth arrives, loudly, in the same yard.
+  applyOffstage(s, [actToEvent(s, ID.boy, {
+    what: "Tomas hid the order under the floor before the tax men reached the door.",
+    place: "Elara's Forge",
+  })!]);
+
+  const d = [s.characters[ID.smith].drive, ...(s.characters[ID.smith].drive_queue ?? [])].find((x) => x?.about === ID.boy);
+  check("what she believes about him is untouched by what he actually did",
+    d?.because === "he told the tax men where the iron was", d);
+  check("she saw him do it all the same",
+    (s.memory[ID.smith]?.episodic ?? []).some((m) => m.content.includes("under the floor")));
+}
+
+/* ── 18. A BELIEF THAT MOVES WHILE NOBODY IS WATCHING ───────────────────────────
+ *
+ * updateMind ran in exactly one place — presentReal in turn.ts, the people standing in the room
+ * with the player. So for everyone else the true edge moved every interval and the picture behind
+ * it never did: a pair across town could wreck each other's regard completely and walk back into
+ * the story holding the same read of each other they left with. */
+{
+  const s = makeState();
+  s.world.edges.push({ from: ID.smith, to: ID.boy, warmth: 40, trust: 40, power: 0, attraction: 0, roles: [] } as any);
+  s.world.edges.push({ from: ID.boy, to: ID.smith, warmth: 40, trust: 40, power: 0, attraction: 0, roles: [] } as any);
+
+  const ev = actToEvent(s, ID.boy, {
+    what: "Tomas stole the good tongs and lied about it when she asked.",
+    place: "Elara's Forge",
+  })!;
+  applyOffstage(s, [ev]);
+
+  const belief = (s.minds?.[ID.smith]?.about ?? []).find((b) => b.target === ID.boy);
+  check("she holds a picture of him at all, formed with the player nowhere near", !!belief, s.minds?.[ID.smith]);
+  check("the true edge moved when she saw it",
+    (s.world.edges.find((e) => e.from === ID.smith && e.to === ID.boy)?.warmth ?? 40) < 40);
+}
+
+/* ── 19. THE PICTURE LAGS THE EDGE, WHICH IS THE GAP EVERYTHING RUNS ON ─────────
+ *
+ * The mind layer's value is that the model may diverge from the truth. Running it offstage is only
+ * worth doing if the percept filter comes with it — a witness reads what they saw through their own
+ * edge and their own attachment style, so the belief does not simply become correct. */
+{
+  const s = makeState();
+  s.world.edges.push({ from: ID.smith, to: ID.boy, warmth: 60, trust: 55, power: 0, attraction: 0, roles: [] } as any);
+  s.characters[ID.smith].attachment = { style: "anxious", under_threat: "presses", soothed_by: "being told" } as any;
+
+  const ev = actToEvent(s, ID.boy, { what: "Tomas carried her water up from the well unasked.", place: "Elara's Forge" })!;
+  applyOffstage(s, [ev]);
+
+  const b = (s.minds?.[ID.smith]?.about ?? []).find((x) => x.target === ID.boy);
+  const trueW = s.world.edges.find((e) => e.from === ID.smith && e.to === ID.boy)?.warmth ?? 0;
+  check("her read of him is a model and not a copy of the number", b ? b.predicted_warmth !== trueW : false, { b, trueW });
+}
+
+/* ── 20. A PERSON DOES NOT REVISE THEIR OPINION OF THEMSELVES BY WATCHING THEMSELVES ─ */
+{
+  const s = makeState();
+  const solo = actToEvent(s, ID.recluse, { what: "Mother Vell shut the sluice and went to bed.", place: "The Old Mill" })!;
+  readOffstage(s, [solo]);
+  check("nobody was there, so nobody's picture of anyone changed", !s.minds?.[ID.recluse]);
+
+  const ev = actToEvent(s, ID.smith, { what: "Elara struck the boy for dropping the billet.", place: "Elara's Forge" })!;
+  readOffstage(s, [ev]);
+  check("the boy who was hit holds a picture of her", !!s.minds?.[ID.boy]);
+  check("she does not hold one of herself off her own act",
+    !(s.minds?.[ID.smith]?.about ?? []).some((b) => b.target === ID.smith));
+}
+
+/* ── 21. AN INTENTION KEEPS THE PICTURE BEHIND IT ALIVE ─────────────────────────
+ *
+ * updateMind prunes every belief whose target falls outside modeledTargets, and that list was the
+ * player plus the single sharpest tie by warmth+trust. So a character could hold a want aimed at a
+ * named person, act on it for six intervals, and hold no picture of them at all — the intention
+ * surviving while the misunderstanding driving it was deleted the first turn they stood in a room
+ * with the player. */
+{
+  const s = makeState();
+  // Her sharpest tie is somebody else entirely, by a wide margin.
+  s.world.edges.push({ from: ID.smith, to: ID.priest, warmth: 90, trust: 85, power: 0, attraction: 0, roles: [] } as any);
+  s.world.edges.push({ from: ID.smith, to: ID.boy, warmth: 5, trust: 5, power: 0, attraction: 0, roles: [] } as any);
+
+  formIntent(s, ID.smith, { about: "Tomas", goal: "find out who the boy talks to", because: "he was not at the bench" }, actorBrief(s, ID.smith));
+
+  applyOffstage(s, [actToEvent(s, ID.boy, { what: "Tomas took the long way round the yard.", place: "Elara's Forge" })!]);
+  const before = (s.minds?.[ID.smith]?.about ?? []).some((b) => b.target === ID.boy);
+  check("she is modelling the boy she has a plan about", before, s.minds?.[ID.smith]);
+
+  // Another pass, which is where the prune runs.
+  applyOffstage(s, [actToEvent(s, ID.boy, { what: "Tomas banked the fire without being asked.", place: "Elara's Forge" })!]);
+  check("...and a second pass does not prune him for not being her sharpest tie",
+    (s.minds?.[ID.smith]?.about ?? []).some((b) => b.target === ID.boy), s.minds?.[ID.smith]);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

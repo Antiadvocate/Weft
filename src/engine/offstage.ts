@@ -28,7 +28,8 @@ import { scheduleDigestLine } from "./schedule";
 import { clipText } from "./text";
 import { runAgency, MAX_ACTORS } from "./agency";
 import { cleanMemoryContent } from "./memory";
-import type { SaveState } from "./types";
+import { updateMind } from "./mind";
+import type { SaveState, Stance } from "./types";
 
 /** In-world minutes between offstage passes. The world doesn't reorganize itself hourly. */
 
@@ -462,8 +463,8 @@ export async function runOffstage(state: any, model: string): Promise<string[]> 
   // costs the actors' afternoon and never costs the background its motion.
   if (plan.actors) {
     try {
-      const events = await runAgency(state, model, plan.actors);
-      if (events.length) return applyOffstage(state, events, retired);
+      const { events, lines } = await runAgency(state, model, plan.actors);
+      if (events.length) return [...applyOffstage(state, events, retired), ...lines];
     } catch { /* fall through to the world pass */ }
     if (!plan.worldPass) return applyOffstage(state, [], retired);
   }
@@ -799,5 +800,72 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     log.push(`Elsewhere: ${ev.what}`);
   }
 
+  // AND THEN EVERYBODY WHO SAW ANY OF IT UPDATES THEIR PICTURE OF WHO DID IT.
+  readOffstage(state, events);
+
   return log;
+}
+
+/**
+ * WHAT WATCHING SOMEBODY DO SOMETHING DOES TO WHAT YOU EXPECT OF THEM NEXT.
+ *
+ * The block above moves the true edge: a witness who saw a neighbour turn a starving family away
+ * likes them less afterwards, which is right, and which is also the only thing that happened. The
+ * mind layer — the one that holds what a person EXPECTS of somebody, lets it be wrong, and makes
+ * the wrongness drive a scene — ran in exactly one place: `presentReal` in turn.ts, the people
+ * standing in the room with the player.
+ *
+ * So for everyone else the two halves came apart and stayed apart. The edge moved every interval
+ * and the belief never did, silently, for as long as a character stayed offstage. A pair who spent
+ * forty turns across town from the protagonist could wreck each other's regard completely and walk
+ * back into the story holding the same picture of each other they had on the day they left.
+ *
+ * This runs the same pass over the people an interval actually touched. Three things follow from
+ * reusing updateMind rather than writing a second, simpler version here:
+ *
+ *   · The percept filter applies. perceivedValence bends what the witness saw through the witness's
+ *     OWN edge toward the actor and their attachment style, so a warm act from somebody you already
+ *     distrust reads as a move, offstage, the same way it does on the page.
+ *   · Reification applies. A long-settled picture attenuates what contradicts it — at full
+ *     reification four fifths of whatever changed does not register — so a witness with a fixed
+ *     idea of somebody can watch them act against it and barely see it.
+ *   · held_false can form out here. A sustained gap between what somebody expects and what they
+ *     keep seeing crystallises into one concrete wrong thing, formed with the player nowhere near.
+ *
+ * The stance each actor is read as taking comes from the act itself — actorValence already scores
+ * whether somebody did something TO or FOR another person, which is the same agentive question a
+ * stance answers. A neutral act is somebody going about their business, which is `hold`.
+ *
+ * Zero tokens, and it runs for the world pass as well as for agency, because a witness to the
+ * world's own motion has the same problem.
+ */
+export function readOffstage(state: any, events: OffstageEvent[]): void {
+  if (!events.length) return;
+  const byName = new Map<string, string>();
+  for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
+    if (id !== "char_player") byName.set(String(c.name ?? "").toLowerCase(), id);
+  }
+  const turn = state.world?.current_turn ?? 0;
+
+  // Who acted, how they came across, and who was there to take a view of it.
+  const stances: Record<string, Stance> = {};
+  const readers = new Set<string>();
+  for (const ev of events) {
+    const actorId = byName.get(String(ev.actor ?? "").toLowerCase().trim());
+    if (!actorId) continue;
+    const v = actorValence(ev.what);
+    stances[actorId] = v > 0 ? "yield" : v < 0 ? "press" : "hold";
+    for (const w of ev.witnesses ?? []) {
+      const wid = byName.get(String(w).toLowerCase().trim());
+      // A person does not revise their opinion of themselves by watching themselves, and the
+      // player's theory of mind is not the engine's to author from a report they were not in.
+      if (wid && wid !== actorId && wid !== "char_player") readers.add(wid);
+    }
+  }
+  if (!readers.size || !Object.keys(stances).length) return;
+
+  for (const id of readers) {
+    if (state.characters[id]?.central === false) continue;   // same gate the in-scene pass uses
+    try { updateMind(state, id, stances, turn); } catch { /* a belief that would not update is not a turn */ }
+  }
 }

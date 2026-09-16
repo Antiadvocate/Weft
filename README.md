@@ -188,6 +188,32 @@ world** — an act becomes the same offstage event the applier already knew how 
 edges, rumours, clocks, threads and the guard that catches a forged signature all keep their single
 write path, and no save needs migrating.
 
+**What one afternoon leaves behind.** An act that stops at the end of the interval buys a world of
+strangers having unrelated afternoons — the next pass starts them again from a want the engine
+seeded off how much one card resembles another, so nothing accumulates. So an actor can end a few
+hours meaning to do something about a named person, and that intention is written onto their card
+as an ordinary want with the target's id on it and the reason kept in their own words. Every piece
+of machinery that already reads a want reads this one: their next briefing prints it, the drive
+system protects it while it is live and shelves it when it stalls, and the narrator sees it when
+that person walks into a scene.
+
+The reason is never reconciled against what actually happened. It is what they believed at the
+moment they formed it, out of a briefing that was one room's view, and it stays exactly as written
+until something gets in its way. That is one person carrying a misunderstanding for a week, which
+the engine could not previously hold — a want used to be a sentence with a name in it and no record
+of where the sentence came from.
+
+**And the picture moves while nobody is watching.** The mind layer — what a person *expects* of
+somebody, allowed to be wrong — ran in exactly one place: the people standing in the room with you.
+Everywhere else the true edge moved every interval and the belief behind it never did, so a pair
+across town could wreck each other's regard completely and walk back into the story holding the same
+read of each other they left with. It now runs over everyone an interval touched, including
+witnesses to the old world report, and it runs through the same percept filter: a witness reads what
+they saw through their own edge toward the person who did it and their own attachment style, so a
+warm act from somebody they already distrust reads as a move, and a settled picture attenuates
+whatever contradicts it. Zero tokens. A wrong belief formed out here can crystallise into something
+concrete they are wrong about, with you nowhere near it.
+
 Off by default, because it changes what your background is made of, and that is a choice about your
 story rather than a fix for a bug.
 

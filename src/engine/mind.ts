@@ -51,6 +51,32 @@ function modeledTargets(state: SaveState, id: string): string[] {
     if (mag > bestMag) { bestMag = mag; best = e.to; }
   }
   if (best) targets.add(best);
+
+  // ANYONE THEY HAVE FORMED AN INTENTION ABOUT.
+  //
+  // The two rules above are a sketch of who matters to somebody: the protagonist, and the one tie
+  // with the biggest numbers on it. They were written when the only thing that could put a person
+  // in another person's head was a scene, and they miss the case this engine now generates
+  // offstage — a character who decided something about somebody because of what they saw them do
+  // in a yard the player has never stood in.
+  //
+  // updateMind prunes every belief whose target is outside this list. So without this line a
+  // character could hold a want aimed at a named person, act on it for six intervals, and hold no
+  // picture of them at all, because their sharpest tie by warmth+trust was somebody else entirely.
+  // The intention would survive and the misunderstanding driving it would be deleted on the first
+  // turn they walked into a room with the player in it.
+  //
+  // An intention is a stronger claim that somebody is on your mind than a large number on an edge,
+  // and it is one the character made themselves.
+  const c = state.characters[id];
+  for (const d of [c?.drive, ...(c?.drive_queue ?? [])]) {
+    const about = d?.about;
+    if (!about || about === id || about === "char_player") continue;
+    const t = state.characters[about];
+    if (!t || t.status === "dead" || t.status === "departed") continue;
+    targets.add(about);
+  }
+
   return [...targets];
 }
 

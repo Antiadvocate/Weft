@@ -96,10 +96,29 @@ export function actorBrief(state: SaveState, id: string): string {
   const w = state.world;
   const turn = w.current_turn ?? 0;
 
+  // A WANT THAT IS ABOUT SOMEBODY READS DIFFERENTLY FROM ONE THAT IS ABOUT SOMETHING, and the
+  // difference is the reason. `because` is what this person believed when they formed the
+  // intention, written in their own words out of a briefing that was one room's view — and it is
+  // printed back to them unchanged, every interval, until the want ends. Nothing reconciles it
+  // against what turned out to be true. So a person who decided something about a neighbour on a
+  // misread keeps the misread in front of them, keeps acting on it, and keeps having it confirmed
+  // by the next thing they half-see. That is a grudge, and it is the only way this engine has ever
+  // been able to hold one.
+  const wantLine = (d: { goal?: string; approach?: string; blocker?: string; about?: string; because?: string } | undefined): string | null => {
+    if (!d?.goal) return null;
+    const who = d.about ? state.characters?.[d.about]?.name : undefined;
+    return [
+      who ? `About ${who}: ${d.goal}` : d.goal,
+      d.because ? ` — why you mean it: ${d.because}` : "",
+      d.approach ? ` — the way you go at it: ${d.approach}` : "",
+      d.blocker ? ` — stuck on: ${d.blocker}` : "",
+    ].join("");
+  };
+
   const wants = [
     hasAuthored(c) && !(c as any).authored?.paused ? authoredLine((c as any).authored) : null,
-    c.drive?.goal ? `${c.drive.goal}${c.drive.approach ? ` — the way you go at it: ${c.drive.approach}` : ""}${c.drive.blocker ? ` — stuck on: ${c.drive.blocker}` : ""}` : null,
-    ...(c.drive_queue ?? []).map((d) => d?.goal).filter(Boolean),
+    wantLine(c.drive),
+    ...(c.drive_queue ?? []).map(wantLine),
   ].filter(Boolean) as string[];
 
   const here = c.location ? w.places?.[c.location] : undefined;
@@ -186,10 +205,16 @@ YOUR HANDS ARE THE ONLY HANDS. Write what you did with what you already have. Th
 
 A STEP FOR YOUR FACTION COUNTS, when the briefing says you stand in one: a testimony taken, a payment made, a rider sent, a page finished. Set "advances" to that faction's exact name when the thing you did was one of its ordinary steps.
 
+WHAT THIS LEAVES YOU MEANING TO DO ABOUT SOMEBODY. The briefing carries what you are already trying to get, and some afternoons add to it: you decide something about a person, and it is still true tomorrow. Fill "intent" when yours did — "about" is their exact name from the briefing, "goal" is the thing you now mean to do about them, concrete enough that somebody could watch you do it, and "because" is what put it there, in your words, from what you actually saw or heard.
+
+Your reason is allowed to be wrong and usually is. You saw one end of something, or you were told it by somebody who was told it. Write the reason you have, and keep it exactly as it is: it stays on you until something gets in its way, which is how a person carries a misunderstanding around for a week.
+
+Leave "intent" out when the afternoon left you where it found you, which is most afternoons, and when what you already want is still what you want.
+
 SOMETIMES A DAY LEAVES A QUESTION STANDING — a debt now owed, a decision now forced on you, a door found open that was shut. Fill "opens_question" when yours did. Leave it out when the day closed over, which is most days.
 
 Output ONLY this JSON:
-{"what":"one or two past-tense sentences naming yourself","place":"exactly as the briefing names it","told":"exact name of one person in sight, or omit","telling":"what they now know, or omit","advances":"exact faction name, or omit","reaches_player":{"how":"","content":""},"opens_question":{"title":"","description":""}}`;
+{"what":"one or two past-tense sentences naming yourself","place":"exactly as the briefing names it","told":"exact name of one person in sight, or omit","telling":"what they now know, or omit","intent":{"about":"exact name from the briefing","goal":"what you now mean to do about them","because":"what put it there, in your words"},"advances":"exact faction name, or omit","reaches_player":{"how":"","content":""},"opens_question":{"title":"","description":""}}`;
 
 /** One person's answer. Mapped onto the OffstageEvent the existing applier already knows how to
  *  write, so nothing new touches memory, edges, rumours, clocks or threads. */
@@ -201,6 +226,9 @@ export interface AgentAct {
   advances?: string;
   reaches_player?: { how?: string; content?: string };
   opens_question?: { title?: string; description?: string };
+  /** WHAT THEY NOW MEAN TO DO ABOUT SOMEBODY, and why they mean it. See formIntent — this is the
+   *  field that makes an interval a step in something rather than an afternoon on its own. */
+  intent?: { about?: string; goal?: string; because?: string };
 }
 
 /**
@@ -293,6 +321,92 @@ export function actToEvent(state: SaveState, id: string, act: AgentAct): Offstag
   return ev;
 }
 
+/** An intention outranks a want the engine seeded off card similarity, and sits under one a human
+ *  wrote by hand. regenerateDrives sorts the queue on this. */
+const INTENT_PRIORITY = 2;
+
+/**
+ * WHAT ONE AFTERNOON LEAVES BEHIND.
+ *
+ * Without this the isolation buys a world of strangers having unrelated afternoons. Each call is
+ * one person's few hours and then it is over: the act becomes a memory, the memory may become a
+ * rumour, and the next interval that person starts again from a want the engine seeded off how
+ * much their card resembles somebody else's. Nothing they DECIDED survives, so nothing accumulates,
+ * and a cast that cannot accumulate cannot arrive anywhere.
+ *
+ * An intention is the thing that carries. It goes in as an ordinary NPCDrive with `about` set, so
+ * every piece of machinery that already reads a want reads this one: the brief prints it next
+ * interval, regenerateDrives protects it while it is live and shelves it when it stalls, the
+ * offstage digest reports it, the narrator sees it when the person walks into a scene, and
+ * modeledTargets keeps the believer's picture of the target alive because of it.
+ *
+ * THE REASON IS KEPT AS WRITTEN, and that is the part that matters here. `because` is what the
+ * actor believed at the moment they formed it, out of a briefing that was one person's view of one
+ * room. It is never reconciled against what actually happened. So a want formed on a misread stays
+ * a want formed on a misread — it is still there six intervals later, still pointed at the same
+ * person, still carrying the reason that was never true, until somebody gets in its way. That is
+ * one person carrying a misunderstanding around for a week, which nothing in this engine could
+ * previously represent: a drive's goal was a sentence with a name in it and no record of where the
+ * sentence came from.
+ *
+ * Guarded three ways. The target must be somebody the cast contains, so nobody forms an intention
+ * about a person who does not exist. It is never the player — the pass has one hard rule about
+ * inventing a relationship to them, and a want the player never saw formed is exactly that. And an
+ * intention about somebody they already hold one about REPLACES it rather than stacking, because a
+ * person pursuing four separate plans about one neighbour is a queue, not a character.
+ */
+export function formIntent(state: SaveState, id: string, intent: AgentAct["intent"], brief: string): string | null {
+  const goal = String(intent?.goal ?? "").trim();
+  const aboutName = String(intent?.about ?? "").trim().toLowerCase();
+  if (!goal || !aboutName) return null;
+
+  const c = state.characters?.[id];
+  if (!c) return null;
+
+  // ...AND ONLY ABOUT SOMEBODY THE BRIEFING NAMED. The whole module rests on a character knowing
+  // what their briefing gave them, and an intention is the one output that persists — a name
+  // arriving from anywhere else would write a lasting want about somebody this person has never
+  // seen, heard of, or been told about, and it would sit on their card for the rest of the save.
+  // The briefing is the record of what they were given, so it is the record this checks against.
+  if (!brief.toLowerCase().includes(aboutName)) return null;
+
+  const match = Object.entries(state.characters ?? {}).find(
+    ([oid, o]) => oid !== id && oid !== "char_player" && o.status !== "dead" && o.status !== "departed"
+      && (o.name.toLowerCase() === aboutName || (o.aliases ?? []).some((a) => a.toLowerCase() === aboutName)),
+  );
+  if (!match) return null;
+  const [aboutId, about] = match;
+
+  const turn = state.world.current_turn ?? 0;
+  const drive = {
+    goal: clipText(goal, 200),
+    about: aboutId,
+    because: clipText(String(intent?.because ?? "").trim(), 200) || undefined,
+    progress: 0,
+    priority: INTENT_PRIORITY,
+    updated_turn: turn,
+  };
+
+  const queue = (c.drive_queue ??= []);
+  // One plan per person. An older intention about the same neighbour is what this one replaces.
+  const stale = (d: { about?: string }) => d.about === aboutId;
+  c.drive_queue = queue.filter((d) => !stale(d));
+
+  if (!c.drive || c.drive.about === aboutId || c.drive.progress >= 100) {
+    // Nothing else running, or the thing running was about this same person anyway.
+    if (c.drive && c.drive.progress < 100 && c.drive.about !== aboutId) c.drive_queue.push({ ...c.drive, priority: 0 });
+    c.drive = drive;
+  } else if (c.drive_queue.length < 2) {
+    c.drive_queue.push(drive);
+  } else {
+    // Their hands are full. The intention still displaces the least important thing waiting.
+    c.drive_queue.sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1));
+    c.drive_queue[0] = drive;
+  }
+
+  return `${c.name} means to ${clipText(goal, 90)}${drive.because ? ` — ${clipText(drive.because, 80)}` : ""}`;
+}
+
 /**
  * TWO PEOPLE IN THE SAME ROOM HAD THE SAME AFTERNOON.
  *
@@ -332,20 +446,31 @@ export function collide(events: OffstageEvent[]): OffstageEvent[] {
  * afternoon and nothing else. A failed interval returns nothing and the caller falls through to
  * the world pass, so the background never goes silent because a small model returned bad JSON.
  */
-export async function runAgency(state: SaveState, model: string, n: number): Promise<OffstageEvent[]> {
+export async function runAgency(state: SaveState, model: string, n: number): Promise<{ events: OffstageEvent[]; lines: string[] }> {
   const ids = pickActors(state, n);
-  if (!ids.length) return [];
+  if (!ids.length) return { events: [], lines: [] };
 
   const results = await Promise.allSettled(ids.map(async (id) => {
     const brief = actorBrief(state, id);
     if (!brief) return null;
     const msgs = buildMessages(AGENCY_SYSTEM, "YOUR BRIEFING:", brief, model);
     const out = await complete(msgs, model, model, true, 500);
-    return actToEvent(state, id, safeJson<AgentAct>(out.text, {}));
+    const act = safeJson<AgentAct>(out.text, {});
+    return { id, act, brief, event: actToEvent(state, id, act) };
   }));
 
-  const events = results
+  const done = results
     .map((r) => (r.status === "fulfilled" ? r.value : null))
-    .filter((e): e is OffstageEvent => e !== null);
-  return collide(events);
+    .filter((r): r is { id: string; act: AgentAct; brief: string; event: OffstageEvent | null } => r !== null);
+
+  // THE INTENTION IS WRITTEN WHETHER OR NOT THE AFTERNOON SURVIVED. An act can be dropped for
+  // naming nobody or forging the player's hand and still be a real decision the person made.
+  const lines: string[] = [];
+  for (const r of done) {
+    const line = formIntent(state, r.id, r.act.intent, r.brief);
+    if (line) lines.push(line);
+  }
+
+  const events = done.map((r) => r.event).filter((e): e is OffstageEvent => e !== null);
+  return { events: collide(events), lines };
 }
