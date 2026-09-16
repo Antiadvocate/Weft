@@ -60,7 +60,7 @@ function scene() {
   const d = habitDirective(s, s.world.present);
   check("the directive fires", d.length > 0);
   check("...carrying the want to its last word", d.includes("about what she's doing"), d.slice(0, 120));
-  check("...at full strength", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d));
+  check("...at full strength", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
   check("...and it is still fresh, so it is not standing down", settledStage(s, m, a) === "fresh");
 }
 
@@ -74,9 +74,9 @@ function scene() {
 
   check("nothing tells the narrator it cannot write this", !/CANNOT WRITE IT AND MUST NOT TRY/.test(d), d);
   check("...or that the player's body is the reason to stop", !/REQUIRES THE PLAYER'S BODY/.test(d));
-  check("her half is the act", /Her half is not the approach to the act and not a milder version of it/.test(d));
+  check("her half is the act", /Her half is the act itself, named plainly in what she does/.test(d));
   check("...and being the one it is done to is not the player's move", /being the one it is done to does not turn it into the player's move/.test(d));
-  check("...nor deferred to a later scene", /not deferred to a later scene/.test(d));
+  check("...nor deferred to a later scene", /undeferred to a later scene/.test(d));
 
   check("the player's decision is still theirs", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(d));
   check("...naming what is never written for them", /Never write them agreeing, refusing, allowing it, going along with it, reciprocating/.test(d));

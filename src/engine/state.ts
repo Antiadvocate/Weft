@@ -9,6 +9,7 @@ import { ensureBorn } from "./remodel";
 import type { SaveState, Identity, Condition, CharMemory, WorldBible, AcquiredTrait } from "./types";
 import { DEFAULT_MODELS, THREAD_STATUSES } from "./types";
 import { asText, asList, asNum, detectWorldPronoun, tidyPhrase, inferPronouns, orientationIsMood, clipWords, LABEL_MAX } from "./coerce";
+import { screenCard } from "./aphorism";
 import { clipText } from "./text";
 
 /** Mirror of social.ts VERDICT_ROLE, so opening a save does not pull in the whole social module. */
@@ -31,6 +32,20 @@ export function blankMemory(id: string): CharMemory {
 
 export function registerCharacter(state: SaveState, ident: Partial<Identity> & { name: string }): string {
   const id = ident.character_id ?? uid("char");
+  /* ONE PLACE THAT SEES EVERY CARD, WHOEVER WROTE IT.
+   *
+   * Six call sites reach this function: the world forge, the bookkeeper's new_characters, the
+   * unregistered-speaker fallback, sketch.ts, the presets, and the player adding somebody by hand.
+   * Each model-written path screens and strikes what it writes; this reports, and changes nothing.
+   *
+   * Reporting rather than striking, because the player is one of those six. A card the player typed
+   * is theirs and stays exactly as typed — the same reason voice_locked exists. What the line below
+   * buys is a single place where a figured card is visible at all, whichever pass produced it,
+   * instead of six places that each have to remember to look. */
+  {
+    const faults = screenCard(ident as any);
+    if (faults.length) console.info(`[card] ${asText(ident.name)} enters with ${faults.length} field(s) that name nothing in the room: ${faults.map((f) => `${f.field}="${f.text.slice(0, 60)}"`).join("; ")}`);
+  }
   // Everything here may have come straight from a model, which does not respect the schema's types:
   // `taste` arrives as an array, `core_traits` as a comma-joined sentence. Coerce at the boundary so
   // a bad value never reaches state and never crashes a system three layers away.

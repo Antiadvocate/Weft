@@ -133,7 +133,7 @@ export function placeIntent(state: SaveState, name: string, context: string): { 
     return { id: existing };
   }
   if (isPartOfAPlace(name)) {
-    console.info(`[places] ${context}: "${name}" is a room, not a location — kept as prose`);
+    console.info(`[places] ${context}: "${name}" names a room inside a location — kept as prose`);
     return null;
   }
   return { create: true };

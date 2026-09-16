@@ -153,7 +153,7 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
   check("...with the state of both bodies required on the page",
     /what is happening to whom/.test(NARRATOR_SYSTEM));
   check("the original rule it qualifies is still there",
-    /the turn stops at the grab, not after the player is relocated/.test(NARRATOR_SYSTEM));
+    /the turn stops at the grab, with the player still where they were/.test(NARRATOR_SYSTEM));
   check("the final check enforces it too",
     /is still running at the end of this turn/.test(NARRATOR_SYSTEM));
 

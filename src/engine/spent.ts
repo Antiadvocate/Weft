@@ -166,7 +166,7 @@ export function spentSubjectsNote(state: SaveState): string {
   if (spent.length < 2) return "";
   return `\n\n=== ALREADY SPENT ===\nThese have been in someone's mouth in consecutive scenes and are used up: ${spent.join(", ")}. `
     + `Nobody raises them again this turn. This is NOT an instruction to change what anybody wants or how they behave — `
-    + `a character who deflects still deflects, a character who talks shop still talks shop. It is the PROP that is spent, not the move. `
+    + `a character who deflects still deflects, a character who talks shop still talks shop. It is the PROP that is spent, and the move survives it. `
     + `Reach into the rest of the life on their card — their background, their standing interests, the trade they actually have, `
     + `the thing they were doing before this scene started — and deflect with something new. A person with one anecdote is a person `
     + `the player has finished meeting.`;

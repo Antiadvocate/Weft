@@ -50,8 +50,8 @@ RULES
 - Targets are FINAL values at the end of the whole montage (0-100 scale, warmth/trust), not per-beat.
 - Never target attraction; the engine models desire on its own rules.
 - Only name characters that exist in the world state you were given.
-- Cats, dogs, objects and household details are FACTS, not characters.
-- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a debt paid, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves the board exactly as it found it has moved the clock, not the story.
+- Cats, dogs, objects and household details go in as FACTS.
+- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a debt paid, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves the board exactly as it found it has moved the clock and left the story where it was.
 - BUT TIME DOES NOT RESOLVE EPICS. Only LOW-WEIGHT threads settle offscreen: errands, small debts, minor waits, questions time answers on its own. A central conflict, a mystery the story is built on, a war, a hunt, a betrayal — these are the story's spine and they resolve in scenes the player is PRESENT for, never in a skip. You are told the maximum weight this span may settle; propose nothing above it. When unsure, leave it open — an unresolved thread costs nothing, a spine dissolved offscreen cannot be undone.
 
 Output ONLY strict JSON:
@@ -59,7 +59,7 @@ Output ONLY strict JSON:
 "targets":[{"from":"char_id","to":"char_id","warmth":78,"trust":65,"roles":["partner"]}],
 "place_plan":{"create":{"name":"","description_facts":""},"player_moves_to":""},
 "threads_resolve":["EXACT title of an open thread this span of time settles, verbatim from OPEN THREADS. A month of living resolves things — a debt gets paid, a question gets answered, a waiting ends. Only what the direction actually implies."],
-"threads_new":[{"title":"a NEW open question the DESTINATION creates, born from where they arrive, not where they started","description":"","tension":3}],
+"threads_new":[{"title":"a NEW open question the DESTINATION creates, born from where they arrive","description":"","tension":3}],
 "household_facts":["durable facts true by the end, full sentences, no pronouns as subject"],
 "beats":[{"span_days":3,"goal":"what this stretch of days is ABOUT"}]}`;
 
@@ -68,7 +68,7 @@ const BEAT_SYSTEM = `You are the Narrator writing ONE BEAT of a directed montage
 You receive: the player's overall plan, what remains unlanded, a deterministic report of what the world did during these days, and an EDGE ENVELOPE giving the most each relationship may move this beat.
 
 RULES
-- Write the MIDDLE, not the destination. This beat is a stretch of days, not a summary of the whole span.
+- Write the MIDDLE and leave the destination alone. This beat covers a stretch of days at the size it happened.
 - The deterministic report HAPPENED. Weave it in; never contradict it.
 - Stay inside the envelope. You may move less, or move the opposite way (a bad week is real), but never more.
 - Memories are personal and local: what THIS character lived these days. Never hand someone a memory of a distant event they have no way of knowing.

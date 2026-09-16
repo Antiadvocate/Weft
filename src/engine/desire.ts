@@ -358,7 +358,7 @@ export function desireLine(state: SaveState, id: string): string {
   const romantic = (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
   if (a < 15 && (romantic || e.warmth >= 25)) {
     const named = romantic ? `${e.roles!.filter((r) => ROMANTIC_ROLE.test(r)).join("/")}` : "close";
-    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the heat is banked, not absent. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment reads as ease and claim, not as a wall.`;
+    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the heat is banked and still burning. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment reads as ease and claim.`;
   }
   if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);

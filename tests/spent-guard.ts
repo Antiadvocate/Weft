@@ -78,7 +78,7 @@ const psyche = (): Psyche => ({ relaxation: 0, capacity: 2, recovery: 0.18, stat
   const line = volatileDigest(s, "she refuses to get in the car").split("\n").find((l) => l.includes("seeing:")) ?? "";
   check("the exhaustion is reported as what reaches them", /arrives instead of being deflected/.test(line), line);
   check("...counting the turns they have actually been braced", /braced 19 turns straight/.test(line), line);
-  check("...and says out loud that it is not a behaviour", /not what they do about it/.test(line), line);
+  check("...and says out loud that it stops short of behaviour", /up to the point where they act/.test(line), line);
   check("A LOW CONSCIENCE STILL REACHES THE NARRATOR WHILE BROKEN",
     /slights become personal projects/.test(line), line);
   check("no rule is invoked by a name the prompt never defines", !/Mirror rule/.test(line), line);

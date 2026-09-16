@@ -104,7 +104,7 @@ const CONTRACTS = {
   check("and says where to begin instead", /START AT THE MOMENT AFTER IT LANDED/i.test(turn));
   // …and the attribution rule it was conflated with must SURVIVE, stated on its own.
   check("attribution is still protected, separately",
-    /NEVER put into another character's mouth/i.test(turn) && /ATTRIBUTION, not repetition/i.test(turn));
+    /NEVER put into another character's mouth/i.test(turn) && /this channel protects is ATTRIBUTION/i.test(turn));
   check("and reassignment is still banned", /do not "fix" it by reassigning the line/i.test(turn));
   // Both contracts, full and lean, still carry the standing rule.
   check("the full contract still forbids restating", /NEVER RESTATE THE PLAYER'S WORDS/.test(proseFile));

@@ -142,7 +142,7 @@ export function becomingDirective(state: SaveState): string {
       : "";
     return `THE WORLD DOES THIS NOW, on its own, without anybody deciding it: ${b.claim} \u2014 ${rungOf(b)}${behind}${push}`;
   });
-  return `\n\n[WHAT THIS WORLD IS TURNING INTO \u2014 NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE.
+  return `\n\n[WHAT THIS WORLD IS TURNING INTO \u2014 EVERY LINE HERE GOES ON THE PAGE THIS TURN.
 Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, that the conversation matters more, or that it would land better later: the clock is running whether it is written or not, and a turn that skips it does not pause it \u2014 it only makes the next one arrive with more to carry. If the scene seems to leave no room, that is the instruction \u2014 make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.
 THE COUNT IS A DEADLINE: the player set how many turns this takes, and it becomes true when the clock runs out however much ground is left.
 \u00b7 ${rows.join("\n\u00b7 ")}
@@ -271,7 +271,7 @@ export function becomingAsk(state: SaveState): string {
   return `\n\n=== WHAT THIS WORLD IS TURNING INTO, OR HAS TURNED INTO (report on each, in becoming_progress) ===\n`
     + live.map((b) => `- "${b.claim}"`).join("\n")
     + `\nFor each line, copy its text into "claim" and answer two things about THIS TURN only.\n`
-    + `moved: did the world get measurably closer to it — did something happen, change, fail, or get done that puts it nearer? Judge by what the turn MEANS, not by whether the words above appear: a claim about buildings is moved by a wall going soft, by a street closing, by somebody's ceiling coming down. A turn that only mentioned it, worried about it, or discussed it did NOT move it; a turn that showed it happening somewhere did.\n`
+    + `moved: did the world get measurably closer to it — did something happen, change, fail, or get done that puts it nearer? Judge by what the turn MEANS, whichever words it used: a claim about buildings is moved by a wall going soft, by a street closing, by somebody's ceiling coming down. A turn that only mentioned it, worried about it, or discussed it did NOT move it; a turn that showed it happening somewhere did.\n`
     + `how: if it moved, the one thing that moved it, in a few words.\n`
     + `opposed: did the PLAYER act against it this turn — try to stop, reverse, prevent, or undo it?\n`
     + `Report every line, including the ones nothing happened to.`;
@@ -327,7 +327,7 @@ export function becomingLaw(state: SaveState): string {
     return `${b.claim}${never}`;
   });
   return `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
-    + `These are not news, not a subject, and not a thing anybody has an opinion about: they are the water these people have always swum in. `
+    + `These are the water these people have always swum in: old, unremarkable, and beneath comment. `
     + `NOBODY IS SURPRISED BY THEM. Nobody remarks on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as a thing that has just started — a character reacting to one as though it were new is the clearest possible sign the world has not actually changed. `
     + `NOBODY ANNOUNCES THEM EITHER. They are not stated, quoted, or described as facts; they are visible only in what people do without thinking about it, the way anybody behaves about the ordinary conditions of their own life. `
     + `Each of these is somewhere in this scene — in a posture, a habit, an arrangement, something somebody reaches for or does not, something that goes without saying between them. If the scene seems to leave no room, that is the instruction: make the room, in one sentence if that is all there is.]`;

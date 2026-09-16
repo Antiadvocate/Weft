@@ -241,7 +241,7 @@ export function detectOOC(action: string): OOC | null {
  */
 export function oocFrame(hit: OOC): string {
   if (hit.kind === "aside") return "";
-  return `\n[THE PLAYER IS TALKING TO YOU, NOT TO THE WORLD. What they typed is about the writing, and the action in it is being given for that reason — it is not a thing their character decided to do. `
+  return `\n[THE PLAYER IS TALKING TO YOU, OVER THE HEAD OF THE WORLD. What they typed is about the writing, and the action in it is being given for that reason; their character decided none of it. `
     + `DO NOT DRAMATISE ANY OF IT. Nothing in this turn happens: nobody is hurt, nobody acts on it, no new event begins, and you do not narrate the player doing what the sentence says. `
     + `Hold the scene exactly where it stands. Write a SHORT beat — a few lines at most — in which the moment simply continues: the people who are present go on being present, doing what they were doing, and nothing is resolved or escalated. `
     + `Then take the direction seriously in how you write from here.]`;
@@ -264,7 +264,7 @@ export function oocDirective(complaint: string | undefined, turnsAgo: number, sa
   // SAYING IT TWICE MEANS IT WAS NOT ANSWERED THE FIRST TIME. A repeat is not a fresh note; it is
   // the same note, louder, from somebody who has now watched the writing not change.
   const again = said > 1
-    ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first one did not answer it, so whatever adjustment was made was too small or was made in the wrong place. Change something structural about how the next scenes are built, not the wording of one paragraph.`
+    ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first one did not answer it, so whatever adjustment was made was too small or was made in the wrong place. Change something structural about how the next scenes are built, deeper than the wording of one paragraph.`
     : "";
   return `\n\n=== THE PLAYER HAS TOLD YOU SOMETHING DIRECTLY ===\nOut of character, ${turnsAgo === 0 ? "this turn" : `${turnsAgo} turn${turnsAgo === 1 ? "" : "s"} ago`}, they said: "${c}"\n`
     + `This is not story material and it is never dramatised, quoted, alluded to, or given to a character to say. It is a note about the writing, from the person reading it, and it is the most reliable information you will get about whether any of this is working. `
@@ -382,5 +382,5 @@ export function voidFrame(kind: VoidKind): string {
 export function voidNotice(kind: VoidKind): string {
   return kind === "fiat"
     ? `That did not happen — this world has no one who can do it, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens, or switch on god mode in settings, where what you declare is simply true. If you want your character dead inside the world as it stands, have them do something that could kill them and let it play.`
-    : `Taken as a note about the writing, not as something your character did — so nothing was written from it. The story is where you left it.`;
+    : `Taken as a note about the writing, so nothing was written from it. The story is where you left it.`;
 }

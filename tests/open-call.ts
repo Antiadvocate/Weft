@@ -108,7 +108,7 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   check("and the narrator is told about it", /AN OPEN CALL IS STANDING/.test(d));
   check("with the reach", /thousands/.test(d), d.slice(0, 200));
   check("and told that unanimous refusal is not on the menu", /whole population declining in unison/.test(d));
-  check("standing decides who and why, not whether", /a different scene, not an empty one/.test(d));
+  check("standing decides who and why, not whether", /a different scene, and it is still a full one/.test(d));
 }
 
 /* ── 4. and it escalates rather than evaporating ──────────────────────────────── */

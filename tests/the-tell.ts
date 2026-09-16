@@ -72,7 +72,7 @@ const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; propertie
     /ONLY way anything you write in truth ever reaches the page/.test(INTENT_SYSTEM));
   check("...and what happens without one",
     /a person with a whole inner life reads as somebody with none/.test(INTENT_SYSTEM));
-  check("...and that it must not decode the truth", /It must not decode the truth/.test(INTENT_SYSTEM));
+  check("...and that it leaves the truth unread", /leaves what is behind it unread/.test(INTENT_SYSTEM));
   check("...and must be a thing the body does", /a THING THE BODY DOES, never a feeling named/.test(INTENT_SYSTEM));
   check("...and scales with how much is being held", /the more clenched the body, the more there is to leak/.test(INTENT_SYSTEM));
 }

@@ -53,7 +53,7 @@ for (const e of em.offstage.examples) {
   console.log(`      t${String(e.from).padEnd(4)}→ t${String(e.to).padEnd(4)} lag ${String(e.to - e.from).padEnd(4)} ${String(e.actor).padEnd(9)} via ${e.via.join(", ")}`);
 }
 
-console.log(`\n  RUMOUR DIFFUSION     reached them by cascade, not by being there`);
+console.log(`\n  RUMOUR DIFFUSION     reached them by cascade, from someone who was there`);
 console.log(`    rumours               ${em.rumor.total}`);
 console.log(`    never left a witness  ${em.rumor.witnessedOnly}`);
 console.log(`    travelled at least 1× ${em.rumor.withToldHop}`);

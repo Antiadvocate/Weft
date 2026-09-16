@@ -102,7 +102,7 @@ const sample = (inp: any, n = 400) => {
     signs: ["Joe hears whispers even when Amber is not in the room."], filled: 1, segments: 6 };
   const d = pressureDirective({ band: "friction", pressure: 4 } as any, [], 4, "mortal", young);
   check("the sign itself is on the page", /hears whispers even when/.test(d), d.slice(-200));
-  check("...named as a sign rather than an incident", /A SIGN, NOT AN INCIDENT/.test(d));
+  check("...named as a sign rather than an incident", /A SIGN\. Something in this world is moving/.test(d));
   check("...demanding nothing", /demands nothing, interrupts nothing/.test(d));
   check("...and explicitly not escalated or explained", /Do NOT escalate it, do not explain it/.test(d));
   check("...and the private objective is never handed over as a thing anyone can name",

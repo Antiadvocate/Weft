@@ -51,7 +51,7 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const hit = detectOOC(`I kill myself because you're a fucking terrible writer.`)!;
   const frame = oocFrame(hit);
-  check("the narrator is told the player is talking to IT", /TALKING TO YOU, NOT TO THE WORLD/.test(frame), frame);
+  check("the narrator is told the player is talking to IT", /TALKING TO YOU, OVER THE HEAD OF THE WORLD/.test(frame), frame);
   check("...and told not to dramatise any of it", /DO NOT DRAMATISE ANY OF IT/.test(frame), frame);
   check("...and that nobody is hurt", /nobody is hurt/.test(frame), frame);
   check("...and to hold the scene where it stands", /Hold the scene exactly where it stands/.test(frame), frame);
@@ -109,8 +109,8 @@ function check(name: string, c: boolean, extra?: unknown) {
   const twice = oocDirective("every beat is a horror story", 1, 2);
   check("a first note does not accuse the narrator of ignoring it", !/NOW SAID THIS/.test(once), once);
   check("a repeat is heard as a repeat", /HAVE NOW SAID THIS 2 TIMES/.test(twice), twice);
-  check("...and asks for a structural change, not a reworded paragraph",
-    /not the wording of one paragraph/.test(twice), twice);
+  check("...and asks for a structural change, deeper than a reworded paragraph",
+    /deeper than the wording of one paragraph/.test(twice), twice);
   check("nothing said means nothing carried", oocDirective(undefined, 0) === "");
 }
 

@@ -395,7 +395,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   /** THE VETO. Strike what the narrator invented — roll back past it and forbid it forever. */
   const doStrike = async (turn: number) => {
     const what = prompt(
-      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing, not the rule it broke — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`
+      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing itself — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`
     );
     if (!what?.trim()) return;
     const before = save.world.current_turn;

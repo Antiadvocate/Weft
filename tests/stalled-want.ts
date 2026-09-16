@@ -216,7 +216,7 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
 
   const live = beliefLine("Andrea is the only one who speaks plainly to me, and her advice to slow down was right.", gone);
   check("a belief about the dead is marked as such", /Andrea is dead/.test(live), live);
-  check("and marked as history rather than a live read", /not a live read of the present/.test(live), live);
+  check("and marked as history rather than a live read", /says nothing about the present/.test(live), live);
   check("the belief itself is not destroyed", live.startsWith("Andrea is the only one"), live);
 
   check("someone who merely left is marked too",

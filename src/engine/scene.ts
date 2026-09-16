@@ -124,7 +124,7 @@ export function perceptionGapDirective(state: SaveState, action: string): string
   const out = (cond?.conditions ?? []).some((c) => UNCONSCIOUS_COND.test(c)) || UNDER.test(action);
   if (!out) return "";
   return `
-THE PLAYER IS GOING UNDER (asleep, or otherwise not perceiving). There is no observer in this scene now, and the camera does not float free when nobody is behind it. Write only what a body that is going under still registers — a touch, a weight, a sound, warmth, the light going out — and stop when that stops. Nobody else's face, expression, private gesture, or inner life may be rendered while the player cannot see it: not what they do once he is under, not what they let themselves feel, not what they look at. This is the record rule, not a style note — what you write is filed as something the player witnessed, and a person alone with a sleeping man is credited with having been watched.
+THE PLAYER IS GOING UNDER (asleep, or otherwise not perceiving). There is no observer in this scene now, and the camera does not float free when nobody is behind it. Write only what a body that is going under still registers — a touch, a weight, a sound, warmth, the light going out — and stop when that stops. Nobody else's face, expression, private gesture, or inner life may be rendered while the player cannot see it — what they do once he is under, what they let themselves feel, what they look at all stay off the page. This is the record rule reaching into the prose: what you write is filed as something the player witnessed, and a person alone with a sleeping man is credited with having been watched.
 End the turn on the last thing he could actually register, or cross straight to waking. What happened while he was under reaches him the way anything does: he is told, he finds a trace of it, or he never learns it at all.`;
 }
 
@@ -172,7 +172,7 @@ export function screenPrivacyNote(action: string, others: readonly string[]): st
 
 THE PLAYER'S ACTION THIS TURN HAPPENS ON A SCREEN, AND ${who.toUpperCase()} CANNOT READ IT.
 What is in the room is a body using a phone: the angle it is held at, a thumb moving or stopping, the light on a face, how long it goes on, whether he answers when spoken to, what his face does and whether he turns it away. All of that is fair and most of it is more interesting than the content.
-What is NOT in the room is the content. Not the app, not the name of it, not who is on the other end, not what it says, not what he typed, not what he is looking for. Nobody names it, guesses it correctly, reads it over his shoulder without crossing the room to do it, or reacts to the specific thing rather than to the fact that he is on his phone and has stopped listening.
+What stays out of the room is the content — the app, the name of it, who is on the other end, what it says, what he typed, what he is looking for. Nobody names it, guesses it correctly, reads it over his shoulder without crossing the room to do it, or reacts to the specific thing rather than to the fact that he is on his phone and has stopped listening.
 Somebody can absolutely want to know, and the wanting is the scene: ask what he's smiling at, lean over, take the phone, go quiet, needle him about it, be wrong about it. Being wrong about it is the best of those. What they may not do is simply know.`;
 }
 

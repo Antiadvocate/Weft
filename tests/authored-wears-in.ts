@@ -64,7 +64,7 @@ function expressed(s: SaveState, id: string, n: number): void {
   check("a just-settled want reads as fresh", settledStage(s, id, s.characters[id].authored![0]) === "fresh");
   const d = habitDirective(s, s.world.present);
   check("and is still ordered into the scene", /SIMPLY DOES THIS NOW/.test(d), d.slice(0, 200));
-  check("under the mandate that makes it unrefusable", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d));
+  check("under the mandate that makes it unrefusable", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
   check("naming the act itself", d.includes(GOAL), d.slice(0, 300));
 }
 
@@ -110,7 +110,7 @@ function expressed(s: SaveState, id: string, n: number): void {
   const { s, id } = world();
   s.characters[id].authored = [newAuthored("starts taking the long way home past the barracks", 1)];
   const d = habitDirective(s, s.world.present);
-  check("an unfinished want is still driven", d.length > 0 && /NOT OPTIONAL/.test(d), d.slice(0, 120));
+  check("an unfinished want is still driven", d.length > 0 && /GOES ON THE PAGE THIS TURN/.test(d), d.slice(0, 120));
 }
 
 /* ── 6. and the label survives so the match cannot silently fail ─────────────── */

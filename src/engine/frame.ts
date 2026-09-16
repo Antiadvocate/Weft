@@ -207,7 +207,7 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
     ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it can be a whole sentence and settle for a moment, because this attention is not being dragged anywhere. Still no cataloguing, and still no more than the one or two things.`
     : "";
 
-  const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received — not to the other characters and not to the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
+  const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received by the other characters or by the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
 
   return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is what the player's attention did with the room. How much detail each thing gets is set by the state below, and it differs from one thing to the next.\n${lines}\nAPERTURE — ${aperture}${grammar}${drawn}${order}${bare}`;
 }

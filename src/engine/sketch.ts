@@ -26,6 +26,7 @@ import type { Identity, SaveState } from "./types";
 import { isPersonName } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
 import { asList, asText, unfilmableTraits } from "./coerce";
+import { screenCard, rewriteNote } from "./aphorism";
 import { TRAIT_CONTRACT } from "./prompts";
 import { registerCharacter } from "./state";
 import { clipText } from "./text";
@@ -160,6 +161,33 @@ export async function completeSketch(state: SaveState, id: string, model: string
     } catch { /* the first answer stands */ }
   }
 
+  /* AND ONE RETRY FOR THE FIGURES, on the same terms and for a stronger reason.
+   *
+   * This pass fills the blanks on somebody the story produced mid-play, and every field it writes
+   * is then printed on the character card for the rest of the save. An unfilmable trait gives a
+   * scene nothing to show. A background reading "built out of salt water and other people's debts"
+   * gives a scene something worse: a sample of the register, sitting in the cached prefix where
+   * engine/maxims.ts has already established a rule becomes reference rather than instruction. The
+   * narrator reads it as how this person is written and writes them that way.
+   *
+   * The retry names the caught sentences and asks for the same object back with those fields
+   * rewritten. It fails open exactly like the trait retry: a second answer is used only when it
+   * carries fewer figures than the first. */
+  const figured = screenCard(g);
+  if (figured.length) {
+    try {
+      const again = await complete(buildMessages(
+        SKETCH_SYSTEM, "REWRITE THE FLAGGED FIELDS ONLY:",
+        `${ctx}
+
+${rewriteNote(figured, c.name)}`,
+        model), model, fallback, true, 1200);
+      const g3 = safeJson<any>(again.text, null);
+      if (g3 && screenCard(g3).length < figured.length) g = { ...g, ...g3 };
+      else console.warn(`[sketch] ${c.name}: ${figured.length} field(s) still written as a figure after a retry — keeping them`);
+    } catch { /* the first answer stands */ }
+  }
+
   applySketch(state, c, g);
   return true;
 }
@@ -255,7 +283,7 @@ You are given: the player's description of them, the world, its canon, the peopl
 
 THEY ARE JOINING SOMETHING ALREADY HAPPENING. Do not write a stranger standing in a vacuum waiting to be introduced. Give them a reason to be here that predates this moment: somebody in the cast they already know, owe, resent, work for, are related to, or have been avoiding; and where the description allows it, a stake in one of the open situations. A person with no connection to anybody is a person the story has no way to use.
 
-WHAT YOU MAY NOT DO. Do not resolve an open situation, do not hand them knowledge of a secret the cast does not have, and do not give them a power, rank or resource the world's canon rules out. They arrive as a person, not as an answer.
+WHAT YOU MAY NOT DO. Do not resolve an open situation, do not hand them knowledge of a secret the cast does not have, and do not give them a power, rank or resource the world's canon rules out. They arrive as a person with their own day behind them.
 
 DO NOT SANITIZE. Record them at the same level of explicitness the story itself has. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
 
