@@ -433,10 +433,10 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
  * money — without checking which direction the goods just moved. */
 {
   const gift = (action: string) => giftDirective(action);
-  check("building something for a town is giving", /GIVING, NOT BUYING/.test(gift("I build a well for the village")));
-  check("handing food to people is giving", /GIVING, NOT BUYING/.test(gift("I give the food to the children")));
-  check("healing someone is giving", /GIVING, NOT BUYING/.test(gift("I heal the wounded for them")));
-  check("making a thing for a named person is giving", /GIVING, NOT BUYING/.test(gift("I made a coat for Mable")));
+  check("building something for a town is giving", /THE PLAYER IS GIVING\./.test(gift("I build a well for the village")));
+  check("handing food to people is giving", /THE PLAYER IS GIVING\./.test(gift("I give the food to the children")));
+  check("healing someone is giving", /THE PLAYER IS GIVING\./.test(gift("I heal the wounded for them")));
+  check("making a thing for a named person is giving", /THE PLAYER IS GIVING\./.test(gift("I made a coat for Mable")));
 
   check("buying something is not giving", gift("I buy bread from the baker") === "");
   check("asking for something is not giving", gift("I ask the smith to make a blade for me") === "");

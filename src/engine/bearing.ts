@@ -163,7 +163,7 @@ export function bearingNote(state: SaveState, presentIds: readonly string[]): st
     rows.push(`${c.name} ${bits.join("; ")}.${shy}`);
   }
   if (!rows.length) return "";
-  return `\n\n=== HOW THESE PEOPLE STAND IN A ROOM (this is climate, not this minute) ===\n· ${rows.join("\n· ")}\n`
+  return `\n\n=== HOW THESE PEOPLE STAND IN A ROOM (this is climate, holding across whole stretches of the story) ===\n· ${rows.join("\n· ")}\n`
     + `This is who they are across every mood, including the ones the state notes above describe. A settled shy person is still shy; a furious deferential person defers while furious.\n`
     + `AND MOST OF IT IS PERMISSION. Nobody in this scene has to be efficient. A person may not finish the sentence, may answer the easier question instead of the one asked, may say the small true thing rather than the large one, may need three goes at it, may apologise for something that needs no apology, may go quiet and let somebody else fill it, may agree out loud while not agreeing. `
     + `If everybody in this scene says exactly what they mean at exactly the right length and lands it, they have all been written by the same person, and the differences printed above are the ones that were supposed to stop that.`;

@@ -156,8 +156,10 @@ export function figureIn(text: unknown): FigureHit | null {
   }
   // ...and once across the whole string, for a figure that straddles a full stop the way the
   // antithesis does: "She is not a ghost. She is just tired." Only when the string is short enough
-  // to be portable — a four-sentence background is not one epigram.
-  if (whole.split(/\s+/).filter(Boolean).length <= 30) {
+  // to be portable — a four-sentence background is not one epigram — and long enough to be a
+  // sentence at all, which is the same floor the per-sentence pass uses.
+  const words = whole.split(/\s+/).filter(Boolean).length;
+  if (words >= MIN_WORDS && words <= 30) {
     for (const f of FIGURES) if (f.re.test(whole)) return { shape: f.name, why: f.why, text: whole };
   }
   return null;
@@ -213,7 +215,8 @@ interface ScreenableCard {
   speech_pattern?: unknown; background?: unknown; life_history?: unknown; appearance_facts?: unknown;
   taste?: unknown; current_goal?: unknown;
   core_traits?: unknown; values?: unknown; texture?: unknown;
-  voice?: { diction?: unknown; syntax?: unknown; rhythm?: unknown; agenda?: unknown; example_lines?: unknown } | null;
+  // `tics` and `never_says` are accepted and ignored — see SCREENED_VOICE for why they are exempt.
+  voice?: { diction?: unknown; syntax?: unknown; rhythm?: unknown; agenda?: unknown; example_lines?: unknown; tics?: unknown; never_says?: unknown } | null;
   example_lines?: unknown;
 }
 

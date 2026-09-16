@@ -22,7 +22,7 @@
  * new instruction was written as criticism rather than as a procedure: rewrite the instruction,
  * do not raise the budget.
  */
-import { lint, lintDir, modelFacing, templateLiterals } from "../tools/promptlint";
+import { lint, lintTree, modelFacing, templateLiterals } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
 
 let pass = 0, fail = 0;
@@ -116,17 +116,21 @@ const prompt = \`Match the register of the story you are given and keep the tone
 
 /* ── 5. THE RATCHET ─────────────────────────────────────────────────────────── */
 {
-  /* SCOPED TO THE FOUR CHECKS THIS ZERO WAS EARNED ON. A fifth was added later —
-   * `contrastive-instruction`, the "X, not Y" shape — and it landed on a backlog of 262 sentences
-   * that nobody has rewritten yet. Folding those into this total would mean either raising a budget
-   * that was driven to zero on purpose, or pretending the backlog does not exist. It gets its own
-   * ratchet instead, in tests/prompt-shapes.ts, and this one keeps its hard zero. */
-  const total = lintDir("src/engine")
-    .reduce((n, r) => n + r.findings.filter((f) => f.kind !== "contrastive-instruction").length, 0);
-  // The backlog is gone: every instruction the four checks found has been rewritten as a procedure
-  // over a named field, a check applicable to a finished sentence, or a positive requirement that
-  // excludes a form without naming it. Zero is now the standing budget, so the next one written as
-  // criticism fails here on the commit that introduces it. Rewrite the instruction; do not raise this.
+  /* EVERY KIND, EVERY SHIPPED DIRECTORY.
+   *
+   * This used to read src/engine alone and subtract `contrastive-instruction`, because that check
+   * had landed on a backlog of 262 sentences nobody had rewritten and folding them in would have
+   * meant raising a budget that was driven to zero on purpose. Both halves of that exemption are
+   * gone. The 262 are rewritten, and the linter walks a tree, so the count below covers src, tools
+   * and relay and every kind the linter knows.
+   *
+   * tests/ stays out, and tests/prompt-shapes.ts says why: the specimens live there, and a detector
+   * has to keep its evidence. */
+  const total = ["src", "tools", "relay"]
+    .flatMap((root) => lintTree(root))
+    .reduce((n, r) => n + r.findings.length, 0);
+  // Zero is the standing budget, so the next instruction written as criticism fails here on the
+  // commit that introduces it. Rewrite the instruction; do not raise this.
   const BUDGET = 0;
   console.log(`     (quality-descriptions where an operation belongs: ${total}, budget ${BUDGET})`);
   check("instructions written as criticism have not increased", total <= BUDGET, total);

@@ -438,7 +438,7 @@ const wantsLines = (s: SaveState) =>
   check("at the act, \"it\" is bound to the goal in the same sentence as the verb", /"IT" MEANS THIS, LITERALLY, IN THE BODY: Makes Rabi lick her armpits/.test(mid), mid);
   check("and the near-miss is named as the failure it is", /NOT AN APPROACH TO IT/.test(mid), mid);
   // The exact thing that got written on the real save, ruled out by name.
-  check("skin becoming visible is called out specifically", /not skin becoming briefly visible/.test(mid), mid);
+  check("skin becoming visible is called out specifically", /skin becoming briefly visible/.test(mid), mid);
   check("with a test the narrator can apply to its own paragraph", /if the act could be cut out of your paragraph/.test(mid), mid);
   check("and repeating last turn's beat is refused", /NOT THE SAME BEAT AS LAST TURN/.test(mid), mid);
 
@@ -454,7 +454,7 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 2 })];
   crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
   const d = habitDirective(s, s.world.present);
-  check("a finished habit is stated as the act, not as a version of it", /Not a version of it, not a suggestion of it/.test(d), d);
+  check("a finished habit is stated as the act at full size", /That, the act itself, in this turn's prose, at full size/.test(d), d);
   check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /there is no "if the scene allows"/.test(d), d);
   check("and nobody treats it as news", /nobody remarks on it being new/.test(d), d);
 }
@@ -504,12 +504,12 @@ const wantsLines = (s: SaveState) =>
   check("...named as the specific things never written for them",
     /agreeing, refusing, allowing it, going along with it, reciprocating/.test(line), line);
   check("...a feeling about it included", /never hand them a feeling about it/.test(line), line);
-  check("but her half is still a full requirement, not an excuse",
-    /Her half is not the approach to the act and not a milder version of it/.test(line), line);
+  check("but her half is still a full requirement",
+    /Her half is the act itself, named plainly in what she does/.test(line), line);
   check("...and being the one it is done to is not the player's move",
     /being the one it is done to does not turn it into the player's move/.test(line), line);
-  check("...so it cannot be pushed to a later scene", /not deferred to a later scene/.test(line), line);
-  check("she may not take it back inside the same turn", /not retracted inside the same turn/.test(line), line);
+  check("...so it cannot be pushed to a later scene", /undeferred to a later scene/.test(line), line);
+  check("she may not take it back inside the same turn", /unretracted inside the same turn/.test(line), line);
   // The specific way this turn was drained: it kept going, to Liz and then to Marcus.
   check("and the scene may not close the moment before the player can answer",
     /do not move on to another character's business afterwards/i.test(line), line);
@@ -631,7 +631,7 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
   const d = habitDirective(s, s.world.present);
   check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
-  check("stated as required rather than as background", /NOT OPTIONAL, NOT BACKGROUND, NOT DEFERRABLE/.test(d));
+  check("stated as required rather than as background", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
   check("a turn without it is not an option at all", /no version of this turn in which none of it can be seen/.test(d));
   check("and the narrator is denied the busy-scene excuse", /too busy for it, or that the plot matters more/.test(d));
   // There used to be an extra "IT HAS BEEN SKIPPED N TURNS RUNNING" line here, driven by the prose

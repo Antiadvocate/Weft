@@ -95,7 +95,7 @@ const who = (o: Partial<Identity>, p: Partial<Psyche> = {}) =>
   check("...in her own pronouns", /she waits to be asked/.test(note) && /She wants to be there/.test(note), note);
   check("the median person gets nothing", !note.includes("Bo"), note);
   check("the player is never given a bearing", !note.includes("Max"), note);
-  check("it says out loud that this is not the weather", /climate, not this minute/.test(note), note);
+  check("it says out loud that this is climate", /climate, holding across whole stretches of the story/.test(note), note);
   check("and the permission half is there", /Nobody in this scene has to be efficient/.test(note), note);
   check("...naming the failure it exists to stop", /written by the same person/.test(note), note);
 

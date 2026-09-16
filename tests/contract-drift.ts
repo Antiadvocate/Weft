@@ -84,7 +84,7 @@ const save = (turns: number): SaveState => ({
 {
   check("it is told the contract is more than the direction line",
     /genre, the standing direction, the pressures/.test(CHAPTER_SYSTEM), "");
-  check("...and to judge against all of it", /not only the direction line/.test(CHAPTER_SYSTEM));
+  check("...and to judge against all of it", /judge against all of them together/.test(CHAPTER_SYSTEM));
   check("...and to check the genre against what the beats are made of",
     /Check the GENRE against what the beats are actually made of/.test(CHAPTER_SYSTEM));
   check("...and to check whether a forbidden thing became the engine",

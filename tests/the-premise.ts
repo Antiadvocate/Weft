@@ -115,7 +115,7 @@ const mean = (palette: string[] | undefined, threads: any[], n = 120) => {
   check("...as UNPROMPTED, which is the whole request", /It is UNPROMPTED/.test(d));
   check("...not waiting for the player to raise it", /does not wait for the player to raise it/.test(d));
   check("...in the room they are actually in", /in the room the characters are actually standing in/.test(d));
-  check("...and not as foreshadowing or a mood", /Not foreshadowing, not a mood/.test(d), d.slice(-200));
+  check("...and as the thing itself rather than a mood", /The thing itself, happening, on the page, in front of them/.test(d), d.slice(-200));
 
   const quiet = pressureDirective({ band: "danger", pressure: 9 } as any, [FEET], 9, "mortal",
     { kind: "palette", ref: FEET, quiet: true } as Beat);

@@ -71,7 +71,7 @@ console.log("\n── the two cuts are remembered ──");
   check("it names warmth", /warmth -\d+/.test(line), line);
   check("it names trust", /trust -\d+/.test(line), line);
   check("it names how long ago", /in the last \d+ turns/.test(line), line);
-  check("it says what to do with it", /reacting to that move, not to the level/.test(line), line);
+  check("it says what to do with it", /reacting to that move, whatever the standing level says/.test(line), line);
 }
 
 console.log("\n── and it does not shout about nothing ──");

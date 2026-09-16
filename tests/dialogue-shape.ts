@@ -38,7 +38,7 @@ for (const lean of [false, true]) {
   check(`${tag}: dialogue is permitted to stand without a beat`, /A LINE DOES NOT NEED A BEAT/.test(t));
   check(`${tag}: and consecutive exchanges are named as the thing to do`,
     /(several exchanges|two, three, four exchanges)/.test(t));
-  check(`${tag}: a beat is defined as something happening, not punctuation`, /not as punctuation/.test(t));
+  check(`${tag}: a beat is defined as something happening`, /when something happens in the body/.test(t));
 
   check(`${tag}: the interpretation may not be relocated into dialogue`, /WHAT ONE PERSON KNOWS STOPS AT THEIR OWN SKIN/.test(t));
   check(`${tag}: a character may still guess`, /guess/.test(t));

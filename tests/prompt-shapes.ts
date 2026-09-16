@@ -23,13 +23,13 @@
  * instruction block teaches that shape far more reliably than one sentence asking for it to be
  * avoided, and the rebound work (arXiv 2511.12381) says the sentence asking primes it as well.
  *
- * So, the same remedy: a RATCHET. The count may fall and may never rise. Nobody has to rewrite two
- * hundred sentences today, and nobody gets to add the next one. Rewriting one is
- * usually a matter of stating the positive requirement and stopping.
+ * So, the same remedy: a RATCHET — the count may fall and may never rise. It has since been driven
+ * all the way down, so what stands below is a gate at zero across src, tools and relay rather than
+ * a budget. Rewriting one of these is usually a matter of stating the positive requirement and
+ * stopping.
  */
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { lint } from "../tools/promptlint";
+import { readFileSync } from "node:fs";
+import { lint, lintTree } from "../tools/promptlint";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -37,34 +37,64 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
-function countIn(dir: string, kind: string): { total: number; byFile: Record<string, number> } {
+/* ── THE RATCHET, WHICH REACHED ZERO ──────────────────────────────────────────────
+ *
+ * 262 contrastive instructions in src/engine on the day the detector shipped, 151 of them in
+ * prompts.ts. All 262 are rewritten. The commonest fix was to state the positive requirement and
+ * stop: "render the act, not the psychology" became "render the act and stop at the skin";
+ * "atmosphere is not plot, and a story that is only atmosphere has stalled" became "a story made
+ * of atmosphere alone has stalled". Several were a run of four denials that reads better as one
+ * clause ruling out four things at once.
+ *
+ * So the budget is zero and the scope is every shipped directory rather than one flat one. Nothing
+ * here is a to-do list any more; it is a gate, and the next instruction written as an epigram fails
+ * on the commit that introduces it. Read the findings with `npx tsx tools/promptlint.ts src`.
+ *
+ * tests/ IS EXCLUDED, for a reason that holds nowhere else: this directory is where the specimens
+ * live. tests/philosopher.ts holds "they're trying to build a castle out of spun sugar and hope"
+ * because findMaxims has to catch it, and tests/forced-exit.ts holds "not pushing, just leaving
+ * them there" because it is a fixture of somebody's prose. None of it is sent to a model. Counting
+ * it would mean either rewriting the evidence or carrying a permanent budget.
+ */
+function countShipped(kind: string): { total: number; byFile: Record<string, number> } {
   const byFile: Record<string, number> = {};
   let total = 0;
-  for (const f of readdirSync(dir).filter((x) => x.endsWith(".ts"))) {
-    const n = lint(readFileSync(join(dir, f), "utf8")).filter((x) => x.kind === kind).length;
-    if (n) { byFile[f] = n; total += n; }
+  for (const root of ["src", "tools", "relay"]) {
+    for (const { file, findings } of lintTree(root)) {
+      const n = findings.filter((f) => f.kind === kind).length;
+      if (n) { byFile[file] = n; total += n; }
+    }
   }
   return { total, byFile };
 }
 
-/* ── the ratchet ──────────────────────────────────────────────────────────────── */
 {
-  const { total, byFile } = countIn("src/engine", "contrastive-instruction");
-  /* Pinned at the count on the day the detector shipped. LOWER IT when you fix some; never raise it.
-   *
-   * Roughly one in seven of these is the detector catching the tail of a long sentence rather than a
-   * real epigram, so this number is a direction of travel and not a to-do list. That is the right
-   * trade for a ratchet: what it has to do is stop the count growing, and it does that whether or not
-   * every individual hit deserves a rewrite. Read the findings with `npx tsx tools/promptlint.ts`. */
-  const BUDGET = 262;
-  console.log(`     (contrastive instructions in src/engine: ${total}, budget ${BUDGET})`);
-  check("the stock of 'X, not Y' instructions has not grown", total <= BUDGET, { total, worst: Object.entries(byFile).sort((a, b) => b[1] - a[1]).slice(0, 3) });
+  const { total, byFile } = countShipped("contrastive-instruction");
+  console.log(`     (contrastive instructions across src, tools and relay: ${total})`);
+  check("no instruction is written as 'X, not Y'", total === 0, byFile);
 }
 {
-  const { total } = countIn("src/engine", "maxim-instruction");
-  const BUDGET = 12;
-  console.log(`     (epigram instructions: ${total}, budget ${BUDGET})`);
-  check("nor has the epigram count grown", total <= BUDGET, total);
+  const { total, byFile } = countShipped("maxim-instruction");
+  console.log(`     (epigram instructions: ${total})`);
+  check("nor as an epigram", total === 0, byFile);
+}
+
+/* ── THE PRONOUNCEMENT — a general law about the world, standing where an instruction belongs ──
+ *
+ * These shapes come from engine/maxims.ts, where they were mined out of committed dialogue, and
+ * turning them on the prompts is what moving the catalogue into engine/aphorism.ts was for. A rule
+ * that reads like a proverb hands the model the proverb along with the rule, and the proverb is the
+ * half that survives thirty thousand characters of prefix.
+ *
+ * One of the family is held back. `universal verdict` fires on every prohibition in English —
+ * "nothing is invented that contradicts the state", "no 'unknown', everyone is somewhere" — and the
+ * first honest run reported 58 findings that were all rules doing their job. It stays on the card
+ * screen and comes off the linter; INSTRUCTION_PRONOUNCEMENTS in engine/aphorism.ts is the split.
+ */
+{
+  const { total, byFile } = countShipped("pronouncement-instruction");
+  console.log(`     (pronouncement instructions: ${total})`);
+  check("nor as a general law about the world", total === 0, byFile);
 }
 
 /* ── AND THE EPIGRAM THAT USES NO CONTRAST ────────────────────────────────────────────────────
@@ -87,8 +117,8 @@ function countIn(dir: string, kind: string): { total: number; byFile: Record<str
  * an hour, and none of the rewrites lost anything. A budget invites the count to sit at it.
  */
 {
-  const { total, byFile } = countIn("src/engine", "figured-instruction");
-  console.log(`     (figured instructions in src/engine: ${total})`);
+  const { total, byFile } = countShipped("figured-instruction");
+  console.log(`     (figured instructions: ${total})`);
   check("no instruction is written as a figure", total === 0, byFile);
 }
 
