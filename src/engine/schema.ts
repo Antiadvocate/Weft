@@ -19,7 +19,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   locations: A(S({ char_id: str, place: str, said: str }, ["char_id", "place", "said"])),
   money: str,
   present: strA,
-  facts: A(S({ char_id: str, field: { type: "string", enum: ["fatigue","hunger","thirst","slept","condition_add","condition_remove","inventory_add","inventory_remove","wearing_add","wearing_remove","injury","injury_remove"] }, value: str }, ["char_id", "field", "value"])),
+  facts: A(S({ char_id: str, field: { type: "string", enum: ["fatigue","hunger","thirst","slept","condition_add","condition_remove","inventory_add","inventory_remove","wearing_add","wearing_remove","injury","injury_remove","doing"] }, value: str }, ["char_id", "field", "value"])),
   psyche: A(S({ char_id: str, relaxation_delta: num, mood: str, states_add: strA, states_remove: strA }, ["char_id"])),
   edges: A(S({ from: str, to: str, warmth_delta: num, trust_delta: num, power_delta: num, attraction_delta: num, note: str, roles_set: strA }, ["from", "to"])),
   faults: A(S({ character: str, toward: str, about: str }, ["character", "toward", "about"])),

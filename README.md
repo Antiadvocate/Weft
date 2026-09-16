@@ -83,6 +83,24 @@ The second is the cards. The voice forge writes diction, syntax, rhythm, an agen
 
 `engine/aphorism.ts` holds the one list all of it reads.
 
+## People are doing something while they talk to you
+
+A player's report: "For the most part all my NPCs just stand around uselessly. But in reality people are texting, on their phones, watching shows, doing stuff. Multitasking."
+
+The rule against this already existed and had never worked. `EVERY PRESENT CHARACTER ACTS OR EXITS` sits in the narrator's contract and names the failure exactly — "presence made only of posture is furniture" — twenty-odd thousand characters back, where this engine has established three separate times that a rule reads as reference. It also hands the narrator nothing to act with. Told to invent an action out of nothing, a model writes a posture, which is the thing the rule bans, arrived at by obeying it.
+
+Three fields were sitting there unused. `current_activity` has been on the character record since the beginning: coerced on load, printed in Cast, written by nothing and read by no prompt. `world.promises` records who owes what to whom and reached zero prompts on a 45-turn save. And `technology_level` — the one field that knows a save has phones in it — reached the narrator as a bare label and reached the bookkeeper as a ceiling: *do not let anyone use what this rules out*. The list of everything lying around the world was being sent only to bound it.
+
+So the bookkeeper now records what each person's hands were on when the turn ended, it rides on the character card into the next turn, and a short block at the end of the directive says what to do with it. Nothing in that block names a phone: the objects come from the world's own material list, which is a whetstone and a loom in the save that has those.
+
+**The second half is the part the engine had backwards.** From the same report: "The more tense, the more stuff they tend to be doing all at once, they aren't pissed they're just splitting their attention a lot."
+
+Every reading Weft had said the opposite. A low relaxation score narrows the aperture onto one thing, writes the voice as "clenched — under pressure and it is going somewhere", and renders the mind as misreading. All three are right about a knife in a corridor. None of them is a woman carrying four open loops through a dinner she did not want to be at, and the player was reading every tense character as angry.
+
+Occupation is a second axis rather than a correction. The aperture asks how wide the attention is; this asks how many things it is divided between, and it runs the other way: the lower the reading, the more is going at once, down to somebody losing hold of it a piece at a time — an answer abandoned halfway, a cup put down somewhere they will not find it, a yes to something they did not hear. Sharpness there is what busy sounds like, and anger goes on the page only where the state says they are angry. The one place the old reading is still right is a held moment, and `register.ts` already knows which those are: in an intimate, dangerous or hushed scene the block goes silent and the aperture has the floor.
+
+It costs about 370 tokens on an ordinary turn and 510 in a room where somebody is at the bottom of the scale.
+
 ## Running a local image model
 
 The same idea one slot down: point **Tuning → Local images** at ComfyUI or an A1111-style WebUI, then set the image slot to a `local/…` id. Portraits and scene art are then drawn on your own GPU.

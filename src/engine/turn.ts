@@ -65,6 +65,7 @@ import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
+import { occupiedDirective } from "./occupied";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
@@ -3071,7 +3072,13 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
     // invented mid-argument has no record of its own and will agree with whoever spoke last.
     + verificationLaw(state, action, state.world.present, contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "")
-    + voiceAnchor(state, state.world.present) + povFilter + lastWord(state);
+    + voiceAnchor(state, state.world.present)
+    /* WHAT THEIR HANDS ARE ON WHILE THEY TALK. Late in the directive on purpose: the rule that would
+     * otherwise cover this ("every present character acts or exits") is in the cached prefix, which
+     * this engine has established three times over is read as reference. See engine/occupied.ts —
+     * it stands down entirely in a guarded register, where the attention really does collapse. */
+    + occupiedDirective(state, state.world.present, register.guarded)
+    + povFilter + lastWord(state);
   // ── VERBALIZED SAMPLING (engine/verbalized.ts) ─────────────────────────────
   // Asked for BEFORE the narrator writes, because it goes into the narrator's directive: one cheap
   // call on the bookkeeper-class model for candidate lines with probabilities, of which the tail is
@@ -6263,6 +6270,24 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           if (!keep) delete c.condition_age?.[x];
           return keep;
         });
+        break;
+      }
+      /* WHAT THEIR HANDS WERE ON WHEN THE TURN ENDED.
+       *
+       * `current_activity` has been on the Identity type since the beginning, coerced by sanitize,
+       * printed in Cast, and written by nothing. It is the one field that lets an occupation
+       * survive a turn boundary: without it the block in engine/occupied.ts starts from nothing
+       * every turn and a woman puts her phone down and picks it up again forever.
+       *
+       * Filed on the character rather than the condition because it outlives the scene — a person
+       * who was repotting something is still doing that five minutes later, and the condition is
+       * where the body's readings live. Cleared by an empty value, so a scene that genuinely takes
+       * everything out of somebody's hands can say so. */
+      case "doing": {
+        const who = state.characters[id]; if (!who) break;
+        const next = clipText(String(f.value ?? "").trim(), 160);
+        if (next.toLowerCase() === "nothing" || !next) { who.current_activity = undefined; break; }
+        who.current_activity = next;
         break;
       }
       case "inventory_add": if (f.value && !c.inventory.some((i) => i.name.toLowerCase() === f.value.toLowerCase())) c.inventory.push({ id: uid("itm"), name: f.value }); break;

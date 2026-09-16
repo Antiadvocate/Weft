@@ -1209,7 +1209,7 @@ export interface SimulatorDiff {
   locations?: { char_id: string; place: string; said?: string }[]; // move characters between places. `place` must name an existing place, or "elsewhere". `said` quotes the prose that says they moved.
   money?: string;
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
-  facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
+  facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove" | "doing"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
   edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; note?: string; roles_set?: string[] }[];
   aliases_add?: { id: string; alias: string }[];
