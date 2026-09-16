@@ -34,7 +34,7 @@ WHAT A BLOCK IS. Somewhere this person HAS TO BE, at hours that repeat. Not what
 
 HOW MANY. One to three. Almost never four. A week is a skeleton — the story happens in the gaps, and a character booked solid is a character the player can never reach. If one block is the truth of their week, write one.
 
-THE WEEK ITSELF IS A PROPERTY OF THE WORLD, NOT A DEFAULT. A five-day working week with two days off is an industrial arrangement and belongs only to a world that has one. Otherwise use what this world actually runs on: every day (a farm, a kitchen, a watch), specific named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting names. Choose "days" accordingly.
+THE WEEK ITSELF IS A PROPERTY OF THE WORLD. A five-day working week with two days off is an industrial arrangement and belongs only to a world that has one. Otherwise use what this world actually runs on: every day (a farm, a kitchen, a watch), specific named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting names. Choose "days" accordingly.
 
 HOURS MUST FIT THE WORLD. Pre-industrial work starts at first light and stops at dark; a night watch is a night watch; an office is an office. Do not write 09:00–17:00 into a world that has no clocks to say it with.
 
@@ -86,7 +86,7 @@ function brief(state: SaveState, id: string): string {
     `AS A PERSON: ${(c.core_traits ?? []).join("; ")}`,
     (c.values ?? []).length ? `HOLDS TO: ${(c.values ?? []).join(", ")}` : "",
     Object.keys(c.skills ?? {}).length ? `CAN DO: ${Object.entries(c.skills).map(([k, v]) => (v ? `${k} (${v})` : k)).join("; ")}` : "",
-    wants ? `WHAT THEY ARE CURRENTLY TRYING TO GET (their week should make room for this, not consist of it): ${wants}` : "",
+    wants ? `WHAT THEY ARE CURRENTLY TRYING TO GET (their week should leave room for this alongside everything else in it): ${wants}` : "",
     here ? `WHERE THEY ARE RIGHT NOW: ${here}` : "",
     `\nPLACES THAT EXIST — use these names exactly where one fits:\n${places}`,
     `\nIT IS CURRENTLY: ${state.world.current_time}${b.start_date ? ` (calendar starts ${b.start_date})` : " (no calendar is kept; the week runs from Day 1)"}`,

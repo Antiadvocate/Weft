@@ -237,7 +237,7 @@ export function swingLine(e: SocialEdge, turn: number): string {
   if (Math.abs(s.trust) >= SWING_FLOOR) parts.push(`trust ${s.trust > 0 ? "+" : ""}${Math.round(s.trust)}`);
   if (!parts.length) return "";
   const span = Math.max(1, turn - s.since_turn + 1);
-  return `${parts.join(" and ")} in the last ${span === 1 ? "turn" : `${span} turns`} — they are reacting to that move, not to the level`;
+  return `${parts.join(" and ")} in the last ${span === 1 ? "turn" : `${span} turns`} — they are reacting to that move, whatever the standing level says`;
 }
 
 export function applyEdgeDelta(
@@ -592,7 +592,7 @@ function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: strin
   };
   if (v >= 2) return {
     adjective: "warmer",
-    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a lean, not worship: individuals still have their own reasons.`,
+    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a lean of a few degrees: individuals still have their own reasons.`,
   };
   if (v <= -6) return {
     adjective: "fearful",

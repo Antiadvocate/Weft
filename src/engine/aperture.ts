@@ -368,7 +368,7 @@ function registerLine(name: string, ap: Aperture, rel: number, openRun: number, 
   }
   if (ap === "wide") {
     const settled = openRun >= 6 ? ` and has been settled for ${openRun} turns` : "";
-    return `${name}'s body is open (${rel.toFixed(1)})${settled}. AT THIS OPENNESS THE VOICE CARD IS WHERE THE WORDS COME FROM, NOT A RULE EVERY LINE OBEYS. `
+    return `${name}'s body is open (${rel.toFixed(1)})${settled}. AT THIS OPENNESS THE VOICE CARD SUPPLIES THE VOCABULARY AND LEAVES THE SUBJECT FREE. `
       + `The register on that card is the shape this person takes UNDER LOAD — braced, defending something, doing business. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} is not doing that. `
       + `So the words still come out of ${pn.possessive} own life and ${pn.possessive} own vocabulary, but the signature loosens: something said for no reason, an aside that goes nowhere, `
       + `a question answered straight with no angle on it, a joke that is not also a move, a sentence that does not end in what happens next. `
@@ -418,7 +418,7 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
       const own = (c.texture ?? []).filter((t) => !isMannerism(t)).slice(0, 3);
       lines.push(`${c.name} has had ${sat} turns running in which everything out of ${pn.possessive} mouth was about the same thing: "${want.trim().replace(/\s+/g, " ")}". `
         + `The want is not in question and does not need saying again — it has been said, the other person heard it, and the meter does not move because it was restated. `
-        + `THIS TURN IT MOVES BY ONE THING ${pn.subject.toUpperCase()} DOES, NOT BY ANYTHING ${pn.subject.toUpperCase()} EXPLAINS: an arrangement made, a hand on something, a step taken, a small thing paid for or carried or put where it goes — `
+        + `THIS TURN IT MOVES BY ONE THING ${pn.subject.toUpperCase()} DOES WITH ${pn.possessive.toUpperCase()} HANDS: an arrangement made, a hand on something, a step taken, a small thing paid for or carried or put where it goes — `
         + `and ${pn.possessive} talking is somewhere else entirely.${own.length ? ` ${pn.subject[0].toUpperCase()}${pn.subject.slice(1)} has this on ${pn.possessive} card and has not used it: ${own.join("; ")}.` : ""} `
         + `Nobody is walked through a thing they did not ask about, shown a document, or made to look at anything. `
         + `A person moving toward what they want while talking about something else is the ordinary case; a person narrating their want is the failure.`);
@@ -454,7 +454,7 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
         lines.push(`${c.name}'s attention is CATCHABLE this turn by: ${drift.subject}.`
           + `${drift.place ? ` This world has ${drift.place} in it — it is real, it is there, and ${pn.subject} knows it is.` : ""} `
           + `If anything in this place, on the way, or in what somebody just said touches that, ${pn.subject} notices it out loud, and IT DOES NOT HAVE TO LEAD ANYWHERE — `
-          + `not back to what ${pn.subject} wants, not into the scene, not into a point. This is permission, not a line to deliver: `
+          + `The remark can end where it ends, with the scene carrying on around it. Treat this as room to say something: `
           + `if the moment has no room for it, ${pn.subject} notices nothing and says nothing, and that is also correct. `
           + `What is not correct is a person whose surroundings could be swapped for any other surroundings without changing a word they say.`);
       }
@@ -487,7 +487,7 @@ const KNOWS_ALREADY = new RegExp("\\b(i know how|i know what|i know that|i alrea
 export function heardYouNote(action: string): string {
   if (!KNOWS_ALREADY.test(String(action ?? ""))) return "";
   return `\n\n=== THE PLAYER SAID THEY ALREADY KNOW ===\nThe player's line this turn states that they already have this — they know how it works, they have been told, they can read it themselves. `
-    + `NOBODY EXPLAINS IT TO THEM. Not at length, not in a shortened version, not as a quick recap "just so it's clear", and not by walking them through the document while saying they don't have to look. `
+    + `NOBODY EXPLAINS IT TO THEM — at length, in a shortened version, as a quick recap "just so it's clear", or by walking them through the document while saying they don't have to look. `
     + `Somebody who is told "I know how that works" by a person they trust says a short version of okay and moves — and what they say next is about something else. `
     + `A character may absolutely still WANT the thing, still be nervous about it, still touch it or hand it over or get it signed. What they may not do is deliver the content the player just declined. `
     + `If the character truly cannot let it go, that is a feeling about being believed, and it comes out as that — one line about themselves — never as the explanation again.`;

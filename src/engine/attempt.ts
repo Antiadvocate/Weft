@@ -315,12 +315,12 @@ export function attemptDirective(frame: AttemptFrame, action: string): string {
   const cap = frame.capability.fact ?? "nothing in who they are speaks to this";
   const body = frame.body.causes.join("; ") || "steady";
   const circ = frame.circumstance.causes.join("; ") || "neutral";
-  const head = `\nATTEMPT FRAME — the player's action resolves by CAUSE, not chance. The verdict below is already decided from the state of the body and the world; it is authoritative. Render it truthfully — never overturn it with luck, heroics, coincidence, or manufactured peril.\n- attempt: "${excerpt}"\n- capability: ${cap}\n- body: ${body}\n- circumstance: ${circ}\n`;
+  const head = `\nATTEMPT FRAME — the player's action resolves by CAUSE. The verdict below is already decided from the state of the body and the world; it is authoritative. Render it truthfully — never overturn it with luck, heroics, coincidence, or manufactured peril.\n- attempt: "${excerpt}"\n- capability: ${cap}\n- body: ${body}\n- circumstance: ${circ}\n`;
   if (frame.outcome === "sufficient") {
-    return head + `OUTCOME: IT WORKS. Render the success plainly and concretely, textured by the causes above (what they know, how the body held). Do not inject extra peril into a clean success — the world's pressure arrives through its own channels, not through sabotaging a legitimate attempt.`;
+    return head + `OUTCOME: IT WORKS. Render the success plainly and concretely, textured by the causes above (what they know, how the body held). Do not inject extra peril into a clean success — the world's pressure arrives through its own channels and leaves a legitimate attempt standing.`;
   }
   if (frame.outcome === "contested") {
     return head + `OUTCOME: IT WORKS, AT A COST — and the cost comes from ${frame.weakest}. Show that cost concretely and ONLY that cost: a thing gives way, a face is seen, something is paid or lost or noticed. The aim is achieved; the price is real and stays on the record. Do not escalate beyond the named cost, and do not waive it.`;
   }
-  return head + `OUTCOME: IT FAILS — and it fails because of ${frame.weakest}. Show that cause operating in the moment (the shaking hand, the watching guard, the missing skill). The failure is honest, not catastrophic: the world reacts as it would, consequences stand, but the aim is NOT achieved. Never let it succeed by accident, and never punish beyond what the failing cause would naturally produce.`;
+  return head + `OUTCOME: IT FAILS — and it fails because of ${frame.weakest}. Show that cause operating in the moment (the shaking hand, the watching guard, the missing skill). The failure is proportionate: the world reacts as it would, consequences stand, and the aim is NOT achieved. Never let it succeed by accident, and never punish beyond what the failing cause would naturally produce.`;
 }

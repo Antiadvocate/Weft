@@ -59,7 +59,7 @@ export interface Read {
 
 // ── faculty derivation ───────────────────────────────────────────────────────
 
-const FACULTY_SYSTEM = `You derive a person's PERCEPTUAL APPARATUS from their character card — the specific, biased ways THIS person reads other people. Not a skill list, not stats: the four to six habits of attention this particular nervous system actually has, given who they are and what happened to them.
+const FACULTY_SYSTEM = `You derive a person's PERCEPTUAL APPARATUS from their character card — the specific, biased ways THIS person reads other people. Give the four to six habits of attention this particular nervous system actually has, given who they are and what happened to them.
 
 Each faculty gets:
 - name: 1–3 words in the PLAYER'S OWN IDIOM — drawn from their history, work, upbringing, or body. "OLD ARITHMETIC", "THE FLINCH", "COUNTING THE EXITS", "SHOPKEEPER'S EYE". Never a generic RPG stat name (no "Empathy", "Perception", "Insight", "Logic", "Intuition"). Never abstract virtue words.
@@ -124,10 +124,10 @@ You are given: who the player is, what state their body is in, what they already
 WRITE EACH READ LIKE THIS:
 - First person, present tense, the player's own voice. "She's already decided." "He wants me to ask."
 - FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". A read is a verdict; verdicts are stated. Wrongness comes from BEING wrong, never from hedging — a hedged read is mush and it is the exact failure this channel exists to replace.
-- ONE short sentence. A read is a thought, not a paragraph, and it stops as soon as it has landed.
+- ONE short sentence. A read is a thought the length of a thought, and it stops as soon as it has landed.
 - NO NEW FACTS. You may not invent a gesture, an object, a line of dialogue, or anything the surface did not already contain. You interpret what is there. If the surface is thin, the read is thin.
 - COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION: a comparison of that kind states the verdict inside itself, which is the one thing a read must earn rather than assert. Default to no comparison at all.
-- Read the PERSON, not the plot. Never predict events, never name what will happen next in the story, never advise the player.
+- Read the PERSON in front of them. Never predict events, never name what will happen next in the story, never advise the player.
 - Faculties may CONTRADICT each other outright. Two reads of the same gesture reaching opposite conclusions is correct and desirable — do not reconcile them, do not have the second one defer to the first.
 
 THE BODY SETS HOW MUCH A READ CAN HOLD. This is the primary axis, and it is not about being nice or being right. A clenched body collapses a person down to ONE attribute, and it is the attribute that matters to the threat. An eased body can hold a person as two things at once that do not resolve into a verdict.
@@ -152,9 +152,9 @@ BAD, and why:
   "She is a machine built of facts, clicking through her internal gears." — figurative mush; the whole line is a metaphor doing the work a plain sentence should do.
   "He is a giant container for secrets that hum." — same, and it says nothing a person could act on.
   "She watches him the way she reads a difficult passage." — comparison to an ACTIVITY, which smuggles the verdict into the vehicle.
-  "Something in the way she says it makes me think she's angry." — hedged; a read is stated, not attributed.
+  "Something in the way she says it makes me think she's angry." — hedged; a read is stated flat, in the player's own voice.
   "She seems uncertain, though it's hard to tell." — hedged twice; this is the mush this channel exists to replace.
-  "He is calculating what my sorting means for him." — this is narration of his interior, not the player's read. Say what the PLAYER concludes: "He's already worked out what I'm worth to him."
+  "He is calculating what my sorting means for him." — this narrates his interior. Say what the PLAYER concludes: "He's already worked out what I'm worth to him."
 
 Output ONLY JSON: {"reads":[{"faculty":"EXACT NAME GIVEN","line":""}]}`;
 

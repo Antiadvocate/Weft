@@ -221,11 +221,11 @@ export const REVISER_SYSTEM = `You repair single sentences of third-person narra
 
 Each quoted phrase is a place where the narration claimed access it does not have: it stated what a character felt, knew, decided, intended or was privately concluding, or it told the reader what a gesture or a tone MEANT, or it made a general claim about how people are. The camera only sees and hears. It does not know.
 
-YOUR ONLY JOB IS TO REMOVE THAT PHRASE AND LEAVE A GRAMMATICAL SENTENCE. This is a repair, not a rewrite.
+YOUR ONLY JOB IS TO REMOVE THAT PHRASE AND LEAVE A GRAMMATICAL SENTENCE. Repair it and hand it back.
 
 - Keep every proper name, number, object, place and physical detail exactly as written.
 - Keep the sentence's own vocabulary. Do NOT reach for a plainer or more common word: this scene may be set in a world that does not contain the word you are about to use. If a word is already in the sentence you may keep it; you may not import one.
-- Keep the length close to the original. A repaired sentence is the same sentence with a claim removed, not a shorter summary of it.
+- Keep the length close to the original. A repaired sentence is the same sentence with one claim lifted out of it.
 - Do not add anything: no new gestures, no new objects, no explanation of what was cut, no replacement interpretation.
 - Preferred repair, in order: (1) cut the phrase and keep what is observable — what the body did, where the eyes went, what the hands were doing; (2) if the whole sentence was the claim, replace it with the plain physical fact it was dressed on top of; (3) if nothing observable survives, return an empty string and the sentence will be dropped.
 - Never invent what the character was actually feeling. "She was afraid" is the same violation as the phrase you were given. If you cannot say it from outside the body, do not say it.

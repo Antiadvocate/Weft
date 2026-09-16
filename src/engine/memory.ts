@@ -1074,7 +1074,7 @@ export function beliefLine(content: string, gone: Map<string, string>): string {
     const m = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").exec(text);
     if (m) hits.push(`${m[0]} is ${how}`);
   }
-  return hits.length ? `${text} [${hits.slice(0, 2).join("; ")} — this is held ABOUT the past, not a live read of the present]` : text;
+  return hits.length ? `${text} [${hits.slice(0, 2).join("; ")} — this is held ABOUT the past and says nothing about the present]` : text;
 }
 
 export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0, gone: Map<string, string> = new Map()): string {

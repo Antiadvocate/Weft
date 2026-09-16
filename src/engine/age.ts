@@ -359,6 +359,6 @@ export function summarizeAgeReport(rep: AgeReport, name: string): string {
     bits.push(`${name} is now ${rep.to}.`);
   }
   if (rep.left.length) bits.push(`${rep.left.length} mention${rep.left.length === 1 ? "" : "s"} of ${rep.from} left alone — they read as history or as somebody else's age: "${rep.left[0].text}"${rep.left.length > 1 ? " …" : ""}`);
-  if (rep.prose_turns) bits.push(`${rep.prose_turns} already-played turn${rep.prose_turns === 1 ? "" : "s"} still say ${rep.from}; the record is not rewritten, and the cast is told the profile outranks it.`);
+  if (rep.prose_turns) bits.push(`${rep.prose_turns} already-played turn${rep.prose_turns === 1 ? "" : "s"} still say ${rep.from}; those turns stand as written, and the cast is told the profile outranks them.`);
   return bits.join(" ");
 }

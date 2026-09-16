@@ -237,9 +237,9 @@ export function openCallDirective(state: SaveState): string {
   const unanswered = turnsWaiting >= 1 && call.answered === 0 && call.reach >= 25
     ? ` NOBODY HAS ANSWERED IT YET, ${turnsWaiting === 1 ? "a turn" : `${turnsWaiting} turns`} on. That is overdue rather than atmospheric: SOMEONE ANSWERS IT THIS TURN, on the page, close enough to be spoken to.`
     : "";
-  return `\nAN OPEN CALL IS STANDING — the player put this to everyone who could hear, not to any one person: "${call.what.slice(0, 200)}". It reached roughly ${scaleWord(call.reach)}, and it has not been withdrawn.`
+  return `\nAN OPEN CALL IS STANDING — the player put this to the room at large, addressed to whoever could hear: "${call.what.slice(0, 200)}". It reached roughly ${scaleWord(call.reach)}, and it has not been withdrawn.`
     + ` A call at that reach is answered by ${band.floor}. ${band.pace}`
-    + ` WHO answers and WHY is where their standing with the player bites — awe, need, ambition, calculation, loneliness, someone sent by somebody else, someone who wants the thing on offer and does not much care who is offering it. If the community fears him, then the people who come are the ones fear does not stop, and they come for worse reasons; that is a different scene, not an empty one.`
+    + ` WHO answers and WHY is where their standing with the player bites — awe, need, ambition, calculation, loneliness, someone sent by somebody else, someone who wants the thing on offer and does not much care who is offering it. If the community fears him, then the people who come are the ones fear does not stop, and they come for worse reasons; that is a different scene, and it is still a full one.`
     + ` What is NOT available is the whole population declining in unison. Crowds do not agree. Whatever the general mood, some fraction of ${scaleWord(call.reach)} acts against it, because that is what a number that size means.`
     + ` Anyone who answers must be a real person with their own reason for coming, named if they speak more than a line — the bookkeeper will card them.${unanswered}`;
 }

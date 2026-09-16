@@ -18,12 +18,13 @@
 
 import { buildMessages, complete, safeJson } from "../llm";
 import { tidyPhrase, ownWant } from "./coerce";
+import { figureIn } from "./aphorism";
 import { overlapRatio } from "./turn";
 import { clipText } from "./text";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
 
-const DRIVE_SYSTEM = `You give ONE person their next want. You are writing the life of someone who has one, not a role in someone else's story.
+const DRIVE_SYSTEM = `You give ONE person their next want. You are writing the life of someone who has one of their own.
 
 WHAT A WANT IS: something this person is trying to GET, MAKE, KEEP, MEND, WIN, or ESCAPE, that they can move toward by their own hands, on their own authority, starting today. It comes out of who they are — the work they do, what they own and owe, who they are bound to, what they were before this, what they are afraid of losing. It should be specific enough that you could tell whether they had achieved it.
 
@@ -48,7 +49,7 @@ Also give a first concrete STEP they could take within a day, by their own means
 AND GIVE THEM A DOOR. Not the want — the way this particular person goes AT it when other people are in the room. Almost nobody walks up and states what they are after. Which door they use tells the reader who they are. The adjacent subject raised so they can watch the reaction. The question asked so the other person volunteers it. Telling it as something that happened to a colleague. Floating a small deniable version first. Using an interest they already have as the door into the subject. Working through a third person who will carry it for them. Doing a favour first so the asking costs less. The door is whichever one fits THEIR traits, the lines recorded under VOICE, and their standing — a blunt person's door is still a door, just a short one — and write it as something they DO, in a few words. It must not restate the goal.
 
 Output ONLY:
-{"goal":"one sentence, concrete, theirs","approach":"how they go at it around other people — the door, not the want","step":"the first thing they do","why":"the trait, debt, bond or fear this grows from"}`;
+{"goal":"one sentence, concrete, theirs","approach":"the door they use to get at it around other people","step":"the first thing they do","why":"the trait, debt, bond or fear this grows from"}`;
 
 /** A goal is invalid if it cannot be pursued without someone else supplying an answer. */
 export function isDependentGoal(goal: string, playerName: string): boolean {
@@ -223,6 +224,23 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       if (holders.length && isPaperworkGoal(goal)) {
         console.info(`[drives] rejected paperwork goal for ${c.name} (${holders.join(", ")} already have one): "${goal}"`);
         rejection = `\n\nYour previous attempt was another errand of record and account, and ${holders.join(" and ")} ${holders.length === 1 ? "is" : "are"} already doing that in this story. Write a want of a different KIND — the body, an appetite, a grudge, a repair, curiosity, standing, or somebody else they are trying to get something for.`;
+        continue;
+      }
+      /* AND A WANT IS NOT AN EPIGRAM. The three rejections above are about what the want DOES —
+       * whether it can be stepped toward, whether it needs somebody's permission, whether the whole
+       * cast is already doing it. This one is about how it is written, and it matters for the same
+       * reason the others do: `drive.goal` is printed on the character card every turn it is live,
+       * so the narrator reads it before writing anything this person says.
+       *
+       * The shape it takes here is a want written as a summary of a life: "hold the household
+       * together with nothing but nerve", "build something out of the wreck and her own stubbornness".
+       * Those name no object and no first move, which is exactly what makes them unsteppable — the
+       * figure and the fault are the same sentence. Screened on the goal, the door and the step
+       * together, because all three reach the card. */
+      const fig = figureIn(`${goal} ${(j as any).approach ?? ""} ${j.step ?? ""}`);
+      if (fig) {
+        console.info(`[drives] rejected a want written as a general statement for ${c.name}: "${fig.text}"`);
+        rejection = `\n\nYour previous attempt named nothing anyone could point at: "${fig.text.slice(0, 160)}" — ${fig.why}. Write the want as a thing with edges: the object they are trying to get hold of, the person they have to go and see, the place they are going, the sum of money, the job that has to be finished. A reader should be able to say on any given day whether they have it yet.`;
         continue;
       }
       // the door is only kept when it is actually a different sentence from the want; a model that

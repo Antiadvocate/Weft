@@ -31,7 +31,7 @@ WRITE FACTS, NOT STORY. What is built here, what it is made of, its scale and la
 
 NEVER write: what happened here, who did what to whom, anyone's feelings, the player, an event, a quotation, or a note about the record itself. A description that reads as narrative is wrong even when every word of it is true — the narrator reads this every turn as standing fact, and a sentence about one evening becomes a permanent feature of the ground.
 
-If the place has been changed by something in the story, describe the CURRENT state, not the former one, and do not mention the change: a razed town is described as bare ground and ash, not as "a town that was destroyed".
+If the place has been changed by something in the story, describe the CURRENT state and leave the change unmentioned: a razed town is described as bare ground and ash, in the words somebody would use who had never seen it whole.
 
 Output ONLY this JSON:
 {"description_facts":"", "population":{"scale":0,"who":"who is ordinarily about at a normal hour — trades and roles, never names. 0 for genuinely uninhabited ground."}}`;

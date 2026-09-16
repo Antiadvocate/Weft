@@ -29,8 +29,14 @@
  * This linter finds three things. It is deliberately crude — it flags candidates for a human to
  * judge, and its counts are a ratchet in tests/prompt-craft.ts, not a gate.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+/* THE SHAPES LIVE IN THE ENGINE NOW. Three passes were hunting the same sentence shapes with three
+ * separate copies of the rules — this file on the instructions, engine/maxims.ts on committed
+ * dialogue, and nothing at all on the strings the forge and the bookkeeper write onto a character
+ * card. engine/aphorism.ts holds the one list all three read, so a shape added for the card screen
+ * is a shape this linter starts reporting on the same commit. The regexes moved unchanged. */
+import { EPIGRAM_FIGURES, CONTRASTIVE_FIGURES, FIGURED_FIGURES, INSTRUCTION_PRONOUNCEMENTS } from "../src/engine/aphorism";
 
 /**
  * Every template literal in the file, nesting handled.
@@ -121,12 +127,7 @@ const COMMANDED = /\b(take|match|use|keep|hold|find|choose|pick|set|write in|der
  *    dialogue, turned on the instructions themselves — because an instruction written as an epigram
  *    teaches an epigram, which turn.ts:1079 already worked out once and fixed in exactly one place.
  */
-const MAXIM = [
-  /\b(?:is|are)\s+not\s+the\s+same\s+\w*\s*as\b/i,
-  /\b(?:is|are)\s+not\s+a\s+\w+[,;]\s*(?:it|they)\s+(?:is|are)\b/i,
-  /\bnever\s+\w+[^.;]{2,30},\s*always\b/i,
-  /\bthe\s+\w+\s+is\s+not\s+the\s+\w+\b/i,
-];
+const MAXIM = EPIGRAM_FIGURES.map((f) => f.re);
 
 /**
  * 2b. THE CONTRASTIVE, WHICH IS THE ONE EVERYBODY ELSE ALSO BANS.
@@ -152,11 +153,7 @@ const MAXIM = [
  * pair — a comma, "not", and a replacement term — which is where the epigram lives. Rewriting one
  * is usually a matter of stating the positive requirement and stopping.
  */
-const CONTRASTIVE = [
-  /\b\w+,\s+not\s+(?:a|an|the|what|who|whether|how|why|by|because|to|in|on|for|from|about|as)?\s*\w+/i,
-  /\b\w+\s+—\s*not\s+(?:a|an|the)?\s*\w+\b/i,
-  /\bis\s+not\s+(?:a|an|the)?\s*\w+[,;]\s*(?:it|they|and)\b/i,
-];
+const CONTRASTIVE = CONTRASTIVE_FIGURES.map((f) => f.re);
 
 /**
  * 2c. THE FIGURED INSTRUCTION — an epigram that never uses a contrast.
@@ -196,33 +193,25 @@ const CONTRASTIVE = [
  * Each is narrow on purpose. A bare "not" is ordinary, an abstract noun is ordinary, and "as a way
  * of" is ordinary; what is caught is the figure.
  */
-const ABSTRACTION = String.raw`contempt|silence|grief|shame|anger|hunger|want|pull|need|fear|desire|appetite|longing|tenderness|cruelty|kindness|distance|absence|memory|guilt|doubt|hope|dread|affection|resentment|violence|intimacy`;
-const FIGURED = [
-  /* Litotes: a quality asserted by negating its opposite.
-   *
-   * A first cut opened this with /(that|which) (is|are) not \w+/, which is not litotes at all — it
-   * is the ordinary restrictive clause every rule in this corpus is built from. "A room that is not
-   * in the bible", "events that are not in the raw memories", "something to say that is not about
-   * the plot": thirty-odd findings, and about two thirds of them were that. A detector wrong two
-   * times in three teaches you to skip its output, which is worse than not having it — the same
-   * reasoning that took the absent-speaking check out of the coherence gate.
-   *
-   * So the litotes patterns are the ones where the negation is doing rhetorical work: a manner
-   * phrase, an un- prefix, or the "no small thing" frame. */
-  /\bin\s+(?:a\s+way|ways)\s+that\s+(?:is|are)\s+not\b/i,
-  /\bnot\s+un\w{3,}/i,
-  /\bno\s+(?:small|little|ordinary|accident|mistake)\b/i,
-  // an abstraction handed a verb of its own
-  // The verb has to be a real one. `\w+s` matches "is", so this first read "desire that is not
-  // already in these people" — a plain rule — as an abstraction given a life of its own.
-  new RegExp(String.raw`\b(?:${ABSTRACTION})\s+(?:that|which)\s+(?!is\b|was\b|has\b|does\b|goes\b|seems\b)\w+s\b`, "i"),
-  new RegExp(String.raw`\b(?:the|a|an)\s+(?:${ABSTRACTION})\s+(?:does|did|keeps|kept|comes|came|goes|went|takes|took|arrives|arrived|answers|answered)\b`, "i"),
-  new RegExp(String.raw`\bfor\s+a\s+(?:${ABSTRACTION})\s+(?:they|he|she|it)\s+(?:will|would|do|does|did)\s+not\b`, "i"),
-  // an action restated as its own interpretation
-  /\b\w+ing\s+as\s+(?:a\s+)?(?:way|form|kind|means|version|sort)\s+of\b/i,
-  // a comparison whose yardstick is a concept
-  /\b(?:nearer|closer|longer|harder|softer|quieter|louder|slower|more|less)\s+than\s+the\s+\w+\s+(?:needs|need|warrants|warranted|requires|deserves|allows|asks|calls)\b/i,
-];
+const FIGURED = FIGURED_FIGURES.map((f) => f.re);
+
+/**
+ * 2d. THE PRONOUNCEMENT — a general law about the world, standing in an instruction.
+ *
+ * These shapes were mined out of committed dialogue, in engine/maxims.ts, and were never turned on
+ * the instructions. They should have been on the first day, for the reason this file's header
+ * already gives: a prompt is a corpus. A rule reading "everything a person says has a price behind
+ * it" hands the model both the rule and a sample of the register it is meant to suppress, and the
+ * sample is the part that survives thirty thousand characters of prefix.
+ *
+ * Sharing the list with the card screen is the point. A shape added because the voice forge started
+ * writing it is a shape this linter reports on the same commit, without anybody copying a regex.
+ *
+ * ONE SHAPE IS HELD BACK, and engine/aphorism.ts says which and why: the universal quantifier is
+ * how a prohibition is written in English, so running it over a corpus of prohibitions reports the
+ * corpus. It stays on the card screen and comes off here.
+ */
+const PRONOUNCEMENT = INSTRUCTION_PRONOUNCEMENTS.map((f) => f.re);
 
 /**
  * 3. CLAIMS THE MODEL CANNOT ACT ON. Assertions about literary history, taste, or what "real"
@@ -303,6 +292,11 @@ export function lint(src: string): Finding[] {
     }
     if (FIGURED.some((re) => re.test(s))) {
       out.push({ kind: "figured-instruction", text: s, why: "an epigram built without a contrast — litotes, an abstraction given a verb, an action restated as its own meaning, or a comparison measured against a concept. The prompt is a corpus: this teaches the register while it commands the behaviour" });
+      continue;
+    }
+    if (PRONOUNCEMENT.some((re) => re.test(s))) {
+      out.push({ kind: "pronouncement-instruction", text: s, why: "a general law about the world, in the shape engine/maxims.ts catches in dialogue. Say which case, in this engine, and what to do about it" });
+      continue;
     }
     if (UNACTIONABLE.test(s)) {
       out.push({ kind: "unactionable-claim", text: s, why: "a claim about style with no operation in it — nothing to do" });
@@ -326,8 +320,32 @@ export function lintDir(dir = "src/engine"): { file: string; findings: Finding[]
     .filter((r) => r.findings.length);
 }
 
+/* EVERY .ts AND .tsx UNDER A ROOT, NOT JUST THE ONE FLAT DIRECTORY.
+ *
+ * lintDir reads `src/engine` and stops there, so the ratchets it feeds have only ever measured the
+ * engine. Model-facing text is not only in the engine. src/llm.ts builds the message envelope,
+ * src/lib/api.ts carries the retry and repair prompts, and src/views/*.tsx holds the strings a
+ * player reads — which are not sent to a model, but are written by the same hand on the same day
+ * and drift the same way. Walking the tree is what lets one ratchet cover the whole game. */
+export function lintTree(root: string): { file: string; findings: Finding[] }[] {
+  const out: { file: string; findings: Finding[] }[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir).sort()) {
+      if (e === "node_modules" || e === "dist" || e === ".git") continue;
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (!/\.tsx?$/.test(e)) continue;
+      const findings = lint(readFileSync(full, "utf8"));
+      if (findings.length) out.push({ file: full, findings });
+    }
+  };
+  walk(root);
+  return out;
+}
+
 if (process.argv[1]?.endsWith("promptlint.ts")) {
-  const results = lintDir(process.argv[2] ?? "src/engine");
+  const target = process.argv[2] ?? "src/engine";
+  const results = target === "src/engine" ? lintDir(target) : lintTree(target);
   let n = 0;
   for (const { file, findings } of results.sort((a, b) => b.findings.length - a.findings.length)) {
     console.log(`\n${file}  (${findings.length})`);

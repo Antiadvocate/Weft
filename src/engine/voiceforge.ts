@@ -16,6 +16,7 @@
 // Fails open: any error and the forge's original voice card is kept untouched.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { screenCard, rewriteNote } from "./aphorism";
 
 export interface VoiceCard {
   diction: string;
@@ -123,7 +124,20 @@ export function monotone(v: VoiceCard): boolean {
   return false;
 }
 
-/** Uniform pick from the tail pool, preferring candidates that are not one idea four times. */
+/**
+ * Uniform pick from the tail pool, after two rejections.
+ *
+ * THE SECOND REJECTION IS THE APHORISM. Everything this file already does is aimed at the register
+ * a model defaults to when nothing more specific is holding the mouth open, and the tail sample is
+ * what moves it. The tail has its own failure: an improbable voice is often improbable because it
+ * is WRITTEN UP, and a written-up voice card carries an epigram in the one field the narrator
+ * copies from. An example_line reading "Everything here has a price" is sampled at 0.03 and is the
+ * exact sentence maxims.ts spends six hundred lines catching on the way out — arriving on the way
+ * in, stamped onto the card, printed to the narrator every turn under ONE OF THEIR ACTUAL LINES.
+ *
+ * So the same mechanism as monotone, for the same reason: five candidates, drop the ones that trip,
+ * fail open if they all do. A figured card still beats no card, which is what the fallback gives.
+ */
 export function pickFromTail(cands: Candidate[]): VoiceCard | null {
   const usable = cands.filter(
     (c) => c?.voice?.example_lines?.length && Number.isFinite(c.probability),
@@ -135,8 +149,15 @@ export function pickFromTail(cands: Candidate[]): VoiceCard | null {
   // so dropping the collapsed ones usually leaves something. If every one of them collapsed, the
   // pool stands — a monotone voice still beats no voice, which is what failing closed would give.
   const varied = pool.filter((c) => !monotone(c.voice));
-  const use = varied.length ? varied : pool;
+  const plain = varied.filter((c) => screenCard({ voice: c.voice }).length === 0);
+  const use = plain.length ? plain : varied.length ? varied : pool;
   return use[Math.floor(Math.random() * use.length)].voice;
+}
+
+/** What the screen would strike off this card — exported so a caller can report it rather than
+ *  discovering it in play. */
+export function voiceFaults(v: VoiceCard | null | undefined): string[] {
+  return screenCard(v ? { voice: v } : null).map((f) => `${f.field}: ${f.text}`);
 }
 
 /** One character, one call. `avoid` carries the lines already committed to this cast. */
@@ -160,7 +181,7 @@ export async function forgeVoice(
     // and drive_goal are forge-output fields and are not on a stored Identity, so this line has
     // been rendering empty for every re-forge of every character in play.
     `WORDS THIS PERSON HAS TO TALK AT LENGTH ABOUT: ${Object.keys(npc.skills ?? {}).join(", ") || (npc.texture ?? []).join("; ")}`,
-    `WORLD — this is the floor, not decoration:\n${worldNote}`,
+    `WORLD — everything below happens inside this and nowhere else:\n${worldNote}`,
   ].join("\n");
 
   // Concrete exclusion, not an abstract instruction to "be different" — the model can

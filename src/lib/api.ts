@@ -1170,7 +1170,7 @@ export const api = {
   repairSave: async (id: string): Promise<{ save: ClientSave; log: string[] }> => {
     const s = await need(id);
     const log = [
-      ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description, not a person.`),
+      ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description that had been filed as a person.`),
       ...repairStatuses(s),
       ...repairStrandedCast(s),
       ...repairPlaceDescriptions(s),

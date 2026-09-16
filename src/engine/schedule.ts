@@ -321,7 +321,7 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
         const cost = b.rigidity === "mandatory"
           ? ` They are ${Math.round(r.pending.lateBy)} minutes late for something they cannot simply skip${b.stakes?.trim() ? `, and the cost is real: ${b.stakes.trim()}` : ""}. They go THIS TURN — the prose shows them going, mid-sentence if that is what it takes.`
           : ` They are ${Math.round(r.pending.lateBy)} minutes past when they meant to leave, and they know it.`;
-        rows.push(`${c.name} — LATE FOR ${b.what.trim()} at ${where} (due ${clockLabel(b.start)}).${cost}${how}${why} Write the leaving as this person would do it, not as an announcement: what they pick up, who they cut off, what they say on the way out.`);
+        rows.push(`${c.name} — LATE FOR ${b.what.trim()} at ${where} (due ${clockLabel(b.start)}).${cost}${how}${why} Write the leaving as this person would do it: what they pick up, who they cut off, what they say on the way out.`);
       } else {
         rows.push(`${c.name} — HAS TO SET OUT NOW for ${b.what.trim()} at ${where}, due ${clockLabel(b.start)}.${how}${why} They know the hour and they act on it themselves: they end what they are doing and go, this turn, without being asked and without waiting for permission. They may be sorry about it, brisk about it, or glad of the excuse. If the player gives them a real reason to stay, they can choose to stay, and staying COSTS THEM SOMETHING${b.stakes?.trim() ? ` (${b.stakes.trim()})` : ""}, which they weigh out loud or silently, but do not shrug off.`);
       }
@@ -330,7 +330,7 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
     if (r.next && r.next.leaveIn <= HEADS_UP_MIN) {
       const b = r.next.block;
       rows.push(`${c.name} — knows they are due at ${placeName(state, existingBlockPlace(state, b))} for ${b.what.trim()} at ${clockLabel(b.start)}, and has about ${Math.round(r.next.leaveIn)} minutes before they have to leave. They are not going yet.${guarded
-        ? ` They are also in the middle of something that the hour does not interrupt, and they do NOT say how much time they have — not the number, not a version of it, not a joke about it. It is not on the page this turn. They are where they are.`
+        ? ` They are also in the middle of something that the hour does not interrupt, and they do NOT say how much time they have — no number, no rounded version of it, no joke about it. It stays off the page this turn. They are where they are.`
         : ` It shapes what they are willing to start: they do not open anything long, they may say how much time they have, and the hour is somewhere in how they hold the conversation.`}`);
       continue;
     }
@@ -344,7 +344,7 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
     }
   }
   if (!rows.length) return "";
-  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY — their own lives, running on their own clock, not the player's.
+  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY — their own lives, running on a clock of their own.
 These are not suggestions the scene may override for being busy. A person with somewhere to be behaves like one, and the story does not get to pause their week.\n· ${rows.join("\n· ")}]`;
 }
 

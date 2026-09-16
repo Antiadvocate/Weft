@@ -16,6 +16,7 @@
 // The originals are preserved in core_traits_legacy. Nothing is destroyed.
 
 import { buildMessages, complete, safeJson } from "../llm";
+import { figured } from "./aphorism";
 
 const TRAIT_SYSTEM = `You re-express one existing character's core traits. You are NOT redesigning them.
 
@@ -99,14 +100,25 @@ export async function retraitCharacter(
     return null;
   }
 
-  // HARD CAP. The prompt asks for one-per-original; a model that ignores that produced seven traits
-  // from three and buried the person in noise. Truncate rather than trust.
+  /* HARD CAP. The prompt asks for one-per-original; a model that ignores that produced seven traits
+   * from three and buried the person in noise. Truncate rather than trust.
+   *
+   * AND THE FIGURED ONES GO LAST, NOT OUT. The prompt's own test is COULD YOU FILM IT, and a trait
+   * written as a general statement about people fails it by construction: "kindness that keeps
+   * coming back for more of you" names no object, no place and no act, so a camera pointed at this
+   * person for a week catches nothing. Sorting rather than dropping is deliberate — this pass is
+   * required to account for every original trait, and discarding one would silently change who the
+   * character is, which is the single thing the file header forbids. So the filmable translations
+   * take the slots first and a figure only survives when nothing better was written for it. */
   const after = traits
     .map((t) => String(t?.trait ?? "").trim())
     .filter((t) => t.length > 3)
+    .sort((a, b) => Number(figured(a)) - Number(figured(b)))
     .slice(0, Math.max(2, Math.min(4, before.length)));
   // A translation that loses most of the person is a failed call, not a result worth keeping.
   if (after.length < Math.max(2, before.length - 1)) return null;
+  const stillFigured = after.filter(figured);
+  if (stillFigured.length) console.warn(`[traitforge] ${c.name}: kept ${stillFigured.length} trait(s) that name no act — ${JSON.stringify(stillFigured)}`);
 
   c.core_traits_legacy = before;      // nothing is destroyed
   c.core_traits = after;
