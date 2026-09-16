@@ -73,6 +73,16 @@ Three things worth knowing:
 
 Off by default, including on upgrade. Every failure path — provider down, timeout, nothing usable back — leaves you reading exactly what the narrator wrote.
 
+## The prompt corpus is a corpus
+
+A prompt is not only instructions; it is text the model conditions on. Weft had a detector for the sentence a character writes when it has nothing to say — the portable one, true anywhere, about nothing in the room — and it caught that in the narrator's committed prose. It never looked at the two places the same sentence enters from.
+
+The first is the instructions themselves. Measured on `src/engine`, 262 model-facing sentences were built on "X, not Y", 151 of them in `prompts.ts`: *render the act, not the psychology*, *accurate, not invented, not withheld*. That shape is a listed marker of machine prose in three independent places, including Weft's own output detector. An instruction block that uses it hundreds of times teaches it far more reliably than one sentence asking for it to be avoided. All 262 are rewritten as the positive requirement, `npm run lint:prompts` reports what is left, and `tests/prompt-shapes.ts` holds it at zero across `src`, `tools` and `relay`.
+
+The second is the cards. The voice forge writes diction, syntax, rhythm, an agenda and two or three sample lines per character; the bookkeeper writes a whole record for anyone who walks into the prose; the drive forge writes a want. Every one of those strings is printed into the narrator's prompt on every turn it is relevant, and one sample line is printed again each turn under the heading *ONE OF THEIR ACTUAL LINES*. A maxim there is not a bad sentence you read once — it is a model of how this person talks, standing in the cached prefix for the rest of the save. So the same shapes now screen the intake: the voice forge drops a candidate that trips and keeps sampling, the sketch pass asks once more for the field that tripped, the drive forge rejects a want that names nothing you could point at, and a sample line the bookkeeper writes in that register is struck off the card before it reaches the page. Every one of them fails open — a screened field that cannot be replaced is kept, because a figured card still beats a blank one.
+
+`engine/aphorism.ts` holds the one list all of it reads.
+
 ## Running a local image model
 
 The same idea one slot down: point **Tuning → Local images** at ComfyUI or an A1111-style WebUI, then set the image slot to a `local/…` id. Portraits and scene art are then drawn on your own GPU.

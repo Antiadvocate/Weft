@@ -281,3 +281,43 @@ export function rewriteNote(faults: readonly CardFault[], who: string): string {
   return `These came back as sentences about the world in general rather than about ${who}, so they fit any person in any story:\n${rows.join("\n")}\n`
     + `Rewrite each one so it names something a camera would catch: an object ${who} handles, a place they go, a person they know by name, something that happened to them on a particular day, a thing their hands do. A finished line passes when you can point at the thing in it. Keep every other field byte-identical.`;
 }
+
+/**
+ * STRIKE THE TWO FIELDS THAT GOVERN HOW SOMEBODY TALKS, and leave the rest of the card alone.
+ *
+ * For a record that arrived from a model with no player in the loop: the world forge's cast, a
+ * person the bookkeeper invented mid-scene. Both of those write `example_lines` and a
+ * `speech_pattern`, and those two strings then govern every word the character ever speaks —
+ * prompts.ts prints them on the card and maxims.ts prints one example line again each turn under
+ * ONE OF THEIR ACTUAL LINES.
+ *
+ * Struck one line at a time, because a clean sample is worth keeping and a figured one is worth
+ * less than nothing. What is left blank does not stay blank: sketch.ts fills the empty fields on a
+ * record, voiceforge overwrites the voice card on its next refresh, and turn.ts has a floor for a
+ * character who arrives with no voice at all.
+ *
+ * A player-authored card never comes through here. The player may write however they like.
+ */
+export function strikeFigures(card: Record<string, any> | null | undefined): CardFault[] {
+  if (!card) return [];
+  const struck: CardFault[] = [];
+
+  const sift = (holder: Record<string, any>, key: string) => {
+    const raw = holder?.[key];
+    if (!Array.isArray(raw) || !raw.length) return;
+    const kept: unknown[] = [];
+    for (const line of raw) {
+      const hit = screenCard({ example_lines: [String(line ?? "")] })[0];
+      if (hit) struck.push({ ...hit, field: key });
+      else kept.push(line);
+    }
+    if (kept.length !== raw.length) holder[key] = kept;
+  };
+  sift(card, "example_lines");
+  if (card.voice) sift(card.voice, "example_lines");
+
+  const sp = figureIn(card.speech_pattern);
+  if (sp) { struck.push({ field: "speech_pattern", text: sp.text, shape: sp.shape, why: sp.why }); card.speech_pattern = ""; }
+
+  return struck;
+}

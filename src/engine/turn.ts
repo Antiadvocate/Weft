@@ -64,7 +64,7 @@ import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntit
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
-import { figureIn, figured, screenCard } from "./aphorism";
+import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
@@ -5598,27 +5598,16 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
      *
      * A character invented mid-play arrives with example_lines and a speech_pattern written in one
      * pass of a call whose main job was recording what changed, and those two strings then govern
-     * every word this person ever speaks: prompts.ts prints them on the card and maxims.ts prints
-     * one of them again each turn under ONE OF THEIR ACTUAL LINES. An example line reading
-     * "Everything in this town has a price" is the exact sentence findMaxims spends its whole
-     * existence catching in committed prose, entering from the other side and outliving every turn
-     * it would have been caught on.
+     * every word this person ever speaks. An example line reading "Everything in this town has a
+     * price" is the exact sentence findMaxims spends its whole existence catching in committed
+     * prose, entering from the other side and outliving every turn it would have been caught on.
      *
-     * Struck out rather than rewritten, and struck out one line at a time: a clean sample is worth
-     * keeping and a figured one is worth less than nothing. What is left blank is not left blank
-     * for long — sketch.ts fills the empty fields on a provisional record, and it has a model call
-     * and a screen of its own. The floor below already handles a character who arrives with no
-     * voice at all, which is what a card stripped to nothing becomes. */
-    const rawLines = ((nc as any).example_lines ?? []) as unknown[];
-    const keptLines = rawLines.filter((l) => screenCard({ example_lines: [String(l ?? "")] }).length === 0);
-    if (keptLines.length < rawLines.length) {
-      console.warn(`[cast] struck ${rawLines.length - keptLines.length} sample line(s) off ${nc.name}'s new card — they named nothing in the room`);
+     * strikeFigures takes those lines off one at a time and clears a figured speech pattern; see
+     * engine/aphorism.ts for why nothing else on the record is touched. */
+    for (const f of strikeFigures(nc as any)) {
+      console.warn(`[cast] struck ${f.field} off ${nc.name}'s new card — ${f.why}: "${f.text.slice(0, 80)}"`);
     }
-    if (figured((nc as any).speech_pattern)) {
-      console.warn(`[cast] cleared ${nc.name}'s speech pattern: "${String((nc as any).speech_pattern).slice(0, 90)}"`);
-      (nc as any).speech_pattern = "";
-    }
-    const vFlat = { example_lines: keptLines as string[], never_says: (nc as any).never_says };
+    const vFlat = { example_lines: (nc as any).example_lines as string[] | undefined, never_says: (nc as any).never_says };
     const voice = vFlat.example_lines?.length || vFlat.never_says?.length ? { example_lines: vFlat.example_lines?.slice(0, 4), never_says: vFlat.never_says?.slice(0, 3) } : undefined;
     // MULTIPLE GOALS — a character is several live wants, not one. Take drive_goals[] if the bookkeeper
     // supplied it; else fall back to the single drive_goal/current_goal. The first becomes the active

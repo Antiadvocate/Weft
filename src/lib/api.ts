@@ -7,6 +7,7 @@ import type {
 } from "../engine/types";
 import { DEFAULT_MODELS } from "../engine/types";
 import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
+import { strikeFigures } from "../engine/aphorism";
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
 import { dischargeFiredClocks } from "../engine/pressure";
@@ -1734,6 +1735,22 @@ export const api = {
     }
     if (!g) throw new Error(`The forge failed after 3 attempts — ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
 await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
+    /* AND THE SAMPLE LINES THAT SURVIVED THE VOICE PASS.
+     *
+     * forgeCastVoices fails open by design — any error and the forge's original card is kept
+     * untouched — so a cast whose voice calls all failed reaches the save with example_lines drawn
+     * from the single forward pass that built the whole world. That is the pass voiceforge.ts
+     * exists because of, and its output is where the oracular register enters a save: one sentence
+     * per NPC, stamped onto the card, printed to the narrator under ONE OF THEIR ACTUAL LINES for
+     * as long as the story runs.
+     *
+     * So the screen runs on whatever is on the cards now, whichever pass wrote them. Struck a line
+     * at a time; the next voice refresh replaces the whole card anyway. */
+    for (const n of [...(g.npcs ?? []), g.player].filter(Boolean)) {
+      for (const f of strikeFigures(n)) {
+        console.warn(`[forge] struck ${f.field} off ${n.name}'s card — ${f.why}: "${f.text.slice(0, 80)}"`);
+      }
+    }
     const bible: WorldBible = {
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
