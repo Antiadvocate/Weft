@@ -80,6 +80,19 @@ export interface ModelSettings {
   prose_min_p?: number;           // 0–0.2. Relative probability floor; what keeps a warm temperature from going to pieces. 0 = off.
   daily_budget_usd?: number;      // cost governor: soft daily budget; past 70% the engine auto-runs eco (lean + tight context)
   chapter_cadence?: number;       // auto-chapter every N turns (0 = off, default 25) — one cheap call, shown in Chronicle + one line each in context
+  /** HOW MANY PEOPLE GET THEIR OWN CALL WHEN THE WORLD MOVES. 0 or unset = off, and the omniscient
+   *  world pass runs exactly as it always has. 1–4 = that many offstage characters are each handed
+   *  a briefing containing only what THEY know and asked what they did, in place of one model being
+   *  handed the whole world and asked to forget most of it. See engine/agency.ts for the argument
+   *  and for the measured cost, which is lower than the pass it replaces rather than higher.
+   *  Off by default because it changes what the background is made of, and that is a choice about
+   *  the story rather than a fix. */
+  agency_actors?: number;
+  /** ...and how often the world pass still runs underneath it. Every Nth offstage interval, the
+   *  omniscient pass runs instead of the actors, so weather, illness, a herd, a flood and the
+   *  factions nobody in the cast belongs to keep existing. Default 3. 0 retires the world pass
+   *  entirely, which costs less and makes the background purely the cast's own doing. */
+  agency_world_ratio?: number;
   /** PAINT THE SCENE EVERY TURN, without being asked.
    *
    *  Off by default and deliberately so on the cloud path, where every turn would be a few cents.
@@ -886,6 +899,10 @@ export interface WorldState {
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
   offstage_last_time?: string;
+  /** How many offstage intervals have run since agency was switched on. The world pass rides every
+   *  `agency_world_ratio`-th one of them, so the weather and the factions nobody stands in keep
+   *  existing while the cast moves itself the rest of the time. See engine/agency.ts. */
+  agency_passes?: number;
   /** In-world timestamp at each turn, so elapsed travel time can be measured between two turns
    *  rather than assumed from a turn count. Trimmed to the recent window. */
   time_at_turn?: Record<number, string>;

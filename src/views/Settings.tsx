@@ -1020,6 +1020,25 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         </div>
       </div>
       <div className="card p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>The world offstage</div>
+        <div className="flex items-center justify-between">
+          <span className="text-[14px]">People who move themselves</span>
+          <span className="font-mono text-[13px]" style={{ color: "var(--accent)" }}>{draft.agency_actors ? draft.agency_actors : "off"}</span>
+        </div>
+        <input type="range" min={0} max={4} step={1} value={draft.agency_actors ?? 0}
+          onChange={(e) => setDraft((d) => ({ ...d, agency_actors: Number(e.target.value) }))}
+          className="w-full mt-1" style={{ accentColor: "var(--accent)" }} />
+        <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
+          Off, one model is handed the entire world between scenes and asked to report what happened elsewhere — with most of its instructions spent asking it to forget the half it should not know. On, that many offstage characters are each given a briefing holding only what <em>they</em> know, and asked what they did. Somebody who was never told a thing cannot repeat it, so the misunderstandings, the stale news and the calls that go unanswered come from the shape of the call rather than from a rule. It runs on the same schedule the world already moved on, so it adds no calls to a turn you are waiting on, and two briefings cost less than one world report.
+        </div>
+        {!!draft.agency_actors && (<>
+          <TextField label="Keep the world report every Nth time (0 = never)" value={String(draft.agency_world_ratio ?? 3)} onChange={(v) => setDraft((d) => ({ ...d, agency_world_ratio: Number(v) || 0 }))} mono />
+          <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
+            Nobody in your cast is the weather. Every Nth interval the old omniscient report runs instead, so illness, a flood, a herd, a season and the factions none of your people stand in keep happening. Set 0 and the background becomes purely your cast's own doing, which costs less.
+          </div>
+        </>)}
+      </div>
+      <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Cast</div>
         <div className="flex items-center justify-between">
           <span className="text-[14px]">Central characters</span>

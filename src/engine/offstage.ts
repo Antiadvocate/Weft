@@ -26,6 +26,7 @@ import { mundaneObjective } from "./knowledge";
 import { placeIntent } from "./places";
 import { scheduleDigestLine } from "./schedule";
 import { clipText } from "./text";
+import { runAgency, MAX_ACTORS } from "./agency";
 import { cleanMemoryContent } from "./memory";
 import type { SaveState } from "./types";
 
@@ -426,11 +427,46 @@ export function retireUnreachableClocks(state: any): string[] {
   return log;
 }
 
+/**
+ * WHICH OF THE TWO WAYS THE WORLD MOVES THIS INTERVAL.
+ *
+ * With agency off this is always the world pass and the function below is the only path, exactly
+ * as it has been. With agency on, most intervals are the cast acting for themselves out of what
+ * each of them knows — and every `agency_world_ratio`-th interval is still the world pass, because
+ * nobody in the cast is the weather. A ratio of 0 retires the world pass and makes the background
+ * purely the cast's own doing, which is cheaper and is a different story.
+ *
+ * Counted in intervals rather than turns so the cadence holds whether a save burns six hours a turn
+ * or six minutes.
+ */
+export function agencyTurn(state: any): { actors: number; worldPass: boolean } {
+  const n = Math.max(0, Math.min(MAX_ACTORS, Number(state.model_settings?.agency_actors ?? 0) || 0));
+  if (!n) return { actors: 0, worldPass: true };
+  const ratio = Math.max(0, Number(state.model_settings?.agency_world_ratio ?? 3) || 0);
+  const count = Number(state.world?.agency_passes ?? 0);
+  return { actors: n, worldPass: ratio > 0 && count % ratio === 0 };
+}
+
 export async function runOffstage(state: any, model: string): Promise<string[]> {
   if (!offstageDue(state)) return [];
   state.world.offstage_last_time = state.world.current_time;
   state.world.offstage_last_turn = state.world.current_turn ?? 0;
   const retired = retireUnreachableClocks(state);
+
+  const plan = agencyTurn(state);
+  if (plan.actors) state.world.agency_passes = (state.world.agency_passes ?? 0) + 1;
+
+  // THE CAST MOVES ITSELF. n small calls, each one holding a single person's knowledge, run in
+  // place of the one call that holds everybody's. A failure here is not a failure of the interval:
+  // an empty result falls through to the world pass below, so a small model that returned bad JSON
+  // costs the actors' afternoon and never costs the background its motion.
+  if (plan.actors) {
+    try {
+      const events = await runAgency(state, model, plan.actors);
+      if (events.length) return applyOffstage(state, events, retired);
+    } catch { /* fall through to the world pass */ }
+    if (!plan.worldPass) return applyOffstage(state, [], retired);
+  }
 
   let events: OffstageEvent[] = [];
   try {
