@@ -63,6 +63,7 @@ import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
+import { isDependentGoal } from "./driveforge";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
@@ -6706,6 +6707,31 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!misattributionAllowed(state, id, prose, action)) {
       shifts.push(`bookkeeping correction: ${nameOf(id)} was not in this scene — a want from it was not recorded for them`);
       console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
+      continue;
+    }
+    /* A WANT WHOSE COMPLETION IS SOMEBODY ELSE'S ACTION LEAVES ITS OWNER NOTHING TO DO.
+     *
+     * isDependentGoal was written for this, sits in driveforge.ts with its own rules, and had ZERO
+     * callers anywhere in src. Measured on a save: a woman recorded as wanting to "Get Max Mercer
+     * to hand over the rent money to her bank account and look at her body", blocked on "Max Mercer
+     * is ignoring her and staring at his phone", present in twenty-four consecutive scenes. Ten
+     * intents were authored for her and the surface of every one is a variant of reclining —
+     * sprawls back, sprawling back, leaning back, sprawled deep into the cushions — while the truth
+     * of every one is what HE does: stammers, looks, loses his train of thought, drops the phone.
+     *
+     * Not one of the ten has her doing anything, and the player's report was that she makes no
+     * moves at all. He is reading the record correctly. The intent pass is asked every turn what
+     * this person is doing about their want, and a want like that has one answer: present yourself
+     * and wait. The character is not passive; the goal is.
+     *
+     * The blocker keeps the want, because being stuck on somebody is real and is what the blocker
+     * field is for. What is dropped is the GOAL, so regenerateDrives seeds a fresh one from this
+     * person's own edges and traits — something they start on their own on a Tuesday. */
+    if (isDependentGoal(String(du.goal), state.characters["char_player"]?.name ?? "")) {
+      const prev = state.characters[id].drive;
+      if (prev?.goal && du.blocker) prev.blocker = du.blocker;
+      shifts.push(`${nameOf(id)}'s want was recorded as something ${state.characters["char_player"]?.name ?? "the player"} has to do — dropped, so she gets one of her own`);
+      console.warn(`[drives] dependent goal rejected for ${nameOf(id)}: "${String(du.goal).slice(0, 70)}"`);
       continue;
     }
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
