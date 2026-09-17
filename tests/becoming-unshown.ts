@@ -24,7 +24,7 @@
  * A becoming the world grew into and a becoming that landed on the calendar alone need opposite
  * instructions, so they get separate blocks.
  */
-import { becomingLaw } from "../src/engine/becoming";
+import { becomingLaw, becomingFinalLaw, applyBecomingProgress, GRACE_TURNS } from "../src/engine/becoming";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -94,6 +94,85 @@ const state = (becomings: unknown[]): SaveState =>
   check("no becomings, no block", becomingLaw(state([])) === "");
   check("a live one is not law yet",
     becomingLaw(state([{ id: "c", claim: NEVER, turns: 3, remaining: 2, moved: 0, stalled: 1 }])) === "");
+}
+
+/* ── 6. THE LAST TURN OF THE CLOCK IS NOT A REQUEST ──────────────────────────────
+ *
+ * becomingDirective already asks as hard as prose can, and past STALL_LIMIT it tells the narrator
+ * the world is behind and this turn opens on it. The save's becoming came back moved: 0, stalled: 3
+ * on a three-turn clock — asked three times, ignored three times, then converted into a fact.
+ *
+ * Asking harder is not the move left. What the engine had and was not using is the shape it uses
+ * wherever something MUST be on the page: state it as a fact, name the specific ways it gets
+ * skipped, and put it LAST, which is where this codebase has repeatedly recorded that a rule stops
+ * being reference and becomes an instruction. */
+{
+  const s = state([{ id: "x", claim: NEVER, turns: 3, remaining: 1, moved: 0, stalled: 2 }]);
+  const law = becomingFinalLaw(s);
+  check("the final turn gets its own law", law.includes("THE LAST TURN ON THIS CLOCK"), law);
+  check("...carrying the claim", law.includes(NEVER));
+  check("...and the three declines, the same three a player's declaration gets",
+    /Nothing arrives to interrupt it/.test(law) && /Nobody almost does it/.test(law) && /Nothing milder happens instead/.test(law), law);
+  check("...with the clock's own bargain named", law.includes("The player set the number of turns"));
+
+  check("a becoming with turns left does not get it",
+    becomingFinalLaw(state([{ id: "y", claim: NEVER, turns: 3, remaining: 2, moved: 0, stalled: 0 }])) === "");
+  check("nor does one that already arrived",
+    becomingFinalLaw(state([{ id: "z", claim: NEVER, turns: 3, remaining: 0, moved: 1, stalled: 0, arrived_turn: 4 }])) === "");
+}
+
+/* ── 7. AND THE CLOCK DOES NOT SPEND A TURN THE PROSE NEVER DELIVERED ────────────
+ *
+ * The existing note is right that gating the clock on the simulator's report was wrong — the report
+ * is the thing that fails, and a becoming gated on a model's judgement waits forever. That is an
+ * objection to gating on a JUDGEMENT. findDeclaredMiss reads the committed prose for the claim's
+ * own content words and for the three shapes a skipped event takes, the way maxims, echo, anatomy
+ * and kinship all read the page: free, lexical, no opinion.
+ *
+ * Every turn but the last still spends itself regardless. The last one is given again, at most
+ * GRACE_TURNS times, when the prose came back without the thing in it. */
+{
+  const CLAIM = "The basement laundry has been padlocked by the management company.";
+  const s = state([{ id: "g", claim: CLAIM, turns: 3, remaining: 1, moved: 0, stalled: 2 }]);
+  const b = (s.becomings as any[])[0];
+
+  const empty = "The fan turned in the window. He kept reading until the light went out of the room.";
+  applyBecomingProgress(s, 9, undefined, empty);
+  check("a final turn that came back empty does not spend the clock", b.remaining === 1, b);
+  check("...and the grace is counted", b.grace === 1, b);
+  check("...and the player is told", !b.arrived_turn);
+
+  applyBecomingProgress(s, 10, undefined, empty);
+  check(`a second empty turn uses the last grace`, b.grace === GRACE_TURNS, b);
+  check("...still not arrived", !b.arrived_turn, b);
+
+  /* Bounded, because a narrator that never finds a way in must not freeze it forever. That is the
+   * objection the deadline was built against and it still holds. */
+  applyBecomingProgress(s, 11, undefined, empty);
+  check("past the grace it lands anyway", b.arrived_turn === 11, b);
+  check("...and is then owed on the page", becomingLaw(s).includes("NEVER ONCE ON THE PAGE"));
+}
+
+/* ── 8. A FINAL TURN THAT DID DELIVER SPENDS ITSELF ──────────────────────────── */
+{
+  const CLAIM = "The basement laundry has been padlocked by the management company.";
+  const s = state([{ id: "h", claim: CLAIM, turns: 3, remaining: 1, moved: 2, stalled: 0 }]);
+  const b = (s.becomings as any[])[0];
+  const landed = "A padlock had gone on the basement laundry door overnight, management company's notice taped beside it, and the hasp was new.";
+  applyBecomingProgress(s, 9, undefined, landed);
+  check("the clock spends when the prose carried it", b.arrived_turn === 9, b);
+  check("...with no grace used", !b.grace, b);
+
+  /* And it is not owed, because it was shown on the way in. */
+  check("...and it is not in the owed block", !becomingLaw(s).includes("NEVER ONCE ON THE PAGE"), becomingLaw(s));
+}
+
+/* ── 9. WITHOUT PROSE THE OLD BEHAVIOUR STANDS ───────────────────────────────── */
+{
+  const s = state([{ id: "i", claim: NEVER, turns: 3, remaining: 1, moved: 0, stalled: 2 }]);
+  const b = (s.becomings as any[])[0];
+  applyBecomingProgress(s, 9, undefined);
+  check("a caller that passes no prose is unchanged", b.arrived_turn === 9, b);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
