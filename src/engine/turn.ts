@@ -64,6 +64,7 @@ import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntit
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
 import { isDependentGoal } from "./driveforge";
+import { storyFrame, findDeclaredMiss, declaredFix } from "./declared";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
@@ -1764,7 +1765,10 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I go on reading because it stings to be ignored"), that feeling is PRIVATE. Let it decide what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it, and that holds for everyone present and for every kind of intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
-  story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
+  // Seventeen words with three escape hatches, for the one channel whose entire purpose is that
+  // what the player typed happens. See engine/declared.ts for the full argument and for the three
+  // ways a declaration gets declined without ever being refused.
+  story: (a) => storyFrame(a),
 };
 
 /** A proper name (multi-word, or Capitalized non-generic) — used only as a hint for auto-tracking. */
@@ -2866,7 +2870,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3394,6 +3398,9 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // AND WHETHER THE WORLD DID WHAT THE PLAYER WROTE. Only on the channel that promises it, and
+      // only against the prose actually committed. See engine/declared.ts.
+      state.last_declared = mode === "story" && !voided ? findDeclaredMiss(action, prose) : null;
       // ...and the same move one layer out: a figure of speech in the NARRATION, explaining a
       // spoken line with a comparison. Fires on recurrence rather than on the instance — a simile
       // is a style choice, the same simile frame three turns running is a tic, and "like she was
