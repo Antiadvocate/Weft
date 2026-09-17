@@ -53,7 +53,7 @@ import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
-import { becomingDirective, becomingBehind, becomingLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
+import { becomingDirective, becomingBehind, becomingLaw, becomingFinalLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { tickNeglect } from "./neglect";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
@@ -2400,6 +2400,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // one step toward it per turn, through its own causes, and lands in canon when it gets there.
   // Arrivals are resolved after the prose, so this turn carries only the approach. See becoming.ts.
   const becomingNote = becomingDirective(state) + becomingBehind(state) + becomingLaw(state) + arrivalDirective(state.pending_arrivals ?? []);
+  // THE LAST TURN OF A CLOCK SITS BESIDE THE BEAT, one slot in front of it. becomingDirective sits
+  // in the middle of the direction with thirty other paragraphs, and a becoming on its final turn
+  // has one turn left. The beat keeps the final slot, which tests/what-this-turn-is-for.ts pins on
+  // purpose — it is the one thing the engine decided this turn is FOR and it belongs against the
+  // player's own line. See becomingFinalLaw.
+  const becomingFinal = becomingFinalLaw(state);
   // LAST, ON PURPOSE. The beat is the single thing the engine decided this turn is for, and it sits
   // here against the player's own line rather than five paragraphs into a forty-paragraph digest.
   const beatNote = beatDirective(beat, dial);
@@ -3148,13 +3154,13 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -4534,7 +4540,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // changed would leave the prose pretending. Arrivals are carried to the NEXT turn's direction,
   // because this turn's prose is already written. See engine/becoming.ts.
   {
-    const bec = applyBecomingProgress(state, turn, diff.becoming_progress);
+    const bec = applyBecomingProgress(state, turn, diff.becoming_progress, prose);
     shifts.push(...bec.shifts);
     state.pending_arrivals = bec.arrived.length ? bec.arrived : undefined;
   }

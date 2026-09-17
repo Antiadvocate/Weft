@@ -484,7 +484,7 @@ function Becomings({ save, setSave }: { save: ClientSave; setSave: (s: ClientSav
       <div className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
         A fact this world does not hold yet. The world gets there through its own causes, one step a turn —
         and the count is a deadline, not a suggestion: every turn spends one, and when the clock runs out it
-        becomes canon and binds every line after it, however much ground the prose left.
+        becomes canon and binds every line after it, however much ground the prose left. A claim whose clock ran out without the prose ever showing it is marked below, and the next turn is told to render it before anything treats it as understood.
         {(save.world_bible as any).god_mode
           ? " God mode is on, so you can push it back: every turn you act against it puts a turn back on the clock, and it comes again from somewhere else."
           : " You cannot stop it. You can be frightened of it, refuse it, and work against it the whole way, and it arrives."}
@@ -507,6 +507,14 @@ function Becomings({ save, setSave }: { save: ClientSave; setSave: (s: ClientSav
                       : b.paused ? "held"
                       : `${b.remaining} of ${b.turns} to go`}
                   </span>
+                  {/* A CLOCK THAT RAN OUT ON A THING THE PROSE NEVER SHOWED. Marked here because
+                      "true since turn 3" reads as an achievement, and for a becoming that stalled
+                      through its whole clock it is the opposite: it entered canon on the calendar
+                      alone, and every line after it is written against something the player has
+                      never read. See becomingLaw. */}
+                  {!!b.arrived_turn && !b.moved && (
+                    <span style={{ color: "var(--warn, var(--accent))" }}>· never shown — owed on the page</span>
+                  )}
                   {!!b.repudiations && <span>· pushed back {b.repudiations}×</span>}
                   {b.stalled >= 2 && !b.arrived_turn && <span>· stalled {b.stalled}</span>}
                   <span style={{ flex: 1 }} />

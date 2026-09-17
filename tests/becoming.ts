@@ -204,15 +204,28 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("...so it is not finished with", arrivedBecomings(s).length === 1);
   check("...and the approach directive is done", becomingDirective(s) === "");
 
+  /* THIS CASE MOVED TO ITS OWN BLOCK, AND THE ASSERTIONS MOVED WITH IT.
+   *
+   * What the header above describes is a becoming that arrived having never once reached the page,
+   * and the fix it landed on was a clause inside the ordinary-condition block: "has not been seen
+   * once; it shows in THIS scene". The other four sentences of that block say the claims are old,
+   * unremarkable and beneath comment, that nobody announces them, and that they are visible only in
+   * what people do without thinking. A player hit the same failure again with a becoming at
+   * moved: 0, stalled: 3 and reported that the dialogue had stopped making sense — the engine had
+   * promoted an event he had never seen into a background condition and then forbidden anybody
+   * from showing it.
+   *
+   * A becoming the world grew into and one that landed on the calendar alone need opposite
+   * instructions, so becomingLaw now emits two blocks. The ordinary-condition assertions above are
+   * unchanged and live in tests/becoming-unshown.ts against a becoming with moved > 0. */
   const law = becomingLaw(s);
-  check("the world is told to be the place where it is true", /WHAT IS TRUE OF THIS WORLD NOW/.test(law), law);
+  check("a claim that never reached the page gets its own block", /NEVER ONCE ON THE PAGE/.test(law), law);
   check("...carrying the claim", law.includes(CLAIM));
-  check("...and saying it has never been seen", /has not been seen once; it shows in THIS scene/.test(law), law);
-  check("nobody is surprised by it", /NOBODY IS SURPRISED BY THEM/.test(law));
-  check("...and a startled character is named as the tell", /reacting to one as though it were new is the clearest possible sign/.test(law));
-  check("nobody announces it either", /NOBODY ANNOUNCES THEM EITHER/.test(law));
-  check("...it is visible only in what people do", /visible only in what people do without thinking about it/.test(law));
-  check("...and the scene makes room", /make the room, in one sentence if that is all there is/.test(law));
+  check("...and this turn has to render it", /WRITE IT HAPPENING, THIS TURN/.test(law), law);
+  check("nobody is startled by it, because it is canon", /nobody is startled/.test(law), law);
+  check("...and it may not be alluded to as already understood", /cannot be alluded to, assumed, or referred to/.test(law));
+  check("it is NOT called old and beneath comment", !/beneath comment/.test(law), law);
+  check("...nor kept visible only in what people do", !/visible only in what people do without thinking/.test(law), law);
 
   // showing it counts, and after enough of it the canon line carries it alone
   for (let t = 8; t < 8 + WORN_IN; t++) applyBecomingProgress(s, t, report({ moved: true, how: "she set her bare feet on the rail without looking" }));

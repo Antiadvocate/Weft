@@ -31,6 +31,7 @@
  *    keep paying for it every turn.
  */
 import type { SaveState } from "./types";
+import { findDeclaredMiss } from "./declared";
 import { clipWords } from "./coerce";
 
 /** How much of a written claim is kept. Generous: this is a spec the player wrote by hand. */
@@ -47,6 +48,10 @@ export interface Becoming {
   /** What the player originally set, so the UI can show how far along it is. */
   turns: number;
   added_turn: number;
+  /** Final turns already given back because the prose came back without it. Capped at GRACE_TURNS
+   *  so a narrator that never finds a way in cannot freeze the clock, which is the objection the
+   *  deadline was built against. */
+  grace?: number;
   /** Turns where the world visibly moved toward it. */
   moved: number;
   /** Consecutive turns where it did not. */
@@ -129,6 +134,45 @@ function rungOf(b: Becoming): string {
  * The prohibitions are kept and cut to a tail. Four prohibitions against one instruction reads as an
  * instruction not to do it, which is roughly what came back.
  */
+/** Extra turns a becoming may be granted when its final turn produced nothing on the page.
+ *  Bounded, because the objection the clock was built against is real: a narrator that never finds
+ *  a way in must not be able to freeze a becoming forever. */
+export const GRACE_TURNS = 2;
+
+/**
+ * THE LAST TURN OF THE CLOCK IS NOT A REQUEST.
+ *
+ * becomingDirective is a strong block and it escalates: past STALL_LIMIT it tells the narrator the
+ * world is behind and this turn opens on it. Measured on a save, a becoming with a three-turn clock
+ * came back `moved: 0, stalled: 3`. It was asked three times, ignored three times, and then the
+ * engine converted the request into a fact of the world.
+ *
+ * Asking harder is not the remaining move — the block already asks as hard as prose can. What the
+ * engine has that it was not using is the shape it uses everywhere something MUST be on the page:
+ * state it as a fact, name the specific ways it gets declined, and put it last, where this codebase
+ * has repeatedly written down that a rule stops being reference and becomes an instruction.
+ *
+ * So the final turn of a clock gets the treatment a player's own declaration gets. Same three
+ * declines, because they are how any ordered event gets skipped without ever being refused: the
+ * interruption that arrives, the "almost" that renders the act as an approach to itself, and the
+ * milder adjacent thing in the same room.
+ */
+export function becomingFinalLaw(state: SaveState): string {
+  const last = liveBecomings(state).filter((b) => b.remaining <= 1);
+  if (!last.length) return "";
+  const rows = last.map((b) => {
+    const grace = b.grace ? ` The turn before this was given to it as well and came back without it.` : "";
+    return `${b.claim}${grace}`;
+  });
+  return `\n\n=== THE LAST TURN ON THIS CLOCK ===\n· ${rows.join("\n· ")}\n`
+    + `The player set the number of turns and this is the last of them. Whatever these describe happens in THIS turn's prose, on the page, as an event with a cause, met by the people who are actually here.\n`
+    + `THREE WAYS OF NOT WRITING IT, and none of them is available this turn:\n`
+    + `- Nothing arrives to interrupt it, because an interruption is the turn declining to spend itself. No phone, no knock, no footstep in the hall, no third person in the doorway.\n`
+    + `- Nobody almost does it, because an act rendered as an approach to itself is the act declining to happen. Strike "almost", "nearly", "started to", "was about to", "for a moment", "seemed to".\n`
+    + `- Nothing milder happens instead, however well it fits the room. A smaller adjacent act with the same people is a different event.\n`
+    + `Write it in the opening of the turn, before the conversation and before whatever the room was in the middle of, then carry on around it. Nobody in the scene understands what it means or says what it is turning into; they meet the piece in front of them.`;
+}
+
 export function becomingDirective(state: SaveState): string {
   const live = liveBecomings(state);
   if (!live.length) return "";
@@ -174,6 +218,9 @@ export function applyBecomingProgress(
   state: SaveState,
   turn: number,
   report: { claim?: string; moved?: boolean; how?: string; opposed?: boolean }[] | undefined,
+  /** The turn's committed prose. When given, the final turn of a clock is checked against it before
+   *  the becoming is allowed to arrive. See the note at the decrement. */
+  prose?: string,
 ): { shifts: string[]; arrived: Becoming[] } {
   const shifts: string[] = [];
   const arrived: Becoming[] = [];
@@ -219,6 +266,28 @@ export function applyBecomingProgress(
     // So every turn spends one, and whether it SHOWED is kept separately — as pressure on the next
     // turn's direction, not as a brake on the clock. Only a god-mode repudiation puts a turn back,
     // because that is the player paying for it.
+    /* THE LAST TURN IS CHECKED AGAINST THE PROSE, AND IT IS THE ONLY ONE THAT IS.
+     *
+     * The comment above is right that gating the clock on the simulator's report was wrong: the
+     * report is the thing that fails, and a becoming frozen on a model's judgement waits forever.
+     * That objection is to gating on a JUDGEMENT. findDeclaredMiss is not one — it reads the
+     * committed prose for the claim's own content words and for the three shapes an ordered event
+     * takes when it is skipped, the way maxims, echo, anatomy and kinship all read the page. Free,
+     * lexical, and it does not have an opinion.
+     *
+     * So every turn but the last spends itself regardless, exactly as before. The last one is given
+     * again — at most GRACE_TURNS times — when the prose came back without the thing in it. The
+     * deadline the player set still holds; what it stops meaning is "and then it is true whether or
+     * not anybody saw it", which is the state that made a save's dialogue stop making sense. */
+    const finalTurn = b.remaining <= 1;
+    const missed = finalTurn && prose ? findDeclaredMiss(b.claim, prose) : null;
+    if (missed && (b.grace ?? 0) < GRACE_TURNS) {
+      b.grace = (b.grace ?? 0) + 1;
+      b.stalled++;
+      shifts.push(`"${short(b.claim)}" was due this turn and the prose came back without it — the clock holds one more turn for it (${b.grace} of ${GRACE_TURNS})`);
+      continue;
+    }
+
     b.remaining = Math.max(0, b.remaining - 1);
     if (r?.moved) {
       b.moved++;
@@ -236,7 +305,12 @@ export function applyBecomingProgress(
         canon.push(b.claim);
         (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
       }
-      shifts.push(`"${short(b.claim)}" is true of this world now, and binds every turn from here`);
+      // AN HONEST LINE. "is true of this world now" reads as an achievement, and for a becoming that
+      // stalled through its whole clock it is the opposite — the player is owed the fact that the
+      // world never showed it and it landed on the calendar alone.
+      shifts.push(b.moved
+        ? `"${short(b.claim)}" is true of this world now, and binds every turn from here`
+        : `"${short(b.claim)}" is true of this world now — its clock ran out and the prose never showed it once, so the next turn has to`);
       continue;
     }
     const left = `${b.remaining} turn${b.remaining === 1 ? "" : "s"} to go`;
@@ -320,13 +394,45 @@ export function becomingBehind(state: SaveState): string {
 export function becomingLaw(state: SaveState): string {
   const here = arrivedBecomings(state);
   if (!here.length) return "";
-  const rows = here.map((b) => {
-    const never = !(b.shown ?? 0)
-      ? ` This has been true since turn ${b.arrived_turn} and has not been seen once; it shows in THIS scene, in something somebody does.`
-      : "";
-    return `${b.claim}${never}`;
-  });
-  return `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
+
+  /* ── ARRIVED WITHOUT EVER REACHING THE PAGE ───────────────────────────────────────────────────
+   *
+   * The block below is written for a becoming the world grew into: it landed after some turns that
+   * showed it, so treating it as old and beneath comment is right, and the only remaining job is to
+   * stop anybody being startled by their own furniture.
+   *
+   * It was being applied to every arrival equally, including the ones the prose never once
+   * rendered. From a save, the second of two becomings: `moved: 0, stalled: 3, turns: 3` — it
+   * stalled on every turn of its life, the clock spent all three anyway because a deadline is a
+   * deadline, and it entered canon. From that turn on the narrator was told these are "the water
+   * these people have always swum in: old, unremarkable, and beneath comment", that "NOBODY IS
+   * SURPRISED", and that they are "visible only in what people do without thinking about it".
+   *
+   * So the engine promoted an event the player never saw into a background condition, and then
+   * forbade anybody from mentioning it. Every line after that is written against something that
+   * has not happened on the page, which is the player's report: the dialogue stopped making sense.
+   *
+   * One clause did say "it shows in THIS scene" — inside a paragraph whose other four sentences
+   * say do not announce it, do not remark on it, keep it beneath comment. The louder half wins.
+   *
+   * A becoming that never moved is not a condition of the world yet. It is an event that is now
+   * TRUE and still owes its own rendering, and those need opposite instructions, so they are
+   * separated. Nobody is startled by it either way — it is canon — but one of them has to be
+   * visible before it can be assumed. */
+  const unshown = here.filter((b) => !(b.moved ?? 0) && !(b.shown ?? 0));
+  const grown = here.filter((b) => !unshown.includes(b));
+
+  const owed = unshown.length
+    ? `\n\n[TRUE OF THIS WORLD, AND NEVER ONCE ON THE PAGE.\n· ${unshown.map((b) => `${b.claim} — its clock ran out on turn ${b.arrived_turn} with the prose having never shown it happening.`).join("\n· ")}\n`
+      + `Each of these is a fact of this world now, which means nobody is startled by it, nobody explains it, and nobody treats it as news. It also means the reader has never seen it, so it cannot be alluded to, assumed, or referred to as something already understood between these people. `
+      + `WRITE IT HAPPENING, THIS TURN, IN THE PROSE — the thing itself, in this room, with the bodies actually here, in the opening of the turn and before whatever else the scene was doing. Then carry on around it. `
+      + `The two hold together: it is rendered plainly because it has never been seen, and it is met without surprise because it is already the way things are here.]`
+    : "";
+
+  if (!grown.length) return owed;
+
+  const rows = grown.map((b) => `${b.claim}`);
+  return owed + `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
     + `These are the water these people have always swum in: old, unremarkable, and beneath comment. `
     + `NOBODY IS SURPRISED BY THEM. Nobody remarks on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as a thing that has just started — a character reacting to one as though it were new is the clearest possible sign the world has not actually changed. `
     + `NOBODY ANNOUNCES THEM EITHER. They are not stated, quoted, or described as facts; they are visible only in what people do without thinking about it, the way anybody behaves about the ordinary conditions of their own life. `
