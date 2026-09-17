@@ -331,6 +331,14 @@ export interface NPCDrive {
   progress: number;          // 0–100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
+  /** HOW MANY OFFSTAGE AFTERNOONS HAVE BEEN SPENT ON THIS WANT.
+   *
+   *  Counted by the agency layer, which is the only thing that writes a whole afternoon against a
+   *  want. It exists because neither `updated_turn` nor `progress_turn` can answer the question:
+   *  the comment on updated_turn two fields down says the bookkeeper restamps it every turn it
+   *  rewrites the blocker, and progress_turn moves when progress moves by a tenth of a point.
+   *  Reset by writing a new goal. See spendStalledWants in engine/agency.ts, and the cardboard box. */
+  acts?: number;
   /** WHO THIS WANT IS ABOUT, when it is about a person — a char_id, and never the player's.
    *
    *  A drive has always been a sentence with a name in it, which is a name to the reader and

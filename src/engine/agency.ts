@@ -231,6 +231,84 @@ export interface AgentAct {
   intent?: { about?: string; goal?: string; because?: string };
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE CARDBOARD BOX.
+ *
+ * Three consecutive offstage passes of one save, every one of them the same eight-year-old and the
+ * same flattened box:
+ *
+ *   t13  Alina hauled the flattened air conditioner box down the hall and left it standing against
+ *        the wall beside the chute door instead of feeding it in…
+ *   t19  Alina came back down to the basement laundry with the flattened box, decided the chute door
+ *        was a trap, and stood the cardboard up behind the squealing dryer…
+ *   t25  Alina wedged the flattened box upright behind the squealing dryer, then found it slid down
+ *        and blocked the drain slope, so she stamped it into four smaller pieces…
+ *
+ * The player: "the narrator is describing her doing shit for days that I personally don't give a
+ * fuck about."
+ *
+ * EVERY PART OF THIS ENGINE DID ITS JOB. Her recorded want was "Dispose of the cardboard box
+ * without dealing with a jammed chute". The brief hands an actor their want and asks for a concrete
+ * step with a result; she took one, three times, and the briefing's own "pick up from here rather
+ * than repeating it" made each one continue the last. The bookkeeper then opened a thread per
+ * afternoon — "Cardboard stacked beside the chute", "Cardboard behind the dryer", "A flattened box
+ * hidden behind the dryer" — and those threads became the pressure source on turns 20, 21 and 23,
+ * outvoting a pressure palette about heat, humiliation and domestic control four candidates to one.
+ * A self-feeding loop, built out of correct parts, about a box.
+ *
+ * TWO THINGS WERE MISSING AND BOTH ARE HERE.
+ *
+ * pickActors scored a drive, a queue, an authored want, staleness and a schedule, and had no notion
+ * whatever of whether this person is anybody in the story. An eight-year-old at warmth 1.7 and
+ * trust 0.5 toward the protagonist, who had not been in a scene, outranked the woman the story is
+ * about — whose own want names the protagonist and is blocked on him — because she happened to hold
+ * an unblocked errand. Centrality is now a term, and it is the largest one.
+ *
+ * And driveforge screens a want that is a DECISION, a WAIT, an ABSTENTION or a DOCUMENT, with a
+ * paragraph each on why. It has no screen for a CHORE, which is the same failure wearing work
+ * clothes: concrete, permissionless, finishable, nobody in it. A chore is a real thing a person
+ * does and a bad thing to build an afternoon's report around.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Objects and verbs that make a want an errand: a thing to be moved, fixed, cleaned or disposed of,
+ *  with no other person in it. Narrow, and only ever a DEMOTION — a chore is still a want, and a
+ *  cast with nothing else going on may still act on one. */
+const CHORE_VERB = /\b(dispose|throw|bin|discard|take|bring|put|haul|carry|move|shift|stack|fold|wash|launder|clean|tidy|sort|fix|mend|repair|unclog|unjam|empty|refill|return|store|stow)\b/i;
+const CHORE_OBJECT = /\b(box|boxes|cardboard|carton|rubbish|trash|garbage|bin|bins|recycling|chute|laundry|washing|dishes|groceries|shopping|parcel|package|post|mail|clutter|junk|bag|bags)\b/i;
+
+/** True when the whole want is an errand with nobody in it. */
+export function choreLike(goal: unknown, castNames: string[] = []): boolean {
+  const g = String(goal ?? "").trim();
+  if (!g) return false;
+  if (!CHORE_VERB.test(g) || !CHORE_OBJECT.test(g)) return false;
+  // A chore somebody is doing TO or FOR a named person is not a chore, it is a move in a
+  // relationship: taking her sister's rubbish out to be seen doing it is a want about the sister.
+  return !castNames.some((n) => n.length >= 3 && new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(g));
+}
+
+/**
+ * HOW MUCH OF THE STORY THIS PERSON IS.
+ *
+ * The protagonist's own edges are the record of who the story has been about: warmth and trust in
+ * either direction, plus attraction, plus whether anybody has bothered to record a role. Somebody
+ * the player has spent thirty turns with scores high in both directions even when the feeling is
+ * bad; somebody who has never been in a room with them sits near zero.
+ *
+ * Deliberately symmetric. A character who dislikes the protagonist is central; a character the
+ * protagonist has begun to hate is central. What is NOT central is a neighbour nobody has looked at.
+ */
+export function centrality(state: SaveState, id: string): number {
+  const edges = state.world?.edges ?? [];
+  const out = edges.find((e) => e.from === id && e.to === "char_player");
+  const back = edges.find((e) => e.from === "char_player" && e.to === id);
+  const mag = (e?: { warmth?: number; trust?: number; attraction?: number }) =>
+    e ? (Math.abs(e.warmth ?? 0) + Math.abs(e.trust ?? 0) + Math.abs(e.attraction ?? 0)) / 3 : 0;
+  const roles = (out?.roles?.length ?? 0) + (back?.roles?.length ?? 0);
+  // Anyone the story has actually put on the page recently is in it, whatever the numbers say.
+  const seen = (state.history ?? []).slice(-12).some((h) => (h.present ?? []).includes(id));
+  return Math.max(mag(out), mag(back)) / 10 + roles + (seen ? 4 : 0);
+}
+
 /**
  * WHO GETS A TURN THIS INTERVAL.
  *
@@ -258,6 +336,9 @@ export function pickActors(state: SaveState, n: number): string[] {
     if (who) lastActed.set(who, Math.max(lastActed.get(who) ?? 0, e.turn ?? 0));
   }
 
+  const castNames = Object.entries(state.characters ?? {})
+    .filter(([id]) => id !== "char_player").map(([, c]) => c.name).filter(Boolean);
+
   const scored = Object.entries(state.characters ?? {})
     .filter(([id, c]) => id !== "char_player" && c.status !== "dead" && c.status !== "departed" && !present.has(id))
     .map(([id, c]) => {
@@ -268,6 +349,12 @@ export function pickActors(state: SaveState, n: number): string[] {
       const since = turn - (lastActed.get(c.name.toLowerCase()) ?? turn - STALE_ON_ARRIVAL);
       score += Math.min(6, since / 4);
       if (scheduleDigestLine(state, id)) score += 1;
+      // WHO THE STORY IS ABOUT, which nothing here used to ask. The largest term, because an
+      // afternoon belonging to somebody the player has never looked at is an afternoon the player
+      // did not want. See the note above pickActors.
+      score += Math.min(10, centrality(state, id));
+      // ...and a want that is an errand is the weakest reason to spend a call on somebody.
+      if (choreLike(c.drive?.goal, castNames)) score -= 6;
       // A tie between two equally stale people with equally live wants goes to whoever the state
       // happens to list first, forever. Their ids break it instead, stably per turn.
       const jitter = ((id.charCodeAt(id.length - 1) + turn) % 5) / 10;
@@ -384,6 +471,7 @@ export function formIntent(state: SaveState, id: string, intent: AgentAct["inten
     because: clipText(String(intent?.because ?? "").trim(), 200) || undefined,
     progress: 0,
     priority: INTENT_PRIORITY,
+    acts: 0,
     updated_turn: turn,
   };
 
@@ -439,6 +527,46 @@ export function collide(events: OffstageEvent[]): OffstageEvent[] {
   return events;
 }
 
+/** Acts an actor may spend on one want before the engine calls it, if nothing has moved. */
+const SPENT_AFTER_ACTS = 3;
+/** Progress that counts as the want actually going somewhere. */
+const REAL_PROGRESS = 25;
+
+/**
+ * A WANT THAT HAS PRODUCED THREE AFTERNOONS AND GONE NOWHERE IS OVER.
+ *
+ * regenerateDrives already shelves a stalled drive — but only onto a BACKUP, and only when the
+ * queue holds one: `const idx = active.progress >= 100 ? 0 : queue.findIndex((q) => !q.blocker);
+ * if (idx < 0) { active.updated_turn = …; continue; }`. An eight-year-old with an empty queue and a
+ * cardboard box therefore held that want forever, and seedDrive never ran because seeding is gated
+ * on `!active || progress >= 100`. Three passes in, her progress had moved from 7.2 to 7.3.
+ *
+ * Nothing was broken. There was simply no path out of a want with nowhere to fall back to, and this
+ * pass hands that want to a model every interval and asks for another step on it.
+ *
+ * So: after three acts on one want with the progress still under a quarter, the want is spent and
+ * cleared. The next regenerateDrives seeds a fresh one from this person's own edges and traits,
+ * which is where a want about another person comes from. The line goes to the offscreen feed so the
+ * player can see the engine giving up on it rather than wondering why the box stopped.
+ *
+ * Counted off the offstage log, which is the record of what this actor has actually been doing, so
+ * it needs no new field and no migration.
+ */
+export function spendStalledWants(state: SaveState): string[] {
+  const out: string[] = [];
+  for (const [id, c] of Object.entries(state.characters ?? {})) {
+    const drive = c.drive;
+    if (id === "char_player" || !drive?.goal) continue;
+    if (drive.progress >= REAL_PROGRESS) continue;
+    if (hasAuthored(c) && !(c as any).authored?.paused) continue;   // a human wrote it; it stands
+    const acts = drive.acts ?? 0;
+    if (acts < SPENT_AFTER_ACTS) continue;
+    out.push(`${c.name} gives up on "${clipText(drive.goal, 70)}" — ${acts} goes at it and nothing has moved.`);
+    c.drive = (c.drive_queue ?? []).shift() ?? undefined;
+  }
+  return out;
+}
+
 /**
  * Run the interval as n people rather than as one world.
  *
@@ -447,8 +575,10 @@ export function collide(events: OffstageEvent[]): OffstageEvent[] {
  * the world pass, so the background never goes silent because a small model returned bad JSON.
  */
 export async function runAgency(state: SaveState, model: string, n: number): Promise<{ events: OffstageEvent[]; lines: string[] }> {
+  // Before anybody is chosen, end the wants that have been producing the same afternoon.
+  const spent = spendStalledWants(state);
   const ids = pickActors(state, n);
-  if (!ids.length) return { events: [], lines: [] };
+  if (!ids.length) return { events: [], lines: spent };
 
   const results = await Promise.allSettled(ids.map(async (id) => {
     const brief = actorBrief(state, id);
@@ -465,10 +595,18 @@ export async function runAgency(state: SaveState, model: string, n: number): Pro
 
   // THE INTENTION IS WRITTEN WHETHER OR NOT THE AFTERNOON SURVIVED. An act can be dropped for
   // naming nobody or forging the player's hand and still be a real decision the person made.
-  const lines: string[] = [];
+  const lines: string[] = [...spent];
   for (const r of done) {
     const line = formIntent(state, r.id, r.act.intent, r.brief);
     if (line) lines.push(line);
+  }
+
+  // AND THE WANT WEARS. An afternoon spent on a want is counted against it here, because this is
+  // the only place that knows an afternoon was spent — see NPCDrive.acts and spendStalledWants.
+  for (const r of done) {
+    if (!r.event) continue;
+    const d = state.characters?.[r.id]?.drive;
+    if (d?.goal) d.acts = (d.acts ?? 0) + 1;
   }
 
   const events = done.map((r) => r.event).filter((e): e is OffstageEvent => e !== null);

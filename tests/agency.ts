@@ -14,7 +14,7 @@
  * So: the first block below is the whole argument for the module, written as assertions about
  * what is absent from a string. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { actorBrief, pickActors, actToEvent, collide, formIntent, MAX_ACTORS } from "../src/engine/agency";
+import { actorBrief, pickActors, actToEvent, collide, formIntent, centrality, choreLike, spendStalledWants, MAX_ACTORS } from "../src/engine/agency";
 import { agencyTurn, applyOffstage, readOffstage } from "../src/engine/offstage";
 import { regenerateDrives } from "../src/engine/drives";
 import type { SaveState } from "../src/engine/types";
@@ -479,6 +479,94 @@ function makeState(): SaveState {
   applyOffstage(s, [actToEvent(s, ID.boy, { what: "Tomas banked the fire without being asked.", place: "Elara's Forge" })!]);
   check("...and a second pass does not prune him for not being her sharpest tie",
     (s.minds?.[ID.smith]?.about ?? []).some((b) => b.target === ID.boy), s.minds?.[ID.smith]);
+}
+
+/* ── 22. THE CARDBOARD BOX ───────────────────────────────────────────────────────
+ *
+ * Three consecutive offstage passes of one save, every one the same eight-year-old and the same
+ * flattened box: left by the chute, stood behind the dryer, stamped into four pieces and stuffed
+ * under the sink. The player: "the narrator is describing her doing shit for days that I personally
+ * don't give a fuck about."
+ *
+ * Nothing malfunctioned. Her recorded want was "Dispose of the cardboard box without dealing with a
+ * jammed chute", pickActors had no way to know an eight-year-old at warmth 1.7 toward the
+ * protagonist is not who the story is about, and a want with an empty backup queue has no way out —
+ * regenerateDrives shelves onto a backup or gives up, and seedDrive only runs when the slot is
+ * empty. Each afternoon then became a bookkeeper thread, and those threads became the pressure
+ * source on three turns, outvoting a pressure palette about heat and humiliation four to one. */
+{
+  const s = makeState();
+  // the co-lead: her want names the protagonist and is blocked on him
+  s.characters[ID.smith].drive = { goal: "Get Rabi to hand over the rent money", progress: 20, priority: 1, updated_turn: 30, blocker: "Rabi is ignoring her" };
+  s.world.edges.push({ from: ID.smith, to: "char_player", warmth: 27, trust: 27, power: 13, attraction: 61, roles: ["sister", "tenant"] } as any);
+  // the eight-year-old with the box, at the numbers the save actually recorded
+  s.characters[ID.recluse].drive = { goal: "Dispose of the cardboard box without dealing with a jammed chute", progress: 7, priority: 1, updated_turn: 30 };
+  s.world.edges.push({ from: ID.recluse, to: "char_player", warmth: 1.7, trust: 0.5, power: 0, attraction: 47, roles: [] } as any);
+
+  check("the person the story is about outranks the person with the errand",
+    pickActors(s, 1)[0] === ID.smith,
+    pickActors(s, 2).map((i) => s.characters[i].name));
+
+  check("centrality reads the protagonist's own edges",
+    centrality(s, ID.smith) > centrality(s, ID.recluse),
+    { lead: centrality(s, ID.smith), kid: centrality(s, ID.recluse) });
+
+  /* Symmetric on purpose: somebody the protagonist has come to hate is in the story. */
+  const hated = makeState();
+  hated.world.edges.push({ from: "char_player", to: hated.characters[ID.boy].character_id, warmth: -70, trust: -60, power: 0, attraction: 0, roles: ["enemy"] } as any);
+  check("a bond gone bad is still a bond", centrality(hated, ID.boy) > 0, centrality(hated, ID.boy));
+}
+
+/* ── 23. A CHORE IS THE WEAKEST REASON TO SPEND A CALL ON SOMEBODY ───────────── */
+{
+  const cast = ["Elara", "Tomas", "Father Caelus"];
+  for (const g of ["Dispose of the cardboard box without dealing with a jammed chute",
+                   "Take the recycling down before Thursday",
+                   "Move the boxes out of the hall"]) {
+    check(`chore: ${g.slice(0, 40)}`, choreLike(g, cast));
+  }
+  /* Narrow in two directions. A want with a person in it is a move in a relationship however
+   * domestic it looks, and a want that merely mentions an object is not an errand. */
+  for (const g of ["Take Tomas's rubbish down so he sees her doing it",
+                   "Get Elara to hand over the rent money",
+                   "Find out who has been talking to the tax men",
+                   "Get the forge hot enough to finish the order"]) {
+    check(`not a chore: ${g.slice(0, 40)}`, !choreLike(g, cast));
+  }
+}
+
+/* ── 24. AND A WANT THAT HAS PRODUCED THREE AFTERNOONS AND GONE NOWHERE ENDS ─── */
+{
+  const s = makeState();
+  s.characters[ID.recluse].drive = { goal: "Dispose of the cardboard box", progress: 7, priority: 1, updated_turn: 30, acts: 2 };
+  check("two goes at it is not enough to give up", spendStalledWants(s).length === 0);
+  check("...and the want stands", !!s.characters[ID.recluse].drive);
+
+  s.characters[ID.recluse].drive!.acts = 3;
+  const lines = spendStalledWants(s);
+  check("three goes and nothing moved ends it", lines.length === 1, lines);
+  check("...the slot is empty so a fresh want can be seeded", !s.characters[ID.recluse].drive);
+  check("...and the player is told rather than left wondering",
+    lines[0].includes("gives up on"), lines[0]);
+
+  /* A want that is actually going somewhere is never taken away. */
+  const moving = makeState();
+  moving.characters[ID.recluse].drive = { goal: "Get the sluice rebuilt before the thaw", progress: 60, priority: 1, updated_turn: 30, acts: 9 };
+  check("a want with real progress is left alone", spendStalledWants(moving).length === 0);
+
+  /* Nor is one a human wrote by hand — the same exemption tickAuthored has. */
+  const authored = makeState();
+  authored.characters[ID.recluse].drive = { goal: "Dispose of the cardboard box", progress: 2, priority: 1, updated_turn: 30, acts: 9 };
+  (authored.characters[ID.recluse] as any).authored = [{ goal: "keep the mill running", rate: "slow" }];
+  check("a want a person typed is never given up on", spendStalledWants(authored).length === 0);
+
+  /* And a backup takes over when there is one. */
+  const queued = makeState();
+  queued.characters[ID.recluse].drive = { goal: "Dispose of the cardboard box", progress: 2, priority: 1, updated_turn: 30, acts: 4 };
+  queued.characters[ID.recluse].drive_queue = [{ goal: "Find out who took the tongs", progress: 0, priority: 1, updated_turn: 30 }];
+  spendStalledWants(queued);
+  check("the backup is promoted rather than the slot left empty",
+    !!queued.characters[ID.recluse].drive?.goal.includes("tongs"), queued.characters[ID.recluse].drive);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
