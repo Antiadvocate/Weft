@@ -137,6 +137,84 @@ export const INSTRUCTION_PRONOUNCEMENTS: Figure[] = PRONOUNCEMENT_FIGURES.filter
  *  are the commonest and the easiest to rewrite. */
 export const FIGURES: Figure[] = [...EPIGRAM_FIGURES, ...CONTRASTIVE_FIGURES, ...FIGURED_FIGURES, ...PRONOUNCEMENT_FIGURES];
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE LINE THAT POINTS AT NOTHING — a sample built out of pronouns and a withheld fact.
+ *
+ * "He knows what he did." "I'm not the one who lied." "You already know the answer."
+ *
+ * None of these is a maxim, so maxims.ts passes them, and none carries a figure, so the catalogue
+ * above passes them too. They are the OTHER movie line: the one that gets its weight by naming
+ * nothing, so the listener has to lean in. It is what a model writes when asked for a line that
+ * only one person could say, because withholding reads as characterisation and costs no invention.
+ *
+ * The narrator's contract already states the test, in prompts.ts, and applies it only to prose it
+ * is about to write: "IT NAMES SOMETHING IN THIS ROOM — a person, an object, a price, a door, a
+ * name, a number, an errand, a place they could point at, or something this speaker has personally
+ * handled, owed, eaten, lost, or been hurt by." That test was never once run against the SAMPLES,
+ * which is the corpus the narrator copies from. A forge sample naming nothing teaches a mouth that
+ * names nothing, every turn it is printed, for the rest of the save.
+ *
+ * SO THE CHECK IS THE CONTRACT'S OWN: does one word here point at something. Implemented as a
+ * closed stoplist of the words a sentence can be built out of without naming anything — pronouns,
+ * auxiliaries, the handful of verbs that take a whole clause as their object (know, do, say, mean,
+ * think), and the abstractions already listed above. A line with any word outside that list has
+ * named something and passes.
+ *
+ * NARROW ON PURPOSE, IN TWO DIRECTIONS. A question passes: "Did you?" is a person talking, not a
+ * line delivered. So does anything unfinished — a trailing off, a dash, an interruption — because
+ * ordinary speech that names nothing is filler and filler is the opposite of this failure. What is
+ * caught is a finished, confident assertion with nothing in it. Fails open everywhere, like the
+ * rest of this file: a sample that trips and cannot be replaced is kept, because a hollow sample
+ * still beats a blank one.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Everything a sentence can be made of while naming nothing anybody could point at. */
+const UNPOINTABLE = new Set([
+  // pronouns and determiners
+  "i", "me", "my", "mine", "myself", "you", "your", "yours", "yourself", "he", "him", "his",
+  "himself", "she", "her", "hers", "herself", "it", "its", "itself", "we", "us", "our", "ours",
+  "they", "them", "their", "theirs", "themselves", "this", "that", "these", "those", "there",
+  "here", "the", "a", "an", "some", "any", "no", "none", "every", "all", "both", "each", "one",
+  "ones", "other", "others", "another", "same", "such", "own", "someone", "somebody", "something",
+  "anyone", "anybody", "anything", "everyone", "everybody", "everything", "nobody", "nothing",
+  "who", "whom", "whose", "what", "which", "where", "when", "why", "how", "whatever", "whoever",
+  // auxiliaries, copulas, modals, negation
+  "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having",
+  "do", "does", "did", "done", "doing", "will", "would", "shall", "should", "can", "could",
+  "may", "might", "must", "not", "never", "always", "ever", "just", "only", "even", "still",
+  "yet", "already", "again", "too", "very", "much", "more", "most", "less", "least", "so",
+  "than", "then", "now", "soon", "ago", "if", "unless", "because", "but", "and", "or", "nor",
+  "for", "with", "without", "about", "into", "onto", "from", "to", "of", "in", "on", "at",
+  "by", "as", "up", "down", "out", "off", "over", "under", "back", "away", "through",
+  // the verbs whose object is a whole clause, which is how a line withholds
+  "know", "knows", "knew", "known", "think", "thinks", "thought", "say", "says", "said",
+  "tell", "tells", "told", "mean", "means", "meant", "want", "wants", "wanted", "need",
+  "needs", "needed", "let", "lets", "make", "makes", "made", "get", "gets", "got", "go",
+  "goes", "went", "come", "comes", "came", "see", "sees", "saw", "seen", "look", "looks",
+  "asked", "ask", "asks", "lie", "lied", "lies", "wrong", "right", "true", "real", "good",
+  "bad", "better", "worse", "best", "worst", "yes", "yeah", "nah", "ok", "okay", "please",
+  "sorry", "thanks", "well", "sure", "fine", "alright", "maybe", "perhaps", "anyway",
+  // The hollow nouns. A sentence can be built entirely out of these and still name nothing you
+  // could walk over and touch — "you already know the answer", "that is not the point". Safe to
+  // list because the test below passes a line with ANY word outside it, so "the truth about the
+  // money" and "the thing in the barn" both survive on their second noun.
+  "answer", "answers", "question", "questions", "truth", "point", "thing", "things", "reason",
+  "reasons", "way", "ways", "matter", "problem", "difference", "choice", "kind", "sort", "fault",
+  "idea", "part", "side", "rest", "end", "business", "trouble", "situation", "person", "people",
+  ...ABSTRACTION.split("|"),
+]);
+
+/** A finished assertion built entirely out of words that name nothing. */
+export function pointsAtNothing(line: unknown): boolean {
+  const raw = String(line ?? "").trim();
+  if (!raw) return false;
+  // A question is somebody talking. Anything unfinished is speech rather than delivery.
+  if (/[?…]|--|—\s*$|\.\.\.\s*$|,\s*$/.test(raw)) return false;
+  const words = raw.toLowerCase().match(/[a-z']+/g) ?? [];
+  if (words.length < 3 || words.length > 14) return false;   // too short to deliver, long enough to have said something
+  return words.every((w) => UNPOINTABLE.has(w.replace(/'(s|t|re|ve|ll|d|m)$/, "")) || UNPOINTABLE.has(w));
+}
+
 /** What was caught, and enough to print back to a model that has to fix it. */
 export interface FigureHit { shape: string; why: string; text: string }
 
@@ -238,6 +316,7 @@ export function screenCard(card: ScreenableCard | null | undefined): CardFault[]
   for (const l of lines) {
     const hit = findMaxims(`"${l.replace(/["“”]/g, "")}"`)[0];
     if (hit) out.push({ field: "example_lines", text: l, shape: hit.shape, why: "the narrator copies this line to write everything this person says" });
+    else if (pointsAtNothing(l)) out.push({ field: "example_lines", text: l, shape: "points at nothing", why: "a finished sentence built out of pronouns, with the fact withheld — it gets its weight by naming nothing, and the narrator copies it into every line this person speaks" });
     else { const f = figureIn(l); if (f) out.push({ field: "example_lines", text: l, shape: f.shape, why: f.why }); }
   }
 

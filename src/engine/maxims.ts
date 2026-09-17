@@ -273,8 +273,78 @@ export function maximRate(prose: string): number {
  * the cheapest possible intervention: it costs a hundred-odd tokens, it says nothing new, and it
  * puts the one concrete sample of how this person talks next to the request to write them talking.
  */
+/**
+ * HALF OF A REGISTER IS A VOCABULARY AND HALF OF IT IS A LENGTH, AND ONLY ONE OF THEM BELONGS HERE.
+ *
+ * The block below is load-bearing and stays: tests/voice-and-grief.ts measured 318 spoken lines
+ * across 91 turns containing NONE of five excellent registers, because the fields that say how a
+ * person sounds were on the cached card and never repeated where the line actually gets written.
+ * The registers in that save are the good kind, and they have one thing in common — every one of
+ * them is a STOCK OF WORDS. "the counter, the register, closing, the schedule." "kerning, negative
+ * space, hex codes." Dumplings and innings. None of them says anything about how long a sentence is.
+ *
+ * voiceforge builds speech_pattern as `${diction}. ${syntax}. ${rhythm}.` — and syntax and rhythm
+ * are, by their own field definitions, about sentence construction and pacing. So a forged card
+ * arrives with a vocabulary welded to a length prescription, and the length prescription is the
+ * thing the player is complaining about: probed on a default save, a ten-year-old's register read
+ * "Short, flat sentences. Says the thing and stops. Does not soften it." Sent every turn, that is
+ * the engine asking for the clipped weighty fragment — which is the shape findMaxims exists to
+ * strike out of the finished page, and the shape charCard removed its exemplars over.
+ *
+ * Length already has an owner two paragraphs down: LENGTH COMES FROM THAT — what the speaker wants
+ * and what state their body is in. A stored adjective competing with that wins, because it is
+ * attached to the person and the scene is not.
+ *
+ * So the vocabulary half goes through and the length half is dropped, sentence by sentence. A card
+ * whose whole register is a length prescription contributes nothing here and falls back to its
+ * diction field, which is where voiceforge puts the words.
+ */
+/** Words for how long a sentence is, how fast it comes, and how much is left out. */
+const SHAPE_WORD =
+  /^(short|shorter|long|longer|clipped|terse|brief|laconic|spare|sparse|economical|minimal|compressed|blunt|flat|curt|plain|direct|declarative|declaratives|imperative|imperatives|fragment|fragments|fragmentary|monosyllabic|hedging|hedges|hedge|soften|softens|softening|trails|trailing|clause|clauses|syntax|cadence|rhythm|rhythms|pacing|pace|sentence|sentences|word|words|line|lines|speech|speaking|talk|talking|voice|says|say|said|stops|stop|pause|pauses|answers|answer|delivery|register|tone|mean|means|meant|meaning|volume|loud|quiet|silence|silent|speak|speaks|spoke|spoken)$/i;
+
+/** The words a description can be built out of while naming no subject at all. Deliberately a
+ *  local copy rather than an import: aphorism.ts already imports findMaxims from this file. */
+const FILLER =
+  /^(a|an|the|and|or|but|of|in|on|at|to|for|with|without|no|not|never|always|very|more|most|less|is|are|was|were|be|been|do|does|did|doing|done|has|have|had|will|would|can|could|it|its|they|them|their|he|she|his|her|him|you|your|i|my|we|our|that|this|those|these|then|than|so|as|by|from|up|down|out|off|over|under|when|where|what|which|who|how|all|any|one|two|thing|things|way|ways|kind|sort|much|many|few|little|lot|own|same|other|others|another|just|only|even|still|about|into|through|between|before|after|each|every|used|use|uses|usually|often|rarely|sometimes|mostly|almost|nearly|quite|rather|fairly|somewhat)$/i;
+
+/**
+ * The register with the length prescription taken out of it.
+ *
+ * A whole-sentence drop was the first attempt and it was too blunt: "clipped naval shorthand" is a
+ * genuine register — naval shorthand is a stock of words — and it went out with "Short, flat
+ * sentences." So a sentence is dropped only when it is ENTIRELY about shape: it names a length or a
+ * manner and, once those words and the filler are removed, nothing is left that could be a subject.
+ * "Says the thing and stops" keeps nothing. "clipped naval shorthand" keeps naval and shorthand,
+ * so it survives whole, manner and all.
+ *
+ * A card whose register is nothing but a length prescription falls back to its diction field, which
+ * is where voiceforge is told to put the words this person actually has.
+ */
+export function registerOf(c: { speech_pattern?: string; voice?: { diction?: string } }): string {
+  const shapeOnly = (sentence: string): boolean => {
+    const words = sentence.toLowerCase().match(/[a-z][a-z'-]*/g) ?? [];
+    if (!words.length) return false;
+    // An adverb is the same word wearing -ly, and a register description is mostly adverbs.
+    const stem = (w: string) => (w.endsWith("ly") && w.length > 4 ? w.slice(0, -2) : w);
+    const shape = (w: string) => SHAPE_WORD.test(w) || SHAPE_WORD.test(stem(w));
+    if (!words.some(shape)) return false;      // says nothing about shape at all
+    return words.every((w) => shape(w) || FILLER.test(w) || FILLER.test(stem(w)));
+  };
+  // The fallback needs the same strip. voiceforge's own definition of diction is "the words this
+  // person actually has", and it comes back as "plain, few words" often enough that letting it
+  // through unscreened reinstates the prescription the sentence walk just removed.
+  const strip = (text: unknown): string => String(text ?? "").trim()
+    .split(/(?<=[.;!?])\s+/)
+    .map((x) => x.trim())
+    .filter((x) => x && !shapeOnly(x))
+    .join(" ")
+    .trim();
+  return strip(c.speech_pattern) || strip(c.voice?.diction);
+}
+
 export function voiceAnchor(
-  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; speech_pattern?: string; voice?: { never_says?: string[]; diction?: string; example_lines?: string[] } }> },
+  state: { characters: Record<string, { name: string; age?: number; core_traits?: string[]; background?: string; speech_pattern?: string; voice_locked?: boolean; voice?: { never_says?: string[]; diction?: string; example_lines?: string[] } }> },
   presentIds: string[],
 ): string {
   const rows: string[] = [];
@@ -293,7 +363,7 @@ export function voiceAnchor(
     const has = (id: string) => {
       const c = state.characters[id];
       if (!c) return 0;
-      return (String(c.speech_pattern ?? c.voice?.diction ?? "").trim() ? 2 : 0)
+      return (registerOf(c).trim() ? 2 : 0)
         + (c.voice?.example_lines?.some((l) => String(l ?? "").trim()) ? 1 : 0);
     };
     return has(b) - has(a);
@@ -317,7 +387,7 @@ export function voiceAnchor(
     //
     // The example line matters most and is the cheapest: one sentence in a person's actual mouth
     // does more than any description of how they talk.
-    const sound = String(c.speech_pattern ?? c.voice?.diction ?? "").trim();
+    const sound = registerOf(c);
     const sample = c.voice?.example_lines?.find((l) => String(l ?? "").trim());
     const bits = [
       c.age ? `${c.age}` : "",
@@ -325,19 +395,28 @@ export function voiceAnchor(
       c.background?.trim() ? String(c.background).trim().split(/(?<=\.)\s/)[0].slice(0, 120) : "",
     ].filter(Boolean);
     if (!bits.length && !sound && !sample) continue;
+    // never_says survives the switch on purpose. It is a list of constructions this person could
+    // not produce, so it takes a register away rather than handing one over — the one forged field
+    // whose failure mode is a narrower mouth instead of a matching one.
     const never = c.voice?.never_says?.length ? ` Would never say: ${c.voice.never_says.slice(0, 2).join("; ")}.` : "";
     const talks = sound ? `\n  TALKS LIKE THIS: ${sound.slice(0, 180)}` : "";
     const line = sample ? `\n  ONE OF THEIR ACTUAL LINES: "${String(sample).trim().slice(0, 150)}"` : "";
     rows.push(`${c.name} — ${bits.join(" · ")}.${never}${talks}${line}`);
   }
   if (!rows.length) return "";
+  // The two paragraphs about a recorded register only apply where one was actually printed. With
+  // the switch off they described a heading that is not in the prompt, which is how the aperture
+  // band came to point at a voice card nobody had sent.
+  const anyForged = rows.some((r) => r.includes("TALKS LIKE THIS"));
+  const registerNote = anyForged ? `
+AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.
+A REGISTER IS THE STOCK OF WORDS THIS PERSON REACHES INTO. It says what they have vocabulary for and what comes to hand first, and it leaves the subject of any given sentence open. A woman whose money-and-materials vocabulary is all she is given still has a body, a day, a view out of the window and three standing interests printed on her card; a settled person reaches for those between the sentences that are business. Run at a hundred percent, money and materials produces a woman who can only say what things cost. How much of it is load-bearing this turn is printed on each speaker's card after right now: — braced means all of it, open means the same vocabulary without the same subject.` : `
+WHERE THE WORDS COME FROM. Each speaker's age, what they are like and the life printed under their name are what their vocabulary is made of: they reach for the work they do, the place they live, the people they answer to and the things they have handled, and for anything outside that they take the nearest word they have and get it a bit wrong. Somebody written without that is written as you, and everybody written as you is the same person.`;
   return `\n[WHO IS TALKING, AND WHY NONE OF THEM SHOULD SOUND ALIKE.
 · ${rows.join("\n· ")}
 Decide two things per speaker before writing their line. What do they want out of THIS exchange, right now — aim the line at that. And what state are they in: somebody frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
 LENGTH COMES FROM THAT. Somebody who has explained this a hundred times explains it again at length; somebody who wants to leave uses six words. If everyone in this scene is brief, they have all been written by the same person, which is you.
-If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.
-AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.
-A REGISTER IS THE STOCK OF WORDS THIS PERSON REACHES INTO. It says what they have vocabulary for and what comes to hand first, and it leaves the subject of any given sentence open. A woman whose money-and-materials vocabulary is all she is given still has a body, a day, a view out of the window and three standing interests printed on her card; a settled person reaches for those between the sentences that are business. Run at a hundred percent, money and materials produces a woman who can only say what things cost. How much of it is load-bearing this turn is printed on each speaker's card after right now: — braced means all of it, open means the same vocabulary without the same subject.]`;
+If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.${registerNote}]`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════

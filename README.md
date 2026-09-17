@@ -146,6 +146,46 @@ What it does *not* skip is the bookkeeping afterward: the beat discharges, the s
 fatigue list, and the next few turns cool off exactly as they would have. It is a way to see the
 machine, not a way to cheat it.
 
+## Why the ten-year-old talks like a gunslinger
+
+A player: "I've got 10 year old kids in the game talking like it's the Good, the Bad and the Ugly."
+Probed on a default save with a ten-year-old in the scene, three things were true at once.
+
+**The one place the engine knew she was ten said the wrong thing, and then never ran.** The age band
+was four adjectives — a child's *plain, direct* cadence, an older adult's *settled, unhurried* one,
+an elder's *measured* one. Three of those four name the laconic register outright: plain, direct,
+measured, settled and unhurried all mean *says less*, and short weighty speech delivered flat is
+exactly the shape the maxim detector exists to strike out of the finished page. The engine was
+striking it on the way out and asking for it on the way in, hardest of all from the child. A
+ten-year-old is the least laconic person in any room — they have not learned to compress, which is
+what "plain and direct" is. Each band is now a list of things a mouth at that age is observed doing
+(takes four runs at one thing, starts in the middle, joins it with "and then", reaches the point
+after everyone has guessed it), which a finished line can be checked against. And it was gated
+behind voice cards, so on a default save it ran nowhere at all; being ten is a fact on the record,
+like a body that is not human, so it goes whether or not you want voice cards.
+
+**Half of a register is a vocabulary and half of it is a length.** The voice forge builds a
+character's register as `diction. syntax. rhythm.` — and by their own field definitions, two of
+those three are about how the sentence is built and how fast it comes. So a card arrives with a
+stock of words welded to a length prescription, sent to the narrator every turn: *Short, flat
+sentences. Says the thing and stops.* The vocabulary half is load-bearing — a save was measured with
+318 spoken lines across 91 turns carrying none of five excellent registers, and that is what sending
+them fixed. The length half is the disease. So the length is stripped, sentence by sentence, and
+only where a sentence is *entirely* about shape: "clipped naval shorthand" survives whole, because
+naval shorthand is a real stock of words. Length already has an owner one paragraph down — what the
+speaker wants and what state their body is in.
+
+**And the samples the narrator copies were movie lines.** *He knows what he did. I'm not the one who
+lied. You already know the answer.* None of those is a maxim and none carries a figure, so both
+existing screens passed them. They are the other kind of manufactured line: the one that gets its
+weight by naming nothing, so the listener has to lean in. It is what a model writes when it is asked
+for a line only one person could say, because withholding reads as characterisation and costs no
+invention. The narrator's own contract already states the test — a line names something in this
+room, a person, an object, a price, a door, a name, an errand — and it had never once been run
+against the samples, which are the corpus the narrator copies from. It runs at intake now, so a
+hollow sample is struck before it reaches a card, and the forge is asked for lines unmistakable in
+what they name and ordinary in how they are built.
+
 ## Letting the cast move itself
 
 Between scenes, Weft has always moved the background with one model call. That call is handed the
