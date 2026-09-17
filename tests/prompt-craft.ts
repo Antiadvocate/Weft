@@ -66,7 +66,10 @@ const prompt = \`Match the register of the story you are given and keep the tone
   // and the real file it was hiding
   const vf = modelFacing(readFileSync("src/engine/voiceforge.ts", "utf8"));
   check("voiceforge is actually linted now", vf.length > 2000, vf.length);
-  check("...including the rules for the lines the narrator imitates", /UNSAYABLE BY ANYONE ELSE IN THIS CAST/.test(vf));
+  // The heading this probes for was renamed: asking for a line UNSAYABLE BY ANYONE ELSE is what
+  // produced the withheld-fact line ("He knows what he did"), which gets its weight by naming
+  // nothing. It now asks for unmistakable contents in an ordinary shape. Same corpus, same point.
+  check("...including the rules for the lines the narrator imitates", /UNMISTAKABLE IN WHAT IT NAMES/.test(vf));
 }
 
 /* ── 2. the three shapes ─────────────────────────────────────────────────────── */

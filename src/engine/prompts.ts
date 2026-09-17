@@ -1020,11 +1020,37 @@ function disposition(r: number, conscience?: number): string {
  *  ACTUALLY speaks this turn bends with who they've become (strong acquired traits),
  *  their age, their present openness/mood, and — crucially — their relationship to whoever
  *  they're addressing. Nothing here rewrites the stored field; it's composed fresh each turn. */
+/**
+ * AGE, AS SOMETHING A MOUTH DOES.
+ *
+ * What stood here was four adjectives: a child's "plain, direct cadence", a teenager's "slangy,
+ * testing" one, an older adult's "settled, unhurried" one, an elder's "measured, sometimes
+ * circling" one. Three of the four name the laconic register outright — plain, direct, measured,
+ * settled, unhurried all mean SAYS LESS, and short weighty speech delivered flat is the exact
+ * shape maxims.ts exists to catch. So the engine's one piece of age-awareness was asking three of
+ * its four age groups for the register its detectors strike out of the finished page, and asking
+ * the ten-year-old for it hardest.
+ *
+ * A ten-year-old is the least laconic person in any room. They have not learned to compress, which
+ * is what "plain and direct" is: compression with the effort hidden. What they actually do is take
+ * four runs at a thing, start in the middle, join it all with "and then", and arrive at the point
+ * by accident after everyone has stopped listening.
+ *
+ * The other reason to rewrite it is the one promptlint was built on and this file is scanned by:
+ * an adjective is a quality, and a model asked for a quality supplies the most legible version of
+ * it, which is the cliché. What holds is a procedure over named inputs. So each band is now things
+ * a mouth is observed doing, which a finished line can be checked against.
+ *
+ * Nothing here fixes a length, for the reason the exemplar block below records: length belongs to
+ * a person at a moment, and the same child uses four words to deny it and four hundred to explain
+ * what the dog did.
+ */
 function ageBand(age: number): string {
-  if (age <= 12) return "a child's plain, direct cadence";
-  if (age <= 19) return "a teenager's slangy, testing cadence";
-  if (age >= 75) return "an elder's measured, sometimes circling cadence";
-  if (age >= 55) return "an older adult's settled, unhurried cadence";
+  if (age <= 6) return "AGE: small child. They name the thing in front of them and ask for what they want in the plainest words they have, they say the true blunt thing without hearing that it is blunt, they repeat a word they have just learned, they answer a different question than the one asked, and they stop in the middle when something else catches them. Their sentences run on with 'and' where an adult would stop. They have no second meaning, and nothing they say is aimed past the person in front of them";
+  if (age <= 12) return "AGE: child. They have not learned to compress, so they take several runs at one thing: start in the middle, go back for the part they left out, join it with 'and then', and reach the point after the listener has already guessed it. They volunteer something nobody asked about, get a word slightly wrong and keep using it, ask what a word means, argue the small detail instead of the thing that matters, and quote whoever they heard it from. Give them the long clumsy version. Anything of theirs that arrives short, weighty and double-edged was written by an adult and is the commonest failure on this band";
+  if (age <= 19) return "AGE: adolescent. They hedge the sentence while it is still going ('like', 'I guess', 'whatever'), and they take the edge off their own line before anyone else can. The thing they care about most comes out last, quietly, tacked onto something smaller. They answer a question with a question when the answer would cost them, and they are word-perfect and certain about whatever they are actually expert in, which is usually not what is being discussed";
+  if (age >= 75) return "AGE: old. They go the long way round because the way round is the interesting part — a name leads to the person who had it, and the errand gets finished three sentences later. They repeat what they already told this listener, correct a detail from four sentences back, and put the plainest thing they have said all day at the end of a long story";
+  if (age >= 55) return "AGE: older adult. They have said this before, often, so the explanation comes out in one fluent practised piece and they do not check whether it is wanted. They date things by other events, name who was there, and hold the floor a little past where a younger person would hand it back";
   return "";
 }
 /** The body a portrait must render. Image models default to people, and every human word in the
@@ -1278,9 +1304,21 @@ export function deriveVoice(
   // engine keeps an authored-by-nobody character moving; on a voice somebody sat down and wrote
   // they are the thing overwriting it. The stress register below stays: how a person sounds when
   // they are frightened is the clench engine, not a description of their voice.
-  if (cards && !ident.voice_locked) {
+  // AND HOW OLD THEY ARE IS NOT A VOICE-CARD FEATURE. This whole block was gated on `cards`, so on
+  // a default save — where voice cards are off, deliberately, because the card describes one
+  // register and hands it to everybody — the one thing the engine knows about a ten-year-old
+  // reached the narrator nowhere at all. A child then speaks out of the model's defaults, and the
+  // model's default for a child in a story is a small adult with good timing.
+  //
+  // Being ten is a fact on the record, like a missing hand or a body that is not human, and the
+  // band is now what a mouth at that age is observed doing rather than an adjective for how it
+  // sounds. So it goes whether or not the player wants voice cards. The lock still wins: somebody
+  // who sat down and wrote how this person talks has already answered the question.
+  if (!ident.voice_locked) {
     const band = ageBand(ident.age);
     if (band) parts.push(band);
+  }
+  if (cards && !ident.voice_locked) {
     // strong acquired traits color the voice (intensity ≥ 5), strongest first
     const strong = [...traits].filter((t) => t.intensity >= 5).sort((a, b) => b.intensity - a.intensity).slice(0, 2);
     for (const t of strong) parts.push(`speech now carries: ${t.label}`);
@@ -1300,8 +1338,8 @@ export function deriveVoice(
   // +2.5 after twenty-eight settled turns was handed exactly what a body at −2 was handed, which
   // was nothing, so it spoke out of its card and only its card. See engine/aperture.ts — the long
   // form of this lives in the direction; what a card can carry is the one clause that changes.
-  else if (apertureOf(rel) === "narrowed") parts.push("right now: braced — the register above is at its most concentrated, and the attention is on the one thing that matters and stays there. Correct, and what makes the open state mean anything");
-  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — the voice card above describes this person braced, defending something, doing business. They are not doing that now. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
+  else if (apertureOf(rel) === "narrowed") parts.push("right now: braced — whatever this mouth is made of runs at its most concentrated, and the attention is on the one thing that matters and stays there. Correct, and what makes the open state mean anything");
+  else if (apertureOf(rel) === "wide") parts.push(`right now: open (${rel.toFixed(1)})${rel >= 6 ? ", easier and warmer than usual" : ""} — ${cards ? "what is on record about how this person talks was written for them braced, defending something, doing business, and they are not doing that now" : "they are not braced, not defending anything, and not doing business"}. Same vocabulary, looser signature: something said for no reason, an aside that goes nowhere, an answer with no angle on it, a sentence that does not end in what happens next`);
   // The middle band carries the least, so it is the one band that does not count as "something to
   // say about this voice this turn": a card with nothing else on it still falls back to its
   // baseline below, with this appended rather than instead.
