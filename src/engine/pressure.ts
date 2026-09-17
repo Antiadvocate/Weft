@@ -442,10 +442,10 @@ const EXO_INTERVAL = (tension: number): number => (tension <= 3 ? 40 : tension <
  *  day at middling tension, one every twelve hours when it runs hot. */
 const EXO_MINUTES = (tension: number): number => (tension <= 3 ? 2880 : tension <= 6 ? 1440 : 720);
 
-/** How long the premise waits between touches when the dial is at rest. Twice the ordinary
- *  starvation clock: at tension 0 the story's own subject is something that comes around, not
- *  something that presses. */
-const REST_PALETTE_STARVED = 10;
+/** How long the premise waits between touches when the dial is at rest. Longer than the ordinary
+ *  starvation clock and longer than the tension-1 cooldown ladder, so the rest position stays the
+ *  quietest setting on the dial. */
+const REST_PALETTE_STARVED = 12;
 
 /**
  * THE PLAYER'S OWN PALETTE IS NOT THE ENGINE ORIGINATING SOMETHING.
@@ -487,8 +487,23 @@ export function restingPalette(inp: BeatInput): Beat {
   if (!lines.length) return { kind: "none" };
   const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
   const since = (ref: string) => inp.turn - (hist.get(ref)?.turn ?? -Infinity);
+
+  // THE PREMISE IS ONE VOICE, NOT ONE PER LINE — and the first version of this function got that
+  // wrong in the direction that makes the dial run backwards.
+  //
+  // Per-line, each line's clock resets on its own, so with four lines the stalest is always past
+  // the threshold within a few turns of the last touch and the premise speaks every second or third
+  // turn. Walked over sixty turns of a real save: tension 0 delivered 24 beats, tension 1 delivered
+  // 5, tension 5 delivered 13. Turning the dial UP from rest made the world five times quieter,
+  // which is the setting doing the opposite of what it says, and the player turned it up on advice
+  // and reported that nothing changed.
+  //
+  // pickStanding worked this out already and the note above it says so: "hunger is measured across
+  // the palette AS A WHOLE. The premise speaks, then rests, then may speak again." Same rule here,
+  // on a longer clock, so rest stays the quietest position on the dial.
+  // Any line speaking rests the whole palette, so four lines do not mean four clocks.
+  if (lines.some((l) => since(l) < REST_PALETTE_STARVED)) return { kind: "none" };
   const stalest = lines.reduce((a, b) => (since(a) >= since(b) ? a : b));
-  if (since(stalest) < REST_PALETTE_STARVED) return { kind: "none" };
   return { kind: "palette", ref: stalest, quiet: true };
 }
 

@@ -1022,6 +1022,10 @@ export type ActionMode = "do" | "say" | "think" | "story";
 export type Stance = "press" | "maneuver" | "hold" | "yield";
 
 export interface TurnHistoryEntry {
+  /** The beat paragraph this turn actually carried — what the engine decided the turn was FOR,
+   *  verbatim. Separate from `directive` because beatNote is concatenated after it at the call
+   *  site and was therefore in no record at any length. See the note in turn.ts. */
+  beat_note?: string;
   turn: number;
   kind?: "turn" | "interlude" | "opening";   // opening = the scene you start in (editable, pre turn-1)
   span_label?: string;           // "three days pass"

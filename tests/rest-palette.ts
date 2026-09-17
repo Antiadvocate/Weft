@@ -59,22 +59,24 @@ const base = (over: Record<string, unknown> = {}) => ({
 
 /* ── 2. ...ON A SLOWER CLOCK THAN WHEN THE DIAL IS UP ────────────────────────── */
 {
-  // Fired on turn 15, four turns ago: at rest the premise comes around rather than presses.
-  const recent = PALETTE.map((ref) => ({ ref, turn: 15, count: 1, kind: "palette" }));
-  check("a palette that spoke four turns ago stays quiet",
+  // Fired on turn 15, four turns ago: at rest the premise comes around rather than presses, and
+  // ONE line speaking rests the whole palette — see the walk in block 9 for why that matters.
+  const recent = [{ ref: PALETTE[1], turn: 15, count: 1, kind: "palette" }];
+  check("one line speaking four turns ago rests the whole palette",
     selectBeat(base({ recent })).kind === "none", selectBeat(base({ recent })));
 
   const old = PALETTE.map((ref) => ({ ref, turn: 5, count: 1, kind: "palette" }));
-  check("...and one that has waited fourteen comes back", selectBeat(base({ recent: old })).kind === "palette");
+  check("...and a palette that has waited fourteen comes back", selectBeat(base({ recent: old })).kind === "palette");
 }
 
 /* ── 3. THE LINE THAT HAS WAITED LONGEST IS THE ONE THAT COMES ───────────────── */
 {
+  // All three past the palette-wide rest clock, so the premise is allowed to speak at all; the
+  // fourth has never fired, which is the case from the save.
   const recent = [
-    { ref: PALETTE[0], turn: 18, count: 1, kind: "palette" },
-    { ref: PALETTE[1], turn: 17, count: 1, kind: "palette" },
-    { ref: PALETTE[2], turn: 16, count: 1, kind: "palette" },
-    // the fourth has never fired at all, which is the case from the save
+    { ref: PALETTE[0], turn: 7, count: 1, kind: "palette" },
+    { ref: PALETTE[1], turn: 6, count: 1, kind: "palette" },
+    { ref: PALETTE[2], turn: 5, count: 1, kind: "palette" },
   ];
   const b: any = selectBeat(base({ recent }));
   check("the never-fired line is the one that surfaces", b.ref.startsWith("Psychological boundary testing"), b);
@@ -136,6 +138,47 @@ const base = (over: Record<string, unknown> = {}) => ({
 
   check("nothing else the engine invented gets that slot at rest",
     beatDirective({ kind: "thread", ref: "The upstairs leak" } as any, 0) === "");
+}
+
+/* ── 9. THE DIAL RUNS IN ONE DIRECTION ────────────────────────────────────────────
+ *
+ * The first version of restingPalette measured hunger PER LINE, so with four palette lines the
+ * stalest was past the threshold again within two or three turns of the last touch. Walked over
+ * sixty turns of the save this was built from:
+ *
+ *     tension  0 → 24 beats      tension 1 → 5      tension 2 → 5      tension 5 → 13
+ *
+ * Turning the dial UP from rest made the world five times quieter. The player had just been told to
+ * raise it off 0, did, and reported that nothing changed — correctly, because for him it got worse.
+ *
+ * pickStanding had already solved this and written it down: "hunger is measured across the palette
+ * AS A WHOLE. The premise speaks, then rests, then may speak again." Any line speaking rests the
+ * whole palette. */
+{
+  const walk = (tension: number): number => {
+    let lastBeat = 0, minutesSince = 9999, beats = 0;
+    const recent: { ref: string; turn: number; count: number; kind: string }[] = [];
+    for (let t = 1; t <= 60; t++) {
+      let k = 0;
+      const rng = () => { k++; return ((t * 7919 + k * 104729) % 1000) / 1000; };
+      const b: any = selectBeat(base({
+        tension, turn: t, last_beat_turn: lastBeat, minutesSinceBeat: minutesSince, recent, rng,
+        threads: [{ id: "t1", title: "Cardboard behind the dryer", description: "A flattened box.", status: "active", tension: 3, turn_started: 1 }],
+      }));
+      if (b.kind !== "none") {
+        beats++; lastBeat = t; minutesSince = 0;
+        const prev = recent.find((r) => r.ref === b.ref);
+        if (prev) { prev.turn = t; prev.count++; } else recent.push({ ref: b.ref, turn: t, count: 1, kind: b.kind });
+      } else minutesSince += 6;   // a conversation scene, which is what this save is
+    }
+    return beats;
+  };
+
+  const rest = walk(0), low = walk(2), mid = walk(5), high = walk(10);
+  check("rest is the quietest position on the dial", rest <= low, { rest, low });
+  check("...and the middle is busier than the low end", mid >= low, { low, mid });
+  check("...and the top is busier than the middle", high >= mid, { mid, high });
+  check("rest is not silent either", rest > 0, { rest });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

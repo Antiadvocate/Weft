@@ -4608,7 +4608,23 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     summary: (diff.scene_summary || prose.slice(0, 120))
       + (state.last_risen ? ` [DID NOT HAPPEN: ${state.last_risen.name} is ${state.last_risen.status} and was not there]` : ""),
     present: presentDuringTurn,
-    shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather, directive: fullDirective.slice(0, 240),
+    shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather,
+    /* WHAT THIS TURN WAS ACTUALLY TOLD TO DO.
+     *
+     * This stored `fullDirective.slice(0, 240)` — the first 240 characters of a document that runs
+     * to thousands, cut mid-word — and `fullDirective` is not the whole of what goes to the
+     * narrator anyway: beatNote is concatenated separately at the call site, after it, so the one
+     * paragraph naming what the turn is FOR was never in the record at any length.
+     *
+     * A player exported a save to ask why the thing he had written the story for never happened. The
+     * telemetry said a palette beat had been selected on turn 18. The stored directive for turn 18
+     * was two hundred and forty characters ending "Financial precarity and shared" — no beat body,
+     * no way to tell whether the selector's decision had reached the model at all. The question was
+     * unanswerable from the export, which is the one artefact anybody can send.
+     *
+     * So the beat goes in whole, separately, and the head of the directive gets more room. Both are
+     * bounded: this is written every turn and kept for the life of the save. */
+    directive: fullDirective.slice(0, 600), beat_note: beatNote.trim().slice(0, 600) || undefined,
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, tell: i.tell, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
