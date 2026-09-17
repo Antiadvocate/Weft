@@ -442,6 +442,56 @@ const EXO_INTERVAL = (tension: number): number => (tension <= 3 ? 40 : tension <
  *  day at middling tension, one every twelve hours when it runs hot. */
 const EXO_MINUTES = (tension: number): number => (tension <= 3 ? 2880 : tension <= 6 ? 1440 : 720);
 
+/** How long the premise waits between touches when the dial is at rest. Twice the ordinary
+ *  starvation clock: at tension 0 the story's own subject is something that comes around, not
+ *  something that presses. */
+const REST_PALETTE_STARVED = 10;
+
+/**
+ * THE PLAYER'S OWN PALETTE IS NOT THE ENGINE ORIGINATING SOMETHING.
+ *
+ * The tension dial's promise is precise and it is worth keeping: at 0 "the engine originates
+ * NOTHING new — no invented threads, no seeded drives, a world that only answers what you do."
+ * Every source selectBeat can reach is bookkeeping the engine generated: clocks the forge wrote,
+ * threads the bookkeeper opened, people with drives it seeded. Switching all of that off at 0 is
+ * exactly right.
+ *
+ * The palette is not one of those, and the note two hundred lines below says so in as many words —
+ * it is "the one place the PLAYER says what this world runs on". It is typed by hand, into the
+ * bible, on purpose. turn.ts already reached this conclusion for the other hand-typed field and
+ * wrote it down: "AUTHORED WANTS CLIMB REGARDLESS OF TENSION... an authored want is not the engine
+ * originating anything; it is the player originating it, by hand, on purpose. Somebody who turned
+ * tension to 0 to stop the world inventing plots and then wrote a want onto their neighbour meant
+ * for that want to happen." tickAuthored runs above the tension gate for that reason. The palette
+ * sat below it.
+ *
+ * WHAT THAT COST, from a save: nineteen turns, four palette lines, tension 0. Every telemetry row
+ * reads beat "none" and source "quiet — the world breathes"; pressure_state.last_beat_turn is 0 and
+ * its recent list is empty. The world never pressed once. Run that save's own palette through this
+ * selector at tension 5 and it comes back kind "palette" on twelve rolls in twenty. The lines were
+ * live, well-formed and correctly wired; they were unreachable. Meanwhile pressureDirective was
+ * telling the narrator every turn not to escalate, which is the negation of the fourth line the
+ * player had written. The player's report was that the game ignored what he asked it for.
+ *
+ * SO THE PREMISE STILL TOUCHES THE SCENE AT REST, IN ITS QUIET FORM — the one beatBody already
+ * writes for exactly this case: "lightly and unprompted. Once, small, in the middle of the turn —
+ * the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them
+ * and the scene carries on." No confrontation, no demand, no new thread. The dial keeps its whole
+ * promise about what the ENGINE invents, and the thing the player wrote by hand stays reachable.
+ *
+ * On a doubled starvation clock, so at rest it comes around rather than presses, and always the
+ * line that has waited longest.
+ */
+export function restingPalette(inp: BeatInput): Beat {
+  const lines = (inp.palette ?? []).map((l) => clipText(String(l ?? "").trim(), 130)).filter(Boolean);
+  if (!lines.length) return { kind: "none" };
+  const hist = new Map((inp.recent ?? []).map((r) => [r.ref, r]));
+  const since = (ref: string) => inp.turn - (hist.get(ref)?.turn ?? -Infinity);
+  const stalest = lines.reduce((a, b) => (since(a) >= since(b) ? a : b));
+  if (since(stalest) < REST_PALETTE_STARVED) return { kind: "none" };
+  return { kind: "palette", ref: stalest, quiet: true };
+}
+
 export function selectBeat(inp: BeatInput): Beat {
   const rng = inp.rng ?? Math.random;
   // A FORCED BEAT OUTRANKS BOTH OF THE EARLY EXITS BELOW. A debug command that silently does
@@ -449,7 +499,8 @@ export function selectBeat(inp: BeatInput): Beat {
   // player asks the engine a direct question and gets the same silence they were trying to explain.
   if (inp.tension <= 0 && inp.force === undefined) {
     const due0 = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
-    return due0 ? { kind: "consequence", ref: clipText(due0.description, 120), consequence: due0 } : { kind: "none" };
+    if (due0) return { kind: "consequence", ref: clipText(due0.description, 120), consequence: due0 };
+    return restingPalette(inp);
   }
   // a DUE consequence always lands — the player (or the world) loaded it; the calendar fired it
   const due = inp.consequences.find((c) => isDue(c, inp.turn, inp.now));
@@ -925,7 +976,15 @@ export function beatSources(inp: BeatInput): string[] {
 export function beatDirective(beat?: Beat, tension?: number): string {
   // At rest the world is explicitly not supposed to press, and pressureDirective already says so in
   // its own paragraph. Repeating a source here would be arguing with it.
-  if ((tension ?? 5) <= 0) return "";
+  //
+  // EXCEPT THE PALETTE, which at rest is the only beat that can reach this function at all, and
+  // which is the player's own hand rather than the engine's. Returning "" for it would put the one
+  // thing the player authored in the middle of a forty-paragraph digest — the reference position —
+  // while the paragraph telling the narrator the world is at rest kept the end. This engine has
+  // learned that ordering lesson repeatedly and written it down in maxims.ts, authored.ts and
+  // habitDirective: a rule in the middle of a long document is reference, and a rule at the end is
+  // an instruction.
+  if ((tension ?? 5) <= 0 && beat?.kind !== "palette") return "";
   const body = beatBody(beat);
   return body ? `\n\n=== WHAT THIS TURN IS FOR ===\n${body}` : "";
 }
@@ -973,6 +1032,24 @@ function beatBody(beat?: Beat): string {
 export function pressureDirective(v: PressureVerdict, palette?: string[], tension?: number, tier: PowerTier = "mortal", beat?: Beat, deferBeat = false): string {
   const lines = [`PRESSURE ${v.pressure}/10 (${v.band}) \u2014 source: ${v.source}.`];
   if ((tension ?? 5) <= 0) {
+    // ...AND WHEN THE PREMISE ITSELF TOUCHES THE SCENE, THIS PARAGRAPH IS NOT ALSO SENT.
+    //
+    // The two contradict each other outright. This block says introduce no new development and do
+    // not escalate; a palette beat says the thing the player wrote their story to run on is
+    // happening now. Sent together, the narrator reads a rule and an exception in the same breath
+    // and the rule wins, because it is longer and it is absolute. On the save this was found on the
+    // fourth palette line read "Psychological boundary testing escalating to sadistic domestic
+    // control" and this paragraph went out nineteen times telling the narrator not to escalate.
+    //
+    // At rest the palette only ever arrives in its quiet form, which is already written as small,
+    // unprompted and carried past — so the rest-state promise is kept by the beat itself rather
+    // than by a paragraph arguing with it.
+    if (beat?.kind === "palette") {
+      lines.push(`TENSION 0 \u2014 THE WORLD IS AT REST, and the engine invents nothing this turn: no new threat, no new complication, no arrival, no background development, and nobody present manufactures a confrontation or corners the player with a demand. The one exception is what the player wrote this story to run on, which is not the engine inventing anything, and at rest it arrives small, once, and carried past${deferBeat ? " \u2014 it is described at the end of this document" : ""}.`);
+      if (!deferBeat) lines.push(beatBody(beat));
+      if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
+      return lines.join("\n");
+    }
     lines.push("TENSION 0 \u2014 THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does \u2014 let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate \u2014 if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
   } else if (!deferBeat) {
     // WHEN THE CALLER PLACES THE BEAT ITSELF, IT IS NOT ALSO SAID HERE. Two copies of the same

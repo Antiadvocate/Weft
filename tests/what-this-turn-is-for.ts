@@ -51,7 +51,14 @@ check("no beat at all is still said out loud", beatDirective(undefined, 9).inclu
 check("kind none is still said out loud", beatDirective({ kind: "none" } as Beat, 9).includes("NO NEW INCIDENT THIS TURN"));
 
 // ---- at rest the beat is silent, because pressureDirective already speaks for the world --------
-check("tension 0 emits nothing here", beatDirective(palette, 0) === "", beatDirective(palette, 0));
+/* A PALETTE BEAT IS THE ONE THING THAT STILL LANDS HERE AT REST, and the reason is the reason this
+ * whole block exists: the last position is where an instruction goes and the middle is where
+ * reference goes. Returning "" put the one source the player wrote by hand into the digest while
+ * the paragraph saying the world is at rest kept the end of the document. Everything the ENGINE
+ * invented is still silent at rest. See restingPalette in pressure.ts. */
+check("a palette beat lands here even at rest", beatDirective(palette, 0).includes("WHAT THIS TURN IS FOR"), beatDirective(palette, 0));
+check("...and nothing the engine invented does",
+  beatDirective(clock, 0) === "" && beatDirective({ kind: "thread", ref: "x" } as Beat, 0) === "");
 check("tension undefined behaves like the mid dial", beatDirective(palette).length > 0);
 
 // ---- the deferred call no longer says it too ---------------------------------------------------
@@ -64,7 +71,16 @@ check("deferred: the palette filter stays", deferred.includes("Draw pressure onl
 // The old callers pass five arguments and must be untouched by any of this.
 const inline = pressureDirective(V, [FEET], 9, "mortal", palette);
 check("undeferred: the beat body is where it always was", inline.includes("THE ENGINE OF THIS STORY PRESSES"), inline);
-check("undeferred: rest still overrides the beat", !pressureDirective(V, [FEET], 0, "mortal", palette).includes("THE ENGINE OF THIS STORY PRESSES"));
+/* Undeferred at rest, a palette beat is carried rather than overridden — the rest paragraph used to
+ * tell the narrator to introduce nothing in the same breath as handing it the story's own subject,
+ * and a rule that long and that absolute wins against an exception. Everything else the engine
+ * could have invented is still refused there. */
+check("undeferred: a palette beat at rest is carried, not overridden",
+  pressureDirective(V, [FEET], 0, "mortal", palette).includes("THE ENGINE OF THIS STORY PRESSES"));
+check("undeferred: and the rest paragraph stops arguing with it",
+  !pressureDirective(V, [FEET], 0, "mortal", palette).includes("Do NOT introduce any new threat"));
+check("undeferred: a turn with nothing in it is unchanged",
+  pressureDirective(V, [FEET], 0, "mortal", { kind: "none" } as Beat).includes("Do NOT introduce any new threat"));
 check("undeferred and deferred say the same thing minus the beat",
   inline.replace(beatDirective(palette, 9).split("\n").pop()!, "").replace(/ +/g, " ").trim() === deferred.replace(/ +/g, " ").trim(),
   { inline, deferred });

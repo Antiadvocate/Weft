@@ -659,7 +659,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           className="w-full" style={{ accentColor: "var(--accent)" }} />
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
           {(draft.tension ?? 5) === 0
-            ? "0 — at rest. The world introduces nothing new: no fresh threats, threads, events, faction moves, or background drives. It only responds to what you do. Pure breathing room."
+            ? "0 — at rest. The engine introduces nothing of its own: no fresh threats, threads, events, faction moves, or background drives. What you wrote by hand still runs — a pressure palette line touches a scene now and then, small and carried past rather than pressing, and an authored want still climbs. Everything else waits on you."
             : (draft.tension ?? 5) <= 2
               ? "Low — quiet. Existing situations can resolve and people react, but little new friction is manufactured, and no scheduled consequences are created."
               : (draft.tension ?? 5) <= 4
@@ -697,7 +697,13 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
         <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
         <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
-        <TextField label="Pressure palette (one per line — where friction is allowed to come from)" value={palette} onChange={setPalette} rows={3} />
+        <TextField label="Pressure palette (one per line — what this story runs on)" value={palette} onChange={setPalette} rows={3} />
+        <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
+          The one place you say what the story is <em>about</em>, and the engine presses with these by name. A world with a palette and nothing else to press with will run on it.
+          {splitLines(palette).length > 0 && (m.tension ?? 5) === 0 && (
+            <> <span style={{ color: "var(--accent)" }}>World tension is 0, so these arrive in their quiet form only</span> — one of them touches a scene every ten turns or so, small and unprompted, and the world builds nothing on top of it. Raise the dial if you want them to actually press.</>
+          )}
+        </div>
         <TextField label="Never the primary engine of a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
         <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />

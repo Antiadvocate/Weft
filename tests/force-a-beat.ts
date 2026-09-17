@@ -70,7 +70,21 @@ check("an unmatched name still moves the world", many({ force: "xyzzy" }).every(
 // command that silently no-ops is worse than not having one.
 check("a rest dial does not swallow it", many({ force: "voice", tension: 0 }).every((b) => b.kind === "palette"));
 check("nor does the opening grace window", many({ force: "voice", turn: 3, last_beat_turn: 0 }).every((b) => b.kind === "palette"));
-check("...while an unforced turn at a rest dial is still at rest", many({ tension: 0 }).every((b) => b.kind === "none"));
+/* AN UNFORCED REST TURN NO LONGER MEANS NOTHING AT ALL, and the difference is whose hand wrote the
+ * source. At tension 0 the engine still invents nothing — no thread, no clock, no agent, no
+ * exogenous event — but a pressure palette line is the player's own typing in the bible, and it
+ * comes around quietly. See restingPalette in pressure.ts, and the save that found it: nineteen
+ * turns, four palette lines, beat "none" on every row. The forced case above is what this is
+ * distinguished from — [[beat]] at rest still delivers the LOUD form, because the player asked. */
+{
+  const rest = many({ tension: 0 });
+  check("...while an unforced turn at a rest dial invents nothing",
+    rest.every((b) => b.kind === "none" || b.kind === "palette"), rest.map((b) => b.kind));
+  check("...and anything it does deliver there is the quiet form",
+    rest.every((b) => b.kind !== "palette" || (b as any).quiet === true), rest);
+  check("...while a forced one at the same dial is not quiet",
+    many({ force: "voice", tension: 0 }).every((b) => (b as any).quiet !== true));
+}
 check("...and the grace window still holds when nobody asked", 
   many({ turn: 3, last_beat_turn: 0 }).every((b) => b.kind === "none" || b.kind === "reminder"));
 
