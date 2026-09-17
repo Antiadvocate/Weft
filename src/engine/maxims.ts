@@ -388,7 +388,21 @@ export function voiceAnchor(
     // The example line matters most and is the cheapest: one sentence in a person's actual mouth
     // does more than any description of how they talk.
     const sound = registerOf(c);
-    const sample = c.voice?.example_lines?.find((l) => String(l ?? "").trim());
+    // THE EXEMPLAR IS GONE FROM HERE TOO, WHICH IS WHERE charCard GOT TO FIRST.
+    //
+    // prompts.ts removed three sample lines from the cached card and wrote down why: a sample
+    // written to demonstrate a voice is always a compressed one, because nobody writes a paragraph
+    // as an example, so pasting them told the narrator never to write anybody a sentence longer
+    // than this. Then this block put one back — one, with better framing, and the framing does not
+    // survive contact. A quoted line in a person's mouth immediately before the request to write
+    // them talking is a template, and the player's report is that it becomes the register of
+    // everything, everywhere: "Giving sample or example sentences fucks it up."
+    //
+    // What voice-and-grief.ts actually measured is unaffected. Its finding was that five distinct
+    // REGISTERS never reached 318 spoken lines, and the register is what the row above carries —
+    // the counter, the register, closing, the schedule; kerning, negative space, hex codes. A stock
+    // of words is a thing to draw from. A finished sentence is a thing to copy.
+    const sample = undefined;
     const bits = [
       c.age ? `${c.age}` : "",
       c.core_traits?.length ? c.core_traits.slice(0, 3).join("; ") : "",

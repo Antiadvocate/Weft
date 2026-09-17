@@ -313,6 +313,101 @@ export function lint(src: string): Finding[] {
   return out;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE STACCATO — measured as a DENSITY, because no single sentence of it is wrong.
+ *
+ * Every other finding in this file is a per-sentence verdict: one contrastive epigram is one thing
+ * to rewrite. This one cannot work that way. "One sentence is enough." is a fine instruction. Four
+ * hundred and thirty-seven of them in one corpus is a voice, and it is the voice this engine keeps
+ * producing and then catching in its own output.
+ *
+ * The player, on a forged register that read "Short, flat sentences. Says the thing and stops. Does
+ * not soften it.": "Do you hear this register? It becomes a part of the fucking prose. Everywhere.
+ * At everything." He is describing the instructions, not the card — the card is three sentences and
+ * the corpus is thousands, all written by the same hand on the same days, all read by the model
+ * immediately before it writes.
+ *
+ * Measured on src/engine the day this was added: 3,841 model-facing sentences, 851 of them between
+ * three and nine words, and 437 of those carrying no comma, no semicolon, no dash and no
+ * subordinate clause. 11.4% of everything the engine says to a model is a flat short declarative.
+ * A sample, and the last three are from a prompt written the same week the complaint arrived:
+ *
+ *     THE BRIEFING IS THE WHOLE OF WHAT YOU KNOW.
+ *     Nobody in this scene has to be efficient.
+ *     One sentence is enough.
+ *     You call and get no answer.
+ *     You ask the wrong person.
+ *     You go and find the door shut.
+ *
+ * Read those six aloud and the western is there. It is the same argument tests/prompt-shapes.ts
+ * makes about the contrastive epigram, which was driven from 262 to zero: a prompt is a corpus the
+ * model conditions on, and a shape used hundreds of times teaches that shape far more reliably than
+ * one sentence asking for it to be avoided. Nobody had measured this shape.
+ *
+ * WHAT COUNTS. Three to nine words, no internal punctuation, no subordinating conjunction, ending
+ * in a full stop. Headings in capitals are excluded — a heading is a label and is read as one.
+ * Questions are excluded. What is left is prose that could be dropped into a character's mouth
+ * unaltered, which is the test.
+ *
+ * HOW TO USE IT. Not by deleting short sentences. By letting a sentence carry its reason: joining
+ * the flat pair with the "because" that was always implied, hanging the qualification off the
+ * clause instead of starting a new one, and putting the example inside the sentence that needs it.
+ * The corpus then reads like somebody explaining something, which is what it is.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** Words that hang one clause off another. A sentence with any of these is doing more than one
+ *  thing and is not the shape being counted. */
+const SUBORDINATOR =
+  /\b(which|who|whom|whose|that|because|although|though|while|whereas|unless|until|since|after|before|when|where|if|so|rather|as)\b/i;
+
+/** One flat short declarative: the unit. */
+export function isStaccato(sentence: string): boolean {
+  const s = sentence.trim();
+  if (!s || !/[.]$/.test(s)) return false;                 // a question or a heading is not this
+  if (/[,;:—–(]/.test(s)) return false;                    // any internal punctuation is a second move
+  if (SUBORDINATOR.test(s)) return false;
+  const words = s.match(/[A-Za-z][A-Za-z'-]*/g) ?? [];
+  if (words.length < 3 || words.length > 9) return false;
+  // A heading in capitals is a label the model reads as a label.
+  if (s === s.toUpperCase()) return false;
+  return true;
+}
+
+export interface StaccatoReport { total: number; flat: number; pct: number; samples: string[] }
+
+/** The density over one file's model-facing text. */
+export function staccato(src: string): StaccatoReport {
+  const sentences = modelFacing(src).split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter((x) => x.length > 3);
+  const flat = sentences.filter(isStaccato);
+  return {
+    total: sentences.length,
+    flat: flat.length,
+    pct: sentences.length ? (100 * flat.length) / sentences.length : 0,
+    samples: flat.slice(0, 12),
+  };
+}
+
+/** ...and over a whole tree, which is the number the ratchet holds. */
+export function staccatoTree(root: string): StaccatoReport & { byFile: { file: string; flat: number; pct: number }[] } {
+  let total = 0, flat = 0;
+  const samples: string[] = [];
+  const byFile: { file: string; flat: number; pct: number }[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir).sort()) {
+      if (e === "node_modules" || e === "dist" || e === ".git") continue;
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (!/\.tsx?$/.test(e)) continue;
+      const r = staccato(readFileSync(full, "utf8"));
+      total += r.total; flat += r.flat;
+      if (r.flat) { byFile.push({ file: full, flat: r.flat, pct: r.pct }); samples.push(...r.samples.slice(0, 3)); }
+    }
+  };
+  walk(root);
+  byFile.sort((a, b) => b.flat - a.flat);
+  return { total, flat, pct: total ? (100 * flat) / total : 0, samples: samples.slice(0, 20), byFile };
+}
+
 export function lintDir(dir = "src/engine"): { file: string; findings: Finding[] }[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith(".ts"))
@@ -352,4 +447,11 @@ if (process.argv[1]?.endsWith("promptlint.ts")) {
     for (const f of findings) { n++; console.log(`  [${f.kind}] ${f.text.slice(0, 150)}`); }
   }
   console.log(`\n${n} findings across ${results.length} files`);
+
+  /* ...and the density, which is a different kind of answer. The findings above are sentences to
+   * rewrite one at a time; this is a proportion, and it only means anything as a trend. */
+  const st = staccatoTree(target);
+  console.log(`\nSTACCATO — flat short declaratives, the shape that reads back as a western`);
+  console.log(`  ${st.flat} of ${st.total} model-facing sentences (${st.pct.toFixed(1)}%)`);
+  for (const f of st.byFile.slice(0, 6)) console.log(`    ${String(f.flat).padStart(4)}  ${f.pct.toFixed(0).padStart(3)}%  ${f.file}`);
 }

@@ -146,6 +146,58 @@ What it does *not* skip is the bookkeeping afterward: the beat discharges, the s
 fatigue list, and the next few turns cool off exactly as they would have. It is a way to see the
 machine, not a way to cheat it.
 
+## The prompt corpus is written in the voice it keeps catching
+
+A player, on a forged register that read *Short, flat sentences. Says the thing and stops. Does not
+soften it.*:
+
+> Do you hear this register? It becomes a part of the fucking prose. Everywhere. At everything. The
+> purpose of grounding sentence structure was to stop pontification and to stop abstract wordiness.
+> Which is still happening. But it's grounded so now it just sounds like a western.
+
+He is pointing at the instructions rather than the card. The card is three sentences. The corpus is
+thousands, written by the same hand on the same days, read by the model in the seconds before it
+writes. Measured the day the instrument was added: 3,841 model-facing sentences in `src/engine`, 851
+of them three to nine words, and **437 of those carrying no comma, no dash and no subordinate
+clause** — 11.4% of everything this engine says to a model, in the shape it then strikes out of the
+finished page. Among them, from a prompt written the same week the complaint arrived: *You call and
+get no answer. You ask the wrong person. You go and find the door shut.*
+
+This is the argument `tests/prompt-shapes.ts` already makes about the contrastive epigram, which it
+drove from 262 to zero. That file measured one shape. `npm run lint:prompts` now reports the density
+of this one too, and `tests/prompt-staccato.ts` ratchets it: the number may fall and may never rise.
+It is a proportion rather than a gate, because no single sentence of it is wrong — "One sentence is
+enough." is a fine instruction, and a JSON field reading "Dialogue in quotes." is a label. What does
+the damage is how many there are. The fix is never deletion: let a sentence carry the reason that was
+already implied, hang the qualification off the clause instead of starting a new one, and put the
+example inside the sentence that needs it. Two passes took the narrator contract from 113 to 33 and
+the tree from 437 to 204.
+
+Three things changed alongside it, all from the same complaint.
+
+**No sample lines reach the narrator any more.** `charCard` removed three from the cached card a
+while ago and recorded why — a sample written to demonstrate a voice is always a compressed one,
+because nobody writes a paragraph as an example, so pasting them tells the narrator never to write
+anybody a longer sentence. The per-turn directive then put one back, with better framing, and the
+framing does not survive contact. What still goes through is the **register**: a stock of words, the
+counter and the schedule and the closing shift, which is the part with evidence behind it (five
+distinct vocabularies reaching none of 318 spoken lines was what sending them fixed). A stock of
+words is a thing to draw from; a finished sentence is a thing to copy.
+
+**A verbal tic now defaults to never.** It was printed as `tic (≤once a scene)`, which reads as a
+ceiling and lands as a quota — every present character carries one, so every mouth in the room
+performs, every scene. It is written as a condition instead: the habit surfaces when somebody is
+tired, rattled, or talking without watching themselves, and the number of times it appears in an
+ordinary scene is zero. Most of what anybody says has nothing on it at all.
+
+**And a line is allowed to do no work.** The grounding rule — every line names something in this
+room, a person, a price, a door, an errand — was written to kill pontification and it worked. Read
+as a requirement that every line *land*, it produces a scene of people delivering lines, which is
+the western. The contract now says what it was always missing: most of what anybody says all day is
+functional and carries nothing. Asking for a coffee. Saying where they parked. Agreeing. Filling a
+gap because the silence got long. Those are what let the loaded lines matter, and they are allowed
+to be flat and interchangeable with what anyone else in that chair would have said.
+
 ## Why the ten-year-old talks like a gunslinger
 
 A player: "I've got 10 year old kids in the game talking like it's the Good, the Bad and the Ugly."

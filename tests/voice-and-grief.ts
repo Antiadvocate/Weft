@@ -55,9 +55,25 @@ function check(name: string, c: boolean, extra?: unknown) {
 
   check("the block still names who is talking", /WHY NONE OF THEM SHOULD SOUND ALIKE/.test(v), v);
   check("Amber's register is sent", /TALKS LIKE THIS: pharmacy-line and shift-work vocabulary/.test(v), v);
-  check("...and one of her actual lines", /I closed the counter at nine/.test(v));
   check("Miranda's register is sent", /design-shop vocabulary used literally/.test(v));
-  check("...and one of hers", /off true by about a degree/.test(v));
+
+  /* THE SAMPLE LINE IS NOT SENT, AND THAT IS A DELIBERATE REVERSAL OF WHAT THIS FILE ORIGINALLY
+   * PINNED. What it measured is untouched: five distinct REGISTERS reaching none of 318 spoken
+   * lines, which is what the two checks above exist for and what sending the register fixed. The
+   * exemplar rode along with that fix and it is a separate mechanism with its own history —
+   * prompts.ts had already taken three sample lines OFF the cached card, and wrote down why: a
+   * sample written to demonstrate a voice is always a compressed one, so pasting them tells the
+   * narrator never to write anybody a sentence longer than this. This block then put one back.
+   *
+   * The player, two hundred turns later: "Giving sample or example sentences fucks it up." And on
+   * the register those samples produce: "Do you hear this register? It becomes a part of the
+   * fucking prose. Everywhere. At everything."
+   *
+   * A stock of words is a thing to draw from. A finished sentence in somebody's mouth, printed
+   * immediately before the request to write them talking, is a template. */
+  check("no finished sentence is handed over to be copied", !/ONE OF THEIR ACTUAL LINES/.test(v), v);
+  check("...not Amber's", !/I closed the counter at nine/.test(v));
+  check("...and not Miranda's", !/off true by about a degree/.test(v));
   check("the age is still there", /Amber Reyes — 19/.test(v));
   check("what she would never say survives", /Would never say: synergy/.test(v));
   check("the register is named as binding, not decoration", /AND THE REGISTER IS NOT DECORATION/.test(v));
