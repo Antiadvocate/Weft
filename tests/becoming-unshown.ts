@@ -142,14 +142,14 @@ const state = (becomings: unknown[]): SaveState =>
   check("...and the grace is counted", b.grace === 1, b);
   check("...and the player is told", !b.arrived_turn);
 
-  applyBecomingProgress(s, 10, undefined, empty);
-  check(`a second empty turn uses the last grace`, b.grace === GRACE_TURNS, b);
-  check("...still not arrived", !b.arrived_turn, b);
+  check(`the grace is ${GRACE_TURNS} turn, because a final turn now costs two model attempts`, GRACE_TURNS === 1);
 
   /* Bounded, because a narrator that never finds a way in must not freeze it forever. That is the
-   * objection the deadline was built against and it still holds. */
-  applyBecomingProgress(s, 11, undefined, empty);
-  check("past the grace it lands anyway", b.arrived_turn === 11, b);
+   * objection the deadline was built against and it still holds — and by this point four model
+   * attempts have been spent on it: two on the first final turn, two on the grace turn, since
+   * turn.ts re-runs the whole turn on the fallback when an ordered thing is missing. */
+  applyBecomingProgress(s, 10, undefined, empty);
+  check("past the grace it lands anyway", b.arrived_turn === 10, b);
   check("...and is then owed on the page", becomingLaw(s).includes("NEVER ONCE ON THE PAGE"));
 }
 

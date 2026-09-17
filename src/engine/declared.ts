@@ -140,3 +140,93 @@ export function declaredFix(miss: DeclaredMiss | null | undefined): string {
   return `\nSTOP. LAST TURN THE PLAYER WROTE THE WORLD AND THE WORLD DID NOT DO IT. They declared: "${miss.declaration}" — and ${how}.
 That channel is not a suggestion and the player is not asking. THIS TURN opens with that event having happened: render it complete, in the same room, with the same people, in plain past tense, before anything else occurs. Nothing arrives to prevent it, nobody nearly does it, and nothing smaller stands in for it. Then write what it cost — who saw, what broke, who knows, what somebody does about it — which is where your judgement belongs and where it is wanted.`;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHAT THIS TURN WAS ORDERED TO CONTAIN — and what happens when it comes back without it.
+ *
+ * Two things can be mandatory in a turn: a declaration the player typed on the story channel, and a
+ * becoming on the last turn of its clock. Both are the player's own hand, both are stated as law in
+ * the direction, and both were previously answerable with a paragraph about something else.
+ *
+ * The escalation ladder this engine had for them ended at "ask again, harder, next turn". That is
+ * the ladder that produced moved: 0, stalled: 3 — asked three times, ignored three times. What it
+ * was missing is the rung the refusal path has used for a long time: when the narrator model will
+ * not do the thing, RUN THE TURN AGAIN ON THE FALLBACK MODEL. Same prompt, same scene, different
+ * weights, with the miss named at the end where an instruction is read as an instruction.
+ *
+ * The cost is one extra narrator call on the turns where it fires, which is the same price the
+ * refusal path and the coherence rewrite already pay, and it only fires on a turn that was under
+ * an order and did not fill it.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+export interface Mandate { kind: "declaration" | "becoming"; claim: string }
+
+/** Everything this turn was required to put on the page. Empty on almost every turn. */
+export function mandatesFor(
+  state: { becomings?: { claim?: string; remaining?: number; arrived_turn?: number; paused?: boolean }[] },
+  mode: string,
+  action: string,
+  voided: unknown,
+): Mandate[] {
+  const out: Mandate[] = [];
+  if (mode === "story" && !voided && String(action ?? "").trim()) {
+    out.push({ kind: "declaration", claim: String(action).trim() });
+  }
+  for (const b of state.becomings ?? []) {
+    if (!b?.claim || b.arrived_turn || b.paused) continue;
+    if ((b.remaining ?? 99) <= 1) out.push({ kind: "becoming", claim: b.claim });
+  }
+  return out;
+}
+
+/** The mandates this turn's prose did not deliver. */
+export function unmetMandates(mandates: Mandate[], prose: string): { mandate: Mandate; miss: DeclaredMiss }[] {
+  return mandates
+    .map((mandate) => ({ mandate, miss: findDeclaredMiss(mandate.claim, prose) }))
+    .filter((x): x is { mandate: Mandate; miss: DeclaredMiss } => x.miss !== null);
+}
+
+/** Appended to the final user turn of the retry, which is where this engine has repeatedly found
+ *  that an instruction is read as an instruction rather than as reference. */
+export function forcedRetryNote(unmet: { mandate: Mandate; miss: DeclaredMiss }[]): string {
+  if (!unmet.length) return "";
+  const rows = unmet.map(({ mandate, miss }) => {
+    const how = miss.how === "hedged"
+      ? "the draft wrote it as an approach to itself — almost, started to, moved to — which is the act declining to happen"
+      : miss.how === "interrupted"
+        ? "something arrived in the draft and stopped it, and nobody ordered an interruption"
+        : "the draft does not contain it in any form";
+    const whose = mandate.kind === "declaration"
+      ? "The player wrote this into the world themselves"
+      : "The player set a clock on this and this is the last turn of it";
+    return `· ${mandate.claim}\n  ${whose}, and ${how}.`;
+  });
+  return `\n\n=== THE FIRST DRAFT OF THIS TURN CAME BACK WITHOUT WHAT IT WAS FOR ===\n${rows.join("\n")}\n`
+    + `Write the turn again, from the same scene and the same moment, with each of those happening in it. Put it in the opening lines, as an event with a cause, met by the people actually here, then carry on around it.\n`
+    + `THREE WAYS OF NOT WRITING IT, and none is available: nothing arrives to interrupt it; nobody almost does it, so strike "almost", "nearly", "started to", "was about to", "for a moment", "seemed to"; and nothing milder happens instead, however well it fits the room.\n`
+    + `Everything else about the turn is yours as before — who says what, what it costs, what breaks, who notices.`;
+}
+
+/**
+ * Append an instruction to the final user turn, whatever shape that turn is in.
+ *
+ * buildMessages sends `{ role: "user", content: "…" }` for most providers and
+ * `{ role: "user", content: [{type:"text",…},{type:"text",…}] }` for anthropic/* so the stable half
+ * can carry a cache breakpoint. Both retry paths in turn.ts guarded with `typeof last.content ===
+ * "string"` and therefore appended nothing at all on an Anthropic narrator: the retry went out
+ * identical to the draft that had just failed, which is a call spent on a coin flip.
+ */
+export function appendToLastUser(msgs: any[], note: string): any[] {
+  if (!note) return msgs;
+  const out = [...msgs];
+  for (let i = out.length - 1; i >= 0; i--) {
+    const m = out[i];
+    if (m?.role !== "user") continue;
+    if (typeof m.content === "string") out[i] = { ...m, content: m.content + note };
+    else if (Array.isArray(m.content)) out[i] = { ...m, content: [...m.content, { type: "text", text: note }] };
+    else continue;
+    return out;
+  }
+  return out;
+}

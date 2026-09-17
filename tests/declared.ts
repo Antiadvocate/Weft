@@ -24,7 +24,8 @@
  * substitutes something milder in the same room. All three read as cooperation, which is why the
  * frame names them and why the detector below looks for them in the committed prose.
  */
-import { storyFrame, findDeclaredMiss, declaredFix, declaredCoverage, declaredTokens, DECLARED_FLOOR } from "../src/engine/declared";
+import { storyFrame, findDeclaredMiss, declaredFix, declaredCoverage, declaredTokens, DECLARED_FLOOR,
+  mandatesFor, unmetMandates, forcedRetryNote, appendToLastUser } from "../src/engine/declared";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -118,6 +119,88 @@ function check(name: string, c: boolean, extra?: unknown) {
     check(`...and demands it this turn`, /THIS TURN opens with that event having happened/.test(fix));
   }
   check("no miss, no correction", declaredFix(null) === "");
+}
+
+/* ── 8. WHAT A TURN WAS ORDERED TO CONTAIN ───────────────────────────────────────
+ *
+ * Two things can be mandatory: a declaration typed on the story channel, and a becoming on the last
+ * turn of its clock. Both are the player's own hand. */
+{
+  const st = { becomings: [
+    { claim: "The lift has stopped running.", remaining: 1 },
+    { claim: "The rent has gone up again.", remaining: 3 },
+    { claim: "The roof has been condemned.", remaining: 1, arrived_turn: 4 },
+    { claim: "The yard has been fenced off.", remaining: 1, paused: true },
+  ] };
+  const m = mandatesFor(st, "story", "Abigail takes the laptop off him.", null);
+  check("the declaration is a mandate", m.some((x) => x.kind === "declaration"));
+  check("a becoming on its last turn is a mandate", m.some((x) => x.claim.includes("lift")));
+  check("one with turns left is not", !m.some((x) => x.claim.includes("rent")));
+  check("nor is one that already arrived", !m.some((x) => x.claim.includes("roof")));
+  check("nor is one the player is holding", !m.some((x) => x.claim.includes("yard")));
+
+  check("a do-mode turn declares nothing",
+    !mandatesFor(st, "do", "I go to the kitchen", null).some((x) => x.kind === "declaration"));
+  check("nor does a voided one",
+    !mandatesFor(st, "story", "STOP BEING A FUCKING IDIOT AI", "ooc").some((x) => x.kind === "declaration"));
+  check("an ordinary turn carries no mandate at all", mandatesFor({ becomings: [] }, "do", "I wait", null).length === 0);
+}
+
+/* ── 9. AND WHICH OF THEM THE DRAFT DID NOT CARRY ────────────────────────────── */
+{
+  const mandates = [
+    { kind: "declaration" as const, claim: "Abigail takes the laptop off him and puts it on the high shelf." },
+    { kind: "becoming" as const, claim: "The basement laundry has been padlocked by the management company." },
+  ];
+  const half = "Abigail took the laptop out of his hands and set it on the high shelf in the hall. He did not get up.";
+  const unmet = unmetMandates(mandates, half);
+  check("the one that landed is not reported", !unmet.some((u) => u.mandate.kind === "declaration"), unmet);
+  check("the one that did not is", unmet.some((u) => u.mandate.kind === "becoming"), unmet);
+
+  const both = "A padlock had gone on the basement laundry overnight, the management company's notice taped beside it. Abigail took the laptop off him and set it on the high shelf.";
+  check("a draft carrying both reports nothing", unmetMandates(mandates, both).length === 0, unmetMandates(mandates, both));
+}
+
+/* ── 10. THE RETRY NOTE NAMES WHOSE ORDER IT WAS AND HOW IT WAS DODGED ───────── */
+{
+  const note = forcedRetryNote([
+    { mandate: { kind: "declaration", claim: "she takes the laptop" }, miss: { declaration: "x", coverage: 0.1, how: "hedged" } },
+    { mandate: { kind: "becoming", claim: "the lift has stopped" }, miss: { declaration: "y", coverage: 0, how: "absent" } },
+  ]);
+  check("it says the draft came back without it", note.includes("CAME BACK WITHOUT WHAT IT WAS FOR"));
+  check("a declaration is named as the player's own hand", note.includes("The player wrote this into the world themselves"));
+  check("a becoming is named as the clock's last turn", note.includes("this is the last turn of it"));
+  check("the hedge is named", note.includes("approach to itself"));
+  check("the absence is named", note.includes("does not contain it in any form"));
+  check("and the three declines are closed off", /nothing arrives to interrupt it.*nobody almost does it.*nothing milder/is.test(note), note);
+  check("the rest of the turn is left alone", note.includes("Everything else about the turn is yours"));
+  check("no miss, no note", forcedRetryNote([]) === "");
+}
+
+/* ── 11. THE NOTE REACHES THE PROMPT ON EVERY PROVIDER ───────────────────────────
+ *
+ * buildMessages sends a string for most providers and a block array for anthropic/*, so the stable
+ * half can carry a cache breakpoint. Both retry paths in turn.ts guarded with `typeof last.content
+ * === "string"` and therefore appended NOTHING on an Anthropic narrator: the retry went out
+ * identical to the draft that had just failed, which is a call spent on a coin flip. */
+{
+  const plain = appendToLastUser([{ role: "system", content: "S" }, { role: "user", content: "U" }], "NOTE");
+  check("a string user turn is appended to", plain[1].content === "UNOTE", plain);
+
+  const blocks = appendToLastUser(
+    [{ role: "system", content: [{ type: "text", text: "S" }] },
+     { role: "user", content: [{ type: "text", text: "stable" }, { type: "text", text: "volatile" }] }], "NOTE");
+  check("a block-array user turn is appended to", blocks[1].content.length === 3, blocks[1].content);
+  check("...as a text block at the end", blocks[1].content[2].text === "NOTE");
+  check("...leaving the cached blocks untouched", blocks[1].content[0].text === "stable");
+
+  /* Chatlog mode ends on a user turn after a run of assistant turns; the note belongs on that one. */
+  const chat = appendToLastUser(
+    [{ role: "system", content: "S" }, { role: "user", content: "u1" }, { role: "assistant", content: "a1" }, { role: "user", content: "u2" }], "NOTE");
+  check("the LAST user turn gets it", chat[3].content === "u2NOTE");
+  check("...and an earlier one does not", chat[1].content === "u1");
+
+  check("no note, no change", appendToLastUser([{ role: "user", content: "U" }], "")[0].content === "U");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

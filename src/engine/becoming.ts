@@ -135,9 +135,14 @@ function rungOf(b: Becoming): string {
  * instruction not to do it, which is roughly what came back.
  */
 /** Extra turns a becoming may be granted when its final turn produced nothing on the page.
- *  Bounded, because the objection the clock was built against is real: a narrator that never finds
- *  a way in must not be able to freeze a becoming forever. */
-export const GRACE_TURNS = 2;
+ *
+ *  One, because a final turn now costs two model attempts rather than one: turn.ts re-runs the whole
+ *  turn on the fallback model when an ordered thing is missing from the draft. A grace turn is
+ *  therefore two more real attempts, not one more ask, and two of them would be four.
+ *
+ *  Bounded at all because the objection the clock was built against is real: a narrator that never
+ *  finds a way in must not be able to freeze a becoming forever. */
+export const GRACE_TURNS = 1;
 
 /**
  * THE LAST TURN OF THE CLOCK IS NOT A REQUEST.

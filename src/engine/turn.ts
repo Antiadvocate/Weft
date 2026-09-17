@@ -64,7 +64,7 @@ import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntit
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
 import { isDependentGoal } from "./driveforge";
-import { storyFrame, findDeclaredMiss, declaredFix } from "./declared";
+import { storyFrame, findDeclaredMiss, declaredFix, mandatesFor, unmetMandates, forcedRetryNote, appendToLastUser } from "./declared";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
@@ -3244,6 +3244,63 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         console.warn(`[turn] fallback narrator also failed: ${e}`);
       }
     }
+    // ── THE TURN WAS ORDERED TO CONTAIN SOMETHING AND CAME BACK WITHOUT IT ──────────────────
+    //
+    // Two things can be mandatory in a turn: a declaration the player typed on the story channel,
+    // and a becoming on the last turn of its clock. Both are the player's own hand and both are
+    // already stated as law at the end of the direction.
+    //
+    // The ladder for them ended at "ask again, harder, next turn", which is the ladder that
+    // produced moved: 0, stalled: 3 on a three-turn clock — asked three times, ignored three
+    // times, then converted into a fact of the world. The rung it was missing is the one the
+    // refusal path forty lines up has used for a long time: when the narrator model will not do
+    // the thing, RUN THE TURN AGAIN ON THE FALLBACK. Same prompt, same scene, other weights, with
+    // the miss named at the end where an instruction is read as an instruction.
+    //
+    // At most one retry, like the coherence rewrite, and only on a turn that was under an order.
+    // The draft is kept if the retry is worse, so nothing is lost by trying.
+    if (prose && prose.trim() && !opts?.proseOverride) {
+      const unmet = unmetMandates(mandatesFor(state, mode, action, voided), prose);
+      if (unmet.length) {
+        const fb = state.model_settings.fallback_model || "google/gemini-2.5-flash";
+        console.warn(`[mandate] ${unmet.length} ordered thing(s) missing from the draft — re-running on ${fb}:`,
+          unmet.map((u) => `${u.mandate.kind}/${u.miss.how}`));
+        ev.onMeta?.({ shifts: [`the turn came back without what it was for — writing it again on the fallback model`] });
+        try {
+          const forceMsgs = appendToLastUser(narratorMsgs, forcedRetryNote(unmet));
+          // Same wipe the coherence rewrite does: the reader has watched the first draft arrive a
+          // token at a time, and without this the corrected turn lands underneath it.
+          ev.onMeta({ restream: true });
+          const forced = completeStream(forceMsgs, fb, fb, 5000, false, undefined, signal);
+          let redone = "";
+          while (true) {
+            const { done, value } = await forced.next();
+            if (done) {
+              redone = value.text;
+              if (value.usage) narratorUsage = { ...narratorUsage,
+                prompt_tokens: narratorUsage.prompt_tokens + (value.usage.prompt_tokens ?? 0),
+                completion_tokens: narratorUsage.completion_tokens + (value.usage.completion_tokens ?? 0) };
+              break;
+            }
+            ev.onDelta(value);
+          }
+          redone = salvageProse(redone).prose;
+          // KEEP WHICHEVER ONE ACTUALLY CARRIES IT. A fallback draft that misses just as much is
+          // not an improvement, and a player who read a worse paragraph for nothing is worse off
+          // than one who read the first.
+          if (redone.trim() && !isRefusal(redone, state.world_bible)
+              && unmetMandates(mandatesFor(state, mode, action, voided), redone).length < unmet.length) {
+            prose = redone;
+          } else {
+            ev.onMeta?.({ shifts: [`the fallback model did not carry it either — the first draft stands`] });
+          }
+        } catch (e) {
+          if (isCancel(e)) throw new Cancelled();
+          console.warn(`[mandate] forced retry failed: ${e}`);
+        }
+      }
+    }
+
     // GROUNDING RECEIPT — the search is invisible unless we show it. Cited sources prove it ran;
     // zero sources is worth saying out loud too, so "grounded" never silently means "wasn't".
     if (groundOn) {
@@ -3333,11 +3390,12 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       console.warn(`[coherence] ${violations.length} violation(s) in the committed prose:`, violations.map((v) => `${v.kind}: ${v.why}`));
       ev.onPhase("narrator");
       try {
-        const fixMsgs = [...narratorMsgs];
-        const last = fixMsgs[fixMsgs.length - 1];
         // Appended to the final user turn, which is where this engine has repeatedly found that an
-        // instruction is read as an instruction rather than as reference.
-        if (last && typeof last.content === "string") fixMsgs[fixMsgs.length - 1] = { ...last, content: last.content + retryNote(violations) };
+        // instruction is read as an instruction rather than as reference. Via appendToLastUser
+        // because the string-only guard this used to carry appended NOTHING on an Anthropic
+        // narrator, where the final user turn is a block array — so the rewrite went out identical
+        // to the draft that had just failed. See engine/declared.ts.
+        const fixMsgs = appendToLastUser(narratorMsgs, retryNote(violations));
         // WIPE WHAT IS ON THE PAGE BEFORE THE REWRITE STREAMS IN. The reader has been watching the
         // first draft arrive a token at a time, and the UI appends deltas — without this the
         // corrected turn lands UNDER the impossible one and the player reads the scene twice, the
