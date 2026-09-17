@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { beatCooldown } from "../engine/pressure";
 import { ModelPicker, loadLocalModels } from "./ModelPicker";
 import { Braces, Check, Copy, Download, Wrench, SlidersHorizontal, BookOpen, HelpCircle } from "lucide-react";
 import Inspector from "./Inspector";
@@ -657,6 +658,15 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <input type="range" min={0} max={10} step={1} value={draft.tension ?? 5}
           onChange={(e) => setDraft((d) => ({ ...d, tension: Number(e.target.value) }))}
           className="w-full" style={{ accentColor: "var(--accent)" }} />
+        {/* WHAT THE NUMBER ACTUALLY BUYS, IN TURNS.
+            A player who wanted the world at full pressure read "0 — at rest", moved the dial to 2,
+            and got five beats in sixty turns. The words on this card describe a feeling; the engine
+            runs a refractory ladder in turns, and nothing showed it. beatCooldown is that ladder. */}
+        <div className="text-[11px] mt-1 font-mono" style={{ color: "var(--accent)" }}>
+          {(draft.tension ?? 5) === 0
+            ? "at most one quiet touch of your pressure palette every ~12 turns"
+            : `at most one beat every ${beatCooldown(draft.tension ?? 5, (save.world as any).clocks ?? [])} turns`}
+        </div>
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
           {(draft.tension ?? 5) === 0
             ? "0 — at rest. The engine introduces nothing of its own: no fresh threats, threads, events, faction moves, or background drives. What you wrote by hand still runs — a pressure palette line touches a scene now and then, small and carried past rather than pressing, and an authored want still climbs. Everything else waits on you."

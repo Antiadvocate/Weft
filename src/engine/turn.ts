@@ -63,6 +63,8 @@ import { findKinBreach, kinFix } from "./kinship";
 import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
+import { isDependentGoal } from "./driveforge";
+import { storyFrame, findDeclaredMiss, declaredFix } from "./declared";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
@@ -1763,7 +1765,10 @@ const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I go on reading because it stings to be ignored"), that feeling is PRIVATE. Let it decide what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
   think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it, and that holds for everyone present and for every kind of intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
-  story: (a) => `The player narrates what happens next (treat as authorial intent, weave it in, keep the world's logic): ${a}`,
+  // Seventeen words with three escape hatches, for the one channel whose entire purpose is that
+  // what the player typed happens. See engine/declared.ts for the full argument and for the three
+  // ways a declaration gets declined without ever being refused.
+  story: (a) => storyFrame(a),
 };
 
 /** A proper name (multi-word, or Capitalized non-generic) — used only as a hint for auto-tracking. */
@@ -2865,7 +2870,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3393,6 +3398,9 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // AND WHETHER THE WORLD DID WHAT THE PLAYER WROTE. Only on the channel that promises it, and
+      // only against the prose actually committed. See engine/declared.ts.
+      state.last_declared = mode === "story" && !voided ? findDeclaredMiss(action, prose) : null;
       // ...and the same move one layer out: a figure of speech in the NARRATION, explaining a
       // spoken line with a comparison. Fires on recurrence rather than on the instance — a simile
       // is a style choice, the same simile frame three turns running is a tic, and "like she was
@@ -4608,7 +4616,23 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     summary: (diff.scene_summary || prose.slice(0, 120))
       + (state.last_risen ? ` [DID NOT HAPPEN: ${state.last_risen.name} is ${state.last_risen.status} and was not there]` : ""),
     present: presentDuringTurn,
-    shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather, directive: fullDirective.slice(0, 240),
+    shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather,
+    /* WHAT THIS TURN WAS ACTUALLY TOLD TO DO.
+     *
+     * This stored `fullDirective.slice(0, 240)` — the first 240 characters of a document that runs
+     * to thousands, cut mid-word — and `fullDirective` is not the whole of what goes to the
+     * narrator anyway: beatNote is concatenated separately at the call site, after it, so the one
+     * paragraph naming what the turn is FOR was never in the record at any length.
+     *
+     * A player exported a save to ask why the thing he had written the story for never happened. The
+     * telemetry said a palette beat had been selected on turn 18. The stored directive for turn 18
+     * was two hundred and forty characters ending "Financial precarity and shared" — no beat body,
+     * no way to tell whether the selector's decision had reached the model at all. The question was
+     * unanswerable from the export, which is the one artefact anybody can send.
+     *
+     * So the beat goes in whole, separately, and the head of the directive gets more room. Both are
+     * bounded: this is written every turn and kept for the life of the save. */
+    directive: fullDirective.slice(0, 600), beat_note: beatNote.trim().slice(0, 600) || undefined,
     offscreen: rankOffscreen(offscreenLog).slice(0, 6), time_label: state.world.current_time,
     gm_intents: intents.length ? intents.map((i) => ({ char_id: i.char_id, name: i.name, surface: i.surface, truth: i.truth, tell: i.tell, lying: i.lying })) : undefined,
     // Health of this turn's bookkeeping, so a silent failure is visible and re-runnable. Quiet turns
@@ -6690,6 +6714,31 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!misattributionAllowed(state, id, prose, action)) {
       shifts.push(`bookkeeping correction: ${nameOf(id)} was not in this scene — a want from it was not recorded for them`);
       console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
+      continue;
+    }
+    /* A WANT WHOSE COMPLETION IS SOMEBODY ELSE'S ACTION LEAVES ITS OWNER NOTHING TO DO.
+     *
+     * isDependentGoal was written for this, sits in driveforge.ts with its own rules, and had ZERO
+     * callers anywhere in src. Measured on a save: a woman recorded as wanting to "Get Max Mercer
+     * to hand over the rent money to her bank account and look at her body", blocked on "Max Mercer
+     * is ignoring her and staring at his phone", present in twenty-four consecutive scenes. Ten
+     * intents were authored for her and the surface of every one is a variant of reclining —
+     * sprawls back, sprawling back, leaning back, sprawled deep into the cushions — while the truth
+     * of every one is what HE does: stammers, looks, loses his train of thought, drops the phone.
+     *
+     * Not one of the ten has her doing anything, and the player's report was that she makes no
+     * moves at all. He is reading the record correctly. The intent pass is asked every turn what
+     * this person is doing about their want, and a want like that has one answer: present yourself
+     * and wait. The character is not passive; the goal is.
+     *
+     * The blocker keeps the want, because being stuck on somebody is real and is what the blocker
+     * field is for. What is dropped is the GOAL, so regenerateDrives seeds a fresh one from this
+     * person's own edges and traits — something they start on their own on a Tuesday. */
+    if (isDependentGoal(String(du.goal), state.characters["char_player"]?.name ?? "")) {
+      const prev = state.characters[id].drive;
+      if (prev?.goal && du.blocker) prev.blocker = du.blocker;
+      shifts.push(`${nameOf(id)}'s want was recorded as something ${state.characters["char_player"]?.name ?? "the player"} has to do — dropped, so she gets one of her own`);
+      console.warn(`[drives] dependent goal rejected for ${nameOf(id)}: "${String(du.goal).slice(0, 70)}"`);
       continue;
     }
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);

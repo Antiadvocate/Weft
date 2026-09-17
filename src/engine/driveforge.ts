@@ -57,11 +57,52 @@ export function isDependentGoal(goal: string, playerName: string): boolean {
   const p = (playerName || "").toLowerCase();
   const DECIDE = /\b(decide|decision|choose|work out|figure out|determine|weigh|consider) (whether|if|between)\b/;
   const AWAIT = /\b(get|obtain|receive|await|wait for|hear|learn|find out|discover|confirm) (a |an |the |his |her |their )?(clear |direct |straight |honest |plain )?(answer|response|reply|word|decision|instruction|order|intent|intention)\b/;
-  const APPROVE = /\b(earn|win|prove|test|secure|gain|keep) (his|her|their|the )?(trust|approval|favour|favor|sincerity|regard|permission|blessing|respect)\b/;
+  /* THE DETERMINER GROUP ONLY EVER HELD ONE DETERMINER. This read `(his|her|their|the )?` — the
+   * space sits inside the group but after `the`, so the alternatives are "his", "her", "their" and
+   * "the ", and only the last one carries it. "earn his trust" therefore needed "earn" + "his" +
+   * "trust" with no space between the last two and never matched. Neither did "win her approval",
+   * "gain their permission", or any other form except the one written with "the". */
+  const APPROVE = /\b(earn|win|prove|test|secure|gain|keep) (?:(?:his|her|their|the)\s+)?(trust|approval|favour|favor|sincerity|regard|permission|blessing|respect)\b/;
   const ABOUT_PLAYER = p.length > 2 && new RegExp(`\\b${p}('s)?\\b`).test(g);
   const VAGUE = /\b(find peace|peace and quiet|keep (her|his|their) head down|tend to something|something of (her|his|their) own that|stay out of the way|lie low)\b/;
   if (VAGUE.test(g)) return true;
   if (DECIDE.test(g) || AWAIT.test(g) || APPROVE.test(g)) return true;
+
+  /* GET SOMEBODY TO DO SOMETHING — the commonest shape of all, and the one this function missed.
+   *
+   * From a save: a woman recorded as wanting to "Get Max Mercer to hand over the rent money to her
+   * bank account and look at her body", blocked on "Max Mercer is ignoring her and staring at his
+   * phone". Twenty-four turns in the scene, ten intents authored for her, and the SURFACE of every
+   * one of them is a variant of reclining:
+   *
+   *     Sprawls back with one heel propped up on the nearest low surface…
+   *     Sprawling back with an indolent stretch that puts her frame on display…
+   *     Leaning back casually with her bare soles pressed against the unpacking crate…
+   *     Sprawled deep into the cushions with her bare heels resting against the coffee table…
+   *     Sprawling back with her bare soles pressed against the coffee table edge…
+   *
+   * and the TRUTH of every one is what MAX does: he stammers, he looks, he loses his train of
+   * thought, he catches his breath, he drops the phone. Not one of the ten has her doing anything.
+   * The player's report was that she makes no moves at all, and he is reading the record correctly.
+   *
+   * The goal is why. A want whose completion is another person's action leaves its owner nothing to
+   * do but present themselves and wait, so the intent pass — which is asked each turn what this
+   * person is doing about their want — can only ever author waiting. The rules above already say
+   * this twice in prose ("No one else's word can be your goal", "These hand the person's life to
+   * someone else to run") and the regexes only caught the narrow answer-and-approval cases.
+   *
+   * The repair is the one the prompt gives: the goal is what SHE does. Get him alone and say it.
+   * Move her things into the room he uses. Put the lease in her name while he is at work. Every one
+   * of those is hers to start on a Tuesday and none of them needs him to cooperate first. */
+  // The `to` has to be an infinitive marker rather than a preposition, or "make her own way TO the
+  // coast" reads as a demand on somebody. A determiner after it means a destination, not a verb.
+  const GET_TO_DO = /\b(get|make|force|convince|persuade|coax|push|pressure|induce|bring|talk|goad|guilt|trick)\s+(?:\w+\s+){0,3}?(?:to|into)\s+(?!the\b|a\b|an\b|his\b|her\b|their\b|its\b|my\b|that\b|this\b)\w+/;
+  if (GET_TO_DO.test(g)) return true;
+  /* ...and the same thing said the other way round: "have him hand it over", "get him looking",
+   * "make him admit it". The verb list is closed on purpose — an open one takes "make her own way
+   * to the coast" with it, and that is her want and nobody else's. */
+  if (/\b(have|get)\s+(?:him|her|them|he|she|they|\w+)\s+\w+ing\b/.test(g)) return true;
+  if (/\b(make|have|get)\s+(?:him|her|them|\w+)\s+(admit|say|tell|give|hand|look|come|stay|leave|stop|agree|confess|choose|pay|answer|notice|want|beg|ask|apologi[sz]e|explain)\b/.test(g)) return true;
   // Naming the player isn't automatically wrong — "get the field cleared before he leaves" is fine.
   // Naming them as the thing being decided about or waited on is.
   // Naming the player is fine when they are a companion or a circumstance — "walk to the monastery

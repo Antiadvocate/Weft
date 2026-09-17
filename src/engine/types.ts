@@ -331,6 +331,14 @@ export interface NPCDrive {
   progress: number;          // 0–100
   blocker?: string;
   priority?: number;         // higher = more important; ties broken by progress. default 1
+  /** HOW MANY OFFSTAGE AFTERNOONS HAVE BEEN SPENT ON THIS WANT.
+   *
+   *  Counted by the agency layer, which is the only thing that writes a whole afternoon against a
+   *  want. It exists because neither `updated_turn` nor `progress_turn` can answer the question:
+   *  the comment on updated_turn two fields down says the bookkeeper restamps it every turn it
+   *  rewrites the blocker, and progress_turn moves when progress moves by a tenth of a point.
+   *  Reset by writing a new goal. See spendStalledWants in engine/agency.ts, and the cardboard box. */
+  acts?: number;
   /** WHO THIS WANT IS ABOUT, when it is about a person — a char_id, and never the player's.
    *
    *  A drive has always been a sentence with a name in it, which is a name to the reader and
@@ -1022,6 +1030,10 @@ export type ActionMode = "do" | "say" | "think" | "story";
 export type Stance = "press" | "maneuver" | "hold" | "yield";
 
 export interface TurnHistoryEntry {
+  /** The beat paragraph this turn actually carried — what the engine decided the turn was FOR,
+   *  verbatim. Separate from `directive` because beatNote is concatenated after it at the call
+   *  site and was therefore in no record at any length. See the note in turn.ts. */
+  beat_note?: string;
   turn: number;
   kind?: "turn" | "interlude" | "opening";   // opening = the scene you start in (editable, pre turn-1)
   span_label?: string;           // "three days pass"
@@ -1106,6 +1118,12 @@ export interface SaveState {
    *  reliably broken a narrator habit is being shown the sentence at the end of the next turn's
    *  directive. See engine/maxims.ts. */
   last_maxim?: string | null;
+  /** A thing the player WROTE INTO THE WORLD on the story channel that the prose then declined to
+   *  render — absent, hedged into an approach to itself, or interrupted by something the player
+   *  never wrote. Quoted back at the start of the next turn, the same mechanism as last_maxim and
+   *  last_leak, which is the one thing in this engine that has reliably broken a narrator habit.
+   *  See engine/declared.ts. */
+  last_declared?: { declaration: string; coverage: number; how: "hedged" | "interrupted" | "absent" } | null;
   /** The narrator handing the player's own line back — either demanding they repeat it, or quoting
    *  it back at them. Caught in the OUTPUT rather than forbidden with a quoted example in the
    *  prompt, because a banned line pasted into the context is a line the model has been supplied
