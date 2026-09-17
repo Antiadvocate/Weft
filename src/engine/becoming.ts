@@ -236,7 +236,12 @@ export function applyBecomingProgress(
         canon.push(b.claim);
         (state.world.canon_meta ??= {})[b.claim.toLowerCase()] = { turn, witnesses: [...(state.world.present ?? [])] };
       }
-      shifts.push(`"${short(b.claim)}" is true of this world now, and binds every turn from here`);
+      // AN HONEST LINE. "is true of this world now" reads as an achievement, and for a becoming that
+      // stalled through its whole clock it is the opposite — the player is owed the fact that the
+      // world never showed it and it landed on the calendar alone.
+      shifts.push(b.moved
+        ? `"${short(b.claim)}" is true of this world now, and binds every turn from here`
+        : `"${short(b.claim)}" is true of this world now — its clock ran out and the prose never showed it once, so the next turn has to`);
       continue;
     }
     const left = `${b.remaining} turn${b.remaining === 1 ? "" : "s"} to go`;
@@ -320,13 +325,45 @@ export function becomingBehind(state: SaveState): string {
 export function becomingLaw(state: SaveState): string {
   const here = arrivedBecomings(state);
   if (!here.length) return "";
-  const rows = here.map((b) => {
-    const never = !(b.shown ?? 0)
-      ? ` This has been true since turn ${b.arrived_turn} and has not been seen once; it shows in THIS scene, in something somebody does.`
-      : "";
-    return `${b.claim}${never}`;
-  });
-  return `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
+
+  /* ── ARRIVED WITHOUT EVER REACHING THE PAGE ───────────────────────────────────────────────────
+   *
+   * The block below is written for a becoming the world grew into: it landed after some turns that
+   * showed it, so treating it as old and beneath comment is right, and the only remaining job is to
+   * stop anybody being startled by their own furniture.
+   *
+   * It was being applied to every arrival equally, including the ones the prose never once
+   * rendered. From a save, the second of two becomings: `moved: 0, stalled: 3, turns: 3` — it
+   * stalled on every turn of its life, the clock spent all three anyway because a deadline is a
+   * deadline, and it entered canon. From that turn on the narrator was told these are "the water
+   * these people have always swum in: old, unremarkable, and beneath comment", that "NOBODY IS
+   * SURPRISED", and that they are "visible only in what people do without thinking about it".
+   *
+   * So the engine promoted an event the player never saw into a background condition, and then
+   * forbade anybody from mentioning it. Every line after that is written against something that
+   * has not happened on the page, which is the player's report: the dialogue stopped making sense.
+   *
+   * One clause did say "it shows in THIS scene" — inside a paragraph whose other four sentences
+   * say do not announce it, do not remark on it, keep it beneath comment. The louder half wins.
+   *
+   * A becoming that never moved is not a condition of the world yet. It is an event that is now
+   * TRUE and still owes its own rendering, and those need opposite instructions, so they are
+   * separated. Nobody is startled by it either way — it is canon — but one of them has to be
+   * visible before it can be assumed. */
+  const unshown = here.filter((b) => !(b.moved ?? 0) && !(b.shown ?? 0));
+  const grown = here.filter((b) => !unshown.includes(b));
+
+  const owed = unshown.length
+    ? `\n\n[TRUE OF THIS WORLD, AND NEVER ONCE ON THE PAGE.\n· ${unshown.map((b) => `${b.claim} — its clock ran out on turn ${b.arrived_turn} with the prose having never shown it happening.`).join("\n· ")}\n`
+      + `Each of these is a fact of this world now, which means nobody is startled by it, nobody explains it, and nobody treats it as news. It also means the reader has never seen it, so it cannot be alluded to, assumed, or referred to as something already understood between these people. `
+      + `WRITE IT HAPPENING, THIS TURN, IN THE PROSE — the thing itself, in this room, with the bodies actually here, in the opening of the turn and before whatever else the scene was doing. Then carry on around it. `
+      + `The two hold together: it is rendered plainly because it has never been seen, and it is met without surprise because it is already the way things are here.]`
+    : "";
+
+  if (!grown.length) return owed;
+
+  const rows = grown.map((b) => `${b.claim}`);
+  return owed + `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
     + `These are the water these people have always swum in: old, unremarkable, and beneath comment. `
     + `NOBODY IS SURPRISED BY THEM. Nobody remarks on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as a thing that has just started — a character reacting to one as though it were new is the clearest possible sign the world has not actually changed. `
     + `NOBODY ANNOUNCES THEM EITHER. They are not stated, quoted, or described as facts; they are visible only in what people do without thinking about it, the way anybody behaves about the ordinary conditions of their own life. `
