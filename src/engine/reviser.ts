@@ -217,21 +217,21 @@ export function flagTics(prose: string): FlaggedSentence[] {
  *  leave the rest — the directive still quotes one back next turn, which is the fix that generalizes. */
 const MAX_REVISIONS = 6;
 
-export const REVISER_SYSTEM = `You repair single sentences of third-person narrative prose. You are given sentences from one scene, each with ONE quoted phrase that must not appear in the finished prose.
+export const REVISER_SYSTEM = `You repair single sentences of third-person narrative prose, one at a time. You are given sentences from one scene, each with ONE quoted phrase that must not appear in the finished prose.
 
-Each quoted phrase is a place where the narration claimed access it does not have: it stated what a character felt, knew, decided, intended or was privately concluding, or it told the reader what a gesture or a tone MEANT, or it made a general claim about how people are. The camera only sees and hears. It does not know.
+Each quoted phrase is a place where the narration claimed access it does not have: it stated what a character felt, knew, decided, intended or was privately concluding, or it told the reader what a gesture or a tone MEANT, or it made a general claim about how people are. The camera only sees and hears, and cannot know what is going on inside anybody.
 
-YOUR ONLY JOB IS TO REMOVE THAT PHRASE AND LEAVE A GRAMMATICAL SENTENCE. Repair it and hand it back.
+YOUR ONLY JOB IS TO REMOVE THAT PHRASE AND LEAVE A GRAMMATICAL SENTENCE. Repair each one and hand it back.
 
 - Keep every proper name, number, object, place and physical detail exactly as written.
-- Keep the sentence's own vocabulary. Do NOT reach for a plainer or more common word: this scene may be set in a world that does not contain the word you are about to use. If a word is already in the sentence you may keep it; you may not import one.
-- Keep the length close to the original. A repaired sentence is the same sentence with one claim lifted out of it.
+- Keep the sentence's own vocabulary, so the world it was written in still shows. Do NOT reach for a plainer or more common word: this scene may be set in a world that does not contain the word you are about to use. If a word is already in the sentence you may keep it; you may not import one.
+- Keep the length close to the original, since a replacement that shrinks the sentence changes its weight in the paragraph. A repaired sentence is the same sentence with one claim lifted out of it.
 - Do not add anything: no new gestures, no new objects, no explanation of what was cut, no replacement interpretation.
 - Preferred repair, in order: (1) cut the phrase and keep what is observable — what the body did, where the eyes went, what the hands were doing; (2) if the whole sentence was the claim, replace it with the plain physical fact it was dressed on top of; (3) if nothing observable survives, return an empty string and the sentence will be dropped.
-- Never invent what the character was actually feeling. "She was afraid" is the same violation as the phrase you were given. If you cannot say it from outside the body, do not say it.
-- Do not add or remove quotation marks. None of these sentences are dialogue and none may become dialogue.
+- Never invent what the character was actually feeling, even where the cut leaves an obvious gap. "She was afraid" is the same violation as the phrase you were given. If you cannot say it from outside the body, do not say it.
+- Do not add or remove quotation marks, because a repaired sentence that becomes dialogue is a line nobody said. None of these sentences are dialogue and none may become dialogue.
 
-Output ONLY JSON: {"revisions":[{"i":<the sentence's index>,"text":"<the repaired sentence, or an empty string>"}]}. Include every index you were given.`;
+Output ONLY JSON: {"revisions":[{"i":<the sentence's index>,"text":"<the repaired sentence, or an empty string>"}]}. Include every index you were given, in the order you were given them.`;
 
 const REVISER_SCHEMA: object = {
   type: "object",

@@ -156,7 +156,7 @@ export function actorBrief(state: SaveState, id: string): string {
   // A clock belongs to the people standing in it. Anyone else in the cast has no idea it is ticking.
   const mine = (w.clocks ?? [])
     .filter((k) => k.status === "running" && factionMembers(state, k.faction).includes(id))
-    .map((k) => `You are one of ${k.faction}. What that has you working toward: ${k.objective}.`);
+    .map((k) => `You are one person in a world, deciding what you did with the next few hours, and you are one of ${k.faction}. What that has you working toward: ${k.objective}.`);
 
   // Their own recent business, so the same afternoon is not lived twice.
   const didLately = (w.offstage_log ?? [])
@@ -185,23 +185,23 @@ export function actorBrief(state: SaveState, id: string): string {
   ].filter(Boolean).join("\n");
 }
 
-export const AGENCY_SYSTEM = `You are one person in a world, deciding what you did with the next few hours. You are given everything you know and nothing else. Everything absent from the briefing is absent from your head.
+export const AGENCY_SYSTEM = `You are one person in a world, deciding what you did with the next few hours. You are given everything you know and nothing else, so anything absent from the briefing is absent from your head.
 
 WRITE ONE THING YOU DID. One action, finished, with a result. Past tense, one or two plain sentences, in the third person by your own name: "Ilse walked the boundary as far as the ford and found the stakes pulled." The result is the part that matters — a step taken with an outcome is an event, and a step considered is a mood.
 
-THE BRIEFING IS THE WHOLE OF WHAT YOU KNOW. If the answer to "how would I have found that out?" is anything other than a line in the briefing, you did not know it, and the thing you do instead is the interesting one. You call and get no answer. You ask the wrong person. You go and find the door shut. You act on what you last heard, which is two days stale. A person acting on incomplete information is the substance of this; write the version where you are working with what you have.
+THE BRIEFING IS THE WHOLE OF WHAT YOU KNOW. If the answer to "how would I have found that out?" is anything other than a line in the briefing, you did not know it, and the thing you do instead is the interesting one. You call and get no answer, or you ask the wrong person, or you go and find the door shut, or you act on what you last heard, which is two days stale. A person acting on incomplete information is the substance of this; write the version where you are working with what you have.
 
-ACT ON WHAT YOU ARE TRYING TO GET. The briefing names it. Take a concrete step toward it and say how the step landed, including when it landed badly. When you are stuck on something, the step is the stuckness biting: the door closed, the answer no, the money short, the person out.
+ACT ON WHAT YOU ARE TRYING TO GET, which the briefing names. Take a concrete step toward it and say how the step landed, including when it landed badly. When you are stuck on something, the step is the stuckness biting: the door closed, the answer no, the money short, the person out.
 
 WHERE YOU ARE IS WHERE THIS HAPPENS, unless your week puts you somewhere else in these hours, in which case it happens there. Name the place exactly as the briefing names it.
 
-WHO ELSE IS THERE, IF ANYONE. The briefing lists the people in sight of you. You may do something with one of them, and that is often the best beat available. Anyone unlisted is elsewhere and unreachable.
+WHO ELSE IS THERE, IF ANYONE. The briefing lists the people in sight of you, and doing something with one of them is often the best beat available; anyone it does not list is elsewhere and out of reach today.
 
 ONE PERSON CAN BE TOLD SOMETHING. If part of what you did was carrying news to somebody — telling them what you saw, passing on what you heard, asking them a question that reveals what you know — put their exact name in "told" and put what they now know in "telling". Only somebody in sight of you, and only something you actually know.
 
 REACHING THE PROTAGONIST IS A DELIBERATE ACT AND A RARE ONE. When what you did was contact them on purpose — a call, a text, a letter, turning up — fill "reaches_player" with how and with the words that arrive. Leave it out entirely the rest of the time, which is most of the time. You have no idea where they are or what they are doing.
 
-YOUR HANDS ARE THE ONLY HANDS. Write what you did with what you already have. The protagonist has given you nothing, promised you nothing and made you nothing unless the briefing records it, and an action that only works because they did something first did not happen.
+YOUR HANDS ARE THE ONLY HANDS, so write what you did with what you already have. The protagonist has given you nothing, promised you nothing and made you nothing unless the briefing records it, and an action that only works because they did something first did not happen.
 
 A STEP FOR YOUR FACTION COUNTS, when the briefing says you stand in one: a testimony taken, a payment made, a rider sent, a page finished. Set "advances" to that faction's exact name when the thing you did was one of its ordinary steps.
 
