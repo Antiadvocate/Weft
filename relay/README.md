@@ -51,13 +51,45 @@ npm run keys
 
 # secrets (none of these live in wrangler.toml)
 npx wrangler secret put OPENROUTER_KEY     # your OpenRouter key
-npx wrangler secret put RELAY_TOKEN        # any long random string you invent
+npx wrangler secret put RELAY_TOKEN        # 32+ random characters — see below
 npx wrangler secret put VAPID_PUBLIC       # from `npm run keys`
 npx wrangler secret put VAPID_PRIVATE      # from `npm run keys`
 npx wrangler secret put VAPID_SUBJECT      # mailto:you@example.com
 
+# optional: the one web origin allowed to call this relay
+npx wrangler secret put ALLOWED_ORIGIN     # https://yourname.github.io
+
 npm run deploy
 ```
+
+**Generate `RELAY_TOKEN`, do not invent it.** It is the only thing between a stranger and your
+OpenRouter balance, and a token somebody thought up is a token somebody can think up:
+
+```sh
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+## What the relay refuses
+
+Everything but `/health` wants `Authorization: Bearer $RELAY_TOKEN`, reads included. Weft sends it
+on every call; there is no query-string form, because a token in a URL is a token in Cloudflare's
+request logs and in the browser's history.
+
+Four other things are checked, and each one is there because of what it costs when it is not:
+
+| check | what it stops |
+|---|---|
+| the token is compared byte-for-byte to the end | a `===` returns at the first wrong character, and how fast the 401 comes back says how much of the token was right |
+| a job id must be 32 lowercase hex characters | `idFromName` does not look an object up, it makes one — so a URL segment passed straight through turns a `for` loop into an unbounded Durable Object bill on your account |
+| a push endpoint must be https and a real push service | the relay POSTs there with a VAPID assertion signed by your private key; unchecked, that is a request forger leaving Cloudflare's edge with your signature on it |
+| a request body over 1 MB is refused | a narrator prompt is a few hundred kilobytes; the rest is somebody's afternoon |
+
+`ALLOWED_ORIGIN` is optional and worth setting. It names the one web origin whose pages a browser
+will let read the relay's answers — your Pages URL, `https://yourname.github.io`. Unset, any origin
+can read them, and a stranger with your token can drive the relay from a page of their own.
+
+None of this makes a leaked `RELAY_TOKEN` survivable. If you paste it somewhere public, run
+`wrangler secret put RELAY_TOKEN` with a new one and re-enter it in Tuning.
 
 Then in Weaver → Settings → **Background turns**:
 
@@ -88,5 +120,6 @@ that turn, never the turn.
 | file | |
 |---|---|
 | `src/index.ts` | routing, and the Durable Object that outlives the request |
+| `src/guard.ts` | the three input checks, kept runnable under plain Node by `tests/relay-door.ts` |
 | `src/push.ts`  | RFC 8291 payload encryption + RFC 8292 VAPID, round-tripped by `tests/push-crypto.ts` |
 | `keys.mjs`     | one-time VAPID keypair generation |

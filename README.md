@@ -38,6 +38,14 @@ Because the key lives in the browser, **don't** hard-code it into the source or 
 
 > Note: calls go from your browser straight to `openrouter.ai`, which permits cross-origin requests. If your network or an extension blocks third-party requests, the model calls won't go through.
 
+## Is it secure?
+
+There is no server holding everyone's worlds, so there is nothing to enumerate, read, or delete — no account, no database, no API, no `/worlds`. Two people playing on the same deployed URL share nothing: not saves, not history, not a key, not a bill. Your saves are rows in your own browser's IndexedDB and your key is a string in your own `localStorage`.
+
+What is left after that is a shorter list than you would expect, and [SECURITY.md](SECURITY.md) is it: what a stranger can reach, what the page's Content-Security-Policy refuses, what gets taken off a save file somebody sends you (remote image URLs, which are a read receipt on when you opened their world), and what is deliberately not defended — a browser extension, an unlocked phone, a relay token you pasted in public.
+
+The relay, if you deploy one, is the only server in the project and it is yours. Its door is documented in [relay/README.md](relay/README.md).
+
 ## Running a local model
 
 Any of the four model slots can point at a model on your own machine instead of at OpenRouter. In **Tuning → Local AI**, set the OpenAI-compatible base URL of whatever you're running:

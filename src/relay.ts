@@ -43,6 +43,11 @@ export function newJobId(): string {
   return [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
+/** The token, on every call the relay gates — which since the auth rewrite is every call but
+ *  /health. It rides the Authorization header and nothing else: a token in a query string ends up
+ *  in the worker's request logs and in the browser's history. */
+const auth = (c: RelayConfig): Record<string, string> => ({ authorization: `Bearer ${c.token}` });
+
 export async function relayHealth(c: RelayConfig): Promise<{ ok: boolean; vapid?: string | null; error?: string }> {
   try {
     const res = await fetch(`${c.url}/health`);
@@ -56,7 +61,7 @@ export async function relayHealth(c: RelayConfig): Promise<{ ok: boolean; vapid?
 export async function startJob(c: RelayConfig, id: string, body: unknown, push?: PushJSON | null): Promise<void> {
   const res = await fetch(`${c.url}/job`, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${c.token}` },
+    headers: { "content-type": "application/json", ...auth(c) },
     body: JSON.stringify({ id, body, push: push ?? undefined }),
   });
   if (!res.ok) throw new Error(`relay ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -68,7 +73,7 @@ export interface JobState { status: "running" | "done" | "error"; text: string; 
 export interface RawUsage { prompt_tokens?: number; completion_tokens?: number; cost?: number; prompt_tokens_details?: { cached_tokens?: number } }
 
 export async function fetchJob(c: RelayConfig, id: string): Promise<JobState> {
-  const res = await fetch(`${c.url}/job/${id}`);
+  const res = await fetch(`${c.url}/job/${id}`, { headers: auth(c) });
   if (!res.ok) throw new Error(`relay ${res.status}`);
   return res.json();
 }
@@ -80,7 +85,7 @@ export async function fetchJob(c: RelayConfig, id: string): Promise<JobState> {
  *  that is the point — so cancelling detaches the view and leaves the completion to be collected or
  *  discarded later. */
 export async function* streamJob(c: RelayConfig, id: string, signal?: AbortSignal): AsyncGenerator<string, { usage?: RawUsage | null; truncated?: boolean; text?: string }, unknown> {
-  const res = await fetch(`${c.url}/job/${id}/sse`, { signal });
+  const res = await fetch(`${c.url}/job/${id}/sse`, { headers: auth(c), signal });
   if (!res.ok || !res.body) throw new Error(`relay stream ${res.status}`);
   const reader = res.body.getReader();
   const dec = new TextDecoder();

@@ -2,6 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Weft is a static page that holds an API key in localStorage, so the thing worth preventing
+         is a script that is not Weft's running on Weft's origin and reading it. `script-src 'self'`
+         does that: the build emits no inline script (checked in tests/csp.ts), so nothing legitimate
+         needs 'unsafe-inline', and an injected <script src> or javascript: URL is refused.
+
+         `img-src 'self' data: blob:` is the second half. Every picture Weft makes is a data: URL
+         from the diffusion path, so a picture with an http host in it came from a save file
+         somebody sent you, and loading it tells them your IP and the hour you opened their world.
+         The import path drops those urls (scrubImported); this refuses them at the browser too.
+
+         connect-src stays open on purpose and is not an oversight: the model endpoint is whatever
+         the player typed — openrouter.ai, a relay worker on their own subdomain, or localhost:5001
+         with KoboldCpp on it — and a policy cannot name a host the page has not been told about
+         yet. base-uri and object-src close the two cheap tricks that survive a strict script-src. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src *; media-src 'self' data: blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, interactive-widget=resizes-content" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
