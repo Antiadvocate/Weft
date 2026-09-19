@@ -24,11 +24,14 @@
  *   GET  /job/:id/sse  → text/event-stream               live tokens while you are watching
  *   POST /push/test    { push }              → sends a notification, to check the plumbing
  *
+ * Every route but /health carries `Authorization: Bearer $RELAY_TOKEN`. See THE DOOR below.
+ *
  * One Durable Object per job: a Worker invocation cannot outlive its response, and the whole point
  * is to outlive the client. The DO holds the in-flight call and the accumulating text, and survives
  * the client going away mid-stream — which is the entire feature.
  */
 import { encryptPush, vapidHeader, type PushSub } from "./push";
+import { JOB_ID, sameSecret, pushEndpointAllowed } from "./guard";
 
 export interface Env {
   JOB: DurableObjectNamespace;
@@ -40,63 +43,102 @@ export interface Env {
   VAPID_SUBJECT: string;
   /** Shared secret so the job endpoint is not an open relay billed to you. */
   RELAY_TOKEN: string;
+  /** Optional. The one web origin allowed to call this relay, e.g. https://you.github.io — set it
+   *  and a page on any other origin is refused the response by the browser. Unset means any. */
+  ALLOWED_ORIGIN?: string;
 }
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-const CORS = {
-  "access-control-allow-origin": "*",
+/** A narrator prompt on a long save runs a few hundred kilobytes. A megabyte is generous and it is
+ *  the difference between one turn and somebody's idea of a funny afternoon. */
+const MAX_BODY = 1_048_576;
+
+const cors = (env: Env): Record<string, string> => ({
+  "access-control-allow-origin": env.ALLOWED_ORIGIN || "*",
   "access-control-allow-methods": "GET,POST,OPTIONS",
   "access-control-allow-headers": "content-type,authorization",
-};
-const json = (v: unknown, status = 200) =>
-  new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json", ...CORS } });
+  vary: "origin",
+});
+const json = (v: unknown, env: Env, status = 200) =>
+  new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json", ...cors(env) } });
+
+/** Read a JSON body, refusing one too large to be a turn. Returns null on anything unreadable —
+ *  a malformed body is a 400, not an unhandled throw and a 500 from the runtime. */
+async function readJson<T>(req: Request): Promise<T | null> {
+  const len = Number(req.headers.get("content-length") ?? "0");
+  if (len > MAX_BODY) return null;
+  const text = await req.text().catch(() => null);
+  if (text === null || text.length > MAX_BODY) return null;
+  try { return JSON.parse(text) as T; } catch { return null; }
+}
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+    if (req.method === "OPTIONS") return new Response(null, { headers: cors(env) });
     const url = new URL(req.url);
     const parts = url.pathname.split("/").filter(Boolean);
 
-    if (parts[0] === "health") return json({ ok: true, vapid: env.VAPID_PUBLIC ?? null });
+    // Unauthenticated on purpose and carrying nothing secret: whether the worker is up, and the
+    // VAPID PUBLIC key, which is public by construction — the app reads it here so nobody has to
+    // copy it by hand.
+    if (parts[0] === "health") return json({ ok: true, vapid: env.VAPID_PUBLIC ?? null }, env);
 
-    // The token gates everything that can spend money or send a notification. Reads of a job you
-    // already know the id of are open: the id is a 128-bit random, and requiring the header on the
-    // SSE read would mean the browser could not use EventSource.
-    const authed = () => {
-      const h = req.headers.get("authorization") ?? "";
-      const q = url.searchParams.get("t") ?? "";
-      return !!env.RELAY_TOKEN && (h === `Bearer ${env.RELAY_TOKEN}` || q === env.RELAY_TOKEN);
-    };
+    // ── THE DOOR ────────────────────────────────────────────────────────────────────────────────
+    // The token gates every route but /health, reads included. Reads used to be open on the
+    // reasoning that a job id is a 128-bit random and that EventSource cannot send a header — and
+    // the second half stopped being true when the client moved to fetch + ReadableStream to make
+    // the stop button work (src/relay.ts). So the header goes on every call, and an unauthenticated
+    // GET can no longer walk the id space, keep a stream open, or name a Durable Object.
+    //
+    // Header only. A token in the query string is a token in Cloudflare's request logs, in the
+    // browser's history, and in the Referer of anything the page later loads.
+    const h = req.headers.get("authorization") ?? "";
+    const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+    if (!sameSecret(token, env.RELAY_TOKEN ?? "")) return json({ error: "unauthorized" }, env, 401);
 
     if (parts[0] === "job" && req.method === "POST") {
-      if (!authed()) return json({ error: "unauthorized" }, 401);
-      const payload = await req.json<{ id?: string; body?: unknown; push?: PushSub }>().catch(() => null);
-      if (!payload?.id || !payload.body) return json({ error: "id and body required" }, 400);
+      const payload = await readJson<{ id?: string; body?: unknown; push?: PushSub }>(req);
+      if (!payload?.id || !payload.body) return json({ error: "id and body required" }, env, 400);
+      if (!JOB_ID.test(payload.id)) return json({ error: "bad job id" }, env, 400);
+      if (payload.push && !pushEndpointAllowed(payload.push.endpoint)) {
+        return json({ error: "push endpoint not an allowed push service" }, env, 400);
+      }
       const stub = env.JOB.get(env.JOB.idFromName(payload.id));
-      return stub.fetch(new Request("https://do/start", { method: "POST", body: JSON.stringify(payload) }));
+      const res = await stub.fetch(new Request("https://do/start", { method: "POST", body: JSON.stringify(payload) }));
+      return new Response(res.body, { status: res.status, headers: { ...Object.fromEntries(res.headers), ...cors(env) } });
     }
 
     if (parts[0] === "job" && parts[1]) {
+      if (!JOB_ID.test(parts[1])) return json({ error: "bad job id" }, env, 400);
       const stub = env.JOB.get(env.JOB.idFromName(parts[1]));
       const path = parts[2] === "sse" ? "https://do/sse" : "https://do/state";
-      return stub.fetch(new Request(path));
+      const res = await stub.fetch(new Request(path));
+      return new Response(res.body, { status: res.status, headers: { ...Object.fromEntries(res.headers), ...cors(env) } });
     }
 
     if (parts[0] === "push" && parts[1] === "test" && req.method === "POST") {
-      if (!authed()) return json({ error: "unauthorized" }, 401);
-      const { push } = await req.json<{ push: PushSub }>();
+      const payload = await readJson<{ push?: PushSub }>(req);
+      if (!payload?.push) return json({ error: "push required" }, env, 400);
+      if (!pushEndpointAllowed(payload.push.endpoint)) {
+        return json({ error: "push endpoint not an allowed push service" }, env, 400);
+      }
       try {
-        await sendPush(push, { title: "Weaver", body: "Notifications are working." }, env);
-        return json({ ok: true });
-      } catch (e) { return json({ error: String(e) }, 500); }
+        await sendPush(payload.push, { title: "Weaver", body: "Notifications are working." }, env);
+        return json({ ok: true }, env);
+      } catch (e) { return json({ error: String(e) }, env, 500); }
     }
 
-    return json({ error: "not found" }, 404);
+    return json({ error: "not found" }, env, 404);
   },
 };
 
 type Status = "running" | "done" | "error";
+
+/** The Durable Object's own replies. They are read by the outer Worker and re-wrapped with CORS on
+ *  the way out, so nothing here needs an origin header of its own. */
+const djson = (v: unknown, status = 200) =>
+  new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json" } });
 
 /** ONE JOB. Lives past the request that started it — that is the whole reason this class exists. */
 export class Job {
@@ -137,16 +179,16 @@ export class Job {
       const { id, body, push } = await req.json<{ id: string; body: unknown; push?: PushSub }>();
       // Idempotent: a client that retried, or came back and re-posted, must not buy the completion
       // twice. The id is generated once per turn and journaled before the first attempt.
-      if (this.started) return json({ id, status: this.status, resumed: true });
+      if (this.started) return djson({ id, status: this.status, resumed: true });
       this.started = true;
       await this.state.storage.put("started", true);
       if (push) await this.state.storage.put("push", push);
       // waitUntil, not await: the response goes back now and the call keeps running without it.
       this.state.waitUntil(this.run(body));
-      return json({ id, status: "running" });
+      return djson({ id, status: "running" });
     }
 
-    if (path === "/state") return json({ status: this.status, text: this.text, error: this.error, usage: this.usage, truncated: this.truncated });
+    if (path === "/state") return djson({ status: this.status, text: this.text, error: this.error, usage: this.usage, truncated: this.truncated });
 
     if (path === "/sse") {
       const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -162,11 +204,11 @@ export class Job {
         } catch { /* reader vanished before we finished catching it up */ }
       })();
       return new Response(readable, {
-        headers: { "content-type": "text/event-stream", "cache-control": "no-store", ...CORS },
+        headers: { "content-type": "text/event-stream", "cache-control": "no-store" },
       });
     }
 
-    return json({ error: "not found" }, 404);
+    return djson({ error: "not found" }, 404);
   }
 
   /** Make the call, accumulate, notify. The only long-lived thing in the system. */
@@ -272,6 +314,10 @@ function firstLine(text: string): string {
  *  which is round-tripped in tests/push-crypto.ts — see the note there about why this particular
  *  code cannot be verified by watching it work. */
 async function sendPush(sub: PushSub, payload: unknown, env: Env): Promise<void> {
+  // Checked at the door too, and again here because this is the line that actually signs and sends.
+  // A subscription stored by a job that started before the door existed is read back off disk by
+  // notify(), and it has never been past that check.
+  if (!pushEndpointAllowed(sub?.endpoint)) throw new Error("push endpoint not an allowed push service");
   const { body, headers } = await encryptPush(sub, payload);
   const authorization = await vapidHeader(sub.endpoint, {
     publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE, subject: env.VAPID_SUBJECT,

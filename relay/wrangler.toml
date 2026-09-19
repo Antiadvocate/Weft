@@ -18,7 +18,11 @@ new_sqlite_classes = ["Job"]
 
 # Secrets are NOT set here — wrangler.toml is committed. Set them with `wrangler secret put`:
 #   OPENROUTER_KEY   your OpenRouter key
-#   RELAY_TOKEN      any long random string; the app sends it so the relay is not open to the world
+#   RELAY_TOKEN      32+ RANDOM characters, generated not invented; the app sends it on every call
+#                    (reads included) and it is the only thing between a stranger and your balance:
+#                      node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 #   VAPID_PUBLIC     from `npm run keys`
 #   VAPID_PRIVATE    from `npm run keys`
 #   VAPID_SUBJECT    mailto:you@example.com
+#   ALLOWED_ORIGIN   optional; the one web origin allowed to read this relay's answers, e.g.
+#                    https://yourname.github.io. Unset means any origin.

@@ -1052,6 +1052,10 @@ export const api = {
     for (const { path, value } of patches) {
       if (!Array.isArray(path) || !path.length) continue;
       if (path[0] === "id" || path[0] === "snapshots") continue;   // identity and rollback are not editable
+      // The raw editor writes wherever it is pointed, and `cur[k] = {}` on the key `__proto__` is
+      // not a write to the save — it is a write to every object in the running program. The editor
+      // takes pasted JSON, so the path is not always something the player typed on purpose.
+      if (path.some((k) => k === "__proto__" || k === "constructor" || k === "prototype")) continue;
       let cur: any = s;
       for (let i = 0; i < path.length - 1; i++) {
         const k = path[i];
@@ -1866,7 +1870,8 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     if (!data?.world_bible || !data?.world || !data?.characters) throw new Error("not a Weaver save file");
     console.info(`[import] ${describeStamp(data?._weft)}`);
     const { _weft, ...rest } = data;
-    const s = sanitize(rest as SaveState);
+    const clean = scrubImported(rest);
+    const s = sanitize(clean as SaveState);
     s.id = uid("save");
     s.updated_at = new Date().toISOString();
     s.imported_from = _weft;   // keep the provenance of what was imported, for bug reports
@@ -1882,6 +1887,46 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     return clientView(s);
   },
 };
+
+/* ── WHAT COMES IN FROM SOMEBODY ELSE'S FILE ────────────────────────────────────────────────────
+ *
+ * A save is JSON, and a save is a thing people trade — a world somebody built, a chapter they want
+ * played. So the import path is the one place in Weft where a stranger writes the bytes. Two things
+ * get taken off them on the way in, and both are one line of damage apiece.
+ *
+ * THE PICTURES. A portrait and a scene illustration are stored as `data:` URLs — the diffusion path
+ * builds them that way and nothing else ever writes the field. A save file, being hand-editable,
+ * can carry `https://someone-elses-box/1.png` instead, and then the Cast screen fetches it: the
+ * sender learns your IP address, your rough location, your browser, and the hour you opened their
+ * world, every time you open it. Nobody trading a save expects it to be a read receipt. Non-`data:`
+ * image URLs are dropped, and the character keeps their picture-less card.
+ *
+ * THE THREE KEYS. `__proto__`, `constructor` and `prototype` as object keys survive JSON.parse as
+ * ordinary data, and turn into an edit to every object in the program the moment something assigns
+ * them with `=`. Weft has no deep merge and generates its own character ids, so there is no known
+ * route from here to a polluted prototype — but "no known route" across fifty thousand lines is a
+ * claim with a shelf life, and dropping the keys costs one pass over a tree that is about to be
+ * walked anyway.
+ */
+const PROTO_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const IMAGE_FIELDS = new Set(["portrait_url", "illustration_url"]);
+
+export function scrubImported<T>(value: T, dropped = { keys: 0, images: 0 }, depth = 0): T {
+  // A save nests deeply but not unboundedly; this is a guard against a file built to recurse, not
+  // a real limit on anything the engine writes.
+  if (depth > 64 || value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v) => scrubImported(v, dropped, depth + 1)) as unknown as T;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (PROTO_KEYS.has(k)) { dropped.keys++; continue; }
+    if (IMAGE_FIELDS.has(k) && typeof v === "string" && v && !/^data:image\//i.test(v)) { dropped.images++; continue; }
+    out[k] = scrubImported(v, dropped, depth + 1);
+  }
+  if (depth === 0 && (dropped.keys || dropped.images)) {
+    console.info(`[import] dropped ${dropped.images} remote image url(s) and ${dropped.keys} reserved key(s)`);
+  }
+  return out as unknown as T;
+}
 
 export interface TurnEvents {
   onPhase?: (phase: string) => void;
