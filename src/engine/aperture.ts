@@ -360,21 +360,21 @@ function pronounsOf(raw: string | undefined): { subject: string; object: string;
  *  is how much of it is load-bearing. */
 function registerLine(name: string, ap: Aperture, rel: number, openRun: number, pn: { subject: string; possessive: string }): string {
   if (ap === "narrowed") {
-    return `${name} is clenched (${rel.toFixed(1)}). The card is exact right now: the register tightens onto its narrowest form, `
-      + `attention goes to one thing and stays there, and very little else gets in. `
-      + `That is normal for a tense person. `
-      + `WHAT DOES NEED CHECKING IS WHOSE CONCERN IT IS. A braced person narrows onto what THEY are after — the thing they are protecting, the thing they cannot stop wanting, the thing they are afraid of losing. `
-      + `If they focus on the other person's subject instead — answering it, pressing it, taking it apart — they come across as having no concerns of their own.`;
+    return `${name} is tense and guarded (${rel.toFixed(1)}). Right now their character card describes them exactly: the way they talk narrows down to its tightest form, `
+      + `their attention fixes on one thing and stays there, and very little else gets through. `
+      + `That's normal for someone who is tense. `
+      + `What does need checking is whose concern it is. Someone who is braced narrows in on what they themselves are after: what they're protecting, what they can't stop wanting, or what they're afraid of losing. `
+      + `If they focus on the other person's subject instead, by answering it, pushing on it or picking it apart, it looks as though they have no concerns of their own.`;
   }
   if (ap === "wide") {
     const settled = openRun >= 6 ? ` and has been settled for ${openRun} turns` : "";
-    return `${name}'s body is open (${rel.toFixed(1)})${settled}. AT THIS OPENNESS THE VOICE CARD SUPPLIES THE VOCABULARY AND LEAVES THE SUBJECT FREE. `
-      + `The way of talking on that card is how this person sounds UNDER STRESS, braced or defending something. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} is not doing that. `
-      + `So the words still come out of ${pn.possessive} own life and ${pn.possessive} own vocabulary, but their manner loosens: something said for no reason, an aside that goes nowhere, `
-      + `a question answered straight with no agenda, a joke told just for the joke, a sentence that does not lead anywhere. `
-      + `Relaxed people go off-topic often, and most of what people who are comfortable together say is off-topic.`;
+    return `${name}'s body is relaxed and open (${rel.toFixed(1)})${settled}. When someone is this relaxed, their voice card gives them their words, but it doesn't decide what they talk about. `
+      + `The way of talking on that card is how this person sounds under stress, when they're braced or defending something, and right now ${pn.subject} isn't doing that. `
+      + `So the words still come from ${pn.possessive} own life and ${pn.possessive} own vocabulary, but the manner loosens up: something said for no reason, a side comment that goes nowhere, `
+      + `a question answered straight with no agenda, a joke told just because it's funny, or a sentence that doesn't lead anywhere. `
+      + `Relaxed people wander off the subject a lot, and most of what people say when they're comfortable together is beside the point.`;
   }
-  return `${name} is neither braced nor loose (${rel.toFixed(1)}) — mostly on task, with slack in it. `
+  return `${name} is neither tense nor loose (${rel.toFixed(1)}), so mostly focused on the task, but with some give in it. `
     + `${pn.possessive.charAt(0).toUpperCase()}${pn.possessive.slice(1)} usual way of talking holds, but one thing ${pn.subject} says this turn breaks from it.`;
 }
 
@@ -416,19 +416,19 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
     if (sat >= SATURATED_AT) {
       const want = c.current_goal || c.drive?.goal || "the one thing";
       const own = (c.texture ?? []).filter((t) => !isMannerism(t)).slice(0, 3);
-      lines.push(`${c.name} has had ${sat} turns running in which everything out of ${pn.possessive} mouth was about the same thing: "${want.trim().replace(/\s+/g, " ")}". `
-        + `The want has already been said and heard, and saying it again does not move it forward. `
-        + `THIS TURN IT MOVES BY ONE THING ${pn.subject.toUpperCase()} DOES WITH ${pn.possessive.toUpperCase()} HANDS: an arrangement made, a hand on something, a step taken, a small thing bought or carried or put where it goes — `
-        + `and ${pn.possessive} talking is somewhere else entirely.${own.length ? ` ${pn.subject[0].toUpperCase()}${pn.subject.slice(1)} has this on ${pn.possessive} card and has not used it: ${own.join("; ")}.` : ""} `
-        + `Nobody is walked through a thing they did not ask about, shown a document, or made to look at anything. `
-        + `People usually move toward what they want while talking about something else; do not have them narrate the want.`);
+      lines.push(`For ${sat} turns in a row, everything ${c.name} has said has been about the same thing: "${want.trim().replace(/\s+/g, " ")}". `
+        + `The want has already been said and heard, and saying it again doesn't move it forward. `
+        + `This turn it moves forward through one thing ${pn.subject} does with ${pn.possessive} hands, like making an arrangement, putting a hand on something, taking a step, or buying, carrying or putting away some small thing, `
+        + `while what ${pn.subject} talks about is something else entirely.${own.length ? ` ${pn.subject[0].toUpperCase()}${pn.subject.slice(1)} has this on ${pn.possessive} card and hasn't used it yet: ${own.join("; ")}.` : ""} `
+        + `Nobody gets walked through something they didn't ask about, shown a document, or made to look at anything. `
+        + `People usually move toward what they want while talking about something else, so don't have them narrate the want.`);
     }
 
     if (steer >= STEERING_AT) {
-      lines.push(`The last ${steer} turns all ended with ${c.name} having the final word and using it to tell the player what happens next. `
-        + `Do not have them read out a schedule, and do not let one person keep closing the scene. `
-        + `THIS TURN ${c.name.toUpperCase()} DOES NOT HAND OVER THE NEXT STEP. Either somebody else has the last word, or the turn ends on ${c.name} with nothing asked of anybody — `
-        + `a thing done, a thing noticed, a thing said that requires no answer.`);
+      lines.push(`The last ${steer} turns all ended with ${c.name} having the last word and using it to tell the player what happens next. `
+        + `Don't have them read out a schedule, and don't let one person keep ending the scene. `
+        + `This turn ${c.name} doesn't hand out the next step. Either somebody else has the last word, or the turn ends on ${c.name} without anything being asked of anyone, `
+        + `such as something done, something noticed, or something said that doesn't need an answer.`);
     }
 
     if (gap >= APPETITE_GAP) {
@@ -441,28 +441,28 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
         ...(c.texture ?? []).filter((t) => !isMannerism(t)).map((t) => String(t).trim()),
         ...Object.keys(c.skills ?? {}),
       ].filter(Boolean).slice(0, 5);
-      lines.push(`${c.name} has spoken on ${gap} turns running without once saying what ${pn.subject} wants or putting anything on the table that is neither ${pn.object} nor the person ${pn.subject} is talking to. `
-        + `Every line has been aimed at something the player said first — answering it, questioning it, taking it apart. `
-        + `A person who only ever responds seems to have no inner life, however many questions ${pn.subject} asks. `
-        + `THIS TURN ${c.name.toUpperCase()} WANTS SOMETHING OUT LOUD AND IT DID NOT COME FROM THE PLAYER'S LAST LINE: something ${pn.subject} asks for, takes, refuses, decides, or brings up that nobody raised — an appetite, an errand, a grievance, a plan for the evening that is ${pn.possessive} own rather than an answer to somebody else's. `
-        + `It does not have to be large and it does not have to be granted.${own.length ? ` This is what ${pn.subject} already has on ${pn.possessive} card and has not used: ${own.join("; ")}.` : ""}`);
+      lines.push(`${c.name} has spoken for ${gap} turns in a row without once saying what ${pn.subject} wants, or bringing up anything that isn't about ${pn.object} or the person ${pn.subject} is talking to. `
+        + `Every line has been a response to something the player said first, whether answering it, questioning it or picking it apart. `
+        + `Someone who only ever responds seems to have no inner life, however many questions ${pn.subject} asks. `
+        + `This turn ${c.name} wants something out loud, and it doesn't come from the player's last line. It's something ${pn.subject} asks for, takes, refuses, decides, or brings up that nobody else mentioned, like an appetite, an errand, a complaint, or a plan for the evening that is ${pn.possessive} own and not an answer to somebody else's. `
+        + `It doesn't have to be big, and ${pn.subject} doesn't have to get it.${own.length ? ` This is what ${pn.subject} already has on ${pn.possessive} card and hasn't used yet: ${own.join("; ")}.` : ""}`);
     }
 
     if (ap === "wide") {
       const drift = driftSubject(state, id);
       if (drift) {
-        lines.push(`${c.name}'s attention is CATCHABLE this turn by: ${drift.subject}.`
-          + `${drift.place ? ` This world has ${drift.place} in it — it is real, it is there, and ${pn.subject} knows it is.` : ""} `
-          + `If anything in this place, on the way, or in what somebody just said touches that, ${pn.subject} notices it out loud, and IT DOES NOT HAVE TO LEAD ANYWHERE — `
-          + `The remark can end where it ends, with the scene carrying on around it. Treat this as room to say something: `
-          + `if the moment has no room for it, ${pn.subject} notices nothing and says nothing, and that is also correct. `
-          + `What is not correct is a person whose surroundings could be swapped for any other surroundings without changing a word they say.`);
+        lines.push(`${c.name}'s attention can be caught this turn by: ${drift.subject}.`
+          + `${drift.place ? ` This world has ${drift.place} in it. It's real, it's there, and ${pn.subject} knows it is.` : ""} `
+          + `If anything in this place, on the way, or in what somebody just said touches on that, ${pn.subject} notices it out loud, and it doesn't have to lead anywhere. `
+          + `The remark can just end, with the scene carrying on around it. Treat this as room to say something: `
+          + `if the moment has no room for it, ${pn.subject} doesn't notice anything and doesn't say anything, and that's fine too. `
+          + `What isn't fine is a person whose surroundings could be swapped for any others without changing a word they say.`);
       }
     }
     blocks.push(`· ${lines.join(" ")}`);
   }
   if (!blocks.length) return "";
-  return `\n\n=== HOW WIDE THE ATTENTION IS (turn ${turn}) ===\n${blocks.join("\n")}`;
+  return `\n\n=== HOW NARROW OR WIDE EACH PERSON'S ATTENTION IS (turn ${turn}) ===\n${blocks.join("\n")}`;
 }
 
 /* ── I ALREADY KNOW ─────────────────────────────────────────────────────────── */
@@ -486,9 +486,9 @@ const KNOWS_ALREADY = new RegExp("\\b(i know how|i know what|i know that|i alrea
 
 export function heardYouNote(action: string): string {
   if (!KNOWS_ALREADY.test(String(action ?? ""))) return "";
-  return `\n\n=== THE PLAYER SAID THEY ALREADY KNOW ===\nThe player's line this turn states that they already have this — they know how it works, they have been told, they can read it themselves. `
-    + `NOBODY EXPLAINS IT TO THEM — at length, in a shortened version, as a quick recap "just so it's clear", or by walking them through the document while saying they don't have to look. `
-    + `Somebody who is told "I know how that works" by a person they trust says a short version of okay and moves — and what they say next is about something else. `
-    + `A character may absolutely still WANT the thing, still be nervous about it, still touch it or hand it over or get it signed. What they may not do is deliver the content the player just declined. `
-    + `If the character truly cannot let it go, that is a feeling about being believed, and it comes out as that — one line about themselves — never as the explanation again.`;
+  return `\n\n=== THE PLAYER SAID THEY ALREADY KNOW ===\nWhat the player said this turn makes it clear they already have this: they know how it works, they've been told, or they can read it for themselves. `
+    + `Nobody explains it to them, whether at length, in a shorter version, as a quick recap "just so it's clear", or by walking them through the document while saying they don't have to look. `
+    + `When someone they trust says "I know how that works", a person says some short version of okay and moves on, and whatever they say next is about something else. `
+    + `A character can still want the thing, still be nervous about it, and still touch it, hand it over or get it signed. What they can't do is give the player the explanation the player just turned down. `
+    + `If the character really can't let it go, that's a feeling about being believed, and it comes out as one line about themselves, never as the explanation again.`;
 }

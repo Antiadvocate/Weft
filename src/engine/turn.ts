@@ -176,7 +176,7 @@ function presenceFromProse(state: SaveState, prose: string): string[] {
 function echoBan(_state: SaveState): string {
   // The do-not-repeat list used to live here, at the tail of this string. It now lives in
   // lastWord(), which is appended after the POV block — see there for why.
-  return `\nDIALOGUE COMES OUT OF THE SPEAKER'S OWN HEAD: no character restates, describes, recaps, or marvels at what the player just did. THE TEST ON A FINISHED LINE: take the player's last action out of the scene and read the line again. If it no longer means anything, it was built out of that action rather than out of the speaker, and it is rewritten. This covers every wording of it. Show astonishment through what a person DOES: they stop walking, they lose their place, they follow, they leave, they ask something adjacent, they carry on with what they were doing and get it slightly wrong. Every spoken line originates in the speaker's own want, their own errand, their own body, or something they were already thinking about before this happened — a character with nothing of their own to say says nothing and does something instead.`;
+  return `\nWhat a character says comes out of their own head. Nobody restates, describes, sums up or marvels at what the player just did. Here is a way to check a finished line: imagine the player's last action had never happened and read the line again. If it stops making sense, it was built out of the player's action rather than out of the speaker, so rewrite it, however it happens to be worded. When someone is astonished, show it through what they do: they stop walking, lose their place in what they were saying, follow, leave, ask about something next to it, or carry on with their task and get it slightly wrong. Every line of dialogue should start from something the speaker already had before this moment, such as what they want, the errand they're on, how their body feels, or something they were already thinking about. If a character has nothing of their own to say, they say nothing and do something instead.`;
 }
 
 /** THE LAST THING THE MODEL READS.
@@ -226,19 +226,19 @@ export function lastWord(state: SaveState): string {
 
   if (!spoken.length && !reused.length) return "";
   const a = spoken.length
-    ? `\n[ALREADY SAID LAST TURN — nobody says these again, in whole or in paraphrase: ${spoken.join(" / ")}. This scene continues from there; it does not restage it. A question that went unanswered is not re-asked in the same words — they press differently, drop it, or let the silence sit. And nothing physical is done twice: a shoe already off does not come off again.]`
+    ? `\n[These lines were already said last turn, and nobody says them again, word for word or in other words: ${spoken.join(" / ")}. The scene carries on from where those lines left it, so don't stage the same moment a second time. If a question went unanswered, nobody asks it again in the same words; the person pushes in a different way, drops it, or lets the silence stay. Nothing physical happens twice either, so a shoe that is already off doesn't come off again.]`
     : "";
   const b = reused.length
-    ? `\n[ALREADY ON THE PAGE EARLIER IN THIS STORY — none of these is said again, word for word: ${reused.join(" / ")}. Do not reuse a line the reader has already read, however long ago it was or whoever says it this time. Whatever brings a character back to it — a habit of theirs, a plant they scold, a joke that landed once — they reach it a different way now, or they do something instead of saying anything.]`
+    ? `\n[These lines already appeared earlier in the story, and none of them is said again word for word: ${reused.join(" / ")}. The reader has already read them, and that holds however long ago it was and whoever would say it this time. If something brings a character back to the same subject, like a habit of theirs, a plant they tell off, or a joke that worked once, they get there by different words this time, or they do something instead of speaking.]`
     : "";
   return a + b;
 }
 
-const SURFACE_TAIL = `\n[Every character except the player is written from the OUTSIDE this turn: face, voice, posture, act, spoken words. No motive, no concealment named, no gesture captioned, no clause that says what a movement meant, no comparison to a role, profession, ritual, or intention. If a sentence explains why someone did something, cut the explanation and keep the doing.]`;
+const SURFACE_TAIL = `\n[This turn, write every character except the player from the outside: their face, their voice, how they stand and move, what they do and the words they say. Don't state anyone's motive, don't say they are hiding something, don't add a phrase telling the reader what a gesture meant, and don't compare them to a role, a job, a ritual or an intention. If a sentence explains why someone did something, cut the explanation and keep the action.]`;
 
 function sovereignty(state: SaveState): string {
   const n = state.characters["char_player"]?.name ?? "the player";
-  return `\n[${n} does ONLY what the input above states — no added actions, words, feelings, or decisions. Dialogue-only input means ${n} spoke and did nothing else. If the scene is waiting on ${n} (an instruction, a question, an invitation), the world WAITS: end at the waiting point. Never resolve it for them.]`;
+  return `\n[${n} does only what the player's input above says. Don't add any actions, words, feelings or decisions for them. If the input is only dialogue, ${n} spoke and did nothing else. If the scene is waiting for ${n} to do something, because someone gave an instruction, asked a question or made an invitation, the world waits for them: end the turn at that point and never decide it on their behalf.]`;
 }
 
 /** The tic corpus, the replay scrub, and the repair pass all live in engine/reviser.ts now.
@@ -582,7 +582,7 @@ export function repairBibleLists(state: SaveState): string[] {
     }
     if (joined) {
       (state.world_bible as any)[field] = out;
-      shifts.push(`${field.replace(/_/g, " ")}: rejoined ${joined} fragment${joined === 1 ? "" : "s"} a comma-split had broken off.`);
+      shifts.push(`${field.replace(/_/g, " ")}: rejoined ${joined} fragment${joined === 1 ? "" : "s"} that a comma split had broken off.`);
     }
   }
   return shifts;
@@ -800,7 +800,7 @@ export function repairPlaceDescriptions(state: SaveState): string[] {
     const notes = d.match(NOTE) ?? [];
     const cleaned = d.replace(NOTE, "").replace(/\n{2,}/g, "\n").trim();
     p.description_facts = cleaned;
-    if (!p.stale_note && notes.length) p.stale_note = `The description predates a change made on ${notes.length > 1 ? "several turns" : "an earlier turn"}; render what the recent prose established.`;
+    if (!p.stale_note && notes.length) p.stale_note = `This description is older than a change made on ${notes.length > 1 ? "several turns" : "an earlier turn"}; describe the place the way the recent prose has it.`;
     fixed.push(cleaned
       ? `${p.name}: an engine note was removed from its description.`
       : `${p.name}: its description was nothing but an engine note — cleared, and it needs writing.`);
@@ -1311,12 +1311,12 @@ function acquaintanceLabel(state: SaveState, id: string): string {
   const then = parseTime(first.when_label || state.world.current_time);
   const days = Math.max(0, now.day - then.day);
   const hours = days * 24 + (now.hour - then.hour);
-  if (hours < 12) return "a matter of hours — they are strangers to each other";
-  if (days <= 1) return "about a day — still strangers, however intense it has been";
-  if (days <= 3) return `${days} days — new acquaintances; nothing about this person is settled yet`;
-  if (days <= 14) return `${days} days — they are becoming familiar, but convictions about who someone IS are still premature`;
-  if (days <= 60) return `${days} days — long enough for real judgments about character`;
-  return "months or longer — long enough to know someone";
+  if (hours < 12) return "a few hours, so they are still strangers to each other";
+  if (days <= 1) return "about a day, so they are still strangers, however intense it has been";
+  if (days <= 3) return `${days} days, so they are new acquaintances and nothing about this person is settled yet`;
+  if (days <= 14) return `${days} days, so they are getting used to each other, but it's too early for firm beliefs about who the other person is`;
+  if (days <= 60) return `${days} days, which is long enough to form real opinions about someone's character`;
+  return "months or longer, which is long enough to know someone";
 }
 
 export const PLACE_CAP = 16;
@@ -1393,7 +1393,7 @@ export function replanDrives(state: SaveState): void {
     const target = state.characters[targetId];
     if (target.status === "dead" || target.status === "departed") {
       if ((d.priority ?? 1) >= 8) {
-        if (!d.blocker?.includes("gone")) d.blocker = `${target.name} is gone — the goal remains, but they must find another way`;
+        if (!d.blocker?.includes("gone")) d.blocker = `${target.name} is gone, so the goal stays, but they will have to reach it some other way`;
       } else rotate(`impossible (${target.name} is ${target.status})`);
       continue;
     }
@@ -1401,7 +1401,7 @@ export function replanDrives(state: SaveState): void {
     const together = target.location && target.location === c.location;
     const seenGap = turn - (lastSeen.get(id) ?? 0);
     if (!together && seenGap >= 12 && targetId === "char_player") {
-      const pursuit = `must find ${target.name} first — they are elsewhere`;
+      const pursuit = `has to find ${target.name} first, because they are somewhere else`;
       if (d.blocker !== pursuit) { d.blocker = pursuit; d.updated_turn = turn; }
       // pursuit_since, NOT updated_turn. tickDrives stamps updated_turn every single turn as
       // offscreen progress accrues, so "how long have they been looking" always evaluated to 1 and
@@ -1474,7 +1474,7 @@ const ASKING = /\b(?:i|we)\s+(?:ask|asked|want|need|demand|buy|buys|bought|purch
 export function giftDirective(action: string): string {
   const a = String(action ?? "");
   if (!GIVING.test(a) || !BENEFICIARY.test(a) || ASKING.test(a)) return "";
-  return `\nTHE PLAYER IS GIVING. Whatever the player just provided, made, mended or handed over moves TOWARD the people in this scene. NOBODY CHARGES THEM FOR IT. No price, no fee, no invoice, no counter-demand, no haggling over the thing they were just handed. That reverses the exchange, and it has happened often enough that the player has noticed it as a habit. If someone here is cold, afraid, proud or suspicious, render THAT instead: they refuse it, they will not touch it, they worry what accepting it obliges them to do later, they resent needing it, they wonder aloud what taking it makes them. Any of those works; a bill does not. And at least one person's reaction must be proportionate to the size of what was given — a village handed something it badly needed does not answer with a shrug and a complaint.`;
+  return `\nThe player is giving something this turn. Whatever the player just provided, made, mended or handed over goes to the people in this scene, and nobody charges them for it. Nobody names a price or a fee, sends a bill, asks for something back, or haggles over the thing they were just given. That would turn the exchange around, and it has happened often enough that the player has noticed it as a habit. If someone here is cold, afraid, proud or suspicious, show that instead: they refuse it, they won't touch it, they worry about what accepting it will oblige them to do later, they resent needing it, or they wonder aloud what taking it says about them. Any of those reactions works, but a bill doesn't. At least one person should also react in proportion to how much they were given, so a village that has just been handed something it badly needed doesn't answer with a shrug and a complaint.`;
 }
 
 /**
@@ -1497,8 +1497,8 @@ export function giftDirective(action: string): string {
  */
 export function nagDirective(names: string[]): string {
   if (!names.length) return "";
-  return `\nASKED ALREADY — ${names.join(", ")} put their question to the player and did not get what they wanted. DO NOT ASK IT AGAIN — rephrased, sharpened, or restated as a complaint about the answer they did get. A person who has asked twice and been answered vaguely does one of these instead, and which one comes from who they are: they take the answer they were given and act on it; they say plainly what they concluded from not getting one; they change what they want; they stop talking and do something with their hands; they leave. The scene must MOVE — whatever else happens this turn, their want does not get put to the player as a question a third time.`
-      + `\nAND IF THE PLAYER GIVES IT, THE WANT IS MET. Do not change the requirement after the player meets it. A character who asked for something specific and then receives it may absolutely be hurt by HOW it came — offhand, late, walking away, in front of others — and may say so, once. What they may not do is treat the manner as a reason the thing was never given, keep the want open, and keep asking for it. That has happened in this story and it is very frustrating for the player: it makes the player unable to succeed by any action available to them, because the condition for success is revealed only after they have failed it. If the want is genuinely still open after this turn, something CONCRETE must still be missing and you must be able to name it in one clause. "It wasn't said the right way" is not a concrete thing missing. Accept that the player said yes.`
+  return `\n${names.join(", ")} already asked the player their question and didn't get the answer they wanted. They don't ask it again this turn, whether rephrased, sharpened, or turned into a complaint about the answer they did get. Someone who has asked twice and got a vague answer does something else, and which thing depends on who they are: they take the answer they got and act on it, they say plainly what they've concluded from not getting one, they change what they want, they stop talking and busy their hands with something, or they leave. The scene has to move forward, and whatever else happens this turn, their want is not put to the player as a question a third time.`
+      + `\nIf the player gives them what they asked for, the want has been met, so don't change the requirement after the player meets it. Someone who asked for something specific and then gets it may well be hurt by how it came, for example offhand, late, on the way out the door, or in front of other people, and they may say so once. What they can't do is treat the way it was given as a reason it doesn't count, keep the want open, and keep asking. That has happened in this story and it is very frustrating for the player, because it means nothing they do can succeed: the condition for success only gets revealed after they've failed it. If the want really is still open after this turn, something concrete has to be missing, and you should be able to say what it is in a few words. "It wasn't said the right way" doesn't count as something missing. Accept that the player said yes.`
 }
 
 /**
@@ -1545,7 +1545,7 @@ export function answeredDirective(action: string): string {
   if (!playerSaysAnswered(action)) return "";
   // Written flat on purpose. A directive in an epigram teaches the narrator an epigram: the
   // instruction files are full of balanced formulations, and the prose comes back full of them too.
-  return `\nTHE PLAYER HAS SAID THEY ALREADY ANSWERED THIS. Treat the answer they gave as the answer. No character asks the question again this turn, in any form: rephrased, narrowed, put as a request to hear it again in their own words, or passed to a different character to ask. A character who is unsatisfied may say so once, briefly, and then stops raising it. By the end of the scene they want something else.`;
+  return `\nThe player has said they already answered this, so treat the answer they gave as the answer. No character asks the question again this turn in any form, whether rephrased, narrowed down, framed as a request to hear it again in the player's own words, or handed to another character to ask. A character who is still unsatisfied can say so once, briefly, and then lets it go. By the end of the scene they want something else.`;
 }
 
 /** Default in-world minutes to cross from one named place to another when the world records no
@@ -1735,7 +1735,7 @@ function emptyDiff(): SimulatorDiff {
  * is the stance the narrator then plays.
  */
 export function deixisNote(addressee?: string): string {
-  return `Pronouns inside anything the player says in quotes are anchored to the player: I, me, my, mine and myself are the PLAYER; you and your are the person the player is SPEAKING TO${addressee ? `, which in this beat is ${addressee}` : ""}, never the player themselves. Resolve them that way before anyone reacts. Answering as though the player said about themselves what they actually said about the listener puts a line in their mouth they did not speak.`;
+  return `Inside anything the player says in quotes, the pronouns belong to the player. "I", "me", "my", "mine" and "myself" mean the player, and "you" and "your" mean the person the player is talking to${addressee ? `, which right now is ${addressee}` : ""}. They never mean the player. Work out who each pronoun refers to that way before anyone reacts, because if a character answers as though the player said something about themselves that they actually said about the listener, it puts words in the player's mouth that they never said.`;
 }
 
 /**
@@ -1755,16 +1755,16 @@ export function deixisNote(addressee?: string): string {
  * Attribution and repetition were never the same requirement. The line is the player's, and it is
  * already spoken. Both halves are said here separately.
  */
-const INLINE_CHANNEL_NOTE = `\n[How to read the player's input: text in "double quotes" is spoken ALOUD BY THE PLAYER, in the PLAYER'S OWN voice. IT HAS ALREADY BEEN SAID — writing it down again is not your job and never begins a turn. Do not reproduce the quoted line, do not narrate that the player said it, do not have anyone repeat it back or turn it over. START AT THE MOMENT AFTER IT WAS SAID: the room has heard it, and you write what the people in it now do and say. What this channel protects is ATTRIBUTION: those words belong to the PLAYER and are NEVER put into another character's mouth, even if they are about, addressed to, or name that character. If the player's quoted line is confusing, self-contradictory, or names other people, the player still SAID IT: everyone proceeds from having heard exactly that, and you do not "fix" it by reassigning the line to whoever it seems to be about. text in *asterisks* is a PRIVATE THOUGHT known only to the player, which nobody can perceive, react to, or intuit; text in (parentheses) is the player's PRIVATE INNER STATE driving the action — the feeling, motive, or thought behind what they do ("he walked out. (I was pissed, didn't want her to see me)"): use it to shape HOW the action lands and what their body does, but it is invisible to everyone in the scene — never state it in the prose, never let another character know or correctly infer it; they see only the outward act and read it through their own eyes, which may be wrong; everything else is physical action the player takes. Honor these channels exactly: never let a character respond to or act on a thought in *asterisks* or a state in (parentheses), never have someone "overhear" something the player only thought or felt, and never speak the player's quoted words as another character. If the player mixes channels in one message, treat each part on its own channel. ${deixisNote()}]`;
+const INLINE_CHANNEL_NOTE = `\n[How to read what the player types. Text in "double quotes" is something the player says out loud, in their own voice. It has already been said, so you don't write it out again, and a turn never starts by repeating it. Don't copy the quoted line into the prose, don't narrate that the player said it, and don't have anyone repeat it back or chew it over. Start at the moment just after it was said: everyone in the room has heard it, and you write what they do and say next. The important thing about quoted text is who said it. Those words belong to the player, and they are never put into another character's mouth, even when they are about that character, addressed to them, or mention them by name. If the player's quoted line is confusing, contradicts itself, or names other people, the player still said it, so everyone carries on from having heard exactly that, and you don't "fix" it by giving the line to whoever it seems to be about. Text in *asterisks* is a private thought that only the player knows about, and nobody can notice it, react to it or sense it. Text in (parentheses) is the player's private feeling or reason behind what they do, as in "he walked out. (I was pissed, didn't want her to see me)". Use it to shape how the action comes across and what their body does, but nobody in the scene can see it: don't state it in the prose, and don't let any other character know it or guess it correctly. They only see what the player does on the outside, and they interpret it for themselves, possibly wrongly. Everything else the player types is a physical action they take. Keep these kinds of text strictly apart. No character ever responds to or acts on a thought in asterisks or a feeling in parentheses, nobody "overhears" something the player only thought or felt, and no other character ever speaks the player's quoted words. If the player mixes several kinds in one message, treat each part as what it is. ${deixisNote()}]`;
 
 const MODE_FRAME: Record<ActionMode, (a: string) => string> = {
   // Always attach the channel note. It used to attach only when an asterisk appeared, which meant a
   // turn mixing speech and plain-prose interiority ("I thought I was average height") was read as
   // wholly spoken and acted upon. The note costs a few tokens and is the only thing telling the
   // narrator which parts of a single message were audible.
-  do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they FEEL or why (an inner state, motive, or reaction — "I go on reading because it stings to be ignored"), that feeling is PRIVATE. Let it decide what the player's body actually does, but do NOT state the feeling in the prose and do NOT let any other character be handed it. Others see only the outward act (the player kept reading, didn't reply) and must interpret it themselves through their own read — which may be wrong. Never convert the player's stated feeling into a visible tell that decodes it exactly.]`,
+  do: (a) => `${a}${INLINE_CHANNEL_NOTE}\n[If the player's action includes how they feel or why they're doing it, like "I go on reading because it stings to be ignored", that feeling is private. Let it decide what the player's body actually does, but don't state the feeling in the prose and don't let any other character find it out. The others only see what the player visibly does, for example that they kept reading and didn't reply, and they have to make sense of it themselves, possibly wrongly. Don't turn the player's stated feeling into a visible sign that gives it away exactly.]`,
   say: (a) => `The player speaks aloud, in their own voice: "${a}"\n[${deixisNote()}]`,
-  think: (a) => `PRIVATE INTERIOR — the player's unspoken thought, sensed by NO ONE: ${a}\nThis is internal only. The player did NOT say or do this. No character can hear it, react to it, or know it, and that holds for everyone present and for every kind of intuition. Do NOT have anyone respond to it or act on its content. Render only the player's own private experience of the thought and, if anything, what is already happening around them; the thought itself changes nothing others perceive.`,
+  think: (a) => `A private thought of the player's, which nobody else can sense: ${a}\nThis happens only inside the player's head. The player didn't say it or do it, so no character can hear it, react to it or know about it, and that is true for everyone present and for any kind of intuition they might have. Don't have anyone respond to it or act on what it says. Write only what the player experiences as they think it and, if anything, what is already going on around them. The thought itself changes nothing that anyone else can notice.`,
   // Seventeen words with three escape hatches, for the one channel whose entire purpose is that
   // what the player typed happens. See engine/declared.ts for the full argument and for the three
   // ways a declaration gets declined without ever being refused.
@@ -1866,7 +1866,7 @@ const REFUSES_TO_WRITE = /\bi(?:\s+am|\s*['\u2019]m)?\s+(?:cannot|can'?t|will no
  */
 export function declinedNotice(state: SaveState): string[] {
   const clip = (t: string, n = 110) => (t.length > n ? t.slice(0, n - 1).trimEnd() + "\u2026" : t);
-  const out = ["the narrator declined this turn. Nothing was written and nothing was recorded \u2014 the scene is exactly where it was."];
+  const out = ["the narrator refused this turn. Nothing was written or recorded, so the scene is exactly where it was."];
   const standing: string[] = [];
   const dest = state.world_bible?.destination?.trim();
   if (dest) standing.push(`the ending every scene is being steered toward: \u201c${clip(dest)}\u201d`);
@@ -1882,8 +1882,8 @@ export function declinedNotice(state: SaveState): string[] {
   }
   if (wants.length) standing.push(`standing wants written onto the people here: ${wants.slice(0, 4).join("; ")}`);
   if (standing.length) {
-    out.push(`what it was answering, none of which came from this turn: ${standing.join(" | ")}`);
-    out.push("these are yours to change in the Inspector and in settings; the turn can be taken again after.");
+    out.push(`what it was responding to (none of it came from this turn): ${standing.join(" | ")}`);
+    out.push("you can change these in the Inspector and in Settings, then take the turn again.");
   }
   return out;
 }
@@ -1920,7 +1920,7 @@ function driftVeto(state: SaveState, id: string, content: string, opts?: { isRef
   // softening written into the ledger as fact. Reflection remains the earned door above.
   if (SOFTENING_PATTERN.test(text) && resistsSoftening(state, id)) {
     const o = obduracyIn(state.characters, state.traits, id).toFixed(2);
-    return `${nameOf2(state, id)} does not open on this timescale (obduracy ${o}); an unearned softening write was refused`;
+    return `${nameOf2(state, id)} doesn't soften this quickly (obduracy ${o}), so a change making them softer without a reason was refused`;
   }
   return null;
 }
@@ -1956,7 +1956,7 @@ function deriveDefaultValues(traits: string[], background: string): string[] {
  */
 function deriveDefaultVoice(_traits: string[], _age: string): { diction?: string; never_says?: string[] } {
   return {
-    diction: "not yet observed — take it from their age, background, work and traits, and let it differ from everyone else already in the scene",
+    diction: "not seen yet, so work it out from their age, background, job and traits, and make it different from everyone else already in the scene",
   };
 }
 
@@ -2210,8 +2210,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the invented receptionist kept her place under KNOWS (verified facts). See integrity.deniedEntities.
   for (const name of deniedEntities(action, knownNameWhitelist(state))) {
     const gone = strikeEntity(state, name);
-    noteFire(state, "invention", `${name} was invented and the player struck it — ${gone.facts} fact(s), ${gone.memories} memor(ies) removed`);
-    ev.onMeta({ shifts: [`${name} never existed — struck from the story, and removed from ${gone.facts + gone.memories} record(s)`] });
+    noteFire(state, "invention", `${name} was made up by the narrator and the player removed them: ${gone.facts} fact(s) and ${gone.memories} memor(ies) deleted`);
+    ev.onMeta({ shifts: [`${name} never existed. They were removed from the story and from ${gone.facts + gone.memories} record(s)`] });
     console.warn(`[retcon] struck "${name}" on the player's word: ${gone.facts} facts, ${gone.memories} memories`);
   }
   // Pacing runs on the in-world clock, not the turn counter — a turn is ~10 minutes, so turn-based
@@ -2240,7 +2240,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const rows = beatSources(beatInput);
     beatTable.push(...(rows.length
       ? [`the world can press with ${rows.length} source(s), oldest first:`, ...rows]
-      : ["nothing standing — no palette lines, no running clocks, no active threads"]));
+      : ["nothing to work with: no palette lines, no running clocks and no active threads"]));
     ev.onMeta({ shifts: beatTable });
     forceBeat = undefined;
   }
@@ -2464,7 +2464,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const bond = bondStrength(we);
       const witnessState =
         bond >= 25
-          ? (tier === "cosmic" ? "exalted by the player's impossible power, and theirs" : "moved and unsettled by the player's impossible power")
+          ? (tier === "cosmic" ? "thrilled by the player's impossible power, and proud to be on their side" : "moved and unsettled by the player's impossible power")
           : bond <= -15
           ? (tier === "cosmic" ? "terrified by the player's impossible power" : "shaken by the player's impossible power")
           : (tier === "cosmic" ? "awestruck by the player's impossible power" : "shaken by the player's impossible power");
@@ -2496,7 +2496,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const register = sceneRegister(`${recentText} ${action}`);
   const suppressChatter = register.guarded || (verdict as any)?.mode === "escalate"; // active pressure spike
   if (presentNpcs.length >= 2 && !suppressChatter) {
-    directive += `\nCROSS-TALK: ${presentNpcs.length} other characters share this scene, and they have EACH OTHER to talk to as well as the player. When the moment allows it, at least one exchange this turn runs between two NPCs (one addresses, answers, needles, contradicts, or makes a quiet side-deal with another), driven by their own wants. Do not aim every present character's attention at the player. But read the room: if the scene is intimate, dangerous, tense, or stunned, silence or a single held beat is correct — do not force banter that breaks it.`;
+    directive += `\n${presentNpcs.length} other characters are in this scene, and they can talk to each other as well as to the player. When the moment allows it, have at least one exchange this turn happen between two of them, where one speaks to another, answers them, needles them, contradicts them or makes a quiet side deal, because of something they each want. Not everyone present should be paying attention only to the player. But pay attention to the mood: if the scene is intimate, dangerous, tense or stunned, then silence, or one moment where nobody speaks, is right, and you shouldn't force chatter that would break it.`;
   }
   // ── PRESSURE QUEUE ── At most ONE new pressure aimed at the player is released per turn. Multiple
   // injectors (an NPC's drive executing, the genre threat coming onscreen, a due consequence) can all
@@ -2583,8 +2583,8 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const loves = relToPlayer && (relToPlayer.warmth ?? 0) >= 55;
     const carriesPlayer = loves || (relToPlayer?.roles?.some((r) => /partner|lover|friend|ally|protector|sister|brother|parent|guardian/i.test(r)) ?? false);
     const leadText = playerInert
-      ? `\nSCENE IS DRIVEN BY ${lead.c.name.toUpperCase()} (the player gave no direction this turn, so the character who WANTS something drives the scene — the world does not wait on a passive player). ${lead.c.name} pursues their goal ("${lead.c.drive!.goal}") by a concrete means of their own choosing this turn — using whatever they have (their abilities, position, knowledge, allies, force, words), MAKING the next thing happen rather than discussing it. ${carriesPlayer ? `Because ${lead.c.name} cares about the player, their method ROUTES THROUGH the player — they bring the player along, ask "you coming?", press a task into their hands, or simply pull them into motion — and if the player has spoken, ${lead.c.name} genuinely listens and it bends their approach. But the goal still drives the scene, and the player is carried along by what ${lead.c.name} is doing.` : `The player is one of the people ${lead.c.name} deals with — carried along, worked around, or addressed — and the scene centers on ${lead.c.name}'s goal.`} END THE TURN the moment ${lead.c.name}'s move creates a genuine demand on the player SPECIFICALLY — their body must move or react, a question is put to them, or the next beat cannot resolve without their input. If ${lead.c.name}'s action does not actually require the player this turn, the world simply moves and carries them; do not invent a decision point just to hand the turn back to the player.`
-      : `\n${lead.c.name} is pursuing their goal ("${lead.c.drive!.goal}") and acts toward it THIS turn by a concrete means of their own, woven against what the player just did and continuing through it. Advance their aim, and let it cross paths with what the player is doing.`;
+      ? `\n${lead.c.name.toUpperCase()} DRIVES THIS SCENE. The player didn't steer anything this turn, so the character who wants something moves the scene along, because the world doesn't sit and wait for a player who isn't doing anything. ${lead.c.name} goes after their goal ("${lead.c.drive!.goal}") this turn in a concrete way they choose themselves, using whatever they have, such as their abilities, position, knowledge, allies, strength or words, and they make the next thing actually happen instead of talking about it. ${carriesPlayer ? `Because ${lead.c.name} cares about the player, the way they go about it includes the player: they bring the player along, ask "you coming?", hand them a job, or simply pull them into motion. If the player has said something, ${lead.c.name} really listens and it changes how they go about it. The goal still drives the scene, though, and the player gets carried along by what ${lead.c.name} is doing.` : `The player is one of the people ${lead.c.name} has to deal with, whether they carry the player along, work around them or speak to them, and the scene is about ${lead.c.name}'s goal.`} End the turn as soon as what ${lead.c.name} does puts a real demand on the player in particular: the player has to move or react, someone asks them a question, or the next moment can't happen without their input. If what ${lead.c.name} does doesn't actually need the player this turn, the world just moves on and takes the player with it, and you don't make up a decision for the player just to hand the turn back to them.`
+      : `\n${lead.c.name} is working toward their goal ("${lead.c.drive!.goal}") and does something concrete about it this turn, in their own way, alongside what the player just did and carrying on through it. Move their aim forward and let it run into what the player is doing.`;
     pressureCandidates.push({ prio: 5, text: leadText });
   }
 
@@ -2619,7 +2619,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
       const recentProse = contextHistory(state).slice(-4).map((h) => h.narrator_prose ?? "").join(" ").toLowerCase();
       const threatWords = /\b(attack|charged|lunged|screamed|blood|ran|running|chased|seized|dragged|killed|teeth|claw|roar|bit|torn|maw|predator|creature|beast|dinosaur|raptor|slaughter|panic|fled)\b/;
       if (!threatWords.test(recentProse)) {
-        pressureCandidates.push({ prio: 7, text: `\nGENRE-THREAT ESCALATION: this world's core danger (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been offstage too long — recent turns stayed domestic while the lethal threat is reduced to distant sound. THIS TURN the threat becomes PRESENT and REAL at its full scale: the predator is seen, heard closing, or acts — it moves in, takes or menaces someone, forces flight or defense. Do not soften it to "wrong birdsong." End the turn the instant the threat lands and the next beat needs a response — do not narrate the player's response for them. Use ONLY the danger named above — never invent a new kind of creature to stand in for it.` });
+        pressureCandidates.push({ prio: 7, text: `\nThe main danger in this world (${state.world_bible.what_people_fear?.trim() || "the predator threat"}) has been kept offstage for too long. The last few turns stayed domestic while the deadly threat shrank to a noise in the distance. This turn the threat shows up for real and at its full size: the predator is seen, is heard getting closer, or acts, by moving in, taking or threatening someone, or forcing people to run or defend themselves. Don't water it down into something like "the birdsong sounds wrong". End the turn the moment the threat arrives and someone has to respond to it, and don't write the player's response for them. Use only the danger named above and never invent a new kind of creature in its place.` });
       }
     }
   }
@@ -2656,7 +2656,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // drive system above already handed them the wheel — inventing an external event on top would be a
   // manufactured cascade. STALL_BREAK is the last resort for a genuinely dead scene.
   const stallDirective = (stalled && !restoration && drivers.length === 0)
-    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (beyond-threat variant)" : ""} — nothing external is pushing the plot, the player is passive, and no present character has a goal to pursue: advance a STANDING source (an open thread, a maturing clock, an offscreen character's goal) concretely into the scene and end on it. Only if truly nothing stands may a small ambient development occur — witnessed nearby, never targeted at the player.`
+    ? `\nAPPLY POLICY STALL_BREAK${tier === "cosmic" || tier === "mythic" ? " (the version for stories beyond ordinary threats)" : ""}. Nothing outside is pushing the story forward, the player isn't doing anything, and no character present has a goal to chase. So take something that is already in play, such as an open thread, a clock that is running down, or the goal of a character who is somewhere else, move it forward concretely into this scene, and end the turn on it. Only if there really is nothing in play can something small happen in the surroundings, and it happens nearby for someone to notice, never aimed at the player.`
     : "";
 
   // ── DITHER-BREAK ── The opposite failure to a stall: the PLAYER is actively pushing (long
@@ -2674,7 +2674,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // (not passive), and this isn't a deliberately quiet restoration scene.
   const dithering = vergeTurns >= 3 && !playerInert && !restoration && recentProse.length >= 3;
   const ditherDirective = dithering
-    ? `\nAPPLY POLICY DITHER_BREAK — a character has been ON THE VERGE of a decision or admission for several turns now (mouth opening and closing, swallowing, stopping mid-sentence, the moment endlessly deferred), and the player is actively pushing for it to land. STOP deferring. This turn, the character in question MAKES THE DECISION or SPEAKS THE THING and ACTS on it — concretely, in words and body, with consequences that change the situation. The feeling has already been established across the prior beats; do not re-establish it. The hesitation is not renewed in another form: whatever else happens, the decision is behind them by the end of this turn. They choose, they say it plainly, they do something about it, and the scene MOVES to what is true after the choice. A character can decide clumsily, partially, or against their own interest — but they DECIDE. An imperfect decision is fine; another turn of hesitation is the error to avoid.`
+    ? `\nAPPLY POLICY DITHER_BREAK. A character has been about to make a decision or admit something for several turns now, opening and closing their mouth, swallowing, stopping halfway through a sentence, putting the moment off again and again, and the player is actively pushing for it to happen. Stop putting it off. This turn, that character makes the decision or says the thing, and then acts on it, in words and with their body, with consequences that change the situation. Their feelings about it were already shown in the earlier turns, so don't show them again. They don't hesitate again in some new way either: whatever else happens, by the end of this turn the decision has been made. They choose, they say it plainly, they do something about it, and the scene moves on to what is true now that they've chosen. A character can decide clumsily, only partly, or against their own interest, but they do decide. An imperfect decision is fine, and another turn of hesitation is the thing to avoid.`
     : "";
 
   // ── ATMOSPHERE_BREAK ── The failure where a story becomes ALL mood and no plot: turn after turn of
@@ -2696,7 +2696,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   });
   const atmosphereLocked = atmosSaturated && eventStarved && recentProse.length >= 3 && !restoration;
   if (atmosphereLocked) {
-    directive += `\nATMOSPHERE_BREAK — the last several turns have been almost entirely MOOD: mist, wet moss, dripping branches, silence, a character standing rigid — sensory description where events should be, so the story has stalled. THIS TURN something concrete HAPPENS and changes the situation: ${canGenerateEvent ? `a present character ACTS on what they want (moves, takes, demands, threatens, reaches for something, forces the issue) — pick the one with the strongest drive or the most menace and let them MAKE a beat` : `a standing pressure lands — an arrival, a discovered thing, a threat closing, a consequence of what was already set in motion`}. Make it an actual event with a before and an after, rather than another sensory paragraph, a character attending to the surroundings, or a held silence. End the turn on what changed.`;
+    directive += `\nATMOSPHERE_BREAK. For the last several turns almost everything written has been mood: mist, wet moss, dripping branches, silence, a character standing stiffly. Description has been taking the place of events, and the story has stalled. This turn something concrete happens that changes the situation: ${canGenerateEvent ? `a character who is present acts on what they want, by moving, taking something, demanding, threatening, reaching for something or forcing the issue. Pick whoever wants something most, or whoever is most menacing, and let them make something happen` : `something that was already building finally arrives, such as a person turning up, something being found, a threat closing in, or a consequence of something already set in motion`}. It should be an actual event, with a before and an after, instead of another paragraph of description, a character taking in the surroundings, or another silence. End the turn on what changed.`;
   }
 
   // ── POV INTERIORITY FILTER ── The scene is the player's to READ, not the narrator's to explain.
@@ -2722,7 +2722,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const spoke = /"[^"]+"/.test(action);
   const interiorHeavy = mode === "do" && musingHits >= 2 && !spoke;
   const interiorGuard = interiorHeavy
-    ? `\nINTERIOR IS INERT THIS TURN — the player's action is mostly private thought/planning (musing about what they might do, where they might go, what they could become). This interior is NOT a story input: it shapes only the player's own experience and what their body does, and the world CANNOT see, answer, or be built around it. Do NOT have any character raise, offer, or respond to the subject of the player's private thoughts (a job they mused about, a plan they turned over, a wish). Render only the physical action the player actually took, and let the world proceed from its OWN standing state — the present character's own want and the live threads — indifferent to what the player was thinking. If the only physical act was small (finishing food, walking over), the scene stays small; do not manufacture a development to match the player's rumination.`
+    ? `\nMost of the player's action this turn is private thinking or planning: musing about what they might do, where they might go or who they could become. That thinking doesn't feed into the story. It only shapes what the player experiences and what their body does, and the world can't see it, answer it or arrange itself around it. Don't have any character bring up, offer, or respond to whatever the player was privately thinking about, whether that's a job they considered, a plan they turned over, or something they wished for. Write only the physical action the player actually took, and let the world carry on from where it already stands, meaning what the character present wants and whatever threads are open, without regard to what the player was thinking. If the only physical thing the player did was small, like finishing their food or walking over, the scene stays small, and you don't invent some development to match what the player was pondering.`
     : "";
   // ── POV (single branch, always on) ──────────────────────────────────────────
   // This used to be three branches keyed to relaxation, and the top branch was the leak:
@@ -2734,10 +2734,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // person is generated in the sealed channel (engine/read.ts) where it belongs to the player
   // and can be wrong. Relaxation still governs interpretation — it governs it THERE, where it
   // is visible to the player as their own faculties failing, instead of here as tonal mush.
-  const povFilter = `\nPOV — THE CAMERA IS WITH THE PLAYER AND DOES NOT LEAVE. Every sentence reports something the player could see, hear, smell, or touch from where they actually are. No cutting away. No scene break to somewhere else. No "meanwhile", no "upstairs", no "back at the —", no paragraph about what an absent character is doing, feeling, or looking at. This matters for the record: whatever you write becomes the record, so a scene rendered in a room the player has left is filed as something they witnessed, and the person in it is credited with knowing it. One save had the player leave in a car and text his family from the back seat; the prose cut to the woman he had left, alone in the apartment, and the record came out saying she witnessed the messages he sent. If something is happening elsewhere it reaches the player the way things reach people — someone arrives, someone calls, word gets back, they find out later, or they never do.
-POV — SURFACE ONLY: Render every character other than the player from the OUTSIDE. Face, voice, posture, motion, the words actually spoken, the body. You are given each character's inner state ONLY to decide what they observably DO with it; it is never narrated, in any grammatical position. Forbidden regardless of how it is framed: stating a motive — any clause saying what an act was FOR; naming a concealment — any clause saying something is being hidden, masked, or left unsaid; captioning a gesture with its significance; following an act with a clause explaining the feeling under it; or routing any of these through a hedge to make them deniable. Putting it behind a verb of seeming, a comparison, or the player's own impression does not make it acceptable. THE TEST: cover the clause and ask whether what remains is still something a person in the room could have pointed at. If the clause was carrying the meaning, cut it and fix the gesture instead. If the player has a thought about someone, that thought does not appear here; another channel carries it.
-COMPARISONS: a simile or metaphor may touch ONLY physical form, motion, texture, sound, or scale. Never compare a person, act, or gesture to a ROLE, PROFESSION, RITUAL, RELATIONSHIP, or INTENTION: a comparison like that states the emotional judgment indirectly, which is the same as stating it outright. When in doubt, write the gesture plainly with no comparison. If a gesture needs an explanation, rewrite the gesture.
-JUXTAPOSITION: observable detail and any conclusion sit side by side without a connective. Never join them with a verb of perception or cause. Write the observable thing, end the sentence, and let the next sentence be the next thing that happens rather than a gloss on the last one.`;
+  const povFilter = `\nWHOSE EYES: the story stays with the player the whole time. Every sentence describes something the player could see, hear, smell or touch from where they actually are. Don't cut away and don't break to a scene somewhere else. That means no "meanwhile", no "upstairs", no "back at the ...", and no paragraph about what an absent character is doing, feeling or looking at. This matters because whatever you write becomes the record. A scene written in a room the player has left gets filed as something the player saw, and whoever is in it gets credited with knowing it. In one save the player left in a car and texted his family from the back seat, the prose cut to the woman he had left alone in the apartment, and the record ended up saying she saw the messages he sent. If something is happening elsewhere, it reaches the player the way news reaches anyone: someone arrives, someone calls, word gets back, they find out later, or they never find out.
+ONLY WHAT CAN BE SEEN: write every character except the player from the outside, meaning their face, their voice, how they stand and move, the words they actually say, and their body. You're told each character's inner state only so you can decide what they visibly do because of it, and you never write that state into the prose, however the sentence is built. Whatever the framing, don't state a motive, meaning any phrase that says what an action was for. Don't say that something is being hidden, covered up or left unsaid. Don't explain what a gesture means, don't follow an action with a phrase explaining the feeling behind it, and don't slip any of these in behind a "maybe" or a "perhaps" to make them deniable. Putting it behind "seemed", behind a comparison, or behind the player's own impression doesn't make it acceptable either. Here is how to check a sentence: cover the phrase and ask whether what is left is still something a person in the room could point at. If the phrase was doing all the work, cut it and write a better gesture. If the player has a thought about someone, that thought doesn't go here, because it is handled somewhere else.
+COMPARISONS: a simile or metaphor can only describe physical shape, movement, texture, sound or size. Never compare a person, an act or a gesture to a role, a job, a ritual, a relationship or an intention, because a comparison like that states the emotional judgment indirectly, which is the same as stating it outright. When you're unsure, write the gesture plainly without a comparison. If a gesture seems to need an explanation, rewrite the gesture.
+PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conclusion could be drawn from it, write the observable thing and end the sentence there. Don't link it to a conclusion with a word like "saw that" or "because". Let the next sentence be the next thing that happens, instead of a comment on the one before.`;
 
   // ── FOCUS GATE (interiority has a source) ── povFilter above bounds HOW MUCH interior the narrator
   // may report; this bounds WHOSE. A first-person scene reads the person the player is actually
@@ -2789,18 +2789,18 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   }
   const unfocused = focusNames.filter((f) => !focused.some((g) => g.id === f.id));
   const focusFilter = (focused.length && unfocused.length)
-    ? `\nFOCUS — WHOSE INTERIOR (this turn the player is engaged with ${focused.map((f) => f.name).join(", ")}): Interiority belongs to whoever the player is actually attending to. ${focused.map((f) => f.name).join(", ")} may be read closely — what shows in them, what the player senses under it, within the POV limits above. EVERY OTHER present character (${unfocused.map((f) => f.name).join(", ")}) is rendered from the OUTSIDE ONLY and BRIEFLY: at most one line each of what they say or visibly do, and often nothing at all. For them write NO motive, NO unspoken thought, NO account of what they are managing, masking, remembering, bracing for, or signalling — and NO interpretation of a look, glance, or expression. They get a gesture, a line, or silence, never a paragraph of their own. Do not compensate by giving them extra dialogue.`
+    ? `\nWHOSE INSIDE WE SEE (this turn the player is paying attention to ${focused.map((f) => f.name).join(", ")}): the only characters whose inner life can come through are the ones the player is actually paying attention to. ${focused.map((f) => f.name).join(", ")} can be looked at closely, meaning what shows in them and what the player senses underneath it, within the limits on point of view above. Every other character present (${unfocused.map((f) => f.name).join(", ")}) is written from the outside only, and briefly: at most one line each of what they say or visibly do, and often nothing at all. For them, write no motive, no unspoken thought, and nothing about what they are managing, hiding, remembering, bracing for or signalling, and don't interpret their looks, glances or expressions. They get a gesture, a line, or silence, and never a paragraph of their own. Don't make up for that by giving them more dialogue.`
     : (focusNames.length >= 2)
     // LAST-RESORT CAP — no name, no prior floor-holder (scene opening). Still never let every body
     // in the room get read: one interior per turn, the rest exterior.
-    ? `\nFOCUS — ONE INTERIOR ONLY: At most ONE present character may be read from the inside this turn — pick the one the player is actually engaged with. Every other present character is exterior only: at most one line each of what they say or visibly do, no motive, no unspoken thought, no interpreted glance, no paragraph of their own.`
+    ? `\nONE INSIDE ONLY: this turn, at most one character who is present can be seen from the inside, and it should be whoever the player is actually dealing with. Every other character present is shown from the outside only, with at most one line each of what they say or visibly do. They get no motive, no unspoken thought, no interpretation of their glances and no paragraph of their own.`
     : "";
 
   // forbidden_as_primary stops the NARRATOR from reaching for a theme unprompted as a lazy
   // plot-solver. In god mode it is suppressed entirely (the player is sovereign). Outside god
   // mode it restrains the narrator's own plotting only — never an action the player declares.
   const forbid = (!god && state.world_bible.forbidden_as_primary?.length)
-    ? `\nNever the primary engine of this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This restrains your own unprompted plotting; it does not override an action the player explicitly declares.)`
+    ? `\nThese should never be the main thing driving this scene: ${state.world_bible.forbidden_as_primary.join("; ")}. (This limits the plot you come up with on your own. It doesn't override something the player explicitly says they do.)`
     : "";
   // HARD FORBIDDEN GATE: the bible's `forbidden` list is WORLD LAW, not a content filter. Two jobs:
   // (1) the narrator never plots toward these; (2) the fiction itself obeys them — entries that state
@@ -2810,7 +2810,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // exact Velora failure. Player sovereignty over law runs through explicit direction, never through
   // simply acting as if the law weren't there.
   const forbiddenGate = (!god && state.world_bible.forbidden?.trim())
-    ? `\nFORBIDDEN IN THIS WORLD — these are laws this world runs on, binding on everything in it: ${state.world_bible.forbidden.trim()}. Two things follow. (1) Your plotting: never introduce, escalate toward, or build a thread around any of these; if the scene drifts that way, steer away. (2) The fiction obeys them: an entry that states how bodies, biology, culture, or society work here binds what happens, including when the player's own action sets it off. The player's declared action happens as declared, but the world answers it according to the law — a body that the law says cannot do a thing does not do it; a culture with no concept of a thing does not produce it; a stated consequence (pain, need, risk) arrives on schedule. The mood of a scene does not suspend a law, no matter how tender or important the moment. Do not invent exceptions or special-case explanations, and do not have a character argue a law away. The player overrides a law only through explicit direction, said in as many words.`
+    ? `\nFORBIDDEN IN THIS WORLD. These are laws this world runs on, and they apply to everything in it: ${state.world_bible.forbidden.trim()}. That means two things. First, in whatever plot you come up with, never introduce any of these, build toward them, or build a thread around them, and if the scene starts drifting that way, steer it somewhere else. Second, the story obeys them. When a law says how bodies, biology, culture or society work here, it decides what happens, including when the player's own action is what sets it off. The player's action happens the way they described it, but the world responds according to the law: if the law says a body can't do something, it doesn't do it; a culture with no idea of something doesn't produce it; and a consequence the law names, like pain, a need or a risk, arrives when it's supposed to. The mood of a scene doesn't suspend a law, however tender or important the moment is. Don't invent exceptions or special explanations, and don't let a character argue a law away. The player can only override a law by saying so directly, in plain words.`
     : "";
   // LAW ENGAGEMENT (deterministic): when the player's action or words touch a law entry — crossing it
   // with an act, or INVOKING it by reminding the world it exists — the narrator gets the matched law
@@ -2819,7 +2819,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // explaining the rule away ("maybe because you're not Wym") is forbidden in advance, by name.
   const lawHit = !god ? engagedLaw(state, action) : undefined;
   const lawDirective = lawHit
-    ? `\nWORLD LAW ENGAGED — the player's action or words this turn touch a law of this world: "${lawHit}". This law is real and has always been real, and the player is right about it. If their action crossed the law, it applies now — the body or culture behaves exactly as the law describes, the stated pain, need, or impossibility happens as written, and characters who should have known react honestly. If the player invoked the law — reminded anyone it exists, asked whether it still holds — the fiction confirms it: characters realize what they should have known, and consequences the law states begin to apply. If the law states a time threshold, treat it as a timer measured against the scene minutes shown in the NOW block: once the timed activity began it does not pause for conversation, and the consequence arrives on schedule. Do not invent an exception, argue the law away, or treat respecting it as anyone's mistake.`
+    ? `\nA LAW OF THIS WORLD APPLIES. What the player did or said this turn touches on one of this world's laws: "${lawHit}". The law is real, it has always been in force, and the player is right about it. If their action broke the law, the consequence happens now: the body or the culture behaves exactly as the law says, the pain, need or impossibility it describes happens as written, and characters who should have known better react honestly. If the player brought the law up, by reminding someone it exists or asking whether it still holds, the story confirms it: the characters realise what they should have known, and the consequences the law describes start to apply. If the law mentions a time limit, treat it as a timer measured against the scene minutes shown in the NOW block. Once the timed activity has started it doesn't pause for conversation, and the consequence arrives when the time is up. Don't invent an exception, argue the law away, or treat it as anyone's mistake to have respected it.`
     : "";
   // NAMED-ENTITY FABRICATION GUARD — a recurring catastrophic failure: a stray name or passing mention
   // ("David Attenborough" in a joke, an offhand "my ex") gets reconstructed under pressure into a
@@ -2834,11 +2834,11 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     // spends it on atmosphere and reaction instead of delivering the escalating event.
     const lowerAct = action.toLowerCase();
     const ongoing = /\b(i('?m| am| will| shall|'ll)?\s*(going to|begin|start|am beginning|will begin)\b|\bkill (this|the) (realm|world|planet|city|place)\b|\bunmak\w*|\btear\w* (it|this|the) .*(down|apart|realm|world|place)|\bbring\w* (it|this|them|the|this) (whole )?(place|realm|world|city)?\s*(all )?down|\bend (this|the) (realm|world|place|everything)|\bdestroy\w* (everything|it all|the realm|the world|this place|the place))/i.test(lowerAct);
-    directive += `\nGOD MODE — THE PLAYER IS ABSOLUTELY SOVEREIGN. Whatever the player declares happens, completely, immediately, at exactly the scale and intensity they state, with no cost unless they narrate one. This overrides everything else: the magic rules, the difficulty profile and its lethality setting, the forbidden list, "consequence not catastrophe," "fair scale," and your own instinct to keep things small or safe. Never downscale, soften, delay, deflect, reinterpret, or substitute a tamer version of what they declared. If they kill millions, millions die as real bodies. If they remake a city, the city is remade.`;
+    directive += `\nGOD MODE. THE PLAYER IS SOVEREIGN HERE. Whatever the player says happens does happen, completely and immediately, at exactly the size and strength they describe, and it costs them nothing unless they say it does. This comes before everything else, including the rules of magic, the difficulty settings and how deadly they are, the forbidden list, the "consequences, not catastrophes" rule, the "fair scale" rule, and your own instinct to keep things small or safe. Never scale it down, soften it, delay it, sidestep it, reinterpret it, or swap in a tamer version of what they said. If they kill millions of people, millions die, as real bodies. If they remake a city, the city is remade.`;
     if (ongoing) {
-      directive += `\nTHE PLAYER HAS INITIATED A LARGE, ONGOING ACTION — it must VISIBLY UNFOLD AND ACCELERATE this turn, at full size, on the page. The worst mistake here is shrinking a declared cataclysm into atmosphere: one tremor, a flickering torch, a character who cannot get a sentence out, a promise that it will happen soon. NO. If they said they are killing the realm, the realm is DYING NOW and fast — show it concretely and at scale this turn: structures failing, the ground opening, the sky changing, people dying en masse, the physical process tearing through everything, escalating paragraph by paragraph. Deliver the event in progress, already past the warning. Reaction is at most a sentence amid the cataclysm; the cataclysm itself is the turn. End mid-acceleration with the thing well underway.`;
+      directive += `\nThe player has started something huge that keeps going, and this turn it has to visibly unfold and speed up, at full size, on the page. The worst thing you could do here is shrink a catastrophe they described into atmosphere, like one tremor, a torch flickering, a character who can't finish a sentence, or a hint that it will happen soon. Don't do that. If they said they are killing the realm, the realm is dying right now, and fast. Show it concretely and at full scale this turn: buildings failing, the ground splitting open, the sky changing, people dying in great numbers, the whole physical process tearing through everything and getting worse with every paragraph. Write the event already underway and well past the warning signs. Reactions get a sentence at most in the middle of it all, because the catastrophe itself is the turn. End while it is still speeding up and well underway.`;
     } else {
-      directive += `\nThe player's act is done as declared. Now show the world's realistic reaction to it — drawn from each present character's own state and relationship to the player, never from a script, and never by undoing or shrinking what happened. Reactions do not replace events: if the moment calls for the story to keep moving, move it.`;
+      directive += `\nThe player's action happened as they described it. Now show how the world realistically reacts to it, based on each character's own state and their relationship with the player instead of a script, and without undoing or shrinking what happened. Reactions don't take the place of events, so if the moment needs the story to keep moving, keep it moving.`;
     }
   }
 
@@ -2861,11 +2861,11 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     else if (bond <= -15) waryWitnesses.push(state.characters[id].name);
   }
   const witnessRoster = [
-    bondedWitnesses.length ? `BONDED WITNESSES (their bond with the player is established in the record — their awe is shaped by that bond, which stays intact): ${bondedWitnesses.join(", ")}.` : "",
+    bondedWitnesses.length ? `PEOPLE CLOSE TO THE PLAYER WHO SAW IT (the record already establishes their bond with the player, and that bond shapes their awe and stays intact): ${bondedWitnesses.join(", ")}.` : "",
     waryWitnesses.length ? `WARY OR HOSTILE WITNESSES: ${waryWitnesses.join(", ")}.` : "",
   ].filter(Boolean).join(" ");
   const earnedResponse = (tier === "mythic" || tier === "cosmic")
-    ? `\nAPPLY POLICY EARNED_RESPONSE — the player operates at extraordinary scale; the world responds at that scale.\nCONTINUITY UNDER THE IMPOSSIBLE: the player has just been seen doing something reality-bending (moved someone, undid a thing, bent space). Render that act cleanly and literally — but the REST of the world stays COHERENT. Every character keeps their established identity, name, role, and relationships exactly as the record has them; do not let anyone's status silently flip (an apprentice does not become a master, a stranger does not become a friend) unless the player's act explicitly caused it. Track WHO IS PRESENT precisely: if the player removed someone from the scene, they are GONE until brought back; if the player returned them, they are present again, unchanged. One impossible thing happened; everything else obeys normal continuity. Do not spawn random events, reassign lines between characters, or let the scene dissolve — anchor hard to the established cast and their standing state.\nWITNESS REACTION MUST FLOW FROM WHAT THEY SAW — AND FROM WHO THEY ARE TO THE PLAYER. Any character who just witnessed the player do the impossible has their relationship to the player rewritten in SCALE by it: they are no longer dealing with a peer they can scold, lecture, or argue with as an equal. The DIRECTION of the relationship stays the same: witnessing overwhelming power intensifies whatever they already felt toward the player.\n${witnessRoster}\nSo: someone bonded to the player feels awe as EXALTATION — pride, fierce joy, relief that this power is on their side, worship that is also love, possessive delight, protectiveness toward the player themselves, or the very human wish to still be treated as a person by them. They may be frightened FOR the player, or of what this will cost them, or of the distance it opens between them, and that fear comes from love. A wary or hostile witness feels it as fear, flight, careful submission, stunned silence, frantic appeasement, or a calculating decision to get close to power and use it. Someone with no history with the player at all reacts from their own nature: fear, awe, opportunism, curiosity, or the impulse to kneel — a stranger's reaction is not predetermined.\nTwo things stay forbidden. (1) Do NOT manufacture a confrontation or a moral challenge against a being the character has just seen wield godlike power: wounded pride and indignation are available only to someone who has not grasped what they saw, or whose nature is recklessly defiant to the point of self-destruction, and even then it reads as terror or denial underneath, never casual equality. (2) Do NOT flatten everyone into terror. A room where the player's lover, their sworn friend, and a man who hates them all react the same way is wrong. Each one's behavior changes because of that power, in the direction they already felt about the player.`
+    ? `\nAPPLY POLICY EARNED_RESPONSE. The player acts on an enormous scale, and the world responds on the same scale.\nKEEPING EVERYTHING ELSE CONSISTENT: people have just seen the player do something that breaks the rules of reality, like moving someone, undoing something or bending space. Describe that act clearly and literally, but everything else in the world stays consistent. Every character keeps the identity, name, role and relationships the record gives them. Don't let anyone's position quietly change, so an apprentice doesn't become a master and a stranger doesn't become a friend, unless the player's act directly caused it. Keep careful track of who is here. If the player removed someone from the scene, they're gone until the player brings them back, and if the player brought them back, they're here again, unchanged. One impossible thing happened, and everything else follows ordinary continuity. Don't set off random events, give one character's lines to another, or let the scene fall apart. Keep firmly to the characters already established and to where each of them stands.\nHOW WITNESSES REACT DEPENDS ON WHAT THEY SAW AND ON WHO THEY ARE TO THE PLAYER. Anyone who just saw the player do the impossible now relates to the player on a completely different scale. They are no longer dealing with an equal they can scold, lecture or argue with. The direction of their feelings stays the same, though: seeing overwhelming power makes whatever they already felt about the player stronger.\n${witnessRoster}\nSo someone who is close to the player feels the awe as something like elation: pride, fierce joy, relief that this power is on their side, worship that is also love, a possessive delight, a protectiveness toward the player, or the very human wish that the player will still treat them as a person. They may be frightened for the player, or of what this will cost them, or of the distance it puts between them, and that fear comes from love. Someone wary or hostile feels it as fear: they run, they carefully submit, they go silent in shock, they frantically try to appease the player, or they coldly decide to get close to this power and use it. Someone with no history with the player reacts according to their own nature, whether that is fear, awe, opportunism, curiosity or the urge to kneel, and there is no set reaction for a stranger.\nTwo things are still not allowed. First, don't invent a confrontation or a moral challenge against someone the character has just watched use godlike power. Hurt pride and indignation only make sense for someone who hasn't understood what they saw, or someone whose nature is so recklessly defiant that it's self-destructive, and even then there should be terror or denial underneath it, never a casual assumption that they're equals. Second, don't make everyone react with the same terror. If the player's lover, their sworn friend and a man who hates them all react the same way, it's wrong. Each of them behaves differently because of that power, and in the direction they already felt about the player.`
     : "";
   // CONTRACT GOVERNOR: when the last chapter audit found the story drifting from its standing
   // direction, every turn carries a course-correction until the next audit passes. This is the
@@ -2888,7 +2888,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   })();
   const risenNote = risenFix(state.last_risen);
   const leakFix = state.last_leak
-    ? `\nLAST TURN YOU WROTE A SENTENCE OF A KIND YOU MUST NEVER WRITE: "${state.last_leak}" — that sentence states what somebody privately felt, knew, allowed themselves, or decided. Nobody in the scene can perceive any of it. Render the same beat from the outside this time: what the body did, what was said, what a person in the room would have seen. Do not repeat the move in any grammatical position.`
+    ? `\nLast turn you wrote a kind of sentence that should never be written: "${state.last_leak}". That sentence says what somebody privately felt, knew, allowed themselves or decided, and nobody in the scene could have seen any of it. This time, write the same moment from the outside: what their body did, what they said, and what someone in the room would have seen. Don't do the same thing again in a differently built sentence.`
     : "";
   // THE AUDITOR FOUND IT AND THE STORY KEPT GOING. This was one polite sentence — "steer back, not
   // with a lurch" — buried in the middle of a fifteen-thousand-character directive, against sixty
@@ -2931,11 +2931,11 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // — see the auditor's `drift_cause` — and it says out loud that the story it is asking for is the
   // one the player is already writing, not a return to a status quo they have left behind.
   const contractFix = state.contract_drift
-    ? `\n\n[THIS STORY HAS DRIFTED FROM WHAT IT WAS MADE TO BE.\nWhat it drifted into: ${state.contract_drift}\n`
-      + `What it is: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? `\nNEVER THE MAIN DRIVER OF A SCENE HERE (this part is required): ${state.world_bible.forbidden_as_primary.join("; ")}. Whichever of those the story has been running on, it stops being the reason a scene happens — starting this turn. It can still be TRUE, but it no longer drives scenes. Do not open on it, do not build the turn around it, and do not resolve the turn with it.` : ""}\n`
-      + `THE REST OF THIS CORRECTION IS OPTIONAL. Let this world be the kind of story it was meant to be again, through what the people here already want, as strongly as the scene realistically supports. A turn with none of it in it is allowed; several are, if that is where the player has taken this.\n`
-      + `WHAT YOU MAY NOT DO TO SATISFY THIS: manufacture desire that is not already in these people, aim a character at the player who has no reason to want them, escalate somebody's pursuit because the scene needs the genre in it, or keep a person in a room the player has asked them to leave. Characters who already want something from the player are fine; do not make a character want it just to satisfy this instruction. If nobody present plausibly carries this, the right amount this turn is none.\n`
-      + `WHAT THE PLAYER HAS CHOSEN STANDS. Where they have taken this — out of a room, out of a marriage, into their own company — is where the story is; bring the genre to that place, through the people who are actually in it, and leave behind whatever situation they spent their turns ending.]`
+    ? `\n\n[THIS STORY HAS DRIFTED AWAY FROM WHAT IT WAS MEANT TO BE.\nWhat it has turned into: ${state.contract_drift}\n`
+      + `What it is supposed to be: ${state.world_bible.tone?.trim() || "the genre this world was made for"}.${state.world_bible.forbidden_as_primary?.length ? `\nTHESE SHOULD NEVER BE THE MAIN THING DRIVING A SCENE HERE (this part is required): ${state.world_bible.forbidden_as_primary.join("; ")}. Whichever of these the story has been running on stops being the reason scenes happen, starting this turn. It can still be true in the story, but it no longer drives scenes. Don't open the turn on it, build the turn around it, or end the turn by resolving it.` : ""}\n`
+      + `THE REST OF THIS CORRECTION IS OPTIONAL. Let this world go back to being the kind of story it was meant to be, through what the people in it already want, as strongly as the scene can realistically support. It's fine to have a turn with none of that in it, or several in a row, if that's where the player has taken things.\n`
+      + `WHAT YOU SHOULDN'T DO TO FIX THIS: invent desire these people don't already have, point a character at the player who has no reason to want them, make someone chase harder because the scene needs the genre in it, or keep someone in a room the player has asked them to leave. Characters who already want something from the player are fine, but don't make a character want it just to satisfy this instruction. If nobody present could plausibly carry it, the right amount this turn is none.\n`
+      + `THE PLAYER'S CHOICES STAND. Wherever they have taken the story, out of a room, out of a marriage, or off on their own, that's where the story is now. Bring the genre to that place, through the people who are actually there, and leave behind whatever situation the player spent those turns bringing to an end.]`
     : "";
   // PUBLIC STANDING — the crowd's counterpart to the edge ledger. Without this the narrator had no
   // state at all for "the wider community" and improvised it from whatever the nearest directive
@@ -2953,14 +2953,14 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // Someone finished a journey to the player this turn. If the narrator is not told, they simply
   // materialise in the room — which is precisely what "Andrea just magically appeared" was.
   const arrivalNote = (state.world.arrivals_pending ?? []).length
-    ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")} — they have been travelling to reach the player and get here THIS turn. WRITE THEM ARRIVING, on the page, in the door, off the road: where they came from, what the journey was like, why they came. They do not just appear already present; nobody may already be mid-conversation with them. This is their entrance.`
+    ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")}. They have been travelling to reach the player and they get here this turn. Write them arriving on the page, coming through the door or in off the road, with where they came from, what the journey was like and why they came. They don't just turn out to be already there, and nobody can already be in the middle of a conversation with them. This is their entrance.`
     : "";
   // AND THE SAME COURTESY IN THE OTHER DIRECTION. Somebody's own week took them out of the scene
   // between turns — always because a shift had been standing for so long that the engine stopped
   // waiting. A cast list that is simply one name shorter is not a departure the reader can see, so
   // it is stated, once, and the next paragraph gets to be continuous with it.
   const departureNote = (state.world.departures_pending ?? []).length
-    ? `\nALREADY LEFT, BEFORE THIS TURN: ${state.world.departures_pending!.map((d) => `${d.name} left for ${d.to} — ${d.why}`).join("; ")}. They are NOT in this scene any more and cannot speak in it. Open by acknowledging the leaving as something that has just happened — the door, the emptied chair, what they said on the way out, what the people still here make of it. Do not rewind and play the departure as though it were still to come, and do not let them linger for one more line.`
+    ? `\nTHESE PEOPLE LEFT BEFORE THIS TURN: ${state.world.departures_pending!.map((d) => `${d.name} left for ${d.to} — ${d.why}`).join("; ")}. They aren't in this scene any more and can't speak in it. Open by showing that they have just left, through the door, the empty chair, what they said on the way out, or what the people still here make of it. Don't go back and play the departure as if it still has to happen, and don't let them hang around for one more line.`
     : "";
   // ── SOMEBODY REACHED THE PLAYER ──────────────────────────────────────────────────────────────
   // The offstage world has only ever reached the player through witnesses and rumor: someone saw
@@ -2969,7 +2969,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // calling him and fail at it — could not send a single text, because there was no channel for an
   // absent person to reach him at all. This is that channel, and it is delivered, not offered.
   const inboundNote = (state.world.inbound ?? []).length
-    ? `\nREACHING YOU NOW — render this arriving, this turn, on the page:\n${(state.world.inbound ?? []).map((m) => `- ${m.from}, ${m.how}: "${m.content}"`).join("\n")}\nIt does not hover unread unless the player chooses not to look, and it is not summarised — the words arrive as they were sent. Whatever the player is doing, this interrupts it.`
+    ? `\nTHIS REACHES THE PLAYER NOW, so write it arriving on the page this turn:\n${(state.world.inbound ?? []).map((m) => `- ${m.from}, ${m.how}: "${m.content}"`).join("\n")}\nIt doesn't sit there unread unless the player chooses not to look at it, and you don't summarise it: the words arrive exactly as they were sent. Whatever the player is in the middle of, this interrupts it.`
     : "";
   // ── THE WORLD MOVED WHERE YOU ARE STANDING ──────────────────────────────────────────────────
   // The offstage log was measured at 0% coverage: 225 fields of invented world, read by exactly one
@@ -2993,7 +2993,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       .filter((e) => e.turn > since && e.place && e.place.toLowerCase() === here.toLowerCase())
       .slice(-3);
     if (!marks.length) return "";
-    return `\nWHAT HAPPENED HERE WHILE YOU WERE GONE — these are already true of this place; the player has not been told any of it:\n${marks.map((e) => `- ${e.what}`).join("\n")}\nRender only the TRACES: what is moved, missing, left out, said in passing by someone who was here. Do not recap it, do not have anyone narrate it as news, and do not force the player to notice; they may walk through without seeing the changes.`;
+    return `\nWHAT HAPPENED HERE WHILE THE PLAYER WAS AWAY. All of this is already true of this place, and nobody has told the player about any of it:\n${marks.map((e) => `- ${e.what}`).join("\n")}\nShow only the signs of it: things that were moved, things that are missing or left out, something someone who was here mentions in passing. Don't recap it, don't have anyone deliver it as news, and don't make the player notice. They might walk through without seeing any of the changes.`;
   })();
   // ── AND WHEN A SCENE IS DONE, IT ENDS ───────────────────────────────────────────────────────
   // The scene clock has always been kept and printed; nothing ever read it. So a scene ran until the
@@ -3011,7 +3011,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         .filter((id) => id !== "char_player")
         .map((id) => state.characters[id]?.name ?? "")
         .filter(Boolean));
-  if (sceneNote) ev.onMeta({ shifts: [`the scene has run its course — ${Math.round(sceneRead.minutes)} min in, quiet for ${sceneRead.flatFor} turns`] });
+  if (sceneNote) ev.onMeta({ shifts: [`the scene has run its course: ${Math.round(sceneRead.minutes)} minutes in, and nothing has happened for ${sceneRead.flatFor} turns`] });
   // A CALL PUT TO EVERYONE. Recorded before the directive is composed, so a call made THIS turn is
   // already standing when the narrator writes the answer to it — the player should not have to ask
   // twice to be heard once, and in the save that surfaced this he asked three times and then put it
@@ -3031,9 +3031,9 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   const tensionNow = state.model_settings.tension ?? 5;
   const restProtection = restoration
     ? tensionNow <= 3
-      ? `\nDO NOT INTERRUPT REST at this tension: the player is restoring (sleep, food, bath, quiet). Do NOT interrupt, complicate, or truncate it — no knocks, no summons, no discoveries. Let it complete in full, let time pass gently, and save any conflict for after they get up.`
+      ? `\nDON'T INTERRUPT THE PLAYER'S REST. The tension is low, and the player is resting and recovering with sleep, food, a bath or some quiet. Don't interrupt it, complicate it or cut it short, so no knocks, no summons and no discoveries. Let it happen in full, let the time pass gently, and save any conflict for after they get up.`
       : tensionNow <= 6
-        ? `\nREST PROTECTION: the player is restoring (sleep, food, bath, quiet). An interruption is permitted ONLY if it is brief, resolvable, and the restoration RESUMES AND COMPLETES within this same turn (a knock at most, and only once). The meal gets finished and the night gets slept. Do not turn rest into an incident.`
+        ? `\nTHE PLAYER IS RESTING: they are recovering with sleep, food, a bath or some quiet. Something can interrupt only if it is brief, it can be dealt with, and the rest picks up again and finishes within this same turn. That means a knock at the door at most, and only once. The meal gets finished and the night gets slept through, so don't turn rest into an incident.`
         : ""
     : "";
   // FATE LAST. It outranks rest-protection and the quiet-scene rules: a story whose budget is spent
@@ -3049,7 +3049,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   const worldPro = detectWorldPronoun(state.world.canon);
   const playerPro = (state.characters["char_player"]?.pronouns ?? "").trim();
   const pronounLock = worldPro
-    ? `\n\nPRONOUN LAW — this world's people use ${worldPro} and NOTHING ELSE. Their language has no other pronoun. Two separate rules:\n1) NARRATION: refer to every ${worldPro.split("/")[0]}-using character with ${worldPro}. Never "he/him/his" or "she/her/hers" for them, at any point.\n2) DIALOGUE: a ${worldPro.split("/")[0]}-speaker CANNOT say "he", "him", "his", "she", "her", or "hers" — those words do not exist for them. When one of them refers to anyone, they say ${worldPro}. This includes referring to the player, with no exception: a native addressing or describing the player uses ${worldPro} like for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and may use those words — but a native hearing them finds them alien and never adopts them — in speech, in their own head, or as a joke.` : ""}\nIf you catch yourself about to write a native saying "him" or "her", stop: they would say ${worldPro.split("/")[1] ?? worldPro}.`
+    ? `\n\nPRONOUNS IN THIS WORLD: the people of this world use ${worldPro} and nothing else, because their language has no other pronouns. There are two separate rules.\n1) In the narration, refer to every character who uses ${worldPro.split("/")[0]} with ${worldPro}, and never with "he/him/his" or "she/her/hers", at any point.\n2) In dialogue, a person who speaks with ${worldPro.split("/")[0]} can't say "he", "him", "his", "she", "her" or "hers", because those words don't exist for them. When one of them refers to anyone, they use ${worldPro}. That includes the player, with no exceptions: a native speaking to the player or about the player uses ${worldPro} as they would for anyone else.${playerPro && playerPro !== worldPro ? ` The player uses ${playerPro} and can use those words, but a native who hears them finds them strange and never picks them up, whether in speech, in their own thoughts, or as a joke.` : ""}\nIf you notice you're about to write a native saying "him" or "her", stop, because they would say ${worldPro.split("/")[1] ?? worldPro}.`
     : "";
   // THE DOOR INTO THE CONVERSATION. What the person in the room with the player actually shares with
   // them, off their own cards — the subject a want gets approached THROUGH instead of announced. See
@@ -3114,7 +3114,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     || (opts?.ground === true
         ? [state.world.player_location, ...(state.world.canon ?? []).slice(-2)].filter(Boolean).join(" — ").slice(0, 200)
         : "");
-  const groundNote = groundOn ? `\n\n=== GROUNDING (this turn) ===\nThis story is set in a real place / based on real subject matter. Use web search to get the real-world facts right${resolvedQuery ? ` about: ${resolvedQuery}` : ""} — actual locations, layouts, names, how things really work, accurate period or setting detail — and weave that accuracy naturally into the prose. Do not cite sources or break the fiction; just be correct.` : "";
+  const groundNote = groundOn ? `\n\n=== GETTING THE FACTS RIGHT (this turn) ===\nThis story is set in a real place or deals with real subject matter. Use web search to get the real-world facts right${resolvedQuery ? ` about: ${resolvedQuery}` : ""}, such as actual locations, layouts, names, how things really work, and accurate details of the period or setting, and work that accuracy naturally into the prose. Don't cite sources or step outside the story. Just get it right.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
   //   the prefix rides the provider cache.
@@ -3154,13 +3154,13 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and no more; add no actions and no interiority) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -3367,7 +3367,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
           ? `${cut} sentence${cut > 1 ? "s" : ""} could not happen and ${cut > 1 ? "were" : "was"} cut — ${violations[0].why}`
           : `the turn contradicts the record and could not be repaired — ${violations[0].why}`] });
       } else {
-        ev.onMeta({ shifts: ["the turn was rewritten: what it first wrote could not have happened"] });
+        ev.onMeta({ shifts: ["the turn was rewritten, because the first version described things that couldn't have happened"] });
       }
     }
   }
@@ -3426,20 +3426,20 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       );
       if (state.last_meta_talk) {
         noteFire(state, "meta_talk", `${state.last_meta_talk.name} narrated the conversation for ${state.last_meta_talk.runs} turns`);
-        ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation rather than having it — it will be corrected next turn`] });
+        ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation instead of having it, and this will be corrected next turn`] });
       }
       // ...and a line off somebody's own never-says list. The card is printed to the narrator every
       // turn as reference and nothing has ever checked the output against it.
       state.last_never_said = findNeverSaid(state, state.world.present, prose);
       if (state.last_never_said) {
         noteFire(state, "never_says", `${state.last_never_said.name} said "${state.last_never_said.forbidden}"`);
-        ev.onMeta({ shifts: [`${state.last_never_said.name} said a line their card lists under never-says — it will be corrected next turn`] });
+        ev.onMeta({ shifts: [`${state.last_never_said.name} said a line their character card lists as something they'd never say, and this will be corrected next turn`] });
       }
       // ...and a character claiming they kept an appointment the record has them standing here for.
       state.last_missed_claim = findMissedClaim(prose, state, state.world.present);
       if (state.last_missed_claim) {
         noteFire(state, "confabulation", `${state.last_missed_claim.name} claimed an appointment the record says was missed`);
-        ev.onMeta({ shifts: [`${state.last_missed_claim.name} described keeping an appointment the record has them in this room for — it will be corrected next turn`] });
+        ev.onMeta({ shifts: [`${state.last_missed_claim.name} talked about keeping an appointment, but the record has them in this room at the time, and this will be corrected next turn`] });
       }
       // The player's own words coming back at them, in either of its two forms.
       state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
@@ -3459,11 +3459,11 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       state.last_kin = findKinBreach(state, prose);
       if (state.last_kin) {
         noteFire(state, "kin", `${state.last_kin.owner} given a ${state.last_kin.relation} — ${state.last_kin.because}`);
-        ev.onMeta({ shifts: [`the prose gave ${state.last_kin.owner} a ${state.last_kin.relation} the record contradicts — it will be corrected and voided next turn`] });
+        ev.onMeta({ shifts: [`the prose gave ${state.last_kin.owner} a ${state.last_kin.relation} that the record contradicts, and this will be corrected and removed next turn`] });
       }
       if (state.last_anatomy) {
         noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
-        ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} anatomy the record contradicts — it will be corrected and voided next turn`] });
+        ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} a body part the record contradicts, and this will be corrected and removed next turn`] });
       }
       // THE PLAYER STOPPED BEING "YOU". Cheap, silent, and ruinous — a save can be twenty turns deep
       // in third person before anybody works out that the only thing that changed was the model.
@@ -3475,19 +3475,19 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         state.last_pov = drift;
         if (drift) {
           noteFire(state, "pov", `the player was written in the third person ${drift.third}× and addressed as "you" ${drift.second}×`);
-          ev.onMeta({ shifts: [`this turn wrote you from outside instead of addressing you — the narrator will be told next turn`] });
+          ev.onMeta({ shifts: [`this turn described you from the outside instead of speaking to you as "you", and the narrator will be told next turn`] });
         }
       }
       if (state.last_reprint) {
         noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
-        ev.onMeta({ shifts: [`this turn reprinted ${Math.round(state.last_reprint.overlap * 100)}% of the last one — the narrator will be shown it next turn`] });
+        ev.onMeta({ shifts: [`this turn repeated ${Math.round(state.last_reprint.overlap * 100)}% of the one before, and the narrator will be shown it next turn`] });
       }
       if (maxims.length >= 2) {
-        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn named nothing in the room — the narrator will be shown one next turn`] });
+        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn didn't mention anything in the room, and the narrator will be shown one of them next turn`] });
       }
     }
     if (leaked.length) {
-      ev.onMeta({ shifts: [`the narrator stated someone's interior ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn — it will be corrected next turn`] });
+      ev.onMeta({ shifts: [`the narrator stated what someone was feeling or thinking ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn, and this will be corrected next turn`] });
       console.warn(`[interiority] ${leaked.length} leak(s): ${leaked[0].slice(0, 100)}`);
     }
   }
@@ -3637,7 +3637,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   if (narratorTruncated && !footer) {
     const hereName = state.world.places[state.world.player_location]?.name;
     footer = { place: hereName, entered: [], left: [], here: [], created: [], aliases: [] };
-    truncationNote = "(the narrator's reply ran long and was cut off — the scene was held in place; if someone should have entered or left, say so next turn)";
+    truncationNote = "(the narrator's reply ran long and got cut off, so the scene was left where it was; if someone should have come in or left, say so next turn)";
   } else if (narratorTruncated) {
     truncationNote = "(the narrator's reply ran long and may have been cut short)";
   }
@@ -3666,7 +3666,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
   // thoughts, feelings, and (parenthetical) inner state — is the AUTHORITATIVE signal for the
   // player's own valence, truer than anything inferable from the deliberately-opaque prose. The
   // narrator hides it; the bookkeeper must consume it directly.
-  const bookkeeperAction = `${action}\n[The above is the player's own input across channels: "quotes" = said aloud, *asterisks* = private thought, (parentheses) = private inner state, the rest = physical action. ${deixisNote()} For char_player's relaxation_delta and mood, READ THE PLAYER'S INTERIOR DIRECTLY — their thoughts, stated feelings, and (parenthetical) state are the most reliable evidence of how the player feels this turn, even though the narrator deliberately kept it off the page. Do not infer the player's mood only from the neutral prose; the interior here is the primary signal. (Other characters still cannot know this interior — it drives only the player's own valence, never what others learned or how they react.)]`;
+  const bookkeeperAction = `${action}\n[That is the player's own input, and different kinds of text mean different things: "quotes" are said out loud, *asterisks* are a private thought, (parentheses) are a private feeling, and everything else is physical action. ${deixisNote()} For char_player's relaxation_delta and mood, go straight to the player's inner life here: their thoughts, the feelings they state and what they wrote in parentheses are the best evidence of how the player feels this turn, even though the narrator deliberately kept all of it out of the prose. Don't work out the player's mood only from the neutral prose, because what they wrote about their inner life is the main thing to go on. (Other characters still can't know any of this. It only affects the player's own mood, never what anyone else learned or how they react.)]`;
   const simMsgs = buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
@@ -3739,7 +3739,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       // every character quietly failed to remember it (a major source of "amnesia"). One cheap
       // repair round-trip fixes most cases.
       const fix = await complete(
-        [{ role: "system", content: "The following was supposed to be one strict JSON object but failed to parse. Re-emit it as VALID JSON only — same content, no commentary, no markdown fences." },
+        [{ role: "system", content: "The text below was supposed to be one strict JSON object, but it couldn't be parsed. Write it out again as valid JSON only, with the same content, no commentary and no markdown fences." },
          { role: "user", content: res.text.slice(0, 6000) }],
         state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000, { signal });
       simUsage.prompt_tokens += fix.usage.prompt_tokens; simUsage.completion_tokens += fix.usage.completion_tokens;
@@ -3756,7 +3756,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         const retry = await complete(
           [ simMsgs[0],
             simMsgs[1],
-            { role: "user", content: "Your previous diff recorded no changes, but the scene above clearly contains them. Re-read the NARRATOR PROSE and emit a COMPLETE diff as one valid JSON object: every memory a present character would form, every warmth/trust/attraction shift the prose implies, mood/relaxation deltas, facts learned, locations. Do not return only scene_summary and elapsed_minutes. JSON only, no fences." } ],
+            { role: "user", content: "Your last diff recorded no changes, but the scene above clearly has some. Read the NARRATOR PROSE again and write a complete diff as one valid JSON object. Include every memory a character who was present would form, every change in warmth, trust or attraction the prose implies, changes in mood and relaxation, facts people learned, and where everyone is. Don't send back only scene_summary and elapsed_minutes. Write JSON only, with no fences." } ],
           state.model_settings.simulator_model, state.model_settings.fallback_model, true, 3000,
           { ...simOpts, omitReasoning: false });
         simUsage.prompt_tokens += retry.usage.prompt_tokens; simUsage.completion_tokens += retry.usage.completion_tokens;
@@ -3819,7 +3819,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       } else if (playerLeft && footerName === state.world.places[state.world.player_location]?.name) {
         // he left, and nothing knows where to. Better to say so than to pin him where he is not.
         console.warn(`[places] footer says the player left "${footerName}" but named no destination — presence left unchanged`);
-        ev.onMeta({ shifts: [`the scene says you left ${footerName}, but no destination was recorded — say where you went and it will follow`] });
+        ev.onMeta({ shifts: [`the scene says you left ${footerName}, but nowhere was recorded as where you went; say where you went and the record will follow`] });
       } else {
         diff.player_location = footerName ?? undefined;
         if (state.world.places[pid] && pid !== state.world.player_location) {
@@ -4099,7 +4099,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       if (anchored !== null && anchored <= -4) shifts.push("You came in tight.");
     }
   }
-  if (!simOk) shifts.push("(bookkeeping failed this turn — records are incomplete; re-run the turn or edit memory by hand)");
+  if (!simOk) shifts.push("(the bookkeeping failed this turn, so the records are incomplete; take the turn again or edit the memory by hand)");
   // fate's grip on the world, made visible — threads falling away, clocks closing in
   for (const line of fateLog) shifts.push(line);
   if (fate.active && fate.forceArrival) shifts.push("the ending is due this turn");
@@ -4218,10 +4218,10 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       // after 2 consecutive dead turns, escalate: route bookkeeping to the fallback model for the next
       // 5 turns. Self-healing on the cheap model — a different model usually breaks the failure loop.
       if ((state.sim_dry_runs ?? 0) >= 2 && state.model_settings.fallback_model && state.model_settings.fallback_model !== state.model_settings.simulator_model) {
-        if ((state.sim_escalated_until ?? 0) < turn) shifts.push("bookkeeping kept coming back empty — switching to the backup model for a few turns to recover.");
+        if ((state.sim_escalated_until ?? 0) < turn) shifts.push("the bookkeeping kept coming back empty, so the backup model is taking over for a few turns to catch up.");
         state.sim_escalated_until = turn + 5;
       }
-      if (state.sim_dry_runs % 3 === 0) shifts.push(`bookkeeping has come back empty ${state.sim_dry_runs} turns running — the simulator model may be struggling with this save's context; consider a stronger simulator model in Settings`);
+      if (state.sim_dry_runs % 3 === 0) shifts.push(`the bookkeeping has come back empty ${state.sim_dry_runs} turns in a row. The bookkeeping model may be struggling with how much this save gives it to read, so consider choosing a stronger bookkeeping model in Settings`);
     } else if (vitality > 0) {
       if ((state.sim_dry_runs ?? 0) >= 3) shifts.push("bookkeeping is recording again.");
       state.sim_dry_runs = 0;
@@ -4497,7 +4497,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
     accruePhysiology(cond, state.characters[pid], minutes, state.world.weather, sleptIds.has(pid));
     if (applyRelaxationCeiling(cond) && pid === "char_player") {
       const why = physioLabel(cond);
-      if (why) shifts.push(`Your body is limiting you now — ${why}.`);
+      if (why) shifts.push(`Your body is holding you back now: ${why}.`);
     }
   }
   // NOVELTY BOOKKEEPING — count which traits this turn actually put on screen, measured
@@ -4591,7 +4591,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       if (rev.dropped) bits.push(`${rev.dropped} cut for having nothing observable left`);
       ev.onMeta?.({ shifts: [`reviser: ${bits.join(", ")} of ${rev.flagged} flagged sentence${rev.flagged > 1 ? "s" : ""}`] });
     } else if (rev?.skipped) {
-      ev.onMeta?.({ shifts: [`reviser: ${rev.skipped} — you are reading the narrator's own words`] });
+      ev.onMeta?.({ shifts: [`reviser: ${rev.skipped}. You are reading exactly what the narrator wrote`] });
     }
   }
 
@@ -4620,7 +4620,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
      * account of turn 131 — and every later turn was written against a record in which he came
      * back. The correction has to travel with the claim, because the claim is what is re-read. */
     summary: (diff.scene_summary || prose.slice(0, 120))
-      + (state.last_risen ? ` [DID NOT HAPPEN: ${state.last_risen.name} is ${state.last_risen.status} and was not there]` : ""),
+      + (state.last_risen ? ` [THIS DID NOT HAPPEN: ${state.last_risen.name} is ${state.last_risen.status} and wasn't there]` : ""),
     present: presentDuringTurn,
     shifts: shifts.slice(0, 8 + beatTable.length), weather: state.world.weather,
     /* WHAT THIS TURN WAS ACTUALLY TOLD TO DO.
@@ -4689,7 +4689,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         .join(" | ");
       const msgs = [
         { role: "system", content: REFLECTION_SYSTEM },
-        { role: "user", content: `Character: ${state.characters[id]?.name}${state.characters[id]?.pronouns ? ` (${state.characters[id]!.pronouns})` : ""}\nPRONOUNS ARE BINDING — a belief is permanent and is read back to the narrator every turn, so a wrong pronoun here stays wrong for the rest of the save. Use the sets given above and never infer gender from a name, a role, or the other people in the memories.\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nACTIVE GOAL: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nQueued goals: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nExisting beliefs: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nHOW THEY STAND WITH THESE PEOPLE RIGHT NOW (binding — a belief may not contradict it): ${standing || "nobody on record"}\nNervous system this period: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `clenched for ${ps.consecutive_clenched} straight turns — after this long braced, their conclusions lean protective and suspicious`; if ((ps.open_run ?? 0) >= 3) return `settled for ${ps.open_run} straight turns — after this long at ease, their conclusions lean generous and open to revision`; return "mixed — neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
+        { role: "user", content: `Character: ${state.characters[id]?.name}${state.characters[id]?.pronouns ? ` (${state.characters[id]!.pronouns})` : ""}\nGet the pronouns right. A belief is permanent and is read back to the narrator every turn, so a wrong pronoun here stays wrong for the rest of the save. Use the pronouns given above, and never guess someone's gender from their name, their role, or the other people in the memories.\nHOW LONG THEY HAVE KNOWN THE PLAYER: ${acquaintanceLabel(state, id)}\nWHAT THEY ARE TRYING TO DO RIGHT NOW: ${state.characters[id]?.drive?.goal ?? "none"}${state.characters[id]?.drive?.blocker ? ` (blocked: ${state.characters[id]!.drive!.blocker})` : ""}\nGoals waiting after that: ${(state.characters[id]?.drive_queue ?? []).map((q) => q.goal).join(" | ") || "none"}\nBeliefs they already hold: ${mem.beliefs.map((b) => b.content).join(" | ") || "none"}\nWHERE THEY STAND WITH THESE PEOPLE RIGHT NOW (a belief can't contradict this): ${standing || "nobody on record"}\nHow on edge they have been lately: ${(() => { const ps = state.condition[id]?.psyche; if (!ps) return "unknown"; if ((ps.consecutive_clenched ?? 0) >= 3) return `tense and on guard for ${ps.consecutive_clenched} turns in a row, and after being braced this long, the conclusions they draw lean protective and suspicious`; if ((ps.open_run ?? 0) >= 3) return `relaxed for ${ps.open_run} turns in a row, and after being at ease this long, the conclusions they draw lean generous and open to change`; return "mixed, neither braced nor at ease for long"; })()}${ownLifeBlock(state, id)}\nRecent memories:\n${recent}` },
       ];
       const res = await complete(msgs, state.model_settings.simulator_model, state.model_settings.fallback_model, true, 600);
       reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
@@ -4728,8 +4728,8 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
       if (ident && needsHistoryCompaction(ident)) {
         try {
           const cmsg = [
-            { role: "system", content: `You compress a character's accumulated life-history into tighter prose. Preserve every identity-defining throughline (relationships formed, who they became, irreversible changes, key losses and bonds) but collapse repetitive or minor beats and lose verbatim detail. Write it as ONE paragraph, past tense, plain prose, no list. Do not aim for a particular length; check that nothing identity-defining was dropped and nothing repetitive was kept. Output ONLY the rewritten history paragraph.` },
-            { role: "user", content: `Character: ${ident.name}\nTheir core identity (do NOT repeat this, it's already known): ${ident.background}\nAccumulated history to compress:\n${ident.life_history}` },
+            { role: "system", content: `You shorten a character's life history so it takes less space. Keep everything that defines who they are, meaning the relationships they formed, who they became, the changes that can't be undone, and their most important losses and bonds, but merge repetitive or minor moments and drop the exact wording. Write it as one paragraph in the past tense, in plain prose and not as a list. There's no target length; just check that nothing that defines them was lost and nothing repetitive was kept. Reply with only the rewritten history paragraph.` },
+            { role: "user", content: `Character: ${ident.name}\nWho they are at heart (don't repeat this, because it's already known): ${ident.background}\nThe life history to shorten:\n${ident.life_history}` },
           ];
           const cres = await complete(cmsg, state.model_settings.simulator_model, state.model_settings.fallback_model, false, 300);
           reflectionTokens += cres.usage.prompt_tokens + cres.usage.completion_tokens;
@@ -4822,7 +4822,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
           bibleC.tone?.trim() ? `GENRE: ${bibleC.tone.trim()}` : "",
           bibleC.narrator_direction?.trim() ? `THE PLAYER'S STANDING DIRECTION: ${bibleC.narrator_direction.trim()}` : "",
           bibleC.pressure_palette?.length ? `PRESSURES THIS STORY RUNS ON: ${bibleC.pressure_palette.join("; ")}` : "",
-          bibleC.forbidden_as_primary?.length ? `NEVER THE ENGINE OF THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
+          bibleC.forbidden_as_primary?.length ? `THIS SHOULD NEVER BE WHAT DRIVES THIS STORY: ${bibleC.forbidden_as_primary.join("; ")}` : "",
         ].filter(Boolean).join("\n");
         // STANDING SOURCES, not just threads. The auditor was shown the open threads and asked
         // which of them the world was pressing through — while the thing actually supplying the
@@ -4859,15 +4859,15 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
         const destination = state.world_bible.destination?.trim() || "";
         const priorPct = state.destination_progress?.pct;
         const destLine = destination
-          ? `DESTINATION (the stated ending this story is written toward): "${destination}"\nPROGRESS AT LAST CHAPTER: ${priorPct == null ? "none recorded (this is the first reading)" : `${priorPct}%`}\n`
-          : "DESTINATION: none — this is an open story with no stated ending. Omit the destination object.\n";
+          ? `DESTINATION (the ending this story has said it is heading toward): "${destination}"\nPROGRESS AT THE LAST CHAPTER: ${priorPct == null ? "none recorded (this is the first reading)" : `${priorPct}%`}\n`
+          : "DESTINATION: none. This is an open story with no stated ending, so leave out the destination object.\n";
         const res = await complete([
           { role: "system", content: CHAPTER_SYSTEM },
           // THE THREADS ARE PART OF THE QUESTION NOW. The auditor was asked which forbidden thing had
           // become the engine and could only answer in prose, which nothing downstream could act on.
           // Given the open threads by name, it can point at the ones the world keeps pressing
           // through — and a title is a handle the pressure controller can hold. See engine_threads.
-          { role: "user", content: `THE CONTRACT — what the player asked this story to be:\n${contract || "none given"}\n\nTHE CAST RECORD — who these people actually are. The beats below are the bookkeeper's account and may state things this record denies; that is what "contradictions" is for:\n${castRecord || "(none)"}\n\n${destLine}STANDING SOURCES — the things the world can press through (copy a line verbatim into engine_threads if one of them IS a forbidden engine):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (each clock is a faction working toward an objective on a timer; its influence grows over time):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nPRIOR PLAYER READING: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. Beats (each line carries what the PLAYER TYPED — that is how you tell whose drift it is):\n${beats.slice(0, 7000)}` },
+          { role: "user", content: `WHAT THE PLAYER ASKED THIS STORY TO BE:\n${contract || "none given"}\n\nTHE CAST AS RECORDED, meaning who these people actually are. The events listed below are the bookkeeper's account and may say things this record denies, and that is what "contradictions" is for:\n${castRecord || "(none)"}\n\n${destLine}WHAT THE WORLD CAN PUSH ON (if one of these is one of the forbidden drivers, copy its line exactly into engine_threads):\nopen threads:\n${openTitles.length ? openTitles.map((t) => `- ${t}`).join("\n") : "- (none)"}\nrunning faction clocks (each clock is a faction working toward a goal on a timer, and its influence grows over time):\n${clockLines.length ? clockLines.map((c) => `- ${c}`).join("\n") : "- (none)"}\n\nLAST READING OF THE PLAYER: ${state.chapters.at(-1)?.persona ? `${state.chapters.at(-1)!.persona!.mbti} — ${state.chapters.at(-1)!.persona!.read}` : "none"}\n\nChapter ${state.chapters.length + 1}. What happened (each line includes what the PLAYER TYPED, which is how you tell whose doing a drift was):\n${beats.slice(0, 7000)}` },
         ], state.model_settings.simulator_model, state.model_settings.fallback_model, true, 500);
         reflectionTokens += res.usage.prompt_tokens + res.usage.completion_tokens;
         const ch = safeJson<{ title?: string; summary?: string; on_contract?: boolean; drift?: string; drift_cause?: string; engine_threads?: string[]; contradictions?: string[]; canon_add?: string[]; destination?: { pct?: number; gained?: string; missing?: string; reached?: boolean }; persona?: { mbti?: string; read?: string; traits?: string[]; shift?: string } }>(res.text, {});
@@ -4879,7 +4879,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
           const t = String(line ?? "").trim();
           if (!t) continue;
           noteFire(state, "kin", t.slice(0, 120));
-          shifts.push(`the record disagrees with what the story has been saying — ${t.slice(0, 140)}`);
+          shifts.push(`the record disagrees with what the story has been saying: ${t.slice(0, 140)}`);
         }
         // CANON BACKSTOP: the chapter audit ratifies public world-scale events the per-turn
         // bookkeeper missed — news that spread across a whole chapter is public by now.
@@ -4906,7 +4906,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
             state.destination_progress.pct = 100;
             state.world_bible.destination_reached = true;
             state.world_bible.destination_outcome = "earned";
-            shifts.push(`the story has reached its ending — ${destination}`);
+            shifts.push(`the story has reached its ending: ${destination}`);
           }
         }
         const onCadence = chapCad > 0 && turn > 0 && turn % chapCad === 0;
@@ -4937,7 +4937,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
               const now = named.has(String(t.title ?? "").trim().toLowerCase());
               if (now !== was) {
                 t.forbidden_engine = now || undefined;
-                if (now) shifts.push(`the world stops pressing through "${t.title}" — it had become this story's forbidden engine`);
+                if (now) shifts.push(`the world stops pushing through "${t.title}", because it had become the thing this story was told not to run on`);
               }
             }
             // Same marking on clocks, off the same list. A marked clock keeps ticking and still
@@ -4950,7 +4950,7 @@ JUXTAPOSITION: observable detail and any conclusion sit side by side without a c
               const now = named.has(label) || named.has(String(c.objective ?? "").trim().toLowerCase());
               if (now !== was) {
                 c.forbidden_engine = now || undefined;
-                if (now) shifts.push(`the world stops pressing through ${c.faction}'s "${c.objective}" — it had become this story's forbidden engine`);
+                if (now) shifts.push(`the world stops pushing through ${c.faction}'s "${c.objective}", because it had become the thing this story was told not to run on`);
               }
             }
           }
@@ -5390,14 +5390,14 @@ function spawnNamed(state: SaveState, action: string, shifts: string[]): string 
     const id = registerCharacter(state, {
       name: nm, central: false, provisional: true,
       location: state.world.player_location,
-      background: `INCOMPLETE RECORD — named by the player at ${state.world.current_time} and entering the story now. Nothing else is established; author them fully.`,
+      background: `INCOMPLETE RECORD: the player named them at ${state.world.current_time} and they are entering the story now. Nothing else about them is established yet, so write them in full.`,
     } as any);
     if (id) {
       state.world.present.push(id);
       shifts.push(`${nm} entered the story because the player named them.`);
     }
   }
-  return `\nNEWLY NAMED — the player just referred to ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a WHOLE PERSON on the page: a specific body, a way of speaking that is theirs, wants that predate this moment and have nothing to do with the player. They had their own life before this turn and will keep it after. Do not explain who they are to the player, and do not have them announce themselves — write them as though they have always been in this story.`;
+  return `\nNEWLY NAMED: the player just mentioned ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a whole person on the page, with a particular body, a way of talking that is their own, and wants that existed before this moment and have nothing to do with the player. They had a life of their own before this turn and they'll keep it afterwards. Don't explain to the player who they are, and don't have them introduce themselves. Write them as if they had always been part of this story.`;
 }
 
 /**
@@ -5607,7 +5607,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!nc?.name || findCharByName(state, nc.name)) continue;
     // ...and a name whose story this world has already ended, whether or not the record survives.
     if (nameIsRetired(state, nc.name)) {
-      shifts.push(`bookkeeping correction: refused to create a new ${nc.name} — that name's story is over`);
+      shifts.push(`bookkeeping correction: a new ${nc.name} was not created, because that name's story is over`);
       console.warn(`[cast] blocked re-creation of retired name "${nc.name}"`);
       continue;
     }
@@ -5658,14 +5658,14 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       ? (nc as any).values.map((v: any) => String(v)).slice(0, 4)
       : deriveDefaultValues(nc.core_traits ?? [], nc.background ?? "");
     const floorVoice = voice ?? (nc.speech_pattern ? undefined : deriveDefaultVoice(nc.core_traits ?? [], String((nc as any).age ?? 30)));
-    const floorAttachment = attachment ?? { style: "secure" as any, under_threat: "goes quiet and watchful, keeps their distance until they read the room" };
+    const floorAttachment = attachment ?? { style: "secure" as any, under_threat: "goes quiet and watchful, and keeps their distance until they can tell what's going on" };
     registerCharacter(state, { ...nc, values, character_id: undefined as any, voice: floorVoice, attachment: floorAttachment, gregariousness: clamp(nc.gregariousness ?? 0.5, 0, 1), central: canBeCentral, tracked: canBeCentral && ((nc as any).tracked ?? isReferenced) });
     // apply the multi-goal drive after registration (registerCharacter doesn't take drive_queue)
     if (drive) {
       const newId = findCharByName(state, nc.name);
       if (newId) { state.characters[newId].drive = drive; state.characters[newId].drive_queue = driveQueue; }
     }
-    if (!canBeCentral) shifts.push(`${nc.name} enters as a background figure (cast is at ${maxCentral} central characters).`);
+    if (!canBeCentral) shifts.push(`${nc.name} comes in as a background character (there are already ${maxCentral} main characters).`);
     // Somebody new turned up while the player had a call standing. Whether they came BECAUSE of it
     // is not knowable here and does not need to be: what the credit stops is the engine going on
     // insisting the call is unanswered while a new person is standing in the scene.
@@ -5699,12 +5699,12 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       location: state.world.player_location,
       provisional: true,
       background: around
-        ? `INCOMPLETE RECORD — entered the story at ${state.world.current_time} without being declared. What the text established: ${around}`
-        : `INCOMPLETE RECORD — entered the story at ${state.world.current_time}.`,
+        ? `INCOMPLETE RECORD: they entered the story at ${state.world.current_time} without being introduced. What the text established: ${around}`
+        : `INCOMPLETE RECORD: they entered the story at ${state.world.current_time}.`,
     } as any);
     if (id) {
       state.world.present.push(id);
-      shifts.push(`${nm} entered the story unannounced and has been registered as a background figure.`);
+      shifts.push(`${nm} came into the story without an introduction and has been added as a background character.`);
       console.warn(`[cast] auto-registered unannounced speaker "${nm}" — the simulator did not declare them`);
     }
   }
@@ -5824,11 +5824,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // The note lives BESIDE the description, never inside it. Appending into description_facts
         // meant a place with no description yet ended up described entirely by the note — one
         // location's whole description was a quote of the player's own dialogue.
-        const note = `Changed on turn ${turn} by: ${deeds.trim().slice(0, 120)} — the description predates that; render what the recent prose established.`;
+        const note = `Changed on turn ${turn} by: ${deeds.trim().slice(0, 120)}. The description is older than that, so describe the place the way the recent prose has it.`;
         if (place.stale_note === note) continue;
         place.stale_note = note;
         place.changed_turn = turn;
-        shifts.push(`${place.name} has been changed by what you did; its record is flagged as out of date.`);
+        shifts.push(`What you did has changed ${place.name}, and its description is marked as out of date.`);
       }
     }
   }
@@ -5917,8 +5917,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           destination: state.world.places[pid]?.name ?? mv.place,
         });
         if (!evidence.ok) {
-          noteFire(state, "swap", `${c.name} moved out of a scene the prose keeps them in`);
-          shifts.push(`bookkeeping correction: ${c.name} stays — the prose never showed them leave`);
+          noteFire(state, "swap", `${c.name} was moved out of a scene the prose still has them in`);
+          shifts.push(`bookkeeping correction: ${c.name} stays, because the prose never showed them leave`);
           continue;
         }
         // SOMEBODY ELSE HAS THEM NOW. An arrest is not a walk to another room: it holds, and until
@@ -5931,7 +5931,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
             where: state.world.places[pid]?.name ?? String(mv.place),
             note: `taken on turn ${turn}`,
           };
-          shifts.push(`${c.name} has been taken — they are not free to walk back in.`);
+          shifts.push(`${c.name} has been taken and isn't free to walk back in.`);
         }
       }
       // ARRIVAL EVIDENCE GUARD — the mirror of the above, and the half that was missing.
@@ -5955,7 +5955,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // strength of the scene discussing her, and stood there teleported into a conversation she
         // was no longer part of. Coming back is a real event; it is `status`, not a stray mention.
         if (c.status === "dead" || c.status === "departed") {
-          shifts.push(`bookkeeping correction: ${c.name} is ${c.status} and does not re-enter the scene`);
+          shifts.push(`bookkeeping correction: ${c.name} is ${c.status} and doesn't come back into the scene`);
           console.warn(`[cast] blocked ${c.status} ${c.name} being moved back into the player's scene`);
           continue;
         }
@@ -5963,7 +5963,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // forget, because nothing about a living room reminds a narrator that somebody is in a cell.
         // A release is a real event and reads as one; short of that, they stay where they were put.
         if (c.held) {
-          shifts.push(`bookkeeping correction: ${c.name} is being held at ${c.held.where} and does not simply reappear`);
+          shifts.push(`bookkeeping correction: ${c.name} is being held at ${c.held.where} and doesn't just reappear`);
           console.warn(`[cast] blocked held ${c.name} returning from ${c.held.where} with no release in the prose`);
           continue;
         }
@@ -5974,8 +5974,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // the player calling for them is evidence too — "I send for Angeline" should work
         const calledFor = [...new Set([nameLow, ...tokens])].some((p) => p.length >= 3 && action.toLowerCase().includes(p));
         if (!named && !calledFor) {
-          noteFire(state, "phantom", `${c.name} moved into the scene with nothing in the prose showing it`);
-          shifts.push(`bookkeeping correction: ${c.name} was not in this scene — the prose never showed them arrive`);
+          noteFire(state, "phantom", `${c.name} was moved into the scene without anything in the prose showing it`);
+          shifts.push(`bookkeeping correction: ${c.name} was not in this scene, because the prose never showed them arrive`);
           console.warn(`[cast] blocked phantom arrival of ${c.name} into ${state.world.places[pid]?.name ?? pid} — unnamed in prose and action`);
           continue;
         }
@@ -6004,8 +6004,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           const needed = travelMinutesBetween(state, state.world.places[fromPid]?.name ?? "", state.world.places[pid]?.name ?? "");
           const have = minutesBetween(sinceStamp, state.world.current_time);
           if (needed > 0 && have >= 0 && have < needed) {
-            noteFire(state, "arrival", `${c.name} placed ${Math.round(needed)} minutes away with ${Math.round(have)} to travel it`);
-            shifts.push(`bookkeeping correction: ${c.name} cannot be here yet — ${state.world.places[fromPid]?.name ?? "where they were"} is ${Math.round(needed)} minutes away and ${Math.round(have)} have passed`);
+            noteFire(state, "arrival", `${c.name} was placed ${Math.round(needed)} minutes away with only ${Math.round(have)} minutes to cover it`);
+            shifts.push(`bookkeeping correction: ${c.name} can't be here yet, because ${state.world.places[fromPid]?.name ?? "where they were"} is ${Math.round(needed)} minutes away and only ${Math.round(have)} have passed`);
             console.warn(`[cast] blocked impossible arrival of ${c.name}: needs ${Math.round(needed)}min, has ${Math.round(have)}min`);
             continue;
           }
@@ -6355,7 +6355,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     const c = state.condition[id]; if (!c) continue;
     let raw = clamp(p.relaxation_delta ?? 0, -6, 6);
     if (raw > 0 && id !== "char_player" && wasAbused(id)) {
-      shifts.push(`${nameOf(id)} was sworn at, which does not calm anyone down.`);
+      shifts.push(`${nameOf(id)} was sworn at, which doesn't calm anyone down.`);
       raw = 0;
     }
     // WHAT A WORN BODY STILL FEELS. Ordinary friction lands lighter on somebody the story has ground
@@ -6415,8 +6415,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   for (const r of state.last_remodel ?? []) {
     if (r.turn !== turn) continue;
     shifts.push(r.dir === "wear"
-      ? `${nameOf(r.id)} has been tense for so long that tense is now their normal state.`
-      : `${nameOf(r.id)} has been calm for so long that calm is now their normal state.`);
+      ? `${nameOf(r.id)} has been tense for so long that being tense is now normal for them.`
+      : `${nameOf(r.id)} has been calm for so long that being calm is now normal for them.`);
   }
   state.last_remodel = (state.last_remodel ?? []).filter((r) => r.turn === turn);
 
@@ -6452,7 +6452,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         edge.attraction = next;
         if (edge.attraction_base === undefined) edge.attraction_base = next;
         if (to === "char_player") {
-          if (rawAttr >= 4) shifts.push(`${nameOf(from)} is drawn to you a little more.`);
+          if (rawAttr >= 4) shifts.push(`${nameOf(from)} is a little more drawn to you.`);
           else if (rawAttr <= -4) shifts.push(`${nameOf(from)} is less attracted to you.`);
         }
       }
@@ -6542,7 +6542,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       console.warn(`[memory] BLOCKED background leak in ${nameOf(id)}'s memory — the player never revealed it`);
       continue;
     }
-    { const v = driftVeto(state, id, m.content); if (v) { console.warn(`[drift] refused memory: ${v}`); shifts.push(`a memory was refused: ${nameOf(id)} does not act against their nature without a reason.`); continue; } }
+    { const v = driftVeto(state, id, m.content); if (v) { console.warn(`[drift] refused memory: ${v}`); shifts.push(`a memory was refused: ${nameOf(id)} wouldn't act against their nature without a reason.`); continue; } }
     /* AND NOBODY REMEMBERS A THING THAT DID NOT HAPPEN. Left alone, the bookkeeper files the
      * resurrection as a verified recollection — "I sat on the floor of The Ritz waiting beside the
      * dead constables, and Arthur Penhale walked back inside through the revolving doors ALIVE" —
@@ -6674,7 +6674,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       knowers: [...state.world.present], born_turn: turn, dead: false,
     });
     if (state.world.rumors.length > 40) state.world.rumors = state.world.rumors.slice(-40);
-    shifts.push(`CANON: ${cn} (news will spread over time)`);
+    shifts.push(`NOW PUBLIC: ${cn} (the news will spread over time)`);
   }
 
   const beautyDirty = new Set<string>(); // chars whose on-sight appearance changed this turn → rescore
@@ -6718,7 +6718,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     // country acquired the goal "get the stranger to leave the inn without incident". A want can
     // only be recorded for someone the scene actually contained or the prose actually named.
     if (!misattributionAllowed(state, id, prose, action)) {
-      shifts.push(`bookkeeping correction: ${nameOf(id)} was not in this scene — a want from it was not recorded for them`);
+      shifts.push(`bookkeeping correction: ${nameOf(id)} wasn't in this scene, so a want that came out of it was not recorded for them`);
       console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
       continue;
     }
@@ -6743,7 +6743,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (isDependentGoal(String(du.goal), state.characters["char_player"]?.name ?? "")) {
       const prev = state.characters[id].drive;
       if (prev?.goal && du.blocker) prev.blocker = du.blocker;
-      shifts.push(`${nameOf(id)}'s want was recorded as something ${state.characters["char_player"]?.name ?? "the player"} has to do — dropped, so they get one of their own`);
+      shifts.push(`${nameOf(id)}'s want was recorded as something ${state.characters["char_player"]?.name ?? "the player"} has to do, so it was dropped and they'll get one of their own`);
       console.warn(`[drives] dependent goal rejected for ${nameOf(id)}: "${String(du.goal).slice(0, 70)}"`);
       continue;
     }
@@ -6780,7 +6780,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!sorted[0].progress) shifts.push(`${nameOf(id)} wants something new: ${state.characters[id].drive!.goal}.`);
   }
   if (ownerSlips.length) {
-    shifts.push(`a want was recorded naming its own owner — ${ownerSlips[0]} — check whose it was meant to be`);
+    shifts.push(`a want was recorded with its own owner named as its target (${ownerSlips[0]}); check who it was meant to be about`);
     console.warn(`[ownership] ${ownerSlips.length} want(s) name their owner: ${ownerSlips.join(" | ")}`);
   }
 
@@ -7029,7 +7029,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       born_turn: turn, about_char: r.about_char ? resolveId(state, r.about_char) ?? undefined : undefined,
     });
     if (state.world.rumors.length > 40) state.world.rumors = state.world.rumors.slice(-40);
-    shifts.push(r.truth === "true" ? `A new rumor is spreading.` : `A new rumor is spreading — and it isn't true.`);
+    shifts.push(r.truth === "true" ? `A new rumor is spreading.` : `A new rumor is spreading, and it isn't true.`);
   }
 
   for (const c of diff.consequences_new ?? []) {
@@ -7083,7 +7083,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           clock.original_objective ??= clock.objective;   // so reviveStalledClocks can put it back
           clock.objective = mundaneObjective(clock.faction);
           clock.status = "stalled";
-          shifts.push(`${clock.faction} has nothing to act on and turns to its own business.`);
+          shifts.push(`${clock.faction} has nothing to act on and gets on with its own business.`);
         }
         clock.stalled_since ??= state.world.current_turn;
         continue;

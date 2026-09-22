@@ -39,9 +39,9 @@ export function worldBriefOf(bible: any): string {
   return [
     bible?.name ? `Setting: ${bible.name}` : "",
     bible?.era ? `Period: ${bible.era}` : "",
-    bible?.technology_level ? `Material world (nothing beyond this exists to be named): ${bible.technology_level}` : "",
+    bible?.technology_level ? `What exists in this world (nothing beyond this exists, so nobody can name it): ${bible.technology_level}` : "",
     bible?.cultures_and_languages ? `Culture and speech: ${bible.cultures_and_languages}` : "",
-    bible?.what_people_fear ? `What people here fear, and therefore talk around: ${bible.what_people_fear}` : "",
+    bible?.what_people_fear ? `What people here are afraid of, and so talk around: ${bible.what_people_fear}` : "",
     bible?.tone ? `Register of the story: ${bible.tone}` : "",
   ].filter(Boolean).join("\n");
 }
@@ -49,30 +49,30 @@ export function worldBriefOf(bible: any): string {
 /** Tail threshold. Candidates at or below this are the usable pool. */
 const TAIL = 0.10;
 
-const VOICE_SYSTEM = `You produce candidate VOICE CARDS for one character in a story.
+const VOICE_SYSTEM = `You write possible voice cards for one character in a story, describing how they talk.
 
-AGE IS ALSO A HARD REQUIREMENT, AND THIS PASS OFTEN MISSES IT. The brief gives you a number and nothing here used to tell you what to do with it, so a ten-year-old came back sounding like a small adult with good timing: "He knows what he did." Children do not speak in short, weighty lines. Under about twelve they take several runs at one thing, start in the middle, join it with "and then", volunteer what nobody asked, get a word wrong and keep it, and reach the point after the listener has guessed it — write the long clumsy version. Thirteen to nineteen, they hedge the sentence while it is still going and take the edge off their own line before anyone else can, and the thing they care about most arrives last and quietly. Past about seventy they take the long way round because the detours interest them. Match the number you were given.
+Their age has to shape how they talk, and this step often gets that wrong. The brief gives you a number, and nothing here used to say what to do with it, so a ten-year-old came back sounding like a small adult with good timing: "He knows what he did." Children don't talk in short, weighty lines. Under about twelve, they take several runs at one thing, start in the middle, string it together with "and then", tell you things nobody asked about, get a word wrong and keep using it, and get to the point after the listener has already guessed it, so write the long, clumsy version. From thirteen to nineteen, they hedge a sentence while they're still saying it and take the edge off their own line before anyone else can, and the thing they care about most comes last and quietly. Past about seventy, people take the long way round because they find the detours interesting. Match the age you were given.
 
-THE SETTING IS A HARD REQUIREMENT. Everything below happens INSIDE the world described in the WORLD block. Before writing any line, work out what this person could possibly have a word for: they name what their world contains and what their life has put in front of them, and nothing else. They cannot name a feeling their culture has no concept of, and they cannot reach for a comparison drawn from a thing that does not exist here. This covers ideas as much as vocabulary — a person from a world without clinics does not talk about processing, boundaries, holding space or unpacking; a person from a world without offices does not talk about handling it, managing it, or sorting the logistics. Their comparisons come from the work, weather, animals, food, faith, kin and violence of THEIR world. A candidate that borrows from outside it is a mistake, and the most common one.
+The setting also has to shape how they talk. Everything below happens inside the world described in the WORLD section. Before writing any line, work out what this person could possibly have a word for. They can name what their world contains and what their life has shown them, and nothing else. They can't name a feeling their culture has no idea of, and they can't reach for a comparison with something that doesn't exist here. That applies to ideas as much as to words. Someone from a world without clinics doesn't talk about processing, boundaries, holding space or unpacking things, and someone from a world without offices doesn't talk about handling it, managing it or sorting out the logistics. Their comparisons come from the work, weather, animals, food, faith, family and violence of their own world. A candidate that borrows from outside that world is a mistake, and it's the most common one.
 
-Output FIVE candidates. Each carries a numeric "probability": your honest estimate of how likely that voice is to be the one a writer would reach for first for this character. Sample from the TAILS — every candidate should sit below 0.10.
+Write five candidates. Each one has a number called "probability", which is your honest guess at how likely it is that a writer would think of that voice first for this character. Pick unusual ones, so every candidate should be below 0.10.
 
-BUT make it unusual in the RIGHT WAY. Vary: what they refuse to say, what they are really after, sentence length, whether they answer the question asked, how much they leave out, how blunt or oblique they are, whether they talk to fill silence or make you wait. Do NOT vary the world. A candidate that is improbable because it reaches outside this setting scores zero.
+But make them unusual in the right way. Vary what they refuse to say, what they're really after, how long their sentences are, whether they answer the question they were asked, how much they leave out, how blunt or roundabout they are, and whether they talk to fill a silence or make you wait. Don't vary the world. A candidate that's unusual because it reaches outside this setting scores zero.
 
-A voice is diction, syntax, rhythm, and what the person refuses to say, separate from their mood and their personality. Two characters with identical traits should still speak nothing alike.
+How someone talks means the words they use, how they build sentences, the rhythm of their speech, and what they refuse to say, separately from their mood and personality. Two characters with identical traits should still sound nothing alike.
 
-THE FOUR DESCRIPTIONS MUST DESCRIBE FOUR DIFFERENT THINGS. diction is which words this person has; syntax is how the sentence is built; rhythm is how the talking moves through time; agenda is what sits under it. Writing one observation four times is the commonest way this pass fails, and it fails hardest on the most vivid character. A card that came back reading syntax "imperative-heavy", rhythm "the last noun of every order stretched", tic "adds a smiling qualifier after an order", agenda "to get them to agree to a time and place" is one idea written four times, and the narrator meets it four times a turn: everything that person said for eleven turns was an instruction. If the speech act is already named in syntax, the other three are about something else.
+The four descriptions have to describe four different things. "diction" is which words this person has. "syntax" is how they build a sentence. "rhythm" is how their talking moves along in time. "agenda" is what's underneath it. Writing the same observation four times is the most common way this step goes wrong, and it goes wrong worst for the most vivid character. One card came back with syntax "imperative-heavy", rhythm "the last noun of every order stretched", tic "adds a smiling qualifier after an order", and agenda "to get them to agree to a time and place". That's one idea written four times, and the narrator ran into it four times a turn, so for eleven turns everything that person said was an instruction. If the kind of thing they say is already covered in syntax, the other three should be about something else.
 
-AND THE CARD YOU ARE GIVEN IS THE WHOLE CARD. A card built out of the most vivid trait alone describes a different person from the one on the page. The same character above was also written "charming and non antagonizing", and nothing in the voice was charming. A trait that describes how they SOUND is one input among all of them, never the brief.
+And the card you're given is the whole card. A voice built only from the most vivid trait describes a different person from the one on the page. The same character was also described as "charming and non antagonizing", and nothing in the voice was charming. A trait that describes how they sound is one input among all the others, never the whole brief.
 
-example_lines matter most. The narrator copies these to write everything this person ever says, so a sample about life in general teaches them to talk about life in general. Four requirements, all of them checkable on the finished line:
-- IT COMES OUT OF THIS PERSON'S OWN LIFE — the work they do, the people they know, the place they live, what they were doing an hour ago. A LINE MAY NOT BE BUILT OUT OF A PRICE, A COUNT OR AN INVENTORY unless money or stock is genuinely this person's subject: measured across one four-person cast, nine of thirteen samples named a number or a dollar amount, and a bartender, a print-shop manager, an eighteen-year-old and a stranger to the story all sounded like the same person doing arithmetic. Use other concrete details instead — somebody's sister, a smell, a road, a dog, a grudge, last Tuesday, the thing their mother says. A line that reaches outside this person's own life is rewritten until it does not.
-- IT IS UNMISTAKABLE IN WHAT IT NAMES, AND ORDINARY IN HOW IT IS BUILT. The thing that makes a line theirs is the dog, the latch, the aunt, the road, the neighbour's goat — the specific stuff of their life. The SHAPE stays the shape of somebody talking: they can ramble, answer half of it, start again, say something obvious, or leave a sentence lying there. Reaching for unmistakable in the shape instead of in the contents produces the withheld-fact line — "He knows what he did", "I'm not the one who lied", "You already know the answer" — which sounds weighty only because it names nothing, and this pass returns it more than anything else. Every line has to carry something a person could point at.
-- IT IS AIMED AT SOMETHING THE SPEAKER WANTS FROM WHOEVER IS LISTENING — to be believed, to be left alone, to find out what the other person knows, to get back to work. Not at what the listener is really like underneath: nobody here restates what the listener just said, asks a question designed to walk them to a realization about themselves, or tells them what their behaviour means.
-- IT IS NOT THE LAST LINE OF A SCENE. A sample that would work as the closing beat of a chapter teaches this person to end every exchange on one.
-- AND ONE OF THEM IS AIMED AT NOTHING. Every line pulling something out of the listener makes a person who has no way of talking except to extract, so one sample has to be a person saying a thing: a complaint about somebody who is not in the room, something at work that was funny or maddening, a piece of their day, an opinion nobody asked for. That line shows they have a life beyond getting things from people.
+The example_lines matter most. The narrator copies these to write everything this person ever says, so a sample about life in general teaches them to talk about life in general. There are five requirements, and you can check each one on the finished line:
+- It comes from this person's own life: the work they do, the people they know, the place they live, what they were doing an hour ago. A line can't be built around a price, a count or a list of stock unless money or stock really is this person's subject. In one four-person cast, nine of the thirteen samples mentioned a number or an amount of money, and a bartender, a print-shop manager, an eighteen-year-old and a stranger to the story all sounded like the same person doing arithmetic. Use other concrete details instead, like somebody's sister, a smell, a road, a dog, a grudge, last Tuesday, or the thing their mother always says. If a line reaches outside this person's own life, rewrite it until it doesn't.
+- What makes it theirs is what it mentions, and the way it's put together stays ordinary. A line belongs to them because of the dog, the latch, the aunt, the road or the neighbour's goat, the particular stuff of their life. The shape stays the shape of someone talking: they can ramble, answer half the question, start again, say something obvious, or leave a sentence hanging. Trying to make the shape distinctive instead of the content produces the line that withholds a fact, like "He knows what he did", "I'm not the one who lied" or "You already know the answer", which only sounds weighty because it doesn't name anything, and this step produces that kind of line more than any other. Every line has to include something a person could point at.
+- It's aimed at something the speaker wants from whoever is listening, such as being believed, being left alone, finding out what the other person knows, or getting back to work. It isn't aimed at what the listener is really like underneath. Nobody here repeats back what the listener just said, asks a question meant to lead them to some realisation about themselves, or tells them what their behaviour means.
+- It isn't the last line of a scene. A sample that would work as the closing line of a chapter teaches this person to end every exchange on one.
+- And one of them isn't aimed at anything. If every line is trying to get something out of the listener, you get a person who only ever talks to extract things, so one sample has to be someone just saying something: a complaint about somebody who isn't there, something at work that was funny or maddening, a bit of their day, or an opinion nobody asked for. That line shows they have a life beyond getting things from people.
 
-Output ONLY this JSON:
+Reply with only this JSON:
 {"candidates":[{"probability":0.04,"voice":{"diction":"","syntax":"","rhythm":"","tics":[""],"never_says":["",""],"agenda":"","example_lines":["","",""]}}]}`;
 
 /** Words for the act of telling somebody to do something — the register this pass collapses into. */
@@ -175,21 +175,21 @@ export async function forgeVoice(
     `BACKGROUND: ${npc.background ?? ""}`,
     `CORE TRAITS: ${(npc.core_traits ?? []).join(", ")}`,
     `VALUES: ${(npc.values ?? []).join(", ")}`,
-    `CONSCIENCE (0..1, how much others' pain registers): ${npc.conscience ?? 0.7}`,
+    `CONSCIENCE (0 to 1, how much other people's pain matters to them): ${npc.conscience ?? 0.7}`,
     `UNDER THREAT: ${npc.attachment?.under_threat ?? ""}`,
     // NOT WHAT THEY CURRENTLY WANT. A voice is how a mouth works and outlives every objective the
     // character will ever hold; handing this pass a goal welds the two together, and the want moves
     // on while the voice stays shaped around it. It was also dead on the refresh path — drive_goals
     // and drive_goal are forge-output fields and are not on a stored Identity, so this line has
     // been rendering empty for every re-forge of every character in play.
-    `WORDS THIS PERSON HAS TO TALK AT LENGTH ABOUT: ${Object.keys(npc.skills ?? {}).join(", ") || (npc.texture ?? []).join("; ")}`,
-    `WORLD — everything below happens inside this and nowhere else:\n${worldNote}`,
+    `SUBJECTS THIS PERSON CAN TALK ABOUT AT LENGTH: ${Object.keys(npc.skills ?? {}).join(", ") || (npc.texture ?? []).join("; ")}`,
+    `WORLD (everything below happens inside this world and nowhere else):\n${worldNote}`,
   ].join("\n");
 
   // Concrete exclusion, not an abstract instruction to "be different" — the model can
   // only avoid a register it can actually see.
   const exclusion = avoid.length
-    ? `\n\nALREADY SPOKEN BY THIS CAST — none of your lines may share their register, rhythm, or sentence shape:\n${avoid.map((l) => `- ${l}`).join("\n")}`
+    ? `\n\nLINES THIS CAST HAS ALREADY SPOKEN (none of your lines can share their way of talking, their rhythm or their sentence shape):\n${avoid.map((l) => `- ${l}`).join("\n")}`
     : "";
 
   try {

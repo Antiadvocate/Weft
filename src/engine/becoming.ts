@@ -105,11 +105,11 @@ export function arrivedBecomings(state: SaveState): Becoming[] {
  *  able to point at. A rung that describes a mood produces nothing; a rung that names an event
  *  produces an event. */
 const RUNGS = [
-  "FIRST SIGN, ONE CONCRETE THING. It happens once, small, somewhere ordinary, and it could still be explained away \u2014 a fault, a mess, a thing gone wrong that somebody has to deal with today. Whoever notices is the wrong person to be believed, or does not think it worth mentioning. IT MUST STILL HAPPEN ON THE PAGE EVEN IF NOBODY MENTIONS IT: if a reader could not point at the sentence where it occurred, this rung has not been written.",
-  "AGAIN, SOMEWHERE ELSE, and now it causes somebody a real problem. It has happened in a second place, it is on somebody's day \u2014 a job that cannot be done, a route that is closed, a thing that has to be replaced \u2014 and somebody with a reason to know has been asked about it and has answered badly.",
-  "NOT A COINCIDENCE ANY MORE. Several places at once, and the people here start behaving differently because of it: they plan around it, they move something, they stop doing a thing they always did. Somebody in authority says something official and it does not help.",
-  "IT IS NOW THE NORMAL STATE OF THINGS. Most of what the scene contains is already like this, ordinary life is arranged around it, and whatever is still holding out is visibly the last of it.",
-  "THE LAST TURN OF IT. Everything still standing between the world and this gives way here, in full, on the page \u2014 the whole change completing, physically, where somebody can see it. It finishes in this turn's prose. After this it is simply true.",
+  "STAGE ONE: THE FIRST SIGN, ONE CONCRETE THING. It happens once, in a small way, somewhere ordinary, and it could still be explained away as a fault, a mess, or something gone wrong that somebody has to deal with today. Whoever notices it is the wrong person to be believed, or doesn't think it's worth mentioning. It still has to happen on the page even if nobody mentions it. If a reader couldn't point at the sentence where it happened, this stage hasn't been written.",
+  "STAGE TWO: IT HAPPENS AGAIN SOMEWHERE ELSE, and this time it causes somebody a real problem. It has now happened in a second place, and it gets in the way of somebody's day, as a job that can't be done, a road that's closed, or something that has to be replaced. Somebody who ought to know about it has been asked, and their answer wasn't good enough.",
+  "STAGE THREE: IT'S NO LONGER A COINCIDENCE. It's happening in several places at once, and the people here start behaving differently because of it: they plan around it, move things, or stop doing something they've always done. Somebody in charge makes an official statement, and it doesn't help.",
+  "STAGE FOUR: IT'S NOW THE NORMAL STATE OF THINGS. Most of what's in the scene is already like this, ordinary life is organised around it, and whatever is still holding out is clearly the last of it.",
+  "STAGE FIVE: THE LAST STEP. Everything still standing between the world and this change gives way here, completely and on the page, as the whole change finishes physically where somebody can see it. It's completed in this turn's prose, and after this it's simply true.",
 ];
 
 /** Which rung this turn is on. Counted from the END, so one turn left is always the last rung
@@ -161,16 +161,16 @@ export function becomingFinalLaw(state: SaveState): string {
   const last = liveBecomings(state).filter((b) => b.remaining <= 1);
   if (!last.length) return "";
   const rows = last.map((b) => {
-    const grace = b.grace ? ` The turn before this was given to it as well and came back without it.` : "";
+    const grace = b.grace ? ` The turn before this one was given to it as well and came back without it.` : "";
     return `${b.claim}${grace}`;
   });
-  return `\n\n=== THE LAST TURN ON THIS CLOCK ===\n· ${rows.join("\n· ")}\n`
-    + `The player set the number of turns and this is the last of them. Whatever these describe happens in THIS turn's prose, on the page, as an event with a cause, met by the people who are actually here.\n`
-    + `THREE WAYS OF NOT WRITING IT, and none of them is available this turn:\n`
-    + `- Nothing arrives to interrupt it: no phone, no knock, no footstep in the hall, no third person in the doorway.\n`
-    + `- Nobody almost does it. Strike "almost", "nearly", "started to", "was about to", "for a moment", "seemed to".\n`
-    + `- Nothing milder happens instead, however well it fits the room. A smaller adjacent act with the same people is a different event.\n`
-    + `Write it in the opening of the turn, before the conversation and before whatever the room was in the middle of, then carry on around it. Nobody in the scene understands what it means or says what it is turning into; they meet the piece in front of them.`;
+  return `\n\n=== THE LAST TURN BEFORE THIS CLOCK RUNS OUT ===\n· ${rows.join("\n· ")}\n`
+    + `The player chose how many turns this would take, and this is the last one. Whatever these lines describe happens in this turn's prose, on the page, as an event with a cause, and it is met by the people who are actually here.\n`
+    + `There are three ways of avoiding writing it, and none of them is allowed this turn:\n`
+    + `- Nothing turns up to interrupt it: no phone, no knock, no footsteps in the hall, no third person in the doorway.\n`
+    + `- Nobody almost does it. Don't write "almost", "nearly", "started to", "was about to", "for a moment" or "seemed to".\n`
+    + `- Nothing milder happens in its place, however well it would suit the room. A smaller act with the same people is a different event.\n`
+    + `Write it at the start of the turn, before the conversation and before whatever the room was in the middle of, and then carry on around it. Nobody in the scene understands what it means or says what it's turning into; they just deal with the part that's in front of them.`;
 }
 
 export function becomingDirective(state: SaveState): string {
@@ -179,31 +179,31 @@ export function becomingDirective(state: SaveState): string {
   const god = !!state.world_bible?.god_mode;
   const rows = live.map((b) => {
     const behind = b.stalled >= STALL_LIMIT
-      ? ` THIS HAS NOT REACHED THE PAGE FOR ${b.stalled} TURNS while its clock ran, so it is behind schedule: this turn opens on it, and it is further along than one step would have left it.`
+      ? ` This hasn't appeared in the prose for ${b.stalled} turns while its clock kept running, so it's behind schedule. This turn opens with it, and it has got further along than a single step would have taken it.`
       : "";
     const push = b.repudiations
-      ? ` The player has held this back ${b.repudiations} time${b.repudiations === 1 ? "" : "s"} and it has not stopped coming; it arrives from a direction they did not block.`
+      ? ` The player has held this back ${b.repudiations} time${b.repudiations === 1 ? "" : "s"}, and it hasn't stopped coming, so it arrives from a direction they didn't block.`
       : "";
-    return `THE WORLD DOES THIS NOW, on its own, without anybody deciding it: ${b.claim} \u2014 ${rungOf(b)}${behind}${push}`;
+    return `THE WORLD NOW DOES THIS on its own, without anybody deciding it: ${b.claim} — ${rungOf(b)}${behind}${push}`;
   });
-  return `\n\n[WHAT THIS WORLD IS TURNING INTO \u2014 EVERY LINE HERE GOES ON THE PAGE THIS TURN.
-Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, that the conversation matters more, or that it would land better later: the clock keeps running whether it is written or not, so skipping it only means the next beat has more to cover. If the scene seems to leave no room, make room; one sentence is enough, and some of it must be visible this turn.
-THE COUNT IS A DEADLINE: the player set how many turns this takes, and it becomes true when the clock runs out however much ground is left.
-\u00b7 ${rows.join("\n\u00b7 ")}
-Each beat is an EVENT with a cause \u2014 a thing that happens, a thing somebody finds, a thing that stops working, a thing somebody does about it \u2014 met the way the people there would meet it: an inconvenience, a rumour, a fault, a thing somebody is angry about.
-DO NOT NAME THE END STATE. Nobody says what is coming, nobody predicts it, and no character understands the shape of it; they meet the piece in front of them and are wrong about what it means. ${god
-      ? `If the player acts against it the world loses that ground and looks for another way in \u2014 they can cost it a turn, never the outcome.`
-      : `The player cannot stop it. Write their resistance honestly and write it failing, without anyone gloating and without the world seeming to intend anything.`}]`;
+  return `\n\n[WHAT THIS WORLD IS TURNING INTO. Every line here goes on the page this turn.
+Each line below gets a moment in this scene, at the strength given and no stronger. It isn't up to you to decide that this scene is too busy for it, that the conversation matters more, or that it would work better later. The clock keeps running whether or not it gets written, so skipping it just means the next moment has more ground to cover. If the scene seems to have no room, make room. One sentence is enough, but some of it has to be visible this turn.
+The number of turns is a deadline. The player chose how many turns this takes, and once the clock runs out it becomes true, however much of the way is still left.
+· ${rows.join("\n· ")}
+Each moment is an event with a cause: something that happens, something somebody finds, something that stops working, or something somebody does about it. The people there deal with it the way they would deal with any inconvenience, rumour or fault, or something they're angry about.
+Don't say where it's heading. Nobody says what's coming, nobody predicts it, and no character understands the overall pattern. They deal with the part in front of them and get wrong what it means. ${god
+      ? `If the player acts against it, the world loses that ground and looks for another way in. The player can delay it by a turn, but they can't change how it ends.`
+      : `The player can't stop it. Write their resistance honestly and write it failing, without anyone gloating and without the world seeming to intend anything.`}]`;
 }
 
 
 /** The turn it lands. Handed to the narrator alongside the canon entry it just became. */
 export function arrivalDirective(arrived: Becoming[]): string {
   if (!arrived.length) return "";
-  return `\n\nTHIS IS TRUE NOW, IN THIS TURN, AND FROM HERE ON.\n· ${arrived.map((b) => b.claim).join("\n· ")}\n`
-    + `The last of the way was covered in this turn and the prose shows it happening — the final change, physically, where somebody can see it. `
-    + `From now on it is simply how this world is: the people in it live in it as an ordinary condition, and nobody marvels at it, explains it, or refers back to when it was otherwise unless something in the scene genuinely turns on that. `
-    + `Everything from here obeys it without being reminded to.`;
+  return `\n\nTHIS IS TRUE NOW, FROM THIS TURN ON.\n· ${arrived.map((b) => b.claim).join("\n· ")}\n`
+    + `The last part of the change happened this turn, and the prose shows it happening, as the final change, physically, where somebody can see it. `
+    + `From now on this is simply how the world is. The people in it live with it as an ordinary fact, and nobody marvels at it, explains it, or mentions a time when things were different, unless something in the scene really depends on that. `
+    + `Everything from here on follows it without needing a reminder.`;
 }
 
 /**
@@ -251,7 +251,7 @@ export function applyBecomingProgress(
     if (r?.opposed && god) {
       b.repudiations++;
       b.stalled = 0;
-      shifts.push(`you held back "${short(b.claim)}" — it was delayed a turn and is still coming`);
+      shifts.push(`you held back "${short(b.claim)}", so it was delayed by a turn, but it's still coming`);
       continue;
     }
 
@@ -284,7 +284,7 @@ export function applyBecomingProgress(
     if (missed && (b.grace ?? 0) < GRACE_TURNS) {
       b.grace = (b.grace ?? 0) + 1;
       b.stalled++;
-      shifts.push(`"${short(b.claim)}" was due this turn and the prose came back without it — the clock holds one more turn for it (${b.grace} of ${GRACE_TURNS})`);
+      shifts.push(`"${short(b.claim)}" was due this turn and the prose came back without it, so the clock waits one more turn for it (${b.grace} of ${GRACE_TURNS})`);
       continue;
     }
 
@@ -309,14 +309,14 @@ export function applyBecomingProgress(
       // stalled through its whole clock it is the opposite — the player is owed the fact that the
       // world never showed it and it landed on the calendar alone.
       shifts.push(b.moved
-        ? `"${short(b.claim)}" is true of this world now, and binds every turn from here`
-        : `"${short(b.claim)}" is true of this world now — its clock ran out and the prose never showed it once, so the next turn has to`);
+        ? `"${short(b.claim)}" is now true of this world, and every turn from here on follows it`
+        : `"${short(b.claim)}" is now true of this world. Its clock ran out without the prose ever showing it, so the next turn has to`);
       continue;
     }
     const left = `${b.remaining} turn${b.remaining === 1 ? "" : "s"} to go`;
     shifts.push(r?.moved
       ? `the world moved toward "${short(b.claim)}" — ${left}`
-      : `"${short(b.claim)}" did not show this turn — it lands on schedule anyway, ${left}`);
+      : `"${short(b.claim)}" didn't show up this turn, but it arrives on schedule anyway, ${left}`);
   }
 
   // AND THE ONES ALREADY TRUE. A fact the world is supposed to be living in that has never once
@@ -342,13 +342,13 @@ export function becomingAsk(state: SaveState): string {
   // supposed to be living in has ever actually reached the page, and without asking it never moves.
   const live = [...liveBecomings(state), ...arrivedBecomings(state)];
   if (!live.length) return "";
-  return `\n\n=== WHAT THIS WORLD IS TURNING INTO, OR HAS TURNED INTO (report on each, in becoming_progress) ===\n`
+  return `\n\n=== WHAT THIS WORLD IS TURNING INTO, OR HAS ALREADY TURNED INTO (report on each one in becoming_progress) ===\n`
     + live.map((b) => `- "${b.claim}"`).join("\n")
-    + `\nFor each line, copy its text into "claim" and answer two things about THIS TURN only.\n`
-    + `moved: did the world get measurably closer to it — did something happen, change, fail, or get done that puts it nearer? Judge by what the turn MEANS, whichever words it used: a claim about buildings is moved by a wall going soft, by a street closing, by somebody's ceiling coming down. A turn that only mentioned it, worried about it, or discussed it did NOT move it; a turn that showed it happening somewhere did.\n`
+    + `\nFor each line, copy its text into "claim" and answer two questions about this turn only.\n`
+    + `moved: did the world get noticeably closer to it? Did something happen, change, break or get done that brings it nearer? Judge by what the turn means, whatever words it used. A claim about buildings is moved by a wall going soft, a street being closed, or somebody's ceiling coming down. A turn that only mentioned it, worried about it or talked about it didn't move it, but a turn that showed it happening somewhere did.\n`
     + `how: if it moved, the one thing that moved it, in a few words.\n`
-    + `opposed: did the PLAYER act against it this turn — try to stop, reverse, prevent, or undo it?\n`
-    + `Report every line, including the ones nothing happened to.`;
+    + `opposed: did the player act against it this turn, by trying to stop, reverse, prevent or undo it?\n`
+    + `Report on every line, including the ones where nothing happened.`;
 }
 
 
@@ -364,12 +364,12 @@ export function becomingAsk(state: SaveState): string {
 export function becomingBehind(state: SaveState): string {
   const rows = liveBecomings(state)
     .filter((b) => (b.stalled ?? 0) >= STALL_LIMIT)
-    .map((b) => `${b.claim} — ordered for ${b.stalled} turns and absent from all of them; ${b.remaining} turn${b.remaining === 1 ? "" : "s"} left before it is simply true.`);
+    .map((b) => `${b.claim}. This was asked for in the last ${b.stalled} turns and left out of all of them, and there ${b.remaining === 1 ? "is" : "are"} ${b.remaining} turn${b.remaining === 1 ? "" : "s"} left before it becomes simply true.`);
   if (!rows.length) return "";
-  return `\n\nTHIS WAS ORDERED AND THE TURNS CAME BACK WITHOUT IT.\n· ${rows.join("\n· ")}\n`
-    + `The scenes that were written took the place this was meant to have. `
-    + `WRITE IT FIRST THIS TURN: the thing happening, in the opening lines of the prose, before the conversation, before whatever the room was in the middle of. Then carry on with the rest of the turn around it. `
-    + `The clock kept running, so there is less time left — what shows now is as far along as the turns already spent should have carried it.`;
+  return `\n\nTHIS WAS ASKED FOR, AND THE TURNS CAME BACK WITHOUT IT.\n· ${rows.join("\n· ")}\n`
+    + `The scenes that got written used up the space this was meant to have. `
+    + `So write it first this turn: the thing happening, in the opening lines of the prose, before the conversation and before whatever the room was in the middle of. Then write the rest of the turn around it. `
+    + `The clock kept running, so there's less time left, and what shows now should be as far along as the turns already used would have taken it.`;
 }
 
 /**
@@ -423,18 +423,18 @@ export function becomingLaw(state: SaveState): string {
   const grown = here.filter((b) => !unshown.includes(b));
 
   const owed = unshown.length
-    ? `\n\n[TRUE OF THIS WORLD, AND NEVER ONCE ON THE PAGE.\n· ${unshown.map((b) => `${b.claim} — its clock ran out on turn ${b.arrived_turn} with the prose having never shown it happening.`).join("\n· ")}\n`
-      + `Each of these is a fact of this world now, which means nobody is startled by it, nobody explains it, and nobody treats it as news. It also means the reader has never seen it, so it cannot be alluded to, assumed, or referred to as something already understood between these people. `
-      + `WRITE IT HAPPENING, THIS TURN, IN THE PROSE — the thing itself, in this room, with the bodies actually here, in the opening of the turn and before whatever else the scene was doing. Then carry on around it. `
-      + `Show it plainly because the reader has never seen it, and have people treat it as normal because it already is.]`
+    ? `\n\n[TRUE OF THIS WORLD, BUT NEVER ONCE SHOWN IN THE PROSE.\n· ${unshown.map((b) => `${b.claim}. Its clock ran out on turn ${b.arrived_turn} without the prose ever showing it happen.`).join("\n· ")}\n`
+      + `Each of these is now a fact of this world, so nobody is startled by it, nobody explains it, and nobody treats it as news. But the reader has never seen it either, so it can't be hinted at, taken for granted, or mentioned as something these people already understand between them. `
+      + `Write it happening this turn, in the prose: the thing itself, in this room, involving the people who are actually here, at the start of the turn and before whatever else the scene was doing. Then carry on around it. `
+      + `Show it plainly, because the reader has never seen it, and have people treat it as normal, because it already is.]`
     : "";
 
   if (!grown.length) return owed;
 
   const rows = grown.map((b) => `${b.claim}`);
-  return owed + `\n\n[WHAT IS TRUE OF THIS WORLD NOW — write the place where these are ordinary.\n· ${rows.join("\n· ")}\n`
-    + `To these people they are old, unremarkable, and not worth commenting on. `
-    + `NOBODY IS SURPRISED BY THEM. Nobody remarks on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as a thing that has just started — a character reacting to one as though it were new makes it look as if the world has not actually changed. `
-    + `NOBODY ANNOUNCES THEM EITHER. They are not stated, quoted, or described as facts; they are visible only in what people do without thinking about it, the way anybody behaves about the ordinary conditions of their own life. `
-    + `Each of these is somewhere in this scene — in a posture, a habit, an arrangement, something somebody reaches for or does not, something that goes without saying between them. If the scene seems to leave no room, make room, in one sentence if necessary.]`;
+  return owed + `\n\n[WHAT IS TRUE OF THIS WORLD NOW. Write the place as somewhere these things are ordinary.\n· ${rows.join("\n· ")}\n`
+    + `To these people they're old news, unremarkable and not worth mentioning. `
+    + `Nobody is surprised by them. Nobody comments on one, explains one, apologises for one, is startled or embarrassed by one, or treats it as something that has just started, because a character reacting to one as if it were new makes it look as though the world hasn't really changed. `
+    + `Nobody announces them either. They aren't stated, quoted or described as facts. They only show in the things people do without thinking, the way anyone behaves about the ordinary conditions of their own life. `
+    + `Each of these shows up somewhere in this scene, in a posture, a habit, the way something is arranged, something somebody reaches for or doesn't, or something that goes without saying between them. If the scene seems to have no room, make room, in one sentence if necessary.]`;
 }

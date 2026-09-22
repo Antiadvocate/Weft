@@ -40,53 +40,53 @@ import { clamp } from "./num";
  *  ceiling or a montage quietly under-delivers its own arc. */
 const EDGE_STEP_CAP = { warmth: 15, trust: 20, power: 10 } as const;
 
-const PLANNER_SYSTEM = `You turn a player's free-text direction into an executable montage plan for a story engine.
+const PLANNER_SYSTEM = `You turn a player's free-text direction into a montage plan that a story engine can carry out.
 
-The player is skipping time ON PURPOSE and says what should be true by the end. Your job is to make that executable as a sequence of beats — never as one jump. The engine handles the emotional changes; you plan the events.
+The player is skipping time on purpose and has said what should be true by the end. Your job is to turn that into a series of stretches of time that the engine can play one after another, never into one jump. The engine handles how feelings change; you plan the events.
 
 RULES
-- The checklist is the player's literal asks, one short phrase each. Do not invent asks they didn't make.
-- Beats must cover the steps in between: the decision, the conflict, the settling. A beat may make things WORSE, which makes the ending feel earned.
-- Targets are FINAL values at the end of the whole montage (0-100 scale, warmth/trust), not per-beat.
-- Never target attraction; the engine models desire on its own rules.
-- Only name characters that exist in the world state you were given.
-- Cats, dogs, objects and household details go in as FACTS.
-- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a promise kept, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves every thread exactly as it was has moved time without moving the story.
-- BUT MAJOR THREADS DO NOT RESOLVE DURING A SKIP. Only LOW-WEIGHT threads settle offscreen: errands, small favours, minor waits, questions time answers on its own. A central conflict, a mystery the story is built on, a war, a hunt, a betrayal — these are the core of the story and they resolve in scenes the player is PRESENT for, never in a skip. You are told the maximum weight this span may settle; propose nothing above it. When unsure, leave it open; leaving a thread open is harmless, and resolving a major one offscreen cannot be undone.
+- The checklist is exactly what the player asked for, one short phrase per request. Don't invent requests they didn't make.
+- The stretches have to cover the steps in between, like the decision, the conflict and the settling down. A stretch can make things worse, which makes the ending feel earned.
+- Targets are the final values at the end of the whole montage (on a 0 to 100 scale for warmth and trust), not values for each stretch.
+- Never set a target for attraction, because the engine handles desire by its own rules.
+- Only name characters who exist in the world state you were given.
+- Cats, dogs, objects and household details go in as facts.
+- Time settles some small things and opens up others. Some open threads simply end during a skip, like a promise kept, a wait that's over, or a question that circumstances answered. Name those in threads_resolve. Arriving somewhere new also raises questions that weren't open before, so name those in threads_new. A montage that leaves every thread exactly as it was has moved time forward without moving the story forward.
+- But major threads don't get resolved during a skip. Only light threads settle offscreen, such as errands, small favours, minor waits, and questions that time answers by itself. A central conflict, a mystery the story is built around, a war, a hunt or a betrayal is the heart of the story, and it gets resolved in scenes the player is present for, never in a skip. You're told the heaviest weight this stretch of time can settle, so don't propose anything heavier. When you're unsure, leave it open. Leaving a thread open does no harm, but resolving a major one offscreen can't be undone.
 
-Output ONLY strict JSON:
-{"checklist":["short phrase per player ask"],
+Reply with only strict JSON:
+{"checklist":["one short phrase for each thing the player asked for"],
 "targets":[{"from":"char_id","to":"char_id","warmth":78,"trust":65,"roles":["partner"]}],
 "place_plan":{"create":{"name":"","description_facts":""},"player_moves_to":""},
-"threads_resolve":["EXACT title of an open thread this span of time settles, verbatim from OPEN THREADS. A month can resolve things — a promise gets kept, a question gets answered, a wait ends. Only what the direction actually implies."],
-"threads_new":[{"title":"a NEW open question the DESTINATION creates, born from where they arrive","description":"","tension":3}],
-"household_facts":["durable facts true by the end, full sentences, no pronouns as subject"],
-"beats":[{"span_days":3,"goal":"what this stretch of days is ABOUT"}]}`;
+"threads_resolve":["the exact title of an open thread that this stretch of time settles, copied from OPEN THREADS. A month can settle things: a promise gets kept, a question gets answered, a wait ends. Only include what the direction actually implies."],
+"threads_new":[{"title":"a new open question that the place they end up raises","description":"","tension":3}],
+"household_facts":["lasting facts that are true by the end, in full sentences, without a pronoun as the subject"],
+"beats":[{"span_days":3,"goal":"what this stretch of days is about"}]}`;
 
-const BEAT_SYSTEM = `You are the Narrator writing ONE BEAT of a directed montage — a stretch of days inside a longer skip the player asked for.
+const BEAT_SYSTEM = `You're the narrator, writing one stretch of a montage the player asked for, which covers a run of days inside a longer time skip.
 
-You receive: the player's overall plan, what remains unlanded, a deterministic report of what the world did during these days, and an EDGE ENVELOPE giving the most each relationship may move this beat.
+You're given the player's overall plan, what hasn't happened yet, a fixed report of what the world did during these days, and a set of limits on how far each relationship can move in this stretch.
 
 RULES
-- Write the MIDDLE and leave the destination alone. This beat covers a stretch of days at the size it happened.
-- The deterministic report HAPPENED. Weave it in; never contradict it.
-- Stay inside the envelope. You may move less, or move the opposite way (bad weeks happen), but never more.
-- Memories are personal and local: what THIS character lived these days. Never hand someone a memory of a distant event they have no way of knowing.
-- Facts must stand alone cold to a stranger: full sentence, named subject, no leading pronoun, no quotes.
-- Land plan items when the beat naturally gets there. Say which in "landed".
+- Write the middle part, and leave the ending alone. This stretch covers a run of days, told at the size it actually happened.
+- The fixed report happened. Work it in, and never contradict it.
+- Stay inside the limits. A relationship can move less than the limit, or in the opposite direction (bad weeks happen), but never further.
+- Memories are personal and local: what this particular character lived through in these days. Never give someone a memory of a faraway event they'd have no way of knowing about.
+- A fact has to make sense on its own to a stranger: a full sentence with a named subject, not starting with a pronoun, and without quotes.
+- Tick off items from the plan when this stretch naturally gets to them, and list which ones in "landed".
 
-Output ONLY strict JSON:
-{"vignette":"2-3 paragraphs of prose covering these days. Concrete, specific, no player interiority.",
-"landed":["checklist phrases this beat actually made true"],
-"memories":[{"char_id":"","content":"what this character personally lived these days","importance":4,"day_offset":0}],
-"facts":[{"char_id":"","content":"durable fact that became true in these days"}],
+Reply with only strict JSON:
+{"vignette":"two or three paragraphs of prose covering these days, concrete and specific, without the player's inner thoughts",
+"landed":["checklist phrases this stretch actually made true"],
+"memories":[{"char_id":"","content":"what this character personally lived through in these days","importance":4,"day_offset":0}],
+"facts":[{"char_id":"","content":"a lasting fact that became true in these days"}],
 "edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"note":"","roles_set":[]}],
-"events":["2-4 one-line happenings from these days"],
-"threads_resolve":["EXACT title of an open thread these days settled — only if the vignette actually shows it settling"],
+"events":["two to four one-line things that happened in these days"],
+"threads_resolve":["the exact title of an open thread these days settled, and only if the vignette actually shows it being settled"],
 "threads_new":[{"title":"a new open question these days raised","description":"","tension":3}],
-"traits_expressed":[{"char_id":"","traits":["EXACT core trait string, verbatim from that character's Core: list"]}]}
+"traits_expressed":[{"char_id":"","traits":["the EXACT core trait string, copied from that character's Core: list"]}]}
 
-TRAITS_EXPRESSED: which of a character's core traits these days actually put on screen — judged by MEANING; the same beat reworded is the same beat. Someone whose trait is "loves ice cream" expresses it by eating gelato or sorbet; "loves basketball" by a pickup game. Copy the trait string verbatim so it can be matched, but decide by what the scene means. Omit anyone whose traits didn't surface.`;
+TRAITS_EXPRESSED: which of a character's core traits actually showed in these days. Judge by meaning, so the same moment described in different words counts as the same moment. Someone whose trait is "loves ice cream" shows it by eating gelato or sorbet, and "loves basketball" by playing a pickup game. Copy the trait string exactly so it can be matched, but decide by what the scene means. Leave out anyone whose traits didn't come up.`;
 
 export interface MontageOptions {
   days: number;
@@ -109,13 +109,13 @@ export async function planMontage(state: SaveState, opts: MontageOptions): Promi
     .map(([id, c]) => `${id} = ${c.name}`).join("\n");
   const ask = [
     `DIRECTION: ${opts.direction}`,
-    `SPAN: ${opts.days} days, to be told in exactly ${spans.length} beats of ${spans.join(", ")} days.`,
+    `SPAN: ${opts.days} days, told in exactly ${spans.length} stretches of ${spans.join(", ")} days.`,
     `ROSTER:\n${roster}`,
     `PLACES: ${Object.values(state.world.places).map((p) => p.name).join(", ")}`,
     state.world.threads.some((t) => t.status === "active")
-      ? `OPEN THREADS (resolve by EXACT title). A ${opts.days}-day skip may settle threads of tension ${resolvableTension(opts.days)} or LOWER — anything heavier stays open no matter what you propose:\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(opts.days) ? " — TOO HEAVY, leave open" : ""}`).join("\n")}`
+      ? `OPEN THREADS (resolve them by their exact title). A ${opts.days}-day skip can settle threads with tension ${resolvableTension(opts.days)} or lower, and anything heavier stays open whatever you propose:\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(opts.days) ? " — TOO HEAVY, leave it open" : ""}`).join("\n")}`
       : "",
-    `Return exactly ${spans.length} beats with span_days ${spans.join(", ")} in that order.`,
+    `Send back exactly ${spans.length} stretches, with span_days of ${spans.join(", ")}, in that order.`,
   ].join("\n\n");
 
   let plan: MontagePlan = { checklist: [], targets: [], beats: [] };
@@ -354,20 +354,20 @@ export async function runMontage(
       const a = beatAllowance(origins, t, i + 1, n);
       const e = state.world.edges.find((x) => x.from === t.from && x.to === t.to);
       const nm = `${state.characters[t.from]?.name} → ${state.characters[t.to]?.name}`;
-      return `${nm}: warmth now ${e?.warmth ?? 0} (target ${t.warmth ?? "—"}), this beat may move at most ${a.warmth >= 0 ? "+" : ""}${a.warmth}; trust now ${e?.trust ?? 0} (target ${t.trust ?? "—"}), at most ${a.trust >= 0 ? "+" : ""}${a.trust}`;
+      return `${nm}: warmth is now ${e?.warmth ?? 0} (target ${t.warmth ?? "—"}), and this stretch can move it by at most ${a.warmth >= 0 ? "+" : ""}${a.warmth}; trust is now ${e?.trust ?? 0} (target ${t.trust ?? "—"}), and it can move by at most ${a.trust >= 0 ? "+" : ""}${a.trust}`;
     }).join("\n");
 
     const ask = [
       `MONTAGE DIRECTION: ${opts.direction}`,
       `THIS BEAT (${i + 1} of ${n}): ${b.goal} — ${b.span_days} day(s), now ${state.world.current_time}`,
       remaining.length ? `STILL UNLANDED: ${remaining.join("; ")}` : "",
-      i === n - 1 && remaining.length ? `THIS IS THE FINAL BEAT — land what remains.` : "",
+      i === n - 1 && remaining.length ? `THIS IS THE LAST STRETCH, so make whatever is left happen.` : "",
       envelopeText ? `EDGE ENVELOPE (do not exceed):\n${envelopeText}` : "",
       report.clocks_fired.length ? `CLOCKS FIRED (these HAPPENED):\n${report.clocks_fired.join("\n")}` : "",
       report.drive_log.length ? `WORLD MOTION:\n${report.drive_log.slice(0, 8).join("\n")}` : "",
       report.consequences_due.length ? `NOW AT THE DOOR:\n${report.consequences_due.join("\n")}` : "",
       state.world.threads.some((t) => t.status === "active")
-        ? `OPEN THREADS (resolve by EXACT title, only what these ${b.span_days} day(s) actually settle — max tension ${resolvableTension(b.span_days)}; heavier arcs resolve in played scenes, never here):\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(b.span_days) ? " — TOO HEAVY" : ""}`).join("\n")}`
+        ? `OPEN THREADS (resolve them by their exact title, and only the ones these ${b.span_days} day(s) actually settle, up to tension ${resolvableTension(b.span_days)}; heavier storylines get resolved in played scenes, never here):\n${state.world.threads.filter((t) => t.status === "active").map((t) => `- ${t.title} (tension ${t.tension})${(t.tension ?? 0) > resolvableTension(b.span_days) ? " — TOO HEAVY" : ""}`).join("\n")}`
         : "",
     ].filter(Boolean).join("\n\n");
 
@@ -463,7 +463,7 @@ export async function runMontage(
       .slice(0, 6000);
     const priorPersona = [...(state.chapters ?? [])].reverse().find((c) => c.persona)?.persona;
     const ask = [
-      `These beats are one directed montage the player asked for: "${opts.direction}"`,
+      `These stretches all belong to one montage the player asked for: "${opts.direction}"`,
       `SPAN: ${opts.days} days, ${n} beats.`,
       priorPersona ? `PRIOR READING OF THE PLAYER: ${priorPersona.mbti} — ${priorPersona.read}` : "",
       state.world_bible.destination ? `DESTINATION: ${state.world_bible.destination}` : "",

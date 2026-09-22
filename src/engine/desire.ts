@@ -295,7 +295,7 @@ export function repairAuthoredBonds(state: SaveState): string[] {
       const r = state.condition[e.from]?.psyche.relaxation ?? 0;
       e.desire_admissibility = +clamp(0.5 + r * 0.05, 0, 1).toFixed(2);
     }
-    shifts.push(`${from.name}'s written bond with ${to.name} is restored to the record — the card had it all along.`);
+    shifts.push(`${from.name}'s written relationship with ${to.name} is back in the record. It was on the character card the whole time.`);
   }
   return shifts;
 }
@@ -348,7 +348,7 @@ export function desireLine(state: SaveState, id: string): string {
   const a = e.attraction;
   const r = state.condition[id]?.psyche.relaxation ?? 0;
   const cold = typeof state.characters[id]?.conscience === "number" && state.characters[id].conscience! <= 0.35;
-  if (a <= -15) return "desire toward you: none, actively repelled — SHOW: subtle withdrawal, stiffening at closeness; never narrate the aversion as a stated feeling";
+  if (a <= -15) return "desire toward you: none, and they are actively put off by you. Show it as a slight pulling away and stiffening when you come close, and never state the aversion as a feeling in the narration";
   // A LOW NUMBER IS NOT AN ABSENT BOND. The "none" line below is written for a stranger, and
   // handing it to the narrator about the player's own partner is how a devoted character gets
   // rendered as a wall every turn: told the desire is absent AND told not to invent it, the only
@@ -358,9 +358,9 @@ export function desireLine(state: SaveState, id: string): string {
   const romantic = (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
   if (a < 15 && (romantic || e.warmth >= 25)) {
     const named = romantic ? `${e.roles!.filter((r) => ROMANTIC_ROLE.test(r)).join("/")}` : "close";
-    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the desire is quiet but present. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment shows as ease and closeness.`;
+    return `desire toward you: quiet (${Math.round(a)}), but the bond between you is real and established (${named}, warmth ${Math.round(e.warmth)}). Show it this way: they look for your company, settle in near you, touch you and let themselves be touched without making anything of it, claim you in front of other people, and are hurt when you treat them like staff instead of as yours. The desire is quiet, but it's there. Never write them as indifferent or distant, or as if they were meeting you for the first time, and never narrate that she felt nothing, because a settled attachment shows as ease and closeness.`;
   }
-  if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
+  if (a < 15) return "desire toward you: none. Their warmth stays friendly and nothing more, and a flirt from you would land awkwardly. Don't invent attraction, and never narrate that she felt nothing";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
   /* ── WANTING WITHOUT LIKING ────────────────────────────────────────────────────────────────
    *
@@ -436,7 +436,7 @@ export function desireLine(state: SaveState, id: string): string {
       || ((worst.warmth ?? 0) === (e.warmth ?? 0) && ((worst.attraction ?? 0) > (e.attraction ?? 0)
         || ((worst.attraction ?? 0) === (e.attraction ?? 0) && worst.from.localeCompare(id) < 0))));
     if (outranked) {
-      return `desire toward you: real (${a}) and they do not like you (warmth ${Math.round(e.warmth)}) — SHOW: they keep their distance and are short with you, and the wanting shows only as where they choose to stand and what they cannot quite stop noticing. They do not pursue you and they do not touch you. NEVER write this as flirtation, as banter, or as warmth breaking through.`;
+      return `desire toward you: real (${a}), and they don't like you (warmth ${Math.round(e.warmth)}). Show it this way: they keep their distance and are short with you, and the wanting only shows in where they choose to stand and in what they can't quite stop noticing. They don't pursue you and they don't touch you. Never write it as flirting, as banter, or as warmth breaking through.`;
     }
   }
   if (a >= BURNS && e.warmth <= HOSTILE) {
@@ -454,15 +454,15 @@ export function desireLine(state: SaveState, id: string): string {
      * first report in this whole project was about. Below: the same six behaviours, said as things
      * a body does, with nothing balanced and nothing turned. */
     return adm <= 0.4
-      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they turn up wherever you are and are angry to find themselves there; they stand too close during an argument; when they touch you it hurts a little and they do not apologise; they say something cutting and then do not leave; they start on you about a small thing to get you talking. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER say on the page that they want you. Both the hostility and the wanting are real, and they do not turn into a relationship.`
-      : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: they want you and they are not fond of you, and they are not embarrassed by either; they will say the cold thing and still want you an hour later; they seek you out and give you nothing while they are there. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
+      ? `desire toward you: strong (${a}), and they can't stand you (warmth ${Math.round(e.warmth)}). Both are true at once, so don't let either one cancel the other. Show it this way: they turn up wherever you are and are angry to find themselves there; they stand too close during an argument; when they touch you it hurts a little and they don't apologise; they say something cutting and then don't leave; they pick at you about something small to get you talking. Never soften this into flirting, banter or secret tenderness, never let it turn into liking you, and never say in the prose that they want you. The hostility and the wanting are both real, and they don't turn into a relationship.`
+      : `desire toward you: real (${a}), while they dislike you (warmth ${Math.round(e.warmth)}). Both are true at the same time, and they know this about themselves. Show it this way: they want you and they aren't fond of you, and they aren't embarrassed by either. They'll say something cold and still want you an hour later, and they seek you out and then give you nothing while they're there. Never write this as warmth breaking through, as them softening, or as banter that means they secretly care, and don't make them nicer because they want you.`;
   }
   /* WANTING SOMEBODY YOU DO NOT MUCH LIKE, which is the ordinary version of the above and far
    * commoner than the extreme one. It produces distance, not pursuit: you avoid the person, you are
    * curt with them, and the wanting shows in where you stand rather than in what you do. This band
    * is what most of the cast was getting the extreme line for. */
   if (a >= 30 && e.warmth <= MILD_DISLIKE) {
-    return `desire toward you: real (${a}) alongside genuine dislike (warmth ${Math.round(e.warmth)}) — both true, and the dislike governs the behaviour. SHOW: they keep away from you more than they need to, they are curt when they cannot, and the pull shows only in where they end up standing and what they notice. They do not flirt, do not seek you out, and do not touch you. NEVER write this as tension that is going somewhere, as banter, or as warmth breaking through; and never narrate the wanting.`;
+    return `desire toward you: real (${a}), alongside a real dislike of you (warmth ${Math.round(e.warmth)}). Both are true, and the dislike decides how they behave. Show it this way: they stay away from you more than they need to, they're curt when they can't, and the pull only shows in where they end up standing and what they notice. They don't flirt, don't seek you out and don't touch you. Never write this as tension that's building toward something, as banter, or as warmth breaking through, and never narrate the wanting.`;
   }
 
   /* ── THE DEAD ZONE, AND WHAT IT COST ────────────────────────────────────────────────────────
@@ -504,20 +504,20 @@ export function desireLine(state: SaveState, id: string): string {
   const SORE = -8;
   if (a >= 30 && e.warmth < COOL && !romantic) {
     const sore = e.warmth <= SORE;
-    return `desire toward you: real (${a}) with ${sore ? `no goodwill left in it (warmth ${Math.round(e.warmth)}, and they are annoyed with you)` : `no attachment behind it (warmth ${Math.round(e.warmth)})`} — they want you and ${sore ? "are angry at you, and both are true at once. Neither one cancels the other" : "have no particular feelings about you. Treat that as finished rather than as a bond that has not formed yet"}. `
-      + `SHOW: THEY PURSUE — they turn up where you are, put themselves in your way, keep the contact going, and take an opening when one is there. They want your body and your presence and take no interest in your day; they never ask after you and never soften${sore ? ", and everything they do arrives with an edge on it: they stand closer than they need to and are sharp while they do it, they touch you roughly and do not remark on it, they start on you about a small thing to keep you there" : ", and whether you like them does not come up"}. `
-      + `They stay in the room${sore ? ", and being cross brings them nearer rather than sending them home" : ""}. They stop when they are refused outright, and then they go cold and come back later. `
-      + `NEVER render this as fondness, tenderness, or the beginning of caring${sore ? ", and never let the anger resolve into liking you" : ""}, and never narrate the wanting outright — it is in what they do.`;
+    return `desire toward you: real (${a}), with ${sore ? `no goodwill in it (warmth ${Math.round(e.warmth)}, and they're annoyed with you)` : `no attachment behind it (warmth ${Math.round(e.warmth)})`}. They want you and ${sore ? "they're angry with you, and both are true at once, so neither one cancels the other" : "have no particular feelings about you. Treat that as settled, not as a bond that just hasn't formed yet"}. `
+      + `Show it this way: they pursue you. They turn up where you are, put themselves in your way, keep the contact going and take any opening they get. They want your body and your company and aren't interested in your day, so they never ask how you are and never soften${sore ? ", and everything they do has an edge to it: they stand closer than they need to and are sharp with you while they do, they touch you roughly and don't mention it, and they pick at you about something small to keep you there" : ", and whether you like them never comes up"}. `
+      + `They stay in the room${sore ? ", and being annoyed brings them closer instead of sending them home" : ""}. If you refuse them outright they stop, go cold, and come back later. `
+      + `Never write this as fondness, tenderness or the beginning of caring${sore ? ", and never let the anger turn into liking you" : ""}, and never narrate the wanting directly, because it shows in what they do.`;
   }
   // Each line: a behavioral instruction (what to SHOW) plus an explicit NEVER — the narrator must not
   // convert the desire into a quotable interior sentence ("she resented not having him"). Magnitude (a)
   // is kept for calibration; the interpretation is stripped so it can't be paraphrased into prose.
   if (cold) return adm >= 0.4
-    ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth used as a tool, gifts that come with expectations; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
-    : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, keeping track of who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
-  if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, angles for closeness, makes and takes openings, and lets you be when you want to be let be; they act on it in the scene rather than waiting to be approached; NEVER state the wanting outright — render it as behavior`;
-  if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, possessiveness presented as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
-  return `desire toward you: real (${a}), not yet settled — SHOW: surfaces in small glances and half-gestures when the moment allows; NEVER state it outright — behavior only`;
+    ? `desire toward you: strong (${a}), and they're cold by nature. Show it as patient, charming pursuit, warmth used as a tool, and gifts that come with expectations. Never narrate the wanting or say that the charm is a technique; show only their behaviour and let the player pick up on it`
+    : `desire toward you: strong (${a}), and they're cold and grasping. Show it as possessiveness, keeping track of who is near you, sharpness toward rivals, and a gift that is really a claim on you. Never narrate resentment or wanting, or write something like "she resented not having him"; show only what they do`;
+  if (adm >= 0.6) return `desire toward you: real (${a}) and settled. Show it this way: they flirt, tease, angle to get close, create openings and take them, and leave you alone when you want to be left alone. They act on it during the scene instead of waiting for you to come to them. Never state the wanting outright; show it as behaviour`;
+  if (adm <= 0.35) return `desire toward you: strong (${a}), but they won't admit it. It comes out as grasping: possessiveness, sharpness, doing things "for your own good", and possessiveness dressed up as care. Never narrate the pull or say that they can't admit it; show only what they do`;
+  return `desire toward you: real (${a}), but not settled yet. It shows up in small glances and half-finished gestures when the moment allows. Never state it outright; show it only through behaviour`;
 }
 
 /**
@@ -592,10 +592,10 @@ export function tickDesire(state: SaveState): string[] {
     const has = cond.psyche.active_states.includes(label);
     if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && !has) {
       cond.psyche.active_states.push(label);
-      shifts.push(`${c.name} is holding on too tight — the wanting has become possessive.`);
+      shifts.push(`${c.name} is holding on too tightly, and the wanting has turned possessive.`);
     } else if (has && cond.psyche.relaxation >= 2) {
       cond.psyche.active_states = cond.psyche.active_states.filter((s) => s !== label);
-      shifts.push(`${c.name}is less possessive now, though the wanting is still there.`);
+      shifts.push(`${c.name} is less possessive now, though they still want you.`);
     }
     if (cond.psyche.active_states.includes(label)) {
       cond.psyche.relaxation = Math.max(-10, +(cond.psyche.relaxation - 0.3).toFixed(2));
@@ -655,9 +655,9 @@ export function effectiveStanding(power: number, witnessedTier?: string | null):
 }
 
 function standingCue(power: number): string {
-  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They yield the floor, keep any verdict on you to themselves, and let you close the exchange. Disagreement comes out sideways or stays in — a half-sentence, a look away, doing the thing while plainly not wanting to. A refusal from them is short and visibly hard for them.";
-  if (power <= -6) return " — AND THEY STAND BELOW YOU (standing " + Math.round(power) + "): they measure their words around you, let you finish, and do not summarise your character back at you. They can still refuse and still hold a line, but they do it briefly and without the last word.";
-  if (power >= 20) return " — AND THEY HOLD THE POWER HERE (standing " + Math.round(power) + "): they can afford to be unhurried, to interrupt, to decline without explaining.";
+  if (power <= -20) return " They are also far below you in standing and they know it (standing " + Math.round(power) + "), so they defer to you. They let you talk, keep any opinion of you to themselves, and let you be the one to end the conversation. Disagreement comes out indirectly or not at all: a half-finished sentence, looking away, or doing what you asked while plainly not wanting to. When they refuse you, the refusal is short and clearly hard for them.";
+  if (power <= -6) return " They are also below you in standing (standing " + Math.round(power) + "), so they choose their words carefully around you, let you finish, and don't sum up your character to your face. They can still refuse you and still stand firm, but they do it briefly and without having the last word.";
+  if (power >= 20) return " They also have the power here (standing " + Math.round(power) + "), so they can afford to take their time, interrupt you, and say no without explaining.";
   return "";
 }
 
@@ -666,34 +666,34 @@ export function dispositionCue(warmth: number, trust: number, power = 0): string
   // person DOES, including how they disagree — warmth lowers ceremony, not independence, and a
   // band that only describes affection renders as a compliance machine.
   const care =
-    warmth >= 70 ? "loves you / devoted (warmth very high) — open affection, protectiveness, seeks your closeness; devotion is not obedience: they refuse freely, tease you, argue when they think you are wrong, and keep their own plans" :
-    warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses; comfortable teasing you, disagreeing, and saying no" :
-    warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, glad you're near; talks freely, including disagreement" :
-    warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, pleasant; slow to grant a FAVOR, but ordinary business is ordinary business" :
-    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal about anything risky; asks small questions and watches before volunteering anything BEYOND their ordinary dealings" :
-    warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged, polite brush-offs" :
-    warmth > -45 ? "dislikes you (warmth negative) — sharp, unwelcoming" :
-    "resents or hates you (warmth very negative) — openly cold or antagonistic";
+    warmth >= 70 ? "loves you and is devoted to you (warmth very high). They show affection openly, are protective, and look for your company. Being devoted doesn't mean obeying: they refuse you freely, tease you, argue when they think you're wrong, and keep their own plans" :
+    warmth >= 45 ? "is fond of you (warmth high). They clearly care, soften around you and do you small kindnesses, and they're comfortable teasing you, disagreeing and saying no" :
+    warmth >= 20 ? "likes you and is warming to you (warmth moderate, on a scale from −100 to 100 where 0 is a stranger). They're friendly and glad to have you around, and they talk freely, including when they disagree" :
+    warmth >= 5 ? "is mildly well disposed toward you (warmth slight). They're polite and pleasant, and slow to do you a favour, but ordinary business still gets done as usual" :
+    warmth > -5 ? "is neutral (warmth around 0), which is how anyone treats a stranger. They're polite, sizing you up, and noncommittal about anything risky, and they ask small questions and watch before offering anything beyond their ordinary dealings" :
+    warmth > -20 ? "is cool toward you (warmth mildly negative). They're distant and uninterested, and they brush you off politely" :
+    warmth > -45 ? "dislikes you (warmth negative), so they're sharp and unwelcoming" :
+    "resents or hates you (warmth very negative), so they're openly cold or hostile";
   const rely =
-    trust >= 50 ? "and trusts you (relies on your word, lowers their guard — reliance, not deference: they still judge for themselves)" :
-    trust >= 20 ? "and is starting to trust you (testing, hopeful)" :
-    trust >= 0 ? "but doesn't fully trust you yet (still cautious, watching)" :
-    trust > -25 ? "and is wary of trusting you (guarded, keeps a little distance)" :
-    "and does not trust you (expects the worst, stays defensive)";
+    trust >= 50 ? "and trusts you (they rely on your word and lower their guard, but that's reliance, not deference, and they still make up their own minds)" :
+    trust >= 20 ? "and is starting to trust you (testing you, and hopeful)" :
+    trust >= 0 ? "but doesn't fully trust you yet (still careful and watching)" :
+    trust > -25 ? "and is wary of trusting you (guarded, and keeping a little distance)" :
+    "and doesn't trust you (expects the worst and stays on the defensive)";
   // spell out the divergence so the narrator can't collapse warm-but-cautious into cold
   const note = warmth >= 20 && trust < 20
-    ? " — RENDER BOTH: the warmth is real and shows (care, softness, loyalty), the low trust only makes them guarded, NOT cold or hostile; do not write a caring character as a distant stranger"
+    ? ". Show both: the warmth is real and visible, as care, softness and loyalty, and the low trust only makes them guarded, not cold or hostile. Don't write a character who cares about you as a distant stranger"
     : warmth <= -20
-      ? " — this coldness is THIS character's earned stance from what's passed between you, not a default suspicion to apply to everyone"
+      ? ". This coldness is this particular character's reaction to what has happened between you, not a general suspicion to apply to everyone"
       : warmth >= 45 && trust >= 20
-        ? " — let this warmth be plainly visible; do not make the player re-earn it every scene"
+        ? ". Let this warmth show plainly, and don't make the player win it back in every scene"
         : "";
   // A TRANSACTION IS NOT A FAVOR. Low warmth means slow to give, slow to trust, slow to commit — it
   // does not mean a publican refuses to sell a drink. Without this said outright, every band above
   // reads as blanket obstruction and the whole world becomes a wall: an innkeeper handed a year's
   // wages in gold spends three turns deciding whether to pour, and the player stops asking anyone
   // for anything. Coldness is about what someone will GIVE, never about whether their trade works.
-  const trade = " — ORDINARY WORK IS NOT A FAVOR: whatever this person does for a living they still do for a stranger, without needing to like them. Serving, ferrying, giving directions, answering a question any passer-by could answer — none of that needs warmth. Withhold favors, trust, secrets, loyalty, and risk, and still let people do their everyday work.";
+  const trade = ". ORDINARY WORK IS NOT A FAVOR. Whatever this person does for a living, they still do it for a stranger, without needing to like them. Serving food, ferrying people, giving directions and answering a question any passer-by could answer don't need any warmth. Hold back favours, trust, secrets, loyalty and risk, but still let people do their everyday work.";
   return `${care} ${rely}${note}${trade}` + standingCue(power);
 }
 
@@ -762,7 +762,7 @@ export function tickRivalry(state: SaveState): string[] {
       if (cond.psyche.relaxation < gripBelow) {
         if (!cond.psyche.active_states.includes(label)) {
           cond.psyche.active_states.push(label);
-          shifts.push(`${watcher.name} notices the competition — watching ${state.characters[sharpest.rivalId]?.name} close in hurts them.`);
+          shifts.push(`${watcher.name} notices the competition, and watching ${state.characters[sharpest.rivalId]?.name} get closer hurts.`);
         }
         // stale labels for rivals no longer sharpest fall away
         for (const s of held) if (s !== label) cond.psyche.active_states = cond.psyche.active_states.filter((x) => x !== s);
@@ -774,7 +774,7 @@ export function tickRivalry(state: SaveState): string[] {
     } else if (held.length) {
       // no rival landing in the room: the state has nothing to push against and releases
       cond.psyche.active_states = cond.psyche.active_states.filter((s) => !s.startsWith(JEALOUS_PREFIX));
-      shifts.push(`${watcher.name}'s jealousy eases — nothing is provoking it right now.`);
+      shifts.push(`${watcher.name}'s jealousy eases, because nothing is stirring it up right now.`);
     }
   }
   return shifts;

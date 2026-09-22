@@ -24,32 +24,32 @@ import { clipText } from "./text";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
 
-const DRIVE_SYSTEM = `You give ONE person their next want, as part of a life that belongs to them.
+const DRIVE_SYSTEM = `You give one person the next thing they want, as part of a life that belongs to them.
 
-WHAT A WANT IS: something this person is trying to GET, MAKE, KEEP, MEND, WIN, or ESCAPE, that they can move toward by their own hands, on their own authority, starting today. It comes out of who they are — the work they do, what they have, who they are close to, what they were before this, what they are afraid of losing. It should be specific enough that you could tell whether they had achieved it.
+A want is something this person is trying to get, make, keep, fix, win or escape, that they can work toward with their own hands and on their own authority, starting today. It comes from who they are: the work they do, what they have, who they're close to, what they were before this, and what they're afraid of losing. It should be specific enough that you could tell whether they'd achieved it.
 
-INVALID, and these are the common failures:
-- A DECISION. "Decide whether to accept the offer", "work out whether to trust him", "choose between staying and going" — deciding is not doing. A person with a real want has already decided and is now trying to bring it about. If they are genuinely torn, the want is the thing they will do to find out: go and look at the other option, ask the person who would know, put a foot in one camp and see how it feels.
-- WAITING FOR AN ANSWER. "Get a clear answer from him", "find out what he intends", "have her say plainly what she means." No one else's word can be your goal. It can be a step, but the goal is what you will do with the answer either way.
-- APPROVAL, PERMISSION, OR PROOF FROM ANOTHER. "Test whether his offer is sincere", "earn his trust", "be taken seriously by them." These hand the person's life to someone else to run.
-- VAGUE PEACE. "Find peace and quiet", "tend to something neglected", "keep her head down." These are filler and describe nobody in particular. Write what she actually does with her hands this week.
-- ANYTHING PHRASED AROUND ONE PARTICULAR PERSON'S FEELINGS toward them. Bonds are real and belong in the want as a REASON or a METHOD — she wants the field cleared before the frost BECAUSE her brother's family eats from it — never as the object.
+These don't count, and they're the usual mistakes:
+- A decision, like "Decide whether to accept the offer", "work out whether to trust him" or "choose between staying and going". Deciding isn't doing. Someone with a real want has already decided and is now trying to make it happen. If they really are torn, the want is what they'll do to find out, like going to look at the other option, asking the person who would know, or trying out one side to see how it feels.
+- Waiting for an answer, like "Get a clear answer from him", "find out what he intends" or "have her say plainly what she means". Nobody else's word can be your goal. Getting it can be a step, but the goal is what you'll do with the answer either way.
+- Approval, permission or proof from someone else, like "Test whether his offer is sincere", "earn his trust" or "be taken seriously by them". These hand the person's life over to someone else to run.
+- Vague peace, like "Find peace and quiet", "tend to something neglected" or "keep her head down". These are filler and don't describe anyone in particular. Write what she actually does with her hands this week.
+- Anything built around one particular person's feelings toward them. Bonds are real and belong in the want as a reason or a method, for example she wants the field cleared before the frost because her brother's family eats from it, but they're never the thing being wanted.
 
-- ABSTENTION. "Get through the day without calling him." "Avoid Mara until she's calmed down." "Stop herself from saying the thing." "Keep it together in front of the children." A want you satisfy by NOT doing something cannot be stepped toward, and every system downstream needs a step: the world-sim is asked each pass for a named person taking a concrete action on a want, and there is no action that is the absence of one. A save's whole offstage report came back as three other people texting HER while she did nothing, on every pass, because her recorded want was to refrain. Restraint is real and belongs in the BLOCKER or in how they carry it — never as the goal. The goal is what they do with the hands: go to the one person who will still pick up, clear his things out of the flat, walk into her sister's kitchen at midnight, take the shift nobody wants.
+- Holding back, like "Get through the day without calling him", "Avoid Mara until she's calmed down", "Stop herself from saying the thing" or "Keep it together in front of the children". A want you satisfy by not doing something can't be worked toward, and everything else in the engine needs a step to take. Each time the world simulation runs, it's asked for a named person taking a concrete action on a want, and there's no action that consists of not acting. In one save, every offstage report came back as three other people texting her while she did nothing, because her recorded want was to hold back. Restraint is real, but it belongs in the blocker or in how they carry the want, never as the goal. The goal is what they do with their hands: go to the one person who'll still pick up, clear his things out of the flat, walk into her sister's kitchen at midnight, or take the shift nobody wants.
 
-- A DOCUMENT. "Draft a written schedule of duties", "reconcile the ledgers into a clean tally", "secure a written agreement sealed before she leaves", "lock in a season's supply contract", "press on with the negotiation for the charter". Paperwork technically satisfies every rule above — it is concrete, needs nobody's permission, can start today, and has a clear end — and it is almost never what a person actually wants. One save reached nine living characters and FIVE of them were producing documents — a clerk, a steward, a merchant, an envoy, and the commander of an invading army, who was negotiating a charter. The player said: I had to invent an army to make it interesting and the army is signing charters.
-  A record is a MEANS. If the want really does run through a document, the want is the thing the document gets them — the grain in the cellar before the frost, the rival kept off the council, the sister's boy taken on at the vault — and the paper is at most the first step. Never the goal.
+- A document, like "Draft a written schedule of duties", "reconcile the ledgers into a clean tally", "secure a written agreement sealed before she leaves", "lock in a season's supply contract" or "press on with the negotiation for the charter". Paperwork technically passes every rule above, because it's concrete, needs nobody's permission, can start today and has a clear end, but it's almost never what a person actually wants. In one save with nine living characters, five of them were producing documents: a clerk, a steward, a merchant, an envoy, and the commander of an invading army, who was negotiating a charter. The player said: I had to invent an army to make it interesting and the army is signing charters.
+  A document is only ever a means to something. If the want really does go through a document, the want is what the document gets them, like the grain in the cellar before the frost, the rival kept off the council, or the sister's boy taken on at the vault. The paperwork is at most the first step and never the goal.
 
-WANTS ARE NOT ALL ADMINISTRATIVE. Before you write, consider what else a person spends a week on: a body (get strong again after the winter sickness, sleep somewhere warm, eat properly for once); an appetite (bed someone, get drunk with people who knew them before, hear the good singer at the market); a grudge (make the man who insulted them answer for it publicly); repair (fix the roof before it takes the ceiling, get the mare's leg right); curiosity (find out what is actually down the north road, learn to read); standing (be asked to the table where the decisions get made); somebody else (get their brother out of the levy, find the girl a place). Pick the one that fits THIS person's traits, background, skills and interests. If two people in the same story have wants of the same KIND, change one of them.
+Wants aren't all administrative. Before you write one, think about what else a person spends a week on. It might be their body (getting strong again after the winter sickness, sleeping somewhere warm, eating properly for once), an appetite (going to bed with someone, getting drunk with people who knew them before, hearing the good singer at the market), a grudge (making the man who insulted them answer for it in public), a repair (fixing the roof before it brings down the ceiling, getting the mare's leg right), curiosity (finding out what's really down the north road, learning to read), standing (being invited to the table where decisions get made), or someone else (getting their brother out of the army draft, finding the girl a place). Pick whichever fits this person's traits, background, skills and interests. If two people in the same story have the same kind of want, change one of them.
 
-SCALE IT TO WHO THEY ARE. Someone powerful, independent, or used to command does not spend their want on whether a person likes them: they take ground, install someone, settle a score, break a rival, build the thing they have been describing for years. A servant's want is smaller and just as much theirs. Read the traits and background you are given and write the want that person would actually carry — a dominating, confident, independent character whose goal is to await instructions is a contradiction, so do not write one.
+Make it the right size for who they are. Someone powerful, independent or used to giving orders doesn't spend their want on whether someone likes them. They take ground, put someone in place, settle a score, break a rival, or build the thing they've been talking about for years. A servant's want is smaller, but it's just as much their own. Read the traits and background you're given and write the want that person would really have. A dominating, confident, independent character whose goal is to wait for instructions makes no sense, so don't write one.
 
-Also give a first concrete STEP they could take within a day, by their own means, without anyone's permission.
+Also give a first concrete step they could take within a day, by their own means, without anyone's permission.
 
-AND GIVE THEM AN APPROACH: the way this particular person goes after the want when other people are in the room. Almost nobody walks up and states what they are after, and the approach they choose shows who they are. The adjacent subject raised so they can watch the reaction. The question asked so the other person volunteers it. Telling it as something that happened to a colleague. Floating a small deniable version first. Using an interest they already have as a way into the subject. Working through a third person who will carry it for them. Doing a favour first so the asking is easier. Base it on THEIR traits, the lines recorded under VOICE, and their standing — a blunt person's approach is simply short — and write it as something they DO, in a few words. It must not restate the goal.
+And give them an approach: the way this particular person goes after the want when other people are around. Almost nobody walks up and says what they're after, and the way they go about it shows who they are. They might bring up a related subject so they can watch the reaction, ask a question so the other person offers it themselves, tell it as something that happened to a colleague, try out a small version they could deny, use an interest they already have as a way into the subject, work through a third person who'll carry it for them, or do a favour first so asking is easier. Base it on their traits, the lines recorded under VOICE, and their standing (a blunt person's approach is just short), and write it in a few words as something they do. It shouldn't just repeat the goal.
 
-Output ONLY:
-{"goal":"one sentence, concrete, theirs","approach":"how they go after it around other people","step":"the first thing they do","why":"the trait, grudge, bond or fear this grows from"}`;
+Reply with only:
+{"goal":"one concrete sentence, and it belongs to them","approach":"how they go after it when other people are around","step":"the first thing they do","why":"the trait, grudge, bond or fear this comes from"}`;
 
 /** A goal is invalid if it cannot be pursued without someone else supplying an answer. */
 export function isDependentGoal(goal: string, playerName: string): boolean {
@@ -208,7 +208,7 @@ function brief(state: any, id: string): string {
         .slice(0, 8)
         .map(([, o]) => `- ${o.name}: ${clipText(o.drive.goal, 170)}`);
       return held.length
-        ? `\nWANTS ALREADY TAKEN IN THIS STORY — yours must not be the same KIND as any of these. If they are all paperwork errands, yours must be something else entirely:\n${held.join("\n")}`
+        ? `\nWANTS OTHER PEOPLE IN THIS STORY ALREADY HAVE (yours can't be the same kind as any of these, and if they're all paperwork errands, yours has to be something else entirely):\n${held.join("\n")}`
         : "";
     })(),
     `\nOPEN BUSINESS IN THE WORLD: ${(state.world.threads ?? []).filter((t: any) => t.status === "active").map((t: any) => t.title).join("; ") || "nothing pressing"}`,
@@ -229,10 +229,10 @@ function brief(state: any, id: string): string {
       if (!dest) return "";
       const missing = String(state.destination_progress?.missing ?? "").trim();
       const named = new RegExp(`\\b${(c.name ?? "").split(/\\s+/)[0]}\\b`, "i").test(`${dest} ${missing}`);
-      return `\nWHERE THIS STORY IS HEADED: ${dest}${missing ? `\nWHAT STILL STANDS BETWEEN HERE AND THERE: ${missing}` : ""}`
+      return `\nWHERE THIS STORY IS HEADED: ${dest}${missing ? `\nWHAT STILL STANDS BETWEEN NOW AND THAT ENDING: ${missing}` : ""}`
         + (named
-          ? `\nTHIS PERSON IS NAMED IN THAT ENDING. Their want must be ABOUT it — moving toward it, resisting it, bargaining with it, or trying to get it on their own terms. Their want must deal with that ending in some way, because the ending needs this person.`
-          : `\nThey are not named in that ending, so they do not have to serve it — but they live in the world it is happening to. Their own want may cut across it, complicate it, or ignore it for their own reasons; it should not be written as though the ending does not exist.`);
+          ? `\nTHIS PERSON IS NAMED IN THAT ENDING, so their want has to be about it: moving toward it, resisting it, bargaining with it, or trying to get it on their own terms. The ending needs this person, so their want has to deal with it somehow.`
+          : `\nThey aren't named in that ending, so they don't have to serve it, but they live in the world it's happening to. Their own want can cut across it, complicate it or ignore it for their own reasons, but it shouldn't be written as though the ending doesn't exist.`);
     })(),
   ].filter(Boolean).join("\n");
 }
@@ -253,18 +253,18 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       if (!goal || goal.length < 8) continue;
       if (isDependentGoal(goal, playerName)) {
         console.info(`[drives] rejected player-contingent goal for ${c.name}: "${goal}"`);
-        rejection = "\n\nYour previous attempt was rejected for being a decision, a wait for someone's answer, or a bid for approval. Write what this person DOES.";
+        rejection = "\n\nYour last attempt was rejected for being a decision, waiting for someone's answer, or trying to win someone's approval. Write what this person does.";
         continue;
       }
       if (isAbstentionGoal(goal)) {
         console.info(`[drives] rejected abstention goal for ${c.name}: "${goal}"`);
-        rejection = "\n\nYour previous attempt was a want satisfied by NOT doing something, which can never be stepped toward and leaves this person motionless while everyone around them acts. Restraint belongs in the blocker, not the goal. Write what they DO with their hands this week.";
+        rejection = "\n\nYour last attempt was a want you satisfy by not doing something. Nobody can take a step toward that, so it leaves this person standing still while everyone around them acts. Restraint belongs in the blocker, not the goal. Write what they do with their hands this week.";
         continue;
       }
       const holders = paperworkHolders(state, id);
       if (holders.length && isPaperworkGoal(goal)) {
         console.info(`[drives] rejected paperwork goal for ${c.name} (${holders.join(", ")} already have one): "${goal}"`);
-        rejection = `\n\nYour previous attempt was another paperwork errand, and ${holders.join(" and ")} ${holders.length === 1 ? "is" : "are"} already doing that in this story. Write a want of a different KIND — the body, an appetite, a grudge, a repair, curiosity, standing, or somebody else they are trying to get something for.`;
+        rejection = `\n\nYour last attempt was another paperwork errand, and ${holders.join(" and ")} ${holders.length === 1 ? "is" : "are"} already doing that in this story. Write a different kind of want, about the body, an appetite, a grudge, a repair, curiosity, standing, or someone else they're trying to get something for.`;
         continue;
       }
       /* AND A WANT IS NOT AN EPIGRAM. The three rejections above are about what the want DOES —
@@ -281,7 +281,7 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       const fig = figureIn(`${goal} ${(j as any).approach ?? ""} ${j.step ?? ""}`);
       if (fig) {
         console.info(`[drives] rejected a want written as a general statement for ${c.name}: "${fig.text}"`);
-        rejection = `\n\nYour previous attempt named nothing anyone could point at: "${fig.text.slice(0, 160)}" — ${fig.why}. Write the want as something specific: the object they are trying to get hold of, the person they have to go and see, the place they are going, the job that has to be finished. A reader should be able to say on any given day whether they have it yet.`;
+        rejection = `\n\nYour last attempt didn't name anything anyone could point at: "${fig.text.slice(0, 160)}" (${fig.why}). Write the want as something specific: the object they're trying to get hold of, the person they have to go and see, the place they're going, or the job that has to be finished. On any given day, a reader should be able to say whether they have it yet.`;
         continue;
       }
       // the door is only kept when it is actually a different sentence from the want; a model that
