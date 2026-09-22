@@ -59,18 +59,18 @@ export interface Read {
 
 // ── faculty derivation ───────────────────────────────────────────────────────
 
-const FACULTY_SYSTEM = `You derive a person's PERCEPTUAL APPARATUS from their character card — the specific, biased ways THIS person reads other people. Give the four to six habits of attention this particular nervous system actually has, given who they are and what happened to them.
+const FACULTY_SYSTEM = `You derive a person's PERCEPTUAL APPARATUS from their character card — the specific, biased ways THIS person reads other people. Give the four to six habits of attention this particular person actually has, given who they are and what happened to them.
 
 Each faculty gets:
-- name: 1–3 words in the PLAYER'S OWN IDIOM — drawn from their history, work, upbringing, or body. "OLD ARITHMETIC", "THE FLINCH", "COUNTING THE EXITS", "SHOPKEEPER'S EYE". Never a generic RPG stat name (no "Empathy", "Perception", "Insight", "Logic", "Intuition"). Never abstract virtue words.
-- notices: one plain sentence — the concrete class of signal it catches. Faces, hands, money, distance, who eats first, whose voice drops. Filmable inputs.
+- name: 1–3 words in the PLAYER'S OWN IDIOM — drawn from their history, work, upbringing, or body. "THE FLINCH", "COUNTING THE EXITS", "MOTHER'S EAR", "NIGHT-WATCH EYES". Never a generic RPG stat name (no "Empathy", "Perception", "Insight", "Logic", "Intuition"). Never abstract virtue words.
+- notices: one plain sentence — the concrete class of signal it catches. Faces, hands, clothes, distance, who eats first, whose voice drops. Filmable inputs.
 - distorts: one plain sentence — the SPECIFIC wrong conclusion it reaches under pressure. Not "it can be inaccurate": name the error. "Reads any pause as contempt." "Turns confusion into rejection." "Credits kindness it hasn't been shown yet."
 
 HARD BANS. A faculty attends to something a camera could record: a hand, a pause, a distance, a change of pitch, where somebody looks. It may not be a faculty for knowing another person's inside on sight, and it may not be stated as a comparison. THE TEST, applied to every faculty you write: could a camera capture what this one attends to? If not, rewrite it until it can.
 
-The set should DISAGREE with itself. A person whose faculties all point the same way has one faculty. At least one should be generous, at least one should be suspicious, and they should be able to look at the same gesture and reach opposite conclusions.
+The set should DISAGREE with itself, because faculties that all point the same way are really one faculty. At least one should be generous, at least one should be suspicious, and they should be able to look at the same gesture and reach opposite conclusions.
 
-Derive from the card given — traits, values, attachment, history, work, body. A person who grew up hungry has a faculty about food and who is served first. A person trained to close deals has one about the moment someone stops arguing. Do not invent history the card does not contain.
+Derive from the card given — traits, values, attachment, history, work, body. A person who grew up hungry has a faculty about food and who is served first. A person who spent years breaking up fights has one about the moment someone stops arguing. Do not invent history the card does not contain.
 
 Output ONLY JSON: {"faculties":[{"name":"","notices":"","distorts":""}]}`;
 
@@ -119,23 +119,23 @@ export async function deriveFaculties(state: SaveState): Promise<Faculty[]> {
 
 const READ_SYSTEM = `You are ONE PERSON'S read of another person, in the moment, spoken by named faculties of their own perception. You are not a narrator. You have no access to the other person's mind and you are not pretending to have any — everything you produce is this player's conclusion, drawn from a surface, and it can be wrong.
 
-You are given: who the player is, what state their body is in, what they already believe about this person, and the OBSERVABLE SURFACE of the scene — what was said and done, nothing else. That is all you get, because that is all they got.
+You are given: who the player is, what state their body is in, what they already believe about this person, and the OBSERVABLE SURFACE of the scene — what was said and done, nothing else. That is all the player has, so that is all you get.
 
 WRITE EACH READ LIKE THIS:
 - First person, present tense, the player's own voice. "She's already decided." "He wants me to ask."
-- FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". A read is a verdict; verdicts are stated. Wrongness comes from BEING wrong, never from hedging — a hedged read is mush and it is the exact failure this channel exists to replace.
-- ONE short sentence. A read is a thought the length of a thought, and it stops as soon as it has landed.
+- FLAT AND UNHEDGED. No "seems", "appears", "as if", "maybe", "I think", "something in the way". State each read as a conclusion. A wrong read is stated just as flatly as a right one, because a hedged read is useless here.
+- ONE short sentence. Keep it as short as a real thought.
 - NO NEW FACTS. You may not invent a gesture, an object, a line of dialogue, or anything the surface did not already contain. You interpret what is there. If the surface is thin, the read is thin.
-- COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION: a comparison of that kind states the verdict inside itself, which is the one thing a read must earn rather than assert. Default to no comparison at all.
+- COMPARISONS, IF ANY, TOUCH ONLY PHYSICAL FORM, MOTION, TEXTURE, SOUND, OR SCALE. Never compare a person or an act to a ROLE, a PROFESSION, a RITUAL, a RELATIONSHIP, or an INTENTION: a comparison like that hides a conclusion inside it. Default to no comparison at all.
 - Read the PERSON in front of them. Never predict events, never name what will happen next in the story, never advise the player.
 - Faculties may CONTRADICT each other outright. Two reads of the same gesture reaching opposite conclusions is correct and desirable — do not reconcile them, do not have the second one defer to the first.
 
-THE BODY SETS HOW MUCH A READ CAN HOLD. This is the primary axis, and it is not about being nice or being right. A clenched body collapses a person down to ONE attribute, and it is the attribute that matters to the threat. An eased body can hold a person as two things at once that do not resolve into a verdict.
+THE BODY STATE DECIDES HOW COMPLEX A READ CAN BE. This matters more than anything else here. A clenched body collapses a person down to ONE attribute, and it is the attribute that matters to the threat. An eased body can hold a person as two things at once that do not resolve into a verdict.
 - CLENCHED (relaxation at or below -3): each read names exactly ONE thing about the person and admits nothing else. No "and". No qualifier, no partial credit, no second hand. Whatever else is true of them is not available. The read is confident and, in the direction that faculty's distortion names, WRONG — coldness where there is fear, rejection where there is confusion, a verdict where the other person had not decided anything. Never signal that it is unreliable; it has to feel like knowledge.
 - UNSETTLED (between -3 and 3): mostly singular, but one read this turn may carry a second thing it can't reconcile.
-- SETTLED (3 and above): a read may hold two things that sit side by side without resolving — she is cold, and she kept the food for me. Do not reconcile them, do not let the second one soften or cancel the first, and do not draw a conclusion from the pair. Holding the contradiction IS the settled state; a settled read that arrives at one tidy verdict has collapsed the same way a clenched one does.
+- SETTLED (3 and above): a read may hold two things that sit side by side without resolving — she is cold, and she kept the food for me. Do not reconcile them, do not let the second one soften or cancel the first, and do not draw a conclusion from the pair. Keep both; a settled read that reduces to one tidy conclusion is as wrong as a clenched one.
 
-READS ARISE, THEY ARE NOT REACHED. They come already finished, mixed in with the feeling that is already there, and nobody deliberated. Forbidden: "I wonder", "I realize", "I notice", "it occurs to me", "part of me thinks", and every other verb of arriving at a thought. No sentence describes the player thinking. The thought is simply the sentence.
+READS ARRIVE ALREADY FORMED. They come already finished, mixed in with the feeling that is already there, and nobody deliberated. Forbidden: "I wonder", "I realize", "I notice", "it occurs to me", "part of me thinks", and every other verb of arriving at a thought. No sentence describes the player thinking. The thought is simply the sentence.
 
 Never mention relaxation, faculties as a system, the game, or any engine term. Never write the other person's interior as a fact about THEM in a neutral voice — every line belongs to the player and sounds like it.
 
@@ -149,11 +149,11 @@ GOOD (first person or direct address, flat, no figure of speech, a verdict this 
   "She's counting how many times I've lied to her tonight."
 
 BAD, and why:
-  "She is a machine built of facts, clicking through her internal gears." — figurative mush; the whole line is a metaphor doing the work a plain sentence should do.
+  "She is a machine built of facts, clicking through her internal gears." — figurative; the whole line is a metaphor doing the work a plain sentence should do.
   "He is a giant container for secrets that hum." — same, and it says nothing a person could act on.
-  "She watches him the way she reads a difficult passage." — comparison to an ACTIVITY, which smuggles the verdict into the vehicle.
+  "She watches him the way she reads a difficult passage." — comparison to an ACTIVITY, which hides the conclusion inside the comparison.
   "Something in the way she says it makes me think she's angry." — hedged; a read is stated flat, in the player's own voice.
-  "She seems uncertain, though it's hard to tell." — hedged twice; this is the mush this channel exists to replace.
+  "She seems uncertain, though it's hard to tell." — hedged twice.
   "He is calculating what my sorting means for him." — this narrates his interior. Say what the PLAYER concludes: "He's already worked out what I'm worth to him."
 
 Output ONLY JSON: {"reads":[{"faculty":"EXACT NAME GIVEN","line":""}]}`;
@@ -217,7 +217,7 @@ function lens(state: SaveState, targetId: string | null, surface: string, relax:
       ? `${target.name}${target.pronouns ? ` (${target.pronouns})` : ""}. ${target.appearance_now || target.appearance_facts || ""}`
       : `Nobody here is someone the player has a history with. Read whoever the surface puts in front of them — the one doing something, the one who spoke. Strangers get read hardest, because nothing about them can be predicted.`,
     about ? `The player expects them to feel ${about.predicted_warmth > 20 ? "warmly" : about.predicted_warmth < -20 ? "coldly" : "neutrally"} toward them, and reads them as ${about.predicted_stance}. Confidence ${about.confidence.toFixed(2)}.` : "",
-    about?.held_false ? `The player wrongly believes: ${about.held_false}. This belief is LOAD-BEARING — let it shape the reads without ever being examined.` : "",
+    about?.held_false ? `The player wrongly believes: ${about.held_false}. This belief is central — let it shape the reads without ever being examined.` : "",
     (about?.surprise ?? 0) > 0.4 ? `This person has recently done things the player did not predict.` : "",
     recalled ? `\nWhat the player carries about them:\n${recalled}` : "",
     beliefs ? `${beliefs}` : "",
@@ -362,7 +362,7 @@ export function sovereignRead(
   if (!it?.truth?.trim()) return { reads: [], targetId };
   const first = (state.characters[targetId]?.name ?? "").split(/\s+/)[0] || "they";
   const line = inPlainWords(it.truth.trim(), state)
-    + (it.lying ? ` What ${first} is showing is chosen, and it is not this.` : "");
+    + (it.lying ? ` What ${first} is showing is deliberate and differs from this.` : "");
   return { reads: [{ faculty: SOVEREIGN_FACULTY, line }], targetId };
 }
 

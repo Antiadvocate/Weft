@@ -98,7 +98,7 @@ const PRESENT = ["char_player", EM];
   const d = missDirective(st, PRESENT);
   check("it is still ordered when skipped", /THIS WAS ORDERED LAST TURN/.test(d), d);
   check("...still first in the prose", /WRITE IT FIRST THIS TURN/.test(d));
-  check("...and still escalates at two", /There is no third/.test(d));
+  check("...and still escalates at two", /Two turns have now skipped it/.test(d));
   check("it appears in the act block, not the standing one",
     /SIMPLY DOES THIS NOW/.test(habitDirective(st, PRESENT, false)));
 }
@@ -111,7 +111,7 @@ const PRESENT = ["char_player", EM];
   const said = staleWants(st, PRESENT);
   check("...and the player is told, since only they can fix it", said.length === 1, said);
   check("...naming the want and what unsticks it",
-    /has never reached the page/.test(said[0] ?? "") && /rewriting it as something Emily DOES/.test(said[0] ?? ""), said);
+    /has never reached the page/.test(said[0] ?? "") && /rewrite it as something Emily DOES/.test(said[0] ?? ""), said);
   check("...exactly once, not on every turn after",
     staleWants(save([{ ...stuck, missed: MISS_CEILING + 4 }]), PRESENT).length === 0);
   check("a standing want never reaches that report at all",

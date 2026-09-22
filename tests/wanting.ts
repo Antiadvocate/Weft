@@ -57,7 +57,7 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   check("hostility and desire are both stated", /cannot stand you/i.test(line) && /60/.test(line), line);
   check("neither is allowed to cancel the other", /Do not let either one cancel the other/i.test(line), line);
   check("it is not written as flirtation", !/flirts|teases/.test(line), line);
-  check("and not as secret tenderness on the way to a bond", /it does not become a bond/i.test(line), line);
+  check("and not as secret tenderness on the way to a bond", /they do not turn into a relationship/i.test(line), line);
   /* The behaviour named has to be contact-as-friction, and it has to be named as things a body
    * DOES. This assertion used to quote the directive's own phrasing back at it — "stand nearer than
    * the argument needs", "needling as a way of making contact" — which pinned the test to five

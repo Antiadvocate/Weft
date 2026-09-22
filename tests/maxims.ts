@@ -100,7 +100,7 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   check("no sample line is handed over at all", !/"/.test(a.replace(/Would never say[^\n]*/g, "")), a);
   check("a state can override the person", /repeats themselves, stops halfway/.test(a));
   check("length is named as coming from the moment", /LENGTH COMES FROM THAT\./.test(a));
-  check("and a uniformly terse cast is called out as one person", /they have all been written by the same person/.test(a));
+  check("and a uniformly terse cast is called out as one person", /they all sound like you/.test(a));
   check("with a check that can actually be applied", /would produce the same line in this moment/.test(a));
   check("no cards, no note", voiceAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
 }

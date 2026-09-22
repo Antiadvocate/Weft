@@ -104,11 +104,11 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
   } as unknown as SaveState;
 
   const ordinary = habitDirective(state, ["char_player", "char_e"], false);
-  check("in an ordinary scene the trait rotation still fires", /NOT DECORATION/.test(ordinary), ordinary);
-  check("...and it is still unrefusable when it does", /make the room/.test(ordinary));
+  check("in an ordinary scene the trait rotation still fires", /AND THESE MUST SHOW/.test(ordinary), ordinary);
+  check("...and it is still unrefusable when it does", /make room/.test(ordinary));
 
   const guarded = habitDirective(state, ["char_player", "char_e"], true);
-  check("in a guarded scene the rotation stands down", !/NOT DECORATION/.test(guarded), guarded);
+  check("in a guarded scene the rotation stands down", !/AND THESE MUST SHOW/.test(guarded), guarded);
   check("...and no trait is named at all", !/plants by name/.test(guarded), guarded);
 }
 

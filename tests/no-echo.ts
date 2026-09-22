@@ -101,7 +101,7 @@ const CONTRACTS = {
   // In the inline channel note — the tail of the last user message, next to the action itself.
   check("the inline channel note says the line is already said",
     /ALREADY BEEN SAID/i.test(turn) && /do not reproduce the quoted line/i.test(turn));
-  check("and says where to begin instead", /START AT THE MOMENT AFTER IT LANDED/i.test(turn));
+  check("and says where to begin instead", /START AT THE MOMENT AFTER IT WAS SAID/i.test(turn));
   // …and the attribution rule it was conflated with must SURVIVE, stated on its own.
   check("attribution is still protected, separately",
     /NEVER put into another character's mouth/i.test(turn) && /this channel protects is ATTRIBUTION/i.test(turn));

@@ -139,7 +139,7 @@ const MARKET = "Columbia City Farmers Market";
   check("...naming the player's private words specifically",
     /do not know what the player typed, texted, said on a phone call/i.test(OFFSTAGE_SYSTEM));
   check("...and refusing the explanation-as-invention move",
-    /the explanation IS the invention/.test(OFFSTAGE_SYSTEM));
+    /that explanation is itself an invention/.test(OFFSTAGE_SYSTEM));
   check("...with the productive alternative spelled out",
     /they call and get voicemail/.test(OFFSTAGE_SYSTEM));
   check("the witness rule it sits beside still stands",

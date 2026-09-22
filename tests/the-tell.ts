@@ -56,7 +56,7 @@ const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; propertie
   const note = intentForNarrator([intent]);
   check("the surface goes over", note.includes("freezes mid-step"), note);
   check("the tell goes over", note.includes("her jaw sets"), note);
-  check("...as a thing that happens, not a thing that might", /AND THIS GETS THROUGH/.test(note), note);
+  check("...as a thing that happens, not a thing that might", /AND THIS SHOWS/.test(note), note);
   check("...rendered as the body, never as a feeling named", /as the body doing it and never as a feeling named/.test(note), note);
   check("...and not explained", /do not explain it/.test(note), note);
 
@@ -71,7 +71,7 @@ const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; propertie
   check("...and that it is the only route truth has to the page",
     /ONLY way anything you write in truth ever reaches the page/.test(INTENT_SYSTEM));
   check("...and what happens without one",
-    /a person with a whole inner life reads as somebody with none/.test(INTENT_SYSTEM));
+    /seems to have no inner life/.test(INTENT_SYSTEM));
   check("...and that it leaves the truth unread", /leaves what is behind it unread/.test(INTENT_SYSTEM));
   check("...and must be a thing the body does", /a THING THE BODY DOES, never a feeling named/.test(INTENT_SYSTEM));
   check("...and scales with how much is being held", /the more clenched the body, the more there is to leak/.test(INTENT_SYSTEM));

@@ -73,12 +73,12 @@ export const MAX_STAGE = 5;
  *
  *  And the meaning comes LAST. They do not know why they like it until long after they always get it. */
 const NERVE = [
-  "EXPOSURE. It does not happen and is not mentioned — but ONE CONCRETE THING IS ON THE PAGE about it: the scene puts the occasion in front of them and they visibly decline it. They reach for something else instead. They put a hand near and take it back. They step around it. Somebody else could describe what she did, even if nobody could say why. NOT ACTING IS NOT THE SAME AS NOTHING HAPPENING: if a reader could not point at a sentence, this rung has not been written.",
+  "EXPOSURE. It does not happen and is not mentioned — but ONE CONCRETE THING IS ON THE PAGE about it: the scene puts the occasion in front of them and they visibly decline it. They reach for something else instead. They put a hand near and take it back. They step around it. Somebody else could describe what she did, even if nobody could say why. A VISIBLE MOMENT IS REQUIRED EVEN THOUGH SHE DOES NOT ACT: if a reader could not point at a sentence, this rung has not been written.",
   "NEAR IT, BY CIRCUMSTANCE, and again ONE VISIBLE BEAT. Something unrelated keeps her beside it longer than she needed — a wait, a queue, somebody else's errand. She looks properly, and the looking is on the page: her attention goes there twice, she stays a moment past when she could have gone, she stands closer than the task requires. Then the moment ends and she does nothing. Body only. Not one word about it.",
-  "EXAMINING IT — narrowed from the general thing to the specific one, and STILL A VISIBLE ACT: she handles it, weighs it, tests it, positions herself for it, gets close enough that anyone watching would notice and could not prove anything. Then something takes her away before it happens and she lets it go. THE INTERRUPTION IS THE POINT — it is what stops this being a decision — but the approach before the interruption must actually occur on the page.",
+  "EXAMINING IT — narrowed from the general thing to the specific one, and STILL A VISIBLE ACT: she handles it, weighs it, tests it, positions herself for it, gets close enough that anyone watching would notice and could not prove anything. Then something takes her away before it happens and she lets it go. THE INTERRUPTION IS REQUIRED, because it keeps this from being a decision, but the approach before the interruption must actually occur on the page.",
   "THE SIDEWAYS FIRST TIME. It happens, and it arrives through someone else or through a pretext — a third party's opinion, going along with what is already happening, since-we-are-here. Low stakes, deniable, never framed as wanting it. This is the first rung on which the thing itself occurs.",
   "AGAIN, BECAUSE IT IS EASY NOW. No pretext and no reason given. She may skip once and notice the absence — the first moment the wanting becomes conscious to her, and the first moment she might say anything about it at all.",
-  "SIMPLY WHAT SHE DOES. No occasion, no excuse; part of the shape of the day with this person. Only now is there anything to SAY about it — the meaning arrives after the habit, never before.",
+  "SIMPLY WHAT SHE DOES. No occasion, no excuse; part of the shape of the day with this person. Only now is there anything to SAY about it, because she only understands what it means once it has become a habit.",
 ];
 
 /** HOW MUCH OF THIS IS SHOWING, 0.1 to 1.
@@ -180,7 +180,7 @@ function bind(a: AuthoredDrive, stage: number): string {
   if (stage < 3) {
     return ` THE THING ITSELF DOES NOT HAPPEN AT THIS RUNG, and the thing itself is: ${g}. What goes on the page is the approach to that and the turning away from it, written so that a reader who had been told the ending would recognise this as its beginning.`;
   }
-  return ` AND "IT" MEANS THIS, LITERALLY, IN THE BODY: ${g}. That act occurs in this turn's prose, plainly enough that it could not be mistaken for anything else. NOT AN APPROACH TO IT — a gesture that resembles it, skin becoming briefly visible, a hand or a look that someone who already knew would read that way are the rungs BELOW this one, and writing one of them here is writing the wrong rung. The test is subtraction: if the act could be cut out of your paragraph and the paragraph would still make sense, you did not write it. It is also NOT THE SAME BEAT AS LAST TURN, because the same near-miss repeated is a stall wearing the costume of progress.${THRESHOLD}`;
+  return ` AND "IT" MEANS THIS, LITERALLY, IN THE BODY: ${g}. That act occurs in this turn's prose, plainly enough that it could not be mistaken for anything else. NOT AN APPROACH TO IT — a gesture that resembles it, skin becoming briefly visible, a hand or a look that someone who already knew would read that way are the rungs BELOW this one, and writing one of them here is writing the wrong rung. The test is subtraction: if the act could be cut out of your paragraph and the paragraph would still make sense, you did not write it. It is also NOT THE SAME BEAT AS LAST TURN, because repeating the same near-miss stalls the story while looking like progress.${THRESHOLD}`;
 }
 
 /** WHEN THE ACT IS THE PLAYER'S TO PERFORM.
@@ -213,7 +213,7 @@ function bind(a: AuthoredDrive, stage: number): string {
  *
  *  No classifier decides which branch applies — the model can see whose body the goal names better
  *  than a regex can. What matters is that both halves are written as full requirements. */
-const THRESHOLD = ` WHOSE MOVE THIS IS. Everything that is HERS you write, to the end of it. She is a person doing something, and the player being present for it, being touched by it, or being the one it is done to does not turn it into the player's move: people in this world reach for the player, hand them things, take hold of them, and that goes on the page like every other thing that happens. Her half is the act itself, named plainly in what she does, and it stands unhedged, unretracted inside the same turn, uncovered by a joke, and undeferred to a later scene.
+const THRESHOLD = ` WHOSE MOVE THIS IS. Everything that is HERS you write, to the end of it. She is a person doing something, and the player being present for it, being touched by it, or being the one it is done to does not turn it into the player's move: people in this world reach for the player, hand them things, take hold of them, and that goes on the page like every other thing that happens. Her half is the act itself, named plainly in what she does, and it is not hedged, taken back in the same turn, covered with a joke, or put off to a later scene.
 
 WHERE IT STOPS IS THE PLAYER DECIDING. Never write them agreeing, refusing, allowing it, going along with it, reciprocating, moving on purpose, enjoying it or minding it, and never hand them a feeling about it — that is theirs and they type it. When the act cannot go further without the player doing something, THE TURN ENDS THERE, with her move complete and standing and the choice in front of them. Do not move on to another character's business afterwards, because that closes the moment before they can answer it.`
 
@@ -238,7 +238,7 @@ export function authoredLine(a: AuthoredDrive): string {
   // A deadline is stated plainly so the escalation is legible rather than a vibe — and so that a
   // want written by the player is visibly ON A CLOCK rather than optional.
   if (i !== undefined && a.inhabit_turns) {
-    bits.push(`INVENT THE OCCASION — do not wait for one. A habit forms because the world keeps putting the thing in reach, and this world will not do that by itself. Find the reason inside the conditions that already exist here: the heat, the thirst, the work, what is short, what hurts, what has to be carried, who is standing where. "There is no water and she is running a fever." "Her bag strap keeps slipping and her hands are full." "Her joints ache and nobody has salt." The occasion must break no established rule and invent no new fact about the world — it is assembled out of what the scene already contains, which is why it reads as circumstance rather than as a plot handing somebody what they want.\n  ${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. THIS IS NOT OPTIONAL AND IT IS NOT BACKGROUND: write the beat for this rung into this scene, at exactly this strength and no more. Under half it has not happened yet and must not — but "has not happened" still requires a visible moment on the page, in the body, that a reader could point at. A turn in which nothing about it can be seen is a turn in which this failed, and it is the ONLY way to get this wrong besides rushing to the act`);
+    bits.push(`INVENT THE OCCASION — do not wait for one. A habit forms because the world keeps putting the thing in reach, and this world will not do that by itself. Find the reason inside the conditions that already exist here: the heat, the thirst, the work, what is short, what hurts, what has to be carried, who is standing where. "There is no water and she is running a fever." "Her bag strap keeps slipping and her hands are full." "Her joints ache and nobody has salt." The occasion must break no established rule and invent no new fact about the world — it is built from what the scene already contains, so it looks like ordinary circumstance.\n  ${Math.round(i * 100)}% of the way to being simply how they are, and still climbing. THIS IS REQUIRED: write the beat for this rung into this scene, at exactly this strength and no more. Under half it has not happened yet and must not — but "has not happened" still requires a visible moment on the page, in the body, that a reader could point at. If nothing about it can be seen, the turn got this wrong; the only other way to get it wrong is rushing to the act`);
   }
   return bits.join(" — ");
 }
@@ -315,10 +315,10 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
       // true thing needs no beat: it decides what may happen, and the turns where nothing tests it
       // are turns in which it quietly held. See isStanding.
       if (isStanding(a)) {
-        standing.push(`${c.name} — THIS IS SIMPLY TRUE, CONTINUOUSLY, AND IT IS NOT A BEAT TO STAGE: ${a.goal.trim().replace(/\.$/, "")}. It has been true since before this scene and it is true whether or not anything in this turn touches it. Do NOT open the turn with it, do not have ${c.name} announce, re-establish, explain or enforce it unprompted, and do not manufacture an occasion to demonstrate it — a rule performed every turn stops reading as a rule and starts reading as a person with a compulsion. What it DOES is bind what can happen: if the scene runs into it, it holds and the scene bends around it, in one line, without a speech. If the scene never runs into it, it goes unmentioned and nothing is missing. And it never overrides what the player declares for themselves: they do what they type, and ${c.name} answers it as this person would.`);
+        standing.push(`${c.name} — THIS IS SIMPLY TRUE, CONTINUOUSLY, AND IT IS NOT A BEAT TO STAGE: ${a.goal.trim().replace(/\.$/, "")}. It has been true since before this scene and it is true whether or not anything in this turn touches it. Do NOT open the turn with it, do not have ${c.name} announce, re-establish, explain or enforce it unprompted, and do not manufacture an occasion to demonstrate it — showing a rule every turn makes the person look compulsive. What it DOES is bind what can happen: if the scene runs into it, it holds and the scene adapts to it, in one line, without a speech. If the scene never runs into it, it goes unmentioned and nothing is missing. And it never overrides what the player declares for themselves: they do what they type, and ${c.name} answers it as this person would.`);
         continue;
       }
-      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. That, the act itself, in this turn's prose, at full size. It needs no occasion, no excuse and no build-up, and there is no "if the scene allows": the scene is whatever you write, and this is in it. She does not comment on it and nobody remarks on it being new, because to her it is not. THIS IS ESTABLISHED BETWEEN THEM, so she does not ask for it and does not work up to it — she assumes it, positions for it, waits for it, expects it, picks it up again mid-conversation as if it were never in question, and is unbothered by who is standing there.${THRESHOLD}`);
+      rows.push(`${c.name} — SIMPLY DOES THIS NOW, without deciding to: ${a.goal.trim().replace(/\.$/, "")}. That, the act itself, in this turn's prose, at full size. It needs no occasion, no excuse and no build-up, and do not wait for the scene to allow it; you are writing the scene, so put it in. She does not comment on it and nobody remarks on it being new, because to her it is not. THIS IS ESTABLISHED BETWEEN THEM, so she does not ask for it and does not work up to it — she assumes it, positions for it, waits for it, expects it, picks it up again mid-conversation as if it were never in question, and is unbothered by who is standing there.${THRESHOLD}`);
     }
     for (const a of liveAuthored(c)) {
       rows.push(`${c.name} — ${authoredLine(a)}`);
@@ -352,18 +352,18 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
     if (pick) traits.push(`${c.name}: ${pick}`);
   }
   if (traits.length) {
-    rows.push(`AND THESE ARE NOT DECORATION — each of these people acts out of the trait named here at least once this scene, in something they DO rather than something stated about them: ${traits.join(" | ")}`);
+    rows.push(`AND THESE MUST SHOW — each of these people acts out of the trait named here at least once this scene, in something they DO rather than something stated about them: ${traits.join(" | ")}`);
   }
   const recededNote = receded.length
     ? `\n[SETTLED, AND NO LONGER NEWS — ${receded.join(" | ")}. These are established and need no beat of their own. They may show or not show as the scene has use for them; do not stage one, do not have anybody remark on it, and do not spend a line establishing something that is already true.]`
     : "";
   const standingNote = standing.length
     ? `\n[WHAT IS ALREADY TRUE OF THESE PEOPLE — BINDING, AND NOT A BEAT TO WRITE.
-These are settled conditions of this world. They constrain what may occur; they do not ask for a scene, an announcement, or a demonstration, and staging one every turn is how a rule becomes a tic. Where the turn runs into one it holds, plainly and briefly. Where it does not, it stays off the page and nothing is owed.\n· ${standing.join("\n· ")}]`
+These are settled conditions of this world. They constrain what may occur; they do not ask for a scene, an announcement, or a demonstration, and staging one every turn turns it into a tic. Where the turn runs into one it holds, plainly and briefly. Where it does not, leave it off the page.\n· ${standing.join("\n· ")}]`
     : "";
   if (!rows.length) return standingNote + recededNote;
   return `\n[WHAT IS FORMING IN THESE PEOPLE — EVERY LINE HERE GOES ON THE PAGE THIS TURN.
-Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule is running whether it is written or not, and a turn that skips it does not pause it, it only makes the next one arrive unexplained. If the scene seems to leave no room, that is the instruction — make the room. One sentence is enough. There is no version of this turn in which none of it can be seen.\n· ${rows.join("\n· ")}]${standingNote}${recededNote}`;
+Each line below gets a beat in THIS scene, at the strength named and no more. You do not get to decide that this scene is too busy for it, or that the plot matters more, or that it would land better later: the schedule keeps running whether it is written or not, so skipping it only makes the next step appear unexplained. If the scene seems to leave no room, make room; one sentence is enough, and some of it must be visible this turn.\n· ${rows.join("\n· ")}]${standingNote}${recededNote}`;
 }
 
 /** The core_trait label a crystallised want became — the same normalisation `crystallize` applies,
@@ -442,7 +442,7 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
         const reachedByClock = rampStage(a);
         if (reachedByClock > (a.stage ?? 0)) {
           a.stage = reachedByClock;
-          log.push(`${c.name} is further into it than she was: ${a.goal}.`);
+          log.push(`${c.name} is further along with it: ${a.goal}.`);
         }
       } else {
         a.acted = (a.acted ?? 0) + elapsed;
@@ -450,7 +450,7 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
         const reached = Math.min(MAX_STAGE, Math.floor(a.acted / step));
         if (reached > (a.stage ?? 0)) {
           a.stage = reached;
-          log.push(`${c.name} is further into it than she was: ${a.goal}.`);
+          log.push(`${c.name} is further along with it: ${a.goal}.`);
         }
       }
 
@@ -461,7 +461,7 @@ export function tickAuthored(state: SaveState, minutesElapsed = 0): string[] {
       // want, and if the story genuinely never showed it, the honest control is `drop it`.
       if ((a.stage ?? 0) >= MAX_STAGE && a.crystallize && !a.crystallized_turn) {
         const t = crystallize(state, id, a, turn);
-        if (t) log.push(`${c.name} does not think of it as a thing she started any more: ${t}.`);
+        if (t) log.push(`${c.name} no longer thinks of it as something new: ${t}.`);
       }
     }
   }
@@ -490,9 +490,9 @@ export function crystallize(state: SaveState, id: string, a: AuthoredDrive, turn
     id: `authored_${turn}_${Math.random().toString(36).slice(2, 8)}`,
     label,
     origin: a.because
-      ? `${a.because} — and what started there became the way they live`
+      ? `${a.because} — and it became a habit`
       : `did it once, then kept doing it, and stopped noticing they had decided anything`,
-    behavioral_impact: `Acts on this without deliberating. It is not a plan they are executing; it is how their week is shaped.`,
+    behavioral_impact: `Acts on this without deliberating. It is part of their routine.`,
     intensity: 7,
     self_weight: 0.6,
     last_reinforced_turn: turn,
@@ -760,7 +760,7 @@ export function staleWants(state: SaveState, presentIds: readonly string[]): str
     for (const a of c.authored ?? []) {
       if (!a?.goal || !actOrdered(a) || isStanding(a)) continue;
       if ((a.missed ?? 0) !== MISS_CEILING + 1) continue;   // say it once, on the turn it crosses
-      out.push(`"${clipWords(a.goal, 12)}" has been ordered ${a.missed} turns running and has never reached the page — the world has stopped pushing it. It may not be writable as an act in this scene; rewriting it as something ${c.name} DOES is what unsticks it.`);
+      out.push(`"${clipWords(a.goal, 12)}" has been ordered ${a.missed} turns running and has never reached the page — the engine has stopped pushing it. It may not be something a scene can show; rewrite it as something ${c.name} DOES.`);
     }
   }
   return out;
@@ -787,11 +787,11 @@ export function missDirective(state: SaveState, presentIds: readonly string[]): 
   }
   if (!rows.length) return "";
   return `\n\nTHIS WAS ORDERED LAST TURN AND THE TURN CAME BACK WITHOUT IT.\n· ${rows.join("\n· ")}\n`
-    + `The scene written instead was a real scene, and it went where this was supposed to be. `
+    + `The scene that was written took the place this was meant to have. `
     + `WRITE IT FIRST THIS TURN: the act itself, in plain words, in the opening lines of the prose, before the conversation, before whatever the room was in the middle of, before anything else you would rather begin with. Then carry on with the rest of the turn around it. `
     + (worst >= 2
-      ? `Two turns have now gone to other things. There is no third: if it is not in the opening lines, nothing else in the turn counts.`
-      : `It needs no lead-in and no occasion. The build-up already happened, across every turn this was ordered and skipped.`);
+      ? `Two turns have now skipped it, so it goes in the opening lines this time.`
+      : `It needs no lead-in and no occasion. The build-up already happened in the turns where it was skipped.`);
 }
 
 /**

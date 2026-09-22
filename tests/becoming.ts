@@ -71,7 +71,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("...carrying the claim", d.includes(CLAIM));
   check("the block is framed as mandatory", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d), d);
   check("...and refuses every excuse by name", /too busy for it, that the conversation matters more, or that it would land better later/.test(d));
-  check("...and leaves no version of the turn without it", /There is no version of this turn in which none of it can be seen/.test(d));
+  check("...and leaves no version of the turn without it", /some of it must be visible this turn/.test(d));
   check("...and says the count is a deadline", /THE COUNT IS A DEADLINE/.test(d));
   check("each beat is an event with a cause", /Each beat is an EVENT with a cause/.test(d));
   check("the world acts on its own", /THE WORLD DOES THIS NOW, on its own, without anybody deciding it/.test(d));
@@ -140,7 +140,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 
   const a = arrivalDirective(out.arrived);
   check("the turn after says it on the page", /THIS IS TRUE NOW, IN THIS TURN, AND FROM HERE ON/.test(a), a);
-  check("...and then it stops being news", /it is not news and it is not a subject/.test(a));
+  check("...and then it stops being news", /From now on it is simply how this world is/.test(a));
   check("nothing to announce, nothing said", arrivalDirective([]) === "");
 
   // IT LANDS ON THE TURN THE PLAYER SET, whether or not the prose ever kept up. The last turn's

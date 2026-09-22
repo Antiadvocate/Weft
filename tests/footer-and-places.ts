@@ -96,7 +96,7 @@ function placeState(): SaveState {
   const shifts = applyDiff(s, diff, "I destroy the town", "The wall came apart.");
   check("the description is replaced, not appended", s.world.places["loc_town"].description_facts.startsWith("Thornwood is a burn scar"), s.world.places["loc_town"].description_facts);
   check("the old text is gone", !/lit and quiet/.test(s.world.places["loc_town"].description_facts));
-  check("the change is reported", shifts.some((x) => /Thornwood is not what it was/.test(x)), shifts);
+  check("the change is reported", shifts.some((x) => /Thornwood has changed/.test(x)), shifts);
   check("the turn is stamped", s.world.places["loc_town"].changed_turn === s.world.current_turn);
 
   // resolving by id works too

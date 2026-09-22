@@ -157,7 +157,7 @@ const intents = (m: string, lying = false) => [
   check("...and no note about a lie, because she is not telling one", !/is chosen/.test(r.reads[0]?.line ?? ""));
 
   const lying = sovereignRead(s, "I read Miranda's mind", intents(m, true));
-  check("a lie is named as one", /What Miranda is showing is chosen, and it is not this\./.test(lying.reads[0]?.line ?? ""), lying.reads[0]);
+  check("a lie is named as one", /What Miranda is showing is deliberate and differs from this\./.test(lying.reads[0]?.line ?? ""), lying.reads[0]);
 
   check("nothing without the declaration", sovereignRead(s, "I take her hand", intents(m)).reads.length === 0);
   check("nothing without god mode", sovereignRead(fixture(false).s, "I read Miranda's mind", intents(m)).reads.length === 0);

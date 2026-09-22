@@ -330,7 +330,7 @@ const wantsLines = (s: SaveState) =>
   const line = authoredLine(s.characters.char_neigh.authored![0]);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
   check("and that it must show at exactly that strength and no more", /at exactly this strength and no more/.test(line), line);
-  check("with an invisible turn named as failure", /nothing about it can be seen is a turn in which this failed/.test(line), line);
+  check("with an invisible turn named as failure", /If nothing about it can be seen, the turn got this wrong/.test(line), line);
 }
 {
   // the budget completes the want, so "fully inhabits it" actually finishes
@@ -455,7 +455,7 @@ const wantsLines = (s: SaveState) =>
   crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
   const d = habitDirective(s, s.world.present);
   check("a finished habit is stated as the act at full size", /That, the act itself, in this turn's prose, at full size/.test(d), d);
-  check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /there is no "if the scene allows"/.test(d), d);
+  check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /do not wait for the scene to allow it/.test(d), d);
   check("and nobody treats it as news", /nobody remarks on it being new/.test(d), d);
 }
 
@@ -508,8 +508,8 @@ const wantsLines = (s: SaveState) =>
     /Her half is the act itself, named plainly in what she does/.test(line), line);
   check("...and being the one it is done to is not the player's move",
     /being the one it is done to does not turn it into the player's move/.test(line), line);
-  check("...so it cannot be pushed to a later scene", /undeferred to a later scene/.test(line), line);
-  check("she may not take it back inside the same turn", /unretracted inside the same turn/.test(line), line);
+  check("...so it cannot be pushed to a later scene", /put off to a later scene/.test(line), line);
+  check("she may not take it back inside the same turn", /taken back in the same turn/.test(line), line);
   // The specific way this turn was drained: it kept going, to Liz and then to Marcus.
   check("and the scene may not close the moment before the player can answer",
     /do not move on to another character's business afterwards/i.test(line), line);
@@ -632,7 +632,7 @@ const wantsLines = (s: SaveState) =>
   const d = habitDirective(s, s.world.present);
   check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
   check("stated as required rather than as background", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
-  check("a turn without it is not an option at all", /no version of this turn in which none of it can be seen/.test(d));
+  check("a turn without it is not an option at all", /some of it must be visible this turn/.test(d));
   check("and the narrator is denied the busy-scene excuse", /too busy for it, or that the plot matters more/.test(d));
   // There used to be an extra "IT HAS BEEN SKIPPED N TURNS RUNNING" line here, driven by the prose
   // detector. It fired on the save where the beat had actually landed — telling the narrator to push
@@ -651,7 +651,7 @@ const wantsLines = (s: SaveState) =>
   // It used to read "if this scene gives it any opening at all" — a condition, and a condition is
   // something a model can decide is unmet. A finished habit has no condition; that is what finished
   // means. See section 7b: the same floating-referent problem, one level up.
-  check("and carries no condition at all", /there is no "if the scene allows"/.test(d), d);
+  check("and carries no condition at all", /do not wait for the scene to allow it/.test(d), d);
 }
 {
   /* "There are random habits that are never used at all, but they should integrate to make a person,

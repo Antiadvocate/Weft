@@ -76,7 +76,7 @@ function scene() {
   check("...or that the player's body is the reason to stop", !/REQUIRES THE PLAYER'S BODY/.test(d));
   check("her half is the act", /Her half is the act itself, named plainly in what she does/.test(d));
   check("...and being the one it is done to is not the player's move", /being the one it is done to does not turn it into the player's move/.test(d));
-  check("...nor deferred to a later scene", /undeferred to a later scene/.test(d));
+  check("...nor deferred to a later scene", /put off to a later scene/.test(d));
 
   check("the player's decision is still theirs", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(d));
   check("...naming what is never written for them", /Never write them agreeing, refusing, allowing it, going along with it, reciprocating/.test(d));

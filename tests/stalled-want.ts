@@ -188,9 +188,9 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
   check("the question does not get asked a third time", /DO NOT ASK IT AGAIN/.test(d));
   check("taking the answer given is one of the ways out", /they take the answer they were given and act on it/.test(d));
 
-  check("and a delivered yes is a delivered yes", /THE PLAYER GIVES IT, THEY HAVE GIVEN IT/.test(d), d);
+  check("and a delivered yes is a delivered yes", /THE PLAYER GIVES IT, THE WANT IS MET/.test(d), d);
   check("being hurt by HOW it came stays available", /may absolutely be hurt by HOW it came/.test(d));
-  check("what is refused is keeping the want open on that ground", /keep the want open, and go on being owed it/.test(d));
+  check("what is refused is keeping the want open on that ground", /keep the want open, and keep asking for it/.test(d));
   check("an unwinnable condition is named as the harm",
     /the condition for success is revealed only after they have failed it/.test(d), d);
   check("a still-open want has to name what is concretely missing", /name it in one clause/.test(d));

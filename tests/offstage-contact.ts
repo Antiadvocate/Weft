@@ -43,8 +43,8 @@ function world(): SaveState {
   check("inventing the player into the world is still banned", /you do not INVENT the player into the world/.test(P));
   check("no threat forming, no discovery planted", /no threat forming|no discovery planted/.test(P));
   check("but a recorded want about the player is required, not forbidden",
-    /IT IS NOT A RULE ABOUT THE CAST'S OWN WANTS/.test(P));
-  check("with the distinction stated", /never invent a relationship to the player\. Always honour one that is already written down/.test(P));
+    /IT DOES NOT FORBID THE CAST'S OWN WANTS/.test(P));
+  check("with the distinction stated", /never invent a relationship to the player, and always act on one that is already written down/.test(P));
   check("and the case that exposed it", /without calling him, and fail at it/.test(P));
 }
 
@@ -81,7 +81,7 @@ function world(): SaveState {
 {
   const P = OFFSTAGE_SYSTEM;
   check("omitting it is the default", /Omit entirely otherwise; most events are not aimed at anyone/.test(P));
-  check("the cast is still the substance, not walk-ons", /Invented walk-ons .* are the SEASONING/.test(P));
+  check("the cast is still the substance, not walk-ons", /Invented walk-ons .* are minor extras/.test(P));
 }
 
 /* 6. AND THE WORLD TICKS OFTEN ENOUGH TO BE A WORLD.

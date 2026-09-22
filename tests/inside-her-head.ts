@@ -66,7 +66,7 @@ check("an empty field is not a finding", !narratedFromOutside(""));
 {
   const { INTENT_SYSTEM } = await import("../src/engine/intent");
   check("the subject rule is stated", /THE PERSON IS THE SUBJECT OF EVERY SENTENCE/.test(INTENT_SYSTEM));
-  check("…and the same beat shown from inside her", /she wants to say yes and is frightened of what it costs her/.test(INTENT_SYSTEM));
+  check("…and the same beat shown from inside her", /she wants to say yes and is frightened of what happens if she does/.test(INTENT_SYSTEM));
   /* AND NOT ONE FAILING LINE IS QUOTED IN ORDER TO FORBID IT. A first draft of this rule named
    * three, and tests/prompt-echo.ts caught it — quoting a bad line attached to a prohibition puts
    * the bad line in the context, which is the same mistake as naming the form outright. Every

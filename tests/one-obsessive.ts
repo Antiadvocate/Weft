@@ -68,7 +68,7 @@ const kindOf = (s: SaveState, id: string) => {
 {
   const w = world({ from: "emily", warmth: -100, attraction: 95 });
   check("Emily's actual numbers still do", kindOf(w, "emily") === "obsession", desireLine(w, "emily"));
-  check("…and it still refuses to resolve into liking", /does not become a bond|do not make them nicer/.test(desireLine(w, "emily")));
+  check("…and it still refuses to resolve into liking", /do not turn into a relationship|do not make them nicer/.test(desireLine(w, "emily")));
   check("…and it is written flat, with no figures left in it",
     !/as a way of|than the argument needs|in ways that are not|contempt that keeps/.test(desireLine(w, "emily")), desireLine(w, "emily"));
 }

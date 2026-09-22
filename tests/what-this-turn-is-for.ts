@@ -36,7 +36,7 @@ const clock: Beat = { kind: "clock", ref: "the co-op: take the building", filled
 
 // ---- the beat body actually comes back out of beatDirective ----------------------------------
 const d = beatDirective(palette, 9);
-check("beat directive carries the palette line", d.includes("THE ENGINE OF THIS STORY PRESSES, NOW"), d);
+check("beat directive carries the palette line", d.includes("THE STORY'S MAIN PRESSURE ARRIVES NOW"), d);
 check("beat directive names the source verbatim", d.includes(FEET), d);
 check("beat directive is headed as the turn's job", d.includes("=== WHAT THIS TURN IS FOR ==="), d);
 check("beat directive starts with a break, so it cannot glue to the block above", d.startsWith("\n\n"), JSON.stringify(d.slice(0, 6)));
@@ -63,20 +63,20 @@ check("tension undefined behaves like the mid dial", beatDirective(palette).leng
 
 // ---- the deferred call no longer says it too ---------------------------------------------------
 const deferred = pressureDirective(V, [FEET], 9, "mortal", palette, true);
-check("deferred: the beat body is gone", !deferred.includes("THE ENGINE OF THIS STORY PRESSES"), deferred);
+check("deferred: the beat body is gone", !deferred.includes("THE STORY'S MAIN PRESSURE ARRIVES"), deferred);
 check("deferred: and it does NOT claim there is no source", !deferred.includes("NO SOURCE FOR THIS TURN"), deferred);
 check("deferred: the pressure reading stays", deferred.includes("PRESSURE 7/10"), deferred);
 check("deferred: the palette filter stays", deferred.includes("Draw pressure only from"), deferred);
 
 // The old callers pass five arguments and must be untouched by any of this.
 const inline = pressureDirective(V, [FEET], 9, "mortal", palette);
-check("undeferred: the beat body is where it always was", inline.includes("THE ENGINE OF THIS STORY PRESSES"), inline);
+check("undeferred: the beat body is where it always was", inline.includes("THE STORY'S MAIN PRESSURE ARRIVES"), inline);
 /* Undeferred at rest, a palette beat is carried rather than overridden — the rest paragraph used to
  * tell the narrator to introduce nothing in the same breath as handing it the story's own subject,
  * and a rule that long and that absolute wins against an exception. Everything else the engine
  * could have invented is still refused there. */
 check("undeferred: a palette beat at rest is carried, not overridden",
-  pressureDirective(V, [FEET], 0, "mortal", palette).includes("THE ENGINE OF THIS STORY PRESSES"));
+  pressureDirective(V, [FEET], 0, "mortal", palette).includes("THE STORY'S MAIN PRESSURE ARRIVES"));
 check("undeferred: and the rest paragraph stops arguing with it",
   !pressureDirective(V, [FEET], 0, "mortal", palette).includes("Do NOT introduce any new threat"));
 check("undeferred: a turn with nothing in it is unchanged",

@@ -295,7 +295,7 @@ export function repairAuthoredBonds(state: SaveState): string[] {
       const r = state.condition[e.from]?.psyche.relaxation ?? 0;
       e.desire_admissibility = +clamp(0.5 + r * 0.05, 0, 1).toFixed(2);
     }
-    shifts.push(`${from.name}'s written bond with ${to.name} is restored to the ledger — the card said it all along.`);
+    shifts.push(`${from.name}'s written bond with ${to.name} is restored to the record — the card had it all along.`);
   }
   return shifts;
 }
@@ -358,7 +358,7 @@ export function desireLine(state: SaveState, id: string): string {
   const romantic = (e.roles ?? []).some((r) => ROMANTIC_ROLE.test(r));
   if (a < 15 && (romantic || e.warmth >= 25)) {
     const named = romantic ? `${e.roles!.filter((r) => ROMANTIC_ROLE.test(r)).join("/")}` : "close";
-    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the heat is banked and still burning. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment reads as ease and claim.`;
+    return `desire toward you: quiet (${Math.round(a)}) but THE BOND IS REAL and established (${named}, warmth ${Math.round(e.warmth)}) — SHOW: they seek your company, take up space near you, touch and are touched without ceremony, claim you in front of others, and are hurt when handled as staff rather than as theirs; the desire is quiet but present. NEVER write them as indifferent, distant, or newly meeting you, and never narrate 'she felt nothing' — a settled attachment shows as ease and closeness.`;
   }
   if (a < 15) return "desire toward you: none — SHOW: warmth stays platonic, a flirt would land awkward; do not invent attraction, and never narrate 'she felt nothing'";
   const adm = e.desire_admissibility ?? clamp(0.5 + r * 0.05, 0, 1);
@@ -454,7 +454,7 @@ export function desireLine(state: SaveState, id: string): string {
      * first report in this whole project was about. Below: the same six behaviours, said as things
      * a body does, with nothing balanced and nothing turned. */
     return adm <= 0.4
-      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they turn up wherever you are and are angry to find themselves there; they stand too close during an argument; when they touch you it hurts a little and they do not apologise; they say something cutting and then do not leave; they start on you about a small thing to get you talking. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER say on the page that they want you. The hostility is real, the wanting is real, and it does not become a bond.`
+      ? `desire toward you: strong (${a}) AND THEY CANNOT STAND YOU (warmth ${Math.round(e.warmth)}) — both are true at once. Do not let either one cancel the other. SHOW: they turn up wherever you are and are angry to find themselves there; they stand too close during an argument; when they touch you it hurts a little and they do not apologise; they say something cutting and then do not leave; they start on you about a small thing to get you talking. NEVER soften this into flirtation, banter, or secret tenderness, never let it resolve into liking you, and NEVER say on the page that they want you. Both the hostility and the wanting are real, and they do not turn into a relationship.`
       : `desire toward you: real (${a}) while they dislike you (warmth ${Math.round(e.warmth)}) — both true at the same time, and they KNOW it about themselves. SHOW: they want you and they are not fond of you, and they are not embarrassed by either; they will say the cold thing and still want you an hour later; they seek you out and give you nothing while they are there. NEVER write this as warmth breaking through, as a softening, or as banter that means they secretly care; do not make them nicer because they want you.`;
   }
   /* WANTING SOMEBODY YOU DO NOT MUCH LIKE, which is the ordinary version of the above and far
@@ -513,10 +513,10 @@ export function desireLine(state: SaveState, id: string): string {
   // convert the desire into a quotable interior sentence ("she resented not having him"). Magnitude (a)
   // is kept for calibration; the interpretation is stripped so it can't be paraphrased into prose.
   if (cold) return adm >= 0.4
-    ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth deployed as a tool, gifts with strings; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
-    : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, tallying who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
+    ? `desire toward you: strong (${a}), cold-natured — SHOW: patient charming pursuit, warmth used as a tool, gifts that come with expectations; NEVER narrate the wanting or that the charm is technique — behavior only, let the player sense it`
+    : `desire toward you: strong (${a}), cold and grasping — SHOW: possessiveness, keeping track of who's near you, sharpness toward rivals, a gift that's really a claim; NEVER narrate resentment, wanting, or "she resented not having him" — only the acts`;
   if (adm >= 0.6) return `desire toward you: real (${a}), settled — SHOW: flirts, teases, angles for closeness, makes and takes openings, and lets you be when you want to be let be; they act on it in the scene rather than waiting to be approached; NEVER state the wanting outright — render it as behavior`;
-  if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, a claim dressed as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
+  if (adm <= 0.35) return `desire toward you: strong (${a}) but unadmitted — SHOW: it leaks as grasping — possessiveness, sharpness, taking-for-your-own-good, possessiveness presented as care; NEVER narrate the pull or that they can't admit it — only what they DO`;
   return `desire toward you: real (${a}), not yet settled — SHOW: surfaces in small glances and half-gestures when the moment allows; NEVER state it outright — behavior only`;
 }
 
@@ -592,10 +592,10 @@ export function tickDesire(state: SaveState): string[] {
     const has = cond.psyche.active_states.includes(label);
     if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && !has) {
       cond.psyche.active_states.push(label);
-      shifts.push(`${c.name} is holding on too tight — wanting has turned into gripping.`);
+      shifts.push(`${c.name} is holding on too tight — the wanting has become possessive.`);
     } else if (has && cond.psyche.relaxation >= 2) {
       cond.psyche.active_states = cond.psyche.active_states.filter((s) => s !== label);
-      shifts.push(`${c.name}'s grip loosens — the wanting is still there, held lightly now.`);
+      shifts.push(`${c.name}is less possessive now, though the wanting is still there.`);
     }
     if (cond.psyche.active_states.includes(label)) {
       cond.psyche.relaxation = Math.max(-10, +(cond.psyche.relaxation - 0.3).toFixed(2));
@@ -655,7 +655,7 @@ export function effectiveStanding(power: number, witnessedTier?: string | null):
 }
 
 function standingCue(power: number): string {
-  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They yield the floor, keep any verdict on you to themselves, and let you close the exchange. Disagreement comes out sideways or stays in — a half-sentence, a look away, doing the thing while plainly not wanting to. A refusal from them is short, and it costs them visibly.";
+  if (power <= -20) return " — AND THEY ARE FAR BELOW YOU AND KNOW IT (standing " + Math.round(power) + "): they defer. They yield the floor, keep any verdict on you to themselves, and let you close the exchange. Disagreement comes out sideways or stays in — a half-sentence, a look away, doing the thing while plainly not wanting to. A refusal from them is short and visibly hard for them.";
   if (power <= -6) return " — AND THEY STAND BELOW YOU (standing " + Math.round(power) + "): they measure their words around you, let you finish, and do not summarise your character back at you. They can still refuse and still hold a line, but they do it briefly and without the last word.";
   if (power >= 20) return " — AND THEY HOLD THE POWER HERE (standing " + Math.round(power) + "): they can afford to be unhurried, to interrupt, to decline without explaining.";
   return "";
@@ -670,7 +670,7 @@ export function dispositionCue(warmth: number, trust: number, power = 0): string
     warmth >= 45 ? "is fond of you (warmth high) — visibly cares, softens around you, small kindnesses; comfortable teasing you, disagreeing, and saying no" :
     warmth >= 20 ? "likes you and is warming (warmth moderate, on a −100..100 scale where 0 is a stranger) — friendly, glad you're near; talks freely, including disagreement" :
     warmth >= 5 ? "is mildly well-disposed (warmth slight) — cordial, pleasant; slow to grant a FAVOR, but ordinary business is ordinary business" :
-    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal about anything that costs them; asks small questions and watches before volunteering anything BEYOND their ordinary dealings" :
+    warmth > -5 ? "is neutral (warmth ~0) — a stranger's baseline: polite, measuring, noncommittal about anything risky; asks small questions and watches before volunteering anything BEYOND their ordinary dealings" :
     warmth > -20 ? "is cool toward you (warmth mildly negative) — distant, unengaged, polite brush-offs" :
     warmth > -45 ? "dislikes you (warmth negative) — sharp, unwelcoming" :
     "resents or hates you (warmth very negative) — openly cold or antagonistic";
@@ -693,7 +693,7 @@ export function dispositionCue(warmth: number, trust: number, power = 0): string
   // reads as blanket obstruction and the whole world becomes a wall: an innkeeper handed a year's
   // wages in gold spends three turns deciding whether to pour, and the player stops asking anyone
   // for anything. Coldness is about what someone will GIVE, never about whether their trade works.
-  const trade = " — TRANSACTIONS ARE NOT FAVORS: whatever this person does for a living they still do, for a stranger, at the usual price, without needing to like them. Selling, serving, ferrying, directing, renting, answering a question any passer-by could answer — none of that is a concession and none of it needs warmth. Withhold favors, trust, secrets, loyalty, and risk; do not withhold the ordinary business of the world.";
+  const trade = " — ORDINARY WORK IS NOT A FAVOR: whatever this person does for a living they still do for a stranger, without needing to like them. Serving, ferrying, giving directions, answering a question any passer-by could answer — none of that needs warmth. Withhold favors, trust, secrets, loyalty, and risk, and still let people do their everyday work.";
   return `${care} ${rely}${note}${trade}` + standingCue(power);
 }
 
@@ -762,19 +762,19 @@ export function tickRivalry(state: SaveState): string[] {
       if (cond.psyche.relaxation < gripBelow) {
         if (!cond.psyche.active_states.includes(label)) {
           cond.psyche.active_states.push(label);
-          shifts.push(`${watcher.name} registers the competition — watching ${state.characters[sharpest.rivalId]?.name} close in costs them.`);
+          shifts.push(`${watcher.name} notices the competition — watching ${state.characters[sharpest.rivalId]?.name} close in hurts them.`);
         }
         // stale labels for rivals no longer sharpest fall away
         for (const s of held) if (s !== label) cond.psyche.active_states = cond.psyche.active_states.filter((x) => x !== s);
       } else if (held.length) {
         // settled past their grip threshold: felt the pang (the dip), let it move — no state held
         cond.psyche.active_states = cond.psyche.active_states.filter((s) => !s.startsWith(JEALOUS_PREFIX));
-        shifts.push(`${watcher.name} feels the pang and lets it go — settled enough not to grip it.`);
+        shifts.push(`${watcher.name} feels a moment of jealousy and lets it go.`);
       }
     } else if (held.length) {
       // no rival landing in the room: the state has nothing to push against and releases
       cond.psyche.active_states = cond.psyche.active_states.filter((s) => !s.startsWith(JEALOUS_PREFIX));
-      shifts.push(`${watcher.name}'s jealousy loosens — nothing to push against right now.`);
+      shifts.push(`${watcher.name}'s jealousy eases — nothing is provoking it right now.`);
     }
   }
   return shifts;

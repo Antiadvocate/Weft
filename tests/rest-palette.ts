@@ -112,7 +112,7 @@ const base = (over: Record<string, unknown> = {}) => ({
 
 /* ── 7. THE REST PARAGRAPH STOPS ARGUING WITH THE BEAT ───────────────────────── */
 {
-  const v = { pressure: 0, band: 0, source: "quiet — the world breathes" } as any;
+  const v = { pressure: 0, band: 0, source: "quiet — nothing pressing" } as any;
   const beat = { kind: "palette", ref: PALETTE[3], quiet: true } as any;
 
   const withBeat = pressureDirective(v, PALETTE, 0, "mortal", beat, true);
@@ -134,7 +134,7 @@ const base = (over: Record<string, unknown> = {}) => ({
   const d = beatDirective(beat, 0);
   check("the palette beat reaches the last block at rest", d.includes("WHAT THIS TURN IS FOR"), d);
   check("...carrying the quiet body rather than the pressing one",
-    d.includes("lightly and unprompted") && !d.includes("THE ENGINE OF THIS STORY PRESSES"), d);
+    d.includes("lightly and unprompted") && !d.includes("THE STORY'S MAIN PRESSURE ARRIVES"), d);
 
   check("nothing else the engine invented gets that slot at rest",
     beatDirective({ kind: "thread", ref: "The upstairs leak" } as any, 0) === "");

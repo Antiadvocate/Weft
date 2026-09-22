@@ -100,10 +100,10 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
 {
   const cold = dispositionCue(0, 0);
   const warm = dispositionCue(60, 40);
-  check("a stranger's cue says transactions are not favors", /TRANSACTIONS ARE NOT FAVORS/.test(cold), cold);
+  check("a stranger's cue says transactions are not favors", /ORDINARY WORK IS NOT A FAVOR/.test(cold), cold);
   check("it names what may still be withheld", /Withhold favors, trust, secrets, loyalty, and risk/.test(cold));
   check("it no longer says they agree to nothing", !/agrees to nothing/.test(cold), cold);
-  check("the same holds at warmth", /TRANSACTIONS ARE NOT FAVORS/.test(warm));
+  check("the same holds at warmth", /ORDINARY WORK IS NOT A FAVOR/.test(warm));
   check("hostility is still legible as hostility", /resents or hates you/.test(dispositionCue(-70, -70)));
 }
 

@@ -280,7 +280,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.recentSources, input.gone);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
-    if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
+    if (input.instability >= 1) source = source === "quiet — nothing pressing" ? "background tension — the world is unsettled" : source + " (amplified by background tension)";
   }
   const due = input.consequences.find((c) => isDue(c, input.turn, input.now));
   if (due && due.severity !== "minor") band = Math.max(band, due.severity === "major" ? 3 : 2);
@@ -330,7 +330,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   return {
     pressure: capped,
     band: BAND_NAMES[band],
-    source: band === 0 ? "quiet — the world breathes" : source,
+    source: band === 0 ? "quiet — nothing pressing" : source,
     due_consequence: due,
     focus_event: input.focusLabel ?? null,
     focus_mode: input.focusMode ?? null,
@@ -466,7 +466,7 @@ const REST_PALETTE_STARVED = 12;
  * sat below it.
  *
  * WHAT THAT COST, from a save: nineteen turns, four palette lines, tension 0. Every telemetry row
- * reads beat "none" and source "quiet — the world breathes"; pressure_state.last_beat_turn is 0 and
+ * reads beat "none" and source "quiet — nothing pressing"; pressure_state.last_beat_turn is 0 and
  * its recent list is empty. The world never pressed once. Run that save's own palette through this
  * selector at tension 5 and it comes back kind "palette" on twelve rolls in twenty. The lines were
  * live, well-formed and correctly wired; they were unreachable. Meanwhile pressureDirective was
@@ -1016,7 +1016,7 @@ function beatBody(beat?: Beat): string {
     case "none":
       return "NO NEW INCIDENT THIS TURN — no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions; people acting on what they want IS the scene, and quiet is correct rather than a failure. THIS IS NOT A CHANGE OF SETTING. Whatever is permanently true of this world is still true and still on the page — its weather, its ruin, its dead, its dark, whatever the people here have to keep doing to stay alive. A world where the danger is the ordinary condition does not become a safe one because nothing new happened; it is simply not interrupted this turn. Withhold the EVENT, never the place.";
     case "reminder":
-      return `REMINDER BEAT — a touch on the sleeve. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`;
+      return `REMINDER BEAT — a touch on the sleeve. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing, and the scene continues.`;
     case "consequence":
       return `A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`;
     case "clock":
@@ -1033,11 +1033,11 @@ function beatBody(beat?: Beat): string {
     case "palette":
       return beat.quiet
         ? `THE STORY'S OWN SUBJECT TOUCHES THE SCENE, lightly and unprompted: ${beat.ref}. Once, small, in the middle of the turn — the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them and the scene carries on.`
-        : `THE ENGINE OF THIS STORY PRESSES, NOW: ${beat.ref}. This is what the player said this world runs on, and this turn is one of the turns it runs. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. The thing itself, happening, on the page, in front of them.`;
+        : `THE STORY'S MAIN PRESSURE ARRIVES NOW: ${beat.ref}. The player listed this as what the story is about, and this turn it happens. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. The thing itself, happening, on the page, in front of them.`;
     case "thread":
       return `PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`;
     case "agent":
-      return `PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, whatever that costs the plot.`;
+      return `PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that reaches the player — a visit, a message, a move made through others. Their action follows THEIR logic and state, even if it disrupts the plot.`;
     case "exogenous":
       return `EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player, with somebody else on the receiving end of it. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you.`;
   }
@@ -1073,7 +1073,7 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
     lines.push(beatBody(beat));
   }
   if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
-  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
+  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): steer this scene toward it and keep moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
   if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
   // Tier nudge (NOT a behavior script): at high power, a martial/institutional threat against the
   // protagonist is a category error. We don't prescribe how mortals act — that emerges from their
@@ -1231,7 +1231,7 @@ export function dischargeFiredClocks(state: SaveState, turn: number): string[] {
             status: "pending",
           });
         }
-        shifts.push(`${c.faction}'s clock has run out — what it promised is coming.`);
+        shifts.push(`${c.faction}'s clock has run out — its consequence is coming.`);
       }
     }
   }

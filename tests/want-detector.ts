@@ -146,7 +146,7 @@ const mannerismOnly = (s: any, m: string, label: string, turn: number) => {
 
   noteWantMisses(s, 5, [m]);
   const two = missDirective(s, [m]);
-  check("after two it escalates", /There is no third/.test(two), two);
+  check("after two it escalates", /Two turns have now skipped it/.test(two), two);
   check("...and counts them", /ordered for the last 2 turns and absent from all of them/.test(two), two);
   check("...without simply getting louder", !/VERY|EXTREMELY|ABSOLUTELY MUST/.test(two));
 }
