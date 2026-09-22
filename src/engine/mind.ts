@@ -315,7 +315,7 @@ export function updateMind(
     if (collapse) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      lines.push(`${sname} is looking at ${tname} for the first time in a long while — the settled picture doesn't survive it.`);
+      lines.push(`${sname} is looking at ${tname} for the first time in a long while — and their old view of them changes.`);
       b.settled_turns = 0;
       b.confidence = clamp(b.confidence * 0.5, 0.05, 0.98);
     } else {
@@ -361,7 +361,7 @@ export function mindDigest(state: SaveState, id: string): string {
     // behavior without ever naming the belief in prose ("she believed he had betrayed her").
     if (b.held_false) out.push(`acts as if the player ${b.held_false} — let this false read drive their behavior and word choice; NEVER state the belief in prose, only show them acting on it`);
     else if (divergence > 25) out.push(`treats the player as ${b.predicted_stance === "unknown" ? "an unknown quantity" : b.predicted_stance === "ally" ? "warmer than they truly are" : "more hostile than they truly are"} — behavior follows their read; do not narrate the misjudgment`);
-    if (b.surprise > 0.45) out.push(`is freshly thrown — the player just did something against their expectation; SHOW the recalibration, don't state it`);
+    if (b.surprise > 0.45) out.push(`was just surprised — the player did something against their expectation; SHOW the recalibration, don't state it`);
     else if (reification(b) > 0.4) out.push(`stopped actually looking at the player some time ago — responds to the person they have long since decided the player is, so new or contrary behavior gets met with the old read, absently, without hostility or any sense of missing anything; NEVER state that they are not paying attention`);
     if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't get a clean read on the player — SHOW it as watchfulness or probing, never as narrated confusion`);
   }

@@ -156,9 +156,9 @@ export function roundsFor(stake: number): number {
 function roundShape(round: number): string {
   switch (round) {
     case 1: return "THEY DO NOT HEAR IT AS FINAL. Nobody does, the first time. They argue the facts of it — the specific claim, the number, the thing they are accused of — because if the facts are wrong then the conclusion is wrong. They do not agree, they do not sign anything, and they do not say a version of \"okay\".";
-    case 2: return "IT IS LANDING AND THEY FIGHT IT. This is where the thing they are actually afraid of comes out, sideways or straight: what they will lose, what it says about them, who else will know. They bargain, or they go for the throat, or both in the same minute.";
+    case 2: return "IT IS LANDING AND THEY FIGHT IT. This is where the thing they are actually afraid of comes out, sideways or straight: what they will lose, what it says about them, who else will know. They bargain, or attack, or both in the same minute.";
     case 3: return "THEY STOP FIGHTING CLEAN. The composure goes. This is where somebody says the unforgivable thing, or asks the question they swore they would not ask, or names the year they gave to it. Not dignified.";
-    default: return "IT IS OVER AND THEY KNOW IT. What is left is not agreement, it is grief with the fight gone out of it — and grief still has business: what they want back, what they will not give up, the one thing they need said before they go.";
+    default: return "IT IS OVER AND THEY KNOW IT. What is left is grief without the fight, and it still wants things: what they want back, what they will not give up, the one thing they need said before they go.";
   }
 }
 
@@ -182,19 +182,19 @@ export function severanceDirective(state: SaveState): string {
 
   const styleLine =
     style === "anxious" ? "They pursue. Silence is unbearable to them and distance is the thing they are trying to close, so they follow it, re-open it, and ask again in different words."
-    : style === "avoidant" ? "They go cold and administrative — logistics, dates, who takes what — and the feeling comes out as precision. That is not acceptance; it is the only way they can hold it."
+    : style === "avoidant" ? "They go cold and administrative — logistics, dates, who takes what — and the feeling comes out as precision. They have not accepted it; precision is how they cope."
     : style === "disorganized" ? "They come at it and flinch from it inside the same exchange: furious in one line, pleading in the next, and unable to hold either position."
-    : "They meet it directly and say the true thing, which is harder to be in the room with than a scene would be.";
+    : "They meet it directly and say the true thing, which is harder on everyone present than a scene would be.";
 
   return `\n\n=== THIS IS NOT SETTLED YET ===\n`
-    + `The player is ending it with ${c.name}, and ${c.name} has not been got past. `
+    + `The player is ending it with ${c.name}, and ${c.name} has not accepted it. `
     + `${roundShape(round)}\n`
     + `HOW THIS PARTICULAR PERSON RESISTS: ${styleLine}`
     + (underThreat ? ` Under threat, on their own card: ${underThreat} — that is what they do here, at full size.` : "")
     + (soothed ? ` What would actually reach them: ${soothed}. They may reach FOR it, and not get it.` : "")
-    + `\nWhat is forbidden this turn is the shrug. No "okay". No signing it. No quiet dignified acceptance, no stepping back to let the player have their scene, and no wise sad little speech about how they always knew. `
+    + `\nDo not have them shrug it off this turn. No "okay". No signing it. No quiet dignified acceptance, no stepping back to let the player have their scene, and no wise sad little speech about how they always knew. `
     + `A person losing this does not become reasonable at the exact moment it would be convenient. Match the size of the reaction to the size of what is being taken.\n`
-    + `THE PLAYER STILL GETS TO LEAVE — this never becomes the world refusing them, and nobody physically stops them. It costs the scenes it would really cost, and this is one of them.`;
+    + `THE PLAYER STILL GETS TO LEAVE — this never becomes the world refusing them, and nobody physically stops them. It still has the consequences it would really have, and this scene is one of them.`;
 }
 
 /**

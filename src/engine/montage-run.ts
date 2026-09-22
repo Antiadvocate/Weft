@@ -42,23 +42,23 @@ const EDGE_STEP_CAP = { warmth: 15, trust: 20, power: 10 } as const;
 
 const PLANNER_SYSTEM = `You turn a player's free-text direction into an executable montage plan for a story engine.
 
-The player is skipping time ON PURPOSE and says what should be true by the end. Your job is to make that executable as a sequence of beats — never as one jump. The engine owns the emotional trajectory; you own the shape of events.
+The player is skipping time ON PURPOSE and says what should be true by the end. Your job is to make that executable as a sequence of beats — never as one jump. The engine handles the emotional changes; you plan the events.
 
 RULES
 - The checklist is the player's literal asks, one short phrase each. Do not invent asks they didn't make.
-- Beats must tell a middle: the decision, the friction, the settling. A beat may make things WORSE — that is good, it is what makes the ending earned.
+- Beats must cover the steps in between: the decision, the conflict, the settling. A beat may make things WORSE, which makes the ending feel earned.
 - Targets are FINAL values at the end of the whole montage (0-100 scale, warmth/trust), not per-beat.
 - Never target attraction; the engine models desire on its own rules.
 - Only name characters that exist in the world state you were given.
 - Cats, dogs, objects and household details go in as FACTS.
-- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a debt paid, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves the board exactly as it found it has moved the clock and left the story where it was.
-- BUT TIME DOES NOT RESOLVE EPICS. Only LOW-WEIGHT threads settle offscreen: errands, small debts, minor waits, questions time answers on its own. A central conflict, a mystery the story is built on, a war, a hunt, a betrayal — these are the story's spine and they resolve in scenes the player is PRESENT for, never in a skip. You are told the maximum weight this span may settle; propose nothing above it. When unsure, leave it open — an unresolved thread costs nothing, a spine dissolved offscreen cannot be undone.
+- TIME SETTLES SMALL THINGS AND OPENS OTHERS. Some open threads simply end during a skip — a promise kept, a wait concluded, a question answered by circumstance. Name those in threads_resolve. Arriving somewhere new also raises questions that were not live before; name those in threads_new. A montage that leaves every thread exactly as it was has moved time without moving the story.
+- BUT MAJOR THREADS DO NOT RESOLVE DURING A SKIP. Only LOW-WEIGHT threads settle offscreen: errands, small favours, minor waits, questions time answers on its own. A central conflict, a mystery the story is built on, a war, a hunt, a betrayal — these are the core of the story and they resolve in scenes the player is PRESENT for, never in a skip. You are told the maximum weight this span may settle; propose nothing above it. When unsure, leave it open; leaving a thread open is harmless, and resolving a major one offscreen cannot be undone.
 
 Output ONLY strict JSON:
 {"checklist":["short phrase per player ask"],
 "targets":[{"from":"char_id","to":"char_id","warmth":78,"trust":65,"roles":["partner"]}],
 "place_plan":{"create":{"name":"","description_facts":""},"player_moves_to":""},
-"threads_resolve":["EXACT title of an open thread this span of time settles, verbatim from OPEN THREADS. A month of living resolves things — a debt gets paid, a question gets answered, a waiting ends. Only what the direction actually implies."],
+"threads_resolve":["EXACT title of an open thread this span of time settles, verbatim from OPEN THREADS. A month can resolve things — a promise gets kept, a question gets answered, a wait ends. Only what the direction actually implies."],
 "threads_new":[{"title":"a NEW open question the DESTINATION creates, born from where they arrive","description":"","tension":3}],
 "household_facts":["durable facts true by the end, full sentences, no pronouns as subject"],
 "beats":[{"span_days":3,"goal":"what this stretch of days is ABOUT"}]}`;
@@ -70,7 +70,7 @@ You receive: the player's overall plan, what remains unlanded, a deterministic r
 RULES
 - Write the MIDDLE and leave the destination alone. This beat covers a stretch of days at the size it happened.
 - The deterministic report HAPPENED. Weave it in; never contradict it.
-- Stay inside the envelope. You may move less, or move the opposite way (a bad week is real), but never more.
+- Stay inside the envelope. You may move less, or move the opposite way (bad weeks happen), but never more.
 - Memories are personal and local: what THIS character lived these days. Never hand someone a memory of a distant event they have no way of knowing.
 - Facts must stand alone cold to a stranger: full sentence, named subject, no leading pronoun, no quotes.
 - Land plan items when the beat naturally gets there. Say which in "landed".

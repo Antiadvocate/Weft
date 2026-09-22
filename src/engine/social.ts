@@ -588,11 +588,11 @@ function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: strin
   };
   if (v >= 6) return {
     adjective: "reverent",
-    directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The friction available here is the friction of being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
+    directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The conflict available here comes from being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
   };
   if (v >= 2) return {
     adjective: "warmer",
-    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a lean of a few degrees: individuals still have their own reasons.`,
+    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a slight tilt, and individuals still have their own reasons.`,
   };
   if (v <= -6) return {
     adjective: "fearful",

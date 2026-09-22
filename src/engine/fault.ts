@@ -125,7 +125,7 @@ export function applyFaults(state: SaveState, faults: FaultReport[], turn: numbe
     const p = cond.psyche;
     if (conscience <= COLD) {
       // it registers as information, not as weight — and that is the whole difference
-      log.push(`${c.name} knows exactly what they did to ${state.characters[f.toward]?.name ?? "them"}, and it costs them nothing.`);
+      log.push(`${c.name} knows exactly what they did to ${state.characters[f.toward]?.name ?? "them"}, and it does not bother them.`);
       continue;
     }
     const weight = bondWeight(state, f.character, f.toward);
@@ -138,7 +138,7 @@ export function applyFaults(state: SaveState, faults: FaultReport[], turn: numbe
       p.active_states.push(st);
       (p.state_ages ??= {})[st] = turn;
     }
-    log.push(`${c.name} knows they did it, and it is sitting on them.`);
+    log.push(`${c.name} knows they did it, and it weighs on them.`);
   }
   return log;
 }
@@ -213,7 +213,7 @@ export function tickRepair(state: SaveState): string[] {
       delete p.fault; delete p.repair_toward; delete p.unfelt; delete p.repair_baseline;
       p.repairing = 0;
       p.relaxation = clamp(+(p.relaxation + 1.2).toFixed(2), -10, 10);
-      log.push(`${name} let ${c.name} back in, and ${c.name} finally stops moving.`);
+      log.push(`${name} let ${c.name} back in, and ${c.name} can finally stop trying to fix things.`);
       continue;
     }
 
@@ -226,7 +226,7 @@ export function tickRepair(state: SaveState): string[] {
       if (!p.active_states.includes(st)) { p.active_states.push(st); (p.state_ages ??= {})[st] = turn; }
       p.repairing = 0;
       delete p.repair_toward; delete p.unfelt; delete p.repair_baseline;
-      log.push(`${c.name} runs out of things to fix, and what they have been outrunning arrives.`);
+      log.push(`${c.name} runs out of things to fix, and the feeling they were avoiding catches up with them.`);
     }
   }
   return log;
@@ -269,14 +269,14 @@ export function faultDirective(state: SaveState): string {
         + `they do not raise what was done to THEM, and if anyone asks how they are they answer about ${who} instead — `
         + `not as evasion they are aware of; it genuinely does not occur to them that they are the subject. `
         + `Let them offer, do, fetch, smooth over, take the blame for parts that were not theirs. `
-        + `This is not calm and it is not generosity: it is somebody who cannot sit still with it, and the strain shows in the body `
+        + `This comes from being unable to sit still with it, and the strain shows in the body `
         + `(too quick to move, too eager to agree, a hand doing something unnecessary) while the words stay warm.`,
       );
       continue;
     }
     if (conscience <= COLD) continue;
     if (style === "avoidant") {
-      lines.push(`${c.name} knows what they did to ${who} and will not go near it. They go flat and put distance in — shorter answers, somewhere else to be — and it reads as coldness rather than as the shame it is.`);
+      lines.push(`${c.name} knows what they did to ${who} and will not go near it. They go flat and put distance in — shorter answers, somewhere else to be — and others read their shame as coldness.`);
     } else if (style === "disorganized") {
       lines.push(`${c.name} knows what they did to ${who} and cannot hold one position about it: reaches to make it right and pulls back inside the same exchange, warm one line and defensive the next.`);
     } else {

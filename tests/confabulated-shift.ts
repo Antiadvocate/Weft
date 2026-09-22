@@ -195,8 +195,8 @@ const proseAt = (turn: number): string =>
     /did not come from the player's last line/i.test(note), note);
   check("...offering what is already on her card", /Confirm beyond doubt|cuticle oil/i.test(note), note);
   check("...while still granting that a braced body narrows",
-    /that is not a fault to correct/i.test(note), note);
-  check("...onto her own thing rather than his", /WHOSE ONE THING IT IS/.test(note), note);
+    /That is normal for a tense person/i.test(note), note);
+  check("...onto her own thing rather than his", /WHOSE CONCERN IT IS/.test(note), note);
 
   // THE REGRESSION THIS EXISTS TO STOP: at turn 34 the same call returned the empty string, for a
   // character at −5.6 with five active emotional states, because a narrowed body was skipped before

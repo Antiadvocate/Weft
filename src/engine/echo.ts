@@ -133,10 +133,10 @@ export function echoFix(hit: EchoHit | null | undefined): string {
   const shared = `\nWHAT TO DO WITH A LINE THE PLAYER HAS ALREADY SAID: nothing. It has been said, everyone in the room heard it, and it does not come back. Whether it landed is shown by what the listener DOES next — closes the distance, sits down, goes quiet, hands something over, answers a different question, leaves. A character who genuinely did not catch it acts on the half they did catch and gets it slightly wrong, which is what actually happens when somebody mishears.`;
   if (hit.kind === "demand") {
     return `\nLAST TURN A CHARACTER ASKED THE PLAYER TO SAY IT AGAIN: "${hit.line}"
-The player typed a line, it reached the person it was aimed at, and instead of the world answering it the world handed it back and asked for it louder. Do not write this again in any wording, and not as a tease, a tenderness, a test, or a way to raise the temperature.${shared}`;
+The player typed a line and the person it was aimed at heard it, but instead of answering, the scene asked the player to say it again. Do not write this again in any wording, including as a tease, a test, tenderness, or a way to raise the stakes.${shared}`;
   }
   return `\nLAST TURN A CHARACTER REPEATED THE PLAYER'S OWN WORDS BACK AT THEM: "${hit.line}"
-The player already knows what they said. A line that returns their words to them — quoted, turned over, weighed, or reframed more kindly — is a line in which nothing happened.${shared}`;
+The player already knows what they said. A line that returns their words to them — quoted, turned over, weighed, or reframed more kindly — accomplishes nothing.${shared}`;
 }
 
 /**
@@ -286,7 +286,7 @@ export function findReprint(prevProse: string, prose: string): { span: string; o
 export function reprintFix(hit: { span: string; overlap: number } | null | undefined): string {
   if (!hit?.span) return "";
   return `\nLAST TURN REPRINTED THE TURN BEFORE IT. ${Math.round(hit.overlap * 100)}% of its distinctive words were the previous turn's, including this run word for word: "${hit.span}…"
-That is not a scene. Whatever the player typed, the world had already moved past that page and did not move back. THIS TURN STARTS FROM WHERE THE LAST ONE ENDED and goes somewhere the story has not been: the bodies are in different positions than they were, or somebody has said the thing they had not said, or the act is further along, or someone has arrived, moved, or stopped. Do not re-establish what is already established, do not restage the same gesture in new words, and do not re-run a line of dialogue in a new wording. If the player's input was a question about what is happening, ANSWER IT INSIDE THE FICTION — state plainly, in the prose, where everyone is and what is being done to whom right now — and then move.`;
+Nothing happened in that turn. Whatever the player typed, the story had already moved past that point. THIS TURN STARTS FROM WHERE THE LAST ONE ENDED and goes somewhere the story has not been: the bodies are in different positions than they were, or somebody has said the thing they had not said, or the act is further along, or someone has arrived, moved, or stopped. Do not re-establish what is already established, do not restage the same gesture in new words, and do not re-run a line of dialogue in a new wording. If the player's input was a question about what is happening, ANSWER IT INSIDE THE FICTION — state plainly, in the prose, where everyone is and what is being done to whom right now — and then move.`;
 }
 
 /* ── A LINE THE STORY HAS ALREADY PRINTED ───────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ export function findLineReprint(previous: readonly string[], prose: string): str
 export function lineReprintFix(line: string | null | undefined): string {
   if (!line) return "";
   return `\nLAST TURN SOMEBODY SAID A LINE THIS STORY HAS ALREADY PRINTED, WORD FOR WORD: "${line}"
-It was on the page once already and the reader recognised it. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
+The reader already saw it once. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
 }
 
 /* ══ THE QUOTE-BACK OPENER ══════════════════════════════════════════════════════════════════

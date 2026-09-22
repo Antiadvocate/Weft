@@ -74,7 +74,7 @@ const said = (s: string) => `She set the cup down. "${s}" The fire went on burni
 
   const p = echoFix({ line: "You came up from Bovillae, did you.", kind: "parrot" });
   check("the parrot correction quotes the line", /Bovillae/.test(p));
-  check("...and names why it wastes the turn", /a line in which nothing happened/.test(p));
+  check("...and names why it wastes the turn", /accomplishes nothing/.test(p));
 
   check("nothing caught, nothing said", echoFix(null) === "" && echoFix(undefined) === "");
 }

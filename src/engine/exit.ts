@@ -398,6 +398,6 @@ export function risenFix(hit: RisenHit | null | undefined): string {
   return `\nLAST TURN YOU PUT SOMEBODY BACK IN THE STORY WHO IS FINISHED. ${hit.name.toUpperCase()} IS ${hit.status.toUpperCase()}, and this sentence has them acting: "${hit.line}"`
     + `\nThat did not happen and it is not in the record. ${hit.name} does not walk in, speak, arrive, turn, look, wait or reach for anything, this turn or any turn after it. `
     + `Where the story has already shown them gone, they stay gone; a body remains a body and may be described, stepped around, or carried, and that is the whole of what they can do now. `
-    + `If the scene wants them, it wants somebody else: another person arrives, or nobody does, or what the moment needed turns out to be their absence. `
-    + `Write this turn as though the sentence above was never written, and do not have anyone in the scene remark on their return, explain it, or wonder at it — there was no return to notice.`;
+    + `If the scene needs someone, another person arrives, or nobody does and the scene works with their absence. `
+    + `Write this turn as though the sentence above was never written, and do not have anyone in the scene remark on their return, explain it, or wonder at it .`;
 }

@@ -262,12 +262,12 @@ export function remodelCue(p: Psyche, name: string): string {
   const drift = p.capacity - born;
   if (Math.abs(drift) < LEGIBLE) return "";
   if (drift < 0) {
-    return `  the story has worn this body: ${name} comes to rest tighter than ${name} did when this began. `
-      + `Ordinary friction does not land the way it used to — the small slights, the ordinary rudeness, the day being difficult go through ${name} without catching — `
-      + `and there is less in reserve when something real arrives. Render it as what ${name} no longer reacts to, never as a mood and never as toughness.`;
+    return `  the story has worn ${name} down: ${name}'s resting state is tenser than when the story began. `
+      + `Small slights, ordinary rudeness and difficult days no longer register with ${name}, `
+      + `and there is less left in reserve when something serious happens. Show it through what ${name} no longer reacts to, never as a mood or as toughness.`;
   }
-  return `  the story has settled this body: ${name} comes to rest easier than ${name} did when this began. `
-    + `There is more room before ${name} contracts, and care lands where it used to bounce. Render it as a widened threshold — what ${name} can now take without narrowing — never as cheerfulness.`;
+  return `  the story has calmed ${name}: ${name}'s resting state is easier than when the story began. `
+    + `It takes more to make ${name} tense, and kindness now gets through where it used to be deflected. Show it through what ${name} can now handle without tensing, never as cheerfulness.`;
 }
 
 /**

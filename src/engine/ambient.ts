@@ -237,9 +237,9 @@ export function ambientFix(motifs: string[], example: string): string {
   if (!motifs.length) return "";
   return `\n\nRECENTLY OVERUSED SETTING: ${motifs.join(", ")}. `
     + (example ? `You have written it as recently as: "${example}" ` : "")
-    + `It has been in most of the last few turns and the reader has stopped seeing it — repeated setting becomes furniture, `
-    + `and a scene furnished the same way every time reads as one long scene. DO NOT use ${motifs.length > 1 ? "any of them" : "it"} this turn, `
-    + `in a sentence or in a clause hung off one. If the beat needs air in it, that air comes from something in the room that is ACTUALLY `
+    + `It has been in most of the last few turns and the reader no longer notices it, `
+    + `and a setting described the same way every time makes every scene feel like one long scene. DO NOT use ${motifs.length > 1 ? "any of them" : "it"} this turn, `
+    + `in a sentence or in a clause hung off one. If the beat needs a pause, fill it with something in the room that is ACTUALLY `
     + `different this time — what someone is doing with their hands, what the place smells like at this hour, what is on the table that was not there before — `
-    + `or the beat does not need air and goes straight on with the people in it.`;
+    + `or skip the pause and go straight on with the people in it.`;
 }

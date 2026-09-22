@@ -149,11 +149,11 @@ export function commonGroundNote(state: SaveState, speakerId: string, listenerId
   if (!a || !b) return "";
   const shared = commonGround(a, b);
   if (!shared.length) {
-    return `\n[${a.name} AND ${b.name} HAVE NOTHING OBVIOUS IN COMMON. Their cards share no subject. That is usable: between these two, small talk is work, silences are real, and anything ${a.name} wants from ${b.name} has to be approached without a natural opening — which is itself characterising. Do not invent a shared enthusiasm to smooth it over.]`;
+    return `\n[${a.name} AND ${b.name} HAVE NOTHING OBVIOUS IN COMMON. Their cards share no subject. Between these two, small talk takes effort, silences are real, and anything ${a.name} wants from ${b.name} has to be approached without a natural opening, which shows something about both of them. Do not invent a shared enthusiasm to smooth it over.]`;
   }
   const lines = shared.slice(0, 3).map((s) =>
     `${s.label} — ${a.name}: ${s.mine} / ${b.name}: ${s.theirs}`);
-  return `\n[WHAT ${a.name.toUpperCase()} AND ${b.name.toUpperCase()} HAVE IN COMMON — none of it mentioned yet, all of it on their cards:\n· ${lines.join("\n· ")}\nThis is what a conversation between these two is MADE of, and it is how a want gets approached rather than announced. Somebody who wants something from another person does not open with it: they find the subject both of them light up about, they stay there longer than they need to, and the want moves under it. A scene where the only thing on the table is what one of them is after is a scene where nobody has a life. Use a real detail above; do not invent a new shared interest.]`;
+  return `\n[WHAT ${a.name.toUpperCase()} AND ${b.name.toUpperCase()} HAVE IN COMMON — none of it mentioned yet, all of it on their cards:\n· ${lines.join("\n· ")}\nConversations between these two come from this, and it is how a want gets approached without being announced. Somebody who wants something from another person does not open with it: they find the subject both of them light up about, they stay there longer than they need to, and the want moves under it. Do not make a scene only about what one of them is after. Use a real detail above; do not invent a new shared interest.]`;
 }
 
 /** Which pair to compute it for: whoever is in the room with the player and has a live want aimed at

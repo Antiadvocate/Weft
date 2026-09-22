@@ -62,8 +62,8 @@ const bandOf = (d: string) => d.match(/APERTURE — ([A-Z]+):/)?.[1] ?? "?";
   check("…and several things arrive uninvited", /Three or four things arrive uninvited/.test(strained));
   check("…none of them connected or picked up", /NONE of them are relevant, connected, or picked up again/.test(strained));
   check("…and it is not tidied into a mood", /Do not tidy this into a mood/.test(strained));
-  check("at ease little gets in and it was worth it", /little gets in and what does was worth it/.test(easy));
-  check("…and no ambient furnishing", /no ambient furnishing/.test(easy));
+  check("at ease little gets in and it was worth it", /little gets in — one or two things this person would actually choose to notice/.test(easy));
+  check("…and no ambient furnishing", /no background description/.test(easy));
 }
 
 /* ── AND THE GRAMMAR, WHICH IS THE HALF THAT WAS MISSING ────────────────────────────────────── */
@@ -91,7 +91,7 @@ check("the middling band stays as it was", !/HOW A STRAY IS WRITTEN/.test(at(0))
 {
   const d = at(-4);
   check("the player's own acts still stay bare", /THE PLAYER'S OWN ACTS STAY BARE/.test(d));
-  check("…and the meaning of them is still his to supply", /the one thing you must not touch/.test(d));
+  check("…and the meaning of them is still his to supply", /belongs to the player, so never supply it/.test(d));
 }
 /* CAPACITY STILL HOLDS A CHANNEL OPEN — a curious person in a bad state still registers the light,
  * and that was in the file before any of this. */

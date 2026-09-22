@@ -26,25 +26,25 @@ import { newBlock, normalizeDays, parseClock } from "./schedule";
 import type { SaveState, Schedule, ScheduleBlock } from "./types";
 import { clipText } from "./text";
 
-const SCHEDULE_SYSTEM = `You write down the week ONE character already has. You are not designing them a life.
+const SCHEDULE_SYSTEM = `You write down the week ONE character already has, using only what you were given.
 
 Everything you write must be traceable to something you were given: their background, their work, their standing wants, their obligations, the world's technology and politics, and the places that exist. If the card does not say they have a job, THEY DO NOT HAVE ONE — do not award them employment to fill the form. A person with no work still has a week: a meal they take with someone, a duty, a market day, a place they always are at a certain hour.
 
-WHAT A BLOCK IS. Somewhere this person HAS TO BE, at hours that repeat. Not what they want (that is elsewhere on their card and it is not your business), not an itinerary of their day. A shift. A watch. A round. A service. Lessons. The hours a shop is theirs to keep.
+WHAT A BLOCK IS. Somewhere this person HAS TO BE, at hours that repeat. Leave out what they want (that is elsewhere on their card), and do not write an itinerary of their day. A shift. A watch. A round. A service. Lessons. The hours a shop is theirs to keep.
 
-HOW MANY. One to three. Almost never four. A week is a skeleton — the story happens in the gaps, and a character booked solid is a character the player can never reach. If one block is the truth of their week, write one.
+HOW MANY. One to three. Almost never four. Keep the week sparse: the story happens in the gaps, and the player can never reach a character who is fully booked. If one block is the truth of their week, write one.
 
-THE WEEK ITSELF IS A PROPERTY OF THE WORLD. A five-day working week with two days off is an industrial arrangement and belongs only to a world that has one. Otherwise use what this world actually runs on: every day (a farm, a kitchen, a watch), specific named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting names. Choose "days" accordingly.
+THE SHAPE OF THE WEEK DEPENDS ON THE WORLD. A five-day working week with two days off is an industrial arrangement and belongs only to a world that has one. Otherwise use what this world actually runs on: every day (a farm, a kitchen, a watch), specific named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting names. Choose "days" accordingly.
 
 HOURS MUST FIT THE WORLD. Pre-industrial work starts at first light and stops at dark; a night watch is a night watch; an office is an office. Do not write 09:00–17:00 into a world that has no clocks to say it with.
 
-"why" IS THE MOST IMPORTANT FIELD AND IT IS NOT A JOB DESCRIPTION. It is why THIS is in THIS person's life, in one plain sentence, drawn from their background or what they are trying to get: "it is the only yard that took a man off the boats", "she is the only one in the house who can read the weights", "he goes because his mother's name is on the roll and someone has to answer to it". Never "because he is a blacksmith".
+"why" IS THE MOST IMPORTANT FIELD. It says why THIS is in THIS person's life, in one plain sentence, drawn from their background or what they are trying to get: "it is the only yard that took a man off the boats", "she is the only one in the house who can read the weights", "he goes because his mother's name is on the roll and someone has to answer to it". Never "because he is a blacksmith".
 
 "where" MUST NAME A PLACE FROM THE LIST when one of them fits — copy the name exactly. Only name a new one when the week genuinely requires somewhere the world does not have yet, and then name it as a person would say it aloud, as a whole place (a building, a yard, a stretch of road), never a room inside one.
 
-"how" is the getting there — the walk, the tram, the cart, whose horse. One short phrase. It is what the person would say, and it is often the most human line on the card.
+"how" is the getting there — the walk, the tram, the cart, whose horse. One short phrase. Write it the way the person would say it.
 
-"rigidity": "mandatory" only when missing it genuinely costs them something they cannot absorb (pay, rank, custody, liberty). "expected" is the normal case. "optional" is a thing they do most days and can drop.
+"rigidity": "mandatory" only when missing it would seriously hurt them (losing pay, rank, custody, or freedom). "expected" is the normal case. "optional" is a thing they do most days and can drop.
 
 "stakes" only for mandatory blocks: what missing it actually does, concretely, to them. One clause.
 

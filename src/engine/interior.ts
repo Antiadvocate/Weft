@@ -130,19 +130,19 @@ export function bearingDirective(interior: PlayerInterior | null, relaxation: nu
 
   const opaque = ` WHAT SHOWS DOES NOT DECODE IT. A body that went ${way} looks the same whatever put it there —`
     + ` do not name the feeling, do not gesture at its cause, and do not write a tell that spells it out`
-    + ` ("his jaw set at the thought of what she had done" is the failure; "his jaw set" is the line).`
+    + ` (write "his jaw set", not "his jaw set at the thought of what she had done").`
     + ` The people in the room see only this and read it through their own eyes, and they are allowed to be wrong.`;
 
   if (relaxation >= 2) {
     return `\n[THE PLAYER IS CARRYING SOMETHING PRIVATE THIS TURN, and their body has nothing gripping it.`
-      + ` It goes into the ACT: they do what they did wholly and without hedging${strong ? ", and the wholeness of it is the visible thing" : ""}.`
+      + ` It goes into the ACT: they do what they did wholly and without hedging${strong ? ", and that completeness is what shows" : ""}.`
       + ` Nothing leaks, nothing is held back for later, and there is no second layer under the act for anyone to catch.`
       + ` You are not told what it was and you do not need it — render the act, cleanly.${opaque}]`;
   }
   if (relaxation <= -3) {
     return `\n[THE PLAYER IS CARRYING SOMETHING PRIVATE THIS TURN, and their body is clenched, so it cannot come out straight.`
       + ` It LEAKS: the act arrives with something on it that does not match its surface —${strong ? " a beat held too long, a flatness where warmth belonged, a hand that does the job and nothing more" : " a small wrongness of timing or pressure"}.`
-      + ` Write the crookedness, never the cause.${opaque}]`;
+      + ` Write the mismatch, never the cause.${opaque}]`;
   }
   return `\n[The player is carrying something private this turn, and it barely reaches the surface —`
     + ` a flicker at most, gone before anyone could name it. Do not build a beat on it.${opaque}]`;

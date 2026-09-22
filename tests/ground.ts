@@ -120,7 +120,7 @@ function world() {
   const log = tickArrivals(s, [{ id: "char_a", to: "loc_house" }]);
   check("walking in moves the body before anybody speaks", s.condition["char_a"].psyche.relaxation < before,
     { before, after: s.condition["char_a"].psyche.relaxation });
-  check("...and it is reported", log.length === 1 && /still had it/.test(log[0]), log);
+  check("...and it is reported", log.length === 1 && /bad memory was still there/.test(log[0]), log);
   const after = s.condition["char_a"].psyche.relaxation;
   tickArrivals(s, []);       // a turn spent standing in the same room
   check("standing in it does not re-administer it", s.condition["char_a"].psyche.relaxation === after);

@@ -127,9 +127,9 @@ const APPROACH_LINE: Record<Approach, (p: Pn) => string> = {
 };
 
 const CLAIM_LINE: Record<Claim, (p: Pn) => string> = {
-  defers: (p) => `gives the other person's claim more weight than ${p.possessive} own: checks whether it is alright, apologises for things that need no apology, offers the version that will be easier to hear, and only says the thing actually wanted on the second or third pass`,
-  balanced: () => "weighs their own claim about as heavily as anyone else's",
-  takes: () => "does not weigh the other person's claim much at all: asks for the thing, keeps what is handed over, and does not soften the ask on the way out",
+  defers: (p) => `puts the other person's needs ahead of ${p.possessive} own: checks whether it is alright, apologises for things that need no apology, offers the version that will be easier to hear, and only says the thing actually wanted on the second or third pass`,
+  balanced: () => "weighs their own needs about the same as anyone else's",
+  takes: () => "gives little weight to other people's needs: asks for what they want, keeps what they are given, and does not soften the ask",
 };
 
 /**
@@ -163,8 +163,8 @@ export function bearingNote(state: SaveState, presentIds: readonly string[]): st
     rows.push(`${c.name} ${bits.join("; ")}.${shy}`);
   }
   if (!rows.length) return "";
-  return `\n\n=== HOW THESE PEOPLE STAND IN A ROOM (this is climate, holding across whole stretches of the story) ===\n· ${rows.join("\n· ")}\n`
+  return `\n\n=== HOW THESE PEOPLE STAND IN A ROOM (these hold across long stretches of the story) ===\n· ${rows.join("\n· ")}\n`
     + `This is who they are across every mood, including the ones the state notes above describe. A settled shy person is still shy; a furious deferential person defers while furious.\n`
-    + `AND MOST OF IT IS PERMISSION. Nobody in this scene has to be efficient. A person may not finish the sentence, may answer the easier question instead of the one asked, may say the small true thing rather than the large one, may need three goes at it, may apologise for something that needs no apology, may go quiet and let somebody else fill it, may agree out loud while not agreeing. `
-    + `If everybody in this scene says exactly what they mean at exactly the right length and lands it, they have all been written by the same person, and the differences printed above are the ones that were supposed to stop that.`;
+    + `AND MOST OF IT IS PERMISSION: nobody in this scene has to be efficient. A person may not finish the sentence, may answer the easier question instead of the one asked, may say the small true thing rather than the large one, may need three goes at it, may apologise for something that needs no apology, may go quiet and let somebody else fill it, may agree out loud while not agreeing. `
+    + `If everybody in this scene says exactly what they mean at exactly the right length and lands it, they all sound the same, which the differences printed above are meant to prevent.`;
 }

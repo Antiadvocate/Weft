@@ -219,10 +219,10 @@ export function missedNote(state: SaveState, presentIds: readonly string[]): str
   // scene where somebody standing here actually blew something off.
   return `\n\nAN HOUR SOMEBODY NAMED WENT PAST WHILE THEY WERE STANDING HERE.\n· ${rows.join("\n· ")}\n`
     + `They know it. Nobody in this scene says they went, says they were there, describes what happened while they were there, or refers to anybody having watched them leave — none of that is in the record and none of it happened. `
-    + `If it comes up, what is true is that the hour passed and they were here, and whatever they feel about that is theirs: brazen about it, sore about it, lying about it to somebody who was in the room and knows better, or already working out what they will say to whoever is owed the time. `
-    + `A person who blows off work has somebody to answer to and something they would rather do instead, and both of those are things they can want out loud without being asked.\n`
+    + `If it comes up, what is true is that the hour passed and they were here, and whatever they feel about that is theirs: brazen about it, sore about it, lying about it to somebody who was in the room and knows better, or already working out what they will say to whoever was expecting them. `
+    + `A person who skips work has somebody to answer to and something they would rather be doing, and they may say either out loud unprompted.\n`
     + `AND NOTHING OFF-SCREEN CORROBORATES IT. No manager, no coworker, no timesheet, no keycard log, no text sent from the back room, no schedule on a wall and no camera puts them there, because they were not there. `
-    + `If somebody in this scene reaches for proof, the proof is on the side of the record.`;
+    + `If somebody in this scene looks for proof, the proof agrees with the record.`;
 }
 
 /**
@@ -419,7 +419,7 @@ export function verificationLaw(state: SaveState, action: string, presentIds: re
   return `\n\n=== THE ANSWER IS ALREADY SETTLED. DO NOT DERIVE IT FROM THE CONVERSATION. ===\n· ${rows.join("\n· ")}\n`
     + `The player is checking this against something outside the room. Whoever or whatever answers — a manager, a coworker, a shift log, a text thread, a badge reader, a till receipt — answers from the record above, and the record says it did not happen. `
     + `A voice invented this turn has no memory of its own to consult, so it cannot be the thing that decides; it can only repeat what the engine already knows. `
-    + `A manager who says she worked is this story agreeing with a thing it knows to be false, and it is worse than the original error, because the player asked.\n`
+    + `A manager who says she worked contradicts the record, which is worse than the original error because the player specifically asked.\n`
     + `WHAT IS STILL OPEN, and it is most of the scene. The answer can be slow, partial, distracted, or useless — somebody on a busy line does not have the roster in front of them, does not remember, has to go and look, asks who is calling, or hangs up. `
     + `The person being checked can lie over the top of it, talk across it, take the phone, refuse, walk out, or tell the truth. Nobody has to be believed and nothing has to be resolved this turn. `
     + `The one thing unavailable is a third party putting them somewhere the record does not.`;

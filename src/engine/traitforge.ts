@@ -33,7 +33,7 @@ Right form, by kind:
 - TEMPERAMENT AS CONDUCT: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before saying anything at all, even to say yes."
 - AVERSION OR PULL, naming the thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather."
 - UNEARNED APTITUDE, naming the skill: "Could untangle any knot before she could read; still does it while thinking."
-- PHYSICAL SIGNATURE, naming body and object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath while waiting: steps, coins, sheep."
+- PHYSICAL SIGNATURE, naming body and object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath while waiting: steps, birds, sheep."
 - AFFINITY, naming the place: "Goes to the water when anything goes wrong, and only then."
 
 HARD CONSTRAINTS:
@@ -43,7 +43,7 @@ HARD CONSTRAINTS:
 4. NO MORAL VERDICTS. "Honorable", "kind", "cruel" are judgements. Write the conduct; let the reader judge.
 5. USE WORDS THIS WORLD HAS. Name the conduct in the plainest terms available in the setting you were given: no clinical vocabulary, and no term from a body of knowledge this world does not have. A person who knew them would recognise it at once and would not call it clever.
 
-Each trait: one short concrete phrase, under about 14 words. At least one must be INCONVENIENT — something that costs them or is tiring to be near. If the originals are all flattering, the honest version still is not.
+Each trait: one short concrete phrase, under about 14 words. At least one must be INCONVENIENT — something that causes them trouble or is tiring to be around, even if all the originals are flattering.
 
 Output ONLY this JSON:
 {"traits":[{"trait":"","from":"which original adjective this expresses"}]}`;

@@ -107,7 +107,7 @@ const st = (chars: Record<string, Identity>) => ({ characters: chars } as unknow
   const s = st({ char_player: RABI, char_dov: stranger });
   const note = commonGroundNote(s, "char_dov", "char_player");
   check("no shared ground is said plainly", /NOTHING OBVIOUS IN COMMON/.test(note), note.slice(0, 120));
-  check("and the silence is offered as usable rather than as a problem", /small talk is work/.test(note));
+  check("and the silence is offered as usable rather than as a problem", /small talk takes effort/.test(note));
   check("with the same ban on inventing one", /do not invent/i.test(note.toLowerCase()) || /Do not invent/.test(note));
 }
 

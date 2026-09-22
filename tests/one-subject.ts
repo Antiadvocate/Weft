@@ -102,7 +102,7 @@ const CAST = ["Miranda", "Chloe", "Leo", "Sarah Keller"];
 
   const note = retoldNote(hit);
   check("the next turn is told, quoting both sides", /already had it/.test(note) && /who else made the cut/.test(note), note);
-  check("...and told to start from the far side of it", /far side of what has already been said/.test(note), note);
+  check("...and told to start from the far side of it", /start from what has already been said/.test(note), note);
   check("nothing to correct means nothing said", retoldNote(null) === "");
 }
 

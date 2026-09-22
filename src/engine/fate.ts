@@ -83,9 +83,9 @@ export function gravityDirective(f: Fate, bible: { destination?: string }, missi
 
 THIS STORY IS WRITTEN TOWARD: "${dest}"
 There is no deadline on it and you must not manufacture one — nobody is running out of time and no scene should feel like it is being hurried somewhere. `
-    + `What this is is GRAVITY: of the several directions a scene could go, the one that goes toward this is the one to take, and a turn that moves further away from it needs a reason the story actually supplies. `
+    + `Treat it as a steady pull: when a scene could go several ways, take the one toward this ending, and move away from it only when the story gives a reason. `
     + (missing ? `Between here and it, right now: ${missing}. ` : "")
-    + `That does not mean writing it this turn, and it does not mean anyone talking about it. It means the wants, the pressure and the attention of this scene bend toward that and not away from it.`;
+    + `That does not mean writing it this turn, and it does not mean anyone talking about it. It means the wants, the pressure and the attention of this scene lean toward it.`;
 }
 
 /** The narrator's orders this turn. Empty when there is no destination or no clock, so open play is
@@ -97,16 +97,16 @@ export function fateDirective(f: Fate, missing?: string): string {
   const gap = missing?.trim() ? ` What still stands in the way: ${missing.trim()}` : "";
 
   if (f.forceArrival) {
-    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". The turns allotted for it are spent. That ending has to happen here, completely, finished inside this scene. If the player worked toward it, they get it and it means something. If they spent the story elsewhere, it still happens, but through someone else's choice or at a price they did not agree to. Do not stop short of it.`;
+    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". There are no turns left. That ending has to happen here, completely, finished inside this scene. If the player worked toward it, they get it and it means something. If they spent the story elsewhere, it still happens, but through someone else's choice or on terms they did not agree to. Do not stop short of it.`;
   }
   if (f.act === "convergence") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Everything in this scene should shorten that distance. Whoever and whatever that ending needs is here now, or arrives this turn. Do not open a new subject. The player still chooses how it goes, and can still choose badly, but the scene should leave them nearer the ending than it found them.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Everything in this scene should bring it closer. Whoever and whatever that ending needs is here now, or arrives this turn. Do not open a new subject. The player still chooses how it goes, and can still choose badly, but the scene should leave them nearer the ending than it found them.`;
   }
   if (f.act === "closing") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} The world is beginning to arrange itself around that. Raise the complications that force the question rather than postpone it. Roads the player walked away from do not stay open. Do not spend this scene on something unrelated.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} The world is starting to move toward it. Raise the complications that force the question rather than postpone it. Options the player walked away from close. Do not spend this scene on something unrelated.`;
   }
   if (f.act === "rising") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Let this scene bring it nearer, or make its cost clearer. Choose frictions that lie between here and there.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Let this scene bring it nearer, or show more clearly what reaching it will take. Choose complications that lie between here and there.`;
   }
   return `\n\nThis story ends in ${turns} with: "${f.destination}". That is still far off; leave the player free. Plant what will matter later — a want, an obstacle, a fact.`;
 }

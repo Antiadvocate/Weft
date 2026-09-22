@@ -40,7 +40,7 @@ check("mortal is nothing witnessed", witnessedDirective(world("mortal")) === "")
   check("cosmic names what they actually watched", /make matter appear and disappear at will/.test(d), d.slice(0, 120));
   check("…says they saw it rather than heard about it", /Not been told about it. Watched it/.test(d));
   check("…and dates it, so it reads as standing rather than new", /turn 6/.test(d) && /27 turns ago/.test(d), d.slice(0, 160));
-  check("…names the failure it exists to stop", /never a procedural problem/i.test(d));
+  check("…names the failure it exists to stop", /NEVER TREAT IT AS A PROCEDURAL PROBLEM/i.test(d));
   check("…and quotes the real one", /the till, making change/.test(d));
   check("…gives the behaviours that replace it", /want something from it|ask him to do it again/.test(d));
   check("…and sends the choice back to the character's own card", /comes off their own card/.test(d));
@@ -55,9 +55,9 @@ check("empowered is milder still", /no ordinary person can do/.test(witnessedDir
  * moral-verdict failure this project has been chasing since its first report. */
 {
   const d = witnessedDirective(world("cosmic"));
-  check("refusing is named as a position rather than the default", /REFUSING IS A POSITION AND IT COSTS/.test(d));
+  check("refusing is named as a position rather than the default", /PEOPLE TAKE WHAT HE GIVES BY DEFAULT/.test(d));
   check("…it has to be grounded in their own state", /their own state has to say why/.test(d));
-  check("…and it does not get to be the scene's verdict", /does not read as the scene's moral verdict/.test(d));
+  check("…and it does not get to be the scene's verdict", /is not written as the scene's moral judgment/.test(d));
 }
 
 /* ── AND REPETITION DOES NOT MAKE IT ORDINARY ───────────────────────────────────────────────── */

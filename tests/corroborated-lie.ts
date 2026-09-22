@@ -117,7 +117,7 @@ const prev = (turn: number): string => prose(turn - 1);
   const law = verificationLaw(s, acted(40), s.world.present, prev(40));
   check("the law states the verdict", /was not there/i.test(law), law.slice(0, 200));
   check("...names what may not decide it", /A voice invented this turn has no memory of its own/i.test(law), law);
-  check("...and says why it would be worse than the original error", /because the player asked/i.test(law), law);
+  check("...and says why it would be worse than the original error", /because the player specifically asked/i.test(law), law);
   check("...while leaving the character free to lie", /can lie over the top of it/i.test(law), law);
   check("...and leaving the answer allowed to be useless", /slow, partial, distracted, or useless/i.test(law), law);
 

@@ -299,14 +299,14 @@ export function noveltyNote(state: SaveState, id: string): string {
     parts.push(
       `${c.name} has already shown these on the page recently, and they are established: ${resting.join("; ")}. ` +
       `DO NOT render any of them this turn — not as a beat, not as a gesture under a line of dialogue, not as ` +
-      `a half-sentence of business while someone else talks. A physical signature is characterisation the first ` +
-      `time and wallpaper by the ninth; the reader has it. ${c.name} is in this scene doing something else with ` +
+      `a half-sentence of business while someone else talks. A physical habit tells the reader something the first ` +
+      `time and is just repetition by the ninth; the reader already knows it. ${c.name} is in this scene doing something else with ` +
       `their hands and their face, and what that something is comes from what they want right now.`,
     );
   if (ground.length)
     parts.push(
       `${c.name} has lived these a long time: ${ground.join("; ")}. ` +
-      `They are the floor, not the subject. ${c.name} does them the way people do old things — ` +
+      `They are background here. ${c.name} does them the way people do old habits — ` +
       `without commentary, without selling them, without discovering them again. ` +
       `Do NOT write a scene ABOUT these; write a scene that HAPPENS during them: the talk over the activity ` +
       `is about something else entirely (the day, a worry, another person), and the habit is just where they are while it happens. ` +
@@ -315,7 +315,7 @@ export function noveltyNote(state: SaveState, id: string): string {
   if (familiar.length)
     parts.push(
       `Less worn but no longer new for ${c.name}: ${familiar.join("; ")}. ` +
-      `Some ease has set in — competence and comfort rather than enthusiasm. Half the airtime it got the first time.`,
+      `They do it comfortably now, with less enthusiasm. Give it about half the attention it got the first time.`,
     );
   return parts.join(" ");
 }

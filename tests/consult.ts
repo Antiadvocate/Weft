@@ -50,10 +50,10 @@ function world(): SaveState {
   check("the question is seen", !!consultTarget(s, t2), consultTarget(s, t2));
 
   const d = consultDirective(s, t2);
-  check("the words are named as the substance of the turn", /SUBSTANCE OF THIS TURN/.test(d));
+  check("the words are named as the substance of the turn", /MAIN CONTENT OF THIS TURN/.test(d));
   check("...and the exact evasion is named", /the screen filled/i.test(d) && /read what it told him/i.test(d), d.slice(0, 400));
   check("the source's horizon is established before anything is written", /WORK OUT FIRST WHAT THIS PARTICULAR SOURCE CAN KNOW/.test(d));
-  check("its claim is not made a fact of the world", /NOT A FACT OF THIS WORLD/.test(d));
+  check("its claim is not made a fact of the world", /ONLY THAT SOURCE.S CLAIM/.test(d));
   check("it cannot read the state", /cannot report what a person here wants/.test(d));
   check("the reading is bounded so it does not eat the turn", /under eighty/.test(d));
   check("the room does not overhear it", /Titus Aelius Rufus, Livia Aelia/.test(d) && /unless the player reads it out loud/.test(d), d.slice(-400));

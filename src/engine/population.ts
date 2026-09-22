@@ -135,7 +135,7 @@ export function crowdDirective(state: SaveState): string {
   if (!pop) return "";
   const castHere = state.world.present.filter((id) => id !== "char_player" && state.characters[id]).length;
   const alone = castHere === 0;
-  return `\nTHE PLACE IS INHABITED — ${place.name} ordinarily has ${scaleWord(pop.scale)} about it: ${pop.who}. These are NOT characters and never will be; they are the texture of a populated place, and they exist whether or not anyone from the cast is standing here.${alone ? ` No one from the cast is in this scene, and that does NOT mean the player is alone — it means nobody the story tracks is here. Do not write this place as deserted, silent, or emptied unless the state says it has been emptied.` : ""} Let them be present the way people actually are: work going on, voices carrying, someone in the way, someone watching, someone who wants something small. They may act, react, be spoken to, and answer. Keep them ANONYMOUS — trades, roles and descriptions, never a capitalised name and never a personal history — so they stay crowd instead of becoming cast. If the player singles someone out and keeps them, the bookkeeper will make them real.`;
+  return `\nTHE PLACE IS INHABITED — ${place.name} ordinarily has ${scaleWord(pop.scale)} about it: ${pop.who}. These are NOT characters and never will be; they are the background people of a populated place, and they exist whether or not anyone from the cast is standing here.${alone ? ` No one from the cast is in this scene, and that does NOT mean the player is alone — it means nobody the story tracks is here. Do not write this place as deserted, silent, or emptied unless the state says it has been emptied.` : ""} Let them be present the way people actually are: work going on, voices carrying, someone in the way, someone watching, someone who wants something small. They may act, react, be spoken to, and answer. Keep them ANONYMOUS — trades, roles and descriptions, never a capitalised name and never a personal history — so they stay crowd instead of becoming cast. If the player singles someone out and keeps them, the bookkeeper will make them real.`;
 }
 
 /* ─────────────────────────── AN OPEN CALL GETS ANSWERED ───────────────────────────
@@ -235,12 +235,12 @@ export function openCallDirective(state: SaveState): string {
   const turnsWaiting = (state.world.current_turn ?? 0) - call.turn;
   // The escalation exists because the failure it was written for was a player asking three times.
   const unanswered = turnsWaiting >= 1 && call.answered === 0 && call.reach >= 25
-    ? ` NOBODY HAS ANSWERED IT YET, ${turnsWaiting === 1 ? "a turn" : `${turnsWaiting} turns`} on. That is overdue rather than atmospheric: SOMEONE ANSWERS IT THIS TURN, on the page, close enough to be spoken to.`
+    ? ` NOBODY HAS ANSWERED IT YET, ${turnsWaiting === 1 ? "a turn" : `${turnsWaiting} turns`} on. That is overdue: SOMEONE ANSWERS IT THIS TURN, on the page, close enough to be spoken to.`
     : "";
   return `\nAN OPEN CALL IS STANDING — the player put this to the room at large, addressed to whoever could hear: "${call.what.slice(0, 200)}". It reached roughly ${scaleWord(call.reach)}, and it has not been withdrawn.`
     + ` A call at that reach is answered by ${band.floor}. ${band.pace}`
-    + ` WHO answers and WHY is where their standing with the player bites — awe, need, ambition, calculation, loneliness, someone sent by somebody else, someone who wants the thing on offer and does not much care who is offering it. If the community fears him, then the people who come are the ones fear does not stop, and they come for worse reasons; that is a different scene, and it is still a full one.`
-    + ` What is NOT available is the whole population declining in unison. Crowds do not agree. Whatever the general mood, some fraction of ${scaleWord(call.reach)} acts against it, because that is what a number that size means.`
+    + ` WHO answers and WHY depends on the player's standing — awe, need, ambition, calculation, loneliness, someone sent by somebody else, someone who wants the thing on offer and does not much care who is offering it. If the community fears him, then the people who come are the ones fear does not stop, and they come for worse reasons; that is a different scene, but still a busy one.`
+    + ` The whole population never declines together, because crowds do not agree: whatever the general mood, some fraction of ${scaleWord(call.reach)} acts against it.`
     + ` Anyone who answers must be a real person with their own reason for coming, named if they speak more than a line — the bookkeeper will card them.${unanswered}`;
 }
 

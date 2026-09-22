@@ -52,14 +52,14 @@ export function storyFrame(a: string): string {
   return `=== THE PLAYER IS WRITING THE WORLD ITSELF HERE ===
 ${a}
 
-THAT HAPPENED. It is now a fact of this world in the same way the door and the heat are facts, and this turn's prose renders it occurring, in full, on the page. You are not being asked whether it fits, whether the characters would, or whether now is the moment. The player has decided all three of those already, which is what choosing this channel means.
+THAT HAPPENED. It is now a fact of this world, and this turn's prose shows it happening, in full, on the page. Do not judge whether it fits, whether the characters would do it, or whether the timing is right; the player decided all of that by using this channel.
 
 THREE WAYS OF NOT WRITING IT, and none of them is available this turn:
 - Nothing arrives to interrupt it. No phone, no knock, no footstep in the hall, no third person in the doorway, no noise from another flat. If the player wrote an interruption, that is the only interruption there is.
-- Nobody almost does it, because an act rendered as an approach to itself is the act declining to happen. Strike "almost", "nearly", "started to", "was about to", "for a moment", "seemed to" and every other word that renders the act as an approach to itself. It is done, finished, past tense by the end of the paragraph.
-- Nothing milder happens instead, however well it fits the room. A smaller adjacent act in the same room with the same people is not this act. If the player wrote a specific thing, that specific thing is what is on the page.
+- Nobody almost does it. Remove "almost", "nearly", "started to", "was about to", "for a moment", "seemed to" and any other word that turns the act into an attempt. It is done, finished, past tense by the end of the paragraph.
+- Nothing milder happens instead, however well it fits the room. A smaller, similar act in the same room with the same people is a different act. If the player wrote a specific thing, that specific thing is what is on the page.
 
-WHERE THE WORLD'S LOGIC STILL RULES: what it cost. Who saw it, what it broke, who knows now, what somebody does about it, what it makes impossible tomorrow. Consequence is yours, and it should be unsparing, because a world that absorbs anything without charge is not a world. What the logic has no vote on is whether the thing occurred.
+WHERE THE WORLD'S LOGIC STILL APPLIES: the consequences. Who saw it, what it broke, who knows now, what somebody does about it, what it makes impossible tomorrow. You decide the consequences, and they should be serious. Whether it happened is already decided.
 
 IF IT CONTRADICTS THE RECORD, the record is what changes. Somebody the state placed elsewhere is now here; a thing the cast believed is now wrong; a bond the numbers called warm is now whatever this makes it. Write the world as the player's sentence leaves it.`;
 }
@@ -133,10 +133,10 @@ export function findDeclaredMiss(declaration: string, prose: string): DeclaredMi
 export function declaredFix(miss: DeclaredMiss | null | undefined): string {
   if (!miss) return "";
   const how = miss.how === "hedged"
-    ? "you wrote it as an approach to itself — almost, started to, moved to — which is the act not happening, described warmly"
+    ? "you wrote it as an approach to itself — almost, started to, moved to — so the act never actually happened"
     : miss.how === "interrupted"
       ? "something arrived and stopped it, and the player wrote no interruption"
       : "it is not on the page in any form";
   return `\nSTOP. LAST TURN THE PLAYER WROTE THE WORLD AND THE WORLD DID NOT DO IT. They declared: "${miss.declaration}" — and ${how}.
-That channel is not a suggestion and the player is not asking. THIS TURN opens with that event having happened: render it complete, in the same room, with the same people, in plain past tense, before anything else occurs. Nothing arrives to prevent it, nobody nearly does it, and nothing smaller stands in for it. Then write what it cost — who saw, what broke, who knows, what somebody does about it — which is where your judgement belongs and where it is wanted.`;
+That channel is a direct instruction from the player. THIS TURN opens with that event having happened: render it complete, in the same room, with the same people, in plain past tense, before anything else occurs. Nothing arrives to prevent it, nobody nearly does it, and nothing smaller stands in for it. Then write the consequences — who saw, what broke, who knows, what somebody does about it — which are up to you.`;
 }

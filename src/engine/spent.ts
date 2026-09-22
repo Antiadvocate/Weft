@@ -166,10 +166,10 @@ export function spentSubjectsNote(state: SaveState): string {
   if (spent.length < 2) return "";
   return `\n\n=== ALREADY SPENT ===\nThese have been in someone's mouth in consecutive scenes and are used up: ${spent.join(", ")}. `
     + `Nobody raises them again this turn. This is NOT an instruction to change what anybody wants or how they behave — `
-    + `a character who deflects still deflects, a character who talks shop still talks shop. It is the PROP that is spent, and the move survives it. `
-    + `Reach into the rest of the life on their card — their background, their standing interests, the trade they actually have, `
-    + `the thing they were doing before this scene started — and deflect with something new. A person with one anecdote is a person `
-    + `the player has finished meeting.`;
+    + `a character who deflects still deflects, a character who talks shop still talks shop. Only the specific topic is used up; the behaviour stays. `
+    + `Reach into the rest of the life on their card — their background, their standing interests, the work they actually do, `
+    + `the thing they were doing before this scene started — and deflect with something new. A person with only one anecdote `
+    + `quickly stops being interesting.`;
 }
 
 /* ── THE MONOPOLISED SUBJECT ────────────────────────────────────────────────────
@@ -225,9 +225,9 @@ export function monopolyNote(subject: string | null, speaker: string | null): st
   if (!subject) return "";
   const who = speaker ? speaker : "the people in this scene";
   return `\n\n=== ONE SUBJECT ===\n${who} has talked about ${subject} in most of the last several scenes, and about very little else. `
-    + `That is not a person any more, it is a topic with legs — the same failure a walk-on has when they only ever say the one thing. `
+    + `That turns them into a single topic instead of a person. `
     + `${subject} is NOT forbidden and must not be conspicuously avoided: if ${subject} comes up, they come up. `
-    + `What has to change is that this character wants, notices, and raises something ELSE this turn — from their own background, their trade, `
+    + `What has to change is that this character wants, notices, and raises something ELSE this turn — from their own background, their work, `
     + `the standing interests on their card, their own body, the room, the day they actually had. Give them one subject that is theirs and not about ${subject}, `
     + `and let them bring it up unprompted the way people do.`;
 }
@@ -302,8 +302,8 @@ export function retoldNote(hit: { line: string; known: string } | null | undefin
   if (!hit) return "";
   return `\n\n=== ALREADY TOLD ===\nLast turn somebody said this to the player: "${hit.line}"\n`
     + `The player already had it — their own record holds: "${hit.known}"\n`
-    + `A line that delivers what the listener already knows is a line in which nothing happened, and it is why a scene can read as busy and land as nothing. `
+    + `A line that tells the listener what they already know accomplishes nothing and makes a busy scene feel empty. `
     + `People do not brief each other on shared history; they ASSUME it and go on from there. `
-    + `Whatever this character wants out of this beat, they get at it from the far side of what has already been said — `
+    + `Whatever this character wants out of this beat, they start from what has already been said — `
     + `the next thing, the part they left out, the thing they want NOW — or they say nothing and do something instead.`;
 }

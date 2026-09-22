@@ -219,6 +219,6 @@ export function angerRegister(state: SaveState): string {
   const rows = hot.map(({ c, r }) =>
     `${c!.name} (${r <= -7 ? "badly clenched" : "clenched"}): ${pushesBy(c!.attachment?.style)}`).join("\n");
   return `\nBEING ANGRY IS SOMETHING A PERSON DOES OUT LOUD. Somebody who has just been hurt or crossed has MORE to say than they did an hour ago, and the pressure goes into what they say and how long they keep saying it. `
-    + `The withdrawal reading — going still, going quiet, one clipped sentence, letting the silence do the work — is one person's way and it is being written as everybody's. Use each person's own way, which is on their record:\n${rows}\n`
-    + `A character who has just been told something unbearable answers it. They repeat the part that landed, they ask the question they already know the answer to, they say the unfair thing, they bring up the older grievance that is not about tonight. If somebody in the scene truly has nothing to say, they leave the room, and the leaving is the answer.`;
+    + `The withdrawal reading — going still, going quiet, one clipped sentence, letting the silence do the work — is only one person's way, and it is being given to everyone. Use each person's own way, which is on their record:\n${rows}\n`
+    + `A character who has just been told something unbearable answers it. They repeat the part that landed, they ask the question they already know the answer to, they say the unfair thing, they bring up the older grievance that is not about tonight. If somebody in the scene truly has nothing to say, they leave the room, and leaving is their answer.`;
 }

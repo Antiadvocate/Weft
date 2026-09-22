@@ -439,7 +439,7 @@ export function habitVerdicts(fires: HabitFire[], state: SaveState): string {
   if (!live.length) return "";
   const lines = live.map((f) => {
     const name = state.characters[f.char_id]?.name ?? "they";
-    return `${name}: ${f.trait} — this happens before any choice, the way a hand finds a familiar railing. Render it plainly as what they do. Do NOT have them notice it, question it, resist it, or feel anything about doing it; do NOT justify or explain it.`;
+    return `${name}: ${f.trait} — this happens automatically, before any choice. Render it plainly as what they do. Do NOT have them notice it, question it, resist it, or feel anything about doing it; do NOT justify or explain it.`;
   });
   return `\n\n=== WHAT THESE CHARACTERS DO WITHOUT DECIDING TO (law — already happening this beat) ===\n${lines.join("\n")}`;
 }

@@ -39,17 +39,17 @@ export type ThreadKind = "obligation" | "opportunity" | "relationship" | "instit
 
 const SYSTEM = `You author the ORDINARY CONSEQUENCES OF SOMETHING WORKING.
 
-The player has accomplished something in this world. Your job is not to punish it, undermine it, or reveal a hidden cost. Your job is the plain fact that a thing which works becomes load-bearing, and load-bearing things generate WORK: upkeep, jurisdiction, precedent, dependence, envy, imitation, disputes over who owns and who pays, people who now want the same thing or want a share of it, and people whose position the accomplishment quietly changed.
+The player has accomplished something in this world. Do not punish it, undermine it, or reveal a hidden cost. Write the ordinary follow-on effects of something that works and that people now rely on: upkeep, who is in charge of it, precedent, dependence, envy, imitation, disputes over who controls it, people who now want the same thing or a share of it, and people whose position it quietly changed.
 
 Author 1–2 standing threads. Each must be:
-- ORDINARY. The dull business of a working world. Who maintains it. Who claims it. Who was made redundant by it. Which office has to be told. What the neighbouring holding now wants. What precedent it just set that someone will cite. Keep the cause inside that working world: an office, a claim, a cost, a rule somebody has to apply.
-- SPECIFIC TO THIS ACCOMPLISHMENT and to this world's actual machinery — its offices, its distances, its seasons, its ranks, its money. A thing that would read identically in another setting is wrong.
+- ORDINARY: everyday follow-on business, such as who maintains it, who claims it, whose job it replaced, who has to be told, what the neighbours now want, and what precedent it sets that someone will cite. Keep the cause ordinary: an office, a claim, a rule somebody has to apply.
+- SPECIFIC TO THIS ACCOMPLISHMENT and to this world's actual machinery — its offices, its distances, its seasons, its customs, its people. A thing that would read identically in another setting is wrong.
 - MADE OF PEOPLE. Name who wants what. Prefer people already in the cast; a new figure is allowed only if the accomplishment plainly implies one (an office that must now be staffed).
 - SLOW. These sit in the world and mature. They do not demand a response this turn and several may never be resolved at all.
 
-kind: pick the one that fits — obligation (upkeep, duty, a thing owed), opportunity (something now possible that wasn't), relationship (someone's standing toward the player or each other has shifted), institution (an office, a rule, a body that must now exist or respond). Do NOT use threat here; threats are authored elsewhere and are not what a success produces.
+kind: pick the one that fits — obligation (upkeep, duty, a promise to keep), opportunity (something now possible that wasn't), relationship (someone's standing toward the player or each other has shifted), institution (an office, a rule, a body that must now exist or respond). Do NOT use threat here; threats are authored elsewhere and are not what a success produces.
 
-tension: 1–4. These start LOW. They are not urgent and must not begin urgent — a thread that opens at 7 is a crisis wearing a ledger's clothes.
+tension: 1–4. These start LOW. They are not urgent and must not begin urgent — a thread that starts at 7 is a crisis and belongs elsewhere.
 
 Output ONLY JSON: {"threads":[{"title":"","description":"","kind":"","tension":2}]}`;
 

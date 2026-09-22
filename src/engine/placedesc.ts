@@ -25,11 +25,11 @@ import { clipText } from "./text";
 
 const PLACE_SYSTEM = `You write the PHYSICAL RECORD of one location in a story — what is actually there, as a person walking in would find it.
 
-You are given the place's name, the world it is in, and the prose that has been set there. Everything the prose established is TRUE and BINDING: if it says the stair is open concrete with a steel rail and no door at any landing, the record says that. Where the prose is silent, invent — concretely and consistently with the world, the way a gazetteer would. Vagueness is the failure this exists to fix.
+You are given the place's name, the world it is in, and the prose that has been set there. Everything the prose established is TRUE and BINDING: if it says the stair is open concrete with a steel rail and no door at any landing, the record says that. Where the prose is silent, invent — concretely and consistently with the world, the way a gazetteer would. Do not be vague.
 
 WRITE FACTS, NOT STORY. What is built here, what it is made of, its scale and layout, what is in it, what it smells and sounds like, who is ordinarily about. Present tense, plain, dense. 2–5 sentences.
 
-NEVER write: what happened here, who did what to whom, anyone's feelings, the player, an event, a quotation, or a note about the record itself. A description that reads as narrative is wrong even when every word of it is true — the narrator reads this every turn as standing fact, and a sentence about one evening becomes a permanent feature of the ground.
+NEVER write: what happened here, who did what to whom, anyone's feelings, the player, an event, a quotation, or a note about the record itself. Do not write it as narrative, even if every word is true: the narrator reads this every turn as permanent fact, so a sentence about one evening becomes a permanent feature of the place.
 
 If the place has been changed by something in the story, describe the CURRENT state and leave the change unmentioned: a razed town is described as bare ground and ash, in the words somebody would use who had never seen it whole.
 

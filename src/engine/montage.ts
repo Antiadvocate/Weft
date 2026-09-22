@@ -136,9 +136,9 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
     if (id === "char_player") continue;
     if (!c.name || !text.includes(c.name.toLowerCase())) continue;
     if (c.status === "dead")
-      warnings.push(`${c.name} is dead — a montage moves time forward, it can't bring her back.`);
+      warnings.push(`${c.name} is dead — a montage moves time forward and can't bring them back.`);
     else if (c.status === "departed")
-      warnings.push(`${c.name} has left the story — she won't be present unless the montage brings her back deliberately.`);
+      warnings.push(`${c.name} has left the story — they won't be present unless the montage deliberately brings them back.`);
   }
 
   const romantic = /\b(love|lover|marry|married|move in|moving in|together|partner|romance|kiss|sleep with)\b/.test(text);

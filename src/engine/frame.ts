@@ -107,7 +107,7 @@ export function attentionOf(state: SaveState, ids: string[], engaged: string[] =
 const band = (v: number) => (v >= 0.66 ? "high" : v >= 0.33 ? "mid" : "low");
 
 const SCAN_TEXT: Record<string, string> = {
-  high: "read finely — several separate physical registrations across the turn (hands, brow, stance, where the eyes go, what the voice does). This is the resolution of someone being watched for a signal.",
+  high: "read finely — several separate physical registrations across the turn (hands, brow, stance, where the eyes go, what the voice does). This is how closely people watch someone they are reading for a signal.",
   mid: "one or two physical details, no more.",
   low: "barely registered physically — an action and what they said. No inventory of their body.",
 };
@@ -143,7 +143,7 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
 
   const lines = atts.length
     ? atts.map((a) => `- ${a.name}: ${SCAN_TEXT[band(a.scan)]} ${PULL_TEXT[band(a.pull)]}`).join("\n")
-    : `- Nobody in this scene is someone the player has a settled model of. ${SCAN_TEXT.high} Strangers are the most scanned people there are; resolution is high and stays on whoever is doing something.`;
+    : `- Nobody in this scene is someone the player has a settled model of. ${SCAN_TEXT.high} People watch strangers most closely, so describe them in detail, focused on whoever is doing something.`;
 
   /* ── APERTURE, AND THE POLARITY IT HAD BACKWARDS ─────────────────────────────────────────────
    *
@@ -163,21 +163,21 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
    * in and none of it was invited. */
   const affinities = [...(pc?.texture ?? []), ...(pc?.core_traits ?? [])].slice(0, 5);
   const aperture = effective <= -6
-    ? `TUNNELLED: nothing enters the frame that is not the people and the immediate business between them. No weather, no room, no passers-by, no ambient sound, no time of day. This is fear doing it, and the absence is the state — do not remark on the absence either.`
+    ? `TUNNELLED: nothing enters the frame that is not the people and the immediate business between them. No weather, no room, no passers-by, no ambient sound, no time of day. Fear causes this, and you do not mention that anything is missing.`
     : effective <= -2
     ? `INTRUSIVE: the attention will not stay where it is put. Three or four things arrive uninvited across the turn — an object on the floor, something in the corner, a sound from another room, a piece of unfinished business from earlier today — and NONE of them are relevant, connected, or picked up again. The person is trying to attend to the conversation and keeps failing. Do not tidy this into a mood or explain why any of it surfaced.`
     : effective < 3
     ? `MIDDLING: one thing from outside the social business may enter, briefly, and is not returned to.`
-    : `CLEAR: little gets in and what does was worth it — one or two things this person would actually choose to notice, and no ambient furnishing. A settled attention is not a wandering one.`;
+    : `CLEAR: little gets in — one or two things this person would actually choose to notice, and no background description, because a calm person's attention does not wander.`;
 
   const drawn = affinities.length && effective > -3
-    ? `\nWhat gets through is not generic scenery — it is what THIS person's attention snags on unbidden, given: ${affinities.join("; ")}. Not the character demonstrating a trait; the world arriving pre-sorted by one.`
+    ? `\nWhat gets through is not generic scenery — it is what THIS person's attention snags on unbidden, given: ${affinities.join("; ")}. Show what their trait makes them notice, without having them demonstrate the trait.`
     : "";
 
   // ORDER. The most under-attended constraint and the cheapest: the first thing
   // in a paragraph is the thing that caught the eye, and nothing else says so.
   const first = atts[0];
-  const order = `\nORDER IS ATTENTION: whatever appears first in a paragraph is what caught the player first. Sequence the turn so the ordering is true — this turn the pull is toward ${first?.name ?? "whoever is acting"}. Never explain or justify the ordering, and never write a sentence about the player noticing, attending, or being drawn to anything; the selection does that work silently and naming it destroys it.`;
+  const order = `\nORDER SHOWS ATTENTION: whatever appears first in a paragraph is what caught the player first. Sequence the turn so the ordering is true — this turn the pull is toward ${first?.name ?? "whoever is acting"}. Never explain or justify the ordering, and never write a sentence about the player noticing, attending, or being drawn to anything; the order already shows it, and naming it spoils the effect.`;
 
   /* ── HOW A NOTICING IS WRITTEN, WHICH NOTHING HERE HAD EVER SAID ────────────────────────────
    *
@@ -202,12 +202,12 @@ export function frameDirective(state: SaveState, presentIds: string[], engaged: 
   // how the strays should read would be describing something the band has just forbidden.
   const grammar = effective <= -6 ? ""
     : effective <= -2
-    ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it lands and it stops. A fragment is correct and a whole sentence is usually wrong. No conjunction joins one noticing to the next — full stop, then the jump, with nothing explaining the jump. Two facts about a thing and no third; name it rather than describing it. The attention may ask itself something and not answer it. It may go somewhere and come back late, mid-exchange, having missed a line. Never write that the player noticed, was distracted, or found their mind wandering — the jump on the page IS the distraction, and naming it turns it back into description.`
+    ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it appears and then stops. A fragment is correct and a whole sentence is usually wrong. No conjunction joins one noticing to the next — full stop, then the jump, with nothing explaining the jump. Two facts about a thing and no third; name it rather than describing it. The attention may ask itself something and not answer it. It may go somewhere and come back late, mid-exchange, having missed a line. Never write that the player noticed, was distracted, or found their mind wandering — the jump on the page shows the distraction, and naming it turns it into description.`
     : effective >= 3
     ? `\nHOW A STRAY IS WRITTEN, AT THIS STATE: it can be a whole sentence and settle for a moment, because this attention is not being dragged anywhere. Still no cataloguing, and still no more than the one or two things.`
     : "";
 
-  const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received by the other characters or by the player. An act of theirs that carries a private meaning carries it silently; supplying that meaning is the one thing the player brought and the one thing you must not touch.`;
+  const bare = `\nTHE PLAYER'S OWN ACTS STAY BARE: render what they did and nothing about how it reads, lands, or is received by the other characters or by the player. An act of theirs that carries a private meaning carries it silently; that meaning belongs to the player, so never supply it.`;
 
   return `\n\n=== FRAME (whose attention this is, and what it can hold) ===\nThe prose is what the player's attention did with the room. How much detail each thing gets is set by the state below, and it differs from one thing to the next.\n${lines}\nAPERTURE — ${aperture}${grammar}${drawn}${order}${bare}`;
 }

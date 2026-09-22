@@ -361,21 +361,21 @@ function pronounsOf(raw: string | undefined): { subject: string; object: string;
 function registerLine(name: string, ap: Aperture, rel: number, openRun: number, pn: { subject: string; possessive: string }): string {
   if (ap === "narrowed") {
     return `${name} is clenched (${rel.toFixed(1)}). The card is exact right now: the register tightens onto its narrowest form, `
-      + `the attention goes to the one thing that matters and stays there, and very little else gets in. That is not a fault to correct — `
-      + `it is what a braced body does, and it is what makes the other state mean anything. `
-      + `WHAT DOES NEED CHECKING IS WHOSE ONE THING IT IS. A braced person narrows onto what THEY are after — the thing they are protecting, the thing they cannot stop wanting, the thing they are afraid of losing. `
-      + `Narrowed onto the other person's subject instead, answering it, pressing it, taking it apart, is not a clenched character; it is a character with nothing of their own, and it reads as nothing at all.`;
+      + `attention goes to one thing and stays there, and very little else gets in. `
+      + `That is normal for a tense person. `
+      + `WHAT DOES NEED CHECKING IS WHOSE CONCERN IT IS. A braced person narrows onto what THEY are after — the thing they are protecting, the thing they cannot stop wanting, the thing they are afraid of losing. `
+      + `If they focus on the other person's subject instead — answering it, pressing it, taking it apart — they come across as having no concerns of their own.`;
   }
   if (ap === "wide") {
     const settled = openRun >= 6 ? ` and has been settled for ${openRun} turns` : "";
     return `${name}'s body is open (${rel.toFixed(1)})${settled}. AT THIS OPENNESS THE VOICE CARD SUPPLIES THE VOCABULARY AND LEAVES THE SUBJECT FREE. `
-      + `The register on that card is the shape this person takes UNDER LOAD — braced, defending something, doing business. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} is not doing that. `
-      + `So the words still come out of ${pn.possessive} own life and ${pn.possessive} own vocabulary, but the signature loosens: something said for no reason, an aside that goes nowhere, `
-      + `a question answered straight with no angle on it, a joke that is not also a move, a sentence that does not end in what happens next. `
-      + `An open person can afford to be off-topic, and being off-topic is most of what people who are comfortable with each other actually say.`;
+      + `The way of talking on that card is how this person sounds UNDER STRESS, braced or defending something. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} is not doing that. `
+      + `So the words still come out of ${pn.possessive} own life and ${pn.possessive} own vocabulary, but their manner loosens: something said for no reason, an aside that goes nowhere, `
+      + `a question answered straight with no agenda, a joke told just for the joke, a sentence that does not lead anywhere. `
+      + `Relaxed people go off-topic often, and most of what people who are comfortable together say is off-topic.`;
   }
   return `${name} is neither braced nor loose (${rel.toFixed(1)}) — mostly on task, with slack in it. `
-    + `${pn.possessive.charAt(0).toUpperCase()}${pn.possessive.slice(1)} register holds, and one thing ${pn.subject} says this turn lands outside it.`;
+    + `${pn.possessive.charAt(0).toUpperCase()}${pn.possessive.slice(1)} usual way of talking holds, but one thing ${pn.subject} says this turn breaks from it.`;
 }
 
 /**
@@ -417,16 +417,16 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
       const want = c.current_goal || c.drive?.goal || "the one thing";
       const own = (c.texture ?? []).filter((t) => !isMannerism(t)).slice(0, 3);
       lines.push(`${c.name} has had ${sat} turns running in which everything out of ${pn.possessive} mouth was about the same thing: "${want.trim().replace(/\s+/g, " ")}". `
-        + `The want is not in question and does not need saying again — it has been said, the other person heard it, and the meter does not move because it was restated. `
-        + `THIS TURN IT MOVES BY ONE THING ${pn.subject.toUpperCase()} DOES WITH ${pn.possessive.toUpperCase()} HANDS: an arrangement made, a hand on something, a step taken, a small thing paid for or carried or put where it goes — `
+        + `The want has already been said and heard, and saying it again does not move it forward. `
+        + `THIS TURN IT MOVES BY ONE THING ${pn.subject.toUpperCase()} DOES WITH ${pn.possessive.toUpperCase()} HANDS: an arrangement made, a hand on something, a step taken, a small thing bought or carried or put where it goes — `
         + `and ${pn.possessive} talking is somewhere else entirely.${own.length ? ` ${pn.subject[0].toUpperCase()}${pn.subject.slice(1)} has this on ${pn.possessive} card and has not used it: ${own.join("; ")}.` : ""} `
         + `Nobody is walked through a thing they did not ask about, shown a document, or made to look at anything. `
-        + `A person moving toward what they want while talking about something else is the ordinary case; a person narrating their want is the failure.`);
+        + `People usually move toward what they want while talking about something else; do not have them narrate the want.`);
     }
 
     if (steer >= STEERING_AT) {
       lines.push(`The last ${steer} turns all ended with ${c.name} having the final word and using it to tell the player what happens next. `
-        + `A want is not a schedule read out loud, and a scene one person keeps closing is a scene nobody else is in. `
+        + `Do not have them read out a schedule, and do not let one person keep closing the scene. `
         + `THIS TURN ${c.name.toUpperCase()} DOES NOT HAND OVER THE NEXT STEP. Either somebody else has the last word, or the turn ends on ${c.name} with nothing asked of anybody — `
         + `a thing done, a thing noticed, a thing said that requires no answer.`);
     }
@@ -443,7 +443,7 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
       ].filter(Boolean).slice(0, 5);
       lines.push(`${c.name} has spoken on ${gap} turns running without once saying what ${pn.subject} wants or putting anything on the table that is neither ${pn.object} nor the person ${pn.subject} is talking to. `
         + `Every line has been aimed at something the player said first — answering it, questioning it, taking it apart. `
-        + `A person who only ever returns serve has no inside, however many questions ${pn.subject} asks, and asking a lot of questions is the busiest possible way of wanting nothing. `
+        + `A person who only ever responds seems to have no inner life, however many questions ${pn.subject} asks. `
         + `THIS TURN ${c.name.toUpperCase()} WANTS SOMETHING OUT LOUD AND IT DID NOT COME FROM THE PLAYER'S LAST LINE: something ${pn.subject} asks for, takes, refuses, decides, or brings up that nobody raised — an appetite, an errand, a grievance, a plan for the evening that is ${pn.possessive} own rather than an answer to somebody else's. `
         + `It does not have to be large and it does not have to be granted.${own.length ? ` This is what ${pn.subject} already has on ${pn.possessive} card and has not used: ${own.join("; ")}.` : ""}`);
     }

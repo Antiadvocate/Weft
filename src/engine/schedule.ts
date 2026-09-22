@@ -323,7 +323,7 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
           : ` They are ${Math.round(r.pending.lateBy)} minutes past when they meant to leave, and they know it.`;
         rows.push(`${c.name} — LATE FOR ${b.what.trim()} at ${where} (due ${clockLabel(b.start)}).${cost}${how}${why} Write the leaving as this person would do it: what they pick up, who they cut off, what they say on the way out.`);
       } else {
-        rows.push(`${c.name} — HAS TO SET OUT NOW for ${b.what.trim()} at ${where}, due ${clockLabel(b.start)}.${how}${why} They know the hour and they act on it themselves: they end what they are doing and go, this turn, without being asked and without waiting for permission. They may be sorry about it, brisk about it, or glad of the excuse. If the player gives them a real reason to stay, they can choose to stay, and staying COSTS THEM SOMETHING${b.stakes?.trim() ? ` (${b.stakes.trim()})` : ""}, which they weigh out loud or silently, but do not shrug off.`);
+        rows.push(`${c.name} — HAS TO SET OUT NOW for ${b.what.trim()} at ${where}, due ${clockLabel(b.start)}.${how}${why} They know the hour and they act on it themselves: they end what they are doing and go, this turn, without being asked and without waiting for permission. They may be sorry about it, brisk about it, or glad of the excuse. If the player gives them a real reason to stay, they can choose to stay, and staying HAS CONSEQUENCES FOR THEM${b.stakes?.trim() ? ` (${b.stakes.trim()})` : ""}, which they weigh out loud or silently, but do not shrug off.`);
       }
       continue;
     }
@@ -344,8 +344,8 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
     }
   }
   if (!rows.length) return "";
-  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY — their own lives, running on a clock of their own.
-These are not suggestions the scene may override for being busy. A person with somewhere to be behaves like one, and the story does not get to pause their week.\n· ${rows.join("\n· ")}]`;
+  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY — their own schedules.
+The scene follows these even when it is busy: a person with somewhere to be acts like it, and the story does not pause their week.\n· ${rows.join("\n· ")}]`;
 }
 
 /** One clause for the offstage pass's cast list: where the week says this person is, right now.

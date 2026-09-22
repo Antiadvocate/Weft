@@ -267,9 +267,9 @@ export function oocDirective(complaint: string | undefined, turnsAgo: number, sa
     ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first one did not answer it, so whatever adjustment was made was too small or was made in the wrong place. Change something structural about how the next scenes are built, deeper than the wording of one paragraph.`
     : "";
   return `\n\n=== THE PLAYER HAS TOLD YOU SOMETHING DIRECTLY ===\nOut of character, ${turnsAgo === 0 ? "this turn" : `${turnsAgo} turn${turnsAgo === 1 ? "" : "s"} ago`}, they said: "${c}"\n`
-    + `This is not story material and it is never dramatised, quoted, alluded to, or given to a character to say. It is a note about the writing, from the person reading it, and it is the most reliable information you will get about whether any of this is working. `
+    + `This is not story material and it is never dramatised, quoted, alluded to, or given to a character to say. It is a note about the writing from the person reading it, and the most reliable feedback you will get. `
     + `Act on it in what you actually write from here — the shape of the scenes, what gets attention, what is left out — and do not acknowledge it on the page. `
-    + `A player who has to say this at all has usually been trying to say it for a while through their choices; assume the complaint is bigger than the words they used, and that it is about a pattern rather than one turn.${again}`;
+    + `A player who says this has usually been trying to show it through their choices for a while, so assume the complaint is about a pattern across several turns and is bigger than the words they used.${again}`;
 }
 
 /* ── FIAT, AND THE TURN WHERE THE PLAYER DID NOTHING ────────────────────────────
@@ -374,7 +374,7 @@ export function voidFrame(kind: VoidKind): string {
     + `THEY DID NOTHING. Not "hesitated", not "stood there deciding", not "walked out", not "reached for" anything. `
     + `DO NOT WRITE THE PLAYER DOING ANYTHING AT ALL, and do not give them a thought, a gesture, an intention or a change of position. `
     + `Do not have them arrive anywhere, leave anywhere, hold anything, or say anything. If you find yourself writing a sentence whose subject is the player, delete it.\n`
-    + `A turn where the player does nothing is a real turn and you write it the ordinary way: the people who are present go on with what they were doing, in the place they were doing it, for the short time this takes. `
+    + `Write a turn where the player does nothing the ordinary way: the people who are present go on with what they were doing, in the place they were doing it, for the short time this takes. `
     + `Keep it brief. Change nothing that was not already changing. The scene is exactly where it was.]`;
 }
 

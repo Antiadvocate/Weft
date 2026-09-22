@@ -94,7 +94,7 @@ const TRANSMUTE: { match: RegExp; residue: string }[] = [
 
 function residueFor(stateName: string): string {
   for (const t of TRANSMUTE) if (t.match.test(stateName)) return t.residue;
-  return "passes on its own — felt fully, not fed";
+  return "passes on its own once it has been fully felt";
 }
 
 /** A mood is weather: a few words for how someone is carrying themselves right now.
@@ -181,7 +181,7 @@ export function tickEmotions(state: SaveState): string[] {
         shifts.push(`${c.name}'s ${st} ${residueFor(st)}.`);
       } else if (!isPlayer && r <= -3 && age === 3) {
         // SECOND HIT: announced once, when the re-telling starts.
-        shifts.push(`${c.name} keeps re-telling the ${st} — the reaction has become its own pain now.`);
+        shifts.push(`${c.name} keeps re-telling the ${st} — reliving it has become its own source of pain.`);
       }
     }
     // while clenched with an aged emotional state, the story feeds itself: small ongoing drain
@@ -325,9 +325,9 @@ export function tickDischarge(state: SaveState): string[] {
     if (oldest) {
       p.active_states = p.active_states.filter((x) => x !== oldest);
       if (p.state_ages) delete p.state_ages[oldest];
-      shifts.push(`${c.name}'s held ${oldest} finally discharges — ${residueFor(oldest)}, and the story about it goes too.`);
+      shifts.push(`${c.name}'s held ${oldest} finally lets go — ${residueFor(oldest)}, and they stop dwelling on it.`);
     } else {
-      shifts.push(`something held in ${c.name} finally lets go — the body shakes it off and settles.`);
+      shifts.push(`something held in ${c.name} finally lets go — their body shakes it off and settles.`);
     }
     if (p.mood && p.mood !== "even") { p.mood = "even"; p.mood_set_turn = turn; }
     p.discharge_lift = 1.5;

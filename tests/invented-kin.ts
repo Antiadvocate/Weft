@@ -76,7 +76,7 @@ const save = (over: Record<string, unknown> = {}): SaveState => ({
   check("the line is voided", /That is void/.test(fix));
   check("...with no walk-back scene", /do not write a scene about the mistake/.test(fix));
   check("...and nobody caught in it", /be caught in it/.test(fix));
-  check("the reason it happened is named", /can never be checked/.test(fix));
+  check("the reason it happened is named", /cannot be checked/.test(fix));
   check("...and a better instruction given", /use one that is already true/.test(fix));
 }
 

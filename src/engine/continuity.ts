@@ -137,7 +137,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   return report;
 }
 
-const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player stepped away; the world kept moving. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it — invent texture, never contradict it.
+const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player skipped ahead in time. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it, adding detail but never contradicting it.
 
 CRITICAL — MEMORIES ARE PERSONAL. Each character's memory is only what THAT character personally lived through or would plausibly have heard where they were during these days. A character does NOT remember a distant event (a faction's clock firing three towns over, a rumor spreading in a place they weren't) unless they were there or someone credibly carried the news to them. A companion who spent these days beside the player remembers the ordinary days beside the player. Do not hand a character a memory of something they have no way of knowing; when in doubt, give them the small, local, personal version — what they did, where they were, who they were with. World-scale events belong in the interlude prose, which is the omniscient narrator's view; an individual's memory holds only what reached that individual.
 
@@ -182,7 +182,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   if (!interlude) {
     const uniq = [...new Set([...report.clocks_fired, ...report.drive_log])].slice(0, 4);
     interlude = `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. ${uniq.join(" ")}`.trim()
-      || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world kept its own books.`;
+      || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world went on without you.`;
   }
 
   // apply grounded memories — with a deterministic guard against the model handing a character a

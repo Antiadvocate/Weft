@@ -95,9 +95,9 @@ const who = (o: Partial<Identity>, p: Partial<Psyche> = {}) =>
   check("...in her own pronouns", /she waits to be asked/.test(note) && /She wants to be there/.test(note), note);
   check("the median person gets nothing", !note.includes("Bo"), note);
   check("the player is never given a bearing", !note.includes("Max"), note);
-  check("it says out loud that this is climate", /climate, holding across whole stretches of the story/.test(note), note);
-  check("and the permission half is there", /Nobody in this scene has to be efficient/.test(note), note);
-  check("...naming the failure it exists to stop", /written by the same person/.test(note), note);
+  check("it says out loud that this is climate", /these hold across long stretches of the story/.test(note), note);
+  check("and the permission half is there", /nobody in this scene has to be efficient/.test(note), note);
+  check("...naming the failure it exists to stop", /they all sound the same/.test(note), note);
 
   // a room of nothing but median people costs nothing
   const flat = { ...s, characters: { ...s.characters, a: { ...(s.characters as any).b, character_id: "a", name: "Ada" } } } as SaveState;

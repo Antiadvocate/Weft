@@ -152,7 +152,7 @@ function room(): SaveState {
   const spent = liveWant(s, olga, 40);
   check("with nothing left, she does the desk instead", /desk/.test(spent?.goal ?? ""), spent);
   check("…and the engine says why in words the narrator can use",
-    /reserve/.test(spent?.why ?? ""), spent);
+    /energy/.test(spent?.why ?? ""), spent);
 
   cond.fatigue = "fresh"; cond.psyche.relaxation = -7;
   check("badly clenched does the same thing as exhausted", /desk/.test(liveWant(s, olga, 40)?.goal ?? ""));

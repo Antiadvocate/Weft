@@ -94,7 +94,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("the narrator is given the complaint", /terrible writer/.test(d), d);
   check("...told it is never dramatised or given to a character", /never dramatised, quoted, alluded to, or given to a character/.test(d), d);
   check("...told to act on it in the writing, not on the page", /do not acknowledge it on the page/.test(d), d);
-  check("...and told to assume it is about a pattern", /about a pattern rather than one turn/.test(d), d);
+  check("...and told to assume it is about a pattern", /about a pattern across several turns/.test(d), d);
   check("it persists past the turn it was said", oocDirective("bad pacing", 2).length > 0);
   // WIDENED FROM THREE TURNS. The directive's own last line tells the narrator this complaint is
   // about a pattern rather than one turn, and it was then withdrawn after three — shorter than the

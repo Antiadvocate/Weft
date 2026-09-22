@@ -43,7 +43,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("no 'authorial intent'", !/authorial intent/i.test(f));
   check("no 'weave it in'", !/weave it in/i.test(f));
   check("world logic is scoped to consequence rather than to permission",
-    /WHERE THE WORLD'S LOGIC STILL RULES: what it cost/.test(f), f);
+    /WHERE THE WORLD'S LOGIC STILL APPLIES: the consequences/.test(f), f);
 
   /* The three declines, named, because this engine has learned that a rule naming a specific move
    * beats a rule describing a quality. */
@@ -53,7 +53,7 @@ function check(name: string, c: boolean, extra?: unknown) {
 
   /* And the part that is still the narrator's. A law that took consequence away too would make the
    * world a typewriter. */
-  check("consequence is handed back, explicitly", /Consequence is yours, and it should be unsparing/.test(f));
+  check("consequence is handed back, explicitly", /You decide the consequences, and they should be serious/.test(f));
 }
 
 /* ── 2. CONTENT WORDS ARE WHAT HAS TO REACH THE PAGE ─────────────────────────── */

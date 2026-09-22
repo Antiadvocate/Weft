@@ -165,8 +165,8 @@ export function findKinBreach(state: SaveState, prose: string): KinBreach | null
         return {
           owner: ownerChar?.name ?? owner.first, relation, other: otherChar?.name ?? other.first,
           because: roles.length
-            ? `the ledger records them as ${roles.join(", ")}, not family`
-            : `the ledger records no family tie between them`,
+            ? `the record lists them as ${roles.join(", ")}, not family`
+            : `the record lists no family tie between them`,
           sentence: sentence.trim().slice(0, 220),
         };
       }
@@ -182,5 +182,5 @@ export function kinFix(hit: KinBreach | null | undefined): string {
   const who = hit.other ? `${hit.other} is not ${hit.owner}'s ${hit.relation}` : `${hit.owner} has no ${hit.relation}`;
   return `\nLAST TURN SOMEBODY INVENTED A FAMILY: "${hit.sentence}…"
 ${who} — ${hit.because}. That is void. It did not happen, nobody said it, nobody remembers it, and no one refers back to it. Do NOT correct it inside the fiction, do not have anyone walk it back, take it back, or be caught in it, and do not write a scene about the mistake; simply continue from the turn before it, as though the line had never been on the page.
-AND THE REASON IT GOT WRITTEN IS THE PART TO WATCH. A relative nobody has met is the most powerful thing a character can produce in an argument, because it explains everything and can never be checked — which is exactly why the record has to hold it first. The people in this story have the families the record gives them and no others. Where the record is silent about somebody's family, every character in this world is silent about it too: they do not know, they have not heard, or they say so plainly. If a scene needs a fact to land, use one that is already true; a line that only works because you invented the fact underneath it is not a strong line, it is a line about nothing.`;
+WATCH WHY IT GOT WRITTEN. An unseen relative is tempting to invent in an argument because it explains everything and cannot be checked, which is why it has to be in the record first. The people in this story have the families the record gives them and no others. Where the record is silent about somebody's family, every character in this world is silent about it too: they do not know, they have not heard, or they say so plainly. If a scene needs a fact, use one that is already true, and do not write a line that only works because of an invented fact.`;
 }

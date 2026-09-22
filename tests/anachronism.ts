@@ -82,9 +82,9 @@ function rome(): SaveState {
   check("...and the four things a person does instead are named",
     /hears the nearest thing their own life holds/.test(v) && /asks him what it is/.test(v));
   check("the exact failure is forbidden: repeating it back, pricing it, adding to it",
-    /repeat it back as a thing they know/.test(v) && /name a price for it/.test(v) && /add a detail of their own/.test(v));
+    /repeats it back as a thing they know/.test(v) && /names a price for it/.test(v) && /adds a detail of their own/.test(v));
   check("...and the reason is stated — it is permanent",
-    /puts that object into this world permanently/.test(v));
+    /makes the object part of this world permanently/.test(v));
   check("the player is named rather than called the player", /Marcus Valerius talks out of a world/.test(v));
 }
 

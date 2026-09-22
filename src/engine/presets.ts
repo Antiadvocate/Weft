@@ -52,7 +52,7 @@ function sump9(): SaveState {
     appearance_facts: "Lean, oil-stained coveralls, one lead-shielded forearm socket gone matte with wear.",
     background: "Freelance solder-tech keeping Sector 9's last clinics half-alive; owes water debt at the weir.",
     core_traits: ["resourceful", "wary", "dry-humored"], values: ["self-reliance", "fair trade"],
-    speech_pattern: "Clipped Solder-Slang, jokes that land flat on purpose.",
+    speech_pattern: "Clipped Solder-Slang, deliberately deadpan jokes.",
     skills: { soldering: "expert", "drone evasion": "competent", barter: "competent" },
     beauty: 58,
   });
@@ -97,7 +97,7 @@ function sump9(): SaveState {
   s.world.money = "14 chits";
   s.world.current_time = "Day 1, 09:00 (Morning)";
   s.memory["char_player"].core = ["Owes 60 chits of water debt at the Hydro-Weir.", "Keeps the clinic's old generator alive as quiet charity."];
-  s.memory[kildare].core = ["Three kids in the sub-basements; weir debt hangs over all of it.", "Vex once fixed his cutters for a song — that meant something."];
+  s.memory[kildare].core = ["Three kids in the sub-basements; weir debt hangs over all of it.", "Vex once fixed his cutters for almost nothing, and he has not forgotten it."];
   s.memory[mara].core = ["The Hum spoke in threes last episode. Nobody believes her.", "Her jaw socket is dying; lead shielding or burn-out within the cycle."];
   return s;
 }
@@ -117,7 +117,7 @@ function thaw(): SaveState {
     era_theme: "frost",
     difficulty_profile: { lethality: "medium", friction_density: "sparse", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
     pressure_palette: [
-      "Hunger arithmetic — the fish racks running low",
+      "Hunger — the fish racks running low",
       "Ice condition: soft patches, the weir failing",
       "Standing at the fire: gossip, obligation, marriage talk",
       "The Ettel succession — Brant and Saiva circling",
@@ -126,22 +126,22 @@ function thaw(): SaveState {
     forbidden_as_primary: ["supernatural events treated as real", "random predator attacks without sign", "tone-policing the player's manner"],
   });
 
-  const fire = place(s, "The Long Fire", "Center of camp: hide windbreaks, the communal hearth, where standing is made and lost.", ["the headwoman's seat", "drying racks"]);
-  const weir = place(s, "Reed Weir", "The fish weir at the lake mouth, half-iced; the band's stomach.", ["wicker traps", "soft ice flags"]);
-  const smoke = place(s, "Smoke-houses", "Stilted smoke-houses above the snowline; the winter ledger in fish.", ["fish racks, two-thirds empty"]);
+  const fire = place(s, "The Long Fire", "Center of camp: hide windbreaks, the communal hearth, where people's standing in the band is decided.", ["the headwoman's seat", "drying racks"]);
+  const weir = place(s, "Reed Weir", "The fish weir at the lake mouth, half-iced; most of the band's food comes from it.", ["wicker traps", "soft ice flags"]);
+  const smoke = place(s, "Smoke-houses", "Stilted smoke-houses above the snowline, where the winter's dried fish is stored.", ["fish racks, two-thirds empty"]);
 
   registerCharacter(s, {
     character_id: "char_player", name: "Orun", age: 27,
     appearance_facts: "Wiry, frost-scarred knuckles, a mended seal-hide parka with another family's stitching.",
-    background: "Taken in by the band six winters ago after his own people starved out. Earns his place daily.",
+    background: "Taken in by the band six winters ago after his own people starved out. Works hard every day to keep his place.",
     core_traits: ["watchful", "capable", "outsider's caution"], values: ["earning his place", "the children eat first"],
     speech_pattern: "Few words, exact ones.", skills: { "ice reading": "expert", flintwork: "competent", fishing: "competent" },
     beauty: 62,
   });
   const ettel = registerCharacter(s, {
     name: "Ettel", age: 61,
-    appearance_facts: "Headwoman; bird-boned, eyes that finish your sentences.",
-    background: "Has buried two husbands and one winter's worth of the band. Holds the camp together by memory.",
+    appearance_facts: "Headwoman; bird-boned, quick to finish other people's sentences.",
+    background: "Has buried two husbands and one winter's worth of the band. Holds the camp together because she remembers everything.",
     core_traits: ["shrewd", "tired", "fair when it costs nothing"], values: ["the band outliving her", "order at the fire"],
     speech_pattern: "Soft, final.", gregariousness: 0.5, intelligence: "sharp",
     current_goal: "Settle the succession before the thaw scatters the band to the fishing grounds.",
@@ -151,7 +151,7 @@ function thaw(): SaveState {
   const brant = registerCharacter(s, {
     name: "Brant", age: 33,
     appearance_facts: "Broad, loud, a bear-claw scar he tells differently each telling.",
-    background: "Best spear in camp and knows it. Feeds many; reminds them.",
+    background: "Best spear in camp and knows it. Feeds many and reminds them of it.",
     core_traits: ["generous", "vain", "quick to feel slighted"], values: ["being owed", "his name at the fire"],
     speech_pattern: "Big, warm, lands on himself.", gregariousness: 0.85,
     current_goal: "Bring in the first big kill of the thaw, in front of everyone.",
@@ -161,7 +161,7 @@ function thaw(): SaveState {
   const saiva = registerCharacter(s, {
     name: "Saiva", age: 29,
     appearance_facts: "Quiet hands, a net-mender's squint, hair tied with a strip of her drowned brother's parka.",
-    background: "Runs the weir and the smoke-houses; the band eats because of her arithmetic.",
+    background: "Runs the weir and the smoke-houses, and decides how the food is rationed.",
     core_traits: ["precise", "guarded", "long-memoried"], values: ["the count being right", "debts of grief"],
     speech_pattern: "Flat, factual, the rare joke deadpan.", gregariousness: 0.35, intelligence: "sharp",
     current_goal: "Keep the racks above the hunger line until the ice breaks.",
@@ -172,10 +172,10 @@ function thaw(): SaveState {
   s.world.edges.push(
     { from: ettel, to: "char_player", warmth: 20, trust: 35, power: 30, notes: "the outsider who reads ice better than her own", updated_turn: 1 },
     { from: brant, to: "char_player", warmth: 5, trust: 10, power: 15, notes: "useful, but watches him take up room at the fire", updated_turn: 1 },
-    { from: saiva, to: "char_player", warmth: 15, trust: 25, power: 0, notes: "he counts honestly; that is most of it", updated_turn: 1 },
+    { from: saiva, to: "char_player", warmth: 15, trust: 25, power: 0, notes: "he counts honestly, and she respects that", updated_turn: 1 },
     { from: brant, to: saiva, warmth: -15, trust: -10, power: 10, notes: "her counts make his generosity look small", updated_turn: 1 },
     { from: saiva, to: brant, warmth: -20, trust: -25, power: -5, notes: "he ate loudly the winter her brother drowned working", updated_turn: 1 },
-    { from: ettel, to: brant, warmth: 10, trust: -5, power: 40, notes: "strong, but the band is not a story about him", updated_turn: 1 },
+    { from: ettel, to: brant, warmth: 10, trust: -5, power: 40, notes: "strong, but the band does not revolve around him", updated_turn: 1 },
     { from: ettel, to: saiva, warmth: 25, trust: 40, power: 40, notes: "the count is the band", updated_turn: 1 },
   );
   s.world.clocks.push({
@@ -195,7 +195,7 @@ function thaw(): SaveState {
   s.world.current_time = "Day 1, 08:30 (Morning)";
   s.memory["char_player"].core = ["His own band starved out six winters ago; he walked here alone over the ice.", "Ettel took him in over objections he was meant to overhear."];
   s.memory[ettel].core = ["The winter of the dog marrow — what she allowed, and never speaks of.", "Orun read the soft ice last spring and saved two children; she has not forgotten."];
-  s.memory[brant].core = ["His bear scar came from a sow he provoked; the story has improved.", "Ettel looked past him at the midwinter fire. Everyone saw."];
-  s.memory[saiva].core = ["Her brother went through the ice hauling Brant's heavy traps.", "The count says nine days of fish at full mouths. She tells no one the true number."];
+  s.memory[brant].core = ["His bear scar came from a sow he provoked; the story has grown in the retelling.", "Ettel looked past him at the midwinter fire. Everyone saw."];
+  s.memory[saiva].core = ["Her brother went through the ice hauling Brant's heavy traps.", "The count says nine days of fish at full rations. She tells no one the true number."];
   return s;
 }

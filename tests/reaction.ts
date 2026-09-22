@@ -70,7 +70,7 @@ const GOLD = `"Ok then here." I make a cart and a biometric safe next to the hot
   const d = reactionDirective(world(), GOLD, "do");
   check("it points at the canon rather than at a magnitude", /WHAT THIS WORLD HOLDS TO BE TRUE/.test(d));
   check("impossible-here is named as the largest fact in the room", /impossible here, or forbidden here/.test(d));
-  check("but an ordinary act stays ordinary", /If it is unremarkable here, it is unremarkable/.test(d));
+  check("but an ordinary act stays ordinary", /If it is unremarkable here, a shrug is the realistic reaction/.test(d));
 }
 
 /* ── 4. the two failures this exists to stop, both caught in play ────────────── */
@@ -144,7 +144,7 @@ const GOLD = `"Ok then here." I make a cart and a biometric safe next to the hot
   check("the two are explicitly held against each other", /Hold those two lines against each other/.test(d));
   check("familiarity does not make it ordinary", /does not become ordinary by having been mentioned before/.test(d));
   check("they have no word for it and get it wrong", /reaches for the nearest thing they do know, and gets it wrong/.test(d));
-  check("and the exact failure is named", /price it, park it, or fold it into the errand/.test(d));
+  check("and the exact failure is named", /put a price on it, set it aside, or treat it as part of the errand/.test(d));
 }
 {
   // a world with no stated tech level, or a player carrying nothing, says nothing about it
