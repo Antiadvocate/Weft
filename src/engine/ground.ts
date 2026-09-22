@@ -156,8 +156,8 @@ export function groundCue(state: SaveState, id: string): string {
   if (!rec) return "";
   const name = state.characters[id]?.name ?? "they";
   return rec.shove < 0
-    ? `  this place is not neutral to ${name}: something happened to ${name} here, and ${name}'s body reacts to the room before ${name} thinks about it. `
-      + `Render it in what ${name} does with the space — where ${name} stands, what ${name} does not sit on, the door ${name} keeps in view — never as a stated memory and never as a mood. ${name} does not have to mention it and probably will not.`
-    : `  ${name} is easier in this place than elsewhere; good things happened to ${name} here. Render it as ease with the room itself — moving through it without looking, using it like somewhere that belongs to ${name} — never as a comment about the place.`;
+    ? `  this place isn't neutral for ${name}: something happened to ${name} here, and ${name}'s body reacts to the room before ${name} thinks about it. `
+      + `Show it in how ${name} uses the space, like where ${name} stands, what ${name} won't sit on, or the door ${name} keeps in view, and never as a memory stated outright or as a mood. ${name} doesn't have to mention it, and probably won't.`
+    : `  ${name} is more at ease here than anywhere else, because good things happened to ${name} here. Show it as being at ease with the room itself, moving through it without looking and using it like somewhere that belongs to ${name}, and never as a comment about the place.`;
 }
 

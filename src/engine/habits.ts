@@ -409,9 +409,9 @@ export function dissolveWornHabits(state: SaveState, id: string, turn: number): 
     // remove from the live core_traits list (kept in habits[] as dormant, so it can revive)
     c.core_traits = (c.core_traits ?? []).filter((t) => t.toLowerCase() !== h.trait.toLowerCase());
     // neutral life_history note — plain absence, no valence
-    const note = `Over that stretch, ${lexScrub(gerund(h.trait))} stopped being automatic for ${c.name}.`;
+    const note = `Over that time, ${lexScrub(gerund(h.trait))} stopped being automatic for ${c.name}.`;
     c.life_history = c.life_history ? `${c.life_history} ${note}` : note;
-    out.push(`Something long-set in ${c.name} has loosened.`);
+    out.push(`Something long settled in ${c.name} has loosened.`);
   }
   return out;
 }
@@ -439,7 +439,7 @@ export function habitVerdicts(fires: HabitFire[], state: SaveState): string {
   if (!live.length) return "";
   const lines = live.map((f) => {
     const name = state.characters[f.char_id]?.name ?? "they";
-    return `${name}: ${f.trait} — this happens automatically, before any choice. Render it plainly as what they do. Do NOT have them notice it, question it, resist it, or feel anything about doing it; do NOT justify or explain it.`;
+    return `${name}: ${f.trait}. This happens automatically, before they make any choice. Write it plainly as something they do. Don't have them notice it, question it, resist it or feel anything about it, and don't justify or explain it.`;
   });
-  return `\n\n=== WHAT THESE CHARACTERS DO WITHOUT DECIDING TO (law — already happening this beat) ===\n${lines.join("\n")}`;
+  return `\n\n=== WHAT THESE CHARACTERS DO WITHOUT DECIDING TO (this is already happening in this moment, and it has to be followed) ===\n${lines.join("\n")}`;
 }

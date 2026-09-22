@@ -116,10 +116,10 @@ export function neglectCue(d: NPCDrive, turn: number): string {
   if (dread < 0.25) return "";
   const n = neglectOf(d, turn);
   return dread >= 0.7
-    ? `${n} turns of not dealing with it, and they no longer really intend to — they flinch off the subject, get short when it is near, and do the easy thing in front of them instead`
+    ? `${n} turns of not dealing with it, and they no longer really mean to. They shy away from the subject, get short when it comes near, and do whatever easy thing is in front of them instead`
     : dread >= 0.45
-      ? `${n} turns of putting it off; it now feels bigger than it really is, and they would rather be given something else to do`
-      : `${n} turns of not getting to it, and they are aware of that`;
+      ? `${n} turns of putting it off, and now it feels bigger than it really is, so they'd rather be given something else to do`
+      : `${n} turns of not getting round to it, and they know it`;
 }
 
 /**
@@ -150,7 +150,7 @@ export function tickNeglect(state: SaveState, turn: number): string[] {
     cond.psyche.relaxation = clamp(+(cond.psyche.relaxation - drop).toFixed(2), -10, 10);
     cond.psyche.active_states.push(mark);
     (cond.psyche.state_ages ??= {})[mark] = turn;
-    log.push(`${c.name} is reminded of what they have been putting off, and it hits them.`);
+    log.push(`${c.name} is reminded of what they've been putting off, and it hits them hard.`);
   }
   return log;
 }
@@ -198,7 +198,7 @@ export function liveWant(state: SaveState, id: string, turn: number): { goal: st
   const dread = dreadOf(top.d, turn);
   const dodging = scored.slice(1).some((x) => dreadOf(x.d, turn) > dread + 0.15);
   const why = spent && dodging
-    ? `they do not have the energy for the harder one, and this is what they can face`
+    ? `they don't have the energy for the harder one, and this is what they can face`
     : recalledBy(state, top.d.goal)
       ? `the room has put it in front of them`
       : `it is what they are on`;

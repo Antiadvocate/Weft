@@ -136,9 +136,9 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
     if (id === "char_player") continue;
     if (!c.name || !text.includes(c.name.toLowerCase())) continue;
     if (c.status === "dead")
-      warnings.push(`${c.name} is dead — a montage moves time forward and can't bring them back.`);
+      warnings.push(`${c.name} is dead, and a montage moves time forward but can't bring them back.`);
     else if (c.status === "departed")
-      warnings.push(`${c.name} has left the story — they won't be present unless the montage deliberately brings them back.`);
+      warnings.push(`${c.name} has left the story, so they won't be there unless the montage deliberately brings them back.`);
   }
 
   const romantic = /\b(love|lover|marry|married|move in|moving in|together|partner|romance|kiss|sleep with)\b/.test(text);
@@ -147,7 +147,7 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       ([id, c]) => id !== "char_player" && c.name && text.includes(c.name.toLowerCase()),
     );
     if (named.length === 0)
-      warnings.push("This reads as a romance but names nobody — the montage will pick whoever is closest, which may not be who you meant.");
+      warnings.push("This sounds like a romance, but it doesn't name anyone, so the montage will pick whoever is closest, which may not be who you meant.");
     // the desire model gates attraction by orientation; a montage that ignores it would
     // write an arc the engine then refuses to hold. Say so up front rather than 30 days in.
     const player = state.characters["char_player"];
@@ -155,7 +155,7 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       if (!player) continue;
       const cap = orientationCap(c, player);
       if (cap !== null && cap <= 5)
-        warnings.push(`${c.name} isn't oriented toward you by the engine's read — a romance arc here will fight the desire model. It'll still run if you mean it.`);
+        warnings.push(`By the engine's reckoning, ${c.name} isn't drawn to you, so a romance here will work against how desire is modelled. It will still run if you mean it.`);
     }
   }
 
@@ -167,12 +167,12 @@ export function preflightDirection(state: SaveState, direction: string, days?: n
       .map((t) => t.title);
     if (heavy.length)
       warnings.push(
-        `A ${days}-day skip won't settle the heavy threads — ${heavy.slice(0, 3).join("; ")}${heavy.length > 3 ? `, +${heavy.length - 3} more` : ""}. Those resolve in scenes you play.`,
+        `A ${days}-day skip won't settle the heavy threads: ${heavy.slice(0, 3).join("; ")}${heavy.length > 3 ? `, and ${heavy.length - 3} more` : ""}. Those get resolved in scenes you play.`,
       );
   }
 
   if (!/\d/.test(text) && direction.trim().length < 12)
-    warnings.push("Very short direction — the planner has little to work from. More specifics land more of the checklist.");
+    warnings.push("That's a very short direction, so the planner doesn't have much to go on. The more specific you are, the more of the checklist it can make happen.");
 
   return warnings;
 }

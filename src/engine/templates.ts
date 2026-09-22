@@ -330,5 +330,5 @@ export const NOTABLE = 0.12;
  *  player reads these, but so does the person deciding what to write next. */
 export function readingNote(r: Reading | null): string {
   if (!r || !r.hot.length || r.concentration < NOTABLE) return "";
-  return `the dialogue is narrowing — ${Math.round(r.concentration * 100)}% of it is coming out of ten sentence shapes. The Chronicle shows which.`;
+  return `the dialogue is getting repetitive: ${Math.round(r.concentration * 100)}% of it comes from just ten sentence patterns. The Chronicle shows which ones.`;
 }

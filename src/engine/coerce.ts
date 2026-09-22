@@ -297,7 +297,7 @@ export function doorFromVoice(c: { voice?: { agenda?: string; tics?: string[] } 
   const tics = (c?.voice?.tics ?? []).map((t) => String(t ?? "").trim()).filter(Boolean).slice(0, 2);
   if (!agenda && !tics.length) return undefined;
   const parts = [agenda, tics.join("; ")].filter(Boolean);
-  return `their usual way of getting at anything — ${parts.join(", by ")}`;
+  return `their usual way of going about anything: ${parts.join(", by ")}`;
 }
 
 /**
