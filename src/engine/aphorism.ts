@@ -357,8 +357,8 @@ function asStrings(v: unknown): string[] {
 export function rewriteNote(faults: readonly CardFault[], who: string): string {
   if (!faults.length) return "";
   const rows = faults.slice(0, 6).map((f) => `- ${f.field}: “${f.text.slice(0, 160)}” — ${f.why}`);
-  return `These came back as sentences about the world in general rather than about ${who}, so they fit any person in any story:\n${rows.join("\n")}\n`
-    + `Rewrite each one so it names something a camera would catch: an object ${who} handles, a place they go, a person they know by name, something that happened to them on a particular day, a thing their hands do. A finished line passes when you can point at the thing in it. Keep every other field byte-identical.`;
+  return `These came back as sentences about the world in general instead of about ${who}, so they would fit any person in any story:\n${rows.join("\n")}\n`
+    + `Rewrite each one so it names something a camera could catch, like an object ${who} handles, a place they go, a person they know by name, something that happened to them on a particular day, or something their hands do. A finished line is good when you can point at the thing in it. Keep every other field exactly the same.`;
 }
 
 /**

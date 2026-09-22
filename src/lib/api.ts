@@ -201,7 +201,7 @@ export const api = {
         .map((m) => m.content.trim());
       // presence/distance: is this person actually still in the player's life, or pushed away/distant?
       const inScene = s.world.present.includes(cid);
-      const distance = (edge && edge.warmth < 10 && edge.trust < 10) ? " [DISTANT/estranged — not currently close to the player]" : inScene ? " [was present at chapter's end]" : " [offscreen — not necessarily nearby]";
+      const distance = (edge && edge.warmth < 10 && edge.trust < 10) ? " [DISTANT OR ESTRANGED: not close to the player at the moment]" : inScene ? " [was present at chapter's end]" : " [offscreen — not necessarily nearby]";
       return `${c.name} (${traits.slice(0, 6).join(", ")}) — ${rel}${c.drive?.goal ? `; wants: ${c.drive.goal}` : ""}${distance}${aboutPlayer.length ? `\n    remembers about you: ${aboutPlayer.join(" | ")}` : ""}`;
     }).join("\n");
     const recentBeats = s.history.filter((h) => h.kind !== "opening").slice(-16).map((h) => h.summary).filter(Boolean).join(" → ");
@@ -229,10 +229,10 @@ export const api = {
     // chapter is a war" and have it be a war.
     const brief = String(direction ?? "").trim().slice(0, 1200);
     const digest = [
-      brief ? `DIRECTION FOR THE NEW CHAPTER — the player's brief, binding, outranking everything but the forbidden list:\n${brief}` : "",
+      brief ? `DIRECTION FOR THE NEW CHAPTER. This is the player's brief, it has to be followed, and it comes before everything except the forbidden list:\n${brief}` : "",
       `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
-      bans.length ? `FORBIDDEN IN THIS WORLD — BINDING ON EVERYTHING YOU WRITE, and on what you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is material the player has since banned. It does not go in the recap, the opening, the threads or the bible. It ends at the time skip; the new chapter is about something else.` : "",
-      s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION — obey it, never rewrite or restate it: ${s.world_bible.narrator_direction}` : "",
+      bans.length ? `FORBIDDEN IN THIS WORLD. This applies to everything you write and everything you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is something the player has since banned. It doesn't go in the recap, the opening, the threads or the world rules. It ends at the time skip, and the new chapter is about something else.` : "",
+      s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION (follow it, and never rewrite or repeat it): ${s.world_bible.narrator_direction}` : "",
       `PLAYER: ${player?.name}. ${player?.background ?? ""}`,
       `CAST:\n${cast}`,
       `CANON: ${(s.world.canon ?? []).join(" | ")}`,
@@ -244,7 +244,7 @@ export const api = {
     const msgs = buildMessages(NEWSEASON_SYSTEM, "A finished playthrough to carry into a new chapter:", digest, s.model_settings.forge_model);
     const out = await complete(msgs, s.model_settings.forge_model, s.model_settings.fallback_model, true, 4000);
     const g = safeJson<any>(out.text, null);
-    if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't distill a new chapter — try again, or use a stronger forge model.");
+    if (!g?.recap || !g?.opening_scene) throw new Error("Couldn't put together a new chapter. Try again, or use a stronger world-building model.");
 
     // ── THE MODEL ONLY GETS TO CHANGE WHAT IT WAS ASKED FOR ──────────────────
     // This spread accepted whatever `world_bible` the model returned, unbounded. The new-chapter
@@ -467,7 +467,7 @@ export const api = {
         .map((m) => `[T${m.turn}] ${m.full_content ?? m.content}`).join("\n");
       const info = `CHARACTER: ${c.name}. ${c.background ?? ""} ${c.life_history ?? ""}\nRELATIONSHIP: ${rel}\n\nRAW MEMORIES (oldest first):\n${raw}`;
       try {
-        const out = await complete(buildMessages(MEMORY_CONDENSE_SYSTEM, "Condense this character's memory, preserving what truly happened:", info, model), model, s.model_settings.fallback_model, true, 2000);
+        const out = await complete(buildMessages(MEMORY_CONDENSE_SYSTEM, "Condense this character's memories, keeping what really happened:", info, model), model, s.model_settings.fallback_model, true, 2000);
         const g = safeJson<{ memories?: { content: string; importance?: number; emotional_charge?: string }[] }>(out.text, { memories: [] });
         if (!g?.memories?.length) continue;
         // the condensed POV summaries become the new episodic memory. full_content keeps the JOINED
@@ -641,13 +641,13 @@ export const api = {
     const t = turn ?? s.world.current_turn;
     const entry = s.history.find((h) => h.turn === t && (h.kind ?? "turn") === "turn");
     if (!entry) throw new Error(`turn ${t} is not a re-runnable turn`);
-    if (!entry.narrator_prose?.trim()) throw new Error("that turn has no prose to re-read");
+    if (!entry.narrator_prose?.trim()) throw new Error("that turn has no prose to read again");
     await putSideRow(id, "recovery", s);                 // same safety rail as rollback/strike
     // The snapshot for turn N is taken BEFORE N applies, so replaying N means restoring snapshot N
     // exactly. doRollback finds the nearest EARLIER snapshot, which would silently replay this prose
     // against a state several turns stale and destroy everything between — so demand an exact hit.
     if (!s.snapshots.some((snap) => snap.turn === t)) {
-      throw new Error(`turn ${t} has aged out of the snapshot ring — only the last few turns can be re-run`);
+      throw new Error(`turn ${t} is too old to redo, because only the last few turns can be taken again`);
     }
     const restored = await doRollback(s, t);
     if (!restored) throw new Error("no snapshot covers that turn");
@@ -872,7 +872,7 @@ export const api = {
     let log: string;
     if (outcome === "retired") {
       p.status = "retired";
-      log = `Retired: "${p.text}" — closed by hand, with no effect on anyone.`;
+      log = `Retired: "${p.text}". It was closed by hand and didn't affect anyone.`;
     } else {
       log = resolvePromise(s, p, outcome, s.world.current_turn) || `Marked ${outcome}: "${p.text}".`;
     }
@@ -1175,7 +1175,7 @@ export const api = {
   repairSave: async (id: string): Promise<{ save: ClientSave; log: string[] }> => {
     const s = await need(id);
     const log = [
-      ...pruneParseArtifacts(s).map((n) => `Removed "${n}" — a fragment of someone's description that had been filed as a person.`),
+      ...pruneParseArtifacts(s).map((n) => `Removed "${n}", which was a piece of someone's description that had been filed as a person.`),
       ...repairStatuses(s),
       ...repairStrandedCast(s),
       ...repairPlaceDescriptions(s),
@@ -1255,8 +1255,8 @@ export const api = {
       c.life_history ? `Since the story began: ${c.life_history}` : "",
       `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
       traits ? `Learned: ${traits}` : "",
-      cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (colors every answer per the openness rules).` : "",
-      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth — liking is not wanting)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
+      cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (this affects every answer, following the rules about openness).` : "",
+      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth, because liking someone isn't the same as wanting them)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
       memDigest,
     ].filter(Boolean).join("\n");
     const msgs: any[] = [{ role: "system", content: INTERVIEW_SYSTEM }, { role: "user", content: ctx }];
@@ -1279,7 +1279,7 @@ export const api = {
     const b = s.world_bible;
     const premise = [b.era, b.cultures_and_languages].filter(Boolean).join(" · ");
     const out = await complete([
-      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline must be kept verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
+      { role: "system", content: "You fill in the permanent physical description of a character for a story engine. It has to cover hair colour and texture or style, eye colour, skin tone, face shape or one distinctive facial feature, build, how old they look, and one unique identifying mark (a scar, a crooked nose, a way of walking, a chipped tooth). Keep every detail already in the current description exactly as it's written. Only invent what's missing, and keep it consistent with the world and the character's background. Include only permanent physical features, with no clothing, gear or mood. Reply with only the finished description, in one to three plain sentences, and nothing else." },
       { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
     return { baseline: clipText(out.text.replace(/^"|"$/g, ""), 800) };
@@ -1304,7 +1304,7 @@ export const api = {
       ].filter(Boolean).join(", ");
       try {
         const out = await complete([
-          { role: "system", content: "You assign a character's INTRINSIC ATTRACTIVENESS as a single integer 0-100 — the snap-judgment a stranger's nervous system makes on sight, before knowing them. Judge from physical form ONLY: symmetry, youthfulness/vitality, proportion, striking or distinctive features, presence. This is species-AGNOSTIC and body-agnostic: a machine, a beast, an angel, or a disembodied voice can be beautiful on presence and form alone — do not penalize non-human. Do not judge personality, clothing brand, or morality. Scale: 50 = ordinary/average, 65-75 = notably attractive, 85+ = stunning/head-turning, below 35 = plain or off-putting. Age and permanent marks (scars, ruin, aging, weight) shift the number as a stranger's eye would weigh them — sometimes down, sometimes not (a scar can be striking). Output ONLY the integer, nothing else." },
+          { role: "system", content: "You rate how physically attractive a character is, as a single whole number from 0 to 100. It's the snap judgment a stranger's body makes on first sight, before they know anything about the person. Judge by physical form only: symmetry, youth and vitality, proportion, striking or distinctive features, and presence. This works the same for any species or body, so a machine, a beast, an angel or a voice with no body can be beautiful on presence and form alone, and you shouldn't mark anyone down for not being human. Don't judge personality, what brand of clothes they wear, or their morals. On this scale 50 is ordinary, 65 to 75 is noticeably attractive, 85 and up is stunning and turns heads, and below 35 is plain or off-putting. Age and permanent marks like scars, damage, ageing or weight move the number the way a stranger's eye would weigh them, sometimes down and sometimes not, since a scar can be striking. Reply with only the number and nothing else." },
           { role: "user", content: `CHARACTER: ${c.name}, age ${c.age}${dims ? `, ${dims}` : ""}${c.pronouns ? `, ${c.pronouns}` : ""}.\nPHYSICAL BASELINE: ${c.appearance_facts || "(unspecified)"}\nCURRENT PRESENTATION: ${c.appearance_now || "(nothing notable)"}` },
         ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 12);
         const n = parseInt((out.text.match(/\d+/) ?? ["50"])[0], 10);
@@ -1464,7 +1464,7 @@ export const api = {
     const s = await need(id);
     const c = s.characters[char_id];
     if (!c) throw new Error("unknown character");
-    if (char_id === "char_player") throw new Error("author wants onto other people, not yourself");
+    if (char_id === "char_player") throw new Error("author wants for other people, not for yourself");
     const list = (c.authored ??= []);
     const at = want?.index ?? index;
 
@@ -1716,10 +1716,10 @@ export const api = {
     const online = ground || !!searchTarget;
     const searchQuery = searchTarget || (online ? cleanSeed.slice(0, 200) : undefined);
     const beatsBlock = (seedThreads?.length)
-      ? `\n\nSTORY BEATS THE PLAYER WANTS SEEDED (build the world, cast, places, and clocks so these are POSSIBLE and primed — don't resolve them, just make the world ready for them to emerge; the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n")}`
+      ? `\n\nSTORY EVENTS THE PLAYER WANTS SET UP (build the world, cast, places and clocks so these can happen and are ready to happen, but don't resolve them; just get the world ready for them to come about, and remember the player may still ignore them):\n${seedThreads.map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n")}`
       : "";
     const toneBlock = tone?.trim()
-      ? `\n\nGENRE & TONE (the register this story must be built and written in — shape the world, threat, pressure palette, and cast to fit it): ${tone.trim()}`
+      ? `\n\nGENRE AND TONE (the kind of story this has to be built and written as, so shape the world, the threat, the sources of pressure and the cast to fit it): ${tone.trim()}`
       : "";
     const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + toneBlock + beatsBlock, model);
     let g: any = null, lastErr = "";
@@ -1737,7 +1737,7 @@ export const api = {
         g = null;
       } catch (e: any) { lastErr = `${m}: ${e.message}`; g = null; }
     }
-    if (!g) throw new Error(`The forge failed after 3 attempts — ${lastErr}. Try a more concrete seed (place + people + problem) or a stronger forge model.`);
+    if (!g) throw new Error(`World-building failed after 3 attempts (${lastErr}). Try a more concrete starting idea, with a place, people and a problem, or use a stronger world-building model.`);
 await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     /* AND THE SAMPLE LINES THAT SURVIVED THE VOICE PASS.
      *
@@ -2051,7 +2051,7 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // In observe mode there is no player action; the engine is told to advance
     // the scene on its own, moving every actor (including the player's vessel).
     const act = observe
-      ? "[OBSERVER] The player takes no action and only watches. Advance the scene on its own: let every present character — INCLUDING the player's own character — act, speak, and pursue their drives as they naturally would in this moment. Do not wait for the player. Move the story forward one concrete beat."
+      ? "[OBSERVER] The player does nothing and only watches. Move the scene along by itself: let every character present, including the player's own character, act, speak and go after what they want the way they naturally would at this moment. Don't wait for the player, and move the story forward by one concrete event."
       : action;
     // COST GOVERNOR: past 70% of the daily budget the engine shifts to eco for the rest of the
     // day — lean prompts + tightened context — transparently, without touching saved settings.

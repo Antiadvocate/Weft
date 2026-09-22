@@ -51,10 +51,10 @@ export function relevance(memory: string, query: string): number {
  * Returns a short lens cue, or "" when the recaller is level (no distortion).
  */
 export function recallTint(relaxation: number): string {
-  if (relaxation <= -7) return "recalled through a clenched, sour lens — its worst reading foregrounded, slights and threats sharpened, the warmth in it hard to feel right now";
-  if (relaxation <= -3) return "recalled warily — the guarded reading, what went wrong easier to reach than what went right";
-  if (relaxation >= 6) return "recalled warmly — its kinder reading, the good in it foregrounded, old friction softened";
-  if (relaxation >= 3) return "recalled with some ease — leaning toward the better reading of it";
+  if (relaxation <= -7) return "remembered through tension and resentment, so the worst reading of it comes first, slights and threats seem sharper, and the warmth in it is hard to feel right now";
+  if (relaxation <= -3) return "remembered warily, so the guarded reading comes first, and what went wrong is easier to recall than what went right";
+  if (relaxation >= 6) return "remembered warmly, so the kinder reading comes first, the good in it stands out, and old friction feels softer";
+  if (relaxation >= 3) return "remembered fairly easily, leaning toward the better reading of it";
   return "";
 }
 
@@ -619,7 +619,7 @@ const CLIP_MAX_WORDS = 14;
 /** Why this text is a line off the page rather than an account, or null if it is an account. */
 export function clippedLine(t: string): string | null {
   if (t.split(/\s+/).filter(Boolean).length > CLIP_MAX_WORDS) return null;
-  if (SECOND_PERSON.test(t)) return "addressed to somebody — a memory is an account, not a line";
+  if (SECOND_PERSON.test(t)) return "addressed to somebody, but a memory is an account of what happened, not a line of dialogue";
   // THE STRIP IS A FALLBACK, NEVER THE FIRST READ. Applied unconditionally, FRONTED's time-word arm
   // ate the actor out of "Emily Brenner told me I stayed put all NIGHT and that it wasn't nothing"
   // — a perfectly good account, left as "and that it wasn't nothing" and refused. The adverbial
@@ -629,7 +629,7 @@ export function clippedLine(t: string): string | null {
     const actor = OPENS_WITH_ACTOR.exec(body);
     if (actor && !NOT_AN_ACTOR.test(actor[1]) && !IMPERATIVE_OPENER.test(actor[1])) return null;
   }
-  return "no actor doing anything — a clipped line, not an event";
+  return "nobody is doing anything in it, so it's a clipped line, not an event";
 }
 
 /**
@@ -1074,7 +1074,7 @@ export function beliefLine(content: string, gone: Map<string, string>): string {
     const m = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").exec(text);
     if (m) hits.push(`${m[0]} is ${how}`);
   }
-  return hits.length ? `${text} [${hits.slice(0, 2).join("; ")} — this is held ABOUT the past and says nothing about the present]` : text;
+  return hits.length ? `${text} [${hits.slice(0, 2).join("; ")}. This is a belief about the past, and it says nothing about the present]` : text;
 }
 
 export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn: number, k: number, nowLabel = "", recallerRelaxation = 0, gone: Map<string, string> = new Map()): string {
@@ -1097,7 +1097,7 @@ export function compactMemoryDigest(mem: CharMemory, query: string, currentTurn:
       .filter((f) => f.superseded_by && relevance(f.content, query) >= 0.25)
       .slice(-2);
     if (corrected.length) {
-      parts.push(`ONCE BELIEVED, NOW KNOWS BETTER (never state the old version as true): ${corrected.map((f) => `"${clipF(f.content)}" → ${clipF(f.superseded_by!)}`).join(" | ")}`);
+      parts.push(`USED TO BELIEVE, BUT NOW KNOWS BETTER (never state the old version as true): ${corrected.map((f) => `"${clipF(f.content)}" → ${clipF(f.superseded_by!)}`).join(" | ")}`);
     }
   }
   const beliefLines = (mem.beliefs ?? []).slice(-6).map((b) => beliefLine(b?.content, gone)).filter((l) => l.trim());

@@ -110,7 +110,7 @@ export function actorBrief(state: SaveState, id: string): string {
     return [
       who ? `About ${who}: ${d.goal}` : d.goal,
       d.because ? ` — why you mean it: ${d.because}` : "",
-      d.approach ? ` — the way you go at it: ${d.approach}` : "",
+      d.approach ? `, and the way you go about it: ${d.approach}` : "",
       d.blocker ? ` — stuck on: ${d.blocker}` : "",
     ].join("");
   };
@@ -150,13 +150,13 @@ export function actorBrief(state: SaveState, id: string): string {
     .map((b) => {
       const who = state.characters?.[b.target]?.name ?? "them";
       if (b.held_false) return `About ${who}, you are convinced: ${b.held_false}`;
-      return `About ${who} you genuinely cannot tell where you stand.`;
+      return `With ${who}, you honestly can't tell where you stand.`;
     });
 
   // A clock belongs to the people standing in it. Anyone else in the cast has no idea it is ticking.
   const mine = (w.clocks ?? [])
     .filter((k) => k.status === "running" && factionMembers(state, k.faction).includes(id))
-    .map((k) => `You are one person in a world, deciding what you did with the next few hours, and you are one of ${k.faction}. What that has you working toward: ${k.objective}.`);
+    .map((k) => `You're one person in a world, deciding what you did with the next few hours, and you belong to ${k.faction}. What that has you working toward: ${k.objective}.`);
 
   // Their own recent business, so the same afternoon is not lived twice.
   const didLately = (w.offstage_log ?? [])
@@ -176,45 +176,45 @@ export function actorBrief(state: SaveState, id: string): string {
     alsoHere.length ? `In sight of you right now: ${alsoHere.join(", ")}.` : "Nobody else is here.",
     due ? `Your week:${due}` : "",
     "",
-    wants.length ? `WHAT YOU ARE TRYING TO GET:\n${wants.map((x) => `- ${x}`).join("\n")}` : "WHAT YOU ARE TRYING TO GET: nothing urgent, so this is an ordinary few hours of your life.",
+    wants.length ? `WHAT YOU ARE TRYING TO GET:\n${wants.map((x) => `- ${x}`).join("\n")}` : "WHAT YOU ARE TRYING TO GET: nothing urgent, so these are an ordinary few hours of your life.",
     mine.length ? `\n${mine.join("\n")}` : "",
     recalled.length ? `\nWHAT IS ON YOUR MIND:\n${recalled.map((m) => `- ${clipText(m, 180)}`).join("\n")}` : "",
-    heard.length ? `\nWHAT YOU HAVE HEARD (somebody told you; you have no way to check it):\n${heard.map((h) => `- ${clipText(h, 160)}`).join("\n")}` : "",
+    heard.length ? `\nWHAT YOU HAVE HEARD (somebody told you, and you have no way of checking it):\n${heard.map((h) => `- ${clipText(h, 160)}`).join("\n")}` : "",
     beliefs.length ? `\nWHAT YOU BELIEVE ABOUT PEOPLE:\n${beliefs.map((b) => `- ${b}`).join("\n")}` : "",
-    didLately.length ? `\nWHAT YOU HAVE ALREADY DONE — pick up from here rather than repeating it:\n${didLately.map((d) => `- ${clipText(d, 160)}`).join("\n")}` : "",
+    didLately.length ? `\nWHAT YOU HAVE ALREADY DONE (carry on from here instead of doing it again):\n${didLately.map((d) => `- ${clipText(d, 160)}`).join("\n")}` : "",
   ].filter(Boolean).join("\n");
 }
 
-export const AGENCY_SYSTEM = `You are one person in a world, deciding what you did with the next few hours. You are given everything you know and nothing else, so anything absent from the briefing is absent from your head.
+export const AGENCY_SYSTEM = `You're one person in a world, deciding what you did with the next few hours. You're given everything you know and nothing else, so anything that isn't in the briefing isn't in your head either.
 
-WRITE ONE THING YOU DID. One action, finished, with a result. Past tense, one or two plain sentences, in the third person by your own name: "Ilse walked the boundary as far as the ford and found the stakes pulled." Always include the result, because a step with an outcome is an event and a step only considered is nothing.
+Write one thing you did: one action, finished, with a result. Write it in the past tense, in one or two plain sentences, in the third person using your own name, like "Ilse walked the boundary as far as the ford and found the stakes pulled." Always include the result, because a step with an outcome is an event, and a step you only thought about is nothing.
 
-YOU KNOW ONLY WHAT THE BRIEFING SAYS. If the answer to "how would I have found that out?" is anything other than a line in the briefing, you did not know it, and what you do instead usually makes the better story: you call and get no answer, ask the wrong person, find the door shut, or act on news that is two days old. Write the version where you are working with what you have.
+You only know what the briefing says. If the answer to "how would I have found that out?" is anything other than a line in the briefing, you didn't know it. What you do instead usually makes a better story anyway: you call and nobody answers, you ask the wrong person, you find the door locked, or you act on news that's two days old. Write the version where you're working with what you've got.
 
-ACT ON WHAT YOU ARE TRYING TO GET, which the briefing names. Take a concrete step toward it and say how the step landed, including when it landed badly. When you are stuck on something, the step is running into the obstacle: the door closed, the answer no, the person out.
+Act on what you're trying to get, which the briefing tells you. Take a concrete step toward it and say how it turned out, including when it turned out badly. If you're stuck on something, the step is running into whatever is in the way, like a shut door, a no, or the person being out.
 
-WHERE YOU ARE IS WHERE THIS HAPPENS, unless your week puts you somewhere else in these hours, in which case it happens there. Name the place exactly as the briefing names it.
+It happens where you are, unless your week takes you somewhere else during these hours, in which case it happens there. Name the place exactly the way the briefing names it.
 
-WHO ELSE IS THERE, IF ANYONE. The briefing lists the people in sight of you, and doing something with one of them is often the best beat available; anyone it does not list is elsewhere and out of reach today.
+The briefing lists anyone else who's in sight of you, and doing something with one of them is often the best thing you can write. Anyone it doesn't list is somewhere else and out of reach today.
 
-ONE PERSON CAN BE TOLD SOMETHING. If part of what you did was carrying news to somebody — telling them what you saw, passing on what you heard, asking them a question that reveals what you know — put their exact name in "told" and put what they now know in "telling". Only somebody in sight of you, and only something you actually know.
+You can tell one person something. If part of what you did was bringing news to somebody, by telling them what you saw, passing on what you heard, or asking them a question that shows what you know, put their exact name in "told" and what they now know in "telling". It can only be someone in sight of you, and only something you actually know.
 
-REACHING THE PROTAGONIST IS A DELIBERATE ACT AND A RARE ONE. When what you did was contact them on purpose — a call, a text, a letter, turning up — fill "reaches_player" with how and with the words that arrive. Leave it out entirely the rest of the time, which is most of the time. You have no idea where they are or what they are doing.
+Getting in touch with the main character is something you'd do on purpose, and it's rare. When what you did was contact them deliberately, by calling, texting, writing or turning up, fill in "reaches_player" with how you did it and the words that reach them. Leave it out the rest of the time, which is most of the time. You have no idea where they are or what they're doing.
 
-YOU CAN ONLY USE WHAT YOU HAVE, so write what you did with it. The protagonist has given you nothing, promised you nothing and made you nothing unless the briefing records it, and an action that only works because they did something first did not happen.
+You can only use what you have, so write what you did with it. The main character hasn't given you anything, promised you anything or made you anything unless the briefing records it, and anything you did that only works because they did something first didn't happen.
 
-A STEP FOR YOUR FACTION COUNTS, when the briefing says you stand in one: a testimony taken, a meeting held, a rider sent, a page finished. Set "advances" to that faction's exact name when the thing you did was one of its ordinary steps.
+If the briefing says you belong to a faction, a step for it counts, like taking a statement, holding a meeting, sending a rider or finishing a page. Set "advances" to the faction's exact name when what you did was one of its ordinary steps.
 
-WHAT THIS LEAVES YOU MEANING TO DO ABOUT SOMEBODY. The briefing carries what you are already trying to get, and some afternoons add to it: you decide something about a person, and it is still true tomorrow. Fill "intent" when yours did — "about" is their exact name from the briefing, "goal" is the thing you now mean to do about them, concrete enough that somebody could watch you do it, and "because" is what put it there, in your words, from what you actually saw or heard.
+Sometimes an afternoon leaves you meaning to do something about somebody. The briefing already has what you're trying to get, and some afternoons add to it: you decide something about a person, and it's still true tomorrow. Fill in "intent" when that happened. "about" is their exact name from the briefing. "goal" is what you now mean to do about them, concrete enough that somebody could watch you do it. "because" is what made you decide it, in your own words, based on what you actually saw or heard.
 
-Your reason is allowed to be wrong and usually is. You saw one end of something, or you were told it by somebody who was told it. Write the reason you have, and keep it exactly as it is: it stays on you until something gets in its way, which is how a person carries a misunderstanding around for a week.
+Your reason is allowed to be wrong, and it usually is. You saw one end of something, or you heard it from someone who heard it from someone else. Write the reason you have, and keep it exactly as it is. It stays with you until something gets in its way, which is how people carry a misunderstanding around for a week.
 
 Leave "intent" out when nothing changed for you this afternoon, which is most afternoons, and when what you already want is still what you want.
 
-SOMETIMES A DAY LEAVES A QUESTION OPEN — a promise now due, a decision now forced on you, a door found open that was shut. Fill "opens_question" when yours did. Leave it out when the day left nothing open, which is most days.
+Sometimes a day leaves a question open, like a promise that's now due, a decision you're now forced to make, or a door you found open that used to be shut. Fill in "opens_question" when yours did, and leave it out when the day didn't leave anything open, which is most days.
 
-Output ONLY this JSON:
-{"what":"one or two past-tense sentences naming yourself","place":"exactly as the briefing names it","told":"exact name of one person in sight, or omit","telling":"what they now know, or omit","intent":{"about":"exact name from the briefing","goal":"what you now mean to do about them","because":"what put it there, in your words"},"advances":"exact faction name, or omit","reaches_player":{"how":"","content":""},"opens_question":{"title":"","description":""}}`;
+Reply with only this JSON:
+{"what":"one or two past-tense sentences that use your own name","place":"exactly as the briefing names it","told":"the exact name of one person in sight, or leave it out","telling":"what they now know, or leave it out","intent":{"about":"an exact name from the briefing","goal":"what you now mean to do about them","because":"what made you decide it, in your own words"},"advances":"the exact faction name, or leave it out","reaches_player":{"how":"","content":""},"opens_question":{"title":"","description":""}}`;
 
 /** One person's answer. Mapped onto the OffstageEvent the existing applier already knows how to
  *  write, so nothing new touches memory, edges, rumours, clocks or threads. */
@@ -561,7 +561,7 @@ export function spendStalledWants(state: SaveState): string[] {
     if (hasAuthored(c) && !(c as any).authored?.paused) continue;   // a human wrote it; it stands
     const acts = drive.acts ?? 0;
     if (acts < SPENT_AFTER_ACTS) continue;
-    out.push(`${c.name} gives up on "${clipText(drive.goal, 70)}" — ${acts} goes at it and nothing has moved.`);
+    out.push(`${c.name} gives up on "${clipText(drive.goal, 70)}" after ${acts} tries with nothing to show for them.`);
     c.drive = (c.drive_queue ?? []).shift() ?? undefined;
   }
   return out;

@@ -18,35 +18,35 @@
 import { buildMessages, complete, safeJson } from "../llm";
 import { figured } from "./aphorism";
 
-const TRAIT_SYSTEM = `You re-express one existing character's core traits. You are NOT redesigning them.
+const TRAIT_SYSTEM = `You rewrite one existing character's core traits in more concrete terms. You aren't redesigning the character.
 
-The traits you are given are adjectives — summaries of how this person BEHAVES. Name what they DO underneath, such that the old adjectives are the obvious consequence. Same person, same nature, one level more concrete.
+The traits you're given are adjectives that sum up how this person behaves. Name what they actually do underneath, so that the old adjectives follow obviously from it. It's the same person with the same nature, described one step more concretely.
 
-THE TEST, applied to every line you write: COULD YOU FILM IT? Each trait must name at least one concrete thing — an object, an animal, a food, a place, a part of the body, a specific action — and say what the person observably does. If a camera pointed at them for a week could not capture it, it is wrong.
+Check every line you write by asking whether you could film it. Each trait has to name at least one concrete thing, like an object, an animal, a food, a place, a part of the body or a specific action, and say what the person visibly does. If a camera pointed at them for a week couldn't capture it, it's wrong.
 
-THREE WAYS OF WRITING ONE THAT LEAVE NOTHING TO SHOW:
- (a) AN ADJECTIVE — the word you were given, or the same word rephrased. It summarises behaviour instead of naming any.
- (b) A TRAIT THAT NAMES NO OBJECT AND NO ACTION — one that describes how this person holds something in their mind rather than what their hands do about it. Ask it: what thing? which action? If there is no answer, it is empty.
- (c) A TRAIT THAT GIVES THEM ACCURATE KNOWLEDGE OF ANOTHER PERSON'S INSIDE ON SIGHT, or that states what they do to people as a comparison rather than as an act. Nobody can do the first, and the second names nothing to write.
+There are three ways of writing a trait that leave nothing to show:
+ (a) An adjective, either the one you were given or the same word put differently. It sums up behaviour instead of naming any.
+ (b) A trait that names no object and no action, because it describes how the person holds something in their mind instead of what their hands do about it. Ask it what thing and which action. If there's no answer, it's empty.
+ (c) A trait that lets them know accurately what's going on inside another person just by looking, or that describes what they do to people as a comparison instead of an action. Nobody can do the first, and the second doesn't name anything a writer could show.
 
-Right form, by kind:
-- TEMPERAMENT AS CONDUCT: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before saying anything at all, even to say yes."
-- AVERSION OR PULL, naming the thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather."
-- UNEARNED APTITUDE, naming the skill: "Could untangle any knot before she could read; still does it while thinking."
-- PHYSICAL SIGNATURE, naming body and object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath while waiting: steps, birds, sheep."
-- AFFINITY, naming the place: "Goes to the water when anything goes wrong, and only then."
+Here is the right way to write each kind:
+- Temperament, as behaviour: "Answers before the other person has finished, every time, and never notices." "Takes a full breath before saying anything at all, even to say yes."
+- Something they avoid or are drawn to, naming the thing: "Will not eat anything from fresh water, and cannot say why." "Sleeps with the shutter open in any weather."
+- A natural talent, naming the skill: "Could untangle any knot before she could read; still does it while thinking."
+- A physical habit, naming the body part and the object: "Holds everything — cup, knife, child — in the same two-handed grip." "Counts under her breath while waiting: steps, birds, sheep."
+- A place they feel drawn to, naming it: "Goes to the water when anything goes wrong, and only then."
 
-HARD CONSTRAINTS:
-1. RETURN EXACTLY AS MANY TRAITS AS YOU WERE GIVEN. Not more. If you were given three, return three. Each must account for one original — say which in "from". Do not split one adjective into several traits.
-2. INVENT NO NEW NATURE. Re-describe only what the background, values, attachment and existing traits already establish. If the original says nothing about how they handle fear, do not decide.
-3. A MOOD IS NOT A TRAIT. If an original is a current state ("homesick and lonely", "exhausted"), name the standing habit that makes them prone to it — again as something filmable.
-4. NO MORAL VERDICTS. "Honorable", "kind", "cruel" are judgements. Write the conduct; let the reader judge.
-5. USE WORDS THIS WORLD HAS. Name the conduct in the plainest terms available in the setting you were given: no clinical vocabulary, and no term from a body of knowledge this world does not have. A person who knew them would recognise it at once and would not call it clever.
+Rules you can't break:
+1. Send back exactly as many traits as you were given, no more. If you were given three, send back three. Each one has to correspond to one original, and you say which in "from". Don't split one adjective into several traits.
+2. Don't invent a new nature. Only describe again what the background, values, attachment style and existing traits already establish. If the original says nothing about how they handle fear, don't decide it.
+3. A mood isn't a trait. If an original describes a current state, like "homesick and lonely" or "exhausted", name the lasting habit that makes them prone to it, again as something you could film.
+4. No moral judgments. "Honorable", "kind" and "cruel" are judgments. Write the behaviour and let the reader judge.
+5. Use words this world has. Name the behaviour in the plainest words the setting you were given allows, with no clinical terms and no terms from a field of knowledge this world doesn't have. Someone who knew them would recognise it straight away and wouldn't think it was clever.
 
-Each trait: one short concrete phrase, under about 14 words. At least one must be INCONVENIENT — something that causes them trouble or is tiring to be around, even if all the originals are flattering.
+Each trait is one short concrete phrase of under about 14 words. At least one has to be inconvenient, meaning something that causes them trouble or is tiring to be around, even if all the originals are flattering.
 
-Output ONLY this JSON:
-{"traits":[{"trait":"","from":"which original adjective this expresses"}]}`;
+Reply with only this JSON:
+{"traits":[{"trait":"","from":"which original adjective this describes"}]}`;
 
 export interface RetraitResult {
   name: string;
@@ -82,12 +82,12 @@ export async function retraitCharacter(
     `AGE: ${c.age}`,
     `SETTING: ${b.name ?? ""} — ${b.era ?? ""}`,
     `BACKGROUND: ${c.background ?? ""}`,
-    `EXISTING CORE TRAITS (translate all of these): ${before.join(" | ")}`,
+    `EXISTING CORE TRAITS (rewrite all of these): ${before.join(" | ")}`,
     `VALUES: ${(c.values ?? []).join(", ")}`,
     `WHAT THEY DO UNDER THREAT: ${c.attachment?.under_threat ?? "unstated — do not invent"}`,
     `WHAT SETTLES THEM: ${c.attachment?.soothed_by ?? "unstated — do not invent"}`,
-    `CONSCIENCE (0..1, how much others' pain registers): ${c.conscience ?? 0.7}`,
-    acquired.length ? `WHAT PLAY HAS MADE THEM (overlay — do not fold into core): ${acquired.join(" | ")}` : "",
+    `CONSCIENCE (0 to 1, how much other people's pain matters to them): ${c.conscience ?? 0.7}`,
+    acquired.length ? `WHAT PLAYING THE STORY HAS MADE THEM (this is separate, so don't fold it into the core traits): ${acquired.join(" | ")}` : "",
     c.voice?.example_lines?.length ? `HOW THEY TALK: ${c.voice.example_lines.slice(0, 2).map((l: string) => `"${l}"`).join(" ")}` : "",
   ].filter(Boolean).join("\n");
 

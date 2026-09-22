@@ -241,10 +241,10 @@ export function detectOOC(action: string): OOC | null {
  */
 export function oocFrame(hit: OOC): string {
   if (hit.kind === "aside") return "";
-  return `\n[THE PLAYER IS TALKING TO YOU, OVER THE HEAD OF THE WORLD. What they typed is about the writing, and the action in it is being given for that reason; their character decided none of it. `
-    + `DO NOT DRAMATISE ANY OF IT. Nothing in this turn happens: nobody is hurt, nobody acts on it, no new event begins, and you do not narrate the player doing what the sentence says. `
-    + `Hold the scene exactly where it stands. Write a SHORT beat — a few lines at most — in which the moment simply continues: the people who are present go on being present, doing what they were doing, and nothing is resolved or escalated. `
-    + `Then take the direction seriously in how you write from here.]`;
+  return `\n[THE PLAYER IS TALKING TO YOU DIRECTLY, OUTSIDE THE STORY. What they typed is about the writing, and any action in it is there to make a point about the writing; their character didn't decide any of it. `
+    + `Don't act any of it out. Nothing in this turn happens: nobody gets hurt, nobody acts on it, nothing new starts, and you don't narrate the player doing what the sentence says. `
+    + `Keep the scene exactly where it is. Write a short passage, a few lines at most, where the moment just carries on: the people who are there stay there and keep doing what they were doing, and nothing is resolved or made worse. `
+    + `Then take the player's direction seriously in how you write from now on.]`;
 }
 
 /**
@@ -264,12 +264,12 @@ export function oocDirective(complaint: string | undefined, turnsAgo: number, sa
   // SAYING IT TWICE MEANS IT WAS NOT ANSWERED THE FIRST TIME. A repeat is not a fresh note; it is
   // the same note, louder, from somebody who has now watched the writing not change.
   const again = said > 1
-    ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first one did not answer it, so whatever adjustment was made was too small or was made in the wrong place. Change something structural about how the next scenes are built, deeper than the wording of one paragraph.`
+    ? ` THEY HAVE NOW SAID THIS ${said} TIMES. The turns since the first time didn't fix it, so whatever change was made was too small or was in the wrong place. Change something about how the next scenes are put together, something deeper than the wording of one paragraph.`
     : "";
   return `\n\n=== THE PLAYER HAS TOLD YOU SOMETHING DIRECTLY ===\nOut of character, ${turnsAgo === 0 ? "this turn" : `${turnsAgo} turn${turnsAgo === 1 ? "" : "s"} ago`}, they said: "${c}"\n`
-    + `This is not story material and it is never dramatised, quoted, alluded to, or given to a character to say. It is a note about the writing from the person reading it, and the most reliable feedback you will get. `
-    + `Act on it in what you actually write from here — the shape of the scenes, what gets attention, what is left out — and do not acknowledge it on the page. `
-    + `A player who says this has usually been trying to show it through their choices for a while, so assume the complaint is about a pattern across several turns and is bigger than the words they used.${again}`;
+    + `This isn't material for the story, and it is never acted out, quoted, hinted at, or given to a character to say. It's a note about the writing from the person reading it, and it's the most reliable feedback you'll get. `
+    + `Act on it in what you actually write from now on, meaning how the scenes are shaped, what gets attention and what gets left out, and don't acknowledge it in the prose. `
+    + `A player who says something like this has usually been trying to show it through their choices for a while, so assume the complaint is about a pattern over several turns and is bigger than the words they used.${again}`;
 }
 
 /* ── FIAT, AND THE TURN WHERE THE PLAYER DID NOTHING ────────────────────────────
@@ -368,19 +368,19 @@ export function detectVoid(action: string, ooc: OOC | null, god = false): VoidKi
  */
 export function voidFrame(kind: VoidKind): string {
   const why = kind === "fiat"
-    ? `The player declared an outcome rather than doing something — an act this world does not contain, or a result announced rather than attempted. It cannot happen and it did not happen.`
-    : `What the player typed was addressed to you, about the writing. It was not a thing their character did.`;
+    ? `The player announced an outcome instead of doing something: either an act this world doesn't allow, or a result declared instead of attempted. It can't happen, and it didn't happen.`
+    : `What the player typed was said to you, about the writing. It wasn't something their character did.`;
   return `\n[THE PLAYER TOOK NO ACTION THIS TURN. ${why}\n`
-    + `THEY DID NOTHING. Not "hesitated", not "stood there deciding", not "walked out", not "reached for" anything. `
-    + `DO NOT WRITE THE PLAYER DOING ANYTHING AT ALL, and do not give them a thought, a gesture, an intention or a change of position. `
-    + `Do not have them arrive anywhere, leave anywhere, hold anything, or say anything. If you find yourself writing a sentence whose subject is the player, delete it.\n`
-    + `Write a turn where the player does nothing the ordinary way: the people who are present go on with what they were doing, in the place they were doing it, for the short time this takes. `
-    + `Keep it brief. Change nothing that was not already changing. The scene is exactly where it was.]`;
+    + `They did nothing. They didn't "hesitate", didn't "stand there deciding", didn't "walk out", and didn't "reach for" anything. `
+    + `Don't write the player doing anything at all, and don't give them a thought, a gesture, an intention or a change of position. `
+    + `Don't have them arrive anywhere, leave anywhere, hold anything or say anything. If you find yourself writing a sentence with the player as its subject, delete it.\n`
+    + `Write a turn where the player does nothing, in the ordinary way people do nothing: the people who are there carry on with what they were doing, where they were doing it, for the short time this takes. `
+    + `Keep it brief and don't change anything that wasn't already changing, so the scene is exactly where it was.]`;
 }
 
 /** What the PLAYER is told, so a refusal is never mistaken for being ignored. */
 export function voidNotice(kind: VoidKind): string {
   return kind === "fiat"
-    ? `That did not happen — this world has no one who can do it, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens, or switch on god mode in settings, where what you declare is simply true. If you want your character dead inside the world as it stands, have them do something that could kill them and let it play.`
-    : `Taken as a note about the writing, so nothing was written from it. The story is where you left it.`;
+    ? `That didn't happen. Nobody in this world can do that, so nothing was written from it. If you want it in the story anyway, say it in Story mode, where what you write is what happens, or turn on god mode in Settings, where whatever you declare is simply true. If you want your character to die in the world as it is, have them do something that could kill them and let it play out.`
+    : `This was taken as a note about the writing, so nothing was written from it. The story is where you left it.`;
 }

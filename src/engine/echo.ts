@@ -130,13 +130,13 @@ export function findEcho(prose: string, playerSaid: string): EchoHit | null {
  */
 export function echoFix(hit: EchoHit | null | undefined): string {
   if (!hit?.line) return "";
-  const shared = `\nWHAT TO DO WITH A LINE THE PLAYER HAS ALREADY SAID: nothing. It has been said, everyone in the room heard it, and it does not come back. Whether it landed is shown by what the listener DOES next — closes the distance, sits down, goes quiet, hands something over, answers a different question, leaves. A character who genuinely did not catch it acts on the half they did catch and gets it slightly wrong, which is what actually happens when somebody mishears.`;
+  const shared = `\nWHAT TO DO WITH A LINE THE PLAYER HAS ALREADY SAID: nothing. It's been said, everyone in the room heard it, and it doesn't come back. Whether it got through is shown by what the listener does next, like moving closer, sitting down, going quiet, handing something over, answering a different question or leaving. A character who really didn't catch it acts on the half they did catch and gets it slightly wrong, which is what actually happens when someone mishears.`;
   if (hit.kind === "demand") {
     return `\nLAST TURN A CHARACTER ASKED THE PLAYER TO SAY IT AGAIN: "${hit.line}"
-The player typed a line and the person it was aimed at heard it, but instead of answering, the scene asked the player to say it again. Do not write this again in any wording, including as a tease, a test, tenderness, or a way to raise the stakes.${shared}`;
+The player typed a line and the person it was aimed at heard it, but instead of answering, the scene asked the player to repeat it. Don't write that again in any words, whether as teasing, a test, tenderness, or a way of raising the stakes.${shared}`;
   }
-  return `\nLAST TURN A CHARACTER REPEATED THE PLAYER'S OWN WORDS BACK AT THEM: "${hit.line}"
-The player already knows what they said. A line that returns their words to them — quoted, turned over, weighed, or reframed more kindly — accomplishes nothing.${shared}`;
+  return `\nLAST TURN A CHARACTER REPEATED THE PLAYER'S OWN WORDS BACK TO THEM: "${hit.line}"
+The player already knows what they said. A line that hands their words back to them, whether quoted, turned over, weighed up or put more kindly, doesn't do anything.${shared}`;
 }
 
 /**
@@ -285,8 +285,8 @@ export function findReprint(prevProse: string, prose: string): { span: string; o
 /** The correction, handed to the following turn. */
 export function reprintFix(hit: { span: string; overlap: number } | null | undefined): string {
   if (!hit?.span) return "";
-  return `\nLAST TURN REPRINTED THE TURN BEFORE IT. ${Math.round(hit.overlap * 100)}% of its distinctive words were the previous turn's, including this run word for word: "${hit.span}…"
-Nothing happened in that turn. Whatever the player typed, the story had already moved past that point. THIS TURN STARTS FROM WHERE THE LAST ONE ENDED and goes somewhere the story has not been: the bodies are in different positions than they were, or somebody has said the thing they had not said, or the act is further along, or someone has arrived, moved, or stopped. Do not re-establish what is already established, do not restage the same gesture in new words, and do not re-run a line of dialogue in a new wording. If the player's input was a question about what is happening, ANSWER IT INSIDE THE FICTION — state plainly, in the prose, where everyone is and what is being done to whom right now — and then move.`;
+  return `\nLAST TURN REPEATED THE TURN BEFORE IT. ${Math.round(hit.overlap * 100)}% of its distinctive words came from the previous turn, including this passage word for word: "${hit.span}…"
+Nothing happened in that turn. Whatever the player typed, the story had already moved past that point. This turn starts where the last one ended and goes somewhere the story hasn't been yet: people are in different positions than before, or somebody has said the thing they hadn't said, or what's happening has gone further, or someone has arrived, moved or stopped. Don't establish again what's already established, don't restage the same gesture in new words, and don't rerun a line of dialogue with different wording. If what the player typed was a question about what's happening, answer it inside the story by saying plainly, in the prose, where everyone is and what's being done to whom right now, and then move on.`;
 }
 
 /* ── A LINE THE STORY HAS ALREADY PRINTED ───────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ export function findLineReprint(previous: readonly string[], prose: string): str
 export function lineReprintFix(line: string | null | undefined): string {
   if (!line) return "";
   return `\nLAST TURN SOMEBODY SAID A LINE THIS STORY HAS ALREADY PRINTED, WORD FOR WORD: "${line}"
-The reader already saw it once. A character coming back to the same subject — a habit of theirs, a plant they scold, a joke that worked — does not come back to the same sentence: they say the shorter version, they say it worse, they say the part they left out last time, or they do the thing and say nothing. Do not use that line again, and do not paraphrase it closely enough that it reads as the same line.`;
+The reader has already seen it once. When a character comes back to the same subject, like a habit of theirs, a plant they tell off, or a joke that worked, they don't come back to the same sentence. They say a shorter version, say it worse, say the part they left out last time, or do the thing and say nothing. Don't use that line again, and don't paraphrase it so closely that it reads as the same line.`;
 }
 
 /* ══ THE QUOTE-BACK OPENER ══════════════════════════════════════════════════════════════════
@@ -378,7 +378,7 @@ export function openerFix(lines: readonly string[] | null | undefined): string {
   const n = lines?.length ?? 0;
   if (n < OPENER_RATE) return "";
   const quoted = lines!.slice(0, 4).map((l) => `"${l}"`).join("  ");
-  return `\nLAST TURN ${n} SPOKEN LINES OPENED BY REPEATING A WORD THE PLAYER HAD JUST SAID: ${quoted}
-That is how every one of those lines got started, and a character who opens on the player's phrase and then weighs it has not said anything of their own. It also puts the player's vocabulary in everybody's mouth, so the whole cast ends up speaking his words back at him.
-THIS TURN: every spoken line opens on the speaker's own words. Somebody may repeat a phrase once, if that person would, and then it is done for the scene. Where a character has taken the player's meaning, show it in what they DO with it — they answer the part that concerns them, they act on it, they ask about something adjacent, they go and get the thing, they change the subject to their own business.`;
+  return `\nLAST TURN ${n} SPOKEN LINES STARTED BY REPEATING A WORD THE PLAYER HAD JUST SAID: ${quoted}
+Every one of those lines started that way, and a character who starts with the player's phrase and then mulls it over hasn't said anything of their own. It also puts the player's words in everybody's mouth, so the whole cast ends up saying his words back to him.
+THIS TURN every spoken line starts with the speaker's own words. Someone can repeat a phrase once, if that person would, and then that's done for the scene. When a character has understood what the player meant, show it through what they do with it: they answer the part that matters to them, act on it, ask about something related, go and get the thing, or change the subject to their own business.`;
 }

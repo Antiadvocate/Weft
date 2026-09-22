@@ -114,22 +114,22 @@ function pronounsOf(raw: string | undefined): { subject: string; possessive: str
 type Pn = { subject: string; possessive: string };
 
 const ROOM_LINE: Record<Room, (p: Pn) => string> = {
-  recedes: () => "takes up less room than the situation allows: waits for a gap rather than making one, lets a sentence get finished by somebody else, ends up at the edge of the group without having decided to",
-  even: () => "takes an ordinary amount of room",
-  fills: () => "takes up room without noticing it: starts talking before the other person has stopped, fills a silence rather than letting it sit, follows a thought out loud all the way to the end of it",
+  recedes: () => "takes up less space than the situation allows: waits for a gap instead of making one, lets somebody else finish their sentence, and ends up at the edge of the group without having decided to",
+  even: () => "takes up an ordinary amount of space",
+  fills: () => "takes up space without noticing: starts talking before the other person has stopped, fills a silence instead of letting it be, and follows a thought out loud all the way to its end",
 };
 
 const APPROACH_LINE: Record<Approach, (p: Pn) => string> = {
-  around: (p) => `goes AROUND a hard thing rather than at it — raises the adjacent subject, makes it a joke, ends the topic with a flat sentence and starts doing something with ${p.possessive} hands`,
-  at: () => "goes AT a hard thing and keeps going — asks again in different words, follows it across the room, needs the answer now, says the part that will be regretted later",
-  straight: () => "says the hard thing once, plainly, and then lets it sit there without chasing it",
-  both: () => "does both inside one exchange — goes at it, then drops it mid-sentence and changes the subject, and neither half cancels the other",
+  around: (p) => `goes around a hard subject instead of straight at it: brings up something related, turns it into a joke, or ends the topic with one flat sentence and starts doing something with ${p.possessive} hands`,
+  at: () => "goes straight at a hard subject and keeps at it: asks again in different words, follows the other person across the room, needs the answer now, and says the thing they'll regret later",
+  straight: () => "says the hard thing once, plainly, and then leaves it there without chasing it",
+  both: () => "does both in one exchange: goes at it, then drops it halfway through a sentence and changes the subject, and neither half cancels the other",
 };
 
 const CLAIM_LINE: Record<Claim, (p: Pn) => string> = {
-  defers: (p) => `puts the other person's needs ahead of ${p.possessive} own: checks whether it is alright, apologises for things that need no apology, offers the version that will be easier to hear, and only says the thing actually wanted on the second or third pass`,
+  defers: (p) => `puts the other person's needs ahead of ${p.possessive} own: checks whether it's all right, apologises for things that don't need an apology, offers the version that's easier to hear, and only says what ${p.subject} actually wants on the second or third try`,
   balanced: () => "weighs their own needs about the same as anyone else's",
-  takes: () => "gives little weight to other people's needs: asks for what they want, keeps what they are given, and does not soften the ask",
+  takes: () => "doesn't give much weight to other people's needs: asks for what they want, keeps what they're given, and doesn't soften the request",
 };
 
 /**
@@ -152,19 +152,19 @@ export function bearingNote(state: SaveState, presentIds: readonly string[]): st
       b.room !== "even" ? ROOM_LINE[b.room](pn) : "",
       b.claim !== "balanced" ? CLAIM_LINE[b.claim](pn) : "",
       b.approach !== "straight" ? APPROACH_LINE[b.approach](pn) : "",
-      b.climate === "braced" ? "is braced as a resting state — not upset, just never quite loose in company"
-        : b.climate === "easy" ? "is easy in company as a resting state, and stays easy under things that would tighten most people" : "",
+      b.climate === "braced" ? "is braced all the time, not upset, just never quite relaxed around people"
+        : b.climate === "easy" ? "is at ease around people most of the time, and stays at ease through things that would make most people tense up" : "",
     ].filter(Boolean);
     if (!bits.length) continue;
     // Written as an operation rather than as a definition of shyness: an instruction shaped like an
     // epigram teaches the narrator that shape, which is the whole argument of maxims.ts and is
     // enforced by tools/promptlint.ts.
-    const shy = b.shy ? ` In a scene: ${pn.subject} waits to be asked rather than starting, gives the shorter answer first, and reaches the thing ${pn.subject} actually came to say on the second or third attempt, or leaves without saying it. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} wants to be there the whole time that is happening.` : "";
+    const shy = b.shy ? ` In a scene, ${pn.subject} waits to be asked instead of starting, gives the shorter answer first, and gets to what ${pn.subject} really came to say on the second or third try, or leaves without saying it. ${pn.subject.charAt(0).toUpperCase()}${pn.subject.slice(1)} wants to be there the whole time this is happening.` : "";
     rows.push(`${c.name} ${bits.join("; ")}.${shy}`);
   }
   if (!rows.length) return "";
-  return `\n\n=== HOW THESE PEOPLE STAND IN A ROOM (these hold across long stretches of the story) ===\n· ${rows.join("\n· ")}\n`
-    + `This is who they are across every mood, including the ones the state notes above describe. A settled shy person is still shy; a furious deferential person defers while furious.\n`
-    + `AND MOST OF IT IS PERMISSION: nobody in this scene has to be efficient. A person may not finish the sentence, may answer the easier question instead of the one asked, may say the small true thing rather than the large one, may need three goes at it, may apologise for something that needs no apology, may go quiet and let somebody else fill it, may agree out loud while not agreeing. `
-    + `If everybody in this scene says exactly what they mean at exactly the right length and lands it, they all sound the same, which the differences printed above are meant to prevent.`;
+  return `\n\n=== HOW THESE PEOPLE BEHAVE AROUND OTHERS (this holds over long stretches of the story) ===\n· ${rows.join("\n· ")}\n`
+    + `This is who they are in every mood, including the ones described in the notes on their state above. A shy person who has settled down is still shy, and a person who defers to others still defers when they're furious.\n`
+    + `Most of this is permission. Nobody in this scene has to be efficient. A person can leave a sentence unfinished, answer the easier question instead of the one they were asked, say the small true thing instead of the big one, need three tries at it, apologise for something that doesn't need an apology, go quiet and let somebody else fill the gap, or say they agree while not agreeing. `
+    + `If everyone in this scene says exactly what they mean, at exactly the right length, and gets it across, they all sound the same, which is what the differences listed above are there to prevent.`;
 }

@@ -137,17 +137,17 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
   return report;
 }
 
-const INTERLUDE_SYSTEM = `You are the Narrator writing a PASSAGE-OF-TIME interlude for a world simulation. The player skipped ahead in time. You receive a deterministic report of what actually happened (drives, clocks, rumors, healing). Write from it, adding detail but never contradicting it.
+const INTERLUDE_SYSTEM = `You're the narrator, writing a passage about time going by in a simulated world. The player has skipped ahead in time. You're given a fixed report of what actually happened (people pursuing what they want, faction clocks, rumours, healing). Write from it, adding detail but never contradicting it.
 
-CRITICAL — MEMORIES ARE PERSONAL. Each character's memory is only what THAT character personally lived through or would plausibly have heard where they were during these days. A character does NOT remember a distant event (a faction's clock firing three towns over, a rumor spreading in a place they weren't) unless they were there or someone credibly carried the news to them. A companion who spent these days beside the player remembers the ordinary days beside the player. Do not hand a character a memory of something they have no way of knowing; when in doubt, give them the small, local, personal version — what they did, where they were, who they were with. World-scale events belong in the interlude prose, which is the omniscient narrator's view; an individual's memory holds only what reached that individual.
+Memories are personal, and this is important. Each character's memory holds only what that character lived through themselves, or would realistically have heard about where they were during these days. A character doesn't remember a faraway event, like a faction's clock running out three towns away or a rumour spreading somewhere they weren't, unless they were there or someone believable brought them the news. A companion who spent these days with the player remembers ordinary days with the player. Don't give a character a memory of something they'd have no way of knowing. When you're unsure, give them the small, local, personal version: what they did, where they were, and who they were with. Events on the scale of the whole world go in the passage itself, which is told by a narrator who sees everything, while an individual's memory only holds what reached that individual.
 
-Output ONLY strict JSON:
-{"interlude":"2-3 paragraphs of world-scale prose. Days passing, seasons of small life, the report's events landing among real people. NO player interiority — they were absent. End on the player's return: where they are as the world comes back into focus.",
-"events":["3-6 one-line happenings drawn from the report, plain statements"],
-"memories":[{"char_id":"","content":"what THIS character personally lived these days — local and first-hand, never a distant event they couldn't know","importance":4}],
-"character_updates":[{"char_id":"","line":"one plain sentence: what this character has been doing / where their head is after these days (first-hand, local)","new_location":"OPTIONAL place name if they moved","drive_nudge":"OPTIONAL short new want that grew from these days"}],
-"present_on_return":["names of 0-3 characters plausibly near the player when play resumes"],
-"weather":"the weather on the day of return"}`;
+Reply with only strict JSON:
+{"interlude":"two or three paragraphs of prose on the scale of the world: days going by, the small seasons of life, and the events in the report landing among real people. Don't include the player's inner thoughts, because they weren't there. End with the player coming back, and where they are as the world comes back into focus.",
+"events":["three to six one-line things that happened, taken from the report and stated plainly"],
+"memories":[{"char_id":"","content":"what this character personally lived through in these days, local and firsthand, and never a faraway event they couldn't know about","importance":4}],
+"character_updates":[{"char_id":"","line":"one plain sentence about what this character has been doing or where their head is at after these days (firsthand and local)","new_location":"OPTIONAL place name if they moved","drive_nudge":"OPTIONAL short new want that came out of these days"}],
+"present_on_return":["names of zero to three characters who could plausibly be near the player when play starts again"],
+"weather":"the weather on the day they come back"}`;
 
 export async function runInterlude(state: SaveState, days: number, ev: { onPhase: (p: string) => void }): Promise<void> {
   const t0 = Date.now();
@@ -182,7 +182,7 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   if (!interlude) {
     const uniq = [...new Set([...report.clocks_fired, ...report.drive_log])].slice(0, 4);
     interlude = `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. ${uniq.join(" ")}`.trim()
-      || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world went on without you.`;
+      || `${spanLabel[0].toUpperCase()}${spanLabel.slice(1)}. The world carried on without you.`;
   }
 
   // apply grounded memories — with a deterministic guard against the model handing a character a
@@ -386,7 +386,7 @@ export function condenseForNewChapter(ident: Identity, mem: CharMemory | undefin
 }
 
 export async function embodyCharacter(state: SaveState, targetId: string): Promise<{ ok: boolean; error?: string }> {
-  if (targetId === "char_player") return { ok: false, error: "you are already wearing this one" };
+  if (targetId === "char_player") return { ok: false, error: "you're already playing as this character" };
   if (!state.characters[targetId]) return { ok: false, error: "no such character" };
 
   await pushSnapshot(state); // unravel-able, like everything else
@@ -432,7 +432,7 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
   // the abandoned vessel becomes a full citizen: needs a social pulse + a want
   state.characters[oldId].gregariousness ??= 0.5;
   state.characters[oldId].drive ??= {
-    goal: `make sense of what just happened to ${fromName}`, progress: 0, updated_turn: turn,
+    goal: `work out what just happened to ${fromName}`, progress: 0, updated_turn: turn,
   };
 
   // every reference in the world graph
@@ -457,11 +457,11 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
 
   // both souls keep the moment — written neutrally; the fiction is yours to define
   state.memory["char_player"]?.episodic.push({
-    turn, content: `A change of perspective: I now live as ${toName}. ${fromName} continues elsewhere as their own person.`,
+    turn, content: `A change of perspective: I now live as ${toName}. ${fromName} carries on elsewhere as their own person.`,
     importance: 7, emotional_charge: "vertigo", last_accessed_turn: turn,
   });
   state.memory[oldId]?.episodic.push({
-    turn, content: `A strange gap in memory around this moment; ${fromName} is themselves again.`,
+    turn, content: `A strange gap in memory around this moment, and then ${fromName} is themselves again.`,
     importance: 7, emotional_charge: "unmoored", last_accessed_turn: turn,
   });
 

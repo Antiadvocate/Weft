@@ -75,12 +75,12 @@ export function readScene(state: SaveState): SceneRead {
   if (minutes < SCENE_LONG_MIN) return mk(false, "still young");
 
   // Past the hard ceiling nothing gets a veto — a scene this long is finished by the clock.
-  if (minutes >= SCENE_HARD_MIN) return mk(true, "run its course — four hours in one scene");
+  if (minutes >= SCENE_HARD_MIN) return mk(true, "run its course, four hours in one scene");
 
   // How much quiet is required scales down as the scene ages: the full four turns at 75 minutes,
   // two by two and a half hours, one past three.
   const needFlat = minutes >= 3 * 60 ? 1 : minutes >= 150 ? 2 : FLAT_TURNS;
-  if (flatFor < needFlat) return mk(false, `something is still arriving (${flatFor}/${needFlat} quiet turns)`);
+  if (flatFor < needFlat) return mk(false, `something is still going on (${flatFor}/${needFlat} quiet turns)`);
   // A DUE CONSEQUENCE IS THE SCENE'S REASON TO EXIST. Never cut away from one about to land.
   if ((state.world.consequences ?? []).some((c) => c.status === "pending")) return mk(false, "a consequence is pending");
   // Nobody present may be mid-pursuit. A want that has moved recently is a scene still doing work,
@@ -124,8 +124,8 @@ export function perceptionGapDirective(state: SaveState, action: string): string
   const out = (cond?.conditions ?? []).some((c) => UNCONSCIOUS_COND.test(c)) || UNDER.test(action);
   if (!out) return "";
   return `
-THE PLAYER IS GOING UNDER (asleep, or otherwise not perceiving). There is no observer in this scene now, so the narration stays with the player. Write only what a body that is going under still registers — a touch, a weight, a sound, warmth, the light going out — and stop when that stops. Nobody else's face, expression, private gesture, or inner life may be rendered while the player cannot see it — what they do once he is under, what they let themselves feel, what they look at all stay off the page. This matters because what you write is recorded as something the player witnessed.
-End the turn on the last thing he could actually register, or cross straight to waking. What happened while he was under reaches him the way anything does: he is told, he finds a trace of it, or he never learns it at all.`;
+THE PLAYER IS FALLING ASLEEP OR OTHERWISE LOSING AWARENESS. There's nobody left in this scene to see things, so the narration stays with the player. Write only what a body that's going under can still feel, like a touch, a weight, a sound, warmth, or the light going out, and stop when that stops. Don't describe anyone else's face, expression, private gesture or inner life while the player can't see it. What they do once he's under, what they let themselves feel and what they look at all stay out of the prose. This matters because whatever you write gets recorded as something the player saw.
+End the turn on the last thing he could actually sense, or go straight to him waking up. Whatever happened while he was out reaches him the way anything does: someone tells him, he finds a sign of it, or he never finds out.`;
 }
 
 /* ── A SCREEN IS NOT THE ROOM ────────────────────────────────────────────────────
@@ -170,10 +170,10 @@ export function screenPrivacyNote(action: string, others: readonly string[]): st
   const who = others.length === 1 ? others[0] : `${others.slice(0, -1).join(", ")} and ${others[others.length - 1]}`;
   return `
 
-THE PLAYER'S ACTION THIS TURN HAPPENS ON A SCREEN, AND ${who.toUpperCase()} CANNOT READ IT.
-What is in the room is a body using a phone: the angle it is held at, a thumb moving or stopping, the light on a face, how long it goes on, whether he answers when spoken to, what his face does and whether he turns it away. All of that is fair and most of it is more interesting than the content.
-What stays out of the room is the content — the app, the name of it, who is on the other end, what it says, what he typed, what he is looking for. Nobody names it, guesses it correctly, reads it over his shoulder without crossing the room to do it, or reacts to the specific thing rather than to the fact that he is on his phone and has stopped listening.
-Somebody can absolutely want to know, and that curiosity can drive the scene: ask what he's smiling at, lean over, take the phone, go quiet, needle him about it, be wrong about it. Being wrong about it is the best option. They may not simply know.`;
+THE PLAYER'S ACTION THIS TURN HAPPENS ON A SCREEN, AND ${who.toUpperCase()} CAN'T READ IT.
+What's in the room is a person using a phone: the angle they hold it at, a thumb moving or stopping, the light on their face, how long it goes on, whether he answers when spoken to, what his face does and whether he turns it away. All of that is fair to write, and most of it is more interesting than what's on the screen.
+What stays out of the room is what's on the screen: the app or its name, who's on the other end, what it says, what he typed, and what he's looking for. Nobody names it, guesses it correctly, reads it over his shoulder without crossing the room to do so, or reacts to the particular thing instead of to the fact that he's on his phone and has stopped listening.
+Somebody can certainly want to know, and that curiosity can drive the scene: they ask what he's smiling at, lean over, take the phone, go quiet, needle him about it, or guess wrong about it. Guessing wrong is the best option. They just can't simply know.`;
 }
 
 /**
@@ -188,7 +188,7 @@ Somebody can absolutely want to know, and that curiosity can drive the scene: as
 export function sceneCutDirective(read: SceneRead): string {
   if (!read.spent) return "";
   return `
-THIS SCENE HAS RUN ITS COURSE (${Math.round(read.minutes)} minutes in, nothing new for ${read.flatFor} turns). Bring it to a close ON THE PAGE, the way scenes actually close — someone stands up, the food is finished, a phone goes, the light changes, somebody says something that obviously ends it. Do not hold the player in this room waiting for them to type an exit.
-Then you MAY CUT. The ordinary connective time — the walk, the drive, the rest of the afternoon, the queue, the shower — can be crossed in a line rather than played out, and the next thing begun where it actually starts. This is the one place you may move the player's body without being told to: they leave a finished scene the way anyone leaves one, toward something already true in the state — a place they were going, a person expecting them, a thing they said they would do. Never invent an errand to justify the cut, and never cut into a confrontation the player has not chosen.
-If the player's action this turn is itself a move or a departure, they have already ended it — just carry it, and cut.`;
+THIS SCENE HAS RUN ITS COURSE (${Math.round(read.minutes)} minutes in, and nothing new for ${read.flatFor} turns). Bring it to an end on the page, the way scenes really end: someone stands up, the food is finished, a phone rings, the light changes, or somebody says something that obviously wraps it up. Don't keep the player in this room waiting for them to type a way out.
+After that, you can skip ahead. The ordinary time in between, like the walk, the drive, the rest of the afternoon, a queue or a shower, can be covered in a line instead of played out, and the next thing starts where it really starts. This is the one time you can move the player's body without being told to. They leave a finished scene the way anyone leaves one, heading toward something already true in the record, like a place they were going, a person expecting them, or something they said they'd do. Never invent an errand to justify the skip, and never skip into a confrontation the player hasn't chosen.
+If the player's action this turn is itself a move or a departure, they've already ended the scene, so just follow it and skip ahead.`;
 }
