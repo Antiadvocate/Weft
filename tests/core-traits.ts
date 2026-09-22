@@ -130,7 +130,7 @@ function world(): SaveState {
 {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: the trait outranks the character's own log`, /since the story began/.test(P) && /the TRAIT wins|the trait wins/.test(P));
-    check(`${label}: and the reason it loses otherwise is named`, /volume|drown/.test(P));
+    check(`${label}: and the reason it loses otherwise is named`, /overlook/.test(P));
   }
 }
 
@@ -181,13 +181,13 @@ function world(): SaveState {
   ];
   for (const [label, P] of paths) {
     check(`${label}: asks where they are from`, /where they are from/i.test(P), label);
-    check(`${label}: asks for a named trade or body of knowledge`, /trade or body of knowledge/i.test(P), label);
+    check(`${label}: asks for a named trade or body of knowledge`, /(work or knowledge|trade or body of knowledge)/i.test(P), label);
     check(`${label}: asks for something unconnected to the player`, /(unconnected to the player|NOTHING to do with the story|nothing to do with the player)/i.test(P), label);
-    check(`${label}: asks for texture unrelated to their role`, /(unrelated to their trade|nothing to do with their trade)/i.test(P), label);
+    check(`${label}: asks for texture unrelated to their role`, /(unrelated to their (trade|work)|nothing to do with their (trade|work))/i.test(P), label);
     check(`${label}: asks for skills`, /skills/i.test(P), label);
   }
   check("the forge names the failure it is preventing",
-    /can talk about one subject, and every scene with them is the same scene/.test(FORGE_SYSTEM));
+    /gives them only one subject to talk about/.test(FORGE_SYSTEM));
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: texture is no longer confined to quiet scenes`, !/texture:" quiet scenes only|quiet scenes only\./.test(P), label);
     // "conversational range" named a quality; both contracts now say what to DO with the field —

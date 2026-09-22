@@ -127,7 +127,7 @@ const voiceOf = (s: SaveState, id: string) =>
   check("it says what a child's mouth does", /runs at one thing|and then/.test(v), v);
   check("and it does not ask for the register the detectors strike out",
     !/plain, direct|laconic|clipped|measured cadence/.test(v), v);
-  check("it names the failure it exists to stop", v.includes("short, weighty and double-edged"), v);
+  check("it names the failure it exists to stop", v.includes("short, weighty lines with a double meaning"), v);
 }
 
 /* ── 5. EVERY BAND IS SOMETHING A MOUTH DOES ─────────────────────────────────── */

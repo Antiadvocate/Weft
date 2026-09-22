@@ -85,12 +85,12 @@ const save = (over: Record<string, unknown> = {}): SaveState => ({
 /* ── the contract now asks for it ────────────────────────────────────────────── */
 {
   const t = REFLECTION_SYSTEM;
-  check("the contract says a person is not only their relationships", /NOT ONLY THEIR RELATIONSHIPS/.test(t));
+  check("the contract says a person is not only their relationships", /BELIEFS DO NOT ALL HAVE TO BE ABOUT RELATIONSHIPS/.test(t));
   check("it names the failure with the real number", /fourteen beliefs|forty-seven/.test(t));
   check("it asks for a replacement when everything orbits one person", /replace one of them/.test(t));
-  check("and forbids inventing a hobby to satisfy the rule", /Do not manufacture/.test(t));
+  check("and forbids inventing a hobby to satisfy the rule", /Do not invent a hobby/.test(t));
   check("the older rules it sits beside are intact — standing still outranks the memories",
-    /MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS/.test(t));
+    /MUST NOT CONTRADICT THEIR CURRENT FEELINGS TOWARD SOMEONE/.test(t));
   check("and one conviction per subject survives", /ONE CONVICTION PER SUBJECT/.test(t));
 }
 

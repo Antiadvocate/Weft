@@ -145,9 +145,9 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
 /* ── 5. an act already running does not stop so the turn can end ─────────────── */
 {
   check("the carve-out is in the narrator's law",
-    /DOES NOT GOVERN AN ACT ALREADY UNDERWAY/.test(NARRATOR_SYSTEM));
+    /DO NOT APPLY TO AN ACTION ALREADY IN PROGRESS/.test(NARRATOR_SYSTEM));
   check("...naming disengagement as the failure it is",
-    /Do not disengage in order to end/.test(NARRATOR_SYSTEM));
+    /Do not have anyone disengage in order to end/.test(NARRATOR_SYSTEM));
   check("...and refusing the re-consent question as an ending",
     /re-authorise what they already declared/.test(NARRATOR_SYSTEM));
   check("...with the state of both bodies required on the page",

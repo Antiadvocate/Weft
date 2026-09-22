@@ -126,7 +126,7 @@ const who = (o: Partial<Identity>, p: Partial<Psyche> = {}) =>
       (/"conscience"\s*:\s*[^,]{0,20}/.exec(src) ?? [])[0]);
   }
   const shape = readFileSync("src/engine/sketch.ts", "utf8");
-  check("...and the description says the spread is the point", /SPREAD IS THE POINT/.test(shape));
+  check("...and the description says the spread is the point", /vary it widely/.test(shape));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

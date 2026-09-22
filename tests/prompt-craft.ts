@@ -106,13 +106,13 @@ const prompt = \`Match the register of the story you are given and keep the tone
   // ...and the procedure that replaced them is
   check("the five state questions are asked", /WHAT THEY WANT IN THE NEXT MINUTE/.test(prompts) && /WHAT THEY KNOW/.test(prompts));
   check("...including the one that produced the Segway failure",
-    /WHAT THEIR LIFE HAS GIVEN THEM WORDS FOR/.test(prompts));
+    /WHAT THEY HAVE WORDS FOR/.test(prompts));
   check("the things writing removes are put back as actions, not adjectives",
     /Let them stop before the end of a sentence/.test(prompts) && /Let one line come out badly/.test(prompts));
   // THE WHOLE FIX, and the reason it can be genre-agnostic: an aphorism names nothing in the room,
   // so requiring every line to name something present excludes it without introducing the concept.
   check("and the requirement is positive, naming no form it wants avoided",
-    /IT NAMES SOMETHING IN THIS ROOM/.test(prompts));
+    /EVERY LINE MUST NAME SOMETHING SPECIFIC/.test(prompts));
   check("which leaves a character free to be wise about the thing in front of them",
     !/no aphorism|no proverb|not a maxim/i.test(prompts.split("WRITING A LINE OF DIALOGUE")[1]?.slice(0, 2200) ?? ""));
 }

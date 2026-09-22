@@ -35,12 +35,12 @@ for (const lean of [false, true]) {
   const t = narratorSystem(lean);
   const tag = lean ? "lean" : "full";
 
-  check(`${tag}: dialogue is permitted to stand without a beat`, /A LINE DOES NOT NEED A BEAT/.test(t));
+  check(`${tag}: dialogue is permitted to stand without a beat`, /DIALOGUE DOES NOT NEED ACTION BEATS/.test(t));
   check(`${tag}: and consecutive exchanges are named as the thing to do`,
     /(several exchanges|two, three, four exchanges)/.test(t));
-  check(`${tag}: a beat is defined as something happening`, /when something happens in the body/.test(t));
+  check(`${tag}: a beat is defined as something happening`, /when a body (actually )?does something/.test(t));
 
-  check(`${tag}: the interpretation may not be relocated into dialogue`, /WHAT ONE PERSON KNOWS STOPS AT THEIR OWN SKIN/.test(t));
+  check(`${tag}: the interpretation may not be relocated into dialogue`, /CHARACTERS CANNOT SEE INSIDE OTHER PEOPLE/.test(t));
   check(`${tag}: a character may still guess`, /guess/.test(t));
   check(`${tag}: and the guess is allowed to be wrong`, /wrong/.test(t));
   check(`${tag}: nobody delivers an accurate readout of another's interior`,
@@ -48,7 +48,7 @@ for (const lean of [false, true]) {
 
   // the rules this is correcting must still be there — the fix is a release valve, not a repeal
   check(`${tag}: interiority is still forbidden`, /SURFACE ONLY/.test(t) || /never narrated/.test(t));
-  check(`${tag}: the want is still not announced`, /NOBODY LEADS WITH IT/.test(t));
+  check(`${tag}: the want is still not announced`, /CHARACTERS DO NOT ANNOUNCE THEIR WANTS/.test(t));
 }
 
 /* the two rules have to point in compatible directions, or the model splits the difference badly */

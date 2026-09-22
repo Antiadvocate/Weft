@@ -72,11 +72,11 @@ const setRoles = (es: SocialEdge[], roles: string[]) =>
 for (const lean of [false, true]) {
   const t = narratorSystem(lean);
   const tag = lean ? "lean" : "full";
-  check(`${tag}: a want and a wound coexist`, /A WANT AND A WOUND AT THE SAME TIME/.test(t));
-  check(`${tag}: the want is what they do, the wound is how`, /want is what they DO/.test(t));
+  check(`${tag}: a want and a wound coexist`, /WANTING SOMEONE AND BEING HURT BY THEM AT THE SAME TIME/.test(t));
+  check(`${tag}: the want is what they do, the wound is how`, /want decides WHAT they pursue/.test(t));
   check(`${tag}: a rebuffed pursuer re-approaches rather than converting`,
     /(comes? back|come back)/.test(t) && /(cooler|oblique)/.test(t));
-  check(`${tag}: and one refusal does not make an adversary`, /(convert|converts) a neighbour into an adversary/.test(t));
+  check(`${tag}: and one refusal does not make an adversary`, /turns? a neighbour into an enemy/.test(t));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

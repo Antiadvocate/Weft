@@ -94,8 +94,8 @@ const seeing = (s: SaveState) => volatileDigest(s, "she refuses to get in the ca
     /rigidity is a fact about a particular person/.test(FORGE_SYSTEM));
   // never_says had taken please/sorry/I feel off a manipulator — the three things she works with
   check("never_says is about what they cannot produce, not warmth they deploy",
-    /never warmth they might DEPLOY/.test(FORGE_SYSTEM), "never_says guidance missing");
-  check("...named with the failure it caused", /comes out of it a plain bully/.test(FORGE_SYSTEM));
+    /leave kind words off this list/.test(FORGE_SYSTEM), "never_says guidance missing");
+  check("...named with the failure it caused", /turns a charmer into a plain bully/.test(FORGE_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

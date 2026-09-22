@@ -85,7 +85,7 @@ const said = (s: string) => `She set the cup down. "${s}" The fire went on burni
   for (const spec of ["say it again", "say that again", "tell me again", "I want to hear you say it"]) {
     check(`not supplied in advance: "${spec}"`, !new RegExp(spec, "i").test(P));
   }
-  check("but the rule is still stated", /WHAT THE PLAYER TYPED IS SPENT/.test(P));
+  check("but the rule is still stated", /DO NOT REPEAT WHAT THE PLAYER SAID/.test(P));
 }
 
 

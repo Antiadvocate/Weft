@@ -96,11 +96,11 @@ function rome(): SaveState {
  */
 {
   for (const [label, p] of [["full", NARRATOR_SYSTEM], ["lean", NARRATOR_SYSTEM_LEAN]] as const) {
-    check(`${label}: the claims rule is present`, /THE PLAYER'S CLAIMS ARE NOT/.test(p));
+    check(`${label}: the claims rule is present`, /THE PLAYER'S CLAIMS DO NOT BECOME TRUE/.test(p));
     check(`${label}: the world does not rearrange to agree`, /does not rearrange to agree/.test(p));
     check(`${label}: a missing WORD is one of the kinds`, /A WORD FOR A THING THIS WORLD DOES NOT CONTAIN|word for a thing this world does not contain/i.test(p));
     check(`${label}: the pencil is the worked example`, /paper and a pencil/i.test(p));
-    check(`${label}: agreeing once is named as permanent`, /every later turn inherits it/.test(p));
+    check(`${label}: agreeing once is named as permanent`, /every later turn will treat it as real/.test(p));
   }
 }
 

@@ -162,7 +162,7 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
   check("...and clocks are nameable too, not only threads",
     /open threads OR running faction clocks/.test(CHAPTER_SYSTEM));
   check("...with the reason a clock needs naming spelled out",
-    /its pull on the story only ever grows/.test(CHAPTER_SYSTEM));
+    /its influence on the story grows over time/.test(CHAPTER_SYSTEM));
   check("...and marking one does not stop it firing",
     /does not stop the clock ticking or firing/.test(CHAPTER_SYSTEM));
 
@@ -174,7 +174,7 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
       /NAMES SOMETHING A READER WATCHED THEM DO/.test(prompt), prompt.slice(0, 80));
     check(`...testable against a turn, not a personality (${what})`,
       /asking which turn it happened on/.test(prompt));
-    check(`...and the player is not graded (${what})`, /nobody's/.test(prompt));
+    check(`...and the player is not graded (${what})`, /do not judge how well they played/.test(prompt));
   }
 }
 
@@ -262,11 +262,11 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
  */
 {
   check("the opening obeys the same seeding rule as the rest of the world",
-    /never with a mature crisis already at the player's throat/i.test(OPENING_SYSTEM), OPENING_SYSTEM.slice(0, 60));
+    /NEVER OPEN WITH A CRISIS ALREADY UNDERWAY/i.test(OPENING_SYSTEM), OPENING_SYSTEM.slice(0, 60));
   check("...and opens inside the bonds canon established, not against them",
-    /OPENS INSIDE THE BONDS THE WORLD BIBLE ESTABLISHED/.test(OPENING_SYSTEM));
+    /START FROM THE RELATIONSHIPS THE WORLD BIBLE ESTABLISHED/.test(OPENING_SYSTEM));
   check("...so a player's strongest tie is not introduced in trouble",
-    /the first thing a player sees of their strongest tie is not that tie in trouble/.test(OPENING_SYSTEM));
+    /do not open with the player's closest relationship in trouble/.test(OPENING_SYSTEM));
   check("...with a concrete instruction, not a preference",
     /write a different scene/.test(OPENING_SYSTEM));
 }

@@ -20,7 +20,7 @@ function check(name: string, cond: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 const NOT_PERSON = "not an ordinary person";
-const PERSON = "a person caught being themselves";
+const PERSON = "Avoid a neutral mannequin pose";
 
 /* 1. ordinary human → humanoid framing, no anti-person directive */
 {

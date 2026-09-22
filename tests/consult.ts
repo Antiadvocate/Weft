@@ -107,14 +107,14 @@ function world(): SaveState {
  */
 {
   for (const [label, p] of [["full", NARRATOR_SYSTEM], ["lean", NARRATOR_SYSTEM_LEAN]] as const) {
-    check(`${label}: the law is stated`, /WHAT IS READ GOES ON THE PAGE/.test(p));
+    check(`${label}: the law is stated`, /WRITE OUT WHAT THE PLAYER READS/.test(p));
     check(`${label}: it sits with the rule it excepts`, (() => {
       const fixed = p.indexOf("setting's facts are fixed") >= 0 ? p.indexOf("setting's facts are fixed") : p.indexOf("SETTING'S FACTS ARE FIXED");
-      const read = p.indexOf("WHAT IS READ GOES ON THE PAGE");
+      const read = p.indexOf("WRITE OUT WHAT THE PLAYER READS");
       return fixed >= 0 && read > fixed && read - fixed < 2600;
     })(), "the carve-out drifted away from the rule it carves out of");
     check(`${label}: the evasion is named`, /screen lit with its answer/.test(p));
-    check(`${label}: the source's horizon binds it`, /never seen this place, these people/.test(p));
+    check(`${label}: the source's horizon binds it`, /knows nothing about this place, these people/.test(p));
     check(`${label}: the final check asks for it`, /actual words on the page/.test(p.split("FINAL CHECK")[1] ?? ""));
   }
 }

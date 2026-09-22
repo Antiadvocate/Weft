@@ -53,7 +53,7 @@ function world(cons: any[]): SaveState {
   check("THE PAYOFF IS STILL THERE THREE TURNS LATER", d.includes("lose his grip on reality"), "fired consequence invisible");
   check("...named as the state the world is in, not as news", /ALREADY HAPPENED, AND STILL TRUE/.test(d));
   check("...and explicitly not to be run again", /Nobody announces it, discovers it, or resolves it again/.test(d));
-  check("...but goes on showing in what people do", /goes on showing in what people do/.test(d));
+  check("...but goes on showing in what people do", /keeps showing in what people do/.test(d));
 }
 
 /* ── 2. a consequence that has NOT landed is not announced as true ───────────── */

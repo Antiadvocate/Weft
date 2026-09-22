@@ -154,9 +154,9 @@ const base = {
   check("the interior-as-antagonist failure is named outright",
     /FORBIDDEN as threads: the player's boredom, emptiness/.test(P));
   check("and it says the pull is strongest exactly when the player is untouchable",
-    /THE MORE POWERFUL THE PLAYER, THE STRONGER THE PULL TOWARD THIS FAILURE/.test(P));
-  check("it says what to write instead", /A god has plenty to fight, and none of it is his feelings/.test(P));
-  check("a chapter does not open as an epilogue", /opens as an epilogue/.test(P));
+    /THIS MATTERS MOST WHEN THE PLAYER IS VERY POWERFUL/.test(P));
+  check("it says what to write instead", /Write external problems instead/.test(P));
+  check("a chapter does not open as an epilogue", /reads like an epilogue/.test(P));
 
   check("the player's brief is declared binding", /THE PLAYER MAY DIRECT THIS CHAPTER/.test(P));
   check("the brief outranks the model's own reading", /it outranks your reading of the material/.test(P));

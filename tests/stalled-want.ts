@@ -242,7 +242,7 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
 
   // and the pass that WRITES beliefs is now told the standing, so these cannot be born
   const R = REFLECTION_SYSTEM;
-  check("the standing block is declared binding on beliefs", /A BELIEF MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS/.test(R));
+  check("the standing block is declared binding on beliefs", /A BELIEF MUST NOT CONTRADICT THEIR CURRENT FEELINGS TOWARD SOMEONE/.test(R));
   check("it says the standing outranks the memories", /That block outranks your reading of the memories, always/.test(R));
   check("it names the helpful-but-hated case explicitly", /the conviction that forms is NOT "she was the only one who told me the truth"/.test(R));
   check("and the dead are required to be past tense", /THE DEAD AND THE GONE ARE PAST TENSE/.test(R));

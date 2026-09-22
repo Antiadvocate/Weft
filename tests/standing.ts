@@ -96,7 +96,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   const sys = narratorSystem(false);
   check("the contract distinguishes where a turn stops from who speaks last",
     /TWO SEPARATE DECISIONS EVERY TURN/.test(sys));
-  check("…and says a dismissal lands", /THE PLAYER ENDING AN EXCHANGE ENDS IT/.test(sys));
+  check("…and says a dismissal lands", /WHEN THE PLAYER ENDS AN EXCHANGE, IT ENDS/.test(sys));
   check("…and names the parting-shot reflex specifically",
     /do not get a parting line|They do not get a parting line/.test(sys));
   check("the existing quiet-ending permission survives", /A quiet ending is allowed/.test(sys));

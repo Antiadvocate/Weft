@@ -133,7 +133,7 @@ const CONTRACTS = {
     // is a seven-minute turn. The overrun marker is deliberately NOT a band, a cap, or a target —
     // it points backward, at an ending already written through, so there is nothing to fill.
     check(`the ${which} contract marks overrunning as the same failure`, /past about 450 words/i.test(body));
-    check(`and points backward rather than setting a target`, /look(?:ing)? BACKWARD/i.test(body));
+    check(`and points backward rather than setting a target`, /look(?:ing)? BACK(?:WARD)?\b/i.test(body));
   }
 }
 

@@ -52,7 +52,7 @@ const DOOR = "brings it up as a case she read about, and watches his face while 
   for (const lean of [false, true]) {
     const sys = narratorSystem(lean);
     check(`${lean ? "lean" : "full"}: the contract says a want is not announced`,
-      /NOBODY LEADS WITH IT/.test(sys), sys.slice(0, 80));
+      /CHARACTERS DO NOT ANNOUNCE THEIR WANTS/.test(sys), sys.slice(0, 80));
     check(`${lean ? "lean" : "full"}: and names the doors people actually use`,
       /adjacent/.test(sys) && /deniable version/.test(sys));
     check(`${lean ? "lean" : "full"}: and does not contradict the intensity rule`,
