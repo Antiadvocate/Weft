@@ -94,7 +94,7 @@ export function integrityAlarm(state: SaveState): string | null {
   const named = kinds.map((k) => LABEL[k] ?? k);
   return `CONTINUITY: ${kinds.length} different kinds of contradiction were caught in the last ${WINDOW} turns: ${named.join("; ")}. `
     + `Each one has been corrected for the next turn, but this many at once usually means the record and the prose have drifted apart, `
-    + `and corrections only work from one turn to the next, not backwards. If the story stopped making sense a few turns ago, that's where it went wrong, `
+    + `and corrections only work going forward, from one turn to the next. If the story stopped making sense a few turns ago, that's where it went wrong, `
     + `and going back to before that point is easier than playing on through it.`;
 }
 

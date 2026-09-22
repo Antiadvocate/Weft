@@ -72,7 +72,7 @@ RULES
 - The fixed report happened. Work it in, and never contradict it.
 - Stay inside the limits. A relationship can move less than the limit, or in the opposite direction (bad weeks happen), but never further.
 - Memories are personal and local: what this particular character lived through in these days. Never give someone a memory of a faraway event they'd have no way of knowing about.
-- A fact has to make sense on its own to a stranger: a full sentence with a named subject, not starting with a pronoun, and without quotes.
+- A fact has to make sense on its own to a stranger: a full sentence with a named subject, starting with something other than a pronoun, and without quotes.
 - Tick off items from the plan when this stretch naturally gets to them, and list which ones in "landed".
 
 Reply with only strict JSON:

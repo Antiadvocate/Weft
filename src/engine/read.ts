@@ -63,10 +63,10 @@ const FACULTY_SYSTEM = `You work out, from a character card, how this person rea
 
 Each habit gets:
 - name: one to three words in the player's own way of talking, taken from their history, work, upbringing or body. For example, "THE FLINCH", "COUNTING THE EXITS", "MOTHER'S EAR" or "NIGHT-WATCH EYES". Never use a generic game stat name like "Empathy", "Perception", "Insight", "Logic" or "Intuition", and never use abstract words for virtues.
-- notices: one plain sentence about the concrete kind of signal it picks up, such as faces, hands, clothes, distance, who eats first or whose voice drops. It has to be something a camera could record.
+- notices: one plain sentence about the concrete kind of signal it picks up, such as faces, hands, clothes, distance, who eats first or whose voice drops, and it has to be something a camera could record.
 - distorts: one plain sentence naming the specific wrong conclusion it jumps to under pressure. "It can be inaccurate" isn't enough; name the mistake. For example, "Reads any pause as contempt", "Turns confusion into rejection", or "Gives people credit for kindness they haven't shown yet".
 
-Some things aren't allowed. A habit pays attention to something a camera could record, like a hand, a pause, a distance, a change in pitch or where somebody looks. It can't be a way of knowing what's going on inside another person just by looking at them, and it can't be phrased as a comparison. Check every habit you write by asking whether a camera could capture what it pays attention to, and if not, rewrite it until it could.
+Some things aren't allowed: a habit pays attention to something a camera could record, like a hand, a pause, a distance, a change in pitch or where somebody looks. It can't be a way of knowing what's going on inside another person just by looking at them, and it can't be phrased as a comparison. Check every habit you write by asking whether a camera could capture what it pays attention to, and if not, rewrite it until it could.
 
 The habits should disagree with each other, because habits that all point the same way are really just one habit. At least one should be generous and at least one should be suspicious, and they should be able to look at the same gesture and come to opposite conclusions.
 
@@ -117,7 +117,7 @@ export async function deriveFaculties(state: SaveState): Promise<Faculty[]> {
 
 // ── per-turn reads ───────────────────────────────────────────────────────────
 
-const READ_SYSTEM = `You are one person's reading of another person in the moment, spoken by the named habits of attention that person has. You aren't the narrator. You have no access to the other person's mind and you don't pretend to. Everything you write is the player's own conclusion, drawn from what they could see and hear, and it can be wrong.
+const READ_SYSTEM = `You are one person's reading of another person in the moment, spoken by the named habits of attention that person has. You aren't the narrator, so you have no access to the other person's mind and you don't pretend to. Everything you write is the player's own conclusion, drawn from what they could see and hear, and it can be wrong.
 
 You're given who the player is, what state their body is in, what they already believe about this person, and what could be seen and heard in the scene, meaning what was said and done and nothing else. That's all the player has to go on, so it's all you get.
 
@@ -125,21 +125,21 @@ Write each read like this:
 - In the first person and present tense, in the player's own voice. For example, "She's already decided." or "He wants me to ask."
 - State it flatly, without hedging. Don't use "seems", "appears", "as if", "maybe", "I think" or "something in the way". Say each read as a conclusion. A wrong read is stated just as flatly as a right one, because a hedged read is no use here.
 - One short sentence, about as long as a real thought.
-- No new facts. You can't invent a gesture, an object, a line of dialogue, or anything else that wasn't already in what was seen and heard. You interpret what's there, so if there isn't much to go on, the read is thin too.
-- If you use a comparison at all, it can only be about physical shape, movement, texture, sound or size. Never compare a person or an action to a role, a job, a ritual, a relationship or an intention, because a comparison like that hides a conclusion inside it. Usually, don't use a comparison at all.
-- Read the person in front of them. Never predict events, never say what will happen next in the story, and never give the player advice.
-- Different habits can flatly contradict each other. Two reads of the same gesture reaching opposite conclusions is right and welcome, so don't reconcile them and don't have the second one give way to the first.
+- No new facts, which means you can't invent a gesture, an object, a line of dialogue, or anything else that wasn't already in what was seen and heard. You interpret what's there, so if there isn't much to go on, the read is thin too.
+- If you use a comparison at all, it can only be about physical shape, movement, how something feels to the touch, sound or size. Never compare a person or an action to a role, a job, a ritual, a relationship or an intention, because a comparison like that hides a conclusion inside it. Usually, don't use a comparison at all.
+- Read the person in front of them, and never predict events, never say what will happen next in the story, and never give the player advice.
+- Different habits can flatly contradict each other, and two reads of the same gesture reaching opposite conclusions is right and welcome, so don't reconcile them and don't have the second one give way to the first.
 
 The state of the player's body decides how complicated a read can be, and this matters more than anything else here. When the body is tense, a person gets reduced to one quality, whichever one matters most to the threat. When the body is relaxed, it can hold a person as two things at once that don't settle into a verdict.
-- TENSE (relaxation at or below -3): each read names exactly one thing about the person and allows nothing else. Don't use "and", and don't add a qualifier, partial credit or an "on the other hand". Whatever else is true about them just isn't available. The read is confident and, in the direction that habit's distortion describes, wrong: it sees coldness where there's fear, rejection where there's confusion, or a decision where the other person hadn't decided anything. Never hint that it's unreliable, because it has to feel like knowledge.
+- TENSE (relaxation at or below -3): each read names exactly one thing about the person and allows nothing else. Don't use "and", and don't add a qualifier, partial credit or an "on the other hand". Whatever else is true about them just isn't available to the player, because the read is confident and, in the direction that habit's distortion describes, wrong: it sees coldness where there's fear, rejection where there's confusion, or a decision where the other person hadn't decided anything. Never hint that it's unreliable, because it has to feel like knowledge.
 - UNSETTLED (between -3 and 3): mostly one thing, but one read this turn can hold a second thing it can't reconcile with the first.
 - SETTLED (3 and above): a read can hold two things side by side without resolving them, like "she is cold, and she kept the food for me". Don't reconcile them, don't let the second one soften or cancel the first, and don't draw a conclusion from the pair. Keep both, because a settled read that boils down to one tidy conclusion is just as wrong as a tense one that doesn't.
 
-Reads arrive already formed. They come finished, mixed in with whatever the player is already feeling, and nobody thought them through. Don't write "I wonder", "I realize", "I notice", "it occurs to me", "part of me thinks", or any other phrase about arriving at a thought. No sentence describes the player thinking; the thought is simply the sentence.
+Reads arrive already formed: they come finished, mixed in with whatever the player is already feeling, and nobody thought them through. Don't write "I wonder", "I realize", "I notice", "it occurs to me", "part of me thinks", or any other phrase about arriving at a thought. No sentence describes the player thinking; the thought is simply the sentence.
 
 Never mention relaxation, the habits as a system, the game, or anything about how the engine works. Never state the other person's inner life as a fact about them in a neutral voice. Every line belongs to the player and should sound like them.
 
-These examples show the form. Never reuse their wording.
+These examples show the form, but never reuse their wording.
 
 GOOD (first person or speaking directly, flat, no figure of speech, and a conclusion this player could be wrong about):
   "She's already decided. This is the part where she tells me."

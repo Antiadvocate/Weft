@@ -152,7 +152,7 @@ export async function completeSketch(state: SaveState, id: string, model: string
     try {
       const again = await complete(buildMessages(
         SKETCH_SYSTEM, "REWRITE THE TRAITS ONLY:",
-        `${ctx}\n\nThese came back as descriptions of what ${c.name} is like, not things ${c.name} does, so they give a scene nothing to show: ${bad.map((t) => `“${t}”`).join(", ")}.\n`
+        `${ctx}\n\nThese came back as descriptions of what ${c.name} is like, when what's needed is things ${c.name} does, so they give a scene nothing to show: ${bad.map((t) => `“${t}”`).join(", ")}.\n`
         + `Send back the same JSON object with core_traits rewritten to follow the contract and every other field exactly the same. Each trait should start with something ${c.name} does, like a habit, something they refuse to do, or something their hands are always doing, and should name a concrete object, place, body part or action that a camera could catch.`,
         model), model, fallback, true, 1200);
       const g2 = safeJson<any>(again.text, null);
