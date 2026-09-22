@@ -413,7 +413,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
    *  as world law. Nothing rolls back, nothing is purged; the law simply binds from here on. */
   const doCorrect = async () => {
     const what = prompt(
-      `Correct the record — what is true that the narrator got wrong?\n\nWrite it as a rule. It becomes canon right away: later turns follow it, and the narrator can't explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
+      `Correct the record: what's true that the narrator got wrong?\n\nWrite it as a rule. It becomes an established fact straight away, so later turns follow it and the narrator can't explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
     );
     if (!what?.trim()) return;
     try {
@@ -468,7 +468,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
         onMeta: (m) => { if ((m as any).restream) setLiveProse(""); if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
         onDone: (s) => { setSave(s); setLiveProse(""); setReads([]); setPhase(null); flushPostTurn(s); resolve(); },
         onError: (msg) => { setError(msg); resolve(); },
-        onCancel: () => { setLiveProse(""); setReads([]); pushToasts(["stopped — that beat was not recorded"]); resolve(); },
+        onCancel: () => { setLiveProse(""); setReads([]); pushToasts(["stopped, and that turn wasn't recorded"]); resolve(); },
       }, { observe: true, signal: ctrl.signal }).catch((e) => { setError(e?.message ?? "turn failed"); resolve(); });
     });
     cancelRef.current = null; setCancelling(false);
@@ -551,13 +551,13 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       catch (e: any) { alert(`Failed: ${e.message}`); }
       return;
     }
-    if (!confirm("Clear the log?\n\nThe narrator and every other pass stop reading the turns before this one, so context and repetition drop. The last beat is kept so the next turn is not written blind.\n\nNothing is deleted: the whole story stays on this page, in the Chronicle and in the export, and you can undo this from the same menu. Memories, relationships and the world are untouched.")) return;
+    if (!confirm("Clear the log?\n\nThe narrator and every other step stop reading the turns before this one, so there's less to read and less repetition. The last turn is kept so the next one isn't written blind.\n\nNothing is deleted: the whole story stays on this page, in the Chronicle and in the export, and you can undo this from the same menu. Memories, relationships and the world aren't touched.")) return;
     try { setSave(await api.clearLog(save.id)); }
     catch (e: any) { alert(`Failed: ${e.message}`); }
   };
 
   const refreshMemory = async () => {
-    if (!confirm("Refresh this game? Same moment, same people and relationships — the bookkeeper condenses each character's memory to clear accumulated drift, keeping the full record underneath, and clears stale threads/consequences so runaway plots stop regenerating. No time skip. This can take a moment as it processes each character.")) return;
+    if (!confirm("Refresh this game? It's the same moment with the same people and relationships. The bookkeeper condenses each character's memory to clean up errors that have built up, keeping the full record underneath, and clears out old storylines and consequences so plots that have run away with themselves stop coming back. There's no time skip. This can take a moment while it works through each character.")) return;
     setChaptering(true);
     try { setSave(await api.refreshContext(save.id)); }
     catch (e: any) { alert(`Refresh failed: ${e.message}`); }
@@ -885,7 +885,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     </button>
                     <button className="turn-action"
                       onClick={doCorrect}
-                      title="correct the record — add a rule the narrator ignored to canon; nothing is rolled back">
+                      title="correct the record: add a rule the narrator ignored to the established facts, without rolling anything back">
                       <Scale size={12} /> law
                     </button>
                     <button className="turn-action" disabled={rerunning !== null}
@@ -1304,7 +1304,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <span className="sheet-ic"><BookOpen size={15} /></span>
                 <span className="flex-1 min-w-0">
                   <span className="sheet-label block">{chaptering ? "Refreshing…" : "Refresh memory"}</span>
-                  <span className="sheet-hint block">condense memory drift, clear runaway threads — same moment, same people</span>
+                  <span className="sheet-hint block">tidy up memories and clear out runaway storylines, keeping the same moment and the same people</span>
                 </span>
               </button>
 

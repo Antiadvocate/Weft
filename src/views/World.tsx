@@ -54,7 +54,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
             ))}
           </div>
           <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
-            Openness affects perception: a clenched character reads friendliness as a threat, and an open one reads people accurately. Each line below is filtered through this.
+            How open someone is affects how they see things: a tense, guarded character takes friendliness as a threat, and a relaxed one reads people accurately. Each line below is coloured by this.
           </div>
         </Block>
       )}

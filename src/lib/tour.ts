@@ -215,7 +215,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
     {
       target: "set-bible",
       title: "The world bible",
-      body: ["Every rule of the world, editable. Fix anything the forge got wrong."],
+      body: ["Every rule of the world, editable. Fix anything the world builder got wrong."],
       skipIfMissing: true,
     },
     {

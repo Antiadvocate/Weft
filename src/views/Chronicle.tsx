@@ -124,7 +124,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     if (moods.length) {
       const lowIdx = moods.indexOf(Math.min(...moods));
       const highIdx = moods.indexOf(Math.max(...moods));
-      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn} — you were most clenched here (${tel[lowIdx].time_label})` });
+      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn}: you were most tense here (${tel[lowIdx].time_label})` });
       if (moods[highIdx] >= 5) out.push({ label: "The most open you got", value: `turn ${tel[highIdx].turn} — ${tel[highIdx].time_label}` });
       // longest stretch in the clench (negative mood)
       let run = 0, best = 0;
@@ -377,7 +377,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 </div>
               )}
               <Note>
-                The share of spoken lines built from the ten commonest part-of-speech patterns, over a rolling window. Low is a cast reaching for different sentences; climbing is a register closing in on itself, whatever the words are. Measured after each turn, locally, at no token cost — it never reaches the narrator.
+                The share of spoken lines built from the ten most common word-order patterns, over the last several turns. Low means the cast is using a variety of sentences; rising means everyone is starting to talk the same way, whatever words they use. It's measured after each turn, on your device, at no token cost, and it never reaches the narrator.
               </Note>
             </div>
           </Fade>
@@ -395,7 +395,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
               return <div key={i} className="flex-1" style={{ background: col }} />;
             })}
           </div>
-          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your mood — red is clenched, amber guarded, green open.</Note>
+          <Note>Bars: pressure each turn. Thin line: how relaxed you were over time. Strip: your mood, where red is tense, amber is guarded and green is relaxed.</Note>
         </div>
       </Fade>
 

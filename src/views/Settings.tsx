@@ -65,11 +65,11 @@ function Toggle({ on, onFlip, title, desc }: { on: boolean; onFlip: () => void; 
  *  not mean scrolling past every model id and token knob to reach it. Sticky, because the page it
  *  sits on is the tallest one in the app. */
 const TABS = [
-  { id: "world",  label: "World",  blurb: "Tension, the bible, what this world is turning into, the opening." },
-  { id: "look",   label: "Look",   blurb: "Palette and type. Previews live — save to keep." },
+  { id: "world",  label: "World",  blurb: "How much happens, the world's rules, what the world is turning into, and the opening scene." },
+  { id: "look",   label: "Look",   blurb: "Colours and fonts. Changes show straight away, so save to keep them." },
   { id: "models", label: "Models", blurb: "Keys and which model does which job." },
-  { id: "engine", label: "Engine", blurb: "Context, memory, cast and what a turn is allowed to cost." },
-  { id: "data",   label: "Data",   blurb: "Export, repair, and the raw world." },
+  { id: "engine", label: "Engine", blurb: "How much the model reads and remembers, how many characters there are, and how much a turn can cost." },
+  { id: "data",   label: "Data",   blurb: "Export, repair, and edit the world's raw data." },
 ] as const;
 type Tab = typeof TABS[number]["id"];
 
@@ -672,63 +672,63 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
             runs a refractory ladder in turns, and nothing showed it. beatCooldown is that ladder. */}
         <div className="text-[11px] mt-1 font-mono" style={{ color: "var(--accent)" }}>
           {(draft.tension ?? 5) === 0
-            ? "at most one quiet touch of your pressure palette every ~12 turns"
-            : `at most one beat every ${beatCooldown(draft.tension ?? 5, (save.world as any).clocks ?? [])} turns`}
+            ? "at most one light appearance of what your story is about every 12 turns or so"
+            : `at most one new development every ${beatCooldown(draft.tension ?? 5, (save.world as any).clocks ?? [])} turns`}
         </div>
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
           {(draft.tension ?? 5) === 0
-            ? "0 — at rest. The engine introduces nothing of its own: no fresh threats, threads, events, faction moves, or background drives. What you wrote by hand still runs: a pressure palette item appears in a scene now and then, lightly, and goals you wrote still advance. Nothing else happens unless you start it."
+            ? "0: at rest. The engine adds nothing of its own, so there are no new threats, storylines, events, faction moves or background goals. What you wrote by hand still runs: now and then something from your list of what the story is about turns up in a scene, lightly, and goals you wrote still move forward. Nothing else happens unless you start it."
             : (draft.tension ?? 5) <= 2
-              ? "Low — quiet. Existing situations can resolve and people react, but few new conflicts are added and no scheduled consequences are created."
+              ? "Low: quiet. Existing situations can be resolved and people react, but few new conflicts are added and no delayed consequences are scheduled."
               : (draft.tension ?? 5) <= 4
-                ? "Below midpoint — gentle. Conflict stays mild and the world rarely escalates on its own."
+                ? "Below the middle: gentle. Conflict stays mild and the world rarely makes things worse on its own."
                 : (draft.tension ?? 5) === 5
-                  ? "Balanced — the default rhythm of complication and calm."
+                  ? "Balanced: the usual mix of complications and calm."
                   : (draft.tension ?? 5) <= 7
-                    ? "Above midpoint — eventful. Conflicts come harder and more often."
-                    : "High — relentless. Expect frequent, fast escalation."}
+                    ? "Above the middle: eventful. Conflicts come harder and more often."
+                    : "High: relentless. Expect things to get worse often and fast."}
         </div>
       </div>
       <Becomings save={save} setSave={setSave} />
       <div className="card p-4" data-tour="set-bible">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, editable (applies next turn)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>The world's rules, all editable (changes apply from the next turn)</div>
 
         <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
           style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
-          {godMode ? "◉" : "○"} god mode — powers cost nothing; the world reacts to what it has seen you do
+          {godMode ? "◉" : "○"} god mode: your powers cost nothing, and the world reacts to what it has seen you do
         </button>
 
         <TextField label="Name" value={bible.name} onChange={setB("name")} />
         <TextField label="Era" value={bible.era} onChange={setB("era")} />
         <div data-tour="set-art">
-          <TextField label="Art direction (portraits & scenes — style, medium, palette)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
+          <TextField label="Art direction (the style, medium and colours for portraits and scenes)" value={bible.art_direction} onChange={setB("art_direction")} rows={2} />
         </div>
         <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
           e.g. "muted painterly chiaroscuro, oil texture" · "90s cel anime, hard ink lines" · "gritty photoreal, 35mm film grain". Portraits are full-body on white studio; scenes use this same style.
         </div>
         <TextField label="Technology" value={bible.technology_level} onChange={setB("technology_level")} rows={2} />
-        <TextField label="Magic / power rules (incl. any costs — delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
+        <TextField label="Magic and power rules (including any costs; delete a cost and it's gone)" value={bible.magic_rules} onChange={setB("magic_rules")} rows={4} />
         <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
-        <TextField label="Start date of Day 1 (YYYY-MM-DD — unlocks weekdays, months, years in the clock)" value={bible.start_date} onChange={setB("start_date")} />
+        <TextField label="Start date of Day 1 (YYYY-MM-DD; this adds weekdays, months and years to the clock)" value={bible.start_date} onChange={setB("start_date")} />
         <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
         <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
         <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />
         <TextField label="Calendar & currency" value={bible.calendar_and_currency} onChange={setB("calendar_and_currency")} rows={2} />
-        <TextField label="Pressure palette (one per line — what this story runs on)" value={palette} onChange={setPalette} rows={3} />
+        <TextField label="What this story is about (one per line; the engine uses these to put pressure on scenes)" value={palette} onChange={setPalette} rows={3} />
         <div className="text-[11px] -mt-0.5" style={{ color: "var(--text-lo)" }}>
           List what the story is <em>about</em>. The engine uses these by name when it adds pressure to a scene, and if nothing else is set, these are all it uses.
           {splitLines(palette).length > 0 && (m.tension ?? 5) === 0 && (
-            <> <span style={{ color: "var(--accent)" }}>World tension is 0, so these arrive in their quiet form only</span> — one of them shows up in a scene about every ten turns, lightly, and nothing escalates from it. Raise the dial if you want them to drive scenes.</>
+            <> <span style={{ color: "var(--accent)" }}>World tension is 0, so these only appear in their quiet form</span> : one of them turns up in a scene about every ten turns, lightly, and nothing grows from it. Raise the dial if you want them to drive scenes.</>
           )}
         </div>
-        <TextField label="Never the primary engine of a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
+        <TextField label="Should never be the main thing driving a scene (one per line)" value={forbidPrimary} onChange={setForbidPrimary} rows={3} />
         <TextField label="Narrator direction (your standing orders)" value={bible.narrator_direction} onChange={setB("narrator_direction")} rows={3} />
-        <TextField label="Destination — the ending this story is written toward (blank = open world)" value={bible.destination} onChange={setB("destination")} rows={2} />
+        <TextField label="Destination: the ending this story is heading toward (leave blank for an open-ended story)" value={bible.destination} onChange={setB("destination")} rows={2} />
         {!!bible.destination?.trim() && (
           <div className="mt-2">
             <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
-              Turn budget — 0 = no clock (gravity, not fate)
+              Turn limit (0 means no limit, so the ending steers the story but is never forced)
             </div>
             <input className="field" inputMode="numeric" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}
               value={String(bible.destination_turns || "")}
@@ -742,7 +742,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         )}
         {!!save.retcons?.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Player overrides — vetoes remove an invention; corrections add a rule to canon</div>
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Your overrides: a veto removes something the narrator made up, and a correction adds a rule to the established facts</div>
             <div className="space-y-1.5">
               {save.retcons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
@@ -756,7 +756,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
             </div>
           </div>
         )}
-        <TextField label="Established canon (one per line — world-altering facts EVERYONE knows, forever)" value={canon} onChange={setCanon} rows={4} />
+        <TextField label="Established facts (one per line: things that changed the world, which everyone knows, permanently)" value={canon} onChange={setCanon} rows={4} />
 
         <div className="font-mono text-[10px] uppercase tracking-wider mt-3 mb-1.5" style={{ color: "var(--text-lo)" }}>Difficulty profile</div>
         {(Object.keys(DIFF_OPTIONS) as (keyof typeof DIFF_OPTIONS)[]).map((k) => (
@@ -784,7 +784,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           <Braces size={14} /> Raw world edit (full JSON)
         </button>
         <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
-          Edit the world directly — bible, threads, faction clocks, places, edges, canon. Handy at turn 1 to fix anything the forge over-baked.
+          Edit the world directly: its rules, storylines, faction clocks, places, relationships and established facts. Useful on turn 1 for fixing anything the world builder overdid.
         </div>
       </div>
       <div className="card p-4">
@@ -816,7 +816,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
       </>)}
       {tab === "look" && (<>
       <div className="card p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Palette (previews live — save to keep)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-2.5" style={{ color: "var(--text-lo)" }}>Colours (changes show straight away, so save to keep them)</div>
         <div className="flex flex-wrap gap-2">
           {THEMES.map((t) => (
             <button key={t} className="chip" onClick={() => previewTheme(t)}
@@ -948,9 +948,9 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           Every picture lives inside the save as base64, and the save is written to IndexedDB on every call the engine makes. A handful of them is nothing; one per turn for two hundred turns is a save that takes seconds to write and eventually takes the tab with it. Past this many, older turns keep the record of having been illustrated and lose the bytes.
         </div>
         <div className="text-[11px] italic mt-1" style={{ color: "var(--text-lo)" }}>
-          Two calls per turn — three on a turn the reviser fires on. Any slot can be a `local/…` id independently: the useful split is a LOCAL NARRATOR (the long creative call, and the expensive one) with a cloud bookkeeper. The reason is prefill, not capability — the bookkeeper's prompt is a different document, so running it locally too means a SECOND full prompt ingest every turn, and that is the wait you actually feel between beats. A model big enough to write well can usually keep the books; it just costs you double the slowest part of the turn to let it. Keep the fallback cloud-side so a stalled local server doesn't end the turn.
-          Prefix `anthropic/` models get prompt-cache breakpoints automatically.
-          Append ":online" to any model id (e.g. anthropic/claude-opus-5:online) and it gains live web search for grounding — works for the narrator, simulator, or forge.
+          Two calls per turn, or three on a turn where the reviser runs. Any slot can be set to a `local/…` id on its own. The useful split is a LOCAL NARRATOR (the long, creative call, and the expensive one) with a cloud bookkeeper. The reason is how long the model takes to read the prompt, not how capable it is. The bookkeeper's prompt is a different document, so running it locally as well means a SECOND full prompt to read every turn, and that's the wait you actually feel between turns. A model big enough to write well can usually do the bookkeeping too; it just doubles the slowest part of the turn. Keep the fallback in the cloud so a stalled local server doesn't end the turn.
+          Models starting with `anthropic/` get prompt caching automatically.
+          Add ":online" to any model id (e.g. anthropic/claude-opus-5:online) to give it live web search for checking facts. It works for the narrator, the bookkeeper and the world builder.
         </div>
       </div>
       </>)}
@@ -992,8 +992,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
             onChange={(e) => setDraft((d) => ({ ...d, prose_min_p: Number(e.target.value) }))}
             className="w-full" style={{ accentColor: "var(--accent)" }} />
           <div className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
-            Applies to the narrator and every other prose call. Bookkeeping is untouched — a diff is transcription and runs cold.
-            Temperature widens what a turn can reach; min-p is the floor that keeps the widening from going to pieces, cutting anything below that fraction of the likeliest token{"'"}s probability. They work as a pair: raising one without the other either does nothing or produces mush.
+            Applies to the narrator and every other call that writes prose. Bookkeeping isn't affected, because recording what happened is transcription, so it runs at a low temperature.
+            Temperature widens the range of what a turn can say; min-p is the floor that stops that wider range from falling apart, by cutting anything below that fraction of the most likely token{"'"}s probability. They work as a pair: raising one without the other either does nothing or produces mush.
             {" "}Old saves sit at 0.85 with no floor, which is what every turn ran at before these existed; new games start at 0.95 / 0.05.
             {" "}This will not fix a cast that all talks the same: that voice is the model's most probable output, and min-p only trims the unlikely end.
           </div>
@@ -1111,7 +1111,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
             <div className="font-display text-[16px]">Raw world edit</div>
             <div className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
-              World bible, threads, clocks, places, edges, canon. Delete a clock you don't want, retune the bible, fix the opening. Save writes it straight to the world.
+              World rules, storylines, clocks, places, relationships and established facts. Delete a clock you don't want, adjust the world's rules, or fix the opening. Saving writes it straight to the world.
             </div>
             {worldErr && <div className="text-[12px] mt-1.5 px-2 py-1 rounded" style={{ color: "var(--danger)", background: "rgba(200,60,60,.12)" }}>{worldErr}</div>}
             <div className="flex gap-2 mt-2.5">

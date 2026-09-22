@@ -113,19 +113,19 @@ export default function Forge({ onBack, onCreated, onGuide }: {
             placeholder={"e.g. action-horror survival, lethal and fast, romance under threat"}
             value={tone} onChange={(e) => setTone(e.target.value)} />
           <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
-            The genre and tone of the whole story. The world, the threats and the prose are all built to match it, so a horror seed stays horror. Leave blank to let the forge infer it from your seed.
+            The genre and tone of the whole story. The world, the threats and the prose are all built to match it, so a horror idea stays horror. Leave it blank to let the world builder work it out from your idea.
           </div>
         </div>
 
         <div className="mt-4" data-tour="forge-threads">
           <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
-            Chronicle threads — story beats to seed <span style={{ opacity: 0.6 }}>(optional)</span>
+            Storylines: events you want the story to set up <span style={{ opacity: 0.6 }}>(optional)</span>
           </div>
           <textarea className="field" rows={4}
-            placeholder={"One beat per line. Title — optional detail.\nThe Rite of Voidbirth cult is smuggling artifacts through the Expanse\nAn old debt to Rogue Trader Vaicis comes due\nThe ship's Navigator is slowly going mad"}
+            placeholder={"One per line, as a title with optional detail after a dash.\nThe Rite of Voidbirth cult is smuggling artifacts through the Expanse\nAn old debt to Rogue Trader Vaicis comes due\nThe ship's Navigator is slowly going mad"}
             value={chronicle} onChange={(e) => setChronicle(e.target.value)} />
           <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
-            Set the plot points you want in play. Each becomes an active thread the world draws from, so the story starts from what you asked for instead of from nothing — the forge builds the cast and places so these are primed to happen. One per line; add "— detail" after a title to say more. You can always ignore them.
+            Set up the plot points you want in play. Each one becomes an active storyline the world draws on, so the story starts from what you asked for instead of from nothing, and the world builder makes the cast and places so these are ready to happen. One per line; add "— detail" after a title to say more. You can always ignore them.
           </div>
         </div>
 
@@ -135,13 +135,13 @@ export default function Forge({ onBack, onCreated, onGuide }: {
               a forge that failed and no way to fix it but to know another id by heart and type it.
               Same picker as Tuning: live list, searchable, local models first, custom ids still
               accepted by typing one in. */}
-          <ModelPicker label="Forge model — who builds the world" value={model} onChange={setModel} />
+          <ModelPicker label="World-building model (the one that builds the world)" value={model} onChange={setModel} />
           <button className="chip mt-1.5" data-tour="forge-web" onClick={() => setGrounded((v) => !v)}
             style={grounded ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
             {grounded ? "◉" : "○"} ground with web search
           </button>
           <div className="text-[11px] italic mt-1.5" style={{ color: "var(--text-lo)" }}>
-            The forge searches the web while building, so worlds seeded from real media, places, or history come back canon-accurate. Add ((exact topic)) anywhere in your seed to aim the search precisely; otherwise it uses the seed itself. Costs a little more.
+            The world builder searches the web while it works, so worlds based on real media, places or history come back accurate to the source. Put ((exact topic)) anywhere in your idea to aim the search precisely; otherwise it searches for the idea itself. It costs a little more.
           </div>
         </div>
 

@@ -433,11 +433,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               <Item icon={<Braces size={15} style={grey} />} label="Raw edit" note="the full character JSON"
                                 on={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} />
                               <Item icon={<Fingerprint size={15} style={grey} />} label="Re-express core traits"
-                                note="same person, described one level deeper — originals kept"
+                                note="the same person, described more concretely (the originals are kept)"
                                 busy={retraiting}
                                 on={async () => { setRetraiting(true); try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits */ } finally { setRetraiting(false); } }} />
                               {!c.voice_locked && <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
-                                note="regenerate how they talk from the card, ignoring recent drift"
+                                note="work out again how they talk from their character card, ignoring recent changes"
                                 busy={revoicing}
                                 on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />}
                               <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
@@ -446,7 +446,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               {npc && <Item icon={<Sparkles size={15} style={grey} />} label="Embody" on={() => setEmbodyConfirm(true)} />}
                               {npc && alive && c.central !== false && (
                                 <Item icon={<ArrowDownToLine size={15} style={grey} />} label="Move to background"
-                                  note="frees a central slot; the engine stops giving them full focus"
+                                  note="frees up a main-character slot, and the engine stops giving them its full attention"
                                   on={() => changeStatus(sel!, "background")} />
                               )}
                               {npc && c.status === "departed" && (
@@ -559,9 +559,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         <span>
                           <span className="text-[12.5px]">Lock this voice</span>
                           <span className="block text-[11px] leading-snug" style={{ color: "var(--text-lo)" }}>
-                            Nothing rewrites it — not the periodic re-forge, not an acquired trait, and not the
-                            age cadence the engine adds from their birthday. Their voice still changes when
-                            they are frightened, because that comes from the scene.
+                            Nothing rewrites it: not the periodic rebuild, not a trait they pick up, and not the
+                            age-related way of talking the engine adds from their birthday. How they talk still changes when
+                            they're frightened, because that comes from the scene.
                           </span>
                         </span>
                       </label>
@@ -752,7 +752,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>intended to show:</span> {g.surface}</div>
                         {g.truth
                           ? <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
-                          : <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>no separate interior came back this beat — the stance was used, nothing was filed</div>}
+                          : <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>no separate inner state came back for this turn, so only their outward manner was used and nothing was saved</div>}
                       </div>
                     ))}
                   </Section>
@@ -983,7 +983,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
               </button>
             ))}
           </div>
-          <EditField label="Or: fully themselves within this many SHOWN turns" v={turns} set={setTurns} />
+          <EditField label="Or: fully settled into it within this many turns that actually show it" v={turns} set={setTurns} />
           <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
             Counted in turns where it actually appears on the page — not elapsed turns. If the narrator
             ignores it, the percentage does not move, and the card says so.
