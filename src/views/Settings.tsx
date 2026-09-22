@@ -691,7 +691,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
       </div>
       <Becomings save={save} setSave={setSave} />
       <div className="card p-4" data-tour="set-bible">
-        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, yours (live next turn)</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>World bible — every rule, editable (applies next turn)</div>
 
         <button className="chip my-2" onClick={() => setGodMode((v) => !v)}
           style={godMode ? { color: "var(--accent)", borderColor: "var(--accent-glow)", background: "var(--accent-soft)" } : undefined}>
@@ -742,7 +742,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         )}
         {!!save.retcons?.length && (
           <div className="mt-3">
-            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Player overrides — vetoes void an invention; corrections affirm world law</div>
+            <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>Player overrides — vetoes remove an invention; corrections add a rule to canon</div>
             <div className="space-y-1.5">
               {save.retcons.map((r, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: "var(--ink-1)" }}>
@@ -968,10 +968,10 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           desc="A central character who's been offscreen a while and isn't bonded to you drops to a one-line stub in context, and wakes the moment they appear or you name them. Their memory is kept; only their card is left out of the prompt." />
         <Toggle on={!!draft.voice_cards} onFlip={() => setDraft((d) => ({ ...d, voice_cards: !d.voice_cards }))}
           title="Voice cards"
-          desc="Off: nobody carries a written-down spec for how they talk, and the narrator works from who they are — where they're from, the trade they actually have, what they bring up unprompted, who they're talking to and what they want out of it. On: each character also carries a diction/syntax/rhythm card. It used to be on by default, and it made the whole cast sound alike. A character whose voice you locked by hand keeps their card either way." />
+          desc="Off: nobody carries a written-down spec for how they talk, and the narrator works from who they are — where they're from, the work they actually do, what they bring up unprompted, who they're talking to and what they want out of it. On: each character also carries a diction/syntax/rhythm card. It used to be on by default, and it made the whole cast sound alike. A character whose voice you locked by hand keeps their card either way." />
         <Toggle on={draft.template_gauge !== false} onFlip={() => setDraft((d) => ({ ...d, template_gauge: d.template_gauge === false ? true : false }))}
           title="Register gauge"
-          desc="After each turn, tags the dialogue by part of speech and records how much of it is coming out of how few sentence shapes — the number that says a cast is converging, whatever words they use. Zero tokens, no model call, and it never reaches the narrator: it only measures. Read it in the Chronicle. The engine's other dialogue checks only fire on specific patterns and can stay silent while the dialogue keeps getting more uniform; this number shows that trend. Costs one ~1MB tagger download per session, the first turn it measures." />
+          desc="After each turn, tags the dialogue by part of speech and records how much of it is coming out of how few sentence shapes — which shows whether the cast is starting to sound alike, whatever words they use. Zero tokens, no model call, and it never reaches the narrator: it only measures. Read it in the Chronicle. The engine's other dialogue checks only fire on specific patterns and can stay silent while the dialogue keeps getting more uniform; this number shows that trend. Costs one ~1MB tagger download per session, the first turn it measures." />
         <Toggle on={!!draft.verbalized_sampling} onFlip={() => setDraft((d) => ({ ...d, verbalized_sampling: !d.verbalized_sampling }))}
           title="Verbalized sampling (dialogue)"
           desc="One extra small call per turn, on the bookkeeper model. Before the narrator writes, it asks for five possible next lines per speaker WITH the model's own probability on each, and keeps only the ones it rated unlikely — then hands those to the narrator as options. This pushes the model past its first idea. It is the one setting here that targets the cause of every character sounding the same instead of catching it afterwards. It is off by default only because of the extra call." />

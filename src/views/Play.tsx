@@ -880,12 +880,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     transition={{ duration: 0.22 }}>
                     <button className="turn-action"
                       onClick={() => doStrike(h.turn)}
-                      title="strike an invention from the story — roll back past it and void it forever">
+                      title="strike something the narrator invented — roll back past it and remove it for good">
                       <Ban size={12} /> strike
                     </button>
                     <button className="turn-action"
                       onClick={doCorrect}
-                      title="correct the record — affirm a rule the narrator ignored as world law; nothing is rolled back">
+                      title="correct the record — add a rule the narrator ignored to canon; nothing is rolled back">
                       <Scale size={12} /> law
                     </button>
                     <button className="turn-action" disabled={rerunning !== null}

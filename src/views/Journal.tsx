@@ -136,7 +136,7 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
           <h3 className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-mid)" }}>Your word</h3>
         </div>
         {myWord.length === 0 && owedToMe.length === 0 && (
-          <div className="text-[12.5px]" style={{ color: "var(--text-lo)" }}>You haven't made or been made any promises yet. What you swear will be remembered here.</div>
+          <div className="text-[12.5px]" style={{ color: "var(--text-lo)" }}>No promises made to you or by you yet. They will be listed here.</div>
         )}
 
         {myWord.length > 0 && (

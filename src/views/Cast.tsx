@@ -455,7 +455,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               )}
                               {npc && c.status !== "departed" && c.held && (
                                 <Item icon={<RotateCcw size={15} style={{ color: "var(--accent)" }} />} label={`Let them out of ${c.held.where}`}
-                                  note="the world stops holding them and they can turn up again"
+                                  note="they are released and can appear in the story again"
                                   on={() => changeStatus(sel!, "restore")} />
                               )}
                               {npc && alive && (
@@ -548,7 +548,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <EditField label="(in)" v={draft.height_in} set={(v) => setDraft((d) => ({ ...d, height_in: v }))} rows={1} />
                       <EditField label="Weight (lbs — scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
                     </div>
-                    <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
+                    <EditField label="Background — core identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (one per line)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} rows={4} />
@@ -630,7 +630,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
                     Permanent facts this character knows. Each is checked word for word when it is written, and none of them fade or get paraphrased. Edits here are treated as true in every later turn.
                   </div>
-                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>Nothing ledgered yet — facts land here as the story establishes them, or add one by hand.</div>}
+                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>No facts recorded yet — they appear here as the story establishes them, or add one by hand.</div>}
                   {(mem?.facts ?? []).map((f, i) => (
                     <div key={i} className="flex items-start justify-between gap-2 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                       <div className="flex-1">
@@ -780,7 +780,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     {mem.beliefs.map((b, i) => (
                       <div key={`b${i}`} className="text-[13px] py-1 flex gap-2 items-start group" style={{ color: "var(--accent)" }}>
                         <span className="flex-1">※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</span>
-                        <button title="she never concluded this — remove it" className="shrink-0 opacity-40 hover:opacity-100"
+                        <button title="they never concluded this — remove it" className="shrink-0 opacity-40 hover:opacity-100"
                           onClick={async () => { try { setSave(await api.forget(save.id, sel!, { belief: b.content })); } catch { /* already gone */ } }}>
                           <X size={12} />
                         </button>
@@ -810,7 +810,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
                 {(save.habits?.[sel!] ?? []).length > 0 && (
                   <Section title="How set their patterns are" group="self">
-                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. Seen clearly as it fires, a pattern loosens; unseen, it deepens. No one changes on purpose.</div>
+                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. A pattern weakens when the character notices it happening and strengthens when they don't. Nobody changes on purpose.</div>
                     {(save.habits?.[sel!] ?? []).map((h) => (
                       <div key={h.trait} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                         <div className="flex items-center justify-between gap-2 mb-1">

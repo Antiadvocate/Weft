@@ -333,7 +333,7 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
                     className="w-24 bg-transparent text-[12.5px] outline-none border-b py-1"
                     style={{ borderColor: "var(--ink-3)", color: "var(--text-hi)" }} />
                   <input value={draftWho} onChange={(e) => setDraftWho(e.target.value)}
-                    placeholder="who is ordinarily about — trades and roles, no names"
+                    placeholder="who is usually around — jobs and roles, no names"
                     className="flex-1 bg-transparent text-[12.5px] outline-none border-b py-1"
                     style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)" }} />
                 </div>

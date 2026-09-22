@@ -231,7 +231,7 @@ export const api = {
     const digest = [
       brief ? `DIRECTION FOR THE NEW CHAPTER — the player's brief, binding, outranking everything but the forbidden list:\n${brief}` : "",
       `WORLD: ${s.world_bible.name} — ${s.world_bible.era}. ${s.world_bible.political_situation}`,
-      bans.length ? `FORBIDDEN IN THIS WORLD — BINDING ON EVERYTHING YOU WRITE, and on what you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is material the player has since banned. It does not go in the recap, the opening, the threads or the bible. The time skip is where it ends; write the chapter as being about something else.` : "",
+      bans.length ? `FORBIDDEN IN THIS WORLD — BINDING ON EVERYTHING YOU WRITE, and on what you carry forward: ${bans.join(" | ")}. Anything in the material below that matches this is material the player has since banned. It does not go in the recap, the opening, the threads or the bible. It ends at the time skip; the new chapter is about something else.` : "",
       s.world_bible.narrator_direction ? `PLAYER'S STANDING DIRECTION — obey it, never rewrite or restate it: ${s.world_bible.narrator_direction}` : "",
       `PLAYER: ${player?.name}. ${player?.background ?? ""}`,
       `CAST:\n${cast}`,
@@ -872,7 +872,7 @@ export const api = {
     let log: string;
     if (outcome === "retired") {
       p.status = "retired";
-      log = `Retired: "${p.text}" — closed by hand, with no consequence between anyone.`;
+      log = `Retired: "${p.text}" — closed by hand, with no effect on anyone.`;
     } else {
       log = resolvePromise(s, p, outcome, s.world.current_turn) || `Marked ${outcome}: "${p.text}".`;
     }
@@ -1279,7 +1279,7 @@ export const api = {
     const b = s.world_bible;
     const premise = [b.era, b.cultures_and_languages].filter(Boolean).join(" · ");
     const out = await complete([
-      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline is SACRED — keep it verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
+      { role: "system", content: "You complete a character's PHYSICAL BASELINE for a story engine. Required coverage: hair color AND texture/style, eye color, skin tone, face shape or one distinctive facial feature, build, apparent age, and ONE unique identifying mark (scar, crooked nose, gait, chipped tooth). Rules: every detail already stated in the current baseline must be kept verbatim. Invent ONLY what is missing, consistent with the world and the character's background. PHYSICAL CONSTANTS ONLY — no clothing, no gear, no mood. Output ONLY the finished baseline as 1-3 plain sentences, nothing else." },
       { role: "user", content: `WORLD: ${premise || "unspecified"}\nCHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. Background: ${c.background.slice(0, 300)}\nCURRENT BASELINE: ${c.appearance_facts || "(empty)"}` },
     ], s.model_settings.simulator_model, s.model_settings.fallback_model, false, 300);
     return { baseline: clipText(out.text.replace(/^"|"$/g, ""), 800) };
