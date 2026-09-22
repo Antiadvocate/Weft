@@ -63,7 +63,7 @@ export default function StoryMap({ save }: { save: ClientSave }) {
     return { nodes, edges, newest };
   }, [log.length, here, save.world.current_turn, Object.keys(save.world.places).length]);
 
-  if (!nodes.size) return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>Nowhere yet. Walk somewhere.</div>;
+  if (!nodes.size) return <div className="text-[12.5px] italic py-1" style={{ color: "var(--text-lo)" }}>No places visited yet.</div>;
 
   const isNewest = (a: string, b: string) => !!newest && ((newest[0] === a && newest[1] === b) || (newest[0] === b && newest[1] === a));
 

@@ -62,7 +62,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="font-display text-[22px] mb-1.5">Seed a world.</div>
         <div className="text-[13.5px] leading-relaxed mb-5" style={{ color: "var(--text-mid)" }}>
-          One idea. The engine builds the place, the people, their grudges, their clocks. One LLM call, then the world runs itself.
+          Start from one idea. One LLM call builds the place, the characters, their conflicts and the faction timers. After that the world runs on its own.
         </div>
 
         <textarea className="field" rows={4} data-tour="forge-seed" placeholder="A fishing village the winter the ice came early…"
@@ -98,8 +98,8 @@ export default function Forge({ onBack, onCreated, onGuide }: {
               <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
                 {destTurns.trim()
                   ? <>The story ends after {destTurns} turns. Everything before that moves toward the ending; as the turns run down,
-                    unrelated threads fall away. You choose how you get there, not whether you arrive.</>
-                  : <>With no number the ending just pulls. The story can go on past it, or never reach it.</>}
+                    unrelated threads fall away. You decide how the story gets there, but it will get there.</>
+                  : <>With no turn count, the ending only steers. The story can go past it or never reach it.</>}
               </div>
             </div>
           )}
@@ -113,7 +113,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
             placeholder={"e.g. action-horror survival, lethal and fast, romance under threat"}
             value={tone} onChange={(e) => setTone(e.target.value)} />
           <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
-            The key the whole story is written in. Set it and the world, threat, and prose are all built and rendered to match — no drifting into a quiet character study when you wanted horror. Leave blank to let the forge infer it from your seed.
+            The genre and tone of the whole story. The world, the threats and the prose are all built to match it, so a horror seed stays horror. Leave blank to let the forge infer it from your seed.
           </div>
         </div>
 
@@ -125,7 +125,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
             placeholder={"One beat per line. Title — optional detail.\nThe Rite of Voidbirth cult is smuggling artifacts through the Expanse\nAn old debt to Rogue Trader Vaicis comes due\nThe ship's Navigator is slowly going mad"}
             value={chronicle} onChange={(e) => setChronicle(e.target.value)} />
           <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
-            Set the plot points you want in play. Each becomes an active thread the world draws from, so what emerges is anchored to your intent instead of invented cold — the forge builds the cast and places so these are primed to happen. One per line; add "— detail" after a title to say more. You can always ignore them.
+            Set the plot points you want in play. Each becomes an active thread the world draws from, so the story starts from what you asked for instead of from nothing — the forge builds the cast and places so these are primed to happen. One per line; add "— detail" after a title to say more. You can always ignore them.
           </div>
         </div>
 

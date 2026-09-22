@@ -116,7 +116,7 @@ export default function App() {
           <div className="card p-6 max-w-sm w-full">
             <div className="font-display text-[22px] mb-1" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>Weaver</div>
             <div className="text-[13.5px] mb-4" style={{ color: "var(--text-mid)" }}>
-              A world that reacts. It runs entirely in your browser and talks to models through your own OpenRouter key — paste it once to begin.
+              Weft runs in your browser and calls models with your own OpenRouter key. Paste it once to start.
             </div>
             <input className="field" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} type="password"
               placeholder="sk-or-..." value={keyInput} onChange={(e) => setKeyInput(e.target.value)} />
@@ -226,11 +226,11 @@ export default function App() {
               initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.34, ease: [0.2, 0.8, 0.2, 1] }}>
               <div className="font-display text-[23px] leading-tight mb-2" style={{ fontVariationSettings: '"SOFT" 60, "WONK" 1' }}>
-                A world that reacts.
+                Build a world, then play in it.
               </div>
               <div className="text-[13.5px] leading-relaxed space-y-2" style={{ color: "var(--text-mid)" }}>
-                <p>Describe a place. The engine builds the people, what they want, and the trouble already coming.</p>
-                <p>Then you live in it. Nothing is on rails.</p>
+                <p>Describe a place. The engine creates the characters, what each of them wants, and the problems already underway.</p>
+                <p>Then you play a character there. There is no fixed plot.</p>
                 <p style={{ color: "var(--text-lo)" }}>
                   The one thing to know: in the message box{" "}
                   <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>"quotes"</span> are spoken,{" "}

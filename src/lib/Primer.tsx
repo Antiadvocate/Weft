@@ -80,7 +80,7 @@ export default function Primer({ onClose }: { onClose: () => void }) {
               I stay standing. "I'm not signing." (hands shaking, don't let her see)
             </div>
             <div className="text-[11.5px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-              They hear one line and see a man who didn't sit. The hands are yours alone.
+              The others hear the line and see you stay standing. Nobody sees the part in parentheses.
             </div>
           </div>
 
@@ -119,7 +119,7 @@ export default function Primer({ onClose }: { onClose: () => void }) {
           <Cap>worth knowing</Cap>
           <div className="text-[12.5px] leading-relaxed space-y-1.5" style={{ color: "var(--text-mid)" }}>
             <p><strong style={{ color: "var(--text-hi)" }}>World tension</strong> (Tuning) is the master dial. At 0 the world introduces nothing on its own.</p>
-            <p><strong style={{ color: "var(--text-hi)" }}>Narrator direction</strong> (⋯) overrules everything, including the model's taste in drama.</p>
+            <p><strong style={{ color: "var(--text-hi)" }}>Narrator direction</strong> (⋯) overrules everything else, including the model's own defaults.</p>
             <p>Saves live in this browser only. Export from Tuning.</p>
           </div>
 

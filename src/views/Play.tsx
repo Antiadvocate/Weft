@@ -395,7 +395,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   /** THE VETO. Strike what the narrator invented — roll back past it and forbid it forever. */
   const doStrike = async (turn: number) => {
     const what = prompt(
-      `Strike from the story — what did the narrator INVENT that never happened?\n\nEverything from turn ${turn} on is rolled back, and what you write is voided forever: never mentioned, never explained, its traces purged.\n\nState the FALSE thing itself — e.g. "There is a boy named Leo." (If the narrator ignored a rule that SHOULD be true, use "law" instead.)`
+      `Strike from the story — what did the narrator make up that didn't happen?\n\nEverything from turn ${turn} on is rolled back, and the narrator is told never to mention what you write here again.\n\nWrite the false thing itself — e.g. "There is a boy named Leo." (If the narrator broke a rule that should hold, use "law" instead.)`
     );
     if (!what?.trim()) return;
     const before = save.world.current_turn;
@@ -413,12 +413,12 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
    *  as world law. Nothing rolls back, nothing is purged; the law simply binds from here on. */
   const doCorrect = async () => {
     const what = prompt(
-      `Correct the record — what is TRUE that the narrator got wrong?\n\nState the rule as law. It is affirmed as supreme truth and canonized immediately: the fiction adapts to it, consequences assert themselves, and the narrator can never explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
+      `Correct the record — what is true that the narrator got wrong?\n\nWrite it as a rule. It becomes canon right away: later turns follow it, and the narrator can't explain it away.\n\ne.g. "Foot massages longer than 10 minutes cause escalating pain for Wym unless the masseur is being penetrated."\n\nNothing is rolled back or erased.`
     );
     if (!what?.trim()) return;
     try {
       setSave(await api.correct(save.id, what.trim()));
-      pushToasts(["correction recorded as world law", "the narrator must confirm it, never litigate it"]);
+      pushToasts(["correction added to canon", "the narrator has to follow it from now on"]);
     } catch (e: any) { setError(e.message ?? "correction failed"); }
   };
 
@@ -522,7 +522,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const setTone = async () => {
     const cur = save.world_bible.tone ?? "";
     const next = window.prompt(
-      "GENRE & REGISTER — the key this whole story is written in. The narrator reads this every turn, above almost everything else. (blank to clear)",
+      "GENRE & TONE — what kind of story this is. The narrator reads this every turn, above almost everything else. (blank to clear)",
       cur,
     );
     if (next === null) return; // cancelled
@@ -532,7 +532,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const setFocusPrompt = async () => {
     const hottest = [...save.world.threads].sort((a, b) => b.tension - a.tension)[0];
     const suggest = save.world.consequences.find((c) => c.status === "pending")?.description || hottest?.title || "";
-    const ev = window.prompt("Drive toward which event? The story will build toward it (no new chaos), then automatically shift into it when it arrives.", suggest);
+    const ev = window.prompt("Drive toward which event? The story will build toward it without adding new complications, then shift into it when it arrives.", suggest);
     if (ev && ev.trim()) setSave(await api.setFocus(save.id, ev.trim()));
   };
 
@@ -786,7 +786,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
           <div className="pt-10 text-center">
             <div className="font-display text-lg mb-1.5">Ready to begin.</div>
             <div className="text-[13.5px]" style={{ color: "var(--text-mid)" }}>
-              Type an action or narration. The world responds — and keeps moving when you look away.
+              Type an action or narration. The world responds, and keeps going while you're elsewhere.
             </div>
           </div>
         )}
@@ -864,7 +864,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                   <div className="flex-1 text-[11.5px] leading-snug" style={{ color: "var(--text-mid)" }}>
                     {h.bookkeeping === "failed"
                       ? "The bookkeeper failed on this turn — nothing was recorded."
-                      : "The bookkeeper recorded nothing here. Nobody remembered this."}
+                      : "The bookkeeper recorded nothing for this turn."}
                   </div>
                   <button className="chip shrink-0" disabled={rerunning !== null}
                     onClick={() => doRerun(h.turn)}
@@ -1222,7 +1222,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                 <span className="flex-1 min-w-0">
                   <span className="sheet-label block">Genre & register</span>
                   <span className="sheet-hint block truncate">
-                    {save.world_bible.tone ? `set — ${save.world_bible.tone}` : "the key the whole story is written in"}
+                    {save.world_bible.tone ? `set — ${save.world_bible.tone}` : "the genre and tone of the story"}
                   </span>
                 </span>
               </button>
@@ -1369,7 +1369,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                       : tipBelief.predicted_stance === "ally" ? "Reads you as an ally."
                       : tipBelief.predicted_stance === "rival" ? "Reads you as a threat."
                       : "Can't place you yet."}
-                    {tipBelief.surprise > 0.4 ? " Freshly thrown by something you did." : ""}
+                    {tipBelief.surprise > 0.4 ? " Recently surprised by something you did." : ""}
                   </div>
                 </div>
               )}
@@ -1405,7 +1405,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               ))}
               {scorecard.some((r) => !r.landed) && (
                 <div className="text-[11px] mt-1.5" style={{ color: "var(--text-lo)" }}>
-                  Unlanded items didn't happen in the story. Run another short montage aimed at just those, or play them out.
+                  Items marked as not landed didn't happen in the story. Run another short montage aimed at just those, or play them out.
                 </div>
               )}
             </div>
@@ -1427,7 +1427,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
               <div className="py-2">
                 <div className="font-display text-[16px]">Let the world turn.</div>
                 <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                  Step away. Drives advance, rumors saturate, clocks fill and fire, bodies heal. You return to whatever it became.
+                  Skip ahead. Characters pursue their goals, rumors spread, faction timers fill and fire, and injuries heal.
                 </div>
               </div>
               {!montageMode ? (
@@ -1444,7 +1444,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
                     onClick={() => { setMontageMode(true); setMWarnings([]); }}>
                     <div className="font-display text-[14px]">Direct the montage…</div>
                     <div className="text-[11.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                      Say what should be true by the end. The engine writes the middle in beats — the decision, the friction, the settling.
+                      Say what should be true by the end. The engine writes the steps in between.
                     </div>
                   </button>
                 </>

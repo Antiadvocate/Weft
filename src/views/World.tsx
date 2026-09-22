@@ -54,7 +54,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
             ))}
           </div>
           <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
-            Openness bends perception: the clenched misread warmth as threat; the open see clearly. Each line is filtered through this.
+            Openness affects perception: a clenched character reads friendliness as a threat, and an open one reads people accurately. Each line below is filtered through this.
           </div>
         </Block>
       )}
@@ -65,7 +65,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
       <Block title="The map" delay={0.035}>
         <StoryMap save={save} />
         <div className="text-[10.5px] italic pt-1" style={{ color: "var(--text-lo)" }}>
-          The world as you've walked it — every place you've stood, every path between.
+          Places you've been and the routes between them.
         </div>
       </Block>
 
@@ -80,10 +80,10 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
         if (!f.active) return null;
         const prog = (save as any).destination_progress;
         const actWord: Record<string, string> = {
-          open: "open — the world is not bending toward it yet",
-          rising: "rising — frictions are being chosen from between here and there",
-          closing: "closing — unrelated threads are losing their pull",
-          convergence: "convergence — everything in a scene should shorten the distance",
+          open: "open — the world is not steering toward the ending yet",
+          rising: "rising — new complications are picked from what lies between here and the ending",
+          closing: "closing — unrelated threads are being dropped",
+          convergence: "convergence — every scene should move toward the ending",
           arrival: "arrival — the ending is being written",
         };
         return (
@@ -104,7 +104,7 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
                 </div>
               )}
               <div className="text-[10.5px] italic pt-2" style={{ color: "var(--text-lo)" }}>
-                The act comes from turns spent against the budget, nothing else. To make the world start bending sooner, shorten the budget in Tuning.
+                The act comes from turns spent against the budget, nothing else. To start steering sooner, shorten the budget in Tuning.
               </div>
             </div>
           </Block>

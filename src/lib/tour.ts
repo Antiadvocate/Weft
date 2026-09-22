@@ -81,7 +81,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
     {
       target: "lib-forge",
       title: "Build your own",
-      body: ["One idea — the engine builds the place, the people and the trouble."],
+      body: ["Give it one idea and the engine builds the place, the characters and their conflicts."],
     },
     {
       target: "lib-presets",
@@ -92,7 +92,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
     {
       target: "lib-sprout",
       title: "New chapter",
-      body: ["Skips time and starts a season two — same cast, everything they became."],
+      body: ["Skips ahead and starts a second season with the same cast, changed by what happened."],
       skipIfMissing: true,
     },
   ],
@@ -102,14 +102,14 @@ export const TOURS: Record<TourId, TourStep[]> = {
       target: "forge-seed",
       title: "The seed",
       body: [
-        "A place, a moment, something already wrong. That's enough.",
+        "A place, a time, and one problem is enough.",
         "Everything below it is optional.",
       ],
     },
     {
       target: "forge-tone",
       title: "Worth setting",
-      body: ["Without a genre it drifts literary. *\"action-horror, lethal and fast\"*."],
+      body: ["Without a genre the prose tends toward literary fiction. Example: *\"action-horror, lethal and fast\"*."],
     },
     {
       target: "forge-model",
@@ -138,7 +138,7 @@ export const TOURS: Record<TourId, TourStep[]> = {
       title: "Mix them freely",
       body: [
         "`I stay standing. \"I'm not signing.\" (hands shaking, don't let her see)`",
-        "They hear one line and see a man who didn't sit. That's all they get.",
+        "The others hear the line and see you stay standing. The parentheses stay private.",
       ],
     },
     {

@@ -27,7 +27,7 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
   const [note, setNote] = useState<string | null>(null);
   const settle = async (id: string, outcome: "kept" | "broken" | "retired", text: string) => {
     const ask = outcome === "retired"
-      ? `Retire "${text}"?\n\nIt leaves the ledger and changes nothing between anyone. Use this for a standing arrangement, or something the story has moved past.`
+      ? `Retire "${text}"?\n\nIt comes off the list and has no effect on anyone's relationship. Use this for a standing arrangement, or something the story has moved past.`
       : `Mark "${text}" as ${outcome}?\n\nThe relationship moves and the other person will remember it — the same as if the engine had noticed.`;
     if (!confirm(ask)) return;
     setBusy(id);
@@ -71,8 +71,8 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
         {p.status === "open" && (
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {([["kept", "It was done — the relationship moves and they remember it"],
-               ["broken", "It was not done — the relationship takes the cost"],
-               ["retired", "Take it off the ledger with no consequence to anyone"]] as const).map(([o, title]) => (
+               ["broken", "It was not done — the relationship suffers"],
+               ["retired", "Remove it from the list with no effect on anyone"]] as const).map(([o, title]) => (
               <button key={o} disabled={busy === p.id} className="btn-sm" title={title}
                 style={o === "kept" ? { borderColor: "var(--good, #6b9e78)", color: "var(--good, #6b9e78)" }
                      : o === "broken" ? { borderColor: "var(--bad, #b56c6c)", color: "var(--bad, #b56c6c)" }
