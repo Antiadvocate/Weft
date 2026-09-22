@@ -128,24 +128,24 @@ export function bearingDirective(interior: PlayerInterior | null, relaxation: nu
   const way = interior.direction < 0 ? "tighter" : interior.direction > 0 ? "easier" : "changed";
   const strong = interior.charge >= 0.6;
 
-  const opaque = ` WHAT SHOWS DOES NOT DECODE IT. A body that went ${way} looks the same whatever put it there —`
-    + ` do not name the feeling, do not gesture at its cause, and do not write a tell that spells it out`
+  const opaque = ` WHAT SHOWS DOESN'T GIVE IT AWAY. A body that went ${way} looks the same whatever caused it,`
+    + ` so don't name the feeling, don't hint at what caused it, and don't write a sign that spells it out`
     + ` (write "his jaw set", not "his jaw set at the thought of what she had done").`
-    + ` The people in the room see only this and read it through their own eyes, and they are allowed to be wrong.`;
+    + ` The people in the room only see this, and they interpret it for themselves, and they're allowed to get it wrong.`;
 
   if (relaxation >= 2) {
-    return `\n[THE PLAYER IS CARRYING SOMETHING PRIVATE THIS TURN, and their body has nothing gripping it.`
-      + ` It goes into the ACT: they do what they did wholly and without hedging${strong ? ", and that completeness is what shows" : ""}.`
-      + ` Nothing leaks, nothing is held back for later, and there is no second layer under the act for anyone to catch.`
-      + ` You are not told what it was and you do not need it — render the act, cleanly.${opaque}]`;
+    return `\n[THE PLAYER HAS SOMETHING PRIVATE ON THEIR MIND THIS TURN, and their body is relaxed.`
+      + ` It goes into what they do: they do it completely and without holding back${strong ? ", and that completeness is what shows" : ""}.`
+      + ` Nothing leaks out, nothing is saved for later, and there's no second layer under the action for anyone to pick up on.`
+      + ` You aren't told what it was and you don't need to know, so just write the action cleanly.${opaque}]`;
   }
   if (relaxation <= -3) {
-    return `\n[THE PLAYER IS CARRYING SOMETHING PRIVATE THIS TURN, and their body is clenched, so it cannot come out straight.`
-      + ` It LEAKS: the act arrives with something on it that does not match its surface —${strong ? " a beat held too long, a flatness where warmth belonged, a hand that does the job and nothing more" : " a small wrongness of timing or pressure"}.`
+    return `\n[THE PLAYER HAS SOMETHING PRIVATE ON THEIR MIND THIS TURN, and their body is tense, so it can't come out straight.`
+      + ` It leaks out: what they do comes with something that doesn't match how it looks on the surface,${strong ? " like a pause held too long, flatness where there should have been warmth, or a hand that does the job and nothing more" : " like something slightly off in the timing or the pressure"}.`
       + ` Write the mismatch, never the cause.${opaque}]`;
   }
-  return `\n[The player is carrying something private this turn, and it barely reaches the surface —`
-    + ` a flicker at most, gone before anyone could name it. Do not build a beat on it.${opaque}]`;
+  return `\n[The player has something private on their mind this turn, and it barely shows,`
+    + ` a flicker at most, gone before anyone could put a name to it. Don't build a moment around it.${opaque}]`;
 }
 
 /** The player's current grip, for the bearing. */

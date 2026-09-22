@@ -164,11 +164,11 @@ export function spentSubjects(state: SaveState): string[] {
 export function spentSubjectsNote(state: SaveState): string {
   const spent = spentSubjects(state).slice(0, 8);
   if (spent.length < 2) return "";
-  return `\n\n=== ALREADY SPENT ===\nThese have been in someone's mouth in consecutive scenes and are used up: ${spent.join(", ")}. `
-    + `Nobody raises them again this turn. This is NOT an instruction to change what anybody wants or how they behave — `
-    + `a character who deflects still deflects, a character who talks shop still talks shop. Only the specific topic is used up; the behaviour stays. `
-    + `Reach into the rest of the life on their card — their background, their standing interests, the work they actually do, `
-    + `the thing they were doing before this scene started — and deflect with something new. A person with only one anecdote `
+  return `\n\n=== ALREADY USED UP ===\nThese subjects have come up in scene after scene, and they're used up: ${spent.join(", ")}. `
+    + `Nobody brings them up again this turn. This doesn't mean anybody should change what they want or how they behave: `
+    + `a character who dodges things still dodges them, and a character who talks about work still talks about work. Only the particular subject is used up, and the behaviour stays the same. `
+    + `Look through the rest of the life on their card, like their background, their lasting interests, the work they actually do, `
+    + `and what they were doing before this scene started, and have them dodge with something new. Someone with only one story to tell `
     + `quickly stops being interesting.`;
 }
 
@@ -226,10 +226,10 @@ export function monopolyNote(subject: string | null, speaker: string | null): st
   const who = speaker ? speaker : "the people in this scene";
   return `\n\n=== ONE SUBJECT ===\n${who} has talked about ${subject} in most of the last several scenes, and about very little else. `
     + `That turns them into a single topic instead of a person. `
-    + `${subject} is NOT forbidden and must not be conspicuously avoided: if ${subject} comes up, they come up. `
-    + `What has to change is that this character wants, notices, and raises something ELSE this turn — from their own background, their work, `
-    + `the standing interests on their card, their own body, the room, the day they actually had. Give them one subject that is theirs and not about ${subject}, `
-    + `and let them bring it up unprompted the way people do.`;
+    + `${subject} isn't forbidden, and nobody should obviously avoid it, so if it comes up, it comes up. `
+    + `What has to change is that this character wants, notices and brings up something else this turn, from their own background, their work, `
+    + `the lasting interests on their card, their own body, the room, or the day they actually had. Give them one subject that's their own and isn't about ${subject}, `
+    + `and let them bring it up unprompted, the way people do.`;
 }
 
 /* ── TELLING SOMEBODY WHAT THEY ALREADY KNOW ────────────────────────────────────
@@ -300,10 +300,10 @@ export function retoldToPlayer(state: SaveState, prose: string): { line: string;
 /** The correction, handed to the next turn, quoting what was actually said. */
 export function retoldNote(hit: { line: string; known: string } | null | undefined): string {
   if (!hit) return "";
-  return `\n\n=== ALREADY TOLD ===\nLast turn somebody said this to the player: "${hit.line}"\n`
-    + `The player already had it — their own record holds: "${hit.known}"\n`
-    + `A line that tells the listener what they already know accomplishes nothing and makes a busy scene feel empty. `
-    + `People do not brief each other on shared history; they ASSUME it and go on from there. `
-    + `Whatever this character wants out of this beat, they start from what has already been said — `
-    + `the next thing, the part they left out, the thing they want NOW — or they say nothing and do something instead.`;
+  return `\n\n=== ALREADY TOLD ===\nLast turn somebody told the player this: "${hit.line}"\n`
+    + `The player already knew it, and their own record says: "${hit.known}"\n`
+    + `A line telling the listener something they already know doesn't do anything, and it makes a busy scene feel empty. `
+    + `People don't fill each other in on history they share. They take it for granted and carry on from there. `
+    + `Whatever this character wants out of this moment, they start from what's already been said, `
+    + `so they say the next thing, the part they left out, or what they want now, or they say nothing and do something instead.`;
 }

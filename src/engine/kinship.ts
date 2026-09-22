@@ -165,7 +165,7 @@ export function findKinBreach(state: SaveState, prose: string): KinBreach | null
         return {
           owner: ownerChar?.name ?? owner.first, relation, other: otherChar?.name ?? other.first,
           because: roles.length
-            ? `the record lists them as ${roles.join(", ")}, not family`
+            ? `the record lists them as ${roles.join(", ")}, not as family`
             : `the record lists no family tie between them`,
           sentence: sentence.trim().slice(0, 220),
         };
@@ -180,7 +180,7 @@ export function findKinBreach(state: SaveState, prose: string): KinBreach | null
 export function kinFix(hit: KinBreach | null | undefined): string {
   if (!hit?.sentence) return "";
   const who = hit.other ? `${hit.other} is not ${hit.owner}'s ${hit.relation}` : `${hit.owner} has no ${hit.relation}`;
-  return `\nLAST TURN SOMEBODY INVENTED A FAMILY: "${hit.sentence}…"
-${who} — ${hit.because}. That is void. It did not happen, nobody said it, nobody remembers it, and no one refers back to it. Do NOT correct it inside the fiction, do not have anyone walk it back, take it back, or be caught in it, and do not write a scene about the mistake; simply continue from the turn before it, as though the line had never been on the page.
-WATCH WHY IT GOT WRITTEN. An unseen relative is tempting to invent in an argument because it explains everything and cannot be checked, which is why it has to be in the record first. The people in this story have the families the record gives them and no others. Where the record is silent about somebody's family, every character in this world is silent about it too: they do not know, they have not heard, or they say so plainly. If a scene needs a fact, use one that is already true, and do not write a line that only works because of an invented fact.`;
+  return `\nLAST TURN SOMEBODY INVENTED A FAMILY MEMBER: "${hit.sentence}…"
+${who}: ${hit.because}. That doesn't count. It didn't happen, nobody said it, nobody remembers it, and nobody mentions it again. Don't correct it inside the story, don't have anyone take it back or get caught out by it, and don't write a scene about the mistake. Just carry on from the turn before, as if the line had never been written.
+Notice why it got written. In an argument it's tempting to invent a relative nobody has seen, because it explains everything and can't be checked, and that's exactly why it has to be in the record first. The people in this story have the families the record gives them and no others. Where the record says nothing about somebody's family, every character in this world says nothing about it too: they don't know, haven't heard, or say so plainly. If a scene needs a fact, use one that's already true, and don't write a line that only works because of an invented one.`;
 }

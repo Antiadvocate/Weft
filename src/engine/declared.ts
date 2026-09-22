@@ -52,16 +52,16 @@ export function storyFrame(a: string): string {
   return `=== THE PLAYER IS WRITING THE WORLD ITSELF HERE ===
 ${a}
 
-THAT HAPPENED. It is now a fact of this world, and this turn's prose shows it happening, in full, on the page. Do not judge whether it fits, whether the characters would do it, or whether the timing is right; the player decided all of that by using this channel.
+That happened. It's now a fact of this world, and this turn's prose shows it happening, in full, on the page. Don't judge whether it fits, whether the characters would do it or whether the timing is right, because the player decided all of that by using this kind of input.
 
-THREE WAYS OF NOT WRITING IT, and none of them is available this turn:
-- Nothing arrives to interrupt it. No phone, no knock, no footstep in the hall, no third person in the doorway, no noise from another flat. If the player wrote an interruption, that is the only interruption there is.
-- Nobody almost does it. Remove "almost", "nearly", "started to", "was about to", "for a moment", "seemed to" and any other word that turns the act into an attempt. It is done, finished, past tense by the end of the paragraph.
-- Nothing milder happens instead, however well it fits the room. A smaller, similar act in the same room with the same people is a different act. If the player wrote a specific thing, that specific thing is what is on the page.
+There are three ways of avoiding writing it, and none of them is allowed this turn:
+- Nothing turns up to interrupt it. There's no phone, no knock, no footsteps in the hall, no third person in the doorway and no noise from another flat. If the player wrote an interruption, that's the only interruption there is.
+- Nobody almost does it. Take out "almost", "nearly", "started to", "was about to", "for a moment", "seemed to", and any other word that turns the act into an attempt. By the end of the paragraph it's done, finished, and in the past tense.
+- Nothing milder happens in its place, however well it would suit the room. A smaller, similar act in the same room with the same people is a different act. If the player wrote a specific thing, that specific thing is what goes on the page.
 
-WHERE THE WORLD'S LOGIC STILL APPLIES: the consequences. Who saw it, what it broke, who knows now, what somebody does about it, what it makes impossible tomorrow. You decide the consequences, and they should be serious. Whether it happened is already decided.
+The world's logic still applies to the consequences: who saw it, what it broke, who knows now, what somebody does about it, and what it makes impossible tomorrow. You decide the consequences, and they should be serious. Whether it happened has already been decided.
 
-IF IT CONTRADICTS THE RECORD, the record is what changes. Somebody the state placed elsewhere is now here; a thing the cast believed is now wrong; a bond the numbers called warm is now whatever this makes it. Write the world as the player's sentence leaves it.`;
+If it contradicts the record, the record is what changes. Somebody the record placed somewhere else is now here, something the cast believed is now wrong, and a relationship the numbers called warm is now whatever this makes it. Write the world the way the player's sentence leaves it.`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -133,10 +133,10 @@ export function findDeclaredMiss(declaration: string, prose: string): DeclaredMi
 export function declaredFix(miss: DeclaredMiss | null | undefined): string {
   if (!miss) return "";
   const how = miss.how === "hedged"
-    ? "you wrote it as an approach to itself — almost, started to, moved to — so the act never actually happened"
+    ? "you wrote it as a move toward the act (almost, started to, moved to), so the act itself never actually happened"
     : miss.how === "interrupted"
-      ? "something arrived and stopped it, and the player wrote no interruption"
-      : "it is not on the page in any form";
-  return `\nSTOP. LAST TURN THE PLAYER WROTE THE WORLD AND THE WORLD DID NOT DO IT. They declared: "${miss.declaration}" — and ${how}.
-That channel is a direct instruction from the player. THIS TURN opens with that event having happened: render it complete, in the same room, with the same people, in plain past tense, before anything else occurs. Nothing arrives to prevent it, nobody nearly does it, and nothing smaller stands in for it. Then write the consequences — who saw, what broke, who knows, what somebody does about it — which are up to you.`;
+      ? "something turned up and stopped it, and the player didn't write any interruption"
+      : "it isn't in the prose in any form";
+  return `\nSTOP. LAST TURN THE PLAYER WROTE SOMETHING INTO THE WORLD, AND THE WORLD DIDN'T DO IT. They declared: "${miss.declaration}", and ${how}.
+That kind of input is a direct instruction from the player. This turn opens with that event having already happened. Write it complete, in the same room, with the same people, in plain past tense, before anything else happens. Nothing turns up to prevent it, nobody nearly does it, and nothing smaller takes its place. Then write the consequences, meaning who saw it, what broke, who knows, and what somebody does about it, which are up to you.`;
 }

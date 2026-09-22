@@ -108,11 +108,11 @@ export function findIntrusion(
 /** The correction, handed to the next turn. */
 export function thresholdFix(hit: Intrusion | null | undefined): string {
   if (!hit?.name) return "";
-  return `\n\nSOMEBODY GOT INSIDE WITHOUT A DOOR. Last turn ${hit.name} was written as being inside ${hit.place}, and nothing on the page put them there: "${hit.line}"\n`
-    + `Getting into somewhere private is an EVENT and it happens where the reader can see it — a knock, a bell, a call through the screen, somebody deciding to open the door and open it. `
-    + `A person who is simply discovered in the front room has not entered the story, they have been placed in it, and the scene after that is built on something that never happened. `
-    + `This turn, treat ${hit.name}'s presence as the unexplained thing it is: whoever lives there gets to ask how they got in and to be answered, and if there is no answer, ${hit.name} is where they actually were — outside it. `
-    + `Never write an entrance in the past tense or in a subordinate clause ("had come in at some point", "was already inside", "must have let themselves in"). Somebody either opened a door on the page or nobody is through it.`;
+  return `\n\nSOMEBODY GOT INSIDE WITHOUT COMING THROUGH A DOOR. Last turn ${hit.name} was written as being inside ${hit.place}, and nothing in the prose put them there: "${hit.line}"\n`
+    + `Getting into somewhere private is an event, and it happens where the reader can see it: a knock, a doorbell, someone calling through the screen door, or somebody deciding to open the door and opening it. `
+    + `A person who is simply found in the front room hasn't entered the story. They've been dropped into it, and everything in the scene after that is built on something that never happened. `
+    + `This turn, treat ${hit.name} being there as the unexplained thing it is. Whoever lives there gets to ask how they got in and get an answer, and if there's no answer, ${hit.name} is where they really were, which is outside. `
+    + `Never write an entrance in the past tense or tucked into a side clause, like "had come in at some point", "was already inside" or "must have let themselves in". Either somebody opened a door on the page, or nobody has come through it.`;
 }
 
 /** The standing law, so it does not only ever arrive as a correction after the fact. */
@@ -120,6 +120,6 @@ export function thresholdLaw(state: SaveState): string {
   const place = state.world.places?.[state.world.player_location]?.name ?? "";
   if (!isPrivateInterior(place)) return "";
   return `\nWHO IS INSIDE ${place.toUpperCase()}: exactly the people the scene list names, and nobody else. `
-    + `This is somewhere private. Anyone else arriving is an event that happens ON THE PAGE — they knock, they call out, they are seen coming up the walk, and somebody who lives there decides whether to open the door. `
-    + `Do not discover a person already in a room here, and do not explain one in afterwards.`;
+    + `This is a private place. Anyone else arriving is an event that happens on the page: they knock, they call out, or they're seen coming up the path, and somebody who lives there decides whether to open the door. `
+    + `Don't find a person already in a room here, and don't explain one in afterwards.`;
 }

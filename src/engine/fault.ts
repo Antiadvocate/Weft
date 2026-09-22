@@ -125,7 +125,7 @@ export function applyFaults(state: SaveState, faults: FaultReport[], turn: numbe
     const p = cond.psyche;
     if (conscience <= COLD) {
       // it registers as information, not as weight — and that is the whole difference
-      log.push(`${c.name} knows exactly what they did to ${state.characters[f.toward]?.name ?? "them"}, and it does not bother them.`);
+      log.push(`${c.name} knows exactly what they did to ${state.characters[f.toward]?.name ?? "them"}, and it doesn't bother them.`);
       continue;
     }
     const weight = bondWeight(state, f.character, f.toward);
@@ -185,11 +185,11 @@ export function tickRepair(state: SaveState): string[] {
       const name = state.characters[target]?.name ?? "them";
       // the want becomes their live pursuit, so the existing drive machinery carries it into scenes
       c.drive = {
-        goal: `get things right with ${name} — now, before anything else`,
-        approach: `does not ask for anything back and does not mention being hurt; finds the small thing that can be done for ${name} and does it, and keeps finding another`,
+        goal: `make things right with ${name}, now, before anything else`,
+        approach: `doesn't ask for anything back and doesn't mention being hurt; finds some small thing to do for ${name}, does it, and keeps finding more`,
         progress: 0, priority: 1, updated_turn: turn, progress_turn: turn, last_progress: 0,
       };
-      log.push(`${c.name} cannot leave it where it is.`);
+      log.push(`${c.name} can't leave it the way it is.`);
       continue;
     }
 
@@ -213,7 +213,7 @@ export function tickRepair(state: SaveState): string[] {
       delete p.fault; delete p.repair_toward; delete p.unfelt; delete p.repair_baseline;
       p.repairing = 0;
       p.relaxation = clamp(+(p.relaxation + 1.2).toFixed(2), -10, 10);
-      log.push(`${name} let ${c.name} back in, and ${c.name} can finally stop trying to fix things.`);
+      log.push(`${name} let ${c.name} back in, and ${c.name} can finally stop trying to make up for it.`);
       continue;
     }
 
@@ -222,7 +222,7 @@ export function tickRepair(state: SaveState): string[] {
       // thing they never registered — that they were hurt too — is the state they are left holding.
       const owed = Math.min(4, p.unfelt ?? 0);
       p.relaxation = clamp(+(p.relaxation - owed).toFixed(2), -10, 10);
-      const st = "hurt, and only now feeling it";
+      const st = "hurt, and only feeling it now";
       if (!p.active_states.includes(st)) { p.active_states.push(st); (p.state_ages ??= {})[st] = turn; }
       p.repairing = 0;
       delete p.repair_toward; delete p.unfelt; delete p.repair_baseline;
@@ -265,25 +265,25 @@ export function faultDirective(state: SaveState): string {
 
     if (p.repairing) {
       lines.push(
-        `${c.name} is trying to fix things with ${who} and will not stop. They do not ask for anything back, `
-        + `they do not raise what was done to THEM, and if anyone asks how they are they answer about ${who} instead — `
-        + `not as evasion they are aware of; it genuinely does not occur to them that they are the subject. `
-        + `Let them offer, do, fetch, smooth over, take the blame for parts that were not theirs. `
-        + `This comes from being unable to sit still with it, and the strain shows in the body `
-        + `(too quick to move, too eager to agree, a hand doing something unnecessary) while the words stay warm.`,
+        `${c.name} is trying to make things right with ${who} and won't stop. They don't ask for anything back, `
+        + `they don't bring up what was done to them, and if anyone asks how they are, they answer about ${who} instead. `
+        + `They aren't aware of dodging the question; it honestly doesn't occur to them that they're the subject. `
+        + `Let them offer, do things, fetch things, smooth things over, and take the blame for parts that weren't their fault. `
+        + `This comes from not being able to sit still with it, and the strain shows in their body `
+        + `(moving too quickly, agreeing too eagerly, a hand doing something it doesn't need to) while their words stay warm.`,
       );
       continue;
     }
     if (conscience <= COLD) continue;
     if (style === "avoidant") {
-      lines.push(`${c.name} knows what they did to ${who} and will not go near it. They go flat and put distance in — shorter answers, somewhere else to be — and others read their shame as coldness.`);
+      lines.push(`${c.name} knows what they did to ${who} and won't go near it. They go flat and put distance between them, with shorter answers and somewhere else to be, and other people take their shame for coldness.`);
     } else if (style === "disorganized") {
-      lines.push(`${c.name} knows what they did to ${who} and cannot hold one position about it: reaches to make it right and pulls back inside the same exchange, warm one line and defensive the next.`);
+      lines.push(`${c.name} knows what they did to ${who} and can't settle on one way of dealing with it. They reach out to make it right and pull back within the same exchange, warm in one line and defensive in the next.`);
     } else {
       lines.push(
-        `${c.name} knows what they did to ${who}, and knows it plainly. They SAY it — name the thing they actually did, without being cornered into it first, `
-        + `without a justification riding along behind it, and without asking to be forgiven for it in the same breath. `
-        + `Nobody has to drag this out of them, and they do not perform it either.`,
+        `${c.name} knows what they did to ${who}, and knows it plainly. They say it: they name what they actually did without having to be cornered first, `
+        + `without an excuse tagged on after it, and without asking to be forgiven in the same breath. `
+        + `Nobody has to drag it out of them, and they don't make a show of it either.`,
       );
     }
   }

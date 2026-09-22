@@ -92,7 +92,7 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
   else if (r >= 0) { raw = 0.4; causes.push("level enough"); }
   else if (r >= -3) { raw = 0; causes.push("tight — a step off their best"); }
   else if (r >= -6) { raw = -0.8; causes.push("clenched — grip and perception narrow"); }
-  else { raw = -1.6; causes.push("deep-clenched — the body betrays fine work"); }
+  else { raw = -1.6; causes.push("very tense, so their body lets them down at fine work"); }
   if (cond.fatigue === "exhausted") { raw -= 1; causes.push("exhausted"); }
   else if (cond.fatigue === "tired") { raw -= 0.25; causes.push("tired"); }
   if (cond.hunger === "starving") { raw -= 0.5; causes.push("starving"); }
@@ -103,7 +103,7 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
   // Read from BOTH channels — catastrophic damage is as often recorded as a condition
   // ("eviscerated and exposed") as an injury, and only injuries were ever consulted here.
   const sev = bodySeverity(cond);
-  if (sev >= 4) { raw -= 3; causes.push(`the body is wrecked (${bodyMarks(cond, 4).join(", ") || "catastrophic damage"}) — nothing works properly`); }
+  if (sev >= 4) { raw -= 3; causes.push(`the body is badly damaged (${bodyMarks(cond, 4).join(", ") || "catastrophic damage"}), and nothing works properly`); }
   else {
     if (sev === 3) { raw -= 0.75; causes.push(`severely hurt (${bodyMarks(cond, 3).join(", ")})`); }
     for (const inj of cond.injuries ?? []) {
@@ -292,7 +292,7 @@ export function frameAttempt(state: SaveState, action: string, pressure: number)
 
   // name the weakest reading — it carries the cost or the failure
   const dims: [number, string][] = [
-    [capability.score, capability.fact ? `capability (${capability.fact})` : "capability — nothing in who they are speaks to this"],
+    [capability.score, capability.fact ? `capability (${capability.fact})` : "ability: nothing about who they are suggests they could do this"],
     [body.score, body.causes.length ? `the body — ${body.causes[body.causes.length - 1]}` : "the body"],
     [circumstance.score, circumstance.causes.length ? `the moment — ${circumstance.causes[0]}` : "the moment"],
   ];
@@ -312,15 +312,15 @@ export function frameAttempt(state: SaveState, action: string, pressure: number)
  *  make it true on the page, with texture drawn from the very causes that decided it. */
 export function attemptDirective(frame: AttemptFrame, action: string): string {
   const excerpt = action.length > 120 ? action.slice(0, 117) + "…" : action;
-  const cap = frame.capability.fact ?? "nothing in who they are speaks to this";
+  const cap = frame.capability.fact ?? "nothing about who they are suggests they could do this";
   const body = frame.body.causes.join("; ") || "steady";
   const circ = frame.circumstance.causes.join("; ") || "neutral";
-  const head = `\nATTEMPT FRAME — the player's action resolves by CAUSE. The verdict below is already decided from the state of the body and the world; it is authoritative. Render it truthfully — never overturn it with luck, heroics, coincidence, or manufactured peril.\n- attempt: "${excerpt}"\n- capability: ${cap}\n- body: ${body}\n- circumstance: ${circ}\n`;
+  const head = `\nHOW THE PLAYER'S ATTEMPT TURNS OUT depends on its causes. The result below has already been decided from the state of their body and the world, and it's final. Write it truthfully, and never overturn it with luck, heroics, coincidence or some danger you've made up.\n- attempt: "${excerpt}"\n- ability: ${cap}\n- body: ${body}\n- circumstances: ${circ}\n`;
   if (frame.outcome === "sufficient") {
-    return head + `OUTCOME: IT WORKS. Render the success plainly and concretely, textured by the causes above (what they know, how the body held). Do not inject extra peril into a clean success — the world's pressure arrives through its own channels and leaves a legitimate attempt standing.`;
+    return head + `RESULT: IT WORKS. Write the success plainly and concretely, shaped by the causes above (what they know, how their body held up). Don't add extra danger to a clean success. The world's pressure arrives by its own routes, and it leaves an attempt that fairly succeeded standing.`;
   }
   if (frame.outcome === "contested") {
-    return head + `OUTCOME: IT WORKS, AT A COST — and the cost comes from ${frame.weakest}. Show that cost concretely and ONLY that cost: a thing gives way, a face is seen, something is paid or lost or noticed. The aim is achieved; the price is real and stays on the record. Do not escalate beyond the named cost, and do not waive it.`;
+    return head + `RESULT: IT WORKS, BUT AT A COST, and the cost comes from ${frame.weakest}. Show that cost concretely, and only that cost: something gives way, someone's face is seen, something is paid, lost or noticed. They get what they were after, and the price is real and stays in the record. Don't make it worse than the cost named, and don't let them off it.`;
   }
-  return head + `OUTCOME: IT FAILS — and it fails because of ${frame.weakest}. Show that cause operating in the moment (the shaking hand, the watching guard, the missing skill). The failure is proportionate: the world reacts as it would, consequences stand, and the aim is NOT achieved. Never let it succeed by accident, and never punish beyond what the failing cause would naturally produce.`;
+  return head + `RESULT: IT FAILS, and it fails because of ${frame.weakest}. Show that cause at work in the moment (the shaking hand, the guard who's watching, the skill they don't have). The failure is in proportion: the world reacts the way it would, the consequences stand, and they don't get what they were after. Never let it succeed by accident, and never punish them beyond what that cause would naturally lead to.`;
 }

@@ -81,11 +81,11 @@ export function gravityDirective(f: Fate, bible: { destination?: string }, missi
   if (!dest) return "";
   return `
 
-THIS STORY IS WRITTEN TOWARD: "${dest}"
-There is no deadline on it and you must not manufacture one — nobody is running out of time and no scene should feel like it is being hurried somewhere. `
-    + `Treat it as a steady pull: when a scene could go several ways, take the one toward this ending, and move away from it only when the story gives a reason. `
-    + (missing ? `Between here and it, right now: ${missing}. ` : "")
-    + `That does not mean writing it this turn, and it does not mean anyone talking about it. It means the wants, the pressure and the attention of this scene lean toward it.`;
+THIS STORY IS HEADING TOWARD: "${dest}"
+There's no deadline on it, and you shouldn't invent one, so nobody is running out of time and no scene should feel like it's being rushed somewhere. `
+    + `Think of it as a steady pull. When a scene could go several ways, take the one that leads toward this ending, and only move away from it when the story gives a reason to. `
+    + (missing ? `What stands between here and there right now: ${missing}. ` : "")
+    + `That doesn't mean writing it this turn, and it doesn't mean anyone talking about it. It means that what people want, the pressure, and where the scene's attention goes all lean toward it.`;
 }
 
 /** The narrator's orders this turn. Empty when there is no destination or no clock, so open play is
@@ -97,18 +97,18 @@ export function fateDirective(f: Fate, missing?: string): string {
   const gap = missing?.trim() ? ` What still stands in the way: ${missing.trim()}` : "";
 
   if (f.forceArrival) {
-    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". There are no turns left. That ending has to happen here, completely, finished inside this scene. If the player worked toward it, they get it and it means something. If they spent the story elsewhere, it still happens, but through someone else's choice or on terms they did not agree to. Do not stop short of it.`;
+    return `\n\nWRITE THE ENDING IN THIS SCENE. The story was set to end with: "${f.destination}". There are no turns left, so that ending has to happen here, completely, and be finished within this scene. If the player worked toward it, they get it, and it means something. If they spent the story on other things, it still happens, but through someone else's choice or on terms they didn't agree to. Don't stop short of it.`;
   }
   if (f.act === "convergence") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Everything in this scene should bring it closer. Whoever and whatever that ending needs is here now, or arrives this turn. Do not open a new subject. The player still chooses how it goes, and can still choose badly, but the scene should leave them nearer the ending than it found them.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Everything in this scene should bring it closer. Whoever and whatever the ending needs is here now or arrives this turn. Don't start a new subject. The player still chooses how it goes and can still choose badly, but the scene should leave them nearer the ending than it found them.`;
   }
   if (f.act === "closing") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} The world is starting to move toward it. Raise the complications that force the question rather than postpone it. Options the player walked away from close. Do not spend this scene on something unrelated.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} The world is starting to move toward it. Bring up complications that force the question instead of putting it off. Options the player walked away from close. Don't spend this scene on something unrelated.`;
   }
   if (f.act === "rising") {
-    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Let this scene bring it nearer, or show more clearly what reaching it will take. Choose complications that lie between here and there.`;
+    return `\n\nThe story ends in ${turns} with: "${f.destination}".${gap} Let this scene bring it closer, or make it clearer what reaching it will take. Pick complications that lie between here and there.`;
   }
-  return `\n\nThis story ends in ${turns} with: "${f.destination}". That is still far off; leave the player free. Plant what will matter later — a want, an obstacle, a fact.`;
+  return `\n\nThis story ends in ${turns} with: "${f.destination}". That's still a long way off, so leave the player free, and set up what will matter later, like a want, an obstacle or a fact.`;
 }
 
 /** What the world does as the ending nears. Threads and clocks are the machinery the story runs on;
