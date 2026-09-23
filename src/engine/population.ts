@@ -61,7 +61,10 @@ const DESERTED = /\b(deserted|abandoned|empty|ruin(s|ed)?|no one (lives|works|is
  */
 export function populationOf(place: Place | undefined): Population | null {
   if (!place) return null;
-  if (place.population) return place.population.scale > 0 ? place.population : null;
+  // One or two people, or a "who" that says alone, is somebody's home rather than a crowd. Velora's
+  // forge gave the player's apartment {scale: 1, who: "Rabi, alone"}, and the narrator was told the
+  // apartment "usually has a handful of people about: Rabi, alone" and to fill it with passers-by.
+  if (place.population) return place.population.scale >= 3 && !/\balone\b/i.test(place.population.who ?? "") ? place.population : null;
   const name = place.name ?? "";
   // The description gets exactly one vote, and it is a veto: a place that says it is empty is.
   if (DESERTED.test(name) || DESERTED.test(place.description_facts ?? "")) return null;

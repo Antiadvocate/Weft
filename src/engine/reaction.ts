@@ -156,7 +156,7 @@ Something in a pocket, a case or a bag isn't in the room. Nobody here knows it e
     : "";
   return `\n${seen ? `WHAT HE HAS ON HIM IN PLAIN SIGHT: ${seen}.\n` : ""}${away ? away.slice(1) + "\n" : ""}This is what this world can do, and nothing more: ${tech.slice(0, 240)}
 Compare those two lines. Anything he has on him that this world couldn't make, has no name for and has never seen isn't background detail, and it doesn't become ordinary just because it has been mentioned before. It's ordinary to him and to nobody else here. Someone coming across it has no word for it, so they reach for the nearest thing they do know and get it wrong: they call it after the closest object in their own life, or a god, or a trick, or an illness. They might refuse to look at it, or they might not be able to stop looking at it. They don't put a price on it, put it aside, or treat it as part of the errand they were already on.
-Compare the same two lines with what he says, too. ${him} talks from a world nobody here has seen, and a word for something this world doesn't contain doesn't make that thing real by being said out loud. When he names one, whether it's a material, a tool, a trade, a machine, a measurement, a sum or an idea, the people here don't know what he means, because there's nothing in their lives for the word to attach to. Each of them does one of these things, depending on who they are: hears the nearest thing in their own life and answers about that instead, asks him what it is, assumes it's a word from his own country and lets it pass, or decides he's talking nonsense and says so. None of them agrees with it, repeats it back as something they know, names a price for it, or adds a detail of their own, because agreeing even once makes the object part of this world for good, and every later turn will treat it as real.`;
+Compare the same two lines with what he says, too. ${him} talks from a world nobody here has seen, and a word for something this world doesn't contain doesn't make that thing real by being said out loud. When he names one, whether it's a material, a tool, a trade, a machine, a measurement, a sum or an idea, the people here don't know what he means, because there's nothing in their lives for the word to attach to. Each of them reacts to not knowing it, in a way that fits who they are: they ask him what it is, repeat it back as a question, guess out loud and get it wrong, assume it's a word from his own country, or decide he's talking nonsense and say so. Whichever it is, they're answering him and what he just said, and they stay on it until they've had their say. Nobody changes the subject to something from their own day. None of them agrees with it, repeats it back as something they know, names a price for it, or adds a detail of their own, because agreeing even once makes the object part of this world for good, and every later turn will treat it as real.`;
 }
 
 /**
@@ -334,4 +334,39 @@ People accept what he gives them by default. Someone handed a fortune doesn't tu
 They get used to it by changing how they live. After the third time nobody gasps, because they've adjusted. That adjustment shows as changed behaviour, like what they now ask him for, what they no longer bother planning, what they won't say in front of him, or who they've told, and never as a shrug or rolled eyes.${secret
     ? `\nTHE ESTABLISHED FACTS SAY OTHERWISE, BUT THEY ARE OUT OF DATE: "${String(secret).slice(0, 180)}" was written before any of this happened. It held until turn ${since}. The people in this room have seen otherwise since then, so for them it's no longer true, and what they witnessed comes first. Everything else in the established facts still stands.`
     : ""}]`;
+}
+
+/**
+ * WHAT THE ROOM HEARD AND SAW. Everything the player typed except private thought and search
+ * directives: speech counts here, unlike physicalAct, because a sentence said out loud is
+ * something the room has to answer just as much as something done in it.
+ */
+export function perceptibleInput(action: string): string {
+  return String(action ?? "")
+    .replace(/\*[^*]*\*/g, " ")
+    .replace(/\(\([^)]*\)\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * ANSWER THE PLAYER.
+ *
+ * The Velora save, eight turns. The player told two people he was a human from another planet,
+ * undressed to show them, and said he didn't know how he got here. The beat for that turn was "A
+ * SMALL REMINDER: let the ongoing weight of 'Rabi's claim of being from planet Earth' touch the
+ * scene once, lightly". His own words, one line below, had been demoted to background by the slot
+ * that decides what the turn is for. The two of them talked about a gull, the harbor chill and the
+ * brewery books, wiped glasses, and left.
+ *
+ * So when the player said or did something the room could perceive, and no scheduled consequence
+ * or faction sign has a better claim, the turn is for answering it. This replaces the quiet beats
+ * only; a consequence that was due still lands, and it lands on a room that heard him.
+ */
+export function answerThePlayer(action: string, mode: ActionMode): string {
+  if (mode === "think") return "";
+  const said = perceptibleInput(action);
+  if (said.length < 12) return "";
+  return `ANSWER THE PLAYER. The people here just heard and saw this: "${said.slice(0, 300)}"\n`
+    + `That's what this turn is about. Each person present responds to it as who they are: they might believe it, doubt it, laugh, get angry, get frightened, say plainly that they can't follow it, or ask the obvious next question. They stay with it for the whole turn, and they go on talking to the player about it. Nobody changes the subject to get away from it, and nobody goes back to a chore as though it hadn't been said. Nothing new arrives from outside the scene this turn.`;
 }

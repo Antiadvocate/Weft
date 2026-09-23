@@ -182,7 +182,7 @@ function brief(state: any, id: string): string {
     .slice(0, 8)
     .map(([oid, o]) => {
       const e = (state.world.edges ?? []).find((x: any) => x.from === id && x.to === oid);
-      const tie = e ? ` (warmth ${e.warmth}, trust ${e.trust})` : "";
+      const tie = e ? ` (warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)})` : "";
       return `- ${o.name}, ${state.world.places[o.location]?.name ?? "elsewhere"}${tie}`;
     }).join("\n");
   const b = state.world_bible ?? {};

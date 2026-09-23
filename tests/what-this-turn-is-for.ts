@@ -99,7 +99,7 @@ for (const [i, line] of prompts.entries()) {
   const before = line.indexOf("${beatNote}");
   check(`prompt ${i + 1}: the beat is not fifth of forty`, before > line.indexOf("${fullDirective}") || line.indexOf("${fullDirective}") < 0);
 }
-check("beatNote is built from the same beat the turn selected", /const beatNote = beatDirective\(beat,/.test(src));
+check("beatNote is built from the same beat the turn selected", /const beatNote = [^;]*beatDirective\(beat,/.test(src));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

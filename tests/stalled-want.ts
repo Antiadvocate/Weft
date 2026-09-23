@@ -54,7 +54,7 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
     tickDrives(s, () => 0.5);
   }
   check("the want is eventually given up on", !s.characters[id].drive, s.characters[id].drive);
-  check("giving up is remembered", (s.memory[id]?.episodic ?? []).some((m: any) => /stopped asking/i.test(m.content)),
+  check("giving up is remembered", (s.memory[id]?.episodic ?? []).some((m: any) => /let go of something/i.test(m.content)),
     (s.memory[id]?.episodic ?? []).map((m: any) => m.content));
 }
 

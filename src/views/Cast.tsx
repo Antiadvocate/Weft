@@ -205,17 +205,23 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   // GM VIEW — this character's recent PRIVATE intents (the lie/hidden want the prose concealed).
   // Pulled from turn history, newest first. This is how the player verifies the intent system:
   // what xe actually meant vs. what the prose let show. Only meaningful when it diverges.
+  // The intent pass writes "the player" while memories and the record write the name, so one panel
+  // called the same person two things. Everything shown here is for the player, so use the name.
+  const playerName = save.characters.char_player?.name?.trim();
   const gmIntents = useMemo(() => {
+    const named = (t: string) => !playerName ? t : t
+      .replace(/\b[Tt]he player's\b/g, `${playerName}'s`)
+      .replace(/\b[Tt]he player\b/g, playerName);
     if (!sel) return [] as { turn: number; surface: string; truth?: string; lying: boolean }[];
     // truth is optional: when the pass returns a posture instead of an interior, the stance is
     // kept for the narrator and nothing is filed as inner state. See engine/intent.ts.
     const out: { turn: number; surface: string; truth?: string; lying: boolean }[] = [];
     for (let i = save.history.length - 1; i >= 0 && out.length < 5; i--) {
       const hit = save.history[i].gm_intents?.find((g) => g.char_id === sel);
-      if (hit) out.push({ turn: save.history[i].turn, surface: hit.surface, truth: hit.truth, lying: hit.lying });
+      if (hit) out.push({ turn: save.history[i].turn, surface: named(hit.surface), truth: hit.truth ? named(hit.truth) : undefined, lying: hit.lying });
     }
     return out;
-  }, [sel, save.history]);
+  }, [sel, save.history, playerName]);
   const playerEdges = useMemo(
     () => (sel ? save.world.edges.filter((e) => e.from === sel) : []),
     [sel, save.world.edges]
