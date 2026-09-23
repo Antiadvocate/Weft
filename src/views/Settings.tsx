@@ -1010,6 +1010,10 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <Toggle on={draft.prefer_deepseek_provider !== false} onFlip={() => setDraft((d) => ({ ...d, prefer_deepseek_provider: d.prefer_deepseek_provider === false ? true : false }))}
           title="Prefer first-party DeepSeek"
           desc="For deepseek/* models, try DeepSeek's own provider first: its cache-hit rate (~0.8% of input price) is the cheapest long-context input on the platform. Unhealthy first-party falls back to the provider pool automatically. Note: your prompts go to DeepSeek's servers." />
+        <Toggle on={(draft.narrator_style ?? "plain") === "directed"} onFlip={() => setDraft((d) => ({ ...d, narrator_style: (d.narrator_style ?? "plain") === "directed" ? "plain" : "directed" }))}
+          title="Directed narrator"
+          desc="Off (the default): the narrator gets the whole story, the world and the people in the scene, and decides for itself what they do. On: the older narrator, which also gets a long list of rules and turn-by-turn directions about what should happen."
+        />
         <Toggle on={!!draft.narrator_reasoning} onFlip={() => setDraft((d) => ({ ...d, narrator_reasoning: !d.narrator_reasoning }))}
           title="Narrator thinking (reasoning)"
           desc="Let the narrator deliberate before writing. Reasoning-tier models bill thinking as output tokens — thousands of invisible tokens per turn — and prose rarely improves enough to pay it. Off = thinking disabled on the narrator stream. Try a session each way and keep what reads better to you." />

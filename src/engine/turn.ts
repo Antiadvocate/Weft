@@ -23,6 +23,7 @@ import { runReads, needsFaculties, deriveFaculties, sovereignRead, mindReadNote,
 import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
+import { plainNarratorMessages } from "./plain";
 import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
@@ -2381,7 +2382,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the beat rather than arriving composed and being sad about it afterwards. See engine/neglect.ts.
   { const nl = tickNeglect(state, turn); if (nl.length) ev.onMeta({ shifts: nl }); }
 
-  const intents: NpcIntent[] = await runIntentPass(state, action);
+  // PLAIN MODE writes nobody's private intent in advance. On Velora the intent pass invented a want
+  // (Sera "is going to say xer mother's name") that nothing in the story had started, kept it alive
+  // for four turns by reading its own earlier output, and the prose delivered it to a man making
+  // toast. In plain mode the narrator works from the person, not from a pre-written stance.
+  const plain = (state.model_settings.narrator_style ?? "plain") === "plain";
+  const intents: NpcIntent[] = plain ? [] : await runIntentPass(state, action);
   // SOVEREIGN PERCEPTION — god mode plus a declared act of reading somebody. The engine authors
   // every present character's real want, real fear and real lie on every turn and shows them to
   // nobody; a player with sovereignty who asks for one has already earned it. Computed here because
@@ -2422,6 +2428,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const answerBody = answerThePlayer(action, mode);
   const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder";
   const beatNote = answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
+  // What the world itself brings to this turn, as facts for the plain narrator: a change that has
+  // finished arriving, and a consequence that was already scheduled and is due now.
+  const plainWorldNow = [
+    ...(state.pending_arrivals ?? []).map((b) => `As of this turn this is simply true: ${b.claim}`),
+    ...(beat?.kind === "consequence" ? [`Due now, because it was already set in motion earlier: ${beat.consequence.description}. It happens where it would happen; if that isn't here, word of it reaches here only the way news really would.`] : []),
+  ];
   state.pending_arrivals = undefined;   // said once, on the turn after it landed
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);
@@ -3139,7 +3151,17 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   //   all input at the cached rate. Re-anchoring resets the cache once per window — amortized.
   const chatlog = state.model_settings.context_mode === "chatlog";
   let narratorMsgs: any[];
-  if (chatlog) {
+  if (plain) {
+    // Only the player's input, framed as little as the channel needs. The directed frame carries a
+    // page of notes per mode; the plain system prompt already says how to read quotes and asterisks.
+    const plainAction = (mode === "say" ? `"${action}"`
+      : mode === "think" ? action
+      : mode === "story" ? storyFrame(action)
+      : storyAction)
+      + (voided ? voidFrame(voided) : "")
+      + (ooc?.complaint ? `\n\n(The player also said this to you, outside the story. Take it into account without mentioning it in the story: ${ooc.complaint})` : "");
+    narratorMsgs = plainNarratorMessages(state, plainAction, mode, plainWorldNow);
+  } else if (chatlog) {
     const cad = Math.max(2, state.model_settings.iframe_cadence ?? 6);
     // THE ANCHOR PINS THE SCENE, SO THE SCENE HAS TO INVALIDATE IT. The anchored digest contains
     // the PRESENT block — which the prompt calls law — and the signature was built from character
@@ -3283,7 +3305,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
     if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
   }
-  {
+  if (!plain) {
     // THE WIND, EVERY TURN. A free-standing sentence with nobody in it, about the weather or the
     // building, past the one-per-turn allowance — or repeating what last turn already used. Clauses
     // hung off a person's sentence are NOT cut (that is how the tic guard once stranded a quotation

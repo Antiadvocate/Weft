@@ -26,6 +26,9 @@ export interface ModelSettings {
   context_memories_k: number;     // top-k memories per present NPC
   reflection_cadence: number;     // turns between reflection compactions
   history_window: number;         // raw recent turns kept verbatim in context
+  /** "plain" (default): the narrator gets the story, the world and the people, and no per-turn
+   *  direction. "directed": the older narrator with the full stack of rules and directives. */
+  narrator_style?: "plain" | "directed";
   lean_mode?: boolean;            // compressed system prompts + present/tracked-only cast (lower tokens, slightly less rich)
   token_budget?: number;          // when set (>0), trim the per-turn context to roughly this many input tokens, shedding least-relevant first
   tension?: number;               // 0–10 master dial for how much the world throws at you. 0 = the engine originates NOTHING new (no new threads/consequences/clocks/drives); the world only responds to what you do. Higher = more friction, faster escalation. Default 5.
