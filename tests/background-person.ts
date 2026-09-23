@@ -78,7 +78,7 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
 
   const digest = volatileDigest(s, "");
   check("the digest does not call her a minor figure",
-    !/minor figure, simple and reactive/.test(digest), digest.slice(0, 300));
+    !/minor figure at the edge of the scene who just reacts simply/.test(digest), digest.slice(0, 300));
   check("...and does not reduce her to a mood", !/— Emily \(background\)/.test(digest), digest.slice(0, 300));
   check("she is in the scene properly", digest.includes("Emily"), digest.slice(0, 200));
 
@@ -88,7 +88,7 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
   extra.condition["char_extra"] = extra.condition[EMILY];
   extra.world.present = [EMILY, "char_extra"];
   const d2 = volatileDigest(extra, "");
-  check("an untracked walk-on is still one line", /minor figure, simple and reactive/.test(d2), d2.slice(0, 400));
+  check("an untracked walk-on is still one line", /minor figure at the edge of the scene who just reacts simply/.test(d2), d2.slice(0, 400));
 }
 
 /* ── 3. narrating the conversation instead of having it ──────────────────────── */
@@ -112,7 +112,7 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
 
   const fix = metaTalkFix(hit);
   check("the correction names the move", /describing the conversation instead of having it/i.test(fix), fix.slice(0, 120));
-  check("...sends her back to her own life for material", /their own life and their own vocabulary/i.test(fix), fix);
+  check("...sends her back to her own life for material", /their own life and their own words/i.test(fix), fix);
   check("...and refuses the argument about the argument", /argument about the argument/i.test(fix), fix);
 }
 

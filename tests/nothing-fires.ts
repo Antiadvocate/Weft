@@ -103,15 +103,15 @@ const sample = (inp: any, n = 400) => {
   const d = pressureDirective({ band: "friction", pressure: 4 } as any, [], 4, "mortal", young);
   check("the sign itself is on the page", /hears whispers even when/.test(d), d.slice(-200));
   check("...named as a sign rather than an incident", /A SIGN\. Something in this world is moving/.test(d));
-  check("...demanding nothing", /demands nothing, interrupts nothing/.test(d));
-  check("...and explicitly not escalated or explained", /Do NOT escalate it, do not explain it/.test(d));
+  check("...demanding nothing", /asks nothing, interrupts nothing/.test(d));
+  check("...and explicitly not escalated or explained", /Don't build it up, don't explain it/.test(d));
   check("...and the private objective is never handed over as a thing anyone can name",
-    /do not have anyone name the thing behind it/.test(d));
+    /don't have anyone name what's behind it/.test(d));
 
   const mature: Beat = { kind: "clock", ref: "The Voice: the voice grows stronger",
     signs: ["Joe hears whispers."], filled: 5, segments: 6 };
   const m = pressureDirective({ band: "friction", pressure: 4 } as any, [], 4, "mortal", mature);
-  check("a mature clock still gets the full pressure beat", /PRESSURE BEAT from a maturing faction clock/.test(m));
+  check("a mature clock still gets the full pressure beat", /PRESSURE FROM A FACTION WHOSE PLAN IS COMING TO A HEAD/.test(m));
   check("...and a young one does not", !/PRESSURE BEAT from a maturing/.test(d));
 }
 

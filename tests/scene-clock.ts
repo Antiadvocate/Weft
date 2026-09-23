@@ -105,8 +105,8 @@ function scene(minutesIn: number, trace: number[]): SaveState {
   check("no directive while the scene is live", sceneCutDirective(readScene(scene(60, TRACE))) === "");
   const d = sceneCutDirective(readScene(scene(5 * 60, TRACE)));
   check("a directive once it is spent", d.length > 0);
-  check("it asks for the ending to be played, not skipped", /close it on the page|Bring it to a close ON THE PAGE/i.test(d), d);
-  check("and it permits crossing the connective time", /CUT/.test(d), d);
+  check("it asks for the ending to be played, not skipped", /Bring it to an end on the page/i.test(d), d);
+  check("and it permits crossing the connective time", /skip ahead/.test(d), d);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

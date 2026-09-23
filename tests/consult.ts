@@ -50,15 +50,15 @@ function world(): SaveState {
   check("the question is seen", !!consultTarget(s, t2), consultTarget(s, t2));
 
   const d = consultDirective(s, t2);
-  check("the words are named as the substance of the turn", /SUBSTANCE OF THIS TURN/.test(d));
+  check("the words are named as the substance of the turn", /main thing in this turn/.test(d));
   check("...and the exact evasion is named", /the screen filled/i.test(d) && /read what it told him/i.test(d), d.slice(0, 400));
-  check("the source's horizon is established before anything is written", /WORK OUT FIRST WHAT THIS PARTICULAR SOURCE CAN KNOW/.test(d));
-  check("its claim is not made a fact of the world", /NOT A FACT OF THIS WORLD/.test(d));
-  check("it cannot read the state", /cannot report what a person here wants/.test(d));
+  check("the source's horizon is established before anything is written", /First work out what this particular source could know/.test(d));
+  check("its claim is not made a fact of the world", /only that source.s claim/.test(d));
+  check("it cannot read the state", /can't report what someone here wants/.test(d));
   check("the reading is bounded so it does not eat the turn", /under eighty/.test(d));
   check("the room does not overhear it", /Titus Aelius Rufus, Livia Aelia/.test(d) && /unless the player reads it out loud/.test(d), d.slice(-400));
   check("a wrong firing costs a paragraph, never an invented text",
-    /IF THE PLAYER TOUCHED NOTHING THIS TURN THAT ANSWERS IN WORDS/.test(d) && /Do not put a text in his hands/.test(d));
+    /If the player didn't touch anything this turn that answers in words/.test(d) && /Don't put a text in his hands/.test(d));
 }
 
 /* ── 2. the shapes a player actually types ───────────────────────────────────── */
@@ -107,14 +107,14 @@ function world(): SaveState {
  */
 {
   for (const [label, p] of [["full", NARRATOR_SYSTEM], ["lean", NARRATOR_SYSTEM_LEAN]] as const) {
-    check(`${label}: the law is stated`, /WHAT IS READ GOES ON THE PAGE/.test(p));
+    check(`${label}: the law is stated`, /When the player reads something, write out what it says/.test(p));
     check(`${label}: it sits with the rule it excepts`, (() => {
-      const fixed = p.indexOf("setting's facts are fixed") >= 0 ? p.indexOf("setting's facts are fixed") : p.indexOf("SETTING'S FACTS ARE FIXED");
-      const read = p.indexOf("WHAT IS READ GOES ON THE PAGE");
+      const fixed = p.indexOf("never states an invented setting fact as true");
+      const read = p.indexOf("When the player reads something, write out what it says");
       return fixed >= 0 && read > fixed && read - fixed < 2600;
     })(), "the carve-out drifted away from the rule it carves out of");
-    check(`${label}: the evasion is named`, /screen lit with its answer/.test(p));
-    check(`${label}: the source's horizon binds it`, /never seen this place, these people/.test(p));
+    check(`${label}: the evasion is named`, /screen lit (?:up )?with its answer/.test(p));
+    check(`${label}: the source's horizon binds it`, /knows nothing about this place, these people/.test(p));
     check(`${label}: the final check asks for it`, /actual words on the page/.test(p.split("FINAL CHECK")[1] ?? ""));
   }
 }

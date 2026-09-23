@@ -252,14 +252,14 @@ export function scheduleLine(state: SaveState, id: string): string {
 
   if (r.current) {
     const b = r.current.block;
-    bits.push(`in the middle of ${b.what} at ${placeName(state, existingBlockPlace(state, b))} — until ${clockLabel(b.end)}, ${dur(r.current.end - absMinutes(state.world.current_time))} from now`);
+    bits.push(`in the middle of ${b.what} at ${placeName(state, existingBlockPlace(state, b))} until ${clockLabel(b.end)}, which is ${dur(r.current.end - absMinutes(state.world.current_time))} from now`);
   }
   if (r.pending) {
     const b = r.pending.block;
     const where = placeName(state, existingBlockPlace(state, b));
     bits.push(r.pending.lateBy >= 0
-      ? `ALREADY DUE at ${where} for ${b.what} — ${dur(r.pending.lateBy)} past the hour and still here`
-      : `has to set out for ${where} NOW (${b.what}, ${clockLabel(b.start)}${b.how ? `, ${b.how}` : ""})`);
+      ? `ALREADY DUE at ${where} for ${b.what}, ${dur(r.pending.lateBy)} late and still here`
+      : `has to leave for ${where} NOW (${b.what}, ${clockLabel(b.start)}${b.how ? `, ${b.how}` : ""})`);
   }
   if (r.next && !r.pending && r.next.leaveIn <= HEADS_UP_MIN) {
     const b = r.next.block;
@@ -272,7 +272,7 @@ export function scheduleLine(state: SaveState, id: string): string {
   }
   const wd = WEEKDAY_FULL[weekdayIndex(state.world.current_time, state.world_bible?.start_date)];
   const note = c?.schedule?.note?.trim();
-  if (!bits.length) bits.push(`nothing on their week today (it is ${wd})`);
+  if (!bits.length) bits.push(`nothing on their schedule today (it's ${wd})`);
   return `  their day (${wd}): ${bits.join("; ")}${note ? ` — ${note}` : ""}`;
 }
 
@@ -316,22 +316,22 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
       const b = r.pending.block;
       const where = placeName(state, existingBlockPlace(state, b));
       const how = b.how?.trim() ? ` They get there by: ${b.how.trim()}.` : "";
-      const why = b.why?.trim() ? ` It is in their life because: ${b.why.trim()}.` : "";
+      const why = b.why?.trim() ? ` It's part of their life because: ${b.why.trim()}.` : "";
       if (r.pending.lateBy >= 0) {
         const cost = b.rigidity === "mandatory"
-          ? ` They are ${Math.round(r.pending.lateBy)} minutes late for something they cannot simply skip${b.stakes?.trim() ? `, and the cost is real: ${b.stakes.trim()}` : ""}. They go THIS TURN — the prose shows them going, mid-sentence if that is what it takes.`
-          : ` They are ${Math.round(r.pending.lateBy)} minutes past when they meant to leave, and they know it.`;
-        rows.push(`${c.name} — LATE FOR ${b.what.trim()} at ${where} (due ${clockLabel(b.start)}).${cost}${how}${why} Write the leaving as this person would do it: what they pick up, who they cut off, what they say on the way out.`);
+          ? ` They're ${Math.round(r.pending.lateBy)} minutes late for something they can't just skip${b.stakes?.trim() ? `, and it will really cost them: ${b.stakes.trim()}` : ""}. They go this turn, and the prose shows them going, in the middle of a sentence if that's what it takes.`
+          : ` They're ${Math.round(r.pending.lateBy)} minutes past when they meant to leave, and they know it.`;
+        rows.push(`${c.name} is LATE FOR ${b.what.trim()} at ${where} (due ${clockLabel(b.start)}).${cost}${how}${why} Write them leaving the way this person would: what they grab, who they cut off, what they say on the way out.`);
       } else {
-        rows.push(`${c.name} — HAS TO SET OUT NOW for ${b.what.trim()} at ${where}, due ${clockLabel(b.start)}.${how}${why} They know the hour and they act on it themselves: they end what they are doing and go, this turn, without being asked and without waiting for permission. They may be sorry about it, brisk about it, or glad of the excuse. If the player gives them a real reason to stay, they can choose to stay, and staying COSTS THEM SOMETHING${b.stakes?.trim() ? ` (${b.stakes.trim()})` : ""}, which they weigh out loud or silently, but do not shrug off.`);
+        rows.push(`${c.name} HAS TO LEAVE NOW for ${b.what.trim()} at ${where}, due ${clockLabel(b.start)}.${how}${why} They know what time it is and they act on it themselves: they stop what they're doing and go, this turn, without being asked and without waiting for permission. They might be sorry about it, brisk about it, or glad of the excuse. If the player gives them a real reason to stay, they can choose to stay, but staying costs them something${b.stakes?.trim() ? ` (${b.stakes.trim()})` : ""}, which they think over, out loud or silently, and don't shrug off.`);
       }
       continue;
     }
     if (r.next && r.next.leaveIn <= HEADS_UP_MIN) {
       const b = r.next.block;
-      rows.push(`${c.name} — knows they are due at ${placeName(state, existingBlockPlace(state, b))} for ${b.what.trim()} at ${clockLabel(b.start)}, and has about ${Math.round(r.next.leaveIn)} minutes before they have to leave. They are not going yet.${guarded
-        ? ` They are also in the middle of something that the hour does not interrupt, and they do NOT say how much time they have — no number, no rounded version of it, no joke about it. It stays off the page this turn. They are where they are.`
-        : ` It shapes what they are willing to start: they do not open anything long, they may say how much time they have, and the hour is somewhere in how they hold the conversation.`}`);
+      rows.push(`${c.name} knows they're due at ${placeName(state, existingBlockPlace(state, b))} for ${b.what.trim()} at ${clockLabel(b.start)}, and has about ${Math.round(r.next.leaveIn)} minutes before they have to go. They aren't leaving yet.${guarded
+        ? ` They're also in the middle of something that the time doesn't interrupt, and they don't say how much time they have, whether as a number, a rough version of it, or a joke about it. It stays out of the prose this turn, and they stay where they are.`
+        : ` It affects what they're willing to start, so they don't begin anything long, they might mention how much time they have, and the time is somewhere in how they handle the conversation.`}`);
       continue;
     }
     if (r.current) {
@@ -339,13 +339,13 @@ export function scheduleDirective(state: SaveState, presentIds: string[], guarde
       const hereId = c.location;
       const dueId = existingBlockPlace(state, b);
       if (dueId && hereId && dueId !== hereId) {
-        rows.push(`${c.name} — is supposed to be at ${placeName(state, dueId)} right now (${b.what.trim()}, until ${clockLabel(b.end)}) and is standing here instead. Somebody is covering for them, or nobody is, and they know which.`);
+        rows.push(`${c.name} is supposed to be at ${placeName(state, dueId)} right now (${b.what.trim()}, until ${clockLabel(b.end)}) and is standing here instead. Either somebody is covering for them or nobody is, and they know which.`);
       }
     }
   }
   if (!rows.length) return "";
-  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY — their own lives, running on a clock of their own.
-These are not suggestions the scene may override for being busy. A person with somewhere to be behaves like one, and the story does not get to pause their week.\n· ${rows.join("\n· ")}]`;
+  return `\n[WHAT THESE PEOPLE HAVE TO DO TODAY, according to their own schedules.
+The scene follows these even when it's busy. A person with somewhere to be behaves like it, and the story doesn't put their week on hold.\n· ${rows.join("\n· ")}]`;
 }
 
 /** One clause for the offstage pass's cast list: where the week says this person is, right now.
@@ -509,11 +509,11 @@ export function tickSchedule(state: SaveState): string[] {
               dropFromScene(state, id, fromId, dest);
               (state.world.departures_pending ??= []).push({
                 name: c.name, to: placeName(state, dest),
-                why: `${b.what.trim()} — ${Math.round(r.pending.lateBy)} minutes late for it by the time they got out of the door`,
+                why: `${b.what.trim()}, ${Math.round(r.pending.lateBy)} minutes late for it by the time they got out of the door`,
               });
               state.world.departures_pending = state.world.departures_pending.slice(-3);
               remember(state, id, `Left late for ${b.what.trim()}${from ? ` — got held up at ${from}` : ""}.`, 5, "pressed");
-              log.push(`${c.name} broke off and went to ${placeName(state, dest)} — late for ${b.what.trim()}.`);
+              log.push(`${c.name} broke off and went to ${placeName(state, dest)}, late for ${b.what.trim()}.`);
               console.info(`[schedule] ${c.name} forced out of the scene ${Math.round(r.pending.lateBy)} min late for "${b.what}"`);
             } else {
               log.push(`${c.name} is at ${placeName(state, dest)} for ${b.what.trim()}.`);

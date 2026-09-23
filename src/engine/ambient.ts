@@ -236,10 +236,10 @@ export function ambientExample(prose: string, motif: string): string {
 export function ambientFix(motifs: string[], example: string): string {
   if (!motifs.length) return "";
   return `\n\nRECENTLY OVERUSED SETTING: ${motifs.join(", ")}. `
-    + (example ? `You have written it as recently as: "${example}" ` : "")
-    + `It has been in most of the last few turns and the reader has stopped seeing it — repeated setting becomes furniture, `
-    + `and a scene furnished the same way every time reads as one long scene. DO NOT use ${motifs.length > 1 ? "any of them" : "it"} this turn, `
-    + `in a sentence or in a clause hung off one. If the beat needs air in it, that air comes from something in the room that is ACTUALLY `
-    + `different this time — what someone is doing with their hands, what the place smells like at this hour, what is on the table that was not there before — `
-    + `or the beat does not need air and goes straight on with the people in it.`;
+    + (example ? `The most recent time you wrote it was: "${example}" ` : "")
+    + `It's been in most of the last few turns and the reader has stopped noticing it, `
+    + `and describing a setting the same way every time makes every scene feel like one long scene. Don't use ${motifs.length > 1 ? "any of them" : "it"} this turn, `
+    + `either in a sentence or in a clause tacked onto one. If the moment needs a pause, fill it with something in the room that really is `
+    + `different this time, like what someone is doing with their hands, what the place smells like at this hour, or what's on the table that wasn't there before, `
+    + `or skip the pause and go straight on with the people there.`;
 }

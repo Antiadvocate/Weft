@@ -74,7 +74,7 @@ const TURN_11: NpcIntent[] = [
 /* ── 3. and the header says which one outranks the other ──────────────────────── */
 {
   const b = intentForBookkeeper(TURN_11);
-  check("it is scoped to inner state", /INNER STATE ONLY/.test(b), b);
+  check("it is scoped to inner state", /for their inner state only/.test(b), b);
   check("it says outright that this is not what happened", /NOT A RECORD OF WHAT HAPPENED/.test(b), b);
   check("events are sent back to the prose", /from the NARRATOR PROSE only/.test(b), b);
   check("and the summary is named, since that is where it landed", /scene_summary/.test(b), b);

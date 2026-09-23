@@ -153,7 +153,7 @@ export interface KnowledgeVerdict {
 export function factionKnows(state: SaveState, faction: string, objective: string): KnowledgeVerdict {
   const members = factionMembers(state, faction);
   if (!members.length) {
-    return { knows: false, chain: [], gap: `no living member of ${faction} exists in the world to have learned anything` };
+    return { knows: false, chain: [], gap: `there's no living member of ${faction} in the world who could have learned anything` };
   }
   const nameOf = (id: string | null | undefined) => (id ? state.characters[id]?.name ?? id : "no one");
 
@@ -255,11 +255,11 @@ export function reviveStalledClocks(state: SaveState): string[] {
     delete c.original_objective;
     delete c.stalled_since;
     c.status = "running";
-    log.push(`${c.faction} has heard something, and is back on what it was doing.`);
+    log.push(`${c.faction} has heard something, and has gone back to what it was doing.`);
   }
   return log;
 }
 
 export function mundaneObjective(faction: string): string {
-  return `${faction} goes about its ordinary business — collections, patrols, disputes, and its standing quarrels — with no knowledge of the player to act on.`;
+  return `${faction} goes about its ordinary business, like collecting, patrolling, settling disputes and keeping up its old quarrels, and it knows nothing about the player that it could act on.`;
 }

@@ -93,7 +93,7 @@ function scene(): SaveState {
   check("the departure is remembered", (s.world.present_prev ?? []).includes(caelus), s.world.present_prev);
   const note = deltaNote(s, "");
   check("the delta names him as gone", /GONE FROM THE SCENE/.test(note) && /Father Caelus/.test(note.split("GONE FROM THE SCENE")[1] ?? ""), note.slice(0, 400));
-  check("and forbids writing him", /Do not give them dialogue/.test(note));
+  check("and forbids writing him", /Don't give them any dialogue/.test(note));
 
   // nobody left → no noise
   const s2 = scene();

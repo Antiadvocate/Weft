@@ -38,12 +38,12 @@ check("mortal is nothing witnessed", witnessedDirective(world("mortal")) === "")
 {
   const d = witnessedDirective(world("cosmic"));
   check("cosmic names what they actually watched", /make matter appear and disappear at will/.test(d), d.slice(0, 120));
-  check("…says they saw it rather than heard about it", /Not been told about it. Watched it/.test(d));
+  check("…says they saw it rather than heard about it", /They weren't told about it; they watched it happen/.test(d));
   check("…and dates it, so it reads as standing rather than new", /turn 6/.test(d) && /27 turns ago/.test(d), d.slice(0, 160));
-  check("…names the failure it exists to stop", /never a procedural problem/i.test(d));
+  check("…names the failure it exists to stop", /never treat it as a matter of procedure/i.test(d));
   check("…and quotes the real one", /the till, making change/.test(d));
   check("…gives the behaviours that replace it", /want something from it|ask him to do it again/.test(d));
-  check("…and sends the choice back to the character's own card", /comes off their own card/.test(d));
+  check("…and sends the choice back to the character's own card", /comes from their own card/.test(d));
 }
 check("mythic is a different fact from cosmic",
   /cannot be explained/.test(witnessedDirective(world("mythic"))) && !/matter appear/.test(witnessedDirective(world("mythic"))));
@@ -55,15 +55,15 @@ check("empowered is milder still", /no ordinary person can do/.test(witnessedDir
  * moral-verdict failure this project has been chasing since its first report. */
 {
   const d = witnessedDirective(world("cosmic"));
-  check("refusing is named as a position rather than the default", /REFUSING IS A POSITION AND IT COSTS/.test(d));
-  check("…it has to be grounded in their own state", /their own state has to say why/.test(d));
-  check("…and it does not get to be the scene's verdict", /does not read as the scene's moral verdict/.test(d));
+  check("refusing is named as a position rather than the default", /People accept what he gives them by default/.test(d));
+  check("…it has to be grounded in their own state", /their own state has to explain why/.test(d));
+  check("…and it does not get to be the scene's verdict", /isn't written as the scene passing moral judgment/.test(d));
 }
 
 /* ── AND REPETITION DOES NOT MAKE IT ORDINARY ───────────────────────────────────────────────── */
 {
   const d = witnessedDirective(world("cosmic"));
-  check("the tenth time is accommodation, not a shrug", /never as a shrug or a rolled eye/.test(d), d.slice(-200));
+  check("the tenth time is accommodation, not a shrug", /never as a shrug or rolled eyes/.test(d), d.slice(-200));
   check("…and the accommodation is behavioural", /what they now ask him for/.test(d));
 }
 
@@ -74,10 +74,10 @@ check("empowered is milder still", /no ordinary person can do/.test(witnessedDir
 {
   const secret = "There is no magic in this world; the only anomalies are Rabi's phone and matter creator, which are unknown to anyone but him.";
   const d = witnessedDirective(world("cosmic", [secret]));
-  check("a canon line claiming secrecy is named and dated", /CANON SAYS OTHERWISE AND CANON IS OUT OF DATE/.test(d), d.slice(-300));
+  check("a canon line claiming secrecy is named and dated", /THE ESTABLISHED FACTS SAY OTHERWISE, BUT THEY ARE OUT OF DATE/.test(d), d.slice(-300));
   check("…quoted, so there is no doubt which line", d.includes("unknown to anyone but him"));
   check("…and said to have held until the turn it stopped", /It held until turn 6/.test(d));
-  check("…while the rest of canon is left standing", /Everything else in canon still stands/.test(d));
+  check("…while the rest of canon is left standing", /Everything else in the established facts still stands/.test(d));
   check("…and nothing is struck from the record", d.length > 0);
 }
 check("ordinary canon triggers no override",

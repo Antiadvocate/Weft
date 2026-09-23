@@ -52,8 +52,8 @@ const bodyOf = (s: SaveState) => simulatorContext(s);
 {
   const t = bodyOf(save({ conditions: ["ankle_wrapped_and_elevated"], injuries: [] }));
   check("a dressing with nothing under it says so, loudly", /NO INJURIES/.test(t), t.slice(0, 400));
-  check("and forbids inventing the wound", /there is no wound under it/.test(t));
-  check("and forbids anyone uncovering one", /do not have anyone uncover one/i.test(t));
+  check("and forbids inventing the wound", /there's no wound under it/.test(t));
+  check("and forbids anyone uncovering one", /don't have anyone uncover one/i.test(t));
   check("the dressing itself is still on the record", /ankle_wrapped_and_elevated/.test(t));
 }
 {

@@ -100,36 +100,36 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     const gossip: Record<string, number> = {};
     for (const r of save.world.rumors) gossip[r.origin_char] = (gossip[r.origin_char] ?? 0) + 1;
     const talker = Object.entries(gossip).sort((a, b) => b[1] - a[1])[0];
-    if (talker && talker[1] >= 2) out.push({ label: "Busiest tongue", value: `${save.characters[talker[0]]?.name ?? "someone"} started ${talker[1]} rumors` });
+    if (talker && talker[1] >= 2) out.push({ label: "Biggest gossip", value: `${save.characters[talker[0]]?.name ?? "someone"} started ${talker[1]} rumors` });
     // longest quiet
     let q = 0, best = 0;
     for (const t of tel) { q = t.pressure <= 2 ? q + 1 : 0; best = Math.max(best, q); }
-    if (best >= 3) out.push({ label: "The long quiet", value: `${best} consecutive turns at low pressure` });
+    if (best >= 3) out.push({ label: "Longest quiet stretch", value: `${best} consecutive turns at low pressure` });
     // the day everything happened
     const busiest = save.history.slice().sort((a, b) => (b.shifts?.length ?? 0) - (a.shifts?.length ?? 0))[0];
-    if (busiest?.shifts?.length) out.push({ label: "The day everything happened", value: `turn ${busiest.turn} — ${busiest.shifts.length} shifts (${busiest.time_label})` });
+    if (busiest?.shifts?.length) out.push({ label: "Busiest turn", value: `turn ${busiest.turn} — ${busiest.shifts.length} shifts (${busiest.time_label})` });
     // deepest mark: most reinforced trait in the world
     let mark: { name: string; label: string; n: number } | null = null;
     for (const [id, ts] of Object.entries(save.traits)) for (const t of ts ?? []) {
       if (!mark || t.reinforcement_count > mark.n) mark = { name: save.characters[id]?.name ?? id, label: t.label, n: t.reinforcement_count };
     }
-    if (mark && mark.n >= 2) out.push({ label: "Deepest mark", value: `${mark.name} — "${niceCap(mark.label)}", reinforced ×${mark.n}` });
+    if (mark && mark.n >= 2) out.push({ label: "Most reinforced trait", value: `${mark.name} — "${niceCap(mark.label)}", reinforced ×${mark.n}` });
     for (const v of save.vessel_history ?? []) {
-      out.push({ label: "A vessel changed", value: `${v.from_name} → ${v.to_name}, turn ${v.turn} (${v.time_label})` });
+      out.push({ label: "Character switch", value: `${v.from_name} → ${v.to_name}, turn ${v.turn} (${v.time_label})` });
     }
     const interludes = save.history.filter((h) => h.kind === "interlude").length;
-    if (interludes) out.push({ label: "The world turned alone", value: `${interludes} interlude${interludes > 1 ? "s" : ""} — days the chronicle ran without you` });
+    if (interludes) out.push({ label: "Time skips", value: `${interludes} interlude${interludes > 1 ? "s" : ""} — stretches the world ran without you` });
     // emotional-weather records from the real signal (player mood valence over the run)
     const moods = tel.map((t) => t.player_mood_valence ?? 0);
     if (moods.length) {
       const lowIdx = moods.indexOf(Math.min(...moods));
       const highIdx = moods.indexOf(Math.max(...moods));
-      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn} — you were most clenched here (${tel[lowIdx].time_label})` });
+      if (moods[lowIdx] <= -5) out.push({ label: "The hardest turn", value: `turn ${tel[lowIdx].turn}: you were most tense here (${tel[lowIdx].time_label})` });
       if (moods[highIdx] >= 5) out.push({ label: "The most open you got", value: `turn ${tel[highIdx].turn} — ${tel[highIdx].time_label}` });
       // longest stretch in the clench (negative mood)
       let run = 0, best = 0;
       for (const m of moods) { run = m <= -3 ? run + 1 : 0; best = Math.max(best, run); }
-      if (best >= 3) out.push({ label: "The long clench", value: `${best} turns running where you couldn't open` });
+      if (best >= 3) out.push({ label: "Longest clenched stretch", value: `${best} turns in a row` });
     }
     // theory of mind: who is currently carrying a misread of you, and the widest belief gap in the world
     const minds = (save as any).minds as Record<string, { about?: any[] }> | undefined;
@@ -146,7 +146,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
         }
       }
       if (misreaders.length) out.push({ label: "Carrying a misread of you", value: misreaders.join(", ") });
-      if (widest) out.push({ label: "Widest gap between read and truth", value: `${widest.name} — ${Math.round(widest.gap)} points off how they picture you` });
+      if (widest) out.push({ label: "Most wrong about you", value: `${widest.name} — ${Math.round(widest.gap)} points off` });
     }
     return out;
   }, [tel, save]);
@@ -156,7 +156,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       <div className="h-full flex items-center justify-center px-8 text-center">
         <div>
           <div className="font-display text-lg mb-1.5">Nothing chronicled yet.</div>
-          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. The engine keeps its own records — every chart here costs zero tokens.</div>
+          <div className="text-[13px]" style={{ color: "var(--text-mid)" }}>Play a few turns. Every chart here is computed locally and uses no tokens.</div>
         </div>
       </div>
     );
@@ -165,8 +165,8 @@ export default function Chronicle({ save }: { save: ClientSave }) {
   const facts: string[] = [
     `${stats.rumorsBorn} rumors entered the world — ${stats.rumorsFalse} of them weren't true.`,
     `The cast holds ${stats.memTotal} memories and has distilled ${stats.beliefs} beliefs about you and each other.`,
-    stats.traitsGrown > 0 ? `${stats.traitsGrown} acquired traits have grown on people because of what happened.` : `No one has been permanently changed yet. Give it time.`,
-    stats.consequencesFired > 0 ? `${stats.consequencesFired} delayed consequences came back around.` : `Consequences are still in flight. They land whether you watch or not.`,
+    stats.traitsGrown > 0 ? `${stats.traitsGrown} acquired traits have formed from events in the story.` : `No one has gained a permanent trait yet.`,
+    stats.consequencesFired > 0 ? `${stats.consequencesFired} delayed consequences have fired.` : `No delayed consequences have fired yet.`,
     stats.peak?.turn ? `Pressure peaked at ${stats.peak.pressure}/10 on turn ${stats.peak.turn}.` : ``,
   ].filter(Boolean);
 
@@ -271,7 +271,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
       {marginalia.length > 0 && (
         <Fade delay={0}>
           <div className="card p-4">
-            <Title>Marginalia — what the world noted</Title>
+            <Title>Marginalia — notable changes</Title>
             <div className="space-y-1.5 mt-1 max-h-64 overflow-y-auto scroll-y">
               {marginalia.map((m, i) => (
                 <div key={i} className="flex gap-2.5 items-baseline">
@@ -377,7 +377,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 </div>
               )}
               <Note>
-                The share of spoken lines built from the ten commonest part-of-speech patterns, over a rolling window. Low is a cast reaching for different sentences; climbing is a register closing in on itself, whatever the words are. Measured after each turn, locally, at no token cost — it never reaches the narrator.
+                The share of spoken lines built from the ten most common word-order patterns, over the last several turns. Low means the cast is using a variety of sentences; rising means everyone is starting to talk the same way, whatever words they use. It's measured after each turn, on your device, at no token cost, and it never reaches the narrator.
               </Note>
             </div>
           </Fade>
@@ -395,22 +395,22 @@ export default function Chronicle({ save }: { save: ClientSave }) {
               return <div key={i} className="flex-1" style={{ background: col }} />;
             })}
           </div>
-          <Note>Bars: pressure each turn. Hairline: your openness over the run. Strip: your emotional weather — red is clenched, amber guarded, green open.</Note>
+          <Note>Bars: pressure each turn. Thin line: how relaxed you were over time. Strip: your mood, where red is tense, amber is guarded and green is relaxed.</Note>
         </div>
       </Fade>
 
       <Fade delay={0.1}>
         <div className="card p-4">
-          <Title>Your inner weather</Title>
+          <Title>Your mood over time</Title>
           <MoodArc values={stats.moods} />
-          <Note>Mood valence per turn, −10 to +10. The line above the dashes is the good days.</Note>
+          <Note>Mood valence per turn, −10 to +10. Above the dashed line is positive.</Note>
         </div>
       </Fade>
 
       {stats.bonds.length > 0 && (
         <Fade delay={0.15}>
           <div className="card p-4">
-            <Title>Bonds in motion</Title>
+            <Title>How relationships changed</Title>
             <div className="space-y-2.5 mt-1">
               {stats.bonds.map(([id, vals]) => {
                 const delta = vals[vals.length - 1] - vals[0];
@@ -426,7 +426,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                 );
               })}
             </div>
-            <Note>How others' warmth toward you moved. They remember why.</Note>
+            <Note>How others' warmth toward you changed.</Note>
           </div>
         </Fade>
       )}

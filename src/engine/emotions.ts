@@ -94,7 +94,7 @@ const TRANSMUTE: { match: RegExp; residue: string }[] = [
 
 function residueFor(stateName: string): string {
   for (const t of TRANSMUTE) if (t.match.test(stateName)) return t.residue;
-  return "passes on its own — felt fully, not fed";
+  return "passes on its own once it has been fully felt";
 }
 
 /** A mood is weather: a few words for how someone is carrying themselves right now.
@@ -181,7 +181,7 @@ export function tickEmotions(state: SaveState): string[] {
         shifts.push(`${c.name}'s ${st} ${residueFor(st)}.`);
       } else if (!isPlayer && r <= -3 && age === 3) {
         // SECOND HIT: announced once, when the re-telling starts.
-        shifts.push(`${c.name} keeps re-telling the ${st} — the reaction has become its own pain now.`);
+        shifts.push(`${c.name} keeps going back over the ${st}, and reliving it has become painful in itself.`);
       }
     }
     // while clenched with an aged emotional state, the story feeds itself: small ongoing drain
@@ -245,7 +245,7 @@ export function tickCoRegulation(state: SaveState): string[] {
         const before = p.relaxation;
         p.relaxation = clamp(+(p.relaxation + pull).toFixed(2), -10, 10);
         if (f < 0 && before > p.relaxation && threatened)
-          shifts.push(`${c.name} wants the comfort and flinches from it in the same motion.`);
+          shifts.push(`${c.name} wants the comfort and pulls away from it in the same moment.`);
       }
     } else if (threatened && c.attachment?.style === "anxious") {
       // scared, and nobody safe in the room: the alarm feeds itself
@@ -325,9 +325,9 @@ export function tickDischarge(state: SaveState): string[] {
     if (oldest) {
       p.active_states = p.active_states.filter((x) => x !== oldest);
       if (p.state_ages) delete p.state_ages[oldest];
-      shifts.push(`${c.name}'s held ${oldest} finally discharges — ${residueFor(oldest)}, and the story about it goes too.`);
+      shifts.push(`${c.name}'s long-held ${oldest} finally lets go: ${residueFor(oldest)}, and they stop dwelling on it.`);
     } else {
-      shifts.push(`something held in ${c.name} finally lets go — the body shakes it off and settles.`);
+      shifts.push(`something ${c.name} was holding on to finally lets go, and their body shakes it off and settles.`);
     }
     if (p.mood && p.mood !== "even") { p.mood = "even"; p.mood_set_turn = turn; }
     p.discharge_lift = 1.5;

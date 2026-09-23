@@ -395,9 +395,9 @@ export function findRisen(
 /** The correction, at the end of the directive where instructions live. */
 export function risenFix(hit: RisenHit | null | undefined): string {
   if (!hit) return "";
-  return `\nLAST TURN YOU PUT SOMEBODY BACK IN THE STORY WHO IS FINISHED. ${hit.name.toUpperCase()} IS ${hit.status.toUpperCase()}, and this sentence has them acting: "${hit.line}"`
-    + `\nThat did not happen and it is not in the record. ${hit.name} does not walk in, speak, arrive, turn, look, wait or reach for anything, this turn or any turn after it. `
-    + `Where the story has already shown them gone, they stay gone; a body remains a body and may be described, stepped around, or carried, and that is the whole of what they can do now. `
-    + `If the scene wants them, it wants somebody else: another person arrives, or nobody does, or what the moment needed turns out to be their absence. `
-    + `Write this turn as though the sentence above was never written, and do not have anyone in the scene remark on their return, explain it, or wonder at it — there was no return to notice.`;
+  return `\nLAST TURN YOU BROUGHT BACK SOMEBODY WHOSE STORY IS OVER. ${hit.name.toUpperCase()} IS ${hit.status.toUpperCase()}, and this sentence has them doing something: "${hit.line}"`
+    + `\nThat didn't happen, and it isn't in the record. ${hit.name} doesn't walk in, speak, arrive, turn, look, wait or reach for anything, this turn or any turn after it. `
+    + `Where the story has already shown them gone, they stay gone. A body stays a body, and it can be described, stepped around or carried, but that's all it can do now. `
+    + `If the scene needs someone, a different person arrives, or nobody does and the scene works around their absence. `
+    + `Write this turn as if the sentence above had never been written, and don't have anyone in the scene comment on their return, explain it or wonder about it.`;
 }

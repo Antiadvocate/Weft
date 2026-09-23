@@ -74,16 +74,16 @@ const anchor = (s: any) => {
   check("...and the body with it", /exhausted/.test(a), a);
   check("HISTORY — what has happened to her lately", /roof leaked in the night/.test(a));
   check("their traits are here too", /Counts everything twice/.test(a));
-  check("with the instruction to build from all of it", /BUILD EACH LINE OUT OF WHAT IS PRINTED UNDER THAT SPEAKER/.test(a));
-  check("and age called out as load-bearing", /AGE IS NOT DECORATION/.test(a));
+  check("with the instruction to build from all of it", /Build each line from what's printed under that speaker/.test(a));
+  check("and age called out as load-bearing", /Age changes how people talk/.test(a));
   // NO SAMPLE LINES AT ALL. Three short exemplars per person taught the entire cast to answer in
   // fragments: a sample of a voice is always compressed, so "match this" reads as "never write
   // anyone a long sentence" — and a clipped weighty fragment is the shape of an aphorism.
   check("and NO sample line is handed over", !/bread that needs trimming|The fifteenth/.test(a), a);
   check("length is named as a property of the moment, not the person",
-    /HOW MUCH SOMEBODY SAYS IS NOT A PROPERTY OF THE PERSON/.test(a));
+    /How much someone says depends on the moment/.test(a));
   check("a uniformly terse cast is called out as one person",
-    /A CAST WHERE EVERYONE IS BRIEF IS A CAST WITH ONE PERSON IN IT/.test(a));
+    /If everyone is brief, they all sound alike/.test(a));
 }
 
 /* ── 2. the world's own words, from the bible, not from one setting ──────────── */
@@ -115,7 +115,7 @@ const anchor = (s: any) => {
   const { s, m } = fixture();
   s.condition[m].psyche.mood = "frightened";
   const a = anchor(s);
-  check("the precedence is stated", /AND THE STATE OVERRIDES THE PERSON/.test(a));
+  check("the precedence is stated", /their current state overrides their usual self/.test(a));
   check("with what it does to the sentences", /repeats themselves, stops halfway/.test(a));
 }
 

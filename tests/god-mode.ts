@@ -92,7 +92,7 @@ const intents = (m: string, lying = false) => [
   const p = stablePrefix(s);
   check("sovereignty is stated where the law is stated", /THE PLAYER IS SOVEREIGN HERE/.test(p), p.slice(0, 400));
   check("...and it names the lines it displaces", /"Forces\/Magic" line/.test(p) && /"Forbidden" line/.test(p));
-  check("...and says who those lines still describe", /ORDINARY INHABITANTS/.test(p));
+  check("...and says who those lines still describe", /describe the world's ordinary people/.test(p));
   check("...and settles the disagreement in the player's favour", /the declaration is what happened/.test(p));
   check("...including the one they typed five times", /declares their own death is dead on the page/.test(p));
   check("the mundane magic rule is still printed for everyone else", /Forces\/Magic: None\./.test(p));
@@ -157,7 +157,7 @@ const intents = (m: string, lying = false) => [
   check("...and no note about a lie, because she is not telling one", !/is chosen/.test(r.reads[0]?.line ?? ""));
 
   const lying = sovereignRead(s, "I read Miranda's mind", intents(m, true));
-  check("a lie is named as one", /What Miranda is showing is chosen, and it is not this\./.test(lying.reads[0]?.line ?? ""), lying.reads[0]);
+  check("a lie is named as one", /What Miranda is letting show is deliberate and different from this\./.test(lying.reads[0]?.line ?? ""), lying.reads[0]);
 
   check("nothing without the declaration", sovereignRead(s, "I take her hand", intents(m)).reads.length === 0);
   check("nothing without god mode", sovereignRead(fixture(false).s, "I read Miranda's mind", intents(m)).reads.length === 0);
@@ -172,9 +172,9 @@ const intents = (m: string, lying = false) => [
   check("the narrator is told it is happening", /READING MIRANDA'S MIND THIS TURN/.test(n), n);
   check("...and in this world it can", /in this world they can/.test(n));
   check("...and is handed the same sentence the player got", n.includes("She is terrified, but the terror is buried"), n);
-  check("...told to write it as knowledge, not as a deduction", /no asking, no deducing, no half-catching/.test(n));
-  check("...and forbidden a different version", /no version that differs from the sentence above/.test(n));
-  check("...while she goes on as somebody whose inside is private", /goes on exactly as someone whose inside is still private/.test(n));
+  check("...told to write it as knowledge, not as a deduction", /They don't ask, they don't work it out, they don't half-catch it/.test(n));
+  check("...and forbidden a different version", /it doesn't differ from the sentence above/.test(n));
+  check("...while she goes on as somebody whose inside is private", /carries on exactly like someone whose thoughts are still private/.test(n));
 
   check("nothing crosses the seal on an ordinary turn", mindReadNote(s, "I take her hand", intents(m)) === "");
   check("...or with the switch off", mindReadNote(fixture(false).s, "I read Miranda's mind", intents(m)) === "");

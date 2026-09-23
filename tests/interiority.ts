@@ -94,10 +94,10 @@ const gone = (s: string) => !scrubForReplay(s).includes(s.trim().slice(0, 40));
     check(`${label}: and the specimen is no longer supplied with the rule`,
       !/you want a date because you're lonely/i.test(P) && !/thinking about what you should have done a year ago/i.test(P));
     check(`${label}: a belief about the player is acted on or owned as a guess`,
-      /owns it out loud as their own guess and can be told they are wrong/i.test(P));
-    check(`${label}: an unnamed requirement may not be enforced`, /A DEMAND IS NAMED OR DROPPED/.test(P));
+      /says it out loud as a guess (?:that )?the player can correct/i.test(P));
+    check(`${label}: an unnamed requirement may not be enforced`, /A character who wants something specific from the player says what it is/.test(P));
     check(`${label}: stated as what the character must do instead`,
-      /says what it is in plain words this turn/i.test(P));
+      /says what it is,? (?:in plain words,|plainly) this turn/i.test(P));
     check(`${label}: the private conclusion is still out of the camera's reach`,
       /what one of them privately concluded/i.test(P));
   }
@@ -112,10 +112,10 @@ const gone = (s: string) => !scrubForReplay(s).includes(s.trim().slice(0, 40));
  * wording, which is both wider and does not hand the four back. */
 {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
-    check(`${label}: a line once typed is spent`, /WHAT THE PLAYER TYPED IS SPENT/.test(P));
+    check(`${label}: a line once typed is spent`, /Don't repeat what the player said/.test(P));
     check(`${label}: in any wording, rather than four listed ones`,
-      /asks for it again in any wording/i.test(P) && !/I want to hear you say it/i.test(P));
-    check(`${label}: and what to do instead`, /what the listener DOES next/i.test(P), label);
+      /asks for it again in any form/i.test(P) && !/I want to hear you say it/i.test(P));
+    check(`${label}: and what to do instead`, /what the listener does next/i.test(P), label);
   }
 }
 

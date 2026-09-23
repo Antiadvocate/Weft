@@ -68,11 +68,11 @@ const PRESENT = ["char_player", EM];
   const h = habitDirective(st, PRESENT, false);
   check("it reaches the narrator as a binding condition instead",
     /WHAT IS ALREADY TRUE OF THESE PEOPLE/.test(h), h.slice(0, 200));
-  check("...told outright not to open the turn with it", /Do NOT open the turn with it/.test(h));
-  check("...nor to manufacture an occasion for it", /do not manufacture an occasion to demonstrate it/.test(h));
+  check("...told outright not to open the turn with it", /Don't open the turn with it/.test(h));
+  check("...nor to manufacture an occasion for it", /don't invent an occasion to show it off/.test(h));
   check("...and that a turn which never touches it owes nothing", /nothing is missing/.test(h));
-  check("...while still binding what may happen", /bind what can happen/.test(h));
-  check("...and never overriding the player", /never overrides what the player declares/.test(h));
+  check("...while still binding what may happen", /limit what can happen/.test(h));
+  check("...and never overriding the player", /never overrides what the player says they do/.test(h));
 
   // The two blocks must not be nested: the act header says "make the room", which is the exact
   // instruction the standing row exists to refuse.
@@ -96,11 +96,11 @@ const PRESENT = ["char_player", EM];
   check("an act-want is not read as standing", !isStanding(act), act.goal);
   const st = save([act]);
   const d = missDirective(st, PRESENT);
-  check("it is still ordered when skipped", /THIS WAS ORDERED LAST TURN/.test(d), d);
-  check("...still first in the prose", /WRITE IT FIRST THIS TURN/.test(d));
-  check("...and still escalates at two", /There is no third/.test(d));
+  check("it is still ordered when skipped", /THIS WAS ASKED FOR LAST TURN/.test(d), d);
+  check("...still first in the prose", /write it first this turn/.test(d));
+  check("...and still escalates at two", /It has now been left out for two turns/.test(d));
   check("it appears in the act block, not the standing one",
-    /SIMPLY DOES THIS NOW/.test(habitDirective(st, PRESENT, false)));
+    /SHE JUST DOES THIS NOW/.test(habitDirective(st, PRESENT, false)));
 }
 
 /* ── 4. and the engine stops shouting at an act-want that will never land ─────── */
@@ -111,13 +111,13 @@ const PRESENT = ["char_player", EM];
   const said = staleWants(st, PRESENT);
   check("...and the player is told, since only they can fix it", said.length === 1, said);
   check("...naming the want and what unsticks it",
-    /has never reached the page/.test(said[0] ?? "") && /rewriting it as something Emily DOES/.test(said[0] ?? ""), said);
+    /has never made it into the prose/.test(said[0] ?? "") && /rewriting it as something Emily does/.test(said[0] ?? ""), said);
   check("...exactly once, not on every turn after",
     staleWants(save([{ ...stuck, missed: MISS_CEILING + 4 }]), PRESENT).length === 0);
   check("a standing want never reaches that report at all",
     staleWants(save([{ ...FIX.authored[0], missed: MISS_CEILING + 1 }]), PRESENT).length === 0);
   check("...and one still under the ceiling is ordered normally",
-    /THIS WAS ORDERED LAST TURN/.test(missDirective(save([{ ...stuck, missed: 2 }]), PRESENT)));
+    /THIS WAS ASKED FOR LAST TURN/.test(missDirective(save([{ ...stuck, missed: 2 }]), PRESENT)));
 }
 
 /* ── 5. "Blanche, you're being dramatic," — turn 0 and again at turn 9 ────────── */

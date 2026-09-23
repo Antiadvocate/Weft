@@ -77,15 +77,15 @@ function rome(): SaveState {
 /* ── 2. the half that was never covered: a word he says is an anachronism too ── */
 {
   const v = visibleOnPlayer(rome());
-  check("what he SAYS is held against the same two lines", /HOLD THE SAME TWO LINES AGAINST WHAT HE SAYS/.test(v));
-  check("the word does not become a thing by being said", /does not become a thing by being said out loud/.test(v));
+  check("what he SAYS is held against the same two lines", /Compare the same two lines with what he says/.test(v));
+  check("the word does not become a thing by being said", /doesn't make that thing real by being said out loud/.test(v));
   check("...and the four things a person does instead are named",
-    /hears the nearest thing their own life holds/.test(v) && /asks him what it is/.test(v));
+    /hears the nearest thing in their own life/.test(v) && /asks him what it is/.test(v));
   check("the exact failure is forbidden: repeating it back, pricing it, adding to it",
-    /repeat it back as a thing they know/.test(v) && /name a price for it/.test(v) && /add a detail of their own/.test(v));
+    /repeats it back as something they know/.test(v) && /names a price for it/.test(v) && /adds a detail of their own/.test(v));
   check("...and the reason is stated — it is permanent",
-    /puts that object into this world permanently/.test(v));
-  check("the player is named rather than called the player", /Marcus Valerius talks out of a world/.test(v));
+    /makes the object part of this world for good/.test(v));
+  check("the player is named rather than called the player", /Marcus Valerius talks from a world/.test(v));
 }
 
 /* ── 3. THE RULE WAS IN ONE PROMPT AND NOT THE OTHER ──────────────────────────
@@ -96,11 +96,11 @@ function rome(): SaveState {
  */
 {
   for (const [label, p] of [["full", NARRATOR_SYSTEM], ["lean", NARRATOR_SYSTEM_LEAN]] as const) {
-    check(`${label}: the claims rule is present`, /THE PLAYER'S CLAIMS ARE NOT/.test(p));
-    check(`${label}: the world does not rearrange to agree`, /does not rearrange to agree/.test(p));
-    check(`${label}: a missing WORD is one of the kinds`, /A WORD FOR A THING THIS WORLD DOES NOT CONTAIN|word for a thing this world does not contain/i.test(p));
+    check(`${label}: the claims rule is present`, /The player's actions happen, but their claims don't become true/.test(p));
+    check(`${label}: the world does not rearrange to agree`, /doesn't rearrange itself to agree|does not rearrange to agree/.test(p));
+    check(`${label}: a missing WORD is one of the kinds`, /a word for something this world doesn't have/i.test(p));
     check(`${label}: the pencil is the worked example`, /paper and a pencil/i.test(p));
-    check(`${label}: agreeing once is named as permanent`, /every later turn inherits it/.test(p));
+    check(`${label}: agreeing once is named as permanent`, /every later turn will treat it as real/.test(p));
   }
 }
 
@@ -120,10 +120,10 @@ function rome(): SaveState {
   check("the clothes are in plain sight", /IN PLAIN SIGHT:[^\n]*jeans/.test(v), v.split("\n")[1]);
   check("the phone is not", !/IN PLAIN SIGHT:[^\n]*iPhone/.test(v), v.split("\n")[1]);
   check("...it is on the closed line", /PUT AWAY[^\n]*iPhone/.test(v));
-  check("and nobody can see through cloth", /Nobody's clothes are transparent/.test(v));
-  check("a put-away thing is not in the room", /A thing in a pocket, a case, or a bag is not in the room/.test(v));
+  check("and nobody can see through cloth", /Nobody's clothes are see-through/.test(v));
+  check("a put-away thing is not in the room", /Something in a pocket, a case or a bag isn't in the room/.test(v));
   check("...and having seen it once is not knowing what it is",
-    /they do not know what it does, they never learned what it is called/.test(v));
+    /they don't know what it does, never learned what it's called/.test(v));
 
   const t = rome();
   t.condition["char_player"].inventory = [
@@ -149,9 +149,9 @@ function rome(): SaveState {
 
   const n = arrivalOrder(s);
   check("the movement log reaches the narrator", /the player walked to The Tiber Embankment from The Forum Romanum/.test(n), n);
-  check("...and it is not negotiable", /no line of dialogue may contradict it/.test(n));
-  check("whoever was with him before came after him", /Claudia Antonia/.test(n) && /came after him or alongside him/.test(n));
-  check("and the exact line he got twice is forbidden", /Nobody here says the player followed THEM to this place/.test(n));
+  check("...and it is not negotiable", /no line of dialogue can contradict it/.test(n));
+  check("whoever was with him before came after him", /Claudia Antonia/.test(n) && /came after him or with him/.test(n));
+  check("and the exact line he got twice is forbidden", /Nobody here says the player followed them to this place/.test(n));
 
   s.world.current_turn = 60;
   check("a long-settled scene says nothing", arrivalOrder(s) === "", arrivalOrder(s));

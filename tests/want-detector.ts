@@ -91,10 +91,10 @@ const mannerismOnly = (s: any, m: string, label: string, turn: number) => {
   const first = noteWantMisses(s, 4, [m]);
   check("a want with no habit row is a miss", first.length === 1, first);
   check("...counted", a.missed === 1);
-  check("...and the player is told, not left guessing", /did not reach the page/.test(first[0]), first);
+  check("...and the player is told, not left guessing", /didn't make it into the prose/.test(first[0]), first);
 
   const second = noteWantMisses(s, 5, [m]);
-  check("the second turn says how many", /skipped 2 turns running/.test(second[0]), second);
+  check("the second turn says how many", /left out 2 turns in a row/.test(second[0]), second);
   check("...and keeps counting", a.missed === 2);
 }
 
@@ -139,15 +139,15 @@ const mannerismOnly = (s: any, m: string, label: string, turn: number) => {
   const one = missDirective(s, [m]);
   check("after one miss it says so", /THE TURN CAME BACK WITHOUT IT/.test(one), one);
   check("...quoting the want", one.includes("covered with her cum"), one);
-  check("...and the count", /ordered for the last 1 turn and absent from all of it/.test(one), one);
-  check("...ordering it to the front of the prose", /WRITE IT FIRST THIS TURN/.test(one));
-  check("...with no lead-in required", /needs no lead-in and no occasion/.test(one));
-  check("...because the build-up already happened", /The build-up already happened/.test(one));
+  check("...and the count", /asked for in the last 1 turn and left out of it/.test(one), one);
+  check("...ordering it to the front of the prose", /write it first this turn/.test(one));
+  check("...with no lead-in required", /doesn't need a lead-in or an occasion/.test(one));
+  check("...because the build-up already happened", /the build-up already happened/.test(one));
 
   noteWantMisses(s, 5, [m]);
   const two = missDirective(s, [m]);
-  check("after two it escalates", /There is no third/.test(two), two);
-  check("...and counts them", /ordered for the last 2 turns and absent from all of them/.test(two), two);
+  check("after two it escalates", /It has now been left out for two turns/.test(two), two);
+  check("...and counts them", /asked for in the last 2 turns and left out of all of them/.test(two), two);
   check("...without simply getting louder", !/VERY|EXTREMELY|ABSOLUTELY MUST/.test(two));
 }
 

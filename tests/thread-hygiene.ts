@@ -38,7 +38,7 @@ const save = (threads: Thread[], turn = 108): SaveState =>
 
 /* ── the contract now has the half it was missing ────────────────────────────── */
 for (const [tag, t] of [["full", simulatorSystem(false)], ["lean", simulatorSystem(true)]] as const) {
-  check(`${tag}: closing a thread is asked for at all`, /resolved/.test(t) && /(CLOSE THEM TOO|Mark it "resolved")/.test(t));
+  check(`${tag}: closing a thread is asked for at all`, /resolved/.test(t) && /(Close threads too|Mark it "resolved")/.test(t));
   check(`${tag}: and tension is told to move`, /(lower its tension|lower tension)/.test(t));
 }
 {

@@ -146,12 +146,12 @@ export function bodyDirective(cond: Condition | undefined, name: string): string
   const marks = bodyMarks(cond, Math.min(sev, 3) as BodySeverity);
   const what = marks.length ? marks.join(", ") : "their injuries";
   if (sev === 4) {
-    return `\nBODY — ${name.toUpperCase()} IS CATASTROPHICALLY WRECKED (${what}). This is not a detail of the scene, it IS the scene for them, this turn and every turn it remains true. A body in this state does not produce composed speech: no measured cadence, no multi-clause arguments, no rhetorical figures, no rolling a word around to test it, no wry constructions. If they speak at all it is fragments — a few words at a time, forced out between what the body is doing, and often the wrong words. They do not stand planted, cross their arms, tap fingers, hold a considered silence, or perform steadiness; the body has taken that away and cannot be asked for it. Every action they attempt is dominated, interrupted, or defeated by their state. Never use anatomy the damage has destroyed or displaced. If the player has decreed that they cannot die, they DO NOT die — but being kept alive is not being unharmed, and it is not being unaffected: they persist inside this, they do not rise above it. Do not let them recover, stabilise, or normalise because the conversation would be easier if they did; the state says otherwise and the state is true.`;
+    return `\nBODY: ${name.toUpperCase()} IS CATASTROPHICALLY INJURED (${what}). This takes over the scene for them, this turn and every turn it stays true. A body in this state can't produce composed speech: no measured rhythm, no long arguments with several parts, no figures of speech, no turning a word over to test it, and no wry turns of phrase. If they speak at all, it's in fragments, a few words at a time, forced out between whatever the body is doing, and often the wrong words. They don't stand firm, cross their arms, tap their fingers, hold a thoughtful silence or put on a show of being steady, because the body has taken all that away and can't be asked for it. Every action they try is overwhelmed, interrupted or defeated by the state they're in. Never use a part of the body that the damage has destroyed or moved. If the player has declared that they can't die, they don't die, but being kept alive isn't the same as being unhurt or unaffected: they stay in this condition and don't get past it. Don't let them recover, steady themselves or go back to normal just because the conversation would be easier if they did. Their state says otherwise, and their state is true.`;
   }
   if (sev === 3) {
-    return `\nBODY — ${name} is severely hurt (${what}). It shows in everything: speech comes shorter and breaks, attention keeps returning to the damage, and any action that would use the hurt part fails, costs, or is done badly some other way. Do not let it recede into background because the scene has moved on to talk.`;
+    return `\nBODY: ${name} is badly hurt (${what}). It shows in everything they do. Their speech is shorter and breaks off, their attention keeps going back to the injury, and anything that would use the hurt part fails, costs them, or gets done badly some other way. Don't let it fade into the background just because the scene has moved on to talking.`;
   }
-  return `\nBODY — ${name} is carrying real damage (${what}); let it cost them visibly in movement and attention rather than being mentioned once and dropped.`;
+  return `\nBODY: ${name} has a real injury (${what}). Let it visibly affect how they move and what they pay attention to, instead of mentioning it once and forgetting it.`;
 }
 
 /* ══ WHAT A BODY CAN NO LONGER DO, AND WHAT ON THE CARD DEPENDED ON IT ═══════════════════════
@@ -193,8 +193,8 @@ export function bodyDirective(cond: Condition | undefined, name: string): string
 export type Faculty = "hands" | "legs" | "sight" | "speech" | "hearing";
 
 export const FACULTY_LOSS: Record<Faculty, string> = {
-  hands: "has no working arms or hands",
-  legs: "cannot move under their own power",
+  hands: "has no arms or hands that work",
+  legs: "can't move by themselves",
   sight: "cannot see",
   speech: "cannot speak",
   hearing: "cannot hear",

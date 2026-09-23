@@ -93,7 +93,7 @@ function freshState(turn: number): SaveState {
   const note = spentSubjectsNote(st);
   check("the narrator is told, by turn 17", note.includes("flatstock"), note);
   check("...and told it is the prop that is spent, not the behavior",
-    /NOT an instruction to change what anybody wants/.test(note), note);
+    /doesn't mean anybody should change what they want/.test(note), note);
   check("...and pointed at the rest of the character's life", /background|standing interests/.test(note), note);
 }
 

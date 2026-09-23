@@ -69,9 +69,9 @@ function sleeper(): SaveState {
   const s = sleeper();
   const d = perceptionGapDirective(s, "I fall asleep with my face against her foot.");
   check("going to sleep is recognised from the action", d !== "", d.slice(0, 80));
-  check("and the rule is the record rule, not a style note", /filed as something the player witnessed/.test(d));
+  check("and the rule is the record rule, not a style note", /recorded as something the player saw/.test(d));
   check("it names what may still be written", /touch|weight|sound|warmth/.test(d));
-  check("and how the scene ends", /cross straight to waking/.test(d));
+  check("and how the scene ends", /go straight to him waking up/.test(d));
 }
 {
   const s = sleeper();

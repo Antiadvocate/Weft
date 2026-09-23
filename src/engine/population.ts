@@ -135,7 +135,7 @@ export function crowdDirective(state: SaveState): string {
   if (!pop) return "";
   const castHere = state.world.present.filter((id) => id !== "char_player" && state.characters[id]).length;
   const alone = castHere === 0;
-  return `\nTHE PLACE IS INHABITED — ${place.name} ordinarily has ${scaleWord(pop.scale)} about it: ${pop.who}. These are NOT characters and never will be; they are the texture of a populated place, and they exist whether or not anyone from the cast is standing here.${alone ? ` No one from the cast is in this scene, and that does NOT mean the player is alone — it means nobody the story tracks is here. Do not write this place as deserted, silent, or emptied unless the state says it has been emptied.` : ""} Let them be present the way people actually are: work going on, voices carrying, someone in the way, someone watching, someone who wants something small. They may act, react, be spoken to, and answer. Keep them ANONYMOUS — trades, roles and descriptions, never a capitalised name and never a personal history — so they stay crowd instead of becoming cast. If the player singles someone out and keeps them, the bookkeeper will make them real.`;
+  return `\nPEOPLE LIVE AND WORK HERE. ${place.name} usually has ${scaleWord(pop.scale)} about: ${pop.who}. They aren't characters and never will be. They're the ordinary people of a busy place, and they're there whether or not anyone from the cast is standing here.${alone ? ` Nobody from the cast is in this scene, but that doesn't mean the player is alone, only that nobody the story keeps track of is here. Don't write this place as deserted, silent or emptied unless the record says it has been emptied.` : ""} Let them be there the way people really are: work going on, voices carrying, someone in the way, someone watching, someone who wants something small. They can act, react, be spoken to and answer. Keep them anonymous, described by their trade, their role or how they look, never with a capitalised name or a personal history, so they stay part of the crowd instead of becoming cast. If the player picks someone out and keeps coming back to them, the bookkeeper will make them a real character.`;
 }
 
 /* ─────────────────────────── AN OPEN CALL GETS ANSWERED ───────────────────────────
@@ -216,10 +216,10 @@ export function openCallReach(state: SaveState, action: string): number {
 /** How many answer, and over what stretch. Deliberately a band, not a number — the narrator needs a
  *  floor that is not zero and a sense of scale, and a precise headcount would only read as a quota. */
 function answerBand(reach: number): { floor: string; pace: string } {
-  if (reach >= 2000) return { floor: "dozens over the day, and the first of them within the hour", pace: "They do not all arrive at once. They arrive in a trickle that does not stop, and it becomes its own problem." };
-  if (reach >= 200) return { floor: "several over the day, and at least one soon", pace: "They arrive spread out, one and then another, each with their own reason." };
-  if (reach >= 25) return { floor: "one or two", pace: "It takes a little while — long enough for someone to decide, and to talk themselves into crossing the room." };
-  return { floor: "possibly one, possibly nobody", pace: "A handful of people is small enough that a call can genuinely go unanswered; if it does, that is a real outcome and not an oversight." };
+  if (reach >= 2000) return { floor: "dozens over the day, and the first of them within the hour", pace: "They don't all arrive at once. They come in a steady trickle that doesn't stop, and that becomes a problem of its own." };
+  if (reach >= 200) return { floor: "several over the day, and at least one soon", pace: "They arrive spread out, one after another, each with their own reason." };
+  if (reach >= 25) return { floor: "one or two", pace: "It takes a little while, long enough for someone to make up their mind and talk themselves into crossing the room." };
+  return { floor: "possibly one, possibly nobody", pace: "With only a handful of people around, a call really can go unanswered, and if it does, that's a real outcome and not something forgotten." };
 }
 
 /**
@@ -235,13 +235,13 @@ export function openCallDirective(state: SaveState): string {
   const turnsWaiting = (state.world.current_turn ?? 0) - call.turn;
   // The escalation exists because the failure it was written for was a player asking three times.
   const unanswered = turnsWaiting >= 1 && call.answered === 0 && call.reach >= 25
-    ? ` NOBODY HAS ANSWERED IT YET, ${turnsWaiting === 1 ? "a turn" : `${turnsWaiting} turns`} on. That is overdue rather than atmospheric: SOMEONE ANSWERS IT THIS TURN, on the page, close enough to be spoken to.`
+    ? ` NOBODY HAS ANSWERED IT YET, ${turnsWaiting === 1 ? "a turn" : `${turnsWaiting} turns`} later. That's overdue, so someone answers it this turn, on the page, close enough to talk to.`
     : "";
-  return `\nAN OPEN CALL IS STANDING — the player put this to the room at large, addressed to whoever could hear: "${call.what.slice(0, 200)}". It reached roughly ${scaleWord(call.reach)}, and it has not been withdrawn.`
-    + ` A call at that reach is answered by ${band.floor}. ${band.pace}`
-    + ` WHO answers and WHY is where their standing with the player bites — awe, need, ambition, calculation, loneliness, someone sent by somebody else, someone who wants the thing on offer and does not much care who is offering it. If the community fears him, then the people who come are the ones fear does not stop, and they come for worse reasons; that is a different scene, and it is still a full one.`
-    + ` What is NOT available is the whole population declining in unison. Crowds do not agree. Whatever the general mood, some fraction of ${scaleWord(call.reach)} acts against it, because that is what a number that size means.`
-    + ` Anyone who answers must be a real person with their own reason for coming, named if they speak more than a line — the bookkeeper will card them.${unanswered}`;
+  return `\nTHE PLAYER HAS PUT OUT AN OPEN CALL to the room at large, to whoever could hear: "${call.what.slice(0, 200)}". It reached about ${scaleWord(call.reach)}, and the player hasn't taken it back.`
+    + ` A call that reaches that many people gets answered by ${band.floor}. ${band.pace}`
+    + ` Who answers and why depends on how people see the player: awe, need, ambition, calculation, loneliness, someone sent by somebody else, or someone who wants what's being offered and doesn't much care who is offering it. If the community fears him, the people who come are the ones fear doesn't stop, and they come for worse reasons. That makes for a different scene, but still a busy one.`
+    + ` The whole population never turns it down together, because crowds don't agree. Whatever the general mood, some share of ${scaleWord(call.reach)} goes against it.`
+    + ` Anyone who answers has to be a real person with their own reason for coming, and they get a name if they say more than one line. The bookkeeper will give them a character card.${unanswered}`;
 }
 
 /** Record a call the player just made, and clear one they have withdrawn or that has been answered

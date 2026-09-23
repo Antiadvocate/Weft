@@ -76,11 +76,11 @@ const psyche = (): Psyche => ({ relaxation: 0, capacity: 2, recovery: 0.18, stat
   const { s, id } = world(0.18);
   breakThem(s.condition[id].psyche);
   const line = volatileDigest(s, "she refuses to get in the car").split("\n").find((l) => l.includes("seeing:")) ?? "";
-  check("the exhaustion is reported as what reaches them", /arrives instead of being deflected/.test(line), line);
-  check("...counting the turns they have actually been braced", /braced 19 turns straight/.test(line), line);
-  check("...and says out loud that it stops short of behaviour", /up to the point where they act/.test(line), line);
+  check("the exhaustion is reported as what reaches them", /gets through instead of bouncing off/.test(line), line);
+  check("...counting the turns they have actually been braced", /clenched for 19 turns in a row/.test(line), line);
+  check("...and says out loud that it stops short of behaviour", /how they act still comes from the rest of this card/.test(line), line);
   check("A LOW CONSCIENCE STILL REACHES THE NARRATOR WHILE BROKEN",
-    /slights become personal projects/.test(line), line);
+    /holds on to every slight/.test(line), line);
   check("no rule is invoked by a name the prompt never defines", !/Mirror rule/.test(line), line);
   check("and the break_mode label, which named the wrong one, is gone", !/BROKEN \(/.test(line), line);
 }
@@ -91,9 +91,9 @@ const psyche = (): Psyche => ({ relaxation: 0, capacity: 2, recovery: 0.18, stat
   const { s, id } = world(0.8);
   breakThem(s.condition[id].psyche);
   const line = volatileDigest(s, "she refuses to get in the car").split("\n").find((l) => l.includes("seeing:")) ?? "";
-  check("a kind person breaks the same way", /arrives instead of being deflected/.test(line), line);
-  check("...but is not handed the predator's reading", !/slights become personal projects/.test(line), line);
-  check("...they get their own", /misreads as threat/.test(line), line);
+  check("a kind person breaks the same way", /gets through instead of bouncing off/.test(line), line);
+  check("...but is not handed the predator's reading", !/holds on to every slight/.test(line), line);
+  check("...they get their own", /takes things as threats/.test(line), line);
 }
 
 /* ── 3. THE DOOR HAS TO BE SOMEWHERE THE BODY CAN REACH ──────────────────────── */

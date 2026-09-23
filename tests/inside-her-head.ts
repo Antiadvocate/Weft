@@ -65,8 +65,8 @@ check("an empty field is not a finding", !narratedFromOutside(""));
  * A measurement with no instruction behind it measures a thing nobody was asked to do. */
 {
   const { INTENT_SYSTEM } = await import("../src/engine/intent");
-  check("the subject rule is stated", /THE PERSON IS THE SUBJECT OF EVERY SENTENCE/.test(INTENT_SYSTEM));
-  check("…and the same beat shown from inside her", /she wants to say yes and is frightened of what it costs her/.test(INTENT_SYSTEM));
+  check("the subject rule is stated", /In the truth field, the person is the subject of every sentence/.test(INTENT_SYSTEM));
+  check("…and the same beat shown from inside her", /she wants to say yes and she's frightened of what will happen if she does/.test(INTENT_SYSTEM));
   /* AND NOT ONE FAILING LINE IS QUOTED IN ORDER TO FORBID IT. A first draft of this rule named
    * three, and tests/prompt-echo.ts caught it — quoting a bad line attached to a prohibition puts
    * the bad line in the context, which is the same mistake as naming the form outright. Every
@@ -78,9 +78,9 @@ check("an empty field is not a finding", !narratedFromOutside(""));
   check("…and the example that taught the figure is gone",
     !/the sting of what he said has not gone/.test(INTENT_SYSTEM));
   check("the replacement example names a person and a thing owed",
-    /still wants an apology for the thing he said about her sister/.test(INTENT_SYSTEM));
-  check("plain words are asked for outright", /No figures of speech, no image standing in for a feeling/.test(INTENT_SYSTEM));
-  check("…and the card's own words are named as the source", /use the words on that person's own card/.test(INTENT_SYSTEM));
+    /still wants an apology for what he said about her sister/.test(INTENT_SYSTEM));
+  check("plain words are asked for outright", /Don't use figures of speech, don't let an image stand in for a feeling/.test(INTENT_SYSTEM));
+  check("…and the card's own words are named as the source", /use the words that fit the person on this character's card/.test(INTENT_SYSTEM));
   /* NAMING A FORM IN ORDER TO FORBID IT PUTS THE FORM IN THE CONTEXT — this engine keeps a detector
    * for that, and my first draft of this very rule tripped it by using the word outright. */
   check("and none of it names the form it is avoiding", !/\baphorism|\bmaxim|\bepigram/i.test(INTENT_SYSTEM));

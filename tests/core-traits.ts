@@ -54,7 +54,7 @@ function world(): SaveState {
   check("the player's traits are too", d.includes(PLAYER_TRAIT), d.match(/built like this.*/)?.[0]?.slice(0, 120));
   check("the player's values come with them", /Freedom/.test(d));
   check("and it is framed as the body, not their choices",
-    /built like this — render it in the body and the involuntary, never in their choices/.test(d), d.match(/built like this[^\n]*/)?.[0]?.slice(0, 90));
+    /built like this \(show it in their body and in what they do without meaning to, never in their choices\)/.test(d), d.match(/built like this[^\n]*/)?.[0]?.slice(0, 90));
   check("the NPC framing is unchanged", /\n {2}as: Devoted/.test(d), d.match(/ {2}as: [^\n]*/)?.[0]);
 }
 
@@ -72,10 +72,10 @@ function world(): SaveState {
   // BOTH contracts. The lean one is what most turns actually run on — the full contract is only
   // re-sent on an I-frame, so a rule that lives only there is a rule that applies every sixth turn.
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
-    check(`${label}: traits are declared binding`, /CORE TRAITS ARE BINDING BEHAVIOUR/.test(P));
-    check(`${label}: a trait bearing on the scene has to show`, /if a trait bears on (?:what is happening in )?this scene,? it SHOWS/i.test(P));
-    check(`${label}: the trait outranks convenience`, /where a trait and the scene's convenience disagree,? the trait wins/i.test(P));
-    check(`${label}: the player's agency is protected`, /never their decisions/i.test(P));
+    check(`${label}: traits are declared binding`, /Core traits decide behaviour/.test(P));
+    check(`${label}: a trait bearing on the scene has to show`, /If a trait is relevant(?: to what's happening)?, it shows/i.test(P));
+    check(`${label}: the trait outranks convenience`, /when a trait and the scene's convenience disagree,? the trait wins/i.test(P));
+    check(`${label}: the player's agency is protected`, /never (?:covers )?their decisions/i.test(P));
     check(`${label}: it points at the lines the digest actually emits`, /"as:"/.test(P) && /"built like this"/.test(P));
   }
 }
@@ -130,7 +130,7 @@ function world(): SaveState {
 {
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: the trait outranks the character's own log`, /since the story began/.test(P) && /the TRAIT wins|the trait wins/.test(P));
-    check(`${label}: and the reason it loses otherwise is named`, /volume|drown/.test(P));
+    check(`${label}: and the reason it loses otherwise is named`, /overlook|crowd the trait out/.test(P));
   }
 }
 
@@ -180,22 +180,22 @@ function world(): SaveState {
     ["sketch", SKETCH_SYSTEM],
   ];
   for (const [label, P] of paths) {
-    check(`${label}: asks where they are from`, /where they are from/i.test(P), label);
-    check(`${label}: asks for a named trade or body of knowledge`, /trade or body of knowledge/i.test(P), label);
+    check(`${label}: asks where they are from`, /where (?:they are|they're) from/i.test(P), label);
+    check(`${label}: asks for a named trade or body of knowledge`, /(work or knowledge|trade or body of knowledge)/i.test(P), label);
     check(`${label}: asks for something unconnected to the player`, /(unconnected to the player|NOTHING to do with the story|nothing to do with the player)/i.test(P), label);
-    check(`${label}: asks for texture unrelated to their role`, /(unrelated to their trade|nothing to do with their trade)/i.test(P), label);
+    check(`${label}: asks for texture unrelated to their role`, /(unrelated to their (trade|work)|nothing to do with their (trade|work))/i.test(P), label);
     check(`${label}: asks for skills`, /skills/i.test(P), label);
   }
   check("the forge names the failure it is preventing",
-    /can talk about one subject, and every scene with them is the same scene/.test(FORGE_SYSTEM));
+    /gives them only one thing to talk about/.test(FORGE_SYSTEM));
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: texture is no longer confined to quiet scenes`, !/texture:" quiet scenes only|quiet scenes only\./.test(P), label);
     // "conversational range" named a quality; both contracts now say what to DO with the field —
     // it is the list of subjects this person has, and one of them gets used this turn.
     check(`${label}: texture is the list of subjects this person has`,
-      /the subjects available to this person|raises? (?:these )?unprompted|brings up unprompted/i.test(P), label);
+      /the subjects this person has|the subjects available to this person|raises? (?:these )?unprompted|brings up unprompted/i.test(P), label);
     check(`${label}: ...and it has to reach the page`,
-      /something to say this turn that is not about the plot and not about the player/i.test(P), label);
+      /something to say this turn that isn't about the plot or the player/i.test(P), label);
   }
 }
 

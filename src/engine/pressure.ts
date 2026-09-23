@@ -280,7 +280,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   let { heat, source } = fictionHeat(input.threads, input.clocks, input.consequences, input.turn, input.now, input.recentSources, input.gone);
   if (input.instability) {
     heat = Math.min(10, heat + input.instability * 2);
-    if (input.instability >= 1) source = source === "quiet — the world breathes" ? "the undertow — the world is primed" : source + " (amplified by the undertow)";
+    if (input.instability >= 1) source = source === "quiet — nothing pressing" ? "tension in the background, and the world is unsettled" : source + " (amplified by background tension)";
   }
   const due = input.consequences.find((c) => isDue(c, input.turn, input.now));
   if (due && due.severity !== "minor") band = Math.max(band, due.severity === "major" ? 3 : 2);
@@ -330,7 +330,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   return {
     pressure: capped,
     band: BAND_NAMES[band],
-    source: band === 0 ? "quiet — the world breathes" : source,
+    source: band === 0 ? "quiet — nothing pressing" : source,
     due_consequence: due,
     focus_event: input.focusLabel ?? null,
     focus_mode: input.focusMode ?? null,
@@ -466,7 +466,7 @@ const REST_PALETTE_STARVED = 12;
  * sat below it.
  *
  * WHAT THAT COST, from a save: nineteen turns, four palette lines, tension 0. Every telemetry row
- * reads beat "none" and source "quiet — the world breathes"; pressure_state.last_beat_turn is 0 and
+ * reads beat "none" and source "quiet — nothing pressing"; pressure_state.last_beat_turn is 0 and
  * its recent list is empty. The world never pressed once. Run that save's own palette through this
  * selector at tension 5 and it comes back kind "palette" on twelve rolls in twenty. The lines were
  * live, well-formed and correctly wired; they were unreachable. Meanwhile pressureDirective was
@@ -1010,36 +1010,36 @@ function beatBody(beat?: Beat): string {
   // A missing beat used to emit NO LINE AT ALL, which the narrator reads as permission rather
   // than as silence — and with the genre paragraph telling it that a quiet stretch is a failure
   // to fix, it fills the vacuum with raiders. Absence of a source is a constraint, not a gap.
-  if (!beat) return "NO SOURCE FOR THIS TURN. Nothing new arrives or develops from outside; the scene runs on the people already in it.";
+  if (!beat) return "NOTHING FROM OUTSIDE THIS TURN. Nothing new arrives or develops from outside the scene, and the scene runs on the people who are already in it.";
   // SOURCE-DRIVEN: the world may only press through what already exists. No beat, no incident.
   switch (beat.kind) {
     case "none":
-      return "NO NEW INCIDENT THIS TURN — no rider, no messenger, no alarm, no smoke, no sail, no armed men, no summons, no discovery, no one appearing at a door. The scene runs on the present characters' own wants and reactions; people acting on what they want IS the scene, and quiet is correct rather than a failure. THIS IS NOT A CHANGE OF SETTING. Whatever is permanently true of this world is still true and still on the page — its weather, its ruin, its dead, its dark, whatever the people here have to keep doing to stay alive. A world where the danger is the ordinary condition does not become a safe one because nothing new happened; it is simply not interrupted this turn. Withhold the EVENT, never the place.";
+      return "NO NEW INCIDENT THIS TURN: no rider, no messenger, no alarm, no smoke, no sail on the horizon, no armed men, no summons, no discovery, and nobody turning up at a door. The scene runs on what the characters present want and how they react, because people acting on what they want is the scene, and a quiet turn is right here, not a failure. This doesn't change the setting. Whatever is always true of this world is still true and still on the page, whether that's its weather, its ruins, its dead, its darkness, or whatever the people here have to keep doing to stay alive. A world where danger is the normal state of things doesn't become safe because nothing new happened; it just isn't interrupted this turn. Leave out the event, but never leave out the place.";
     case "reminder":
-      return `REMINDER BEAT — a touch on the sleeve. Let the standing weight of "${beat.ref}" brush the scene once, lightly: a message arriving, a name overheard, a look that closes, distant sound. It demands NOTHING and interrupts nothing; it is felt and the scene continues.`;
+      return `A SMALL REMINDER. Let the ongoing weight of "${beat.ref}" touch the scene once, lightly, like a message arriving, a name overheard, a look that shuts, or a sound in the distance. It asks nothing of anyone and interrupts nothing, and the scene carries on.`;
     case "consequence":
-      return `A scheduled consequence reaches the scene NOW: ${beat.ref}. It arrives through the people and stakes already established — never from thin air.`;
+      return `A consequence that was scheduled reaches the scene now: ${beat.ref}. It arrives through people and stakes that are already established, never out of nowhere.`;
     case "clock":
       if (beat.young) {
-        return `A SIGN. Something in this world is moving that the player does not know about yet, and one visible trace of it reaches this scene: ${(beat.signs ?? []).join("; ")}. Put ONE of those on the page as a thing that is simply there — witnessed in passing, somewhere in the middle of the turn. Nobody in the scene knows what it means, nobody remarks on its significance, and nobody investigates: they see it and read it however their own life tells them to, or do not react at all. It demands nothing, interrupts nothing, and answers nothing. Do NOT escalate it, do not explain it, and do not have anyone name the thing behind it.`;
+        return `A SIGN. Something in this world is moving that the player doesn't know about yet, and one visible trace of it reaches this scene: ${(beat.signs ?? []).join("; ")}. Put one of those on the page as something that's simply there, noticed in passing, somewhere in the middle of the turn. Nobody in the scene knows what it means, nobody comments on its importance, and nobody investigates. They see it and make of it whatever their own life tells them to, or they don't react at all. It asks nothing, interrupts nothing and answers nothing. Don't build it up, don't explain it, and don't have anyone name what's behind it.`;
       }
-      return `PRESSURE BEAT from a maturing faction clock — "${beat.ref}"${
+      return `PRESSURE FROM A FACTION WHOSE PLAN IS COMING TO A HEAD: "${beat.ref}"${
         typeof beat.filled === "number" && beat.segments ? `, ${beat.filled} of ${beat.segments} of the way to happening` : ""
       }.${
         beat.signs?.length
-          ? `\nWHAT A PERSON HERE WOULD ACTUALLY SEE OF IT — put at least one of these ON THE PAGE this turn, as a thing that happens where the player is standing: ${beat.signs.join("; ")}. Nobody in the scene knows what it is FOR; they see the sign and read it however their own life tells them to.`
+          ? `\nWHAT SOMEONE HERE WOULD ACTUALLY SEE OF IT. Put at least one of these on the page this turn, as something that happens where the player is standing: ${beat.signs.join("; ")}. Nobody in the scene knows what it's for. They see the sign and make of it whatever their own life tells them to.`
           : ""
-      } Advance it concretely into the player's awareness through established characters or their works. Named, traceable, earned — and POSSIBLE under the world bible: an institution moves at the speed of its actual machinery (meetings, couriers, votes, shifts). A loose federation without internet cannot coordinate overnight; when an objective outruns what the world could physically do in the elapsed time, the clock stalls on its own logistics instead.`;
+      } Move it concretely into what the player can notice, through characters already established or things they've made. It should be named, traceable to its cause, and earned, and it has to be possible under the rules of this world. An organisation moves at the speed of how it really works, through meetings, couriers, votes and shifts. A loose federation without the internet can't coordinate overnight, so when a plan outruns what the world could physically do in the time that has passed, the clock stalls on its own practical problems instead.`;
     case "palette":
       return beat.quiet
-        ? `THE STORY'S OWN SUBJECT TOUCHES THE SCENE, lightly and unprompted: ${beat.ref}. Once, small, in the middle of the turn — the player did not ask for it and nobody in the room brings it up as a topic. It happens TO them and the scene carries on.`
-        : `THE ENGINE OF THIS STORY PRESSES, NOW: ${beat.ref}. This is what the player said this world runs on, and this turn is one of the turns it runs. It is UNPROMPTED — it does not wait for the player to raise it, ask about it, or steer toward it, and it is not a reply to what they just did. Render it CONCRETELY and in the present scene: in the room the characters are actually standing in, through the bodies actually there, in the terms this world uses for it. The thing itself, happening, on the page, in front of them.`;
+        ? `WHAT THIS STORY IS ABOUT TOUCHES THE SCENE, lightly and without being prompted: ${beat.ref}. It happens once, in a small way, in the middle of the turn. The player didn't ask for it, and nobody in the room brings it up as a subject. It happens to them, and the scene carries on.`
+        : `THE STORY'S MAIN PRESSURE ARRIVES NOW: ${beat.ref}. The player listed this as what the story is about, and this turn it happens. Nobody prompts it: it doesn't wait for the player to bring it up, ask about it or steer toward it, and it isn't a response to what they just did. Write it concretely, in the present scene, in the room the characters are actually standing in, through the people who are actually there, and in the terms this world uses for it. The thing itself happens on the page, in front of them.`;
     case "thread":
-      return `PRESSURE BEAT from the open thread "${beat.ref}". The thread moves — a development in it reaches the player through established people or places. No new subplot; this one advances.`;
+      return `PRESSURE FROM THE OPEN THREAD "${beat.ref}". The thread moves forward: something new in it reaches the player through people or places already established. Don't start a new subplot; move this one along.`;
     case "agent":
-      return `PRESSURE BEAT from a person: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that touches the player's orbit — a visit, a message, a move made through others. Their action follows THEIR logic and state, whatever that costs the plot.`;
+      return `PRESSURE FROM A PERSON: ${beat.ref} acts on their goal ("${(beat as any).goal}") in a way that reaches the player, whether that's a visit, a message, or something done through other people. What they do follows their own reasoning and state, even if it gets in the way of the plot.`;
     case "exogenous":
-      return `EXOGENOUS EVENT (rare by design): something from outside the story's standing threads happens NEAR the player, with somebody else on the receiving end of it. It may seed a new thread they can pull or ignore; it demands no response. Real life's accidents happen beside you.`;
+      return `SOMETHING FROM OUTSIDE (this is meant to be rare): something unconnected to the story's ongoing threads happens near the player, and it happens to somebody else. It might start a new thread the player can follow or ignore, and it doesn't need any response. In real life, accidents happen next to you.`;
   }
   return "";
 }
@@ -1060,30 +1060,30 @@ export function pressureDirective(v: PressureVerdict, palette?: string[], tensio
     // unprompted and carried past — so the rest-state promise is kept by the beat itself rather
     // than by a paragraph arguing with it.
     if (beat?.kind === "palette") {
-      lines.push(`TENSION 0 \u2014 THE WORLD IS AT REST, and the engine invents nothing this turn: no new threat, no new complication, no arrival, no background development, and nobody present manufactures a confrontation or corners the player with a demand. The one exception is what the player wrote this story to run on, which is not the engine inventing anything, and at rest it arrives small, once, and carried past${deferBeat ? " \u2014 it is described at the end of this document" : ""}.`);
+      lines.push(`TENSION 0. THE WORLD IS AT REST, and nothing gets invented this turn: no new threat, no new complication, no arrival and no development in the background, and nobody present starts a confrontation or corners the player with a demand. The one exception is what the player wrote this story to be about, which isn't the engine inventing anything, and while the world is at rest it arrives small, once, and in passing${deferBeat ? " — it is described at the end of this document" : ""}.`);
       if (!deferBeat) lines.push(beatBody(beat));
-      if (v.due_consequence) lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
+      if (v.due_consequence) lines.push(`A consequence that was scheduled reaches the scene now: ${v.due_consequence.description}`);
       return lines.join("\n");
     }
-    lines.push("TENSION 0 \u2014 THE WORLD IS AT REST. Do NOT introduce any new threat, problem, complication, arrival, or background development. Nothing new presses on the player this turn. Render the scene and the people in it responding naturally to what the player does \u2014 let it breathe. A quiet, uneventful beat is not only allowed, it is correct. Only continue something the player themselves set in motion. Present characters may still exist and respond, but at rest-tension they do NOT manufacture a confrontation, escalate, corner the player with a demand, or turn the scene into a moral challenge or debate \u2014 if the player wants solitude or quiet, the world grants it and the people present settle, disengage, or leave them be rather than pressing an agenda.");
+    lines.push("TENSION 0. THE WORLD IS AT REST. Don't bring in any new threat, problem, complication, arrival or background development, so that nothing new puts pressure on the player this turn. Write the scene and have the people in it respond naturally to what the player does, and give it room. A quiet turn where nothing much happens isn't just allowed, it's right. Only carry on with something the player set in motion themselves. The characters present still exist and still respond, but while the world is at rest they don't start a confrontation, escalate things, corner the player with a demand, or turn the scene into a moral challenge or a debate. If the player wants to be alone or wants quiet, the world lets them have it, and the people present settle down, drift off or leave them alone instead of pushing their own agenda.");
   } else if (!deferBeat) {
     // WHEN THE CALLER PLACES THE BEAT ITSELF, IT IS NOT ALSO SAID HERE. Two copies of the same
     // instruction in one prompt is worse than one in the wrong place: the narrator reads the
     // repetition as emphasis on the paragraph it can see best, which is the last one anyway.
     lines.push(beatBody(beat));
   }
-  if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A scheduled consequence reaches the scene NOW: ${v.due_consequence.description}`);
-  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building toward "${v.focus_event}"): bend this scene toward it; keep motion moving steadily in its direction. Do NOT introduce new unrelated threats, subplots, or chaos that would sideline it; let smaller frictions resolve quickly so the throughline stays clear. The player is driving toward this — honor it.`);
-  if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now inside "${v.focus_event}"): the event has arrived — this is the situation now. Stakes are high and immediate; let consequences hit hard and fast within this event. Keep the scene centered on it; do not wander off into unrelated calm.`);
+  if (v.due_consequence && beat?.kind !== "consequence") lines.push(`A consequence that was scheduled reaches the scene now: ${v.due_consequence.description}`);
+  if (v.focus_event && v.focus_mode === "build") lines.push(`FOCUS (building up to "${v.focus_event}"): steer this scene toward it and keep moving steadily in that direction. Don't bring in new, unrelated threats, subplots or chaos that would push it aside, and let smaller frictions settle quickly so the main line stays clear. The player is heading toward this, so respect that.`);
+  if (v.focus_event && v.focus_mode === "active") lines.push(`FOCUS (now in the middle of "${v.focus_event}"): the event has arrived, and this is the situation now. The stakes are high and immediate, so let consequences land hard and fast within it. Keep the scene centred on it, and don't drift off into unrelated calm.`);
   // Tier nudge (NOT a behavior script): at high power, a martial/institutional threat against the
   // protagonist is a category error. We don't prescribe how mortals act — that emerges from their
   // own state (terror pins relaxation low; a clenched person flatters, lies, schemes, capitulates
   // through the perception gate). We only steer the narrator off the wrong reflex.
   if ((tension ?? 5) > 0) {
     if (tier === "cosmic") {
-      lines.push(`The protagonist is beyond any threat this world can field, and everyone present knows it. Do not invent martial or institutional threats against them (no troops sent, no hunters dispatched, no "the Empire is coming") — that is a category error. Pressure here is the mortals' own reaction to power they cannot resist. That reaction is NOT automatically fear or opposition: people who cannot resist a power also court it, claim it, follow it, sell access to it, ask it for things, or build a life in its shadow, and what any given person does comes from their own state, their standing with the player, and what they want — never from a script that assumes the powerful are resented.`);
+      lines.push(`The main character is beyond any threat this world can put up, and everyone present knows it. Don't invent military or official threats against them, like troops sent, hunters dispatched, or "the Empire is coming", because that makes no sense against someone like this. Here the pressure comes from how ordinary people react to power they can't resist. That reaction isn't automatically fear or opposition. People who can't resist a power also court it, claim it, follow it, sell access to it, ask it for things, or build a life in its shadow. What any particular person does comes from their own state, where they stand with the player and what they want, never from a script that assumes powerful people are resented.`);
     } else if (tier === "mythic") {
-      lines.push(`The protagonist outclasses ordinary threats and the people near them sense it. A direct martial challenge should be rare and only if genuinely novel — and a KIND of attacker the player has already beaten does not get to try again the same way. Men who watched their fellows lose to this person do not charge him; they hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating a losing attack is the world failing to learn. That list is how HOSTILE parties adapt, and it covers only them: people with no quarrel with the player, or who have been helped by them, respond by seeking them out, asking, petitioning, following, or trading on the connection. Otherwise pressure is consequence and reaction, drawn from each character's own state.`);
+      lines.push(`The main character is more than a match for ordinary threats, and the people near them can sense it. A direct physical challenge should be rare and only happen if it's really something new, and a kind of attacker the player has already beaten doesn't get to try the same thing again. Men who watched their friends lose to this person don't charge at him. They hang back, negotiate, bring someone with authority, poison the well, take a hostage, or leave. Repeating an attack that already failed would mean the world hadn't learned anything. That list is only how hostile people adapt. People who have no quarrel with the player, or who have been helped by them, respond by looking for them, asking them for things, petitioning them, following them, or trading on the connection. Apart from that, the pressure comes from consequences and reactions, based on each character's own state.`);
     }
   }
   // THE GENRE'S OWN PRESSURES, ALWAYS. This line used to sit in the tier chain's `else`, so a
@@ -1231,7 +1231,7 @@ export function dischargeFiredClocks(state: SaveState, turn: number): string[] {
             status: "pending",
           });
         }
-        shifts.push(`${c.faction}'s clock has run out — what it promised is coming.`);
+        shifts.push(`${c.faction}'s clock has run out, and what it was counting down to is coming.`);
       }
     }
   }

@@ -69,7 +69,7 @@ const prompt = \`Match the register of the story you are given and keep the tone
   // The heading this probes for was renamed: asking for a line UNSAYABLE BY ANYONE ELSE is what
   // produced the withheld-fact line ("He knows what he did"), which gets its weight by naming
   // nothing. It now asks for unmistakable contents in an ordinary shape. Same corpus, same point.
-  check("...including the rules for the lines the narrator imitates", /UNMISTAKABLE IN WHAT IT NAMES/.test(vf));
+  check("...including the rules for the lines the narrator imitates", /What makes it theirs is what it mentions/.test(vf));
 }
 
 /* ── 2. the three shapes ─────────────────────────────────────────────────────── */
@@ -104,15 +104,15 @@ const prompt = \`Match the register of the story you are given and keep the tone
     check(`no longer shipped: "${gone}"`, !prompts.includes(gone));
   }
   // ...and the procedure that replaced them is
-  check("the five state questions are asked", /WHAT THEY WANT IN THE NEXT MINUTE/.test(prompts) && /WHAT THEY KNOW/.test(prompts));
+  check("the five state questions are asked", /First, what they want out of the next minute/.test(prompts) && /Second, what they know/.test(prompts));
   check("...including the one that produced the Segway failure",
-    /WHAT THEIR LIFE HAS GIVEN THEM WORDS FOR/.test(prompts));
+    /Fifth, what they have words for/.test(prompts));
   check("the things writing removes are put back as actions, not adjectives",
-    /Let them stop before the end of a sentence/.test(prompts) && /Let one line come out badly/.test(prompts));
+    /let them stop before the end of a sentence/.test(prompts) && /(?:say one line badly|one line comes? out badly)/.test(prompts));
   // THE WHOLE FIX, and the reason it can be genre-agnostic: an aphorism names nothing in the room,
   // so requiring every line to name something present excludes it without introducing the concept.
   check("and the requirement is positive, naming no form it wants avoided",
-    /IT NAMES SOMETHING IN THIS ROOM/.test(prompts));
+    /Every line needs to be about something specific/.test(prompts));
   check("which leaves a character free to be wise about the thing in front of them",
     !/no aphorism|no proverb|not a maxim/i.test(prompts.split("WRITING A LINE OF DIALOGUE")[1]?.slice(0, 2200) ?? ""));
 }

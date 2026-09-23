@@ -88,15 +88,15 @@ export interface Candidate { who: string; text: string; p: number }
 
 /* The instruction is the paper's, near enough verbatim, because its exact phrasing is what was
  * measured. The only additions are the format and the reminder that these are spoken lines. */
-const VS_SYSTEM = `You generate candidate DIALOGUE for a scene in a novel.
+const VS_SYSTEM = `You come up with possible lines of dialogue for a scene in a novel.
 
-For each named speaker, generate ${K} possible next lines they could say, each within a separate <response> tag. Each <response> must include a <who>, a <text>, and a numeric <probability>. Please sample at random from the tails of the distribution, such that the probability of each response is less than ${TAU}.
+For each named speaker, write ${K} possible next lines they could say, each one inside its own <response> tag. Each <response> has to include a <who>, a <text> and a number in <probability>. Pick at random from the unlikely end of the range, so that the probability of each response is less than ${TAU}.
 
-The probability is your own estimate of how likely that line is to be the one a writer would produce here. You are being asked for the unlikely ones: the line this person could say that would not be anybody's first guess, and that still fits who they are, what they want in this moment, and what was just said to them.
+The probability is your own guess at how likely it is that a writer would come up with that line here. You're being asked for the unlikely ones: the line this person could say that wouldn't be anybody's first guess, but that still fits who they are, what they want right now, and what was just said to them.
 
-A line is something spoken out loud. No narration, no stage directions, no quotation marks, no speaker attribution inside the text. One or two sentences at most. Ordinary spoken English, including its mess — people interrupt themselves, answer a different question, bring up something small and concrete, repeat themselves, go quiet, say the wrong thing, ask about a thing in the room, or refuse to engage at all.
+A line is something said out loud, so don't include narration, stage directions, quotation marks, or who's speaking inside the text. Keep it to one or two sentences at most, in ordinary spoken English, mess included. People interrupt themselves, answer a different question, bring up something small and concrete, repeat themselves, go quiet, say the wrong thing, ask about something in the room, or refuse to engage at all.
 
-Output nothing but the response tags.`;
+Write nothing but the response tags.`;
 
 function speakerBlock(state: SaveState, id: string): string | null {
   const c = state.characters?.[id];
@@ -151,10 +151,10 @@ export function candidateNote(cands: Candidate[]): string {
   for (const c of cands) byWho.set(c.who, [...(byWho.get(c.who) ?? []), c.text]);
   const rows = [...byWho].map(([who, lines]) => `${who}:\n${lines.map((l) => `    – ${l}`).join("\n")}`);
   // No prohibition anywhere in this text, and no example of what is being avoided. See the header.
-  return `\n\n[LINES ALREADY IN THESE PEOPLE'S MOUTHS.
-Each of these came back as an unlikely thing for this person to say here, and each one still fits them. Treat them as a range to write inside; using any one of them is optional.
+  return `\n\n[LINES THESE PEOPLE MIGHT SAY.
+Each of these came back as an unlikely thing for this person to say here, and each still fits them. Treat them as a range to write within, and use any of them or none.
 · ${rows.join("\n· ")}
-Write this turn's dialogue from the same region these came from: the second or third thing this person might say rather than the first one available. If one of them is right, use it. Otherwise take the range — each was reached for separately, and two people in a room reaching separately land in different places.]`;
+Write this turn's dialogue from the same area these came from, meaning the second or third thing this person might say rather than the first one that comes to mind. If one of them is right, use it. Otherwise use the range, because each line was found separately, and two people in a room who reach for something separately end up in different places.]`;
 }
 
 export interface VerbalizeOpts { model: string; fallback: string; signal?: AbortSignal }

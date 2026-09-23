@@ -61,10 +61,10 @@ function world(): { s: SaveState; her: string } {
   // and their ages, for the same reason and after the same failure: an age the bookkeeper took from
   // the prose instead of the record is how a corrected profile gets un-corrected in the ledger
   check("so is everyone's age", /Rabi=char_player \(he\/him, age 30\)/.test(roster) && /Marcella=\S+ \(she\/her, age 30\)/.test(roster), roster);
-  check("and the ages bind what it writes too", /ages above are BINDING/.test(ctx));
+  check("and the ages bind what it writes too", /ages above apply in the same way/.test(ctx));
   check("the ids the diff must write to are still there", /char_player/.test(roster) && /=char_/.test(roster), roster);
-  check("it is told they bind what it writes", /BINDING for every line you write/.test(ctx));
-  check("...and told why the prose cannot supply the player's", /second person and never genders them/.test(ctx));
+  check("it is told they bind what it writes", /Use the pronouns above in everything you write/.test(ctx));
+  check("...and told why the prose cannot supply the player's", /addresses the player as "you" and never shows their gender/.test(ctx));
   check("life_history and memories are named, since that is where it landed", /memories, life_history/.test(ctx));
 }
 
@@ -86,13 +86,13 @@ function world(): { s: SaveState; her: string } {
   const turn = readFileSync("src/engine/turn.ts", "utf8");
   check("the reflection pass names the subject's own set", /Character: \$\{state\.characters\[id\]\?\.name\}\$\{state\.characters\[id\]\?\.pronouns/.test(turn));
   check("and every person it holds a standing with", /const who = `\$\{oc\.name\}\$\{oc\.pronouns/.test(turn));
-  check("and is told a belief is permanent", /PRONOUNS ARE BINDING/.test(turn));
+  check("and is told a belief is permanent", /Get the pronouns right/.test(turn));
 }
 
 /* ── 4. the narrator was never the problem and is unchanged ───────────────────── */
 {
   const prompts = readFileSync("src/engine/prompts.ts", "utf8");
-  check("the narrator still carries its own binding rule", /The pronouns printed beside each name are BINDING/.test(prompts));
+  check("the narrator still carries its own binding rule", /The pronouns printed beside each name apply/.test(prompts));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

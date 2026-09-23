@@ -69,19 +69,19 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   const d = becomingDirective(s);
   check("the world is told what it is turning into", /WHAT THIS WORLD IS TURNING INTO/.test(d), d);
   check("...carrying the claim", d.includes(CLAIM));
-  check("the block is framed as mandatory", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d), d);
-  check("...and refuses every excuse by name", /too busy for it, that the conversation matters more, or that it would land better later/.test(d));
-  check("...and leaves no version of the turn without it", /There is no version of this turn in which none of it can be seen/.test(d));
-  check("...and says the count is a deadline", /THE COUNT IS A DEADLINE/.test(d));
-  check("each beat is an event with a cause", /Each beat is an EVENT with a cause/.test(d));
-  check("the world acts on its own", /THE WORLD DOES THIS NOW, on its own, without anybody deciding it/.test(d));
-  check("the end state is not named", /DO NOT NAME THE END STATE/.test(d));
-  check("...and nobody in it understands the shape", /no character understands the shape of it/.test(d));
+  check("the block is framed as mandatory", /Every line here goes on the page this turn/.test(d), d);
+  check("...and refuses every excuse by name", /too busy for it, that the conversation matters more, or that it would work better later/.test(d));
+  check("...and leaves no version of the turn without it", /some of it has to be visible this turn/.test(d));
+  check("...and says the count is a deadline", /The number of turns is a deadline/.test(d));
+  check("each beat is an event with a cause", /Each moment is an event with a cause/.test(d));
+  check("the world acts on its own", /THE WORLD NOW DOES THIS on its own, without anybody deciding it/.test(d));
+  check("the end state is not named", /Don't say where it's heading/.test(d));
+  check("...and nobody in it understands the shape", /no character understands the overall pattern/.test(d));
 
   check("early on it is deniable", /could still be explained away/.test(becomingDirective(world(false, 8).s)));
   const near = world(false, 4); near.s.becomings[0].remaining = 1;
-  check("at the end the whole change completes", /THE LAST TURN OF IT/.test(becomingDirective(near.s)), becomingDirective(near.s));
-  check("...in full, on the page", /the whole change completing, physically, where somebody can see it/.test(becomingDirective(near.s)));
+  check("at the end the whole change completes", /STAGE FIVE: THE LAST STEP/.test(becomingDirective(near.s)), becomingDirective(near.s));
+  check("...in full, on the page", /the whole change finishes physically where somebody can see it/.test(becomingDirective(near.s)));
 
   check("nothing at all when there is nothing coming", becomingDirective(newSave("x", { name: "V" } as any) as any) === "");
 }
@@ -90,7 +90,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 {
   check("in ordinary play their resistance fails", /Write their resistance honestly and write it failing/.test(becomingDirective(world(false).s)));
   check("...without the world gloating", /without anyone gloating/.test(becomingDirective(world(false).s)));
-  check("in god mode it costs the world a turn", /they can cost it a turn, never the outcome/.test(becomingDirective(world(true).s)));
+  check("in god mode it costs the world a turn", /can delay it by a turn, but they can't change how it ends/.test(becomingDirective(world(true).s)));
 }
 
 /* ── 4. the clock is a clock ──────────────────────────────────────────────────── */
@@ -105,17 +105,17 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
 
   const out = applyBecomingProgress(s, 7, report({ moved: false }));
   check("a turn the prose skipped ALSO spends a turn", b.remaining === 2, b);
-  check("...and says so plainly", /did not show this turn — it lands on schedule anyway, 2 turns to go/.test(out.shifts[0] ?? ""), out.shifts);
+  check("...and says so plainly", /didn't show up this turn, but it arrives on schedule anyway, 2 turns to go/.test(out.shifts[0] ?? ""), out.shifts);
   check("...and is counted as behind", b.stalled === 1 && b.moved === 1);
 
   applyBecomingProgress(s, 8, report({ moved: false }));
-  check("...and the narrator is told it is behind, not that it is frozen", /THIS HAS NOT REACHED THE PAGE FOR 2 TURNS while its clock ran/.test(becomingDirective(s)), becomingDirective(s));
+  check("...and the narrator is told it is behind, not that it is frozen", /This hasn't appeared in the prose for 2 turns while its clock kept running/.test(becomingDirective(s)), becomingDirective(s));
   const behind = becomingBehind(s);
-  check("...and gets a second, louder block of its own", /THIS WAS ORDERED AND THE TURNS CAME BACK WITHOUT IT/.test(behind), behind);
-  check("...naming the count and what is left", /ordered for 2 turns and absent from all of them; 1 turn left/.test(behind), behind);
-  check("...and putting it in the opening lines", /WRITE IT FIRST THIS TURN/.test(behind));
+  check("...and gets a second, louder block of its own", /THIS WAS ASKED FOR, AND THE TURNS CAME BACK WITHOUT IT/.test(behind), behind);
+  check("...naming the count and what is left", /asked for in the last 2 turns and left out of all of them, and there is 1 turn left/.test(behind), behind);
+  check("...and putting it in the opening lines", /write it first this turn/.test(behind));
   check("...with no second block while it is keeping up", becomingBehind(world(false, 4).s) === "");
-  check("...and told to make the ground up", /further along than one step would have left it/.test(becomingDirective(s)));
+  check("...and told to make the ground up", /further along than a single step would have taken it/.test(becomingDirective(s)));
 
   // no report from the bookkeeper does not stop the world either
   const quiet = world(false, 3);
@@ -134,13 +134,13 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("the clock runs out", b.remaining === 0 && b.arrived_turn === 7);
   check("it becomes canon", s.world.canon.includes(CLAIM), s.world.canon);
   check("...stamped with when and who saw it", !!s.world.canon_meta?.[CLAIM.toLowerCase()]);
-  check("...and the player is told", /is true of this world now/.test(out.shifts[0] ?? ""), out.shifts);
+  check("...and the player is told", /is now true of this world/.test(out.shifts[0] ?? ""), out.shifts);
   check("it is no longer live", liveBecomings(s).length === 0);
   check("...so the approach directive stops", becomingDirective(s) === "");
 
   const a = arrivalDirective(out.arrived);
-  check("the turn after says it on the page", /THIS IS TRUE NOW, IN THIS TURN, AND FROM HERE ON/.test(a), a);
-  check("...and then it stops being news", /it is not news and it is not a subject/.test(a));
+  check("the turn after says it on the page", /THIS IS TRUE NOW, FROM THIS TURN ON/.test(a), a);
+  check("...and then it stops being news", /From now on this is simply how the world is/.test(a));
   check("nothing to announce, nothing said", arrivalDirective([]) === "");
 
   // IT LANDS ON THE TURN THE PLAYER SET, whether or not the prose ever kept up. The last turn's
@@ -165,7 +165,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   check("in god mode the player holds the clock still", b.remaining === 4 && b.repudiations === 1, b);
   check("...and it does not count as progress", b.moved === 0);
   check("...and the player is told it is still coming", /still coming/.test(out.shifts[0] ?? ""), out.shifts);
-  check("...and the narrator is told to come from elsewhere", /from a direction they did not block/.test(becomingDirective(s)));
+  check("...and the narrator is told to come from elsewhere", /from a direction they didn't block/.test(becomingDirective(s)));
 
   const mortal = world(false, 4);
   applyBecomingProgress(mortal.s, 6, report({ moved: true, opposed: true }));
@@ -178,9 +178,9 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   const { s } = world();
   const ask = becomingAsk(s);
   check("it is asked, by claim", ask.includes(CLAIM));
-  check("...to judge by meaning", /Judge by what the turn MEANS, whichever words it used/.test(ask));
-  check("...with discussing it explicitly not counting", /only mentioned it, worried about it, or discussed it did NOT move it/.test(ask));
-  check("...and to answer for every line", /Report every line, including the ones nothing happened to/.test(ask));
+  check("...to judge by meaning", /Judge by what the turn means, whatever words it used/.test(ask));
+  check("...with discussing it explicitly not counting", /only mentioned it, worried about it or talked about it didn't move it/.test(ask));
+  check("...and to answer for every line", /Report on every line, including the ones where nothing happened/.test(ask));
   check("nothing asked when nothing is coming", becomingAsk(newSave("x", { name: "V" } as any) as any) === "");
 }
 
@@ -219,11 +219,11 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
    * instructions, so becomingLaw now emits two blocks. The ordinary-condition assertions above are
    * unchanged and live in tests/becoming-unshown.ts against a becoming with moved > 0. */
   const law = becomingLaw(s);
-  check("a claim that never reached the page gets its own block", /NEVER ONCE ON THE PAGE/.test(law), law);
+  check("a claim that never reached the page gets its own block", /NEVER ONCE SHOWN IN THE PROSE/.test(law), law);
   check("...carrying the claim", law.includes(CLAIM));
-  check("...and this turn has to render it", /WRITE IT HAPPENING, THIS TURN/.test(law), law);
+  check("...and this turn has to render it", /Write it happening this turn/.test(law), law);
   check("nobody is startled by it, because it is canon", /nobody is startled/.test(law), law);
-  check("...and it may not be alluded to as already understood", /cannot be alluded to, assumed, or referred to/.test(law));
+  check("...and it may not be alluded to as already understood", /can't be hinted at, taken for granted, or mentioned/.test(law));
   check("it is NOT called old and beneath comment", !/beneath comment/.test(law), law);
   check("...nor kept visible only in what people do", !/visible only in what people do without thinking/.test(law), law);
 
@@ -237,7 +237,7 @@ const report = (over: any = {}) => [{ claim: CLAIM, moved: false, ...over }];
   const { s: s2 } = world(false, 1);
   applyBecomingProgress(s2, 6, report({ moved: false }));
   check("an arrived becoming is still asked about", becomingAsk(s2).includes(CLAIM), becomingAsk(s2));
-  check("...under a heading that covers both", /TURNING INTO, OR HAS TURNED INTO/.test(becomingAsk(s2)));
+  check("...under a heading that covers both", /TURNING INTO, OR HAS ALREADY TURNED INTO/.test(becomingAsk(s2)));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

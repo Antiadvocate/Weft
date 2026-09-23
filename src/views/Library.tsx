@@ -89,12 +89,12 @@ export default function Library({ onOpen, onForge, onCreated }: {
                     style={{ color: "var(--text-hi)", borderBottom: "1px solid var(--line)" }}
                     rows={4}
                     autoFocus
-                    placeholder={"Tell it what kind of trouble you want, who it comes from, and what it costs you. \n\ne.g. \"A rival power has been building in the south while I sat still \u2014 someone I can't simply kill, with an army and a claim. I want a war I can lose ground in, not a mood piece about how lonely I am.\""}
+                    placeholder={"Tell it what kind of conflict you want and who it comes from. \n\ne.g. \"A rival power has been building in the south while I sat still \u2014 someone I can't simply kill, with an army and a claim. I want a war I can lose ground in, not a mood piece about how lonely I am.\""}
                     value={brief}
                     onChange={(e) => setBrief(e.target.value)}
                   />
                   <div className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
-                    Binding on the threads, the opening and the time skip. Leave it blank and the forge decides on its own.
+                    The forge follows this when it writes the threads, the opening and the time skip. Leave it blank and the forge decides on its own.
                   </div>
                   <div className="flex gap-2 pt-1">
                     <button className="chip chip-accent" onClick={() => forkSeason(s.id, brief)}>
@@ -127,7 +127,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
           <div className="min-w-0">
             <div className="font-display text-[16px]">The Forge — build your own</div>
             <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
-              One idea, any genre. The engine builds the place, the cast, their grudges and the clocks already running.
+              One idea, any genre. The engine builds the place, the cast, their conflicts and the faction timers.
             </div>
           </div>
           <Plus size={16} className="ml-auto shrink-0" style={{ color: "var(--accent)" }} />

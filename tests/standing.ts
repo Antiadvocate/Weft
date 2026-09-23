@@ -30,11 +30,11 @@ function check(name: string, c: boolean, extra?: unknown) {
   const plain = dispositionCue(-17, -14.8, 0);
   check("with no standing, the cue is what it always was", !/BELOW YOU|HOLD THE POWER/.test(plain));
   const below = dispositionCue(-17, -14.8, -25);
-  check("someone far below lets the player close the exchange", /let you close the exchange/.test(below), below.slice(-140));
+  check("someone far below lets the player close the exchange", /let you be the one to end the conversation/.test(below), below.slice(-140));
   check("…and still refuses — deference is not obedience", /If they refuse|can still refuse/.test(below + dispositionCue(-17, -14.8, -8)));
   check("a middling gap is its own, milder line",
-    /stand below you/i.test(dispositionCue(0, 0, -8)) && !/FAR BELOW/i.test(dispositionCue(0, 0, -8)));
-  check("someone above the player reads the other way", /HOLD THE POWER/.test(dispositionCue(0, 0, 30)));
+    /below you in standing/i.test(dispositionCue(0, 0, -8)) && !/FAR BELOW/i.test(dispositionCue(0, 0, -8)));
+  check("someone above the player reads the other way", /have the power here/.test(dispositionCue(0, 0, 30)));
   check("the warmth and trust halves are untouched",
     /cool toward you/.test(below) && /wary of trusting you/.test(below));
 }
@@ -95,11 +95,11 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const sys = narratorSystem(false);
   check("the contract distinguishes where a turn stops from who speaks last",
-    /TWO SEPARATE DECISIONS EVERY TURN/.test(sys));
-  check("…and says a dismissal lands", /THE PLAYER ENDING AN EXCHANGE ENDS IT/.test(sys));
+    /Make two separate decisions every turn/.test(sys));
+  check("…and says a dismissal lands", /When the player ends an exchange, it's over/.test(sys));
   check("…and names the parting-shot reflex specifically",
-    /do not get a parting line|They do not get a parting line/.test(sys));
-  check("the existing quiet-ending permission survives", /A quiet ending is allowed/.test(sys));
+    /don't get a parting shot/.test(sys));
+  check("the existing quiet-ending permission survives", /A quiet ending is fine/.test(sys));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

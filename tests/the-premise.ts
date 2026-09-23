@@ -112,15 +112,15 @@ const mean = (palette: string[] | undefined, threads: any[], n = 120) => {
   const d = pressureDirective({ band: "danger", pressure: 9 } as any, [FEET], 9, "mortal",
     { kind: "palette", ref: FEET } as Beat);
   check("the subject itself is named", /Feet Talking directly into Joe's Thoughts/.test(d));
-  check("...as UNPROMPTED, which is the whole request", /It is UNPROMPTED/.test(d));
-  check("...not waiting for the player to raise it", /does not wait for the player to raise it/.test(d));
+  check("...as UNPROMPTED, which is the whole request", /Nobody prompts it/.test(d));
+  check("...not waiting for the player to raise it", /doesn't wait for the player to bring it up/.test(d));
   check("...in the room they are actually in", /in the room the characters are actually standing in/.test(d));
-  check("...and as the thing itself rather than a mood", /The thing itself, happening, on the page, in front of them/.test(d), d.slice(-200));
+  check("...and as the thing itself rather than a mood", /The thing itself happens on the page, in front of them/.test(d), d.slice(-200));
 
   const quiet = pressureDirective({ band: "danger", pressure: 9 } as any, [FEET], 9, "mortal",
     { kind: "palette", ref: FEET, quiet: true } as Beat);
   check("during a cooldown it still touches the scene, lightly", /touches the scene, lightly/i.test(quiet));
-  check("...and even then it is unprompted", /unprompted/i.test(quiet));
+  check("...and even then it is unprompted", /without being prompted/i.test(quiet));
 }
 
 /* ── 6. no palette, no crash, no invention ───────────────────────────────────── */

@@ -297,25 +297,25 @@ export function noveltyNote(state: SaveState, id: string): string {
   const parts: string[] = [];
   if (resting.length)
     parts.push(
-      `${c.name} has already shown these on the page recently, and they are established: ${resting.join("; ")}. ` +
-      `DO NOT render any of them this turn — not as a beat, not as a gesture under a line of dialogue, not as ` +
-      `a half-sentence of business while someone else talks. A physical signature is characterisation the first ` +
-      `time and wallpaper by the ninth; the reader has it. ${c.name} is in this scene doing something else with ` +
-      `their hands and their face, and what that something is comes from what they want right now.`,
+      `${c.name} has already done these on the page recently, and they're established: ${resting.join("; ")}. ` +
+      `Don't write any of them this turn, whether as a moment of their own, as a gesture under a line of dialogue, or as ` +
+      `a bit of business in half a sentence while someone else talks. A physical habit tells the reader something the first ` +
+      `time, and by the ninth time it's just repetition, because the reader already knows it. ${c.name} is in this scene doing something else with ` +
+      `their hands and face, and what that is comes from what they want right now.`,
     );
   if (ground.length)
     parts.push(
       `${c.name} has lived these a long time: ${ground.join("; ")}. ` +
-      `They are the floor, not the subject. ${c.name} does them the way people do old things — ` +
-      `without commentary, without selling them, without discovering them again. ` +
-      `Do NOT write a scene ABOUT these; write a scene that HAPPENS during them: the talk over the activity ` +
-      `is about something else entirely (the day, a worry, another person), and the habit is just where they are while it happens. ` +
-      `If someone else is new to it, their reaction can be fresh — ${c.name}'s is not.`,
+      `These are in the background here. ${c.name} does them the way people do old habits: ` +
+      `without comment, without making a show of them, and without discovering them all over again. ` +
+      `Don't write a scene about these. Write a scene that happens while they're going on, where the talk over the activity ` +
+      `is about something else entirely (the day, a worry, another person), and the habit is just what they happen to be doing at the time. ` +
+      `If someone else is new to it, their reaction can be fresh, but ${c.name}'s isn't.`,
     );
   if (familiar.length)
     parts.push(
-      `Less worn but no longer new for ${c.name}: ${familiar.join("; ")}. ` +
-      `Some ease has set in — competence and comfort rather than enthusiasm. Half the airtime it got the first time.`,
+      `Not worn out yet, but no longer new for ${c.name}: ${familiar.join("; ")}. ` +
+      `They do it comfortably now, with less excitement. Give it about half the attention it got the first time.`,
     );
   return parts.join(" ");
 }

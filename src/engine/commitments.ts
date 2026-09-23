@@ -177,7 +177,7 @@ export function missedFor(state: SaveState, id: string): MissedCommitment[] {
 export function dueLabel(m: EpisodicMemory, nowLabel: string): string {
   const due = scheduledAt(m);
   if (m.commitment_status === "missed") {
-    return due ? `, MISSED — ${due} came and went and they did not go` : ", MISSED";
+    return due ? `, MISSED: ${due} came and went, and they didn't go` : ", MISSED";
   }
   if (m.commitment_status !== "pending") return "";
   const raw = String(m.scheduled_time ?? "").trim();
@@ -185,7 +185,7 @@ export function dueLabel(m: EpisodicMemory, nowLabel: string): string {
   if (!due) return `, STILL DUE ${raw}`;                          // unclocked open loop, unchanged
   const late = absMinutes(nowLabel) - absMinutes(due);
   if (late < OVERDUE_GRACE) return `, STILL DUE ${due}`;
-  return `, THE HOUR NAMED (${due}) HAS PASSED and nothing in the record says whether it happened — do not decide that it did`;
+  return `, THE TIME THAT WAS SET (${due}) HAS PASSED, and nothing in the record says whether it happened, so don't decide that it did`;
 }
 
 /**
@@ -211,18 +211,18 @@ export function missedNote(state: SaveState, presentIds: readonly string[]): str
     }
   }
   const rows = [...byHour.values()].map((mc) =>
-    `${mc.name} said: ${mc.content.slice(0, 120)} — due ${mc.due}. It is now ${state.world.current_time}. ${mc.name} was in this room when that hour passed, and did not go.`);
+    `${mc.name} said: ${mc.content.slice(0, 120)}, due ${mc.due}. It is now ${state.world.current_time}. ${mc.name} was in this room when that time passed, and didn't go.`);
   if (!rows.length) return "";
   // It stays for as long as the memory does (MISSED_KEEP_TURNS) rather than for a few turns after
   // the hour: the save this was built from produced its worst confabulation twenty turns after the
   // shift, long past any freshness window, and this block costs a hundred words only in the rare
   // scene where somebody standing here actually blew something off.
-  return `\n\nAN HOUR SOMEBODY NAMED WENT PAST WHILE THEY WERE STANDING HERE.\n· ${rows.join("\n· ")}\n`
-    + `They know it. Nobody in this scene says they went, says they were there, describes what happened while they were there, or refers to anybody having watched them leave — none of that is in the record and none of it happened. `
-    + `If it comes up, what is true is that the hour passed and they were here, and whatever they feel about that is theirs: brazen about it, sore about it, lying about it to somebody who was in the room and knows better, or already working out what they will say to whoever is owed the time. `
-    + `A person who blows off work has somebody to answer to and something they would rather do instead, and both of those are things they can want out loud without being asked.\n`
-    + `AND NOTHING OFF-SCREEN CORROBORATES IT. No manager, no coworker, no timesheet, no keycard log, no text sent from the back room, no schedule on a wall and no camera puts them there, because they were not there. `
-    + `If somebody in this scene reaches for proof, the proof is on the side of the record.`;
+  return `\n\nSOMEBODY HAD SOMEWHERE TO BE, AND THE TIME PASSED WHILE THEY WERE STANDING HERE.\n· ${rows.join("\n· ")}\n`
+    + `They know it. Nobody in this scene says they went, says they were there, describes what happened while they were there, or mentions anyone having watched them leave, because none of that is in the record and none of it happened. `
+    + `If it comes up, the truth is that the time passed and they were here, and how they feel about that is up to them. They might be brazen about it, sore about it, lying about it to somebody who was in the room and knows better, or already working out what to say to whoever was expecting them. `
+    + `Someone who skips work has somebody to answer to and something they'd rather be doing, and they might say either out loud without being asked.\n`
+    + `And nothing off-screen backs it up. No manager, coworker, timesheet, keycard log, text sent from the back room, schedule on a wall or camera puts them there, because they weren't there. `
+    + `If somebody in this scene looks for proof, the proof matches the record.`;
 }
 
 /**
@@ -338,10 +338,10 @@ export function findMissedClaim(prose: string, state: SaveState, presentIds: rea
 
 export function missedClaimFix(hit: MissedClaim | null | undefined): string {
   if (!hit) return "";
-  return `\nLAST TURN ${hit.name.toUpperCase()} DESCRIBED SOMETHING THAT NEVER HAPPENED, AS IF THE PLAYER HAD BEEN THERE FOR IT: "${hit.said}" — `
-    + `the record has "${hit.content}" due ${hit.due}, and it has ${hit.name} in this room when that hour went past. There is no turn in which ${hit.name} leaves, arrives, or is anywhere else. `
-    + `The player did not watch anything, was not told anything, and did not forget anything. A character may lie; a character may not be handed an afternoon the story never wrote and then accuse the player of not remembering it. `
-    + `THIS TURN nothing invented last turn is treated as having happened. If ${hit.name} is lying about it, the prose is written from the outside — what ${hit.name} says, what ${hit.name} does with their hands, and the plain fact that the other person was standing right there — and the player is never told they forgot, missed, or failed to notice a scene that does not exist.`;
+  return `\nLAST TURN ${hit.name.toUpperCase()} DESCRIBED SOMETHING THAT NEVER HAPPENED, AS IF THE PLAYER HAD BEEN THERE FOR IT: "${hit.said}". `
+    + `The record has "${hit.content}" due ${hit.due}, and it has ${hit.name} in this room when that time passed. There's no turn where ${hit.name} leaves, arrives, or is anywhere else. `
+    + `The player didn't watch anything, wasn't told anything, and didn't forget anything. A character can lie, but a character can't be handed an afternoon the story never wrote and then accuse the player of not remembering it. `
+    + `This turn, nothing that was invented last turn is treated as having happened. If ${hit.name} is lying about it, the prose describes it from the outside: what ${hit.name} says, what ${hit.name} does with their hands, and the plain fact that the other person was standing right there. The player is never told they forgot, missed or didn't notice a scene that doesn't exist.`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -412,15 +412,15 @@ export function verificationLaw(state: SaveState, action: string, presentIds: re
     for (const mc of missedFor(state, id)) {
       if (seen.has(`${id}|${mc.due}`)) continue;
       seen.add(`${id}|${mc.due}`);
-      rows.push(`${mc.name} was not there. ${mc.due} passed with ${mc.name} in this room, on the page, in front of the player.`);
+      rows.push(`${mc.name} wasn't there. ${mc.due} passed with ${mc.name} in this room, on the page, in front of the player.`);
     }
   }
   if (!rows.length) return "";
-  return `\n\n=== THE ANSWER IS ALREADY SETTLED. DO NOT DERIVE IT FROM THE CONVERSATION. ===\n· ${rows.join("\n· ")}\n`
-    + `The player is checking this against something outside the room. Whoever or whatever answers — a manager, a coworker, a shift log, a text thread, a badge reader, a till receipt — answers from the record above, and the record says it did not happen. `
-    + `A voice invented this turn has no memory of its own to consult, so it cannot be the thing that decides; it can only repeat what the engine already knows. `
-    + `A manager who says she worked is this story agreeing with a thing it knows to be false, and it is worse than the original error, because the player asked.\n`
-    + `WHAT IS STILL OPEN, and it is most of the scene. The answer can be slow, partial, distracted, or useless — somebody on a busy line does not have the roster in front of them, does not remember, has to go and look, asks who is calling, or hangs up. `
-    + `The person being checked can lie over the top of it, talk across it, take the phone, refuse, walk out, or tell the truth. Nobody has to be believed and nothing has to be resolved this turn. `
-    + `The one thing unavailable is a third party putting them somewhere the record does not.`;
+  return `\n\n=== THE ANSWER IS ALREADY SETTLED, SO DON'T WORK IT OUT FROM THE CONVERSATION ===\n· ${rows.join("\n· ")}\n`
+    + `The player is checking this against something outside the room. Whoever or whatever answers, whether a manager, a coworker, a shift log, a text thread, a badge reader or a till receipt, answers according to the record above, and the record says it didn't happen. `
+    + `A voice invented this turn has no memory of its own to check, so it can't be what decides the answer; it can only repeat what the engine already knows. `
+    + `A manager who says she worked would contradict the record, which is worse than the original mistake, because the player asked about it specifically.\n`
+    + `Most of the scene is still open. The answer can be slow, partial, distracted or useless: someone on a busy line doesn't have the roster in front of them, doesn't remember, has to go and check, asks who's calling, or hangs up. `
+    + `The person being checked on can lie over it, talk over it, grab the phone, refuse, walk out, or tell the truth. Nobody has to be believed, and nothing has to be settled this turn. `
+    + `The one thing that can't happen is someone else placing them somewhere the record doesn't.`;
 }

@@ -114,7 +114,7 @@ export function sweepThreads(state: SaveState, prose: string, beatThreadId?: str
     const idle = turn - t.last_touched_turn;
     if (idle >= DORMANT_AFTER || (t.tension ?? 0) <= COLD) {
       t.status = "dormant";
-      log.push(`Nobody has thought about it in a while: ${t.title}.`);
+      log.push(`Nobody has thought about this in a while: ${t.title}.`);
     }
   }
 

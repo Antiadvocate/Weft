@@ -111,19 +111,19 @@ check("an ordinary settled body is wide", apertureOf(2.51) === "wide", apertureO
 {
   const s = world();
   const note = apertureNote(s, s.world.present);
-  check("the note fires", note.includes("HOW WIDE THE ATTENTION IS"), note.slice(0, 80));
-  check("it says the card is the shape she takes under load", /UNDER LOAD/.test(note));
-  check("it names the turns she has been on the want", /4 turns running/.test(note), note);
-  check("it takes the last word away from her", /DOES NOT HAND OVER THE NEXT STEP/.test(note));
-  check("it offers her attention somewhere else", /CATCHABLE/.test(note));
-  check("it does not forbid the want", /NOT forbidden|does not have to lead anywhere/i.test(note));
+  check("the note fires", note.includes("HOW NARROW OR WIDE EACH PERSON'S ATTENTION IS"), note.slice(0, 80));
+  check("it says the card is the shape she takes under load", /under stress/.test(note));
+  check("it names the turns she has been on the want", /4 turns in a row/.test(note), note);
+  check("it takes the last word away from her", /doesn't hand out the next step/.test(note));
+  check("it offers her attention somewhere else", /can be caught this turn/.test(note));
+  check("it does not forbid the want", /doesn't have to lead anywhere/i.test(note));
   check("the player is never given a note of their own", !note.includes("[char_player]") && !/· Vin/.test(note));
 
   // A settled person who has been talking about four different things is working correctly.
   const quiet = world();
   quiet.history = quiet.history.map((h: any) => ({ ...h, narrator_prose: `Amber turned the cup around twice.\n"The pour-over at that place on Quarry is the only one in this town anybody warmed the filter for."` }));
   const qnote = apertureNote(quiet, quiet.world.present);
-  check("an ordinary settled turn still gets the open register", qnote.includes("UNDER LOAD"), qnote.slice(0, 60));
+  check("an ordinary settled turn still gets the open register", qnote.includes("under stress"), qnote.slice(0, 60));
   check("and gets no saturation or steering finding", !/turns running/.test(qnote) && !/HAND OVER/.test(qnote), qnote);
 
   // A braced body doing what a braced body does is not a finding.

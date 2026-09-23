@@ -77,10 +77,10 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
 {
   const fix = maximFix("Shock has a price, Rabi.");
   check("it quotes the actual line", /Shock has a price/.test(fix), fix);
-  check("and reports the property rather than naming the form", /NAMED NOTHING THAT WAS IN THE ROOM/.test(fix));
-  check("it names the structural fault", /about the world in general rather than about anything in that room/i.test(fix));
-  check("it says what to write instead, as a positive requirement", /NAMES SOMETHING PHYSICALLY PRESENT/.test(fix));
-  check("and it covers the direct-question failure", /they answer it, or they refuse it in plain words/i.test(fix));
+  check("and reports the property rather than naming the form", /DIDN'T MENTION ANYTHING IN THE ROOM/.test(fix));
+  check("it names the structural fault", /about the world in general instead of about anything in that room/i.test(fix));
+  check("it says what to write instead, as a positive requirement", /mentions something that is physically there/.test(fix));
+  check("and it covers the direct-question failure", /they answer it, or they refuse in plain words/i.test(fix));
   check("nothing to correct produces nothing", maximFix(null) === "" && maximFix(undefined) === "");
 }
 
@@ -99,9 +99,9 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   check("a card with nothing on it contributes nothing", !/Nobody/.test(a));
   check("no sample line is handed over at all", !/"/.test(a.replace(/Would never say[^\n]*/g, "")), a);
   check("a state can override the person", /repeats themselves, stops halfway/.test(a));
-  check("length is named as coming from the moment", /LENGTH COMES FROM THAT\./.test(a));
-  check("and a uniformly terse cast is called out as one person", /they have all been written by the same person/.test(a));
-  check("with a check that can actually be applied", /would produce the same line in this moment/.test(a));
+  check("length is named as coming from the moment", /How long a line is comes from those two things\./.test(a));
+  check("and a uniformly terse cast is called out as one person", /they all sound like you/.test(a));
+  check("with a check that can actually be applied", /would say the same line at this moment/.test(a));
   check("no cards, no note", voiceAnchor({ characters: { c: { name: "X" } } }, ["c"]) === "");
 }
 
@@ -154,7 +154,7 @@ const caught = (s: string) => findMaxims(said(s)).length > 0;
   const fix = maximFix(defence);
   check("and gets its own correction", /ARGUED WITH THE PLAYER ABOUT HOW THE CHARACTERS TALK/.test(fix));
   check("which rules the opinion out of the world", /Nobody in this world has an opinion about how the writing works/.test(fix));
-  check("and closes it", /The player is right and the argument is over/.test(fix));
+  check("and closes it", /The player is right, and that argument is over/.test(fix));
   check("an ordinary maxim still gets the ordinary correction",
     !/ARGUED WITH THE PLAYER/.test(maximFix("Shock has a price, Rabi.")));
 }

@@ -245,10 +245,10 @@ export function maximFix(last: string | null | undefined): string {
   // the model has already constructed a defence and will apply it to the note. Name the move.
   const defending = SHAPES.find((sh) => sh.name === "arguing that it is not a maxim")!.re.test(last);
   if (defending) {
-    return `\nSTOP. LAST TURN A CHARACTER ARGUED WITH THE PLAYER ABOUT HOW THE CHARACTERS TALK: "${last}" — the player had just said the characters were not answering what was in front of them, and the reply put a defence of that in somebody's mouth. Nobody in this world has an opinion about how the writing works. The player is right and the argument is over. THIS TURN nobody in the scene refers to how anybody talks, defends how they talk, or comments on being misunderstood. They answer the actual question in the actual words a person would use: names, numbers, prices, what they will do, what they will not do, what they are afraid of said as the plain thing rather than as an image of the plain thing. If a character genuinely does not want to answer, they refuse in one flat sentence and change the subject to something concrete.`;
+    return `\nSTOP. LAST TURN A CHARACTER ARGUED WITH THE PLAYER ABOUT HOW THE CHARACTERS TALK: "${last}". The player had just said the characters weren't answering what was in front of them, and the reply put a defence of that in somebody's mouth. Nobody in this world has an opinion about how the writing works. The player is right, and that argument is over. This turn, nobody in the scene mentions how anybody talks, defends how they talk, or complains about being misunderstood. They answer the actual question in the words a real person would use: names, places, what they'll do, what they won't do, and what they're afraid of, said as the plain thing and not as an image of it. If a character really doesn't want to answer, they refuse in one flat sentence and change the subject to something concrete.`;
   }
-  return `\nA LINE YOU WROTE LAST TURN NAMED NOTHING THAT WAS IN THE ROOM: "${last}" — a sentence about the world in general rather than about anything in that room. It came out when you did not know what this specific person would say next, and it fits any character in any scene, which is what makes it wrong here.
-THIS TURN, EVERY LINE ANYONE SPEAKS NAMES SOMETHING PHYSICALLY PRESENT: a person, an object, a price, a door, a name, a number, an errand, somewhere they could point at. Before you keep a line, find the thing in it that somebody standing there could put a hand on. If there is nothing, the line is about the world in general instead of about this minute — rewrite it until it is about something here. When a character is asked a direct question they answer it, or they refuse it in plain words and say what they are going to do instead. If they answer by describing something that is not in the room, that is the failure quoted above.`;
+  return `\nA LINE YOU WROTE LAST TURN DIDN'T MENTION ANYTHING IN THE ROOM: "${last}". It was a sentence about the world in general instead of about anything in that room, so it would fit any character in any scene, and that's why it's wrong here.
+This turn, every line anyone speaks mentions something that is physically there: a person, an object, a door, a name, an errand, somewhere they could point to. Before you keep a line, find the thing in it that someone standing there could put a hand on. If there's nothing, the line is about the world in general instead of about this minute, so rewrite it until it's about something here. When a character is asked a direct question, they answer it, or they refuse in plain words and say what they're going to do instead. If they answer by describing something that isn't in the room, that's the mistake quoted above.`;
 }
 
 /** How much of this turn's dialogue was pronouncement rather than speech — for the shift toast, so
@@ -423,14 +423,14 @@ export function voiceAnchor(
   // band came to point at a voice card nobody had sent.
   const anyForged = rows.some((r) => r.includes("TALKS LIKE THIS"));
   const registerNote = anyForged ? `
-AND THE REGISTER IS NOT DECORATION. Where a speaker has a TALKS LIKE THIS, their lines this turn come out of that vocabulary and that rhythm — the words their own life gave them, reached for without thinking, about whatever is actually in front of them. A shop worker counts in shifts and stock; a designer sees a room in margins and alignment; a teacher reaches for the classroom and the kitchen. Somebody written without their register is written as you, and everybody written as you is the same person.
-A REGISTER IS THE STOCK OF WORDS THIS PERSON REACHES INTO. It says what they have vocabulary for and what comes to hand first, and it leaves the subject of any given sentence open. A woman whose money-and-materials vocabulary is all she is given still has a body, a day, a view out of the window and three standing interests printed on her card; a settled person reaches for those between the sentences that are business. Run at a hundred percent, money and materials produces a woman who can only say what things cost. How much of it is load-bearing this turn is printed on each speaker's card after right now: — braced means all of it, open means the same vocabulary without the same subject.` : `
-WHERE THE WORDS COME FROM. Each speaker's age, what they are like and the life printed under their name are what their vocabulary is made of: they reach for the work they do, the place they live, the people they answer to and the things they have handled, and for anything outside that they take the nearest word they have and get it a bit wrong. Somebody written without that is written as you, and everybody written as you is the same person.`;
+AND FOLLOW HOW EACH SPEAKER TALKS. Where a speaker has a TALKS LIKE THIS section, their lines this turn come out of those words and that rhythm: words from their own life that they reach for without thinking, about whatever is actually in front of them. A nurse reaches for the ward and her kids, a farmer for the weather and the animals, a teacher for the classroom and the kitchen. If you ignore how someone talks, they sound like you, and then everyone sounds the same.
+The way someone talks is the stock of words they reach into. It tells you what they have words for and what comes to mind first, but it doesn't decide what any given sentence is about. A woman whose card only lists the words of her work still has a body, a day, a view out of the window and three lasting interests printed on her card, and when she's relaxed she talks about those in between the sentences about work. Using nothing but her work words produces a woman who can only talk about work. How much of it applies this turn is printed on each speaker's card after "right now:". Braced means all of it, and open means the same words without the same subject.` : `
+WHERE THE WORDS COME FROM. Each speaker's age, what they're like, and the life printed under their name are what their words are made of. They reach for the work they do, the place they live, the people in their life and the things they've done, and for anything outside that they use the closest word they have and get it a little wrong. If you ignore that, they sound like you, and then everyone sounds the same.`;
   return `\n[WHO IS TALKING, AND WHY NONE OF THEM SHOULD SOUND ALIKE.
 · ${rows.join("\n· ")}
-Decide two things per speaker before writing their line. What do they want out of THIS exchange, right now — aim the line at that. And what state are they in: somebody frightened, furious, humiliated, or looking at a thing they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
-LENGTH COMES FROM THAT. Somebody who has explained this a hundred times explains it again at length; somebody who wants to leave uses six words. If everyone in this scene is brief, they have all been written by the same person, which is you.
-If two of these people would produce the same line in this moment, at least one is wrong — go back to what each of them separately wants right now.${registerNote}]`;
+Before you write a speaker's line, work out two things about them. First, what do they want out of this exchange right now? Aim the line at that. Second, what state are they in? Someone who is frightened, furious, humiliated, or looking at something they have no word for repeats themselves, stops halfway, asks the same question twice, goes quiet, swears, says the wrong thing, or calls for somebody else.
+How long a line is comes from those two things. Someone who has explained this a hundred times explains it again at length, and someone who wants to leave uses six words. If everyone in this scene is brief, they all sound like you.
+If two of these people would say the same line at this moment, rewrite at least one of them by going back to what each of them wants right now.${registerNote}]`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -543,10 +543,10 @@ export function findFigure(previous: readonly string[], prose: string): FigureHi
 
 export function figureFix(hit: FigureHit | null | undefined): string {
   if (!hit) return "";
-  return `\nTHE SAME SENTENCE SHAPE HAS NOW CARRIED ${hit.runs} OF THE LAST FEW TURNS: "${hit.line}" — somebody speaks, and then the narration explains the line with a comparison. `
-    + `It is one move, repeated, and it is doing two things it should not. It is a tic, so the writing has a signature the characters do not. And "like she was —" states what a person was privately doing with the word "like" in front of it, which is the one thing the narration may never do; a simile is not a loophole in it. `
-    + `THIS TURN NO SPOKEN LINE IS FOLLOWED BY A COMPARISON EXPLAINING IT. What a line meant is carried by what the person does with their hands, their face, where they go, what they pick up, how long they take to answer, or by the next thing they say — or it is not carried at all and the line stands on its own, which is usually right. `
-    + `If a sentence in this turn contains "like" after somebody speaks, cut it and put a physical action in its place.`;
+  return `\nTHE SAME KIND OF SENTENCE HAS NOW SHOWN UP IN ${hit.runs} OF THE LAST FEW TURNS: "${hit.line}". Somebody speaks, and then the narration explains the line with a comparison. `
+    + `It's one move repeated, and it causes two problems. It's a habit of the narrator's, and "like she was ..." states what a person was privately doing, which the narration must never do, whether or not it's a simile. `
+    + `This turn, no spoken line is followed by a comparison explaining it. What a line meant comes across through what the person does with their hands or face, where they go, what they pick up, how long they take to answer, or the next thing they say. Or it comes across through nothing at all, with the line left to stand on its own, which is usually best. `
+    + `If a sentence this turn has "like" in it after somebody speaks, cut it and put a physical action in its place.`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -609,10 +609,10 @@ export function neverSaidFix(hit: NeverSaidHit | null | undefined): string {
   // The two quoted spans are kept in separate sentences on purpose: a run of prose BETWEEN two
   // quotation marks inside one instruction is a ready-made line, which is the thing tests/prompt-echo.ts
   // exists to ratchet down.
-  return `\n${hit.name.toUpperCase()} SAID A LINE THEIR OWN CARD LISTS UNDER NEVER SAYS. It was: "${hit.said}".\nTheir card's entry: ${hit.forbidden}. `
-    + `That list is not a style preference. It is the short definition of who this person is: the thing they will not admit, will not concede, will not hand over. The line came out because the scene wanted somebody to be uncertain there, and ${hit.name} was the mouth that was open. `
-    + `THIS TURN ${hit.name.toUpperCase()} DOES NOT SAY IT OR ANY VERSION OF IT. Whatever pressure produced it is still real and still has to land somewhere — it goes into the body, into a refusal, into changing the subject, into an answer that is not the one asked for, into leaving the room. `
-    + `A person who cannot say that does something else instead, and what they do instead is the character.`;
+  return `\n${hit.name.toUpperCase()} SAID A LINE THAT THEIR OWN CARD LISTS AS SOMETHING THEY WOULD NEVER SAY. It was: "${hit.said}".\nThe entry on their card: ${hit.forbidden}. `
+    + `That list isn't a matter of style. It's the short version of who this person is: what they won't admit, won't give way on, and won't hand over. The line came out because the scene wanted somebody to sound uncertain there, and ${hit.name} happened to be the one speaking. `
+    + `This turn ${hit.name} doesn't say it, or any version of it. Whatever pressure produced it is still real and still has to go somewhere, so it goes into the body, a refusal, a change of subject, an answer to a different question than the one asked, or leaving the room. `
+    + `Someone who can't say that does something else instead, and what they do instead shows who they are.`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -769,12 +769,12 @@ export function findMetaTalk(
 
 export function metaTalkFix(hit: MetaTalkHit | null | undefined): string {
   if (!hit) return "";
-  return `\nFOR ${hit.runs} TURNS ${hit.name.toUpperCase()} HAS BEEN DESCRIBING THE CONVERSATION INSTEAD OF HAVING IT: ${hit.lines.map((l) => `"${l}"`).join(" ")} `
-    + `Those are sentences about the exchange — what was asked, what was said, what the other person is doing by saying it, what kind of thing this is. `
-    + `Nobody in that room is talking about anything that is in it. A person mid-argument does not recite the transcript back; they say the thing they actually want, or the thing they are actually angry about, or they stop talking. `
+  return `\nFOR ${hit.runs} TURNS, ${hit.name.toUpperCase()} HAS BEEN DESCRIBING THE CONVERSATION INSTEAD OF HAVING IT: ${hit.lines.map((l) => `"${l}"`).join(" ")} `
+    + `Those are sentences about the exchange itself: what was asked, what was said, what the other person is doing by saying it, or what kind of conversation this is. `
+    + `Nobody in that room is talking about anything that's actually in it. Someone in the middle of an argument doesn't read the transcript back. They say the thing they actually want, or the thing they're actually angry about, or they stop talking. `
     // No specimen sentences here on purpose: a forbidden line pasted into the directive is a line
     // the model has been supplied with. See tests/prompt-echo.ts.
-    + `THIS TURN ${hit.name.toUpperCase()} SAYS NOTHING ABOUT THE CONVERSATION — no correction of what was or was not asked, no quoting the other person back to themselves, no summary of the last five minutes, no naming what the other person is doing by saying it. `
-    + `What they say instead comes from their own life and their own vocabulary — the work they do, the money on the table, the food, what they came here for, what they are going to do next — or they say very little and their body does the rest. `
-    + `If the player is arguing about how the conversation is going, that is an argument nobody in the world has an opinion about: ${hit.name} answers the substance, refuses it in one flat sentence, or leaves. They do not take up the argument about the argument.`;
+    + `This turn ${hit.name} says nothing about the conversation. They don't correct what was or wasn't asked, don't quote the other person back to them, don't sum up the last five minutes, and don't name what the other person is doing by saying something. `
+    + `What they say instead comes from their own life and their own words, such as the work they do, the money on the table, the food, what they came here for or what they're going to do next, or else they say very little and let their body do the rest. `
+    + `If the player is arguing about how the conversation is going, that's an argument nobody in the world has an opinion about. ${hit.name} answers what was actually said, refuses it in one flat sentence, or leaves. They don't join in the argument about the argument.`;
 }

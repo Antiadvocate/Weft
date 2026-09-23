@@ -179,9 +179,9 @@ check("the settle run is shorter than the wear run", SETTLE_RUN < WEAR_RUN, { SE
   const wc = remodelCue(worn, "Amber");
   check("a worn body is described by what it no longer reacts to", /no longer reacts to|does not land/.test(wc), wc);
   check("...and never by a number", !/-?\d+\.\d|\bcapacity\b|\brelaxation\b/.test(wc), wc);
-  check("...and never as toughness or a mood", /never as a mood and never as toughness/.test(wc));
+  check("...and never as toughness or a mood", /never as a mood or as toughness/.test(wc));
   const grown = body(2); grown.capacity = bornCapacity(grown) + 1.4;
-  check("a settled body is described as a widened threshold", /widened threshold/.test(remodelCue(grown, "Leo")));
+  check("a settled body is described as a widened threshold", /can now handle without tensing/.test(remodelCue(grown, "Leo")));
   check("...and never as cheerfulness", /never as cheerfulness/.test(remodelCue(grown, "Leo")));
   // The audit line is the opposite: numbers, because a slow hidden scalar has to be legible.
   check("the audit line carries the actual numbers", /2\.0 → 0\.60/.test(remodelLine(worn, "Amber")), remodelLine(worn, "Amber"));

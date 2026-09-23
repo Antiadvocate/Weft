@@ -104,7 +104,7 @@ function check(name: string, cond: boolean, extra?: unknown) {
   s.world.current_turn = 20;
   s.telemetry = [{ turn: 1, present: [wife] }] as any;   // long unseen → pursuit blocker
   replanDrives(s);
-  check("pursuit blocker is set", /must find Rabi first/.test(s.characters[wife].drive?.blocker ?? ""), s.characters[wife].drive);
+  check("pursuit blocker is set", /has to find Rabi first/.test(s.characters[wife].drive?.blocker ?? ""), s.characters[wife].drive);
   check("nobody teleports the instant the blocker appears", s.characters[wife].location === "loc_gate");
 
   // ...and after the patience window, the walk happens

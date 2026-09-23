@@ -87,9 +87,9 @@ const CONTRACTS = {
   // It still has to carry its real job — the player did this and NOTHING MORE — without carrying
   // an instruction to transcribe. "no more" is the operative half; "exactly" alone was the bug.
   check("and still forbids inventing actions for the player",
-    narratorHeaders.every((h) => /no more|add no actions/i.test(h)), narratorHeaders);
+    narratorHeaders.every((h) => /nothing more|no more|add no actions/i.test(h)), narratorHeaders);
   check("and still forbids inventing interiority",
-    narratorHeaders.every((h) => /no interiority/i.test(h)), narratorHeaders);
+    narratorHeaders.every((h) => /no interiority|inner thoughts/i.test(h)), narratorHeaders);
   check("and no longer reads as a transcription order",
     narratorHeaders.every((h) => !/render exactly/i.test(h)), narratorHeaders);
 }
@@ -100,15 +100,15 @@ const CONTRACTS = {
   const proseFile = prompts.find((p) => p.f.endsWith("prompts.ts"))!.text;
   // In the inline channel note — the tail of the last user message, next to the action itself.
   check("the inline channel note says the line is already said",
-    /ALREADY BEEN SAID/i.test(turn) && /do not reproduce the quoted line/i.test(turn));
-  check("and says where to begin instead", /START AT THE MOMENT AFTER IT LANDED/i.test(turn));
+    /ALREADY BEEN SAID/i.test(turn) && /Don't copy the quoted line into the prose/i.test(turn));
+  check("and says where to begin instead", /Start at the moment just after it was said/i.test(turn));
   // …and the attribution rule it was conflated with must SURVIVE, stated on its own.
   check("attribution is still protected, separately",
-    /NEVER put into another character's mouth/i.test(turn) && /this channel protects is ATTRIBUTION/i.test(turn));
-  check("and reassignment is still banned", /do not "fix" it by reassigning the line/i.test(turn));
+    /NEVER put into another character's mouth/i.test(turn) && /The important thing about quoted text is who said it/i.test(turn));
+  check("and reassignment is still banned", /you don't "fix" it by giving the line to whoever it seems to be about/i.test(turn));
   // Both contracts, full and lean, still carry the standing rule.
-  check("the full contract still forbids restating", /NEVER RESTATE THE PLAYER'S WORDS/.test(proseFile));
-  check("the lean contract still forbids restating", /Never restate the player's words/.test(proseFile));
+  check("the full contract still forbids restating", /Never repeat the player's words back/.test(proseFile));
+  check("the lean contract still forbids restating", /Don't repeat what the player said/.test(proseFile));
 }
 
 /* ── NO WORD CEILING ─────────────────────────────────────────────────────────── */
@@ -125,15 +125,15 @@ const CONTRACTS = {
     check(`nor a one-sided ceiling`, caps.length === 0, caps);
     check(`the ${which} contract says there is no word count`, /no word count/i.test(body));
     check(`the ${which} contract hands length to TURN ENDINGS`, /TURN ENDINGS[^.]{0,40}decides/i.test(body));
-    check(`the ${which} contract still forbids padding`, /do not pad to fill a length/i.test(body));
+    check(`the ${which} contract still forbids padding`, /don't pad it/i.test(body));
     // The failure mode being fixed is stopping EARLY, so this is the half that matters most.
-    check(`the ${which} contract forbids stopping early`, /do not stop early/i.test(body));
+    check(`the ${which} contract forbids stopping early`, /(?:do not|don't) stop early/i.test(body));
     // …AND THE OTHER HALF. Removing the ceiling fixed premature EOS and then bought the opposite
     // failure: a local model with no upper signal ran to its 5000-token budget, which at 11 tok/s
     // is a seven-minute turn. The overrun marker is deliberately NOT a band, a cap, or a target —
     // it points backward, at an ending already written through, so there is nothing to fill.
     check(`the ${which} contract marks overrunning as the same failure`, /past about 450 words/i.test(body));
-    check(`and points backward rather than setting a target`, /look(?:ing)? BACKWARD/i.test(body));
+    check(`and points backward rather than setting a target`, /look(?:ing)? BACK(?:WARD)?\b/i.test(body));
   }
 }
 

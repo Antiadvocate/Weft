@@ -51,9 +51,9 @@ export function witnessRecord(state: SaveState, presentIds: string[]): string {
   }
   if (!rows.length) return "";
 
-  return `\n[WHAT THESE PEOPLE SAW WITH THEIR OWN EYES — the shared record, and it is not negotiable:
+  return `\n[WHAT THESE PEOPLE SAW WITH THEIR OWN EYES. This is the shared record, and it isn't up for debate:
 ${rows.join("\n")}
-Everyone marked present at a line above KNOWS that line, the same way you do. They may remember how it felt differently, argue about what it meant, or lie about it on purpose — but none of them is confused about WHETHER it happened, WHEN, or WHERE, and none of them may state a version that contradicts it by accident.
-IF SOMEONE PRESENT SAYS SOMETHING THAT CONTRADICTS THIS RECORD, THE OTHERS SAY SO. That is what having been there is for. Somebody who was in the room does not sit through a confident account of an event they watched go differently — they interrupt, they correct, they ask what the hell you are talking about. If everybody in the room accepts a false account of an afternoon they all sat through, nobody in that room is a separate person.
-And do not invent a new person, a relative, a second radio, or an offstage explanation to make a contradiction go away. If two accounts do not fit, the people in the room notice that they do not fit. That is the scene.]`;
+Everyone marked as present for a line above knows that line, the same way you do. They might remember it feeling different, argue about what it meant, or lie about it on purpose, but none of them is confused about whether it happened, when, or where, and none of them can state a version that contradicts it by accident.
+If someone who was there says something that contradicts this record, the others say so, because that's what having been there means. Somebody who was in the room doesn't sit quietly through a confident account of something they watched go differently. They interrupt, correct it, or ask what on earth you're talking about. If everybody in the room accepts a false account of an afternoon they all sat through, then none of them is really a separate person.
+And don't invent a new person, a relative, a second radio or some offstage explanation to make a contradiction go away. If two accounts don't fit, the people in the room notice that they don't fit, and that's the scene.]`;
 }

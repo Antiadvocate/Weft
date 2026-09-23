@@ -45,7 +45,7 @@ const edge = (o: any) => ({ from: "c1", to: "char_player", warmth: 0, trust: 0, 
   for (const w of [-19, -10, -1.6, 0, 5, 14]) {
     const s = world(); s.world.edges = [edge({ warmth: w, attraction: 100, desire_admissibility: 0.5 })];
     const line = desireLine(s, "c1");
-    check(`warmth ${w}: she is told to pursue`, /THEY PURSUE/.test(line), line.slice(0, 90));
+    check(`warmth ${w}: she is told to pursue`, /they pursue you/.test(line), line.slice(0, 90));
     check(`warmth ${w}: and never told to stay away`, !/do not seek your company/i.test(line));
   }
   // negative warmth gets its own register rather than the flat appetite one
@@ -55,10 +55,10 @@ const edge = (o: any) => ({ from: "c1", to: "char_player", warmth: 0, trust: 0, 
   check("…and merely cool is not that register", !/annoyed with you/.test(desireLine(cool, "c1")));
   // the settled line is pursuit too, not passive fondness
   const settled = world(); settled.world.edges = [edge({ warmth: 40, attraction: 60, desire_admissibility: 0.8, roles: [] })];
-  check("settled desire is not passive either", /angles for closeness|makes and takes openings/.test(desireLine(settled, "c1")));
+  check("settled desire is not passive either", /angle to get close|create openings and take them/.test(desireLine(settled, "c1")));
   // and none of this manufactures desire that isn't recorded
   const flat = world(); flat.world.edges = [edge({ warmth: 5, attraction: 0 })];
-  check("no attraction still means no attraction", !/THEY PURSUE/.test(desireLine(flat, "c1")));
+  check("no attraction still means no attraction", !/they pursue you/.test(desireLine(flat, "c1")));
 }
 
 /* ── 2. THE DRIVE SEEDER COULD NOT SEE ATTRACTION ────────────────────────────────────────────

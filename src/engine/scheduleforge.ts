@@ -26,30 +26,30 @@ import { newBlock, normalizeDays, parseClock } from "./schedule";
 import type { SaveState, Schedule, ScheduleBlock } from "./types";
 import { clipText } from "./text";
 
-const SCHEDULE_SYSTEM = `You write down the week ONE character already has. You are not designing them a life.
+const SCHEDULE_SYSTEM = `You write down the week that one character already has, using only what you were given.
 
-Everything you write must be traceable to something you were given: their background, their work, their standing wants, their obligations, the world's technology and politics, and the places that exist. If the card does not say they have a job, THEY DO NOT HAVE ONE — do not award them employment to fill the form. A person with no work still has a week: a meal they take with someone, a duty, a market day, a place they always are at a certain hour.
+Everything you write has to come from something you were given: their background, their work, what they want, their obligations, the world's technology and politics, and the places that exist. If their card doesn't say they have a job, they don't have one, so don't hand them a job just to fill in the form. Someone with no work still has a week: a meal they eat with someone, a duty, a market day, somewhere they always are at a certain time.
 
-WHAT A BLOCK IS. Somewhere this person HAS TO BE, at hours that repeat. Not what they want (that is elsewhere on their card and it is not your business), not an itinerary of their day. A shift. A watch. A round. A service. Lessons. The hours a shop is theirs to keep.
+A block is somewhere this person has to be, at times that repeat. Leave out what they want, because that's somewhere else on their card, and don't write out a plan of their day. A block is something like a shift, a watch, a round, a religious service, lessons, or the hours they have to keep a shop open.
 
-HOW MANY. One to three. Almost never four. A week is a skeleton — the story happens in the gaps, and a character booked solid is a character the player can never reach. If one block is the truth of their week, write one.
+Write one to three blocks, and almost never four. Keep the week sparse. The story happens in the gaps, and the player can never reach a character whose week is completely full. If one block sums up their week, write one.
 
-THE WEEK ITSELF IS A PROPERTY OF THE WORLD. A five-day working week with two days off is an industrial arrangement and belongs only to a world that has one. Otherwise use what this world actually runs on: every day (a farm, a kitchen, a watch), specific named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting names. Choose "days" accordingly.
+The shape of the week depends on the world. A five-day working week with two days off is an industrial arrangement, and it only belongs in a world that has one. Otherwise use whatever this world actually runs on: every day (a farm, a kitchen, a watch), particular named days (a market on Tuesdays and Fridays, a service on Sunday), or a rest day the setting has a name for. Choose "days" to match.
 
-HOURS MUST FIT THE WORLD. Pre-industrial work starts at first light and stops at dark; a night watch is a night watch; an office is an office. Do not write 09:00–17:00 into a world that has no clocks to say it with.
+The hours have to fit the world too. Work before industry starts at first light and stops at dark, a night watch is at night, and an office keeps office hours. Don't write 09:00 to 17:00 into a world that has no clocks to tell that time.
 
-"why" IS THE MOST IMPORTANT FIELD AND IT IS NOT A JOB DESCRIPTION. It is why THIS is in THIS person's life, in one plain sentence, drawn from their background or what they are trying to get: "it is the only yard that took a man off the boats", "she is the only one in the house who can read the weights", "he goes because his mother's name is on the roll and someone has to answer to it". Never "because he is a blacksmith".
+"why" is the most important field. It says, in one plain sentence, why this is part of this person's life, based on their background or what they're trying to get. For example: "it is the only yard that took a man off the boats", "she is the only one in the house who can read the weights", or "he goes because his mother's name is on the roll and someone has to answer to it". Never write something like "because he is a blacksmith".
 
-"where" MUST NAME A PLACE FROM THE LIST when one of them fits — copy the name exactly. Only name a new one when the week genuinely requires somewhere the world does not have yet, and then name it as a person would say it aloud, as a whole place (a building, a yard, a stretch of road), never a room inside one.
+"where" has to name a place from the list when one fits, copied exactly. Only name a new one when the week really needs somewhere the world doesn't have yet, and then name it the way a person would say it out loud, as a whole place (a building, a yard, a stretch of road) and never as a room inside one.
 
-"how" is the getting there — the walk, the tram, the cart, whose horse. One short phrase. It is what the person would say, and it is often the most human line on the card.
+"how" is how they get there, like the walk, the tram, the cart, or whose horse. Write one short phrase, the way the person would say it.
 
-"rigidity": "mandatory" only when missing it genuinely costs them something they cannot absorb (pay, rank, custody, liberty). "expected" is the normal case. "optional" is a thing they do most days and can drop.
+For "rigidity", use "mandatory" only when missing it would seriously hurt them (losing pay, rank, custody or freedom). "expected" is the normal case, and "optional" is something they do most days and can skip.
 
-"stakes" only for mandatory blocks: what missing it actually does, concretely, to them. One clause.
+Fill in "stakes" only for mandatory blocks: what missing it actually does to them, in concrete terms, in a few words.
 
-Output ONLY this JSON:
-{"home":"the place they return to when nothing else claims them — a name from the place list if one fits","note":"one short line about the week that the blocks cannot express, or empty","blocks":[{"what":"","why":"","where":"","how":"","start":"HH:MM","end":"HH:MM","days":"daily | weekdays | weekends | [0-6 where 0=Sunday]","rigidity":"optional|expected|mandatory","stakes":""}]}`;
+Reply with only this JSON:
+{"home":"the place they go back to when nothing else needs them, using a name from the place list if one fits","note":"one short line about their week that the blocks can't express, or empty","blocks":[{"what":"","why":"","where":"","how":"","start":"HH:MM","end":"HH:MM","days":"daily | weekdays | weekends | [0-6 where 0=Sunday]","rigidity":"optional|expected|mandatory","stakes":""}]}`;
 
 export interface ForgedSchedule {
   name: string;
@@ -86,10 +86,10 @@ function brief(state: SaveState, id: string): string {
     `AS A PERSON: ${(c.core_traits ?? []).join("; ")}`,
     (c.values ?? []).length ? `HOLDS TO: ${(c.values ?? []).join(", ")}` : "",
     Object.keys(c.skills ?? {}).length ? `CAN DO: ${Object.entries(c.skills).map(([k, v]) => (v ? `${k} (${v})` : k)).join("; ")}` : "",
-    wants ? `WHAT THEY ARE CURRENTLY TRYING TO GET (their week should leave room for this alongside everything else in it): ${wants}` : "",
+    wants ? `WHAT THEY ARE TRYING TO GET AT THE MOMENT (their week should leave room for this alongside everything else): ${wants}` : "",
     here ? `WHERE THEY ARE RIGHT NOW: ${here}` : "",
-    `\nPLACES THAT EXIST — use these names exactly where one fits:\n${places}`,
-    `\nIT IS CURRENTLY: ${state.world.current_time}${b.start_date ? ` (calendar starts ${b.start_date})` : " (no calendar is kept; the week runs from Day 1)"}`,
+    `\nPLACES THAT EXIST (use these names exactly where one fits):\n${places}`,
+    `\nIT IS NOW: ${state.world.current_time}${b.start_date ? ` (calendar starts ${b.start_date})` : " (no calendar is kept, so the week runs from Day 1)"}`,
   ].filter(Boolean).join("\n");
 }
 

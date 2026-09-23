@@ -271,7 +271,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
         ) : (
           <div className="space-y-2 border rounded p-2.5" style={{ borderColor: "var(--ink-3)" }}>
             <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} autoFocus
-              placeholder="Who are they? A sentence is enough — a name, what they do, how they fit. Everything you write here is true of them."
+              placeholder="Who are they? One sentence is enough: a name, what they do, how they know the others. Whatever you write here is treated as fact."
               className="w-full bg-transparent text-[12.5px] leading-relaxed outline-none border rounded p-2 resize-y"
               style={{ borderColor: "var(--ink-3)", color: "var(--text-mid)", minHeight: 72 }} />
             {addErr && <div className="text-[11px]" style={{ color: "var(--danger, #c66)" }}>{addErr}</div>}
@@ -289,7 +289,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     const r = await api.addCharacter(save.id, brief);
                     setSave(r.save);
                     if (r.added) { setAdded(r.added); setBrief(""); }
-                    else setAddErr("that did not come back as a person — try naming them, or saying what they do");
+                    else setAddErr("couldn't build a character from that — try giving a name or saying what they do");
                   } catch (e: any) { setAddErr(e?.message ?? "could not add them"); }
                   finally { setAddingBusy(false); }
                 }}>{addingBusy ? "writing them…" : "add"}</button>
@@ -433,11 +433,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               <Item icon={<Braces size={15} style={grey} />} label="Raw edit" note="the full character JSON"
                                 on={async () => { setRawErr(""); const raw = await api.getCharacterRaw(save.id, sel!); setRawJson(JSON.stringify(raw, null, 2)); }} />
                               <Item icon={<Fingerprint size={15} style={grey} />} label="Re-express core traits"
-                                note="same person, described one level deeper — originals kept"
+                                note="the same person, described more concretely (the originals are kept)"
                                 busy={retraiting}
                                 on={async () => { setRetraiting(true); try { setSave(await api.retraitOne(save.id, sel!)); } catch { /* leave traits */ } finally { setRetraiting(false); } }} />
                               {!c.voice_locked && <Item icon={<Mic size={15} style={grey} />} label="Re-read their voice"
-                                note="regenerate how they talk from the card, ignoring recent drift"
+                                note="work out again how they talk from their character card, ignoring recent changes"
                                 busy={revoicing}
                                 on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />}
                               <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
@@ -446,7 +446,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               {npc && <Item icon={<Sparkles size={15} style={grey} />} label="Embody" on={() => setEmbodyConfirm(true)} />}
                               {npc && alive && c.central !== false && (
                                 <Item icon={<ArrowDownToLine size={15} style={grey} />} label="Move to background"
-                                  note="frees a central slot; the engine stops giving them full focus"
+                                  note="frees up a main-character slot, and the engine stops giving them its full attention"
                                   on={() => changeStatus(sel!, "background")} />
                               )}
                               {npc && c.status === "departed" && (
@@ -455,7 +455,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                               )}
                               {npc && c.status !== "departed" && c.held && (
                                 <Item icon={<RotateCcw size={15} style={{ color: "var(--accent)" }} />} label={`Let them out of ${c.held.where}`}
-                                  note="the world stops holding them and they can turn up again"
+                                  note="they are released and can appear in the story again"
                                   on={() => changeStatus(sel!, "restore")} />
                               )}
                               {npc && alive && (
@@ -504,9 +504,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                   <div className="card p-4" style={{ borderColor: "var(--accent-glow)" }}>
                     <div className="font-display text-[15px] mb-1">Become {c.name}?</div>
                     <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
-                      You will inherit their memories, bonds, wounds, traits, and wants — all of it, as it stands.
-                      {" "}{save.characters["char_player"]?.name} remains in the world, a person the world remembers.
-                      This can be unraveled like any turn.
+                      You take over their memories, relationships, injuries, traits and goals as they are now.
+                      {" "}{save.characters["char_player"]?.name} stays in the world as a separate character.
+                      You can undo this like any turn.
                     </div>
                     <div className="flex gap-2 mt-3">
                       <button className="btn btn-accent flex-1" onClick={embody} disabled={embodying}>
@@ -548,7 +548,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <EditField label="(in)" v={draft.height_in} set={(v) => setDraft((d) => ({ ...d, height_in: v }))} rows={1} />
                       <EditField label="Weight (lbs — scales hunger/thirst)" v={draft.weight_lb} set={(v) => setDraft((d) => ({ ...d, weight_lb: v }))} rows={1} />
                     </div>
-                    <EditField label="Background — bedrock identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
+                    <EditField label="Background — core identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
                     <EditField label="Core traits (one per line)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} rows={4} />
@@ -559,9 +559,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         <span>
                           <span className="text-[12.5px]">Lock this voice</span>
                           <span className="block text-[11px] leading-snug" style={{ color: "var(--text-lo)" }}>
-                            Nothing rewrites it — not the periodic re-forge, not an acquired trait, and not the
-                            age cadence the engine adds from their birthday. How they sound when they are
-                            frightened still moves; that comes from the scene, not from this card.
+                            Nothing rewrites it: not the periodic rebuild, not a trait they pick up, and not the
+                            age-related way of talking the engine adds from their birthday. How they talk still changes when
+                            they're frightened, because that comes from the scene.
                           </span>
                         </span>
                       </label>
@@ -571,7 +571,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <EditField label="Syntax — how their sentences are built" v={draft.voice_syntax} set={(v) => setDraft((d) => ({ ...d, voice_syntax: v }))} rows={2} />
                     <EditField label="Rhythm — how their talking moves" v={draft.voice_rhythm} set={(v) => setDraft((d) => ({ ...d, voice_rhythm: v }))} rows={2} />
                     <EditField label="Verbal tics (one per line)" v={draft.voice_tics} set={(v) => setDraft((d) => ({ ...d, voice_tics: v }))} rows={2} />
-                    <EditField label="Never says (one per line) — what they could not produce, not warmth they might deploy" v={draft.voice_never_says} set={(v) => setDraft((d) => ({ ...d, voice_never_says: v }))} rows={3} />
+                    <EditField label="Never says (one per line) — phrasing they would never use, not kind words they might say insincerely" v={draft.voice_never_says} set={(v) => setDraft((d) => ({ ...d, voice_never_says: v }))} rows={3} />
                     <EditField label="Example lines (one per line) — the narrator copies these" v={draft.voice_example_lines} set={(v) => setDraft((d) => ({ ...d, voice_example_lines: v }))} rows={4} />
                     <button className="btn btn-accent w-full mt-2" onClick={commitEdit}>Save changes</button>
                   </Section>
@@ -583,7 +583,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                       <div className="flex items-center gap-3 pb-2">
                         <CuspGlyph a={cusp.a} b={cusp.b} x={cusp.x} />
                         <div className="text-[11px] leading-relaxed flex-1" style={{ color: "var(--text-lo)" }}>
-                          Composure homes to their natural set point. Only sustained battering opens the shaded wedge where snaps become possible — and calm closes it again.
+                          Composure drifts back to their usual level. Only repeated stress pushes it into the shaded zone where outbursts can happen, and calm brings it back out.
                         </div>
                       </div>
                     ) : null;
@@ -607,7 +607,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     return save.world.places[loc ?? ""]?.name ?? (loc || "—");
                   })()} />
                   {c.held && <Row k="held" v={`in custody at ${c.held.where} since turn ${c.held.since_turn} — they do not walk back into a scene until the story lets them out`} />}
-                  {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — lives on in the world, always wanting something" : "not followed — fades into the background when offscreen"} />}
+                  {sel !== "char_player" && <Row k="status" v={c.tracked ? "followed — keeps pursuing their goals while offscreen" : "not followed — fades into the background when offscreen"} />}
                 </Section>
 
                 {!!sel && sel !== "char_player" && !gone(sel) && <Authored save={save} sel={sel} setSave={setSave} />}
@@ -628,9 +628,9 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
                 <Section title="Knows — verified facts (the Truth panel)" group="ties">
                   <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
-                    Durable facts this character holds — verbatim-checked at write time, never decayed, never paraphrased again. Corrections here are law: the engine treats this list as ground truth in every future turn.
+                    Permanent facts this character knows. Each is checked word for word when it is written, and none of them fade or get paraphrased. Edits here are treated as true in every later turn.
                   </div>
-                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>Nothing ledgered yet — facts land here as the story establishes them, or add one by hand.</div>}
+                  {(mem?.facts ?? []).length === 0 && <div className="text-[12px]" style={{ color: "var(--text-lo)" }}>No facts recorded yet — they appear here as the story establishes them, or add one by hand.</div>}
                   {(mem?.facts ?? []).map((f, i) => (
                     <div key={i} className="flex items-start justify-between gap-2 py-1" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                       <div className="flex-1">
@@ -654,7 +654,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 </Section>
 
                 {sel !== "char_player" && c.status !== "dead" && (
-                  <Section title="Interview — a quiet aside (leaves no trace)" group="mind">
+                  <Section title="Interview — out of scene (not recorded)" group="mind">
                     <div className="text-[11px] italic mb-1.5" style={{ color: "var(--text-lo)" }}>
                       Talk to {c.name} out of scene. They answer only from what they actually know and feel; nothing here enters the story, their memory, or the world. One cheap call per question.
                     </div>
@@ -681,7 +681,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 )}
 
                 {traits.length > 0 && (
-                  <Section title="Acquired self" group="self">
+                  <Section title="Acquired traits" group="self">
                     {traits.map((t) => (
                       <div key={t.id} className="py-1.5">
                         <div className="flex justify-between items-baseline">
@@ -737,7 +737,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                 {gmIntents.length > 0 && (
                   <Section title="GM · what they concealed" group="mind">
                     <div className="text-[11px] mb-1.5" style={{ color: "var(--text-lo)" }}>
-                      Private intent behind the prose — the truth the narration deliberately hid. Newest first. This is your verification that {c?.name ?? "they"} act from their own hidden state, not the surface.
+                      What they privately intended each turn, which the prose does not state. Newest first. Use it to check that {c?.name ?? "they"} act on their own hidden state.
                     </div>
                     {gmIntents.map((g) => (
                       <div key={g.turn} className="py-1.5 border-t" style={{ borderColor: "var(--hairline)" }}>
@@ -752,7 +752,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         <div className="text-[12.5px]"><span style={{ color: "var(--text-lo)" }}>intended to show:</span> {g.surface}</div>
                         {g.truth
                           ? <div className="text-[12.5px] mt-0.5"><span style={{ color: "var(--accent)" }}>truth:</span> {g.truth}</div>
-                          : <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>no separate interior came back this beat — the stance was used, nothing was filed</div>}
+                          : <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>no separate inner state came back for this turn, so only their outward manner was used and nothing was saved</div>}
                       </div>
                     ))}
                   </Section>
@@ -780,7 +780,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     {mem.beliefs.map((b, i) => (
                       <div key={`b${i}`} className="text-[13px] py-1 flex gap-2 items-start group" style={{ color: "var(--accent)" }}>
                         <span className="flex-1">※ {b.content}{typeof b.confidence === "number" ? <span className="font-mono text-[9px] ml-1" style={{ color: "var(--text-lo)" }}>{Math.round(b.confidence * 100)}%</span> : null}</span>
-                        <button title="she never concluded this — remove it" className="shrink-0 opacity-40 hover:opacity-100"
+                        <button title="they never concluded this — remove it" className="shrink-0 opacity-40 hover:opacity-100"
                           onClick={async () => { try { setSave(await api.forget(save.id, sel!, { belief: b.content })); } catch { /* already gone */ } }}>
                           <X size={12} />
                         </button>
@@ -810,7 +810,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
                 {(save.habits?.[sel!] ?? []).length > 0 && (
                   <Section title="How set their patterns are" group="self">
-                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. Seen clearly as it fires, a pattern loosens; unseen, it deepens. No one changes on purpose.</div>
+                    <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>How automatic each core pattern is right now. A pattern weakens when the character notices it happening and strengthens when they don't. Nobody changes on purpose.</div>
                     {(save.habits?.[sel!] ?? []).map((h) => (
                       <div key={h.trait} className="py-1.5" style={{ borderBottom: "1px solid var(--ink-2)" }}>
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -933,7 +933,7 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
           {a.approach && <Row k="by" v={a.approach} />}
           {a.because && <Row k="because" v={a.because} />}
           <Row k="how far" v={a.crystallized_turn
-            ? `it became who they are (turn ${a.crystallized_turn})`
+            ? `became a permanent trait (turn ${a.crystallized_turn})`
             : a.paused ? "held here"
             : a.inhabit_turns
               ? `${pct(a)}% — ${STAGE_WORDS[Math.max(0, Math.min(STAGE_WORDS.length - 1, a.stage))]} · turn ${Math.min(a.turns_live ?? 0, a.inhabit_turns)} of ${a.inhabit_turns}`
@@ -958,9 +958,9 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
         <div>
           {!list.length && (
             <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
-              Give them something to want and the world gets there on its own — it happens offscreen,
-              escalates only on turns where it actually shows, and becomes part of who they are once
-              the story has earned it.
+              Give them a goal and the engine pursues it for them offscreen. It only advances on turns
+              where it shows up in the story, and becomes a permanent part of the character once it has
+              played out.
             </div>
           )}
           <button className="btn-sm" onClick={() => start(-1)}>{list.length ? "add another" : "write one"}</button>
@@ -983,14 +983,14 @@ function Authored({ save, sel, setSave }: { save: ClientSave; sel: string; setSa
               </button>
             ))}
           </div>
-          <EditField label="Or: fully themselves within this many SHOWN turns" v={turns} set={setTurns} />
+          <EditField label="Or: fully settled into it within this many turns that actually show it" v={turns} set={setTurns} />
           <div className="text-[11px] mb-2" style={{ color: "var(--text-lo)" }}>
             Counted in turns where it actually appears on the page — not elapsed turns. If the narrator
             ignores it, the percentage does not move, and the card says so.
           </div>
           <label className="flex items-center gap-2 text-[12.5px] py-1" style={{ color: "var(--text-mid)" }}>
             <input type="checkbox" checked={cryst} onChange={(e) => setCryst(e.target.checked)} />
-            let it become part of who they are if it runs its course
+            make it a permanent trait if it plays out
           </label>
           <div className="flex gap-1.5 mt-2">
             <button className="btn-sm" disabled={busy || !goal.trim()} onClick={commit}>
@@ -1064,7 +1064,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
     try {
       const r = await api.forgeSchedule(save.id, sel);
       if (r) setSave(r.save);
-      else setForgeMsg("nothing usable came back — their card may not imply a week at all");
+      else setForgeMsg("the model returned nothing usable — their card may not say enough about their routine");
     } catch { setForgeMsg("that call didn't go through"); }
     finally { setBusy(false); }
   };
@@ -1156,9 +1156,9 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
         <div>
           {!blocks.length && (
             <div className="text-[12.5px] leading-relaxed mb-2" style={{ color: "var(--text-mid)" }}>
-              Somewhere they have to be, and when. They'll know it's coming, cut a conversation short
-              for it, and go there on their own — and a night that keeps them past it costs them
-              something. Optional: most people don't need one.
+              Somewhere they have to be, and when. They'll know it's coming, leave a conversation early
+              for it, and go there on their own. If something keeps them past it, there are
+              consequences. Optional: most people don't need one.
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
@@ -1217,7 +1217,7 @@ function ScheduleEditor({ save, sel, setSave }: { save: ClientSave; sel: string;
             ))}
           </div>
           {rigidity === "mandatory" && (
-            <EditField label="What missing it costs them" v={stakes} set={setStakes} />
+            <EditField label="What happens if they miss it" v={stakes} set={setStakes} />
           )}
           <div className="flex gap-1.5 mt-2">
             <button className="btn-sm" disabled={busy || !what.trim() || !where.trim()} onClick={commit}>save it</button>

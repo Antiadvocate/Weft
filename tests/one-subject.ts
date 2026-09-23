@@ -54,9 +54,9 @@ const CAST = ["Miranda", "Chloe", "Leo", "Sarah Keller"];
   check("the narrator is told", n.length > 0);
   check("...naming who has become a topic", /Miranda has talked about Chloe/.test(n), n);
   check("...and is explicitly NOT told to avoid the name",
-    /NOT forbidden and must not be conspicuously avoided/.test(n), n);
+    /isn't forbidden, and nobody should obviously avoid it/.test(n), n);
   check("...but to give them something of their own",
-    /background, their trade|standing interests/.test(n), n);
+    /background, their work|lasting interests/.test(n), n);
   check("nothing to say means nothing said", monopolyNote(null, "Miranda") === "");
 }
 
@@ -101,8 +101,8 @@ const CAST = ["Miranda", "Chloe", "Leo", "Sarah Keller"];
     retoldToPlayer({ memory: {} } as unknown as SaveState, `"I only got the email this morning."`) === null);
 
   const note = retoldNote(hit);
-  check("the next turn is told, quoting both sides", /already had it/.test(note) && /who else made the cut/.test(note), note);
-  check("...and told to start from the far side of it", /far side of what has already been said/.test(note), note);
+  check("the next turn is told, quoting both sides", /already knew it/.test(note) && /who else made the cut/.test(note), note);
+  check("...and told to start from the far side of it", /start from what's already been said/.test(note), note);
   check("nothing to correct means nothing said", retoldNote(null) === "");
 }
 

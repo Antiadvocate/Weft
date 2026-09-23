@@ -152,29 +152,29 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
 {
   check("the auditor is asked to attribute the drift", /drift_cause/.test(CHAPTER_SYSTEM));
   check("...and told a player playing their story is not a drift",
-    /A player playing their story is NOT a drift to be corrected/.test(CHAPTER_SYSTEM));
+    /A player playing their own story isn't drift that needs correcting/.test(CHAPTER_SYSTEM));
   check("...and told to lean toward the player when it is close",
-    /"player" whenever it is genuinely close/.test(CHAPTER_SYSTEM));
+    /"player" whenever it's close/.test(CHAPTER_SYSTEM));
   check("the auditor names the threads the world presses through", /engine_threads/.test(CHAPTER_SYSTEM));
-  check("...verbatim, so the line is a handle", /copy the EXACT lines/.test(CHAPTER_SYSTEM));
+  check("...verbatim, so the line is a handle", /copy exactly the lines/.test(CHAPTER_SYSTEM));
   // A clock is the source a romance actually drifted onto — see tests/love-story-engine.ts.
   // The auditor could only ever answer with threads, so it kept passing chapters on_contract.
   check("...and clocks are nameable too, not only threads",
-    /open threads OR running faction clocks/.test(CHAPTER_SYSTEM));
+    /open threads or running faction clocks/.test(CHAPTER_SYSTEM));
   check("...with the reason a clock needs naming spelled out",
-    /its pull on the story only ever grows/.test(CHAPTER_SYSTEM));
+    /its influence on the story grows over time/.test(CHAPTER_SYSTEM));
   check("...and marking one does not stop it firing",
-    /does not stop the clock ticking or firing/.test(CHAPTER_SYSTEM));
+    /stop the clock from ticking or firing/.test(CHAPTER_SYSTEM));
 
   // Stated as a positive requirement, deliberately: naming the diagnostic phrasings in order to ban
   // them is the shape this repo's own prompt ratchets exist to keep out, and it teaches the shape.
   // "Which turn did this happen on" excludes a diagnosis without ever mentioning one.
   for (const [what, prompt] of [["chapter read", CHAPTER_SYSTEM], ["playthrough read", PERSONA_SYSTEM]] as const) {
     check(`the ${what} must name what a reader watched them do`,
-      /NAMES SOMETHING A READER WATCHED THEM DO/.test(prompt), prompt.slice(0, 80));
+      /(?:should describe something a reader actually saw them do|should name something a reader saw them do)/.test(prompt), prompt.slice(0, 80));
     check(`...testable against a turn, not a personality (${what})`,
-      /asking which turn it happened on/.test(prompt));
-    check(`...and the player is not graded (${what})`, /nobody's/.test(prompt));
+      /ask which turn it happened on/.test(prompt));
+    check(`...and the player is not graded (${what})`, /don't judge how well they played/.test(prompt));
   }
 }
 
@@ -201,13 +201,13 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
 {
   const rendered = buildContext();
   check("the canon block says a line binds its named subject",
-    /CANON IS DIRECTIONAL/.test(rendered), "");
+    /Canon also has a direction/.test(rendered), "");
   check("...and that the other party's behaviour is not specified by it",
-    /has said nothing about how anyone looks at, speaks to, stands near or touches THEM/.test(rendered), "");
+    /says nothing about how anyone looks at them, speaks to them, stands near them or touches them/.test(rendered), "");
   check("...and that supplying the matching half is inventing canon",
-    /supplying the matching half is inventing canon that is not there/.test(rendered), "");
+    /adding the matching half would be inventing canon that isn't there/.test(rendered), "");
   check("...and that one-sided is still what it says",
-    /one party obeying it is still what it says/.test(rendered), "");
+    /one person following it is still what it says/.test(rendered), "");
 }
 
 /* ── 7. an age the written history cannot support ────────────────────────────────
@@ -225,7 +225,7 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
   check("the decade that puts her at twelve is caught", clashes.length >= 1, clashes);
   check("...and it names the age it lands on", clashes.some((c) => c.at === 12), clashes);
   check("...and the line names both halves so a human can pick one",
-    /set the age to match the history, or rewrite the history to match the age/
+    /change the age to match the history, or rewrite the history to match the age/
       .test(summarizeAgeClashes(clashes, "Miranda", 22)));
 
   // the sentence about her mother is somebody else's life and is not counted
@@ -262,11 +262,11 @@ const thread = (title: string, tension: number, extra: Partial<Thread> = {}): Th
  */
 {
   check("the opening obeys the same seeding rule as the rest of the world",
-    /never with a mature crisis already at the player's throat/i.test(OPENING_SYSTEM), OPENING_SYSTEM.slice(0, 60));
+    /never open with one already underway/i.test(OPENING_SYSTEM), OPENING_SYSTEM.slice(0, 60));
   check("...and opens inside the bonds canon established, not against them",
-    /OPENS INSIDE THE BONDS THE WORLD BIBLE ESTABLISHED/.test(OPENING_SYSTEM));
+    /Start from the relationships the world bible describes/.test(OPENING_SYSTEM));
   check("...so a player's strongest tie is not introduced in trouble",
-    /the first thing a player sees of their strongest tie is not that tie in trouble/.test(OPENING_SYSTEM));
+    /Don't open with the player's closest relationship in trouble/.test(OPENING_SYSTEM));
   check("...with a concrete instruction, not a preference",
     /write a different scene/.test(OPENING_SYSTEM));
 }

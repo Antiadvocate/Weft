@@ -118,11 +118,11 @@ export function factGate(content: string): { ok: boolean; why?: string } {
   const f = content.trim();
   const first = (f.split(/\s+/)[0] ?? "").toLowerCase().replace(/[^a-z']/g, "");
   if (["she", "he", "they", "it", "her", "his", "their", "she's", "he's", "they're", "it's"].includes(first))
-    return { ok: false, why: "bare-pronoun subject — no one can tell who this is about" };
-  if (f.split(/\s+/).length < 6) return { ok: false, why: "fragment — too short to mean anything cold" };
-  if (/"/.test(f) || /^['"“]/.test(f)) return { ok: false, why: "quoted dialogue — paraphrase the claim; quotes belong in the anchor" };
+    return { ok: false, why: "the subject is a bare pronoun, so nobody can tell who this is about" };
+  if (f.split(/\s+/).length < 6) return { ok: false, why: "a fragment that's too short to mean anything on its own" };
+  if (/"/.test(f) || /^['"“]/.test(f)) return { ok: false, why: "quoted dialogue, so state the claim in your own words instead, and keep quotes for the anchor" };
   if (/\b(currently|right now|at this moment|for now|is making (her|his|their) way)\b/i.test(f))
-    return { ok: false, why: "transient state — true today, gone tomorrow; that's a memory" };
+    return { ok: false, why: "a passing state that's true today and gone tomorrow, which makes it a memory, not a fact" };
   return { ok: true };
 }
 

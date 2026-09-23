@@ -55,15 +55,15 @@ function rome(): SaveState {
   check("...and it is inside the privacy label", (() => {
     const at = copies[0]?.index ?? -1;
     if (at < 0) return false;
-    const label = d.lastIndexOf("PRIVATE authorial background", at);
+    const label = d.lastIndexOf("a private background for you alone", at);
     // nothing else may open between the label and the fact
     return label >= 0 && !d.slice(label, at).includes("\n  ");
   })(), "the fact escaped its label");
 
   check("no bare CORE line for the player", !/\n\s*CORE: An electrical engineer/.test(d), "the unlabelled duplicate is still printed");
-  check("the label now names how long he has been here", /how long they have been here/.test(d));
+  check("the label now names how long he has been here", /how long they've been here/.test(d));
   check("what he does know is marked as his own",
-    /WHAT THE PLAYER HIMSELF KNOWS AND REMEMBERS/.test(d) && /nobody here has access to any of it unless he said it out loud/.test(d));
+    /WHAT THE PLAYER KNOWS AND REMEMBERS/.test(d) && /nobody here knows any of it unless they said it out loud/.test(d));
 }
 
 /* ── 2. and the rest of the cast is untouched — NPC memory is the room's ─────── */
@@ -73,7 +73,7 @@ function rome(): SaveState {
   const d = volatileDigest(s, "");
   check("an NPC still carries a plain CORE", /CORE: Wife of Gaius Antonius Felix/.test(d));
   check("...and is not wrapped in the player's privacy frame",
-    (d.match(/WHAT THE PLAYER HIMSELF KNOWS/g) ?? []).length === 1);
+    (d.match(/WHAT THE PLAYER KNOWS AND REMEMBERS/g) ?? []).length === 1);
 }
 
 /* ── 3. a background with no sentence break is not truncated to nothing ──────── */

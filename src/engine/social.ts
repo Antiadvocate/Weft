@@ -159,7 +159,7 @@ export function edgeNote(e: SocialEdge, turn: number): string {
   const age = turn - (e.notes_turn ?? turn);
   if (age <= NOTE_FRESH_TURNS) return note;
   if (age > NOTE_STALE_TURNS && e.warmth >= 45) return "";
-  return `${note} — but that was ${age} turns ago; the warmth and trust above are current and outrank it`;
+  return `${note}, but that was ${age} turns ago, and the warmth and trust above are up to date, so they come first`;
 }
 
 // ── DRIFT ── Feeling toward someone is a claim that needs renewing, not a stored quantity. Without
@@ -237,7 +237,7 @@ export function swingLine(e: SocialEdge, turn: number): string {
   if (Math.abs(s.trust) >= SWING_FLOOR) parts.push(`trust ${s.trust > 0 ? "+" : ""}${Math.round(s.trust)}`);
   if (!parts.length) return "";
   const span = Math.max(1, turn - s.since_turn + 1);
-  return `${parts.join(" and ")} in the last ${span === 1 ? "turn" : `${span} turns`} — they are reacting to that move, whatever the standing level says`;
+  return `${parts.join(" and ")} in the last ${span === 1 ? "turn" : `${span} turns`}. They are reacting to that, whatever their general level says`;
 }
 
 export function applyEdgeDelta(
@@ -569,7 +569,7 @@ export function updatePublicStanding(
   state.world.public_standing = v;
 
   if (Math.abs(v - before) < 0.5) return null;
-  return `word about ${who || "the player"} spreads — the town's read on them turns ${standingBand(v).adjective}.`;
+  return `word about ${who || "the player"} spreads, and the town's opinion of them turns ${standingBand(v).adjective}.`;
 }
 
 function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: string; directive: string } {
@@ -584,27 +584,27 @@ function standingBand(v: number, tier: PowerTier = "mortal"): { adjective: strin
   // someone whose power everyone has seen is the most charged position there is, not the least.
   if (Math.abs(v) < 2 && (tier === "mythic" || tier === "cosmic")) return {
     adjective: "unsettled",
-    directive: `WATCHED, AND NOT YET JUDGED — everyone has seen what the player can do and nobody has decided what it means for them. This is not indifference and must never be written as indifference: strangers do not carry on as though a person like this were ordinary traffic. What they lack is a VERDICT, so the reactions run in every direction at once and different people land differently — awe, calculation, terror, hope, petition, opportunism, the ones who want to be near it and the ones who cross the road. Someone approaches; someone else leaves. Crowds react to the POWER as an established fact and to the PERSON as an open question.`,
+    directive: `WATCHED, BUT NOT YET JUDGED. Everyone has seen what the player can do, and nobody has decided what it means for them. This isn't indifference, and it must never be written as indifference, because strangers don't carry on as though someone like this were just another passer-by. What they don't have is a settled opinion, so the reactions go every way at once and different people come down in different places: awe, calculation, terror, hope, asking for help, opportunism, some wanting to be near it and some crossing the road. One person comes up to them while another leaves. Crowds react to the power as an established fact and to the person as an open question.`,
   };
   if (v >= 6) return {
     adjective: "reverent",
-    directive: `BELOVED — the wider community's default posture toward the player is gratitude, welcome, and claim. Strangers who have only heard of them arrive already inclined toward them: they bring problems hoping for help, offer things, want to be seen with them, name children after them, or press in too close. The friction available here is the friction of being loved by many — demands, expectation, people who feel entitled to them, someone who resents the adoration — never a default suspicion the town has no reason to hold.`,
+    directive: `BELOVED. The wider community's usual attitude toward the player is gratitude, welcome, and a sense that the player belongs to them. Strangers who have only heard of them arrive already well disposed: they bring their problems hoping for help, offer things, want to be seen with them, name children after them, or crowd in too close. The conflict here comes from being loved by a lot of people, like demands, expectations, people who feel they have a right to the player, or someone who resents all the adoration. It never comes from a suspicion the town has no reason to feel.`,
   };
   if (v >= 2) return {
     adjective: "warmer",
-    directive: `WELL REGARDED — the wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little easier, and people who have heard of them are curious or glad rather than wary. This is a lean of a few degrees: individuals still have their own reasons.`,
+    directive: `WELL REGARDED. The wider community leans toward the player. Strangers give them the benefit of the doubt, doors open a little more easily, and people who have heard of them are curious or pleased instead of wary. It's only a slight lean, and individuals still have their own reasons.`,
   };
   if (v <= -6) return {
     adjective: "fearful",
-    directive: `FEARED — the wider community's default posture toward the player is dread. Streets clear, conversation stops, people comply too fast and mean none of it, and someone somewhere is organizing. This is earned by what they have done in public, and it can be unearned the same way.`,
+    directive: `FEARED. The wider community's usual attitude toward the player is dread. Streets empty, conversation stops, people do what they're told too quickly and mean none of it, and somewhere someone is organising against them. They've earned this through what they've done in public, and they can lose it the same way.`,
   };
   if (v <= -2) return {
     adjective: "colder",
-    directive: `UNEASY — the wider community is wary of the player. Not terror: a stiffness, shorter answers, a look held a beat too long, business done quickly. Individuals may still be perfectly warm.`,
+    directive: `UNEASY. The wider community is wary of the player. It isn't terror, but a stiffness: shorter answers, a look held a moment too long, business done quickly. Individuals can still be perfectly warm.`,
   };
   return {
     adjective: "quieter",
-    directive: `NO FIXED REPUTATION — the wider community has no settled read on the player. Strangers treat them as a stranger: neither afraid nor impressed, occupied with their own lives. Do not have crowds react to the player as a known quantity; they are not one yet.`,
+    directive: `NO SETTLED REPUTATION. The wider community has no fixed opinion of the player, so strangers treat them as a stranger, neither afraid nor impressed and busy with their own lives. Don't have crowds react to the player as someone known, because they aren't yet.`,
   };
 }
 
@@ -615,7 +615,7 @@ export function publicStandingDirective(state: SaveState, tier: PowerTier = "mor
   // At mortal tier with no reputation there is nothing to say; silence is cheaper than a paragraph
   // telling the narrator that nothing in particular is true.
   if (Math.abs(v) < 2 && tier !== "mythic" && tier !== "cosmic") return "";
-  return `\nPUBLIC STANDING (how the WIDER COMMUNITY holds the player — distinct from the present characters, who have their own histories and may feel the opposite): ${standingBand(v, tier).directive}`;
+  return `\nPUBLIC STANDING (how the wider community sees the player; this is separate from the characters present, who have their own histories and may feel the opposite): ${standingBand(v, tier).directive}`;
 }
 
 export function diffuseRumors(state: SaveState, rng: () => number = Math.random): string[] {
@@ -728,7 +728,7 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
             if (!fed && match >= 3) {
               rumor.salience = Math.min(10, rumor.salience + 0.6);
               fed = true;
-              log.push(`the story grows in the telling — "${rumor.content}" sharpens as it spreads.`);
+              log.push(`the story grows in the telling, and "${rumor.content}" gets sharper as it spreads.`);
             }
           }
         }
@@ -1131,7 +1131,7 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random, el
       log.push(`${c.name} stopped waiting on: ${c.drive.goal}`);
       state.memory[id]?.episodic.push({
         turn: state.world.current_turn,
-        content: `I stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")} — no answer was coming, so it stopped being a question.`,
+        content: `I stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")}, because no answer was coming, so it stopped being a question.`,
         importance: 6, emotional_charge: "resignation",
         last_accessed_turn: state.world.current_turn,
       } as never);
@@ -1204,9 +1204,9 @@ export function applyStances(
       cond.psyche.betrayals = (cond.psyche.betrayals ?? 0) + 1;
       if (cond.psyche.betrayals >= 3 && !cond.psyche.active_states.includes("swallowing resentment")) {
         cond.psyche.active_states.push("swallowing resentment");
-        log.push(`${c.name} keeps giving in against what they want — the strain of it is becoming visible.`);
+        log.push(`${c.name} keeps giving in against what they want, and the strain is starting to show.`);
       } else {
-        log.push(`${c.name} gave in against their own want — a small clench.`);
+        log.push(`${c.name} gave in against what they wanted, and tensed up a little.`);
       }
     } else {
       // refused or countered: standing your ground is free, and it hands a point of self back
@@ -1250,7 +1250,7 @@ export function completeDrivesForPromises(state: SaveState, promises: { from: st
       last_accessed_turn: state.world.current_turn,
     });
     if (c.current_goal === c.drive.goal) c.current_goal = undefined;
-    log.push(`${c.name} got their answer ("${c.drive.goal}") — moving to what comes next.`);
+    log.push(`${c.name} got their answer ("${c.drive.goal}") and is moving on to what comes next.`);
     c.drive = undefined;
   }
   return log;
@@ -1419,7 +1419,7 @@ export function creditPromiseEvidence(state: SaveState, action: string, prose: s
     // that was genuinely kept, and a line that reads like an ordinary resolution gives them nothing
     // to object to — the ledger has three buttons precisely because this can be wrong.
     const who = p.from === "char_player" ? "You" : state.characters[p.from]?.name ?? "someone";
-    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${p.text.replace(/\s*[.]\s*$/, "")} — closed by the engine after ${seen.length} turns of it looking done.`);
+    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${p.text.replace(/\s*[.]\s*$/, "")}. The engine closed it after ${seen.length} turns of it looking done.`);
     console.info(`[promises] closed "${p.text}" as kept — ${seen.length} turns of evidence and the bookkeeper never resolved it`);
   }
   return closed;
@@ -1680,6 +1680,6 @@ export function castGoneCold(state: SaveState): string | null {
     .slice(0, 4)
     .map((e) => `${state.characters[e.from]?.name} ${Math.round(e.warmth ?? 0)}`)
     .join(", ");
-  return `everyone has gone cold on you — ${who} — in a story whose genre is "${(state.world_bible.tone ?? "").trim()}". `
-    + `Warmth is what the narrator reads to decide how people treat you, so this is why they are like this. You can edit it in the Cast panel.`;
+  return `everyone has gone cold on you (${who}) in a story whose genre is "${(state.world_bible.tone ?? "").trim()}". `
+    + `The narrator reads warmth to decide how people treat you, so this is why they're acting like this. You can change it in the Cast panel.`;
 }

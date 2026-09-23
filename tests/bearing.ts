@@ -91,13 +91,13 @@ const who = (o: Partial<Identity>, p: Partial<Psyche> = {}) =>
   // the shy reading is emitted as an OPERATION, not as a definition of shyness — an instruction
   // shaped like an epigram teaches that shape (tools/promptlint.ts enforces it)
   check("...and the shy reading says what she does, not what shyness is",
-    /waits to be asked rather than starting/.test(note) && !/what SHY looks like/.test(note), note);
+    /waits to be asked instead of starting/.test(note) && !/what SHY looks like/.test(note), note);
   check("...in her own pronouns", /she waits to be asked/.test(note) && /She wants to be there/.test(note), note);
   check("the median person gets nothing", !note.includes("Bo"), note);
   check("the player is never given a bearing", !note.includes("Max"), note);
-  check("it says out loud that this is climate", /climate, holding across whole stretches of the story/.test(note), note);
+  check("it says out loud that this is climate", /this holds over long stretches of the story/.test(note), note);
   check("and the permission half is there", /Nobody in this scene has to be efficient/.test(note), note);
-  check("...naming the failure it exists to stop", /written by the same person/.test(note), note);
+  check("...naming the failure it exists to stop", /they all sound the same/.test(note), note);
 
   // a room of nothing but median people costs nothing
   const flat = { ...s, characters: { ...s.characters, a: { ...(s.characters as any).b, character_id: "a", name: "Ada" } } } as SaveState;
@@ -126,7 +126,7 @@ const who = (o: Partial<Identity>, p: Partial<Psyche> = {}) =>
       (/"conscience"\s*:\s*[^,]{0,20}/.exec(src) ?? [])[0]);
   }
   const shape = readFileSync("src/engine/sketch.ts", "utf8");
-  check("...and the description says the spread is the point", /SPREAD IS THE POINT/.test(shape));
+  check("...and the description says the spread is the point", /vary it a lot/.test(shape));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

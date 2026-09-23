@@ -125,9 +125,9 @@ export function reconcilePlayerTightness(cond: Condition, tightness: number | un
  *  describes shoulders/jaw/breath, not feelings: rule 5 keeps the player's interior theirs. */
 export function playerTensionCue(cond: Condition): string {
   const r = cond.psyche.relaxation;
-  if (r <= -6) return "wound tight — shoulders up, jaw set, breath short and shallow";
-  if (r <= -4) return "visibly tense — shoulders drawn, movements clipped";
-  if (r <= -2) return "a little tight — held in the shoulders, breath a touch shallow";
+  if (r <= -6) return "wound tight, with shoulders up, jaw set, and breathing short and shallow";
+  if (r <= -4) return "visibly tense, with shoulders drawn in and clipped movements";
+  if (r <= -2) return "a little tight, holding it in the shoulders, with breathing slightly shallow";
   return "";
 }
 

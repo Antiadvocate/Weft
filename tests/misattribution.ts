@@ -84,7 +84,7 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
     "I ask about buying property", INN_PROSE,
   );
   check("the absent character gets no want from it", !s.characters[away].drive, s.characters[away].drive);
-  check("the misattribution is reported", shifts.some((x) => /was not in this scene/.test(x)), shifts);
+  check("the misattribution is reported", shifts.some((x) => /was(?:n't| not) in this scene/.test(x)), shifts);
   check("someone actually present still gets theirs", s.characters[here].drive?.goal === "Sell the stranger a house", s.characters[here].drive);
 }
 
@@ -100,10 +100,10 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
 {
   const cold = dispositionCue(0, 0);
   const warm = dispositionCue(60, 40);
-  check("a stranger's cue says transactions are not favors", /TRANSACTIONS ARE NOT FAVORS/.test(cold), cold);
-  check("it names what may still be withheld", /Withhold favors, trust, secrets, loyalty, and risk/.test(cold));
+  check("a stranger's cue says transactions are not favors", /ORDINARY WORK IS NOT A FAVOR/.test(cold), cold);
+  check("it names what may still be withheld", /Hold back favours, trust, secrets, loyalty and risk/.test(cold));
   check("it no longer says they agree to nothing", !/agrees to nothing/.test(cold), cold);
-  check("the same holds at warmth", /TRANSACTIONS ARE NOT FAVORS/.test(warm));
+  check("the same holds at warmth", /ORDINARY WORK IS NOT A FAVOR/.test(warm));
   check("hostility is still legible as hostility", /resents or hates you/.test(dispositionCue(-70, -70)));
 }
 
@@ -433,10 +433,10 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
  * money — without checking which direction the goods just moved. */
 {
   const gift = (action: string) => giftDirective(action);
-  check("building something for a town is giving", /THE PLAYER IS GIVING\./.test(gift("I build a well for the village")));
-  check("handing food to people is giving", /THE PLAYER IS GIVING\./.test(gift("I give the food to the children")));
-  check("healing someone is giving", /THE PLAYER IS GIVING\./.test(gift("I heal the wounded for them")));
-  check("making a thing for a named person is giving", /THE PLAYER IS GIVING\./.test(gift("I made a coat for Mable")));
+  check("building something for a town is giving", /The player is giving something this turn\./.test(gift("I build a well for the village")));
+  check("handing food to people is giving", /The player is giving something this turn\./.test(gift("I give the food to the children")));
+  check("healing someone is giving", /The player is giving something this turn\./.test(gift("I heal the wounded for them")));
+  check("making a thing for a named person is giving", /The player is giving something this turn\./.test(gift("I made a coat for Mable")));
 
   check("buying something is not giving", gift("I buy bread from the baker") === "");
   check("asking for something is not giving", gift("I ask the smith to make a blade for me") === "");
@@ -444,9 +444,9 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   check("an empty action is not a gift", gift("") === "");
 
   const d = gift("I build a well for the village");
-  check("it forbids the invoice specifically", /No price, no fee, no invoice/.test(d));
+  check("it forbids the invoice specifically", /Nobody names a price or a fee, sends a bill/.test(d));
   check("it leaves refusal and suspicion available", /they refuse it/.test(d) && /suspicious/.test(d), d);
-  check("it asks for a proportionate reaction", /proportionate to the size of what was given/.test(d), d);
+  check("it asks for a proportionate reaction", /react in proportion to how much they were given/.test(d), d);
 }
 
 /* 12. and the pruner can now clear the ones already in a save */

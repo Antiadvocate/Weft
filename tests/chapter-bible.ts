@@ -148,24 +148,24 @@ const base = {
  * the save's mood. With a protagonist nothing can threaten, that mood is emptiness. */
 {
   const P = NEWSEASON_SYSTEM;
-  check("a thread has to have somebody acting in it", /WHO IS ACTING/.test(P));
-  check("a thread has to move without the player", /WHAT HAPPENS IF THE PLAYER NEVER TOUCHES IT/.test(P));
-  check("a thread has to be actionable this week", /COULD THE PLAYER ACT ON IT THIS WEEK/.test(P));
+  check("a thread has to have somebody acting in it", /Who's acting\?/.test(P));
+  check("a thread has to move without the player", /What happens if the player never touches it\?/.test(P));
+  check("a thread has to be actionable this week", /Could the player do something about it this week\?/.test(P));
   check("the interior-as-antagonist failure is named outright",
-    /FORBIDDEN as threads: the player's boredom, emptiness/.test(P));
+    /So none of these can be a thread: the player's boredom, emptiness/.test(P));
   check("and it says the pull is strongest exactly when the player is untouchable",
-    /THE MORE POWERFUL THE PLAYER, THE STRONGER THE PULL TOWARD THIS FAILURE/.test(P));
-  check("it says what to write instead", /A god has plenty to fight, and none of it is his feelings/.test(P));
-  check("a chapter does not open as an epilogue", /opens as an epilogue/.test(P));
+    /This matters most when the player is very powerful/.test(P));
+  check("it says what to write instead", /Write problems out in the world instead/.test(P));
+  check("a chapter does not open as an epilogue", /reads like an epilogue/.test(P));
 
-  check("the player's brief is declared binding", /THE PLAYER MAY DIRECT THIS CHAPTER/.test(P));
-  check("the brief outranks the model's own reading", /it outranks your reading of the material/.test(P));
-  check("the forbidden list still outranks the brief", /everything in this prompt except the forbidden list/.test(P));
+  check("the player's brief is declared binding", /The player can direct this chapter/.test(P));
+  check("the brief outranks the model's own reading", /It outranks your reading of the material/.test(P));
+  check("the forbidden list still outranks the brief", /everything else in these instructions except the forbidden list/.test(P));
 
-  check("unsanitized is still demanded", /DO NOT SANITIZE/.test(P));
-  check("and judging the player is refused separately", /EQUALLY CRITICAL — DO NOT JUDGE/.test(P));
-  check("the settings the player owns are named as off-limits", /THE PLAYER'S OWN SETTINGS ARE NOT YOURS TO WRITE/.test(P));
-  check("the forbidden list binds the recap too", /THE FORBIDDEN LIST BINDS THE NEW CHAPTER AND THE RECAP/.test(P));
+  check("unsanitized is still demanded", /Don't clean anything up/.test(P));
+  check("and judging the player is refused separately", /Just as important, don't judge/.test(P));
+  check("the settings the player owns are named as off-limits", /The player's own settings aren't yours to write/.test(P));
+  check("the forbidden list binds the recap too", /The forbidden list applies to the new chapter and to the recap/.test(P));
 
   // the schema and the whitelist have to agree, or the model spends tokens on a field that is dropped
   check("the schema no longer asks for narrator_direction", !/"narrator_direction":/.test(P));

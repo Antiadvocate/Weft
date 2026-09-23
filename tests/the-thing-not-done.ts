@@ -152,7 +152,7 @@ function room(): SaveState {
   const spent = liveWant(s, olga, 40);
   check("with nothing left, she does the desk instead", /desk/.test(spent?.goal ?? ""), spent);
   check("…and the engine says why in words the narrator can use",
-    /reserve/.test(spent?.why ?? ""), spent);
+    /energy/.test(spent?.why ?? ""), spent);
 
   cond.fatigue = "fresh"; cond.psyche.relaxation = -7;
   check("badly clenched does the same thing as exhausted", /desk/.test(liveWant(s, olga, 40)?.goal ?? ""));
@@ -164,8 +164,8 @@ function room(): SaveState {
   const heavy = want("tell Rabi about the money", { priority: 3, blocker: "cannot say it", progress_turn: 0 });
   check("a fresh want gets no cue at all", neglectCue(want("x", { progress_turn: 39 }), 40) === "");
   const bad = neglectCue(heavy, 60);
-  check("a badly avoided one reads as avoidance, not as a plan", /flinch off the subject/.test(bad), bad);
-  check("…and names the easy thing they do instead", /easy thing in front of them/.test(bad));
+  check("a badly avoided one reads as avoidance, not as a plan", /shy away from the subject/.test(bad), bad);
+  check("…and names the easy thing they do instead", /easy thing is in front of them/.test(bad));
   check("…and says how long, so the prose can pitch it", /\d+ turns/.test(bad), bad);
   const mid = neglectCue(heavy, 20);
   check("a middling one is milder", !/flinch/.test(mid) && mid.length > 0, mid);

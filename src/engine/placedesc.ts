@@ -23,18 +23,18 @@ import { contextHistory } from "./context";
 import { buildMessages, complete, safeJson } from "../llm";
 import { clipText } from "./text";
 
-const PLACE_SYSTEM = `You write the PHYSICAL RECORD of one location in a story — what is actually there, as a person walking in would find it.
+const PLACE_SYSTEM = `You write the physical description of one place in a story: what's actually there, as someone walking in would find it.
 
-You are given the place's name, the world it is in, and the prose that has been set there. Everything the prose established is TRUE and BINDING: if it says the stair is open concrete with a steel rail and no door at any landing, the record says that. Where the prose is silent, invent — concretely and consistently with the world, the way a gazetteer would. Vagueness is the failure this exists to fix.
+You're given the place's name, the world it's in, and the prose that has been set there. Everything the prose established is true and has to be kept. If it says the stairwell is open concrete with a steel rail and no door on any landing, the description says that. Where the prose says nothing, invent details, concretely and in keeping with the world, the way a guidebook would. Don't be vague.
 
-WRITE FACTS, NOT STORY. What is built here, what it is made of, its scale and layout, what is in it, what it smells and sounds like, who is ordinarily about. Present tense, plain, dense. 2–5 sentences.
+Write facts, not story. Describe what's built here, what it's made of, how big it is and how it's laid out, what's in it, what it smells and sounds like, and who is usually around. Use the present tense, and keep it plain and packed with detail, in two to five sentences.
 
-NEVER write: what happened here, who did what to whom, anyone's feelings, the player, an event, a quotation, or a note about the record itself. A description that reads as narrative is wrong even when every word of it is true — the narrator reads this every turn as standing fact, and a sentence about one evening becomes a permanent feature of the ground.
+Never write about what happened here, who did what to whom, anyone's feelings, the player, an event, a quotation, or a note about the description itself. Don't write it as a story, even if every word is true. The narrator reads this every turn as a permanent fact, so a sentence about one evening would turn into a permanent feature of the place.
 
-If the place has been changed by something in the story, describe the CURRENT state and leave the change unmentioned: a razed town is described as bare ground and ash, in the words somebody would use who had never seen it whole.
+If something in the story has changed the place, describe how it is now and don't mention the change. A town that has been razed is described as bare ground and ash, in the words someone would use who had never seen it standing.
 
-Output ONLY this JSON:
-{"description_facts":"", "population":{"scale":0,"who":"who is ordinarily about at a normal hour — trades and roles, never names. 0 for genuinely uninhabited ground."}}`;
+Reply with only this JSON:
+{"description_facts":"", "population":{"scale":0,"who":"who is usually around at a normal hour, described by trade and role and never by name. Use 0 for ground where nobody really lives."}}`;
 
 /** Places whose record is blank, or flagged as predating something that happened to them. */
 export function pendingPlaces(state: SaveState): string[] {
@@ -78,9 +78,9 @@ export async function completePlaceDescription(state: SaveState, id: string, mod
     `WORLD: ${b?.name ?? ""} — ${b?.era ?? ""}. ${b?.technology_level ?? ""}`,
     b?.climate_and_geography ? `CLIMATE AND GEOGRAPHY: ${b.climate_and_geography}` : "",
     (state.world.canon ?? []).length ? `CANON (binding law):\n${state.world.canon.map((x) => `- ${x}`).join("\n")}` : "",
-    place.stale_note ? `\nTHE EXISTING RECORD IS OUT OF DATE: ${place.stale_note}` : "",
-    !blank ? `\nTHE EXISTING RECORD (revise it; keep whatever is still standing):\n${place.description_facts}` : "",
-    `\nPROSE SET HERE (binding — every physical detail in it is true of this place):\n${prose}`,
+    place.stale_note ? `\nTHE EXISTING DESCRIPTION IS OUT OF DATE: ${place.stale_note}` : "",
+    !blank ? `\nTHE EXISTING DESCRIPTION (revise it, and keep whatever is still standing):\n${place.description_facts}` : "",
+    `\nPROSE SET HERE (every physical detail in it is true of this place and has to be kept):\n${prose}`,
   ].filter(Boolean).join("\n");
 
   let g: any = null;

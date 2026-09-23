@@ -140,14 +140,14 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("her silence is counted", s.speech_silence?.[m] === 1);
   s.world.current_turn = 11;
   check("one silent turn is not yet the thing to fix", !/without a line/.test(speechDirective(s)), speechDirective(s));
-  check("...but the thin turn is named immediately", /0% of the words were spoken aloud/.test(speechDirective(s)), speechDirective(s));
+  check("...but the thin turn is named immediately", /0% of the words were spoken out loud/.test(speechDirective(s)), speechDirective(s));
 
   trackSilence(s, SILENT);
   s.world.current_turn = 12;
   const d = speechDirective(s);
-  check("two turns mute and she is named", /Miranda has been in the room for 2 turns without a line/.test(d), d);
+  check("two turns mute and she is named", /Miranda has been in the room for 2 turns without saying anything/.test(d), d);
   check("...with her own way of escalating, from her own record", /asks again, follows them across the room/.test(d), d);
-  check("...and the instruction is to give her speech", /Give Miranda real speech this turn/.test(d));
+  check("...and the instruction is to give her speech", /Give Miranda some real lines this turn/.test(d));
 
   // a turn that is actually a conversation says nothing at all
   const { s: s2, m: m2 } = scene();

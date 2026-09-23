@@ -69,7 +69,7 @@ const save = (turns: number): SaveState => ({
   check("...carrying the auditor's gap, which used to be thrown away", g.includes(MISSING), g);
   check("...and it never invents a deadline", /no deadline|must not manufacture one/.test(g), g);
   check("...nor tells anyone to write the ending now", !/must be written now|turns for it are spent/.test(g), g);
-  check("...nor to have anybody talk about it", /does not mean anyone talking about it/.test(g), g);
+  check("...nor to have anybody talk about it", /doesn't mean anyone talking about it/.test(g), g);
 
   // with a clock, fate has it and gravity stays out of the way
   const withClock = readFate(save(40));
@@ -83,14 +83,14 @@ const save = (turns: number): SaveState => ({
 /* ── 3. the auditor now knows what a contract is ─────────────────────────────── */
 {
   check("it is told the contract is more than the direction line",
-    /genre, the standing direction, the pressures/.test(CHAPTER_SYSTEM), "");
-  check("...and to judge against all of it", /judge against all of them together/.test(CHAPTER_SYSTEM));
+    /the genre, the player's standing direction, the kinds of pressure/.test(CHAPTER_SYSTEM), "");
+  check("...and to judge against all of it", /Judge the chapter against all of these together/.test(CHAPTER_SYSTEM));
   check("...and to check the genre against what the beats are made of",
-    /Check the GENRE against what the beats are actually made of/.test(CHAPTER_SYSTEM));
+    /Compare the GENRE line with what the events are actually made of/.test(CHAPTER_SYSTEM));
   check("...and to check whether a forbidden thing became the engine",
-    /anything listed as NEVER THE ENGINE has become the engine/.test(CHAPTER_SYSTEM));
+    /anything listed as NEVER WHAT DRIVES THE STORY has become what the story runs on/.test(CHAPTER_SYSTEM));
   check("...and that saying so is not a criticism of the writing",
-    /not a criticism of the writing/.test(CHAPTER_SYSTEM));
+    /isn't a criticism of the writing/.test(CHAPTER_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

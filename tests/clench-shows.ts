@@ -46,38 +46,38 @@ check("…and prints the actual number, so the narrator can see the degree",
 /* ── THE MISREADING, WHICH IS THE WHOLE POINT ─────────────────────────────────────────────── */
 {
   const hard = clenchDirective(at(-8), "Olga");
-  check("badly clenched: they answer a sentence nobody said", /answer THAT/.test(hard), hard.slice(0, 200));
-  check("…a question arrives as an accusation", /question lands as an accusation/.test(hard));
-  check("…kindness arrives as a setup", /[Kk]indness lands as setup/.test(hard));
-  check("…and they hold it after being corrected", /do not take it the first time|hold the misread/.test(hard));
+  check("badly clenched: they answer a sentence nobody said", /they answer that reading out loud/.test(hard), hard.slice(0, 200));
+  check("…a question arrives as an accusation", /question sounds like an accusation/.test(hard));
+  check("…kindness arrives as a setup", /[Kk]indness sounds like a setup/.test(hard));
+  check("…and they hold it after being corrected", /don't accept it the first time|hold on to the misreading/.test(hard));
   /* THE GUARDRAIL. A misreading the words cannot support is not fear, it is the narrator writing
    * somebody insane — and this engine has form for turning a state into a caricature. */
   check("…but the misread must be available in the actual words",
-    /a reading a reasonable person could get from the actual words/.test(hard), hard);
+    /one a reasonable person could get from the actual words/.test(hard), hard);
   check("…and they never narrate their own fear", /[Dd]o not have them explain any of this|name their own fear/.test(hard));
   const mid = clenchDirective(at(-4), "Olga");
   check("merely clenched: the same move, weaker", /second-worst reading/.test(mid), mid);
-  check("…and they can be talked off it, which the worse band cannot", /CAN be talked off it/.test(mid));
+  check("…and they can be talked off it, which the worse band cannot", /can be talked out of it/.test(mid));
 }
 
 /* ── OPENNESS IS NOT A REWARD, IT IS A DIFFERENT EXPOSURE ─────────────────────────────────── */
 {
   const open = clenchDirective(at(9), "Olga");
-  check("wide open: they answer what they would normally deflect", /would ordinarily deflect/.test(open), open);
-  check("…and being worked actually works on them", /if somebody is working them, it works/.test(open));
-  check("…and it is not flagged for the reader", /nothing in the prose flags it/.test(open));
-  check("…and they still do not read the room out loud", /no read delivered out loud/.test(open));
+  check("wide open: they answer what they would normally deflect", /they'd usually dodge/.test(open), open);
+  check("…and being worked actually works on them", /If somebody is manipulating them, it works/.test(open));
+  check("…and it is not flagged for the reader", /nothing in the prose points it out/.test(open));
+  check("…and they still do not read the room out loud", /no reading of the other person spoken out loud/.test(open));
   const settling = clenchDirective(at(5), "Olga");
   check("settling: they let a sentence finish", /let a sentence finish/.test(settling));
   check("…and volunteer something unasked-for that is not a confession",
-    /not a confession and not a lesson/.test(settling));
+    /isn't a confession or a lesson/.test(settling));
 }
 
 /* ── A SPENT GUARD IS ITS OWN STATE ON TOP ─────────────────────────────────────────────────── */
 {
   const spent = clenchDirective(at(-8, "shattered"), "Olga");
-  check("a broken guard adds the thing that gets through", /arrives instead of being deflected/.test(spent), spent);
-  check("…and an intact one does not", !/arrives instead of being deflected/.test(clenchDirective(at(-8), "Olga")));
+  check("a broken guard adds the thing that gets through", /gets through instead of being turned away/.test(spent), spent);
+  check("…and an intact one does not", !/gets through instead of being turned away/.test(clenchDirective(at(-8), "Olga")));
 }
 
 /* ── THE RATCHET ────────────────────────────────────────────────────────────────────────────

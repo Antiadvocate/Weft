@@ -103,10 +103,10 @@ I am not going to do it.
 
   const n = declinedNotice(s);
   const all = n.join("\n");
-  check("it says plainly that nothing was recorded", /Nothing was written and nothing was recorded/.test(all), n);
+  check("it says plainly that nothing was recorded", /Nothing was written or recorded/.test(all), n);
   check("...and that the scene did not move", /the scene is exactly where it was/.test(all));
   check("...and does not blame the turn the player typed", !/rephras/i.test(all), n);
-  check("...and says so outright", /none of which came from this turn/.test(all));
+  check("...and says so outright", /none of it came from this turn/.test(all));
   check("the ending is named", /the narrator kills itself/.test(all), n);
   check("the standing direction is named", /TERRIBLE WRITER/.test(all), n);
   check("both authored wants are named, with whose they are", /Miranda — “kill herself”/.test(all) && /Marcus — “kill himself”/.test(all), n);
@@ -117,7 +117,7 @@ I am not going to do it.
   bare.world_bible.destination = ""; bare.world_bible.narrator_direction = "";
   const b = declinedNotice(bare);
   check("with no standing inputs it stays one honest line", b.length === 1, b);
-  check("...and still says nothing was recorded", /nothing was recorded/.test(b[0]));
+  check("...and still says nothing was recorded", /[Nn]othing was (?:written or )?recorded/.test(b[0]));
 }
 
 /* ── 5. the rules that were already there still hold ──────────────────────────── */

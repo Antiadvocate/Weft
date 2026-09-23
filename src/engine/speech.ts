@@ -156,10 +156,10 @@ export function trackSilence(state: SaveState, prose: string): void {
  *  This is the field that was being contradicted, so it is the field the correction is built on. */
 function pushesBy(style: string | undefined): string {
   switch (String(style ?? "").toLowerCase()) {
-    case "anxious": return "goes after it — asks again, follows them across the room, repeats the part that was not answered, raises the volume, will not let the subject close";
-    case "avoidant": return "goes short and hard rather than silent — one flat sentence that ends the topic, then leaves the room or changes what they are doing, out loud";
-    case "disorganized": return "starts saying it and stops, then says a sharper version of it a moment later, and asks for something they then refuse";
-    default: return "stays in it and keeps talking in the same voice — names the thing plainly, asks the direct question, says what they will and will not do";
+    case "anxious": return "goes after it: asks again, follows them across the room, repeats the part that wasn't answered, gets louder, and won't let the subject drop";
+    case "avoidant": return "goes short and hard instead of silent: one flat sentence that ends the subject, and then leaves the room or changes what they're doing, out loud";
+    case "disorganized": return "starts to say it and stops, then says a sharper version of it a moment later, and asks for something they then turn down";
+    default: return "stays in it and keeps talking the same way as before: names the problem plainly, asks the direct question, and says what they will and won't do";
   }
 }
 
@@ -182,25 +182,25 @@ export function speechDirective(state: SaveState): string {
 
   const bits: string[] = [];
   if (thin) {
-    bits.push(`Last turn ${Math.round(last.share * 100)}% of the words were spoken aloud, with ${present.length === 1 ? "somebody" : "people"} in the room for all of it. `
-      + `THIS TURN THE TALKING CARRIES THE SCENE: most of what happens is what people say to each other, and the description is what fits around it. `
-      + `Every person present speaks at least once, and what they say moves something — a question that has to be answered, a demand, an answer, a refusal, a piece of news, a fact about their own day.`);
+    bits.push(`Last turn, ${Math.round(last.share * 100)}% of the words were spoken out loud, and ${present.length === 1 ? "somebody was" : "people were"} in the room for all of it. `
+      + `This turn the talking carries the scene. Most of what happens is what people say to each other, and the description fits in around it. `
+      + `Everyone present speaks at least once, and what they say moves something along, whether it's a question that needs an answer, a demand, an answer, a refusal, some news, or something about their own day.`);
   }
   if (mute.length) {
     const lines = mute.map((id) => {
       const c = state.characters[id]!;
       const rel = state.condition[id]?.psyche?.relaxation ?? 0;
       const state_ = rel <= -3 ? "is angry or hurt and " : "";
-      return `${c.name} has been in the room for ${state.speech_silence?.[id]} turns without a line. ${c.name} ${state_}${pushesBy(c.attachment?.style)}. Give ${c.name} real speech this turn.`;
+      return `${c.name} has been in the room for ${state.speech_silence?.[id]} turns without saying anything. ${c.name} ${state_}${pushesBy(c.attachment?.style)}. Give ${c.name} some real lines this turn.`;
     });
     bits.push(lines.join(" "));
   }
   if (fragments) {
-    bits.push(`Half of last turn's lines were ${SHORT_LINE} words or shorter. People in the middle of something talk in runs: a sentence, then the next one, then the part they had not meant to say. `
-      + `At least one person this turn speaks three sentences together, uninterrupted, and gets to the end of the thought. `
-      + `Where a line is a fragment, it is a fragment because they were cut off or because they are finishing somebody else's sentence, and the page shows which.`);
+    bits.push(`Half of last turn's lines were ${SHORT_LINE} words long or shorter. People who are in the middle of something talk in runs: one sentence, then the next, then the part they didn't mean to say. `
+      + `This turn at least one person says three sentences in a row, without being interrupted, and gets to the end of what they were thinking. `
+      + `When a line is a fragment, it's because they got cut off or because they're finishing somebody else's sentence, and the writing shows which.`);
   }
-  return `\n\nWHAT PEOPLE SAID LAST TURN, AND WHAT THEY SAY THIS ONE. ${bits.join("\n")}`;
+  return `\n\nWHAT PEOPLE SAID LAST TURN, AND WHAT THEY SAY THIS TURN. ${bits.join("\n")}`;
 }
 
 /**
@@ -218,7 +218,7 @@ export function angerRegister(state: SaveState): string {
   if (!hot.length) return "";
   const rows = hot.map(({ c, r }) =>
     `${c!.name} (${r <= -7 ? "badly clenched" : "clenched"}): ${pushesBy(c!.attachment?.style)}`).join("\n");
-  return `\nBEING ANGRY IS SOMETHING A PERSON DOES OUT LOUD. Somebody who has just been hurt or crossed has MORE to say than they did an hour ago, and the pressure goes into what they say and how long they keep saying it. `
-    + `The withdrawal reading — going still, going quiet, one clipped sentence, letting the silence do the work — is one person's way and it is being written as everybody's. Use each person's own way, which is on their record:\n${rows}\n`
-    + `A character who has just been told something unbearable answers it. They repeat the part that landed, they ask the question they already know the answer to, they say the unfair thing, they bring up the older grievance that is not about tonight. If somebody in the scene truly has nothing to say, they leave the room, and the leaving is the answer.`;
+  return `\nPEOPLE ARE ANGRY OUT LOUD. Someone who has just been hurt or crossed has more to say than they did an hour ago, and the pressure comes out in what they say and how long they keep saying it. `
+    + `Pulling back, by going still, going quiet, saying one clipped sentence or letting the silence do the work, is only how some people react, and it's being given to everyone. Use each person's own way of reacting, which is in their record:\n${rows}\n`
+    + `A character who has just been told something unbearable answers it. They repeat the part that hit them, ask a question they already know the answer to, say something unfair, or bring up an older complaint that has nothing to do with tonight. If someone in the scene really has nothing to say, they leave the room, and leaving is their answer.`;
 }

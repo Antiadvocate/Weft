@@ -121,7 +121,7 @@ check("grip drives automaticity", unpromptedRate(-7) > unpromptedRate(4) * 4, [u
   check("the verdict is the concrete behaviour, verbatim", v.includes(TRAITS[0]));
   check("no number, no lexicon, ever", !/strength|groove|probabilit|habit engine|\b\d{2}\b/i.test(v), v);
   check("seen/unseen stays engine-side", !/\bseen\b|\bunseen\b/i.test(v));
-  check("and the character may not notice themselves doing it", /Do NOT have them notice/.test(v));
+  check("and the character may not notice themselves doing it", /Don't have them notice/.test(v));
   // A scene of four people each doing their signature thing is a scene made of tics.
   const many = habitVerdicts([
     { char_id: "char_a", trait: "a", seen: false }, { char_id: "char_l", trait: "b", seen: false },

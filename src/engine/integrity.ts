@@ -92,10 +92,10 @@ export function integrityAlarm(state: SaveState): string | null {
   if (log.said_turn !== undefined && turn - log.said_turn < COOLDOWN) return null;
   log.said_turn = turn;
   const named = kinds.map((k) => LABEL[k] ?? k);
-  return `CONTINUITY: ${kinds.length} different kinds of contradiction caught in the last ${WINDOW} turns — ${named.join("; ")}. `
-    + `Each one has been corrected for the next turn, but this many at once usually means the record and the prose have come apart, `
-    + `and corrections work turn to turn rather than backwards. If the story stopped making sense a few turns ago, that is where it happened, `
-    + `and rolling back to before it is cheaper than playing forward through it.`;
+  return `CONTINUITY: ${kinds.length} different kinds of contradiction were caught in the last ${WINDOW} turns: ${named.join("; ")}. `
+    + `Each one has been corrected for the next turn, but this many at once usually means the record and the prose have drifted apart, `
+    + `and corrections only work going forward, from one turn to the next. If the story stopped making sense a few turns ago, that's where it went wrong, `
+    + `and going back to before that point is easier than playing on through it.`;
 }
 
 /** Everything caught, newest first — for the Chronicle and the inspector. */
@@ -164,7 +164,7 @@ export function povDrift(
  *  rule about narration, since a rule about keeping the person is the sentence that already failed. */
 export function povFix(hit: { third: number; second: number } | null | undefined): string {
   if (!hit) return "";
-  return `\nLAST TURN WROTE THE PLAYER FROM OUTSIDE. Their name or a he/she stood where "you" belongs, ${hit.third} times, against ${hit.second} second-person words in the whole turn. The player is the person this story is told TO. In narration and in interior alike they are addressed in the second person; their own name and any third-person pronoun belong to other people and never to them. This holds hardest when they are ALONE, which is where it broke: a scene with nobody else in it is still their scene and is still addressed to them, and a solo turn written about a man at a desk has quietly changed who is being spoken to. Other characters stay in the third person as always. Write this turn to them.`;
+  return `\nLAST TURN DESCRIBED THE PLAYER FROM THE OUTSIDE. Their name or "he" or "she" appeared where "you" belongs ${hit.third} times, against ${hit.second} second-person words in the whole turn. The player is the person this story is told to. In the narration and in their inner thoughts alike, they're addressed as "you". Their own name and any third-person pronoun belong to other people, never to them. This matters most when they're alone, which is where it went wrong: a scene with nobody else in it is still their scene and is still addressed to them, and a turn written about "a man at a desk" has quietly changed who is being spoken to. Other characters stay in the third person as usual. Write this turn to the player.`;
 }
 
 /**
@@ -275,7 +275,7 @@ export function strikeEntity(state: SaveState, name: string): { facts: number; m
   }
   state.world.rumors = (state.world.rumors ?? []).filter((r) => !re.test(String(r?.content ?? "")));
   state.world.threads = (state.world.threads ?? []).filter((t) => !re.test(`${t?.title ?? ""} ${t?.description ?? ""}`));
-  const text = `${name} does not exist and never did. Nothing involving ${name} happened. Never write ${name} again, and never have anyone refer to, remember, or account for ${name}.`;
+  const text = `${name} doesn't exist and never did, and nothing involving ${name} happened. Never write about ${name} again, and never have anyone mention, remember or explain ${name}.`;
   state.retcons = [...(state.retcons ?? []).filter((r) => r.text !== text), { text, turn, kind: "veto" as const }].slice(-12);
   return { facts, memories };
 }

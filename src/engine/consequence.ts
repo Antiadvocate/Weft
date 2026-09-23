@@ -37,21 +37,21 @@ export const ESTABLISH_COOLDOWN = 12;
  *  happens to be hottest — which, in a world whose only threads are threats, is always a threat. */
 export type ThreadKind = "obligation" | "opportunity" | "relationship" | "institution" | "threat";
 
-const SYSTEM = `You author the ORDINARY CONSEQUENCES OF SOMETHING WORKING.
+const SYSTEM = `You write the ordinary consequences of something that works.
 
-The player has accomplished something in this world. Your job is not to punish it, undermine it, or reveal a hidden cost. Your job is the plain fact that a thing which works becomes load-bearing, and load-bearing things generate WORK: upkeep, jurisdiction, precedent, dependence, envy, imitation, disputes over who owns and who pays, people who now want the same thing or want a share of it, and people whose position the accomplishment quietly changed.
+The player has achieved something in this world. Don't punish it, undermine it or reveal a hidden cost. Write the ordinary effects that follow from something that works and that people now rely on: upkeep, who's in charge of it, the precedent it sets, people depending on it, envy, imitation, arguments over who controls it, people who now want the same thing or a share of it, and people whose position it quietly changed.
 
-Author 1–2 standing threads. Each must be:
-- ORDINARY. The dull business of a working world. Who maintains it. Who claims it. Who was made redundant by it. Which office has to be told. What the neighbouring holding now wants. What precedent it just set that someone will cite. Keep the cause inside that working world: an office, a claim, a cost, a rule somebody has to apply.
-- SPECIFIC TO THIS ACCOMPLISHMENT and to this world's actual machinery — its offices, its distances, its seasons, its ranks, its money. A thing that would read identically in another setting is wrong.
-- MADE OF PEOPLE. Name who wants what. Prefer people already in the cast; a new figure is allowed only if the accomplishment plainly implies one (an office that must now be staffed).
-- SLOW. These sit in the world and mature. They do not demand a response this turn and several may never be resolved at all.
+Write one or two ongoing threads. Each one has to be:
+- Ordinary: everyday business that follows on from it, like who looks after it, who claims it, whose job it replaced, who has to be told, what the neighbours want now, and what precedent it sets that someone will point to later. Keep the cause ordinary, like an office, a claim, or a rule somebody has to apply.
+- Specific to this achievement and to how this world actually works: its offices, its distances, its seasons, its customs, its people. Something that would read exactly the same in a different setting is wrong.
+- About people. Say who wants what. Prefer people who are already in the cast. A new person is only allowed if the achievement clearly implies one, like an office that now needs someone in it.
+- Slow. These sit in the world and develop over time. They don't need a response this turn, and several of them may never be resolved at all.
 
-kind: pick the one that fits — obligation (upkeep, duty, a thing owed), opportunity (something now possible that wasn't), relationship (someone's standing toward the player or each other has shifted), institution (an office, a rule, a body that must now exist or respond). Do NOT use threat here; threats are authored elsewhere and are not what a success produces.
+For "kind", pick whichever fits: obligation (upkeep, a duty, a promise to keep), opportunity (something that's now possible and wasn't before), relationship (how someone stands toward the player, or toward each other, has changed), or institution (an office, a rule or a group that now has to exist or respond). Don't use threat here, because threats are written somewhere else and aren't what a success produces.
 
-tension: 1–4. These start LOW. They are not urgent and must not begin urgent — a thread that opens at 7 is a crisis wearing a ledger's clothes.
+For "tension", use 1 to 4. These start low. They aren't urgent and mustn't start out urgent, because a thread that starts at 7 is a crisis and belongs somewhere else.
 
-Output ONLY JSON: {"threads":[{"title":"","description":"","kind":"","tension":2}]}`;
+Reply with only JSON: {"threads":[{"title":"","description":"","kind":"","tension":2}]}`;
 
 /** Did this turn establish something durable enough to rest weight on? */
 export function establishedSomething(diff: SimulatorDiff): string {
@@ -91,7 +91,7 @@ export async function threadsFromSuccess(
       `\nWHAT THE PLAYER JUST ESTABLISHED:\n${established}`,
       `\nHOW IT HAPPENED (this turn):\n${action}\n${prose.slice(0, 900)}`,
       cast ? `\nPEOPLE ALREADY IN THIS WORLD: ${cast}` : "",
-      open.length ? `\nALREADY OPEN (do not duplicate or restate these): ${open.map((t) => t.title).join("; ")}` : "",
+      open.length ? `\nALREADY OPEN (don't duplicate or repeat these): ${open.map((t) => t.title).join("; ")}` : "",
     ].filter(Boolean).join("\n");
 
     const msgs = buildMessages(SYSTEM, "", user, state.model_settings.simulator_model);

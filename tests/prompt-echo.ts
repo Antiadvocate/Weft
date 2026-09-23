@@ -56,7 +56,7 @@ const modelFacing = templateLiterals(readFileSync("src/engine/prompts.ts", "utf8
   check("the rule itself survives without its specimen",
     /something a person standing in the room could point at/.test(modelFacing), "camera rule");
   check("...and it is stated as a test on the output, not a catalogue of forbidden figures",
-    /[Ss]trike from each sentence any part a person in the room could not have pointed at|[Ss]trike any part of it that a person in the room could not have pointed at/.test(modelFacing));
+    /take out anything a person in the room couldn.t have pointed at/i.test(modelFacing));
   check("which still covers the private conclusion the accounting metaphor was used for",
     /what one of them privately concluded/.test(modelFacing));
 }

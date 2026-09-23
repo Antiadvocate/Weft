@@ -51,13 +51,13 @@ const save = (over: Record<string, unknown> = {}): SaveState => ({
   check("what she raises unprompted is there", /thick socks/.test(b), b);
   check("and what she can hold forth on", /EPR|OB\/GYN|Residency/.test(b), b);
   check("including the one she never does in front of anyone", /choir/.test(b), b);
-  check("the block says a conviction need not be about a person at all", /does not have to be about anybody/.test(b));
+  check("the block says a conviction need not be about a person at all", /doesn't have to be about anybody/.test(b));
 }
 {
   // the most belief-shaped thing in the whole state, and it was never shown
   const b = ownLifeBlock(save(), "char_jess");
   check("a worry she is carrying alone is included", /first cramp/.test(b), b);
-  check("and it is marked as hers, not shared", /CARRYING ALONE/.test(b));
+  check("and it is marked as hers, not shared", /DEALING WITH ON THEIR OWN/.test(b));
   check("a thread that is really about the player is not called hers", !/Stakes in the ground/.test(b), b);
   check("nor is a thread she already finished", !/An old one of hers/.test(b), b);
 }
@@ -85,13 +85,13 @@ const save = (over: Record<string, unknown> = {}): SaveState => ({
 /* ── the contract now asks for it ────────────────────────────────────────────── */
 {
   const t = REFLECTION_SYSTEM;
-  check("the contract says a person is not only their relationships", /NOT ONLY THEIR RELATIONSHIPS/.test(t));
+  check("the contract says a person is not only their relationships", /Beliefs don't all have to be about relationships/.test(t));
   check("it names the failure with the real number", /fourteen beliefs|forty-seven/.test(t));
   check("it asks for a replacement when everything orbits one person", /replace one of them/.test(t));
-  check("and forbids inventing a hobby to satisfy the rule", /Do not manufacture/.test(t));
+  check("and forbids inventing a hobby to satisfy the rule", /Don't invent a hobby/.test(t));
   check("the older rules it sits beside are intact — standing still outranks the memories",
-    /MAY NOT CONTRADICT HOW THIS PERSON ACTUALLY STANDS/.test(t));
-  check("and one conviction per subject survives", /ONE CONVICTION PER SUBJECT/.test(t));
+    /A belief mustn't contradict how this character currently feels about the people involved/.test(t));
+  check("and one conviction per subject survives", /Keep to one belief per subject/.test(t));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

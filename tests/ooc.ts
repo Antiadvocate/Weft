@@ -51,11 +51,11 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const hit = detectOOC(`I kill myself because you're a fucking terrible writer.`)!;
   const frame = oocFrame(hit);
-  check("the narrator is told the player is talking to IT", /TALKING TO YOU, OVER THE HEAD OF THE WORLD/.test(frame), frame);
-  check("...and told not to dramatise any of it", /DO NOT DRAMATISE ANY OF IT/.test(frame), frame);
-  check("...and that nobody is hurt", /nobody is hurt/.test(frame), frame);
-  check("...and to hold the scene where it stands", /Hold the scene exactly where it stands/.test(frame), frame);
-  check("...briefly, without resolving anything", /nothing is resolved or escalated/.test(frame), frame);
+  check("the narrator is told the player is talking to IT", /TALKING TO YOU DIRECTLY, OUTSIDE THE STORY/.test(frame), frame);
+  check("...and told not to dramatise any of it", /Don't act any of it out/.test(frame), frame);
+  check("...and that nobody is hurt", /nobody gets hurt/.test(frame), frame);
+  check("...and to hold the scene where it stands", /Keep the scene exactly where it is/.test(frame), frame);
+  check("...briefly, without resolving anything", /nothing is resolved or made worse/.test(frame), frame);
 }
 
 /* ── 3. AND THE LINE THIS MUST NOT CROSS ─────────────────────────────────────────
@@ -92,9 +92,9 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const d = oocDirective("you're a fucking terrible writer", 0);
   check("the narrator is given the complaint", /terrible writer/.test(d), d);
-  check("...told it is never dramatised or given to a character", /never dramatised, quoted, alluded to, or given to a character/.test(d), d);
-  check("...told to act on it in the writing, not on the page", /do not acknowledge it on the page/.test(d), d);
-  check("...and told to assume it is about a pattern", /about a pattern rather than one turn/.test(d), d);
+  check("...told it is never dramatised or given to a character", /never acted out, quoted, hinted at, or given to a character/.test(d), d);
+  check("...told to act on it in the writing, not on the page", /don't acknowledge it in the prose/.test(d), d);
+  check("...and told to assume it is about a pattern", /about a pattern over several turns/.test(d), d);
   check("it persists past the turn it was said", oocDirective("bad pacing", 2).length > 0);
   // WIDENED FROM THREE TURNS. The directive's own last line tells the narrator this complaint is
   // about a pattern rather than one turn, and it was then withdrawn after three — shorter than the
@@ -151,27 +151,27 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const f = voidFrame("fiat");
   check("the narrator is told the player took no action", /TOOK NO ACTION THIS TURN/.test(f), f);
-  check("...and that it did not happen", /It cannot happen and it did not happen/.test(f), f);
-  check("...and given the near-misses by name", /not "hesitated"|not "stood there deciding"/.test(f), f);
+  check("...and that it did not happen", /It can't happen, and it didn't happen/.test(f), f);
+  check("...and given the near-misses by name", /didn't "hesitate"|didn't "stand there deciding"/.test(f), f);
   check("...and told to delete any sentence about the player",
-    /If you find yourself writing a sentence whose subject is the player, delete it/.test(f), f);
-  check("...while the world still goes on", /go on with what they were doing/.test(f), f);
-  check("...and nothing else changes", /The scene is exactly where it was/.test(f), f);
+    /If you find yourself writing a sentence with the player as its subject, delete it/.test(f), f);
+  check("...while the world still goes on", /carry on with what they were doing/.test(f), f);
+  check("...and nothing else changes", /the scene is exactly where it was/.test(f), f);
 
   const o = voidFrame("ooc");
-  check("the OOC variant says why differently", /addressed to you, about the writing/.test(o), o);
-  check("...and forbids the same thing", /DO NOT WRITE THE PLAYER DOING ANYTHING AT ALL/.test(o), o);
+  check("the OOC variant says why differently", /said to you, about the writing/.test(o), o);
+  check("...and forbids the same thing", /Don't write the player doing anything at all/.test(o), o);
 }
 
 /* ── 8. AND THE PLAYER IS TOLD, which is the half that ends the loop ─────────── */
 {
   const n = voidNotice("fiat");
-  check("the player is told it did not happen", /That did not happen/.test(n), n);
-  check("...why", /this world has no one who can do it/.test(n), n);
+  check("the player is told it did not happen", /That didn't happen/.test(n), n);
+  check("...why", /Nobody in this world can do that/.test(n), n);
   check("...that nothing was written from it", /nothing was written from it/.test(n), n);
   check("...and where to put it instead", /Story mode/.test(n), n);
   check("...and how to get the outcome legitimately", /have them do something that could kill them/.test(n), n);
-  check("the OOC notice says it was taken as a note", /Taken as a note about the writing/.test(voidNotice("ooc")));
+  check("the OOC notice says it was taken as a note", /taken as a note about the writing/.test(voidNotice("ooc")));
 }
 
 /* ── 6. the player does not always say "you" ─────────────────────────────────────

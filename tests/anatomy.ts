@@ -60,7 +60,7 @@ const save = (present = ["char_player", EMILY]): SaveState => ({
   const note = anatomyNote(rec, "Emily", FIX.characters[EMILY].pronouns);
   check("the card carries the negative in plain words", /no vagina, no vulva, no labia, no clitoris/.test(note));
   check("...in every register, not just the clinical one", /clitoris/.test(note) && /penetrate, part, spread or be wet/.test(note));
-  check("...names the default it exists to catch", /that default is WRONG HERE/.test(note), note);
+  check("...names the default it exists to catch", /that assumption is wrong here/.test(note), note);
   check("...and obeys her printed pronouns", /on her body/.test(note) && !/on their body/.test(note), note);
   check("...including the subject form", !/how her is dressed/.test(note), note);
 }
@@ -134,8 +134,8 @@ const save = (present = ["char_player", EMILY]): SaveState => ({
 
   const fix = anatomyFix(hit7);
   check("the correction voids the sentence rather than retconning it in the fiction",
-    /That sentence is void/.test(fix) && /do not write a scene explaining it/.test(fix));
-  check("...uses her pronouns correctly", /DOES NOT GIVE HER/.test(fix) && !/how her is dressed/.test(fix), fix);
+    /That sentence doesn't count/.test(fix) && /don't write a scene explaining it/.test(fix));
+  check("...uses her pronouns correctly", /DOESN'T GIVE HER/.test(fix) && !/how her is dressed/.test(fix), fix);
   check("...and covers every register", /the clinical word, the affectionate word and the crude word/.test(fix));
 }
 

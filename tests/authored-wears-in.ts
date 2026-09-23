@@ -63,8 +63,8 @@ function expressed(s: SaveState, id: string, n: number): void {
   const { s, id } = world();
   check("a just-settled want reads as fresh", settledStage(s, id, s.characters[id].authored![0]) === "fresh");
   const d = habitDirective(s, s.world.present);
-  check("and is still ordered into the scene", /SIMPLY DOES THIS NOW/.test(d), d.slice(0, 200));
-  check("under the mandate that makes it unrefusable", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
+  check("and is still ordered into the scene", /SHE JUST DOES THIS NOW/.test(d), d.slice(0, 200));
+  check("under the mandate that makes it unrefusable", /Every line here goes on the page this turn/.test(d));
   check("naming the act itself", d.includes(GOAL), d.slice(0, 300));
 }
 
@@ -74,9 +74,9 @@ function expressed(s: SaveState, id: string, n: number): void {
   expressed(s, id, 3);
   check("three expressions in and it is familiar", settledStage(s, id, s.characters[id].authored![0]) === "familiar");
   const d = habitDirective(s, s.world.present);
-  check("the mandate is gone", !/SIMPLY DOES THIS NOW/.test(d), d);
-  check("it is noted as settled instead", /SETTLED, AND NO LONGER NEWS/.test(d), d);
-  check("and the narrator is told not to stage it", /do not stage one/.test(d), d);
+  check("the mandate is gone", !/SHE JUST DOES THIS NOW/.test(d), d);
+  check("it is noted as settled instead", /SETTLED AND NO LONGER NEWS/.test(d), d);
+  check("and the narrator is told not to stage it", /Don't stage one/.test(d), d);
   check("still named, so it is not forgotten", d.includes(crystallizedLabel(s.characters[id].authored![0])), d);
 }
 
@@ -86,7 +86,7 @@ function expressed(s: SaveState, id: string, n: number): void {
   expressed(s, id, 6);
   check("six expressions in and it is ground", settledStage(s, id, s.characters[id].authored![0]) === "ground");
   const d = habitDirective(s, s.world.present);
-  check("nothing about it is ordered", !/SIMPLY DOES THIS NOW/.test(d), d);
+  check("nothing about it is ordered", !/SHE JUST DOES THIS NOW/.test(d), d);
   check("and nothing about it is even mentioned", !d.includes(GOAL), d);
   // novelty.ts governs it from here — "the floor, not the subject" — and that note is built
   // separately and appended to the same prompt.
@@ -110,7 +110,7 @@ function expressed(s: SaveState, id: string, n: number): void {
   const { s, id } = world();
   s.characters[id].authored = [newAuthored("starts taking the long way home past the barracks", 1)];
   const d = habitDirective(s, s.world.present);
-  check("an unfinished want is still driven", d.length > 0 && /GOES ON THE PAGE THIS TURN/.test(d), d.slice(0, 120));
+  check("an unfinished want is still driven", d.length > 0 && /goes on the page this turn/.test(d), d.slice(0, 120));
 }
 
 /* ── 6. and the label survives so the match cannot silently fail ─────────────── */

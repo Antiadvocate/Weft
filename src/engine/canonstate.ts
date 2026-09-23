@@ -104,7 +104,7 @@ export function outlivedCanon(state: SaveState): Map<string, string> {
         const worstW = Math.min(...pair.map((e) => Number(e.warmth ?? 0)));
         const worstT = Math.min(...pair.map((e) => Number(e.trust ?? 0)));
         if (worstW <= BROKEN || worstT <= BROKEN) {
-          why = `the ledger between ${a.name} and ${b.name} now reads warmth ${Math.round(worstW)}, trust ${Math.round(worstT)}`;
+          why = `the record between ${a.name} and ${b.name} now shows warmth ${Math.round(worstW)}, trust ${Math.round(worstT)}`;
         }
       }
     }

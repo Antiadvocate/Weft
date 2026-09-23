@@ -39,36 +39,36 @@ import { clipText } from "./text";
 export const RECORD_FIELDS = `{
 "age": 30,
 "pronouns": "the pronouns the prose used for them, or this world's default",
-"appearance_facts": "COMPLETE physical baseline of the body they actually have — hair colour AND texture, eye colour, skin, face or one distinctive feature, build, apparent age, one unique identifying mark. Every physical detail the prose gave, verbatim; invent the rest consistently. PHYSICAL CONSTANTS ONLY — never clothing.",
+"appearance_facts": "A complete description of the body they actually have: hair colour and texture, eye colour, skin, their face or one distinctive feature, build, how old they look, and one unique identifying mark. Copy every physical detail the prose gave exactly, and invent the rest to match. Only permanent physical features go here, never clothing.",
 "height_cm": 170,
 "weight_kg": 65,
-"background": "WHO THEY ARE APART FROM THE SCENE THEY ENTERED IN. Three or four plain sentences, and the test is whether a stranger could hold four different conversations with them: where they are from and what that place was like; who raised them or who they have lost; the trade or body of knowledge they actually hold, named specifically; one formative thing with nothing to do with the player or the story; and one ordinary strong opinion about something small. If the player created them outright, say so plainly and say what they were made to be \u2014 then give them the rest of a self anyway, because a person made yesterday still has to be able to talk about something other than the person who made them.",
-"core_traits": ["2-4 traits, each written to the TRAIT CONTRACT stated below the schema \u2014 a thing this person does, which a camera would catch. The engine reads this field and sends adjectives back"],
+"background": "Who they are apart from the scene they came into, in three or four plain sentences. A good test is whether a stranger could have four different conversations with them. Say where they're from and what that place was like, who raised them or who they've lost, the work or knowledge they actually have (named specifically), one experience that shaped them and has nothing to do with the player or the story, and one ordinary strong opinion about something small. If the player created them outright, say so plainly and say what they were made to be, and then give them a full personality anyway, so they can talk about something besides the person who made them.",
+"core_traits": ["2-4 traits, each written the way the TRAIT CONTRACT below the schema describes: something this person does that a camera could catch. Adjectives get sent back to be rewritten"],
 "values": ["2-3 things they actually care about"],
-"speech_pattern": "how they talk — register, rhythm, what they refuse to say",
-"texture": ["2-4 standing interests and enthusiasms they raise unprompted when a scene gives them room \u2014 at least two with nothing to do with their trade, their rank, or the player. One physical tell is allowed among them, never more."],
-"skills": {"3-5 entries, key = the competence, value = how good and how they came by it \u2014 a person's skills are the subjects they can actually hold forth on": ""},
+"speech_pattern": "how they talk: how formal or casual they are, the rhythm of their speech, and what they refuse to say",
+"texture": ["2-4 lasting interests and enthusiasms they bring up without being asked when a scene gives them room. At least two should have nothing to do with their work, their status or the player. One physical habit is allowed among them, but no more than one."],
+"skills": {"3-5 entries, where the key is the skill and the value is how good they are at it and how they learned it. A person's skills are the subjects they can actually talk about at length": ""},
 "beauty": 50,
-"conscience": "0 to 1 — how much weight the other person's claim carries against their own. Vary it: low is somebody who asks for the thing and keeps what is handed over, high is somebody who checks whether it is alright and apologises for what needs no apology",
-"attracted_to": "women / men / anyone / no one — permanent, and read by the engine as a hard gate; never use no one for somebody who is only unavailable right now, and do not qualify it with a mood",
-"taste": "ONE STRING: what their conditioning makes them find attractive",
-"gregariousness": "0 to 1, and the SPREAD IS THE POINT — how much room this person takes in company before anything happens. Below 0.35 is somebody who waits for a gap rather than making one; above 0.7 is somebody who fills a silence without noticing. A cast clustered at 0.5 is a cast of one person, and this number is the only place shy and outgoing are written down",
-"attachment_style": "secure / anxious / avoidant / disorganized — most people are secure; pick an insecure style only when this person\u2019s history actually produced one",
-"under_threat": "one plain sentence: what they DO when scared or hurt, and it must be an ACT the room can see. Going still, going quiet, going flat, going procedural and dropping the voice are ONE way a person does this and they are massively over-produced here \u2014 five people built by this pass in one save all answered fear by getting quieter, and a cast that all falls silent under pressure is a horror film. Most people under threat get LOUDER and more insistent: they push, they follow the other person into the next room, they repeat themselves, they raise it, they demand an answer now, they say the thing they will regret. Match the style above \u2014 anxious pursues and escalates and protests, avoidant flattens and distances, secure stays engaged and keeps talking the way they were talking a minute ago \u2014 and vary it across the cast: after a withdrawer, write a pusher.",
-"when_that_fails": "one plain sentence: what they do when that first move is plainly NOT working — the other person is not backing down, or is walking out the door. Some people do the same thing harder and louder, and that is a real answer: stubbornness is who somebody is. Others drop it in a heartbeat and try a different door entirely — the one who went cold goes warm, the one who was shouting goes quiet and reasonable, the one who was demanding starts apologising. Say WHICH, and if they switch, say what they switch TO. Somebody whose whole method is working other people lives in this field: they read a first move failing as which door to try next, and change door inside the same breath.",
-"soothed_by": "one plain sentence: what actually settles them",
-"drive_goals": ["2-3 distinct wants they carry at once — an immediate aim, a deeper hope or fear, an attachment or grudge. Never only the player."]
+"conscience": "0 to 1: how much other people's needs matter to them compared with their own. Vary it. Low is someone who takes what they want without thinking about the other person, and high is someone who checks whether it's all right and apologises when there's no need",
+"attracted_to": "women / men / anyone / no one. This is permanent, and the engine treats it as absolute, so never use no one for somebody who is only unavailable right now, and don't qualify it with a mood",
+"taste": "ONE STRING: what their upbringing and experience make them find attractive",
+"gregariousness": "0 to 1, and vary it a lot across the cast. It's how much space this person takes up in company. Below 0.35 is someone who waits for a gap in the conversation rather than making one, and above 0.7 is someone who fills a silence without noticing. If everyone is near 0.5 they'll all behave alike, and this number is the only place the game records who is shy and who is outgoing",
+"attachment_style": "secure / anxious / avoidant / disorganized. Most people are secure, so only choose an insecure style when this person’s history actually produced one",
+"under_threat": "one plain sentence about what they do when they're scared or hurt, and it has to be something the people in the room can see. Going still, going quiet, going flat, sticking to procedure and lowering their voice are one way people react, and this step uses them far too often. In one save, five people created here all reacted to fear by getting quieter, which made the story read like a horror film. Most people under threat get louder and more insistent: they push, follow the other person into the next room, repeat themselves, raise their voice, demand an answer right now, or say something they'll regret. Match the attachment style above, so anxious people chase, escalate and protest, avoidant people go flat and pull away, and secure people stay engaged and keep talking the way they were a minute ago. Vary it across the cast, so after someone who withdraws, write someone who pushes.",
+"when_that_fails": "one plain sentence about what they do when that first reaction clearly isn't working, because the other person isn't backing down or is walking out the door. Some people do the same thing harder and louder, which is a fine answer, because some people are stubborn. Others drop it straight away and try something completely different: the one who went cold turns warm, the one who was shouting goes quiet and reasonable, the one who was making demands starts apologising. Say which kind they are, and if they switch, say what they switch to. A manipulative person switches approach as soon as the first one fails.",
+"soothed_by": "one plain sentence about what actually calms them down",
+"drive_goals": ["2-3 different things they want at the same time: something they're after right now, a deeper hope or fear, and an attachment or a grudge. Never only the player."]
 }`;
 
-export const SKETCH_SYSTEM = `You complete a CHARACTER RECORD for someone who has already entered a story but was never written down properly.
+export const SKETCH_SYSTEM = `You fill in a character record for someone who has already appeared in a story but was never properly written down.
 
-You are given: their name, the player's action that brought them in (when there was one), the prose in which they appeared, and the world they are in. Everything in those sources is TRUE and BINDING — if the prose says her eyes are grey-green and her feet are bare, the record says grey-green eyes; if the player said she is more beautiful than a named character, she is strikingly beautiful. You are filling in what was left blank around facts already established, never overwriting them and never contradicting them.
+You're given their name, the player's action that brought them in (if there was one), the prose they appeared in, and the world they belong to. Everything in those sources is true and has to be kept. If the prose says her eyes are grey-green and her feet are bare, the record says grey-green eyes. If the player said she is more beautiful than some named character, she is strikingly beautiful. You're filling in what was left blank around facts that are already established, and you never overwrite or contradict them.
 
-Where the sources are silent, invent — concretely and consistently with the world, the way the Forge would. A record that stays vague is the failure this exists to fix. Do not write plot function ("mysterious newcomer", "the player's creation"); write a person.
+Where the sources say nothing, invent details, concretely and in keeping with the world, the way the character creator would. Don't leave the record vague, and don't describe their role in the plot ("mysterious newcomer", "the player's creation"). Write a person.
 
-DO NOT SANITIZE. Record this person at the same level of explicitness the story itself has. If the story is dark, explicit, or carnal, the record is too. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
+Don't clean anything up. Record this person as explicitly as the story itself is written. If the story is dark, explicit or sexual, the record is too. If the player made this person to want them, that's who they are, so write it plainly without toning it down.
 
-Output ONLY this JSON:
+Reply with only this JSON:
 ${RECORD_FIELDS}
 
 ${TRAIT_CONTRACT}`;
@@ -130,8 +130,8 @@ export async function completeSketch(state: SaveState, id: string, model: string
     b?.cultures_and_languages ? `CULTURE: ${b.cultures_and_languages}` : "",
     (state.world.canon ?? []).length ? `CANON (binding law):\n${state.world.canon.map((x) => `- ${x}`).join("\n")}` : "",
     b?.tone ? `REGISTER OF THIS STORY: ${b.tone}` : "",
-    action ? `\nTHE PLAYER'S ACTION THAT BROUGHT THEM IN (binding — everything stated here is true of them):\n${action}` : "",
-    prose ? `\nTHE PROSE THEY APPEARED IN (binding — every physical detail here is true):\n${prose}` : "",
+    action ? `\nTHE PLAYER'S ACTION THAT BROUGHT THEM IN (everything it says about them is true and has to be kept):\n${action}` : "",
+    prose ? `\nTHE PROSE THEY APPEARED IN (every physical detail here is true and has to be kept):\n${prose}` : "",
   ].filter(Boolean).join("\n");
 
   let g: any = null;
@@ -152,8 +152,8 @@ export async function completeSketch(state: SaveState, id: string, model: string
     try {
       const again = await complete(buildMessages(
         SKETCH_SYSTEM, "REWRITE THE TRAITS ONLY:",
-        `${ctx}\n\nThese came back as descriptions of what ${c.name} is like rather than things ${c.name} does, so they give a scene nothing to show: ${bad.map((t) => `\u201c${t}\u201d`).join(", ")}.\n`
-        + `Return the same JSON object with core_traits rewritten to the contract and every other field byte-identical. Each trait opens on something ${c.name} does — a habit, a refusal, a thing their hands are always doing — and names a concrete object, place, body part or act that a camera would catch.`,
+        `${ctx}\n\nThese came back as descriptions of what ${c.name} is like, when what's needed is things ${c.name} does, so they give a scene nothing to show: ${bad.map((t) => `“${t}”`).join(", ")}.\n`
+        + `Send back the same JSON object with core_traits rewritten to follow the contract and every other field exactly the same. Each trait should start with something ${c.name} does, like a habit, something they refuse to do, or something their hands are always doing, and should name a concrete object, place, body part or action that a camera could catch.`,
         model), model, fallback, true, 1200);
       const g2 = safeJson<any>(again.text, null);
       if (g2 && unfilmableTraits(asList(g2.core_traits)).length < bad.length) g.core_traits = g2.core_traits;
@@ -277,22 +277,22 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
  * the places, and asked to arrive already attached to them rather than standing in a vacuum waiting
  * to be introduced.
  */
-const BRIEF_SYSTEM = `You write a COMPLETE CHARACTER RECORD for a person the player has just asked to add to a story already in progress.
+const BRIEF_SYSTEM = `You write a complete character record for a person the player has just asked to add to a story that's already under way.
 
-You are given: the player's description of them, the world, its canon, the people already in the story, the situations currently open, and the places that exist. The description is TRUE AND BINDING — every fact in it holds, and where it is silent you invent, concretely and consistently with this world.
+You're given the player's description of them, the world, its established facts, the people already in the story, the situations currently open, and the places that exist. The description is true and has to be kept. Every fact in it holds, and where it says nothing you invent details, concretely and in keeping with this world.
 
-THEY ARE JOINING SOMETHING ALREADY HAPPENING. Do not write a stranger standing in a vacuum waiting to be introduced. Give them a reason to be here that predates this moment: somebody in the cast they already know, owe, resent, work for, are related to, or have been avoiding; and where the description allows it, a stake in one of the open situations. A person with no connection to anybody is a person the story has no way to use.
+They're joining something that's already happening. Don't write a stranger standing around in empty space waiting to be introduced. Give them a reason to be here that goes back before this moment: someone in the cast they already know, resent, work with, are related to or have been avoiding, and, where the description allows, a stake in one of the open situations. A person with no connection to anybody gives the story nothing to work with.
 
-WHAT YOU MAY NOT DO. Do not resolve an open situation, do not hand them knowledge of a secret the cast does not have, and do not give them a power, rank or resource the world's canon rules out. They arrive as a person with their own day behind them.
+There are things you can't do. Don't resolve an open situation, don't give them knowledge of a secret the cast doesn't have, and don't give them a power, rank or resource the world's established facts rule out. They arrive in the middle of their own day.
 
-DO NOT SANITIZE. Record them at the same level of explicitness the story itself has. If the player made this person to want them, that is who they are — write it plainly rather than laundering it into something tamer.
+Don't clean anything up. Record them as explicitly as the story itself is written. If the player made this person to want them, that's who they are, so write it plainly without toning it down.
 
-Output ONLY this JSON, which is the record fields plus four more:
+Reply with only this JSON, which is the record fields plus four more:
 {
-"name": "their name — take it from the description if it gives one, otherwise choose one that fits this world's naming",
-"where": "the EXACT name of one place from the PLACES list where they are right now, or \\"elsewhere\\" if they are not somewhere the player can walk to yet",
-"tie": "one plain sentence: how they are already connected to somebody or something already in this story",
-"relation_to_player": "one plain sentence: what, if anything, stands between this person and the player right now — they may never have met, and that is a real answer",
+"name": "their name. Take it from the description if there is one, and otherwise pick one that fits how people in this world are named",
+"where": "the exact name of one place from the PLACES list where they are right now, or \\"elsewhere\\" if they aren't somewhere the player can walk to yet",
+"tie": "one plain sentence about how they're already connected to somebody or something in this story",
+"relation_to_player": "one plain sentence about what, if anything, stands between this person and the player right now. They may never have met, and that's a real answer",
 ${RECORD_FIELDS.slice(1)}
 
 ${TRAIT_CONTRACT}`;
@@ -316,14 +316,14 @@ export async function characterFromBrief(
     .map((p) => `- ${p.name}${p.identity?.trim() ? ` — ${p.identity.trim()}` : ""}`);
 
   const ctx = [
-    `THE PLAYER'S DESCRIPTION OF THEM (binding — everything stated here is true):\n${text.slice(0, 1200)}`,
+    `THE PLAYER'S DESCRIPTION OF THEM (everything it says is true and has to be kept):\n${text.slice(0, 1200)}`,
     `\nWORLD: ${b?.name ?? ""} — ${b?.era ?? ""}. ${b?.technology_level ?? ""}`,
     b?.cultures_and_languages ? `CULTURE AND NAMING: ${b.cultures_and_languages}` : "",
     (state.world.canon ?? []).length ? `CANON (binding law):\n${state.world.canon.map((x) => `- ${x}`).join("\n")}` : "",
     `\nTHE PLAYER: ${state.characters["char_player"]?.name ?? "the player"}`,
     cast.length ? `\nPEOPLE ALREADY IN THIS STORY:\n${cast.join("\n")}` : "\nNobody else is in this story yet.",
-    open.length ? `\nSITUATIONS CURRENTLY OPEN (do not resolve one; a stake in one is welcome):\n${open.join("\n")}` : "",
-    places.length ? `\nPLACES — "where" must be one of these names exactly, or elsewhere:\n${places.join("\n")}` : "",
+    open.length ? `\nSITUATIONS CURRENTLY OPEN (don't resolve any of them, but a stake in one is welcome):\n${open.join("\n")}` : "",
+    places.length ? `\nPLACES ("where" has to be exactly one of these names, or elsewhere):\n${places.join("\n")}` : "",
   ].filter(Boolean).join("\n");
 
   let g: any = null;

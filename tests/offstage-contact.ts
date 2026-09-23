@@ -40,11 +40,11 @@ function world(): SaveState {
 /* 1. the rule no longer forbids the cast's own wants */
 {
   const P = OFFSTAGE_SYSTEM;
-  check("inventing the player into the world is still banned", /you do not INVENT the player into the world/.test(P));
-  check("no threat forming, no discovery planted", /no threat forming|no discovery planted/.test(P));
+  check("inventing the player into the world is still banned", /you don't invent the player into the world/.test(P));
+  check("no threat forming, no discovery planted", /no threat building up|no discovery left/.test(P));
   check("but a recorded want about the player is required, not forbidden",
-    /IT IS NOT A RULE ABOUT THE CAST'S OWN WANTS/.test(P));
-  check("with the distinction stated", /never invent a relationship to the player\. Always honour one that is already written down/.test(P));
+    /That rule doesn't stop the cast from acting on their own wants/.test(P));
+  check("with the distinction stated", /never invent a relationship with the player, and always act on one that's already written down/.test(P));
   check("and the case that exposed it", /without calling him, and fail at it/.test(P));
 }
 
@@ -61,9 +61,9 @@ function world(): SaveState {
 {
   const P = OFFSTAGE_SYSTEM;
   check("the schema offers direct contact", /reaches_player/.test(P));
-  check("only when the event IS the contact", /ONLY when this event IS somebody deliberately contacting the player/.test(P));
-  check("naming the medium", /a text, a call, a letter, turning up at the door/.test(P));
-  check("and carrying the words as sent", /typos and all/.test(P));
+  check("only when the event IS the contact", /Only when this event is someone deliberately getting in touch with the player/.test(P));
+  check("naming the medium", /by text, call, letter or turning up at the door/.test(P));
+  check("and carrying the words as sent", /typos included/.test(P));
 }
 
 /* 4. what arrives is delivered, then cleared */
@@ -80,8 +80,8 @@ function world(): SaveState {
 /* 5. an ordinary offstage event is unchanged — most events reach nobody */
 {
   const P = OFFSTAGE_SYSTEM;
-  check("omitting it is the default", /Omit entirely otherwise; most events are not aimed at anyone/.test(P));
-  check("the cast is still the substance, not walk-ons", /Invented walk-ons .* are the SEASONING/.test(P));
+  check("omitting it is the default", /Leave this out completely otherwise, because most events aren't aimed at anyone/.test(P));
+  check("the cast is still the substance, not walk-ons", /Anyone you invent for the occasion.* is a minor extra/.test(P));
 }
 
 /* 6. AND THE WORLD TICKS OFTEN ENOUGH TO BE A WORLD.

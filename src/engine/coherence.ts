@@ -144,9 +144,9 @@ export function checkCoherence(state: SaveState, prose: string, presentIds: read
 export function retryNote(vs: readonly Violation[]): string {
   if (!vs.length) return "";
   const rows = vs.slice(0, 4).map((v) => `· "${v.line.trim()}" — ${v.why}.`).join("\n");
-  return `\n\nSTOP. WHAT YOU JUST WROTE CONTRADICTS THE RECORD, AND IT HAS NOT BEEN KEPT. Write the turn again from the beginning.\n${rows}\n`
-    + `Each of those states something the state says is not so. Write the same beat with those facts intact: the people who are gone stay gone, a body does only what it has the parts for, and nobody speaks who is not in the room. `
-    + `Keep everything else about the turn — the same scene, the same pressure, the same people who ARE here. Change only what was impossible, and do not have anyone remark on the difference.`;
+  return `\n\nSTOP. WHAT YOU JUST WROTE CONTRADICTS THE RECORD, SO IT HASN'T BEEN KEPT. Write the turn again from the start.\n${rows}\n`
+    + `Each of those says something the record says isn't so. Write the same moment with those facts kept: people who are gone stay gone, a body only does what it has the parts for, and nobody speaks who isn't in the room. `
+    + `Keep everything else about the turn the same, with the same scene, the same pressure and the same people who are here. Only change what was impossible, and don't have anyone comment on the difference.`;
 }
 
 /**

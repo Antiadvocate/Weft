@@ -345,9 +345,9 @@ export function summarizeAgeClashes(clashes: AgeClash[], name: string, age: numb
     c.at < 0
       ? `"${c.sentence}" covers more years than ${name} has been alive`
       : `"${c.sentence}" puts ${name} at ${c.at} when it happened`);
-  return `${name}'s age (${age}) and their written history disagree: ${worst.join("; ")}. `
-    + `The prose is what the narrator reads every turn, so it is the half that will be played — `
-    + `set the age to match the history, or rewrite the history to match the age.`;
+  return `${name}'s age (${age}) and their written history don't agree: ${worst.join("; ")}. `
+    + `The narrator reads the prose every turn, so the prose is the half that will get played, `
+    + `so either change the age to match the history, or rewrite the history to match the age.`;
 }
 
 export function summarizeAgeReport(rep: AgeReport, name: string): string {
@@ -358,7 +358,7 @@ export function summarizeAgeReport(rep: AgeReport, name: string): string {
   } else {
     bits.push(`${name} is now ${rep.to}.`);
   }
-  if (rep.left.length) bits.push(`${rep.left.length} mention${rep.left.length === 1 ? "" : "s"} of ${rep.from} left alone — they read as history or as somebody else's age: "${rep.left[0].text}"${rep.left.length > 1 ? " …" : ""}`);
-  if (rep.prose_turns) bits.push(`${rep.prose_turns} already-played turn${rep.prose_turns === 1 ? "" : "s"} still say ${rep.from}; those turns stand as written, and the cast is told the profile outranks them.`);
+  if (rep.left.length) bits.push(`${rep.left.length} mention${rep.left.length === 1 ? "" : "s"} of ${rep.from} left alone, because they read as history or as somebody else's age: "${rep.left[0].text}"${rep.left.length > 1 ? " …" : ""}`);
+  if (rep.prose_turns) bits.push(`${rep.prose_turns} turn${rep.prose_turns === 1 ? "" : "s"} already played still say ${rep.from}. Those turns stay as they were written, and the cast is told that the character's profile comes first.`);
   return bits.join(" ");
 }

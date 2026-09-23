@@ -130,15 +130,15 @@ const noConsequences: ConsequenceEvent[] = [];
   } as unknown as SaveState;
   const digest = stablePrefix(state);
 
-  check("the mandate no longer tells a romance that its world kills", !/it takes, it kills/.test(digest), );
+  check("the mandate no longer tells a romance that its world kills", !/takes, and kills/.test(digest), );
   check("it no longer names an awkward conversation as the failure to avoid",
     !/only cost is an awkward conversation/.test(digest));
   check("it says outright that an awkward conversation IS this world acting",
-    /whole cost is an awkward conversation/.test(digest));
+    /only consequence is an awkward conversation/.test(digest));
   check("the per-turn drama quota is gone for this genre", /there is no quota/i.test(digest));
-  check("rest is no longer a debt to be repaid", /you do not owe it a crisis/i.test(digest));
+  check("rest is no longer a debt to be repaid", /should not add a crisis to fill it/i.test(digest));
   check("the palette is named as the complete set of allowed pressures",
-    /complete set of ways it is allowed to/.test(digest));
+    /THE PRESSURES LISTED ABOVE ARE THE ONLY ONES THIS STORY USES/.test(digest));
 
   // The never-the-engine list reached the narrator only through one soft parenthetical at the tail
   // of the per-turn directive, while the loud all-caps block above demanded pressure. Now they are
@@ -160,8 +160,8 @@ const noConsequences: ConsequenceEvent[] = [];
     model_settings: {}, records: [], habits: [], chapters: [],
   } as unknown as SaveState;
   const digest = stablePrefix(siege);
-  check("a siege is still told the world kills", /it takes, it kills/.test(digest));
-  check("a siege still carries the standing debt", /this turn is where it does/.test(digest));
+  check("a siege is still told the world kills", /takes, and kills/.test(digest));
+  check("a siege still carries the standing debt", /it does this turn/.test(digest));
   check("a siege gets the never-the-engine list too", /tone-policing/.test(digest));
 }
 

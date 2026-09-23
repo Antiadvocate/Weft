@@ -36,24 +36,24 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const f = storyFrame("Abigail takes the laptop off him and puts it on the high shelf.");
   check("the player's text is in it", f.includes("puts it on the high shelf"));
-  check("it states the event as fact", /THAT HAPPENED/.test(f), f.slice(0, 200));
+  check("it states the event as fact", /That happened\. It's now a fact of this world/.test(f), f.slice(0, 200));
   check("the heading is not itself written as an epigram", !/WORLD, NOT ACTING/.test(f));
 
   /* The three hedges that were in the old frame, and are the reason it did not hold. */
   check("no 'authorial intent'", !/authorial intent/i.test(f));
   check("no 'weave it in'", !/weave it in/i.test(f));
   check("world logic is scoped to consequence rather than to permission",
-    /WHERE THE WORLD'S LOGIC STILL RULES: what it cost/.test(f), f);
+    /The world's logic still applies to the consequences/.test(f), f);
 
   /* The three declines, named, because this engine has learned that a rule naming a specific move
    * beats a rule describing a quality. */
-  check("postponement is named", /No phone, no knock/.test(f));
+  check("postponement is named", /There's no phone, no knock/.test(f));
   check("attenuation is named", /almost.*nearly.*started to/is.test(f));
-  check("substitution is named", /Nothing milder happens instead/.test(f));
+  check("substitution is named", /Nothing milder happens in its place/.test(f));
 
   /* And the part that is still the narrator's. A law that took consequence away too would make the
    * world a typewriter. */
-  check("consequence is handed back, explicitly", /Consequence is yours, and it should be unsparing/.test(f));
+  check("consequence is handed back, explicitly", /You decide the consequences, and they should be serious/.test(f));
 }
 
 /* ── 2. CONTENT WORDS ARE WHAT HAS TO REACH THE PAGE ─────────────────────────── */
@@ -112,10 +112,10 @@ function check(name: string, c: boolean, extra?: unknown) {
 
 /* ── 7. THE CORRECTION SAYS WHICH OF THE THREE IT WAS ────────────────────────── */
 {
-  for (const [how, want] of [["hedged", "approach to itself"], ["interrupted", "the player wrote no interruption"], ["absent", "not on the page"]] as const) {
+  for (const [how, want] of [["hedged", "move toward the act"], ["interrupted", "the player didn't write any interruption"], ["absent", "isn't in the prose"]] as const) {
     const fix = declaredFix({ declaration: "she takes the laptop", coverage: 0.1, how });
     check(`the ${how} correction names the move`, fix.includes(want), fix);
-    check(`...and demands it this turn`, /THIS TURN opens with that event having happened/.test(fix));
+    check(`...and demands it this turn`, /This turn opens with that event having already happened/.test(fix));
   }
   check("no miss, no correction", declaredFix(null) === "");
 }

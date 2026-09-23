@@ -281,8 +281,8 @@ export function updateMind(
     if (weightedErr > 0.28 && trueEdge) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      if (seenWarmth > b.predicted_warmth + 25) lines.push(`${sname} is recalibrating: ${tname} is warmer than they'd assumed.`);
-      else if (seenWarmth < b.predicted_warmth - 25) lines.push(`${sname} realizes ${tname} is colder toward them than they thought.`);
+      if (seenWarmth > b.predicted_warmth + 25) lines.push(`${sname} is adjusting: ${tname} is warmer than they'd assumed.`);
+      else if (seenWarmth < b.predicted_warmth - 25) lines.push(`${sname} realises ${tname} is colder toward them than they thought.`);
       else lines.push(`${sname} didn't expect that from ${tname}.`);
     }
 
@@ -315,7 +315,7 @@ export function updateMind(
     if (collapse) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      lines.push(`${sname} is looking at ${tname} for the first time in a long while — the settled picture doesn't survive it.`);
+      lines.push(`${sname} is really looking at ${tname} for the first time in a long while, and their old opinion of them changes.`);
       b.settled_turns = 0;
       b.confidence = clamp(b.confidence * 0.5, 0.05, 0.98);
     } else {
@@ -335,7 +335,7 @@ export function updateMind(
     } else if (b.held_false && Math.abs(seenWarmth - b.predicted_warmth) < 12 && b.surprise < 0.25) {
       const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
       const sname = state.characters[id]?.name ?? id;
-      lines.push(`${sname} finally sees ${tname} clearly — the misunderstanding clears.`);
+      lines.push(`${sname} finally sees ${tname} clearly, and the misunderstanding clears up.`);
       b.held_false = undefined;
     }
   }
@@ -359,18 +359,18 @@ export function mindDigest(state: SaveState, id: string): string {
     // only surface the model when it MEANINGFULLY differs from truth, or there's a held misread / live surprise
     // Behavioral imperatives, not quotable belief-statements: the narrator must let the misread COLOR
     // behavior without ever naming the belief in prose ("she believed he had betrayed her").
-    if (b.held_false) out.push(`acts as if the player ${b.held_false} — let this false read drive their behavior and word choice; NEVER state the belief in prose, only show them acting on it`);
-    else if (divergence > 25) out.push(`treats the player as ${b.predicted_stance === "unknown" ? "an unknown quantity" : b.predicted_stance === "ally" ? "warmer than they truly are" : "more hostile than they truly are"} — behavior follows their read; do not narrate the misjudgment`);
-    if (b.surprise > 0.45) out.push(`is freshly thrown — the player just did something against their expectation; SHOW the recalibration, don't state it`);
-    else if (reification(b) > 0.4) out.push(`stopped actually looking at the player some time ago — responds to the person they have long since decided the player is, so new or contrary behavior gets met with the old read, absently, without hostility or any sense of missing anything; NEVER state that they are not paying attention`);
-    if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't get a clean read on the player — SHOW it as watchfulness or probing, never as narrated confusion`);
+    if (b.held_false) out.push(`acts as if the player ${b.held_false}. Let this mistaken belief drive how they behave and the words they choose, but never state the belief in the prose; only show them acting on it`);
+    else if (divergence > 25) out.push(`treats the player as ${b.predicted_stance === "unknown" ? "someone they can't place" : b.predicted_stance === "ally" ? "warmer than the player really is" : "more hostile than the player really is"}. Their behaviour follows that belief, and you don't narrate the mistake`);
+    if (b.surprise > 0.45) out.push(`was just surprised, because the player did something they didn't expect. Show them adjusting, and don't state it`);
+    else if (reification(b) > 0.4) out.push(`stopped really looking at the player some time ago. They respond to the person they decided long ago the player is, so anything new or different gets met with the old opinion, absent-mindedly, without hostility and without any sense of missing something. Never state that they aren't paying attention`);
+    if (b.confidence < 0.25 && Math.abs(trueWarmth) > 25) out.push(`can't work out what to make of the player. Show it as watching them or testing them, never as confusion stated in the narration`);
   }
-  return out.length ? `how they read you (behavior only, never stated in prose): ${out.join("; ")}` : "";
+  return out.length ? `how they see you (shown only through behaviour, never stated in the prose): ${out.join("; ")}` : "";
 }
 
 /** An epistemic drive goal-string: A wants to resolve uncertainty about `target`. The
  *  existing drive/QRE machinery executes it like any other want. */
 export function epistemicGoal(state: SaveState, target: string): string {
   const tname = target === "char_player" ? "the player" : state.characters[target]?.name ?? "them";
-  return `find out where ${tname} really stands — test them, probe, get a read`;
+  return `find out where ${tname} really stands by testing them and probing`;
 }

@@ -114,7 +114,7 @@ function world(cards?: boolean, locked = false): SaveState {
   check("the forge no longer demands a price or a count in every line",
     !/EVERY ONE MUST NAME SOMETHING THE SPEAKER COULD POINT AT/.test(FORGE_SYSTEM));
   check("...and says outright that a number has crowded out the alternatives",
-    /crowded out all the others/.test(FORGE_SYSTEM), "replacement rule missing");
+    /Use other concrete details instead/.test(FORGE_SYSTEM), "replacement rule missing");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

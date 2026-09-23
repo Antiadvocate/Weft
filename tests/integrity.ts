@@ -52,8 +52,8 @@ const at = (s: SaveState, t: number) => { (s.world as { current_turn: number }).
   const alarm = integrityAlarm(at(s, 13));
   check("three different kinds inside the window raises it", !!alarm, alarm);
   check("...naming them in plain words", /a family invented|could not have got to|disagreeing with the prose/.test(alarm ?? ""), alarm);
-  check("...and telling the player what to do about it", /rolling back/.test(alarm ?? ""), alarm);
-  check("...because corrections only work forwards", /turn to turn rather than backwards/.test(alarm ?? ""), alarm);
+  check("...and telling the player what to do about it", /going back to before that point/.test(alarm ?? ""), alarm);
+  check("...because corrections only work forwards", /only work going forward/.test(alarm ?? ""), alarm);
 
   check("it does not repeat itself every turn after", integrityAlarm(at(s, 14)) === null);
   check("...nor a few turns later", integrityAlarm(at(s, 20)) === null);
@@ -84,18 +84,18 @@ const at = (s: SaveState, t: number) => { (s.world as { current_turn: number }).
 /* ── 5. and the auditor is finally given the record to check against ─────────── */
 {
   check("the audit is told the beats are the bookkeeper's account",
-    /BOOKKEEPER'S account of each turn/.test(CHAPTER_SYSTEM));
+    /bookkeeper's account of each turn/.test(CHAPTER_SYSTEM));
   check("...and that an invention arrives in them as fact",
-    /indistinguishable from anything that really happened/.test(CHAPTER_SYSTEM));
+    /looking exactly like things that really happened/.test(CHAPTER_SYSTEM));
   check("...and is asked for contradictions by name", /"contradictions"/.test(CHAPTER_SYSTEM));
   check("...with the shapes spelled out",
-    /a relative somebody does not have, a person in two places/.test(CHAPTER_SYSTEM));
+    /a relative someone doesn't have, a person in two places/.test(CHAPTER_SYSTEM));
   // Reworded out of the "X is not the same question as Y" epigram when promptlint learned that
   // shape (see tests/prompt-shapes.ts); the separation it asks for is unchanged.
   check("...kept separate from the genre question",
     /Answer this separately from on_contract/.test(CHAPTER_SYSTEM));
   check("...explicitly, so neither softens the other",
-    /do not let one soften the other/.test(CHAPTER_SYSTEM));
+    /don't let one soften the other/.test(CHAPTER_SYSTEM));
   check("the field is in the output schema", /"contradictions":\[/.test(CHAPTER_SYSTEM));
   check("and on_contract still exists as its own verdict", /"on_contract":true/.test(CHAPTER_SYSTEM));
 }

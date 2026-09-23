@@ -58,7 +58,7 @@ function fixture() {
 
   check("(1) what they want — printed", /wants:/.test(dig), "wants");
   check("(2) what they know — printed", /BELIEFS:/.test(dig), "beliefs");
-  check("(2) ...and adjacent to where the line gets written", /holds to be true/.test(speak), speak.slice(0, 400));
+  check("(2) ...and adjacent to where the line gets written", /believes \(this may be false/.test(speak), speak.slice(0, 400));
   check("(3) what their body is doing — printed", /body:/.test(dig));
   check("(3) ...and adjacent", /right now:/.test(speak));
   check("(4) who else can hear — stated where the speakers are listed", /same room and can hear each other/i.test(speak));
@@ -74,7 +74,7 @@ function fixture() {
   check("the skills line says what it actually is", /can talk at length about: brewing/.test(dig));
   for (const [label, P] of [["full", narratorSystem(false)], ["lean", narratorSystem(true)]] as [string, string][]) {
     check(`${label}: question 2 names the fields that answer it`, /BELIEFS and RECALLS lines/.test(P));
-    check(`${label}: ...and says a false belief is still acted on`, /belief can be false and they still act on it/i.test(P));
+    check(`${label}: ...and says a false belief is still acted on`, /belief can be false and they'll still act on it/i.test(P));
   }
 }
 
