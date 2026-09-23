@@ -56,8 +56,8 @@ function stakesFor(state: SaveState, id: string): string | null {
   // charged edge toward the player: strong desire they may be hiding, or distrust
   const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
   if (e) {
-    if (e.attraction !== undefined && e.attraction >= 30) reasons.push(`carries desire toward the player (${e.attraction}) they may not show`);
-    if (e.trust <= -20) reasons.push(`distrusts the player (${e.trust}) and may hide things or mislead them`);
+    if (e.attraction !== undefined && e.attraction >= 30) reasons.push(`carries desire toward the player (${Math.round(e.attraction)}) they may not show`);
+    if (e.trust <= -20) reasons.push(`distrusts the player (${Math.round(e.trust)}) and may hide things or mislead them`);
   }
   // a false belief the NPC holds about the player (from the theory-of-mind layer) is prime lie/drama fuel
   const belief = state.minds?.[id]?.about?.find((b) => b.target === "char_player")?.held_false;
@@ -273,7 +273,7 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
                return door ? `How they go about it (the surface should be exactly this): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
-      e ? `Toward the player: warmth ${e.warmth}, trust ${e.trust}${e.attraction !== undefined ? `, desire ${e.attraction}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
+      e ? `Toward the player: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.attraction !== undefined ? `, desire ${Math.round(e.attraction)}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
       `WHY THIS MOMENT MATTERS TO THEM: ${reason}`,
       priorIntentBlock(state, id),
       // THE LOOP THIS PASS CANNOT SEE FROM INSIDE ONE CALL. priorIntentBlock catches a want that

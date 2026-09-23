@@ -348,11 +348,17 @@ export function driftSubject(state: SaveState, id: string): { subject: string; p
  *  "everything out of their mouth" about a woman whose card says she/her has drifted in the one
  *  place the narrator is told never to drift. Falls back to they/them, which is also what an
  *  unfilled field should read as. */
-function pronounsOf(raw: string | undefined): { subject: string; object: string; possessive: string } {
+export function pronounsOf(raw: string | undefined): { subject: string; object: string; possessive: string } {
   const parts = String(raw ?? "").toLowerCase().split(/[/,\s]+/).map((x) => x.trim()).filter(Boolean);
   const subject = parts[0] || "they";
-  const object = parts[1] || (subject === "they" ? "them" : subject);
-  const possessive = parts[2] || (subject === "she" ? "her" : subject === "he" ? "his" : subject === "they" ? "their" : `${object}s`);
+  // The slots after the subject come in no fixed order. Velora writes "xe/xer/xem", which put "xem"
+  // in the third slot, read as possessive, and every card said "xem own" and "xem hands". So the
+  // object is the form ending in m (him, them, xem, em) and the possessive is the other one, with
+  // the standalone -s form trimmed ("hers" is "her own", never "hers own").
+  const rest = parts.slice(1);
+  const object = rest.find((x) => /m$/.test(x)) ?? (subject === "it" ? "it" : rest[0] ?? (subject === "they" ? "them" : subject));
+  const possRaw = rest.find((x) => x !== object) ?? (subject === "she" ? "her" : subject === "he" ? "his" : subject === "they" ? "their" : subject === "it" ? "its" : rest[0] ?? `${object}s`);
+  const possessive = possRaw === "his" || possRaw === "its" ? possRaw : possRaw.replace(/(?<=r)s$/, "");
   return { subject, object, possessive };
 }
 

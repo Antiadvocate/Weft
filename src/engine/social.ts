@@ -353,6 +353,8 @@ export function applyEdgeDelta(
     // dropping the label, and a relationship stopped being frozen by one turn of friction.
     let roles = d.roles_set.map((r) => (typeof r === "string" ? r : String(r ?? "")).trim()).filter(Boolean)
       .filter((r) => !VERDICT_ROLE.test(r))
+      // "co-worker" and "coworker" are one role; Velora's card printed both, joined with "&".
+      .filter((r, i, all) => all.findIndex((x) => roleKey(x) === roleKey(r)) === i)
       .slice(0, 4);
     // RECIPROCAL-ROLE SANITY. The bookkeeper sometimes dumps BOTH sides of a directional
     // relationship onto one edge ("Marie -> Joe: [father, daughter]"), which is incoherent — Marie's
@@ -1131,7 +1133,10 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random, el
       log.push(`${c.name} stopped waiting on: ${c.drive.goal}`);
       state.memory[id]?.episodic.push({
         turn: state.world.current_turn,
-        content: `I stopped asking about ${c.drive.goal.replace(/^(get|obtain|secure|find out|learn)\s+/i, "")}, because no answer was coming, so it stopped being a question.`,
+        // The goal is written about them in the third person ("Wants to be the one who trains the
+        // next crew... outlasts xer."), so it can't be spliced into a first-person sentence. Veth's
+        // memory read "I stopped asking about Wants to be the one who trains...". Quote it instead.
+        content: `I let go of something I'd been waiting on, because nothing was moving it: ${c.drive.goal.trim().replace(/[.…\s]+$/, "")}.`,
         importance: 6, emotional_charge: "resignation",
         last_accessed_turn: state.world.current_turn,
       } as never);
@@ -1634,6 +1639,9 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
   }
   return log;
 }
+/** A role with case, spaces and hyphens taken out, so spellings of one role compare equal. */
+export function roleKey(r: string): string { return String(r ?? "").toLowerCase().replace(/[^a-z]/g, ""); }
+
 function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
 
 /** Warm genres. A cast going cold in one of these is a failure of the story, not a development. */

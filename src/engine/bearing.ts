@@ -41,6 +41,7 @@
  * room looks like, and the reason nobody in this cast does any of it is that nobody asked them to.
  */
 import type { Identity, Psyche, SaveState } from "./types";
+import { pronounsOf as apertureProns } from "./aperture";
 
 /* ── THE THREE AXES ─────────────────────────────────────────────────────────── */
 
@@ -103,13 +104,7 @@ export function readBearing(ident: Identity | undefined, psyche?: Psyche): Beari
  *  aperture.ts carries its own copy: a note about a woman that says "they" has drifted in the one
  *  place the narrator is told never to drift. Falls back to they/them, which is also what an
  *  unfilled field should read as. */
-function pronounsOf(raw: string | undefined): { subject: string; possessive: string } {
-  const parts = String(raw ?? "").toLowerCase().split(/[/,\s]+/).map((x) => x.trim()).filter(Boolean);
-  const subject = parts[0] || "they";
-  const object = parts[1] || (subject === "they" ? "them" : subject);
-  const possessive = parts[2] || (subject === "she" ? "her" : subject === "he" ? "his" : subject === "they" ? "their" : `${object}s`);
-  return { subject, possessive };
-}
+const pronounsOf = (raw: string | undefined): { subject: string; possessive: string } => apertureProns(raw);
 
 type Pn = { subject: string; possessive: string };
 

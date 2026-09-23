@@ -508,7 +508,9 @@ export function sanitize(state: SaveState): SaveState {
   }
   for (const e of state.world.edges ?? []) {
     if (!e.roles?.length) continue;
-    const kept = e.roles.filter((r) => !VERDICT_ROLE_HEAL.test(String(r ?? "").trim()));
+    const key = (r: string) => String(r ?? "").toLowerCase().replace(/[^a-z]/g, "");
+    const kept = e.roles.filter((r) => !VERDICT_ROLE_HEAL.test(String(r ?? "").trim()))
+      .filter((r, i, all) => all.findIndex((x) => key(x) === key(r)) === i);
     if (kept.length !== e.roles.length) e.roles = kept;
   }
   state.minds ??= {};

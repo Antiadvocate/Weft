@@ -70,7 +70,7 @@ import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
-import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective } from "./reaction";
+import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
@@ -176,7 +176,14 @@ function presenceFromProse(state: SaveState, prose: string): string[] {
 function echoBan(_state: SaveState): string {
   // The do-not-repeat list used to live here, at the tail of this string. It now lives in
   // lastWord(), which is appended after the POV block — see there for why.
-  return `\nWhat a character says comes out of their own head. Nobody restates, describes, sums up or marvels at what the player just did. Here is a way to check a finished line: imagine the player's last action had never happened and read the line again. If it stops making sense, it was built out of the player's action rather than out of the speaker, so rewrite it, however it happens to be worded. When someone is astonished, show it through what they do: they stop walking, lose their place in what they were saying, follow, leave, ask about something next to it, or carry on with their task and get it slightly wrong. Every line of dialogue should start from something the speaker already had before this moment, such as what they want, the errand they're on, how their body feels, or something they were already thinking about. If a character has nothing of their own to say, they say nothing and do something instead.`;
+  // THE TEST THAT DELETED THE PLAYER. This used to say: imagine the player's last action never
+  // happened, and rewrite any line that stops making sense without it — plus "every line should
+  // start from something the speaker already had before this moment". On the Velora save a player
+  // told two people he was a human from another planet and stripped to prove it, and both of them
+  // talked about harbor chill, a gull on tower four and a grandmother's spring batches, because
+  // every line that answered him failed the test. The failure it was written for is narrow: a
+  // character describing the player's action back to him as a marvel. So it bans that, and only that.
+  return `\nNobody restates, sums up or marvels at what the player just did ("you just knew", "most people would have run"). Answering it is different, and people do answer it: they ask what the player meant, say they don't believe it, laugh, get angry, get scared, change their minds about the player, or ask the next question a real person would ask. Say it in the character's own words and from the character's own point of view, and let the reply be about what was actually said or done.`;
 }
 
 /** THE LAST THING THE MODEL READS.
@@ -2390,7 +2397,9 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // gets into what they say. A settled character was running her whole voice card at a hundred
   // percent and her whole want out loud, every turn, deaf to a room full of things she likes.
   // See engine/aperture.ts.
-  const apertureNote_ = apertureNote(state, state.world.present);
+  // Off on a turn the player has put something to the room: its saturation line tells a character
+  // to talk about "something else entirely", and on Velora that was the gull on tower four.
+  const apertureNote_ = answerThePlayer(action, mode) ? "" : apertureNote(state, state.world.present);
   // HOW WIDE THE ATTENTION IS is weather; how a person stands in a room is climate, and nothing
   // rendered it. `gregariousness` reached the narrator nowhere at all, and attachment style only as
   // a stress response — so between −3 and +4 relaxation every character was a fluent adult who says
@@ -2408,7 +2417,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const becomingFinal = becomingFinalLaw(state);
   // LAST, ON PURPOSE. The beat is the single thing the engine decided this turn is for, and it sits
   // here against the player's own line rather than five paragraphs into a forty-paragraph digest.
-  const beatNote = beatDirective(beat, dial);
+  // ...unless the player just said or did something and the beat is a quiet one, in which case
+  // the turn is for answering that. See answerThePlayer.
+  const answerBody = answerThePlayer(action, mode);
+  const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder";
+  const beatNote = answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
   state.pending_arrivals = undefined;   // said once, on the turn after it landed
   const mindRead = sovereignRead(state, action, intents);
   const mindNote = mindReadNote(state, action, intents);
@@ -2584,7 +2597,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const carriesPlayer = loves || (relToPlayer?.roles?.some((r) => /partner|lover|friend|ally|protector|sister|brother|parent|guardian/i.test(r)) ?? false);
     const leadText = playerInert
       ? `\n${lead.c.name.toUpperCase()} DRIVES THIS SCENE. The player didn't steer anything this turn, so the character who wants something moves the scene along, because the world doesn't sit and wait for a player who isn't doing anything. ${lead.c.name} goes after their goal ("${lead.c.drive!.goal}") this turn in a concrete way they choose themselves, using whatever they have, such as their abilities, position, knowledge, allies, strength or words, and they make the next thing actually happen instead of talking about it. ${carriesPlayer ? `Because ${lead.c.name} cares about the player, the way they go about it includes the player: they bring the player along, ask "you coming?", hand them a job, or simply pull them into motion. If the player has said something, ${lead.c.name} really listens and it changes how they go about it. The goal still drives the scene, though, and the player gets carried along by what ${lead.c.name} is doing.` : `The player is one of the people ${lead.c.name} has to deal with, whether they carry the player along, work around them or speak to them, and the scene is about ${lead.c.name}'s goal.`} End the turn as soon as what ${lead.c.name} does puts a real demand on the player in particular: the player has to move or react, someone asks them a question, or the next moment can't happen without their input. If what ${lead.c.name} does doesn't actually need the player this turn, the world just moves on and takes the player with it, and you don't make up a decision for the player just to hand the turn back to them.`
-      : `\n${lead.c.name} is working toward their goal ("${lead.c.drive!.goal}") and does something concrete about it this turn, in their own way, alongside what the player just did and carrying on through it. Move their aim forward and let it run into what the player is doing.`;
+      : `\n${lead.c.name} still wants this: "${lead.c.drive!.goal}". Answering what the player just said or did comes first. If ${lead.c.name} gets on with this at all this turn, it happens around that answer and never in place of it.`;
     pressureCandidates.push({ prio: 5, text: leadText });
   }
 

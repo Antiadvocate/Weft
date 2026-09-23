@@ -146,11 +146,25 @@ export function recordSpokenSubjects(state: SaveState, prose: string, turn: numb
     .filter((r) => r.turns.length);
 }
 
+/** Words the player has put on the table, or that name a live thread. The player's own subject is
+ *  never a prop: on the Velora save "earth", "planet" and "human" were filed as used up two turns
+ *  after the player said he was a human from Earth, and the cast was told never to raise them again.
+ *  Characters who had just heard the strangest thing of their lives were ordered to talk about kegs. */
+function playersSubjects(state: SaveState): Set<string> {
+  const s = new Set<string>();
+  const add = (v: unknown) => String(v ?? "").toLowerCase().split(/[^a-z']+/).forEach((w) => w.length > 2 && s.add(w));
+  for (const h of (state.history ?? []).slice(-(WINDOW + REST))) add(h?.player_action);
+  for (const t of state.world?.threads ?? []) if (t.status === "active") { add(t.title); add(t.description); }
+  return s;
+}
+
 /** The subjects this turn should not reach for again. */
 export function spentSubjects(state: SaveState): string[] {
   const turn = state.world?.current_turn ?? 0;
+  const theirs = playersSubjects(state);
   return (state.spent_subjects ?? [])
     .filter((r) => {
+      if (theirs.has(r.word)) return false;
       const recent = r.turns.filter((t) => t > turn - WINDOW - 1);
       if (recent.length < SPENT_AT) return false;
       // it comes back once it has actually been left alone for a while

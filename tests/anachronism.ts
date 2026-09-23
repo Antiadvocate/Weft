@@ -79,8 +79,10 @@ function rome(): SaveState {
   const v = visibleOnPlayer(rome());
   check("what he SAYS is held against the same two lines", /Compare the same two lines with what he says/.test(v));
   check("the word does not become a thing by being said", /doesn't make that thing real by being said out loud/.test(v));
-  check("...and the four things a person does instead are named",
-    /hears the nearest thing in their own life/.test(v) && /asks him what it is/.test(v));
+  check("...and the things a person does instead are named",
+    /ask him what it is/.test(v) && /repeat it back as a question/.test(v));
+  check("they answer the word rather than changing the subject",
+    /Nobody changes the subject to something from their own day/.test(v) && !/nearest thing in their own life/.test(v));
   check("the exact failure is forbidden: repeating it back, pricing it, adding to it",
     /repeats it back as something they know/.test(v) && /names a price for it/.test(v) && /adds a detail of their own/.test(v));
   check("...and the reason is stated — it is permanent",

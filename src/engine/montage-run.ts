@@ -354,7 +354,7 @@ export async function runMontage(
       const a = beatAllowance(origins, t, i + 1, n);
       const e = state.world.edges.find((x) => x.from === t.from && x.to === t.to);
       const nm = `${state.characters[t.from]?.name} → ${state.characters[t.to]?.name}`;
-      return `${nm}: warmth is now ${e?.warmth ?? 0} (target ${t.warmth ?? "—"}), and this stretch can move it by at most ${a.warmth >= 0 ? "+" : ""}${a.warmth}; trust is now ${e?.trust ?? 0} (target ${t.trust ?? "—"}), and it can move by at most ${a.trust >= 0 ? "+" : ""}${a.trust}`;
+      return `${nm}: warmth is now ${e?.warmth ?? 0} (target ${t.warmth ?? "—"}), and this stretch can move it by at most ${a.warmth >= 0 ? "+" : ""}${Math.round(a.warmth)}; trust is now ${e?.trust ?? 0} (target ${t.trust ?? "—"}), and it can move by at most ${a.trust >= 0 ? "+" : ""}${Math.round(a.trust)}`;
     }).join("\n");
 
     const ask = [
