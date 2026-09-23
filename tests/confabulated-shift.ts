@@ -71,7 +71,7 @@ const proseAt = (turn: number): string =>
 
   const note = missedNote(s, s.world.present);
   check("the room is told, at the end of the directive", note.length > 0);
-  check("...that she was standing here when the hour passed", /was in this room when that hour passed/i.test(note), note);
+  check("...that she was standing here when the hour passed", /was in this room when that time passed/i.test(note), note);
   check("...and that nobody says she went", /does not say they went|says they went/i.test(note), note);
   // the point of the block is not the ban — it is that a blown shift is hers to want something about
   check("...and it hands the trouble back to her as something of her own",
@@ -121,7 +121,7 @@ const proseAt = (turn: number): string =>
   const fix = missedClaimFix(hit);
   check("the correction voids it rather than retconning the fiction",
     /never happened|did not watch anything/i.test(fix), fix);
-  check("...and protects the player from being told they forgot", /did not forget/i.test(fix), fix);
+  check("...and protects the player from being told they forgot", /didn't forget/i.test(fix), fix);
 
   // turn 31 is her pressing him about Sarah and Kristi — no claim about the salon anywhere in it
   check("turn 31 is clean", findMissedClaim(proseAt(31), s, s.world.present) === null);
@@ -139,7 +139,7 @@ const proseAt = (turn: number): string =>
   check("...as a run, not as one simile", (hit?.runs ?? 0) >= 3, hit);
   check("...quoting THIS turn's sentence", /said it|testing the word/i.test(hit?.line ?? ""), hit?.line);
   const fix = figureFix(hit);
-  check("the correction names the tic", /same sentence shape/i.test(fix), fix);
+  check("the correction names the tic", /same kind of sentence/i.test(fix), fix);
   check("...and names the leak hiding inside it", /states what a person was privately doing/i.test(fix), fix);
 
   // ONE simile is writing, not a tic. Turn 34 on its own, with nothing before it, says nothing.
@@ -190,13 +190,13 @@ const proseAt = (turn: number): string =>
   const s33 = through(33);
   const note = apertureNote(s33, s33.world.present);
   check("the aperture speaks for a clenched body now", note.length > 0);
-  check("...naming the run", /5 turns running without once saying what she wants/i.test(note), note);
+  check("...naming the run", /5 turns in a row without once saying what she wants/i.test(note), note);
   check("...and asking for a want that did not come from the player's line",
-    /did not come from the player's last line/i.test(note), note);
+    /doesn't come from the player's last line/i.test(note), note);
   check("...offering what is already on her card", /Confirm beyond doubt|cuticle oil/i.test(note), note);
   check("...while still granting that a braced body narrows",
-    /That is normal for a tense person/i.test(note), note);
-  check("...onto her own thing rather than his", /WHOSE CONCERN IT IS/.test(note), note);
+    /That's normal for someone who is tense/i.test(note), note);
+  check("...onto her own thing rather than his", /whose concern it is/.test(note), note);
 
   // THE REGRESSION THIS EXISTS TO STOP: at turn 34 the same call returned the empty string, for a
   // character at −5.6 with five active emotional states, because a narrowed body was skipped before

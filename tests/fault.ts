@@ -98,9 +98,9 @@ function world(opts: { conscience: number; style: string; warmth: number; relax?
   tickRepair(st);
   check("she starts trying to fix it", (p.repairing ?? 0) > 0, p);
   check("...even though it was done to her", !p.fault, p);
-  check("...and it becomes her live pursuit", /get things right with Vin/.test(st.characters.char_a.drive?.goal ?? ""), st.characters.char_a.drive);
+  check("...and it becomes her live pursuit", /make things right with Vin/.test(st.characters.char_a.drive?.goal ?? ""), st.characters.char_a.drive);
   check("...whose approach does not mention being hurt",
-    /does not mention being hurt/.test(st.characters.char_a.drive?.approach ?? ""));
+    /doesn't mention being hurt/.test(st.characters.char_a.drive?.approach ?? ""));
 
   // AND THE POINT: she reads settled, and nothing releases.
   check("she looks settled", p.relaxation >= 3, p.relaxation);
@@ -129,7 +129,7 @@ function world(opts: { conscience: number; style: string; warmth: number; relax?
   tickRepair(st);
   check("the running stops", !p.repairing, p);
   check("...and it lands", p.relaxation < before, { before, after: p.relaxation });
-  check("...as the thing they never registered", p.active_states.some((s: string) => /only now feeling it/.test(s)), p.active_states);
+  check("...as the thing they never registered", p.active_states.some((s: string) => /only feeling it now/.test(s)), p.active_states);
 }
 
 /* ── 6. being received ends it properly — forgiveness is a door, not another hit ── */
@@ -175,8 +175,8 @@ function world(opts: { conscience: number; style: string; warmth: number; relax?
   const sec = world({ conscience: 0.8, style: "secure", warmth: 70 });
   sec.condition.char_a.psyche.fault = { toward: "char_player", about: "told his secret", turn: 10 };
   const sd = faultDirective(sec);
-  check("a secure character is told to SAY the thing they did", /They SAY it|name the thing they actually did/.test(sd), sd);
-  check("...without a justification riding behind it", /without a justification/.test(sd), sd);
+  check("a secure character is told to SAY the thing they did", /They say it: they name what they actually did/.test(sd), sd);
+  check("...without a justification riding behind it", /without an excuse/.test(sd), sd);
 
   const avoid = world({ conscience: 0.8, style: "avoidant", warmth: 70 });
   avoid.condition.char_a.psyche.fault = { toward: "char_player", about: "x", turn: 10 };

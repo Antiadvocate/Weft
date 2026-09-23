@@ -73,11 +73,11 @@ const save = (over: Record<string, unknown> = {}): SaveState => ({
 /* ── 2. the correction voids it rather than staging a retraction ─────────────── */
 {
   const fix = kinFix(findKinBreach(save(), FIX.prose["39"]));
-  check("the line is voided", /That is void/.test(fix));
-  check("...with no walk-back scene", /do not write a scene about the mistake/.test(fix));
-  check("...and nobody caught in it", /be caught in it/.test(fix));
-  check("the reason it happened is named", /cannot be checked/.test(fix));
-  check("...and a better instruction given", /use one that is already true/.test(fix));
+  check("the line is voided", /That doesn't count/.test(fix));
+  check("...with no walk-back scene", /don't write a scene about the mistake/.test(fix));
+  check("...and nobody caught in it", /get caught out by it/.test(fix));
+  check("the reason it happened is named", /can't be checked/.test(fix));
+  check("...and a better instruction given", /use one that's already true/.test(fix));
 }
 
 /* ── 3. the other half: a cast member recast as a relative ───────────────────── */

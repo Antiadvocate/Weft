@@ -75,7 +75,7 @@ const prev = (turn: number): string => prose(turn - 1);
   check("...but the room is told about it once", rows.length === 1, rows);
   check("...in the plainest words she used", /I have to be at the salon by eleven/.test(rows[0] ?? ""), rows[0]);
   check("and the note now closes off the outside world too",
-    /No manager, no coworker, no timesheet/i.test(note), note.slice(-400));
+    /No manager, coworker, timesheet/i.test(note), note.slice(-400));
 }
 
 /* ── 3. the claim, and the three things that are not one ─────────────────────── */
@@ -115,11 +115,11 @@ const prev = (turn: number): string => prose(turn - 1);
   check("and the turn Dana answers — whose typed action names none of it", fires(40), acted(40));
 
   const law = verificationLaw(s, acted(40), s.world.present, prev(40));
-  check("the law states the verdict", /was not there/i.test(law), law.slice(0, 200));
+  check("the law states the verdict", /wasn't there/i.test(law), law.slice(0, 200));
   check("...names what may not decide it", /A voice invented this turn has no memory of its own/i.test(law), law);
-  check("...and says why it would be worse than the original error", /because the player specifically asked/i.test(law), law);
-  check("...while leaving the character free to lie", /can lie over the top of it/i.test(law), law);
-  check("...and leaving the answer allowed to be useless", /slow, partial, distracted, or useless/i.test(law), law);
+  check("...and says why it would be worse than the original error", /because the player asked about it specifically/i.test(law), law);
+  check("...while leaving the character free to lie", /can lie over it/i.test(law), law);
+  check("...and leaving the answer allowed to be useless", /slow, partial, distracted or useless/i.test(law), law);
 
   check("an unrelated action does not summon it",
     verificationLaw(s, "I kiss her neck and tell her she looks good", s.world.present, "She turned the fan back on.") === "", "");

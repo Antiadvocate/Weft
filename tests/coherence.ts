@@ -147,7 +147,7 @@ check("an offstage speaker is not grounds for a cut",
   check("the note quotes the offending sentence", /Emily walks across the lobby/.test(note), note);
   check("…and names the fact it contradicts", /Arthur Penhale is dead/.test(note), note);
   check("…asks for the same beat back", /Keep everything else about the turn/.test(note));
-  check("…and forbids lampshading the rewrite", /do not have anyone remark on the difference/.test(note));
+  check("…and forbids lampshading the rewrite", /don't have anyone comment on the difference/.test(note));
   check("nothing wrong, nothing said", retryNote([]) === "");
   check("a pile-up does not become a wall of text", retryNote(
     Array.from({ length: 12 }, (_, i) => ({ kind: "dead-acting", line: `line ${i}`, why: "x is dead" }))

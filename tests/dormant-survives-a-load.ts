@@ -67,7 +67,7 @@ check("every thread status is on the list sanitize validates against",
     lines.push(...sweepThreads(s, "Nothing in this scene is about that."));
     s = sanitize(s);                      // what getSave does at the top of every turn
   }
-  const said = lines.filter((l) => /Nobody has thought about it in a while/.test(l));
+  const said = lines.filter((l) => /Nobody has thought about (?:it|this) in a while/.test(l));
   check("the world says a thread has gone quiet exactly once", said.length === 1, lines);
   check("and it stays quiet across nine turns of loads", s.world.threads[0].status === "dormant");
 }

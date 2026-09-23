@@ -135,17 +135,17 @@ const MARKET = "Columbia City Farmers Market";
 /* ── 6. and nobody offstage knows what they were not told ────────────────────── */
 {
   check("the offstage pass is given the epistemic rule at all",
-    /NOBODY OFFSTAGE KNOWS ANYTHING THEY WERE NOT TOLD/.test(OFFSTAGE_SYSTEM));
+    /Nobody offstage knows anything they weren't told/.test(OFFSTAGE_SYSTEM));
   check("...naming the player's private words specifically",
-    /do not know what the player typed, texted, said on a phone call/i.test(OFFSTAGE_SYSTEM));
+    /don't know what the player typed, texted, said on a phone call/i.test(OFFSTAGE_SYSTEM));
   check("...and refusing the explanation-as-invention move",
-    /that explanation is itself an invention/.test(OFFSTAGE_SYSTEM));
+    /that explanation is an invention too/.test(OFFSTAGE_SYSTEM));
   check("...with the productive alternative spelled out",
     /they call and get voicemail/.test(OFFSTAGE_SYSTEM));
   check("the witness rule it sits beside still stands",
-    /WITNESSES ARE HOW ANY OF THIS REACHES THE STORY/.test(OFFSTAGE_SYSTEM));
+    /Witnesses are the only way any of this reaches the story/.test(OFFSTAGE_SYSTEM));
   check("and the faction-clock rule after it survived the insert",
-    /FACTION CLOCKS ADVANCE HERE, OR NOWHERE/.test(OFFSTAGE_SYSTEM));
+    /Faction clocks only move here/.test(OFFSTAGE_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

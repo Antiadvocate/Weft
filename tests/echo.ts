@@ -68,13 +68,13 @@ const said = (s: string) => `She set the cup down. "${s}" The fire went on burni
 {
   const d = echoFix({ line: "Say it again.", kind: "demand" });
   check("the demand correction quotes the line", /Say it again/.test(d), d);
-  check("...and rules out every wording rather than the four listed", /in any wording/.test(d));
-  check("...and says what evidence a line landed actually looks like", /what the listener DOES next/.test(d));
+  check("...and rules out every wording rather than the four listed", /in any words/.test(d));
+  check("...and says what evidence a line landed actually looks like", /what the listener does next/.test(d));
   check("...including what a genuine mishearing does", /acts on the half they did catch/.test(d));
 
   const p = echoFix({ line: "You came up from Bovillae, did you.", kind: "parrot" });
   check("the parrot correction quotes the line", /Bovillae/.test(p));
-  check("...and names why it wastes the turn", /accomplishes nothing/.test(p));
+  check("...and names why it wastes the turn", /doesn't do anything/.test(p));
 
   check("nothing caught, nothing said", echoFix(null) === "" && echoFix(undefined) === "");
 }
@@ -85,7 +85,7 @@ const said = (s: string) => `She set the cup down. "${s}" The fire went on burni
   for (const spec of ["say it again", "say that again", "tell me again", "I want to hear you say it"]) {
     check(`not supplied in advance: "${spec}"`, !new RegExp(spec, "i").test(P));
   }
-  check("but the rule is still stated", /DO NOT REPEAT WHAT THE PLAYER SAID/.test(P));
+  check("but the rule is still stated", /Don't repeat what the player said/.test(P));
 }
 
 

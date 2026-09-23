@@ -35,20 +35,20 @@ for (const lean of [false, true]) {
   const t = narratorSystem(lean);
   const tag = lean ? "lean" : "full";
 
-  check(`${tag}: dialogue is permitted to stand without a beat`, /DIALOGUE DOES NOT NEED ACTION BEATS/.test(t));
+  check(`${tag}: dialogue is permitted to stand without a beat`, /Dialogue doesn't need an action between every line/.test(t));
   check(`${tag}: and consecutive exchanges are named as the thing to do`,
-    /(several exchanges|two, three, four exchanges)/.test(t));
-  check(`${tag}: a beat is defined as something happening`, /when a body (actually )?does something/.test(t));
+    /(several exchanges|two, three or four exchanges)/.test(t));
+  check(`${tag}: a beat is defined as something happening`, /when someone's body actually does something/.test(t));
 
-  check(`${tag}: the interpretation may not be relocated into dialogue`, /CHARACTERS CANNOT SEE INSIDE OTHER PEOPLE/.test(t));
+  check(`${tag}: the interpretation may not be relocated into dialogue`, /Characters can't see inside other people/.test(t));
   check(`${tag}: a character may still guess`, /guess/.test(t));
   check(`${tag}: and the guess is allowed to be wrong`, /wrong/.test(t));
   check(`${tag}: nobody delivers an accurate readout of another's interior`,
-    /accurate account of another person's inside/.test(t));
+    /accurate account of (?:another person's|someone else's) inner life/.test(t));
 
   // the rules this is correcting must still be there — the fix is a release valve, not a repeal
-  check(`${tag}: interiority is still forbidden`, /SURFACE ONLY/.test(t) || /never narrated/.test(t));
-  check(`${tag}: the want is still not announced`, /CHARACTERS DO NOT ANNOUNCE THEIR WANTS/.test(t));
+  check(`${tag}: interiority is still forbidden`, /never narrate|Don't narrate it/.test(t));
+  check(`${tag}: the want is still not announced`, /Characters don't announce (?:what they want|their wants)/.test(t));
 }
 
 /* the two rules have to point in compatible directions, or the model splits the difference badly */

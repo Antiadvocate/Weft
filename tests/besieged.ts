@@ -83,7 +83,7 @@ const input = (over: Partial<BeatInput>): BeatInput => ({
   check("a quiet turn no longer claims to outrank the genre", !/outranks the genre/.test(t), t.slice(0, 200));
   check("it still forbids a new incident", /no rider|NO NEW INCIDENT/.test(t));
   check("but says the world itself stays on the page", /still true and still on the page/.test(t));
-  check("and names the case directly — danger as the ordinary condition", /ordinary condition does not become a safe one/.test(t));
+  check("and names the case directly — danger as the ordinary condition", /normal state of things doesn't become safe/.test(t));
   check("the genre's own pressure palette still reaches the narrator", /walkers converging on noise/.test(t), t.slice(-200));
 }
 {

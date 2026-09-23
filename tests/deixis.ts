@@ -33,16 +33,16 @@ function check(name: string, c: boolean, extra?: unknown) {
 /* ── 1. the rule says both halves ─────────────────────────────────────────────── */
 {
   const n = deixisNote();
-  check("first person is bound to the player", /\bI, me, my, mine and myself are the PLAYER\b/.test(n), n);
-  check("second person is bound to the listener", /you and your are the person the player is SPEAKING TO/.test(n), n);
-  check("and it says outright that the listener is not the player", /never the player themselves/.test(n), n);
-  check("it names the failure it exists for", /puts a line in their mouth they did not speak/.test(n), n);
+  check("first person is bound to the player", /\bI, me, my, mine and myself mean the player\b/.test(n), n);
+  check("second person is bound to the listener", /you and your mean the person the player is talking to/.test(n), n);
+  check("and it says outright that the listener is not the player", /you and your never mean the player/.test(n), n);
+  check("it names the failure it exists for", /puts words in the player's mouth that they never said/.test(n), n);
 }
 
 /* ── 2. and it can name the person being addressed ────────────────────────────── */
 {
   const n = deixisNote("Lucia");
-  check("the addressee is named when known", /which in this beat is Lucia/.test(n), n);
+  check("the addressee is named when known", /which right now is Lucia/.test(n), n);
   check("without it the rule still stands on its own", !/which in this beat/.test(deixisNote()), deixisNote());
   check("an empty name is treated as unknown", !/which in this beat/.test(deixisNote("")), deixisNote(""));
 }

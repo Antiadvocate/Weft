@@ -116,7 +116,7 @@ function check(name: string, cond: boolean, extra?: unknown) {
   s.world.edges.push({ from: cook, to: "char_player", warmth: 4, trust: 2, power: 0, notes: "", updated_turn: 100, attraction: 2, attraction_base: 2 });
   const partner = desireLine(s, wife), stranger = desireLine(s, cook);
   check("established bond is never rendered as 'desire: none'", !/desire toward you: none/.test(partner), partner);
-  check("established bond forbids the wall reading", /NEVER write them as indifferent/.test(partner));
+  check("established bond forbids the wall reading", /Never write them as indifferent/.test(partner));
   check("an actual stranger still gets the honest 'none'", /desire toward you: none/.test(stranger), stranger);
 }
 

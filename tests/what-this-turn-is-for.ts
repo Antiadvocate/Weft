@@ -47,7 +47,7 @@ const dc = beatDirective(clock, 9);
 check("a clock beat keeps its own opening line", dc.includes("PRESSURE BEAT from a maturing faction clock"), dc);
 check("a clock beat still carries its signs", dc.includes("a notice taped in the stairwell"), dc);
 check("the quiet palette form survives", beatDirective(quiet, 9).includes("TOUCHES THE SCENE, lightly and unprompted"), beatDirective(quiet, 9));
-check("no beat at all is still said out loud", beatDirective(undefined, 9).includes("NO SOURCE FOR THIS TURN"), beatDirective(undefined, 9));
+check("no beat at all is still said out loud", beatDirective(undefined, 9).includes("NOTHING FROM OUTSIDE THIS TURN"), beatDirective(undefined, 9));
 check("kind none is still said out loud", beatDirective({ kind: "none" } as Beat, 9).includes("NO NEW INCIDENT THIS TURN"));
 
 // ---- at rest the beat is silent, because pressureDirective already speaks for the world --------
@@ -64,7 +64,7 @@ check("tension undefined behaves like the mid dial", beatDirective(palette).leng
 // ---- the deferred call no longer says it too ---------------------------------------------------
 const deferred = pressureDirective(V, [FEET], 9, "mortal", palette, true);
 check("deferred: the beat body is gone", !deferred.includes("THE STORY'S MAIN PRESSURE ARRIVES"), deferred);
-check("deferred: and it does NOT claim there is no source", !deferred.includes("NO SOURCE FOR THIS TURN"), deferred);
+check("deferred: and it does NOT claim there is no source", !deferred.includes("NOTHING FROM OUTSIDE THIS TURN"), deferred);
 check("deferred: the pressure reading stays", deferred.includes("PRESSURE 7/10"), deferred);
 check("deferred: the palette filter stays", deferred.includes("Draw pressure only from"), deferred);
 

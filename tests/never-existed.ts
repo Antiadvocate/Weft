@@ -99,8 +99,8 @@ const KNOWN = ["Joe", "Amber", "The Living Room", "The Elevator Lobby", "Sara"];
   check("...including memories of things that did happen",
     s.memory.char_player.episodic.length === 1 && /two bags/.test(s.memory.char_player.episodic[0].content));
   check("and the narrator is told, in the channel it already obeys",
-    (s.retcons ?? []).some((r) => r.kind === "veto" && /Mrs\. Gable does not exist and never did/.test(r.text)), s.retcons);
-  check("...never to write them again", (s.retcons ?? []).some((r) => /Never write Mrs\. Gable again/.test(r.text)));
+    (s.retcons ?? []).some((r) => r.kind === "veto" && /Mrs\. Gable doesn't exist and never did/.test(r.text)), s.retcons);
+  check("...never to write them again", (s.retcons ?? []).some((r) => /Never write about Mrs\. Gable again/.test(r.text)));
 }
 {
   // striking twice is not two vetoes

@@ -52,9 +52,9 @@ const DOOR = "brings it up as a case she read about, and watches his face while 
   for (const lean of [false, true]) {
     const sys = narratorSystem(lean);
     check(`${lean ? "lean" : "full"}: the contract says a want is not announced`,
-      /CHARACTERS DO NOT ANNOUNCE THEIR WANTS/.test(sys), sys.slice(0, 80));
+      /Characters don't announce (?:what they want|their wants)/.test(sys), sys.slice(0, 80));
     check(`${lean ? "lean" : "full"}: and names the doors people actually use`,
-      /adjacent/.test(sys) && /deniable version/.test(sys));
+      /(?:something nearby|a related subject)/.test(sys) && /(?:deniable version|version they could deny)/.test(sys));
     check(`${lean ? "lean" : "full"}: and does not contradict the intensity rule`,
       /frightened|furious|aroused/.test(sys) && /(plainly|directly)/.test(sys));
   }
@@ -68,7 +68,7 @@ const DOOR = "brings it up as a case she read about, and watches his face while 
   check("the want is on the card", digest.includes(GOAL));
   check("so is the door", digest.includes(DOOR), digest.slice(0, 200));
   check("and the card says the want itself is not to be stated",
-    /they do not state the want itself/.test(digest));
+    /they don't say the want out loud/.test(digest));
 }
 {
   const s = world();

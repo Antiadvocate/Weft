@@ -45,8 +45,8 @@ const sketch = readFileSync("src/engine/sketch.ts", "utf8");
   check("each one states that most people are secure",
     defs.every((d) => /most people are secure/i.test(d)), defs);
   const full = defs.find((d) => d.length > 200) ?? "";
-  check("and says why a cast without it goes wrong", /every relationship becomes about fixing something/.test(full), full.slice(0, 120));
-  check("and names avoidant as the over-reached one", /Avoidant in particular is over-reached for/.test(full), full.slice(0, 120));
+  check("and says why a cast without it goes wrong", /every relationship in the story becomes about fixing something/.test(full), full.slice(0, 120));
+  check("and names avoidant as the over-reached one", /Avoidant in particular gets overused/.test(full), full.slice(0, 120));
 
   const sk = /"attachment_style": "secure \/ anxious \/ avoidant \/ disorganized([^"]*)"/.exec(sketch)?.[1] ?? "";
   check("the sketch pass says it too", /most people are secure/i.test(sk), sk);
@@ -61,7 +61,7 @@ const sketch = readFileSync("src/engine/sketch.ts", "utf8");
   check("all three definitions were found", defs.length === 3 && defs.every(Boolean), defs.length);
   check("each says the field is permanent", defs.every((d) => /permanent/i.test(d)), defs);
   check("each says a mood does not belong in it",
-    defs.every((d) => /do not qualify (?:it|this field) with a mood/i.test(d)), defs);
+    defs.every((d) => /(?:don't|do not) (?:qualify it with|add) a mood/i.test(d)), defs);
   const full = defs.find((d) => d.length > 300) ?? "";
   check("and the full one sends unavailability somewhere it can lift",
     /belongs in under_threat, in taste, or in what they want/.test(full), full.slice(0, 160));

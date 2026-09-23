@@ -32,7 +32,7 @@ const tick = (s: SaveState, n = 1, min = TURN_MIN) => {
   return out;
 };
 
-const RUNGS = ["EXPOSURE", "NEAR IT", "EXAMINING IT", "THE SIDEWAYS FIRST TIME", "AGAIN", "SIMPLY WHAT SHE DOES"];
+const RUNGS = ["STAGE ONE: SHE COMES ACROSS IT", "STAGE TWO: CIRCUMSTANCE KEEPS HER NEAR IT", "STAGE THREE: SHE LOOKS IT OVER", "STAGE FOUR: THE FIRST TIME, SIDEWAYS", "STAGE FIVE: AGAIN", "STAGE SIX: IT'S JUST WHAT SHE DOES"];
 const rampOrder = (r: string) => RUNGS.indexOf(r);
 
 let pass = 0, fail = 0;
@@ -269,13 +269,13 @@ const wantsLines = (s: SaveState) =>
   check("a new want is not described as easily abandoned", !/abandon/i.test(line), line);
   // and the bottom rung is now the part BEFORE the act, which is the whole correction: at the start
   // the want exists only as attention, and doing the thing is explicitly off the table
-  check("the bottom rung is exposure", /^.*EXPOSURE\./.test(line) || /EXPOSURE\./.test(line), line);
+  check("the bottom rung is exposure", /STAGE ONE: SHE COMES ACROSS IT\./.test(line), line);
   // AND IT MUST STILL PUT SOMETHING ON THE PAGE. The version before this one described the first
   // three rungs purely as absence — "they notice the openings", "anyone watching closely would see
   // only that something is occupying them" — which a narrator satisfies by writing nothing at all.
   // A 20-turn budget ran to completion, the character present for every turn of it, and the want
   // never once reached the prose. Not acting is not the same as nothing happening.
-  check("and even it demands a beat a reader could point at", /ONE CONCRETE THING IS ON THE PAGE/.test(line), line);
+  check("and even it demands a beat a reader could point at", /there is one concrete thing on the page/.test(line), line);
 }
 
 /* ── 6. A FIXED TIMEFRAME YOU CAN CHECK ──────────────────────────────────────────
@@ -302,13 +302,13 @@ const wantsLines = (s: SaveState) =>
   check("one turn moves the number", pct() > 10, pct());
 
   /* The Yorkie days, in order — counted in turns, which is the unit the player set. */
-  to(1); check("it opens as bare exposure", rung() === "EXPOSURE", rung());
-  to(3); check("then proximity by circumstance", rung() === "NEAR IT", rung());
-  to(4); check("then examining the specific thing", rung() === "EXAMINING IT", rung());
+  to(1); check("it opens as bare exposure", rung() === RUNGS[0], rung());
+  to(3); check("then proximity by circumstance", rung() === RUNGS[1], rung());
+  to(4); check("then examining the specific thing", rung() === RUNGS[2], rung());
   check("nothing has HAPPENED through the whole first half", RUNGS.indexOf(rung()) <= 2, rung());
-  to(5); check("the first time it happens is past halfway, and sideways", rung() === "THE SIDEWAYS FIRST TIME", rung());
-  to(8); check("then repetition without a pretext", rung() === "AGAIN", rung());
-  to(10); check("and only at the end is it simply what they do", rung() === "SIMPLY WHAT SHE DOES", rung());
+  to(5); check("the first time it happens is past halfway, and sideways", rung() === RUNGS[3], rung());
+  to(8); check("then repetition without a pretext", rung() === RUNGS[4], rung());
+  to(10); check("and only at the end is it simply what they do", rung() === RUNGS[5], rung());
 
   /* "It must increase the percent if I'm using number of turns. Those turns aren't suggestions."
    *
@@ -329,8 +329,8 @@ const wantsLines = (s: SaveState) =>
   for (let i = 0; i < 3; i++) { s.world.current_turn++; tickAuthored(s, 15); }
   const line = authoredLine(s.characters.char_neigh.authored![0]);
   check("the narrator is told how far along it is, as a number", /\d+% of the way/.test(line), line);
-  check("and that it must show at exactly that strength and no more", /at exactly this strength and no more/.test(line), line);
-  check("with an invisible turn named as failure", /If nothing about it can be seen, the turn got this wrong/.test(line), line);
+  check("and that it must show at exactly that strength and no more", /at exactly this strength and no stronger/.test(line), line);
+  check("with an invisible turn named as failure", /If nothing about it can be seen, the turn got it wrong/.test(line), line);
 }
 {
   // the budget completes the want, so "fully inhabits it" actually finishes
@@ -428,22 +428,22 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored(goal, 1, { inhabit_turns: 5 })];
   const a = s.characters.char_neigh.authored![0];
   const line = () => authoredLine(a);
-  const bodyOf = () => line().slice(line().indexOf("where they are with it"), line().indexOf("INVENT THE OCCASION"));
+  const bodyOf = () => line().slice(line().indexOf("where they are with it"), line().indexOf("CREATE THE OCCASION"));
 
   a.turns_live = 1;   // 20% — "near it, by circumstance"
-  check("below the act, the goal is named as the thing NOT happening", /THE THING ITSELF DOES NOT HAPPEN AT THIS RUNG, and the thing itself is: Makes Rabi lick/.test(bodyOf()), bodyOf());
+  check("below the act, the goal is named as the thing NOT happening", /At this stage the thing itself doesn't happen yet, and the thing itself is: Makes Rabi lick/.test(bodyOf()), bodyOf());
 
   a.turns_live = 3;   // 60% — the sideways first time, where it must occur
   const mid = bodyOf();
-  check("at the act, \"it\" is bound to the goal in the same sentence as the verb", /"IT" MEANS THIS, LITERALLY, IN THE BODY: Makes Rabi lick her armpits/.test(mid), mid);
-  check("and the near-miss is named as the failure it is", /NOT AN APPROACH TO IT/.test(mid), mid);
+  check("at the act, \"it\" is bound to the goal in the same sentence as the verb", /"it" means this, literally and physically: Makes Rabi lick her armpits/.test(mid), mid);
+  check("and the near-miss is named as the failure it is", /A move toward it doesn't count/.test(mid), mid);
   // The exact thing that got written on the real save, ruled out by name.
-  check("skin becoming visible is called out specifically", /skin becoming briefly visible/.test(mid), mid);
-  check("with a test the narrator can apply to its own paragraph", /if the act could be cut out of your paragraph/.test(mid), mid);
-  check("and repeating last turn's beat is refused", /NOT THE SAME BEAT AS LAST TURN/.test(mid), mid);
+  check("skin becoming visible is called out specifically", /a moment of skin showing/.test(mid), mid);
+  check("with a test the narrator can apply to its own paragraph", /imagine cutting the act out of your paragraph/.test(mid), mid);
+  check("and repeating last turn's beat is refused", /can't be the same moment as last turn/.test(mid), mid);
 
   a.turns_live = 5;   // 100%
-  check("the top rung binds it too", /"IT" MEANS THIS, LITERALLY, IN THE BODY/.test(bodyOf()), bodyOf());
+  check("the top rung binds it too", /"it" means this, literally and physically/.test(bodyOf()), bodyOf());
 }
 {
   // Once it has hardened the want leaves `authored`'s live list and is carried by the settled line,
@@ -454,9 +454,9 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 2 })];
   crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
   const d = habitDirective(s, s.world.present);
-  check("a finished habit is stated as the act at full size", /That, the act itself, in this turn's prose, at full size/.test(d), d);
-  check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /do not wait for the scene to allow it/.test(d), d);
-  check("and nobody treats it as news", /nobody remarks on it being new/.test(d), d);
+  check("a finished habit is stated as the act at full size", /Put the act itself in this turn's prose, fully/.test(d), d);
+  check("and carries no condition the narrator can find unmet", !/if this scene gives it any opening/.test(d) && /shouldn't wait for the scene to make room for it/.test(d), d);
+  check("and nobody treats it as news", /nobody remarks that it's new/.test(d), d);
 }
 
 /* ── 7c. WHEN THE ACT IS THE PLAYER'S TO PERFORM ─────────────────────────────────
@@ -499,20 +499,20 @@ const wantsLines = (s: SaveState) =>
   a.turns_live = 3;
   const line = authoredLine(a);
   check("the rule the narrator cannot break is named, and named as the winner",
-    /WHERE IT STOPS IS THE PLAYER DECIDING/.test(line), line);
-  check("with the player's half handed back to the player", /that is theirs and they type it/.test(line), line);
+    /IT STOPS WHERE THE PLAYER HAS TO DECIDE/.test(line), line);
+  check("with the player's half handed back to the player", /that is theirs to type/.test(line), line);
   check("...named as the specific things never written for them",
-    /agreeing, refusing, allowing it, going along with it, reciprocating/.test(line), line);
-  check("...a feeling about it included", /never hand them a feeling about it/.test(line), line);
+    /agreeing, refusing, allowing it, going along with it, doing it back/.test(line), line);
+  check("...a feeling about it included", /never give them a feeling about it/.test(line), line);
   check("but her half is still a full requirement",
-    /Her half is the act itself, named plainly in what she does/.test(line), line);
+    /Her part is the act itself, stated plainly in what she does/.test(line), line);
   check("...and being the one it is done to is not the player's move",
-    /being the one it is done to does not turn it into the player's move/.test(line), line);
-  check("...so it cannot be pushed to a later scene", /put off to a later scene/.test(line), line);
+    /is the one it's done to doesn't make it the player's move/.test(line), line);
+  check("...so it cannot be pushed to a later scene", /put off until a later scene/.test(line), line);
   check("she may not take it back inside the same turn", /taken back in the same turn/.test(line), line);
   // The specific way this turn was drained: it kept going, to Liz and then to Marcus.
   check("and the scene may not close the moment before the player can answer",
-    /do not move on to another character's business afterwards/i.test(line), line);
+    /don't move on to another character's business afterwards/i.test(line), line);
 }
 {
   // Below the act there is nothing for the player to consent to yet, so the threshold clause would
@@ -532,9 +532,9 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("Makes Rabi lick her armpits", 1, { inhabit_turns: 2 })];
   crystallize(s, "char_neigh", s.characters.char_neigh.authored![0], 9);
   const d = habitDirective(s, s.world.present);
-  check("a settled habit assumes rather than asks", /she does not ask for it and does not work up to it/.test(d), d);
-  check("and is not embarrassed by an audience", /unbothered by who is standing there/.test(d), d);
-  check("and it too stops where the player's choice begins", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(d), d);
+  check("a settled habit assumes rather than asks", /she doesn't ask for it and doesn't work up to it/.test(d), d);
+  check("and is not embarrassed by an audience", /doesn't care who is standing there/.test(d), d);
+  check("and it too stops where the player's choice begins", /IT STOPS WHERE THE PLAYER HAS TO DECIDE/.test(d), d);
 }
 
 /* ── 8. A SAVE WRITTEN UNDER THE OLD GATE STILL KNOWS WHERE IT IS ────────────────
@@ -597,17 +597,17 @@ const wantsLines = (s: SaveState) =>
   const s = mk(1);
   s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
   const line = authoredLine(s.characters.char_neigh.authored![0]);
-  check("the narrator is told to invent the occasion", /INVENT THE OCCASION/.test(line), line.slice(0, 120));
+  check("the narrator is told to invent the occasion", /CREATE THE OCCASION/.test(line), line.slice(0, 120));
   check("out of conditions that already exist", /conditions that already exist/.test(line));
   check("and is given the shape of one", /bag strap|no water|salt/.test(line));
-  check("without inventing new facts about the world", /invent no new fact about the world/.test(line));
-  check("and without waiting for the world to supply it", /do not wait for one/.test(line));
+  check("without inventing new facts about the world", /invent any new fact about the world/.test(line));
+  check("and without waiting for the world to supply it", /instead of waiting for one/.test(line));
 }
 {
   const s = scene({ authored: [newAuthored("start having people over late", 1, { inhabit_turns: 2, crystallize: true })] });
   const c: any = s.characters.char_n;
   c.authored[0].crystallized_turn = 9;
-  const lines = volatileDigest(s, "").split("\n").filter((l) => /simply does this|wants/.test(l));
+  const lines = volatileDigest(s, "").split("\n").filter((l) => /just does this|wants/.test(l));
   check("a finished habit is still on the card", lines.some((l) => /people over late/.test(l)), lines);
   // the card keeps a one-line reference; the working instruction moved to the per-turn direction,
   // because a rule in the middle of a 30k digest is reference and a rule at the end is an instruction
@@ -631,9 +631,9 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 6 })];
   const d = habitDirective(s, s.world.present);
   check("the want reaches the per-turn direction, not only the card", /people over late/.test(d), d.slice(0, 120));
-  check("stated as required rather than as background", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
-  check("a turn without it is not an option at all", /some of it must be visible this turn/.test(d));
-  check("and the narrator is denied the busy-scene excuse", /too busy for it, or that the plot matters more/.test(d));
+  check("stated as required rather than as background", /Every line here goes on the page this turn/.test(d));
+  check("a turn without it is not an option at all", /some of it has to be visible this turn/.test(d));
+  check("and the narrator is denied the busy-scene excuse", /too busy for it, that the plot matters more/.test(d));
   // There used to be an extra "IT HAS BEEN SKIPPED N TURNS RUNNING" line here, driven by the prose
   // detector. It fired on the save where the beat had actually landed — telling the narrator to push
   // harder than the rung allows, on the strength of a reading that was wrong. A false signal in the
@@ -647,11 +647,11 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.authored = [newAuthored("start having people over late", 1, { inhabit_turns: 2 })];
   s.characters.char_neigh.authored![0].crystallized_turn = 4;
   const d = habitDirective(s, s.world.present);
-  check("a finished habit is in the direction too", /SIMPLY DOES THIS NOW/.test(d), d.slice(0, 200));
+  check("a finished habit is in the direction too", /SHE JUST DOES THIS NOW/.test(d), d.slice(0, 200));
   // It used to read "if this scene gives it any opening at all" — a condition, and a condition is
   // something a model can decide is unmet. A finished habit has no condition; that is what finished
   // means. See section 7b: the same floating-referent problem, one level up.
-  check("and carries no condition at all", /do not wait for the scene to allow it/.test(d), d);
+  check("and carries no condition at all", /shouldn't wait for the scene to make room for it/.test(d), d);
 }
 {
   /* "There are random habits that are never used at all, but they should integrate to make a person,
@@ -662,7 +662,7 @@ const wantsLines = (s: SaveState) =>
   s.characters.char_neigh.core_traits = ["Sleeps with a wrench within arm's reach", "Comments on every wasted resource out loud"];
   const d = habitDirective(s, s.world.present);
   check("an existing core trait is asked for by name", /wrench|wasted resource/.test(d), d);
-  check("as something they DO rather than something stated", /in something they DO rather than something stated/.test(d));
+  check("as something they DO rather than something stated", /in something they do rather than something said about them/.test(d));
   const turns = [5, 6, 7, 8].map((t) => { s.world.current_turn = t; return habitDirective(s, s.world.present); });
   check("and it rotates, so it is a different one across turns", new Set(turns).size > 1);
 }

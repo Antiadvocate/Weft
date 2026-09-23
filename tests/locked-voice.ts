@@ -55,7 +55,7 @@ const TRAITS = [{ label: "openly bitter about the eviction", intensity: 8, behav
   // age is observed doing — three of the four old bands named the laconic register outright, which
   // is the shape findMaxims exists to strike out of the finished page. See prompts.ts ageBand and
   // tests/voice-age.ts. What this case is for is unchanged: unlocked, the band fires.
-  check("unlocked, an age band is read off her birthday", /AGE: adolescent/.test(open), open);
+  check("unlocked, an age band is read off her birthday", /AGE: teenager/.test(open), open);
   check("...and acquired traits are added to how she talks", /speech now carries/.test(open), open);
 
   const shut = deriveVoice(person(true), cond(0), TRAITS, undefined, true);

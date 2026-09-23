@@ -141,18 +141,18 @@ function fireByHand(s: SaveState, id: string) {
 
   const d = pressureDirective({ pressure: 7, band: "high", source: "clock" } as any, undefined, 7, "mortal", beat);
   check("the directive names the signs", /men counting tiles on the roof/.test(d), d.slice(0, 300));
-  check("...and requires one of them on the page", /put at least one of these ON THE PAGE this turn/.test(d));
-  check("...as an event, not an atmosphere", /as a thing that happens where the player is standing/.test(d));
+  check("...and requires one of them on the page", /Put at least one of these on the page this turn/.test(d));
+  check("...as an event, not an atmosphere", /as something that happens where the player is standing/.test(d));
   check("...and says how close it is", /5 of 6 of the way to happening/.test(d));
   // AND STILL NOT THE OMNISCIENCE LEAK: nobody in the room learns what the sign is for.
-  check("the scene is told nobody knows what it means", /Nobody in the scene knows what it is FOR/.test(d));
+  check("the scene is told nobody knows what it means", /Nobody in the scene knows what it's for/.test(d));
   check("the private consequence is not handed over", !/the inn is taken/.test(d), d);
 
   // a clock with no signs recorded still works, just without the extra
   const bare: any = selectBeat({ turn: 20, tension: 7, threads: [], clocks: [{ ...clocks[0], visible_signs: [] }], consequences: [], agents: [], last_beat_turn: 0, last_exo_turn: 0, rng: roll } as any);
   const d2 = pressureDirective({ pressure: 7, band: "high", source: "clock" } as any, undefined, 7, "mortal", bare);
   check("no signs recorded, no empty demand", !/ON THE PAGE this turn/.test(d2), d2.slice(0, 200));
-  check("...but the beat still fires", /maturing faction clock/.test(d2));
+  check("...but the beat still fires", /FACTION WHOSE PLAN IS COMING TO A HEAD/.test(d2));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

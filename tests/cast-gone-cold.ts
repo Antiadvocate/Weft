@@ -79,7 +79,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("a romance whose cast has turned says so", !!said, said);
   check("...naming who and by how much", /NPC0 -86/.test(said ?? ""), said);
   check("...and the genre it is supposed to be", /"Love, erotica, romantic"/.test(said ?? ""));
-  check("...and why it shows up as cruelty", /Warmth is what the narrator reads to decide how people treat you/.test(said ?? ""));
+  check("...and why it shows up as cruelty", /The narrator reads warmth to decide how people treat you/.test(said ?? ""));
   check("...and where to fix it", /Cast panel/.test(said ?? ""));
 
   check("one cold friend is not a cast", castGoneCold(cast("Love, erotica, romantic", [-86, 40, 30])) === null);

@@ -95,9 +95,9 @@ const st = (chars: Record<string, Identity>) => ({ characters: chars } as unknow
   check("it carries a real phrase from her card, not a summary",
     /ashtray|Eames/i.test(note), note.slice(0, 200));
   check("it says the want moves UNDER the subject rather than replacing it",
-    /moves under it|approached rather than announced/.test(note));
+    /let the want move along underneath|without announcing it/.test(note));
   check("and forbids inventing a shared interest that is not on the cards",
-    /do not invent/i.test(note));
+    /don't invent/i.test(note));
   check("it does not order a topic change, which would just be a different rail",
     !/change the subject/i.test(note));
 }
@@ -108,7 +108,7 @@ const st = (chars: Record<string, Identity>) => ({ characters: chars } as unknow
   const note = commonGroundNote(s, "char_dov", "char_player");
   check("no shared ground is said plainly", /NOTHING OBVIOUS IN COMMON/.test(note), note.slice(0, 120));
   check("and the silence is offered as usable rather than as a problem", /small talk takes effort/.test(note));
-  check("with the same ban on inventing one", /do not invent/i.test(note.toLowerCase()) || /Do not invent/.test(note));
+  check("with the same ban on inventing one", /don't invent/i.test(note));
 }
 
 /* ── 4. whose door ───────────────────────────────────────────────────────────── */

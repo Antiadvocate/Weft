@@ -49,10 +49,10 @@ function check(name: string, c: boolean, extra?: unknown) {
 {
   const d = bodyDirective(cond(["eviscerated and exposed"]), "Osric");
   check("a catastrophic body produces a directive", d.length > 0);
-  check("it forbids composed speech", /no measured cadence|multi-clause|rhetorical/.test(d), d.slice(0, 120));
+  check("it forbids composed speech", /no measured rhythm|no figures of speech/.test(d), d.slice(0, 120));
   check("it forbids the crossed-arms performance of steadiness", /cross their arms|performing steadiness|perform steadiness/.test(d));
   check("it names what is wrong", d.includes("eviscerated and exposed"));
-  check("kept alive is distinguished from unharmed", /cannot die[\s\S]*not being unharmed/.test(d), d.slice(-260));
+  check("kept alive is distinguished from unharmed", /can't die[\s\S]*isn't the same as being unhurt/.test(d), d.slice(-260));
   check("it refuses quiet normalisation", /recover, stabilise, or normalise|state is true/.test(d));
 
   check("a bruise gets no paragraph", bodyDirective(cond(["bruised ribs"]), "Osric") === "");

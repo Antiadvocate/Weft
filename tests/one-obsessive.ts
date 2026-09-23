@@ -43,9 +43,9 @@ function world(...edges: E[]): SaveState {
 }
 const kindOf = (s: SaveState, id: string) => {
   const l = desireLine(s, id);
-  return /CANNOT STAND YOU|while they dislike you/.test(l) ? "obsession"
-    : /alongside genuine dislike/.test(l) ? "distance"
-    : /and they do not like you/.test(l) ? "outranked"
+  return /they can't stand you|while they dislike you/.test(l) ? "obsession"
+    : /alongside a real dislike of you/.test(l) ? "distance"
+    : /and they don't like you/.test(l) ? "outranked"
     : l ? "other" : "none";
 };
 
@@ -56,10 +56,10 @@ const kindOf = (s: SaveState, id: string) => {
   const w = world({ from: "olga", warmth: -28, attraction: 38 });
   check("Olga's actual numbers no longer buy the extreme line", kindOf(w, "olga") === "distance", desireLine(w, "olga"));
   const l = desireLine(w, "olga");
-  check("…what she gets instead is avoidance", /keep away from you more than they need to/.test(l), l);
-  check("…and the dislike governs, not the pull", /the dislike governs the behaviour/.test(l));
-  check("…and it is still forbidden to become banter", /NEVER write this as tension that is going somewhere/.test(l));
-  check("…and she does not touch him", /do not touch you/.test(l));
+  check("…what she gets instead is avoidance", /stay away from you more than they need to/.test(l), l);
+  check("…and the dislike governs, not the pull", /the dislike decides how they behave/.test(l));
+  check("…and it is still forbidden to become banter", /Never write this as tension that's building toward something/.test(l));
+  check("…and she does not touch him", /don't touch you/.test(l));
 }
 
 /* ── BUT THE REAL THING STILL WORKS, BECAUSE IT IS REAL ─────────────────────────────────────
@@ -68,7 +68,7 @@ const kindOf = (s: SaveState, id: string) => {
 {
   const w = world({ from: "emily", warmth: -100, attraction: 95 });
   check("Emily's actual numbers still do", kindOf(w, "emily") === "obsession", desireLine(w, "emily"));
-  check("…and it still refuses to resolve into liking", /do not turn into a relationship|do not make them nicer/.test(desireLine(w, "emily")));
+  check("…and it still refuses to resolve into liking", /don't turn into a relationship|don't make them nicer/.test(desireLine(w, "emily")));
   check("…and it is written flat, with no figures left in it",
     !/as a way of|than the argument needs|in ways that are not|contempt that keeps/.test(desireLine(w, "emily")), desireLine(w, "emily"));
 }

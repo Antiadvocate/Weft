@@ -43,18 +43,18 @@ const state = (becomings: unknown[]): SaveState =>
 {
   const law = becomingLaw(state([{ id: "a", claim: GROWN, turns: 3, remaining: 0, moved: 3, stalled: 0, arrived_turn: 4, shown: 1 }]));
   check("it is still written as the ordinary condition of the place", law.includes("WHAT IS TRUE OF THIS WORLD NOW"), law);
-  check("...nobody is surprised by it", law.includes("NOBODY IS SURPRISED BY THEM"));
-  check("...and it is not announced", law.includes("NOBODY ANNOUNCES THEM EITHER"));
+  check("...nobody is surprised by it", law.includes("Nobody is surprised by them"));
+  check("...and it is not announced", law.includes("Nobody announces them either"));
   check("the claim is in it", law.includes(GROWN));
-  check("and no separate block is opened for it", !law.includes("NEVER ONCE ON THE PAGE"), law);
+  check("and no separate block is opened for it", !law.includes("NEVER ONCE SHOWN IN THE PROSE"), law);
 }
 
 /* ── 2. ONE THAT LANDED ON THE CALENDAR ALONE GETS THE OPPOSITE ──────────────── */
 {
   const law = becomingLaw(state([{ id: "b", claim: NEVER, turns: 3, remaining: 0, moved: 0, stalled: 3, arrived_turn: 6 }]));
-  check("it is named as never having reached the page", law.includes("NEVER ONCE ON THE PAGE"), law);
+  check("it is named as never having reached the page", law.includes("NEVER ONCE SHOWN IN THE PROSE"), law);
   check("...the turn its clock ran out is given", law.includes("turn 6"));
-  check("...and this turn has to render it", law.includes("WRITE IT HAPPENING, THIS TURN"), law);
+  check("...and this turn has to render it", law.includes("Write it happening this turn"), law);
 
   /* The instruction it was drowning in must not be applied to this one. */
   check("it is not called old and beneath comment", !law.includes("beneath comment"), law);
@@ -66,7 +66,7 @@ const state = (becomings: unknown[]): SaveState =>
    * to actually be on the page. */
   check("nobody is startled by it, because it is canon", law.includes("nobody is startled"), law);
   check("...and it may not be alluded to as already understood",
-    law.includes("cannot be alluded to, assumed, or referred to"), law);
+    law.includes("can't be hinted at, taken for granted, or mentioned"), law);
 }
 
 /* ── 3. BOTH AT ONCE, IN THE RIGHT ORDER ─────────────────────────────────────── */
@@ -75,8 +75,8 @@ const state = (becomings: unknown[]): SaveState =>
     { id: "a", claim: GROWN, turns: 3, remaining: 0, moved: 3, stalled: 0, arrived_turn: 4, shown: 1 },
     { id: "b", claim: NEVER, turns: 3, remaining: 0, moved: 0, stalled: 3, arrived_turn: 6 },
   ]));
-  check("both blocks are sent", law.includes("NEVER ONCE ON THE PAGE") && law.includes("WHAT IS TRUE OF THIS WORLD NOW"));
-  check("the owed one comes first", law.indexOf("NEVER ONCE ON THE PAGE") < law.indexOf("WHAT IS TRUE OF THIS WORLD NOW"), law);
+  check("both blocks are sent", law.includes("NEVER ONCE SHOWN IN THE PROSE") && law.includes("WHAT IS TRUE OF THIS WORLD NOW"));
+  check("the owed one comes first", law.indexOf("NEVER ONCE SHOWN IN THE PROSE") < law.indexOf("WHAT IS TRUE OF THIS WORLD NOW"), law);
   check("each claim appears once", (law.match(new RegExp(NEVER.slice(0, 30), "g")) ?? []).length === 1);
   check("the grown one is not in the owed block",
     law.slice(0, law.indexOf("WHAT IS TRUE OF THIS WORLD NOW")).indexOf(GROWN) === -1, law);
@@ -86,7 +86,7 @@ const state = (becomings: unknown[]): SaveState =>
 {
   const law = becomingLaw(state([{ id: "b", claim: NEVER, turns: 3, remaining: 0, moved: 0, stalled: 3, arrived_turn: 6, shown: 1 }]));
   check("a claim rendered after arrival joins the ordinary block",
-    !law.includes("NEVER ONCE ON THE PAGE") && law.includes("WHAT IS TRUE OF THIS WORLD NOW"), law);
+    !law.includes("NEVER ONCE SHOWN IN THE PROSE") && law.includes("WHAT IS TRUE OF THIS WORLD NOW"), law);
 }
 
 /* ── 5. NOTHING ARRIVED, NOTHING SAID ────────────────────────────────────────── */
@@ -109,11 +109,11 @@ const state = (becomings: unknown[]): SaveState =>
 {
   const s = state([{ id: "x", claim: NEVER, turns: 3, remaining: 1, moved: 0, stalled: 2 }]);
   const law = becomingFinalLaw(s);
-  check("the final turn gets its own law", law.includes("THE LAST TURN ON THIS CLOCK"), law);
+  check("the final turn gets its own law", law.includes("THE LAST TURN BEFORE THIS CLOCK RUNS OUT"), law);
   check("...carrying the claim", law.includes(NEVER));
   check("...and the three declines, the same three a player's declaration gets",
-    /Nothing arrives to interrupt it/.test(law) && /Nobody almost does it/.test(law) && /Nothing milder happens instead/.test(law), law);
-  check("...with the clock's own bargain named", law.includes("The player set the number of turns"));
+    /Nothing turns up to interrupt it/.test(law) && /Nobody almost does it/.test(law) && /Nothing milder happens in its place/.test(law), law);
+  check("...with the clock's own bargain named", law.includes("The player chose how many turns this would take"));
 
   check("a becoming with turns left does not get it",
     becomingFinalLaw(state([{ id: "y", claim: NEVER, turns: 3, remaining: 2, moved: 0, stalled: 0 }])) === "");
@@ -150,7 +150,7 @@ const state = (becomings: unknown[]): SaveState =>
    * objection the deadline was built against and it still holds. */
   applyBecomingProgress(s, 11, undefined, empty);
   check("past the grace it lands anyway", b.arrived_turn === 11, b);
-  check("...and is then owed on the page", becomingLaw(s).includes("NEVER ONCE ON THE PAGE"));
+  check("...and is then owed on the page", becomingLaw(s).includes("NEVER ONCE SHOWN IN THE PROSE"));
 }
 
 /* ── 8. A FINAL TURN THAT DID DELIVER SPENDS ITSELF ──────────────────────────── */
@@ -164,7 +164,7 @@ const state = (becomings: unknown[]): SaveState =>
   check("...with no grace used", !b.grace, b);
 
   /* And it is not owed, because it was shown on the way in. */
-  check("...and it is not in the owed block", !becomingLaw(s).includes("NEVER ONCE ON THE PAGE"), becomingLaw(s));
+  check("...and it is not in the owed block", !becomingLaw(s).includes("NEVER ONCE SHOWN IN THE PROSE"), becomingLaw(s));
 }
 
 /* ── 9. WITHOUT PROSE THE OLD BEHAVIOUR STANDS ───────────────────────────────── */

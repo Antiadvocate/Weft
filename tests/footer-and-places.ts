@@ -110,8 +110,8 @@ function placeState(): SaveState {
   const s = placeState();
   applyDiff(s, {} as unknown as SimulatorDiff, "I destroy the town and everyone in it", "The ground opened.");
   const p = s.world.places["loc_town"];
-  check("an unrevised transformed place is flagged stale", /predates that/.test(p.stale_note ?? ""), p.stale_note);
-  check("the note is NOT inside the description", !/predates that/.test(p.description_facts), p.description_facts);
+  check("an unrevised transformed place is flagged stale", /older than that/.test(p.stale_note ?? ""), p.stale_note);
+  check("the note is NOT inside the description", !/older than that/.test(p.description_facts), p.description_facts);
   check("the description itself is untouched", /curtain wall of dressed stone/.test(p.description_facts));
 
   // an ordinary turn does not touch it

@@ -60,7 +60,7 @@ function scene() {
   const d = habitDirective(s, s.world.present);
   check("the directive fires", d.length > 0);
   check("...carrying the want to its last word", d.includes("about what she's doing"), d.slice(0, 120));
-  check("...at full strength", /EVERY LINE HERE GOES ON THE PAGE THIS TURN/.test(d));
+  check("...at full strength", /Every line here goes on the page this turn/.test(d));
   check("...and it is still fresh, so it is not standing down", settledStage(s, m, a) === "fresh");
 }
 
@@ -74,15 +74,15 @@ function scene() {
 
   check("nothing tells the narrator it cannot write this", !/CANNOT WRITE IT AND MUST NOT TRY/.test(d), d);
   check("...or that the player's body is the reason to stop", !/REQUIRES THE PLAYER'S BODY/.test(d));
-  check("her half is the act", /Her half is the act itself, named plainly in what she does/.test(d));
-  check("...and being the one it is done to is not the player's move", /being the one it is done to does not turn it into the player's move/.test(d));
-  check("...nor deferred to a later scene", /put off to a later scene/.test(d));
+  check("her half is the act", /Her part is the act itself, stated plainly in what she does/.test(d));
+  check("...and being the one it is done to is not the player's move", /is the one it's done to doesn't make it the player's move/.test(d));
+  check("...nor deferred to a later scene", /put off until a later scene/.test(d));
 
-  check("the player's decision is still theirs", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(d));
-  check("...naming what is never written for them", /Never write them agreeing, refusing, allowing it, going along with it, reciprocating/.test(d));
-  check("...including a feeling about it", /never hand them a feeling about it/.test(d));
-  check("...and the turn ends at the choice", /THE TURN ENDS THERE, with her move complete and standing/.test(d));
-  check("...without wandering off to somebody else", /do not move on to another character's business/i.test(d));
+  check("the player's decision is still theirs", /IT STOPS WHERE THE PLAYER HAS TO DECIDE/.test(d));
+  check("...naming what is never written for them", /Never write the player agreeing, refusing, allowing it, going along with it, doing it back/.test(d));
+  check("...including a feeling about it", /never give them a feeling about it/.test(d));
+  check("...and the turn ends at the choice", /the turn ends there, with her move complete and the choice in front of them/.test(d));
+  check("...without wandering off to somebody else", /don't move on to another character's business/i.test(d));
 }
 
 /* ── 3. one cut, at one length, shared ────────────────────────────────────────── */
@@ -121,8 +121,8 @@ function scene() {
   const { s: s2, m: m2 } = scene();
   s2.characters[m2].authored = [newAuthored(GOAL, 1, { stage: 5, inhabit_turns: 3, turns_live: 3, crystallize: false })];
   const live = habitDirective(s2, s2.world.present);
-  check("a live want at the top rung orders the act", /IN THE BODY/.test(live), live.slice(0, 200));
-  check("...and stops at the player's choice", /WHERE IT STOPS IS THE PLAYER DECIDING/.test(live));
+  check("a live want at the top rung orders the act", /literally and physically/.test(live), live.slice(0, 200));
+  check("...and stops at the player's choice", /IT STOPS WHERE THE PLAYER HAS TO DECIDE/.test(live));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

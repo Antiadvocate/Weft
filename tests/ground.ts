@@ -131,9 +131,9 @@ function world() {
   s.memory["char_a"].episodic = [mem(2, "The house on Quarry Street", "grief", "the argument", 8), mem(3, "The house on Quarry Street", "shame", "the rest", 8)];
   tickArrivals(s, [{ id: "char_a", to: "loc_house" }]);
   const cue = groundCue(s, "char_a");
-  check("the card says the room, not the feeling", /not neutral|the body knows the room/.test(cue), cue);
+  check("the card says the room, not the feeling", /isn't neutral|reacts to the room/.test(cue), cue);
   check("...and never a number or a named emotion", !/-?\d/.test(cue) && !/grief|shame|afraid|sad/i.test(cue), cue);
-  check("...and does not make them announce it", /does not have to mention it/.test(cue));
+  check("...and does not make them announce it", /doesn't have to mention it/.test(cue));
 }
 
 /* ── 4. offstage events move the bodies that lived them ─────────────────────── */

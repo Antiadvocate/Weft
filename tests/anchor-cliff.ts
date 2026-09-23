@@ -106,10 +106,10 @@ const st = (prose: string) => ({ history: [{ turn: 60, player_action: "x", narra
 {
   const t = lastWord(st(`She pulled off one shoe. "The dal's from last night," she said. He didn't answer. "Also I've been home for forty-five seconds."`));
   check("the previous turn's spoken lines are named", /The dal's from last night/.test(t) && /forty-five seconds/.test(t), t);
-  check("and named as forbidden to say again", /nobody says these again/i.test(t), t);
-  check("paraphrase is closed too, not just the exact words", /paraphrase/i.test(t), t);
-  check("an unanswered question is not re-asked in the same words", /re-asked in the same words/i.test(t), t);
-  check("and the shoe does not come off twice", /physical is done twice/i.test(t), t);
+  check("and named as forbidden to say again", /nobody says them again/i.test(t), t);
+  check("paraphrase is closed too, not just the exact words", /in other words/i.test(t), t);
+  check("an unanswered question is not re-asked in the same words", /asks it again in the same words/i.test(t), t);
+  check("and the shoe does not come off twice", /Nothing physical happens twice/i.test(t), t);
 }
 {
   // the prose in play uses straight quotes; earlier saves and pasted openings use curly ones, and the

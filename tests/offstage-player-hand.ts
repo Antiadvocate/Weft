@@ -50,9 +50,9 @@ function check(name: string, c: boolean, extra?: unknown) {
 
 /* ── 3. the prompt says it too, so the model mostly does not write them ──────── */
 {
-  check("the rule is stated", /NEVER WRITE THE PLAYER DOING ANYTHING/.test(OFFSTAGE_SYSTEM));
-  check("...with the acts named", /drawing, giving, showing, telling, teaching, promising, agreeing, or arriving/.test(OFFSTAGE_SYSTEM));
-  check("...and the worked example", /two iron rims that a foreign hand had sketched for him/.test(OFFSTAGE_SYSTEM));
+  check("the rule is stated", /Never write the player doing anything/.test(OFFSTAGE_SYSTEM));
+  check("...with the acts named", /drawing, giving, showing, telling, teaching, promising, agreeing or arriving/.test(OFFSTAGE_SYSTEM));
+  check("...and the worked example", /two iron rims from a sketch a foreigner had drawn for him/.test(OFFSTAGE_SYSTEM));
   check("...and what to write instead", /A smith with no drawing waits/.test(OFFSTAGE_SYSTEM));
 }
 
