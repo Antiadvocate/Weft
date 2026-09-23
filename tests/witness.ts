@@ -50,23 +50,23 @@ const H = (turn: number, summary: string, present: string[], time = "Day 1, 11:2
   check("the shared events are listed", /wrapped Rabi's ankle/.test(t), t.slice(0, 200));
   check("with when they happened", /Day 1, 11:25/.test(t));
   check("and who was standing there", /present: you, Liz, Marcus/.test(t), t);
-  check("it is stated as not negotiable", /not negotiable/.test(t));
+  check("it is stated as not negotiable", /isn't up for debate/.test(t));
 }
 {
   const s = save([H(41, "Liz wrapped his ankle indoors.", ["char_liz", "char_marcus"])]);
   const t = witnessRecord(s, ["char_liz", "char_marcus"]);
-  check("a witness is told what being a witness is for", /THE OTHERS SAY SO/.test(t));
+  check("a witness is told what being a witness is for", /the others say so/.test(t));
   check("and that they interrupt rather than sit through it", /interrupt|correct/.test(t));
   check("lying on purpose is still allowed — this is not a truth serum", /lie about it on purpose/.test(t));
   check("disagreeing about MEANING is still allowed", /argue about what it meant/.test(t));
-  check("only confusion about whether/when/where is closed", /WHETHER it happened, WHEN, or WHERE/.test(t));
+  check("only confusion about whether/when/where is closed", /whether it happened, when, or where/.test(t));
 }
 {
   // the exact failure that followed the last one: inventing a person to reconcile a contradiction
   const s = save([H(41, "A voice came over the radio.", ["char_liz"])]);
   const t = witnessRecord(s, ["char_liz"]);
-  check("inventing a relative to explain a contradiction is forbidden", /do not invent a new person, a relative/.test(t));
-  check("and the contradiction is named as the scene itself", /That is the scene/.test(t));
+  check("inventing a relative to explain a contradiction is forbidden", /don't invent a new person, a relative/.test(t));
+  check("and the contradiction is named as the scene itself", /that's the scene/.test(t));
 }
 
 /* ── who it covers ───────────────────────────────────────────────────────────── */

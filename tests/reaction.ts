@@ -60,24 +60,24 @@ const GOLD = `"Ok then here." I make a cart and a biometric safe next to the hot
   const s = world();
   const d = reactionDirective(s, GOLD, "do");
   check("the act is quoted back", /biometric safe/.test(d), d.slice(0, 120));
-  check("it is declared the largest thing in the scene", /outranks any standing thread/.test(d));
-  check("and the pressure line cannot write past it", /does not license writing past this/.test(d));
+  check("it is declared the largest thing in the scene", /comes before any ongoing thread/.test(d));
+  check("and the pressure line cannot write past it", /doesn't give you permission to write past this/.test(d));
   check("the witnesses are named", /Lucia, Tertia/.test(d), d);
 }
 
 /* ── 3. the reaction is measured against what THIS world believes ────────────── */
 {
   const d = reactionDirective(world(), GOLD, "do");
-  check("it points at the canon rather than at a magnitude", /WHAT THIS WORLD HOLDS TO BE TRUE/.test(d));
-  check("impossible-here is named as the largest fact in the room", /impossible here, or forbidden here/.test(d));
-  check("but an ordinary act stays ordinary", /If it is unremarkable here, a shrug is the realistic reaction/.test(d));
+  check("it points at the canon rather than at a magnitude", /what this world holds to be true/.test(d));
+  check("impossible-here is named as the largest fact in the room", /impossible here, forbidden here/.test(d));
+  check("but an ordinary act stays ordinary", /If it's unremarkable here, a shrug is the realistic reaction/.test(d));
 }
 
 /* ── 4. the two failures this exists to stop, both caught in play ────────────── */
 {
   const d = reactionDirective(world(), GOLD, "do");
-  check("the previous topic may not simply continue", /must not still be an argument about money/.test(d));
-  check("and the act may not become a figure of speech", /figure of speech, a lesson, or an occasion for someone's philosophy/.test(d));
+  check("the previous topic may not simply continue", /can't still be an argument about money/.test(d));
+  check("and the act may not become a figure of speech", /figure of speech, a lesson, or a chance for someone to philosophise/.test(d));
 }
 
 /* ── 5. it stays quiet when there is nothing to answer ───────────────────────── */
@@ -141,10 +141,10 @@ const GOLD = `"Ok then here." I make a cart and a biometric safe next to the hot
   const d = reactionDirective(s, "I ride up to the inn and step off, and walk in", "do");
   check("what they can see on him is stated", /Versace suit/.test(d), d.slice(0, 200));
   check("and what this world can build is stated beside it", /ox-plows, hand-mills/.test(d));
-  check("the two are explicitly held against each other", /Hold those two lines against each other/.test(d));
-  check("familiarity does not make it ordinary", /does not become ordinary by having been mentioned before/.test(d));
-  check("they have no word for it and get it wrong", /reaches for the nearest thing they do know, and gets it wrong/.test(d));
-  check("and the exact failure is named", /put a price on it, set it aside, or treat it as part of the errand/.test(d));
+  check("the two are explicitly held against each other", /Compare those two lines/.test(d));
+  check("familiarity does not make it ordinary", /doesn't become ordinary just because it has been mentioned before/.test(d));
+  check("they have no word for it and get it wrong", /reach for the nearest thing they do know and get it wrong/.test(d));
+  check("and the exact failure is named", /put a price on it, put it aside, or treat it as part of the errand/.test(d));
 }
 {
   // a world with no stated tech level, or a player carrying nothing, says nothing about it

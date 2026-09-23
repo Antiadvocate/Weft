@@ -88,12 +88,12 @@ function world() {
 {
   for (const [label, P] of [["full", simulatorSystem(false)], ["lean", simulatorSystem(true)]] as [string, string][]) {
     check(`${label}: the bookkeeper is told the identity is not its to write`,
-      /is not yours to write/.test(P), label);
+      /isn't yours to write/.test(P), label);
     check(`${label}: with the case that makes it concrete`,
       /burned house is still that person's house/i.test(P), label);
   }
   check("and the Forge is asked for it explicitly", /what this place is and whose it is/i.test(FORGE_SYSTEM));
-  check("...and told what does NOT belong in it", /leaving out its current state, the weather/i.test(FORGE_SYSTEM));
+  check("...and told what does NOT belong in it", /leave out its current state, the weather/i.test(FORGE_SYSTEM));
 }
 
 /* ── 5. a save written before any of this existed still gets a fixed half ────── */

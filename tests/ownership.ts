@@ -100,7 +100,7 @@ function room(): SaveState {
   const s = room();
   const shifts = applyDiff(s, { drives_update: [{ char_id: "char_jess", goal: "Continue the quiet intimacy, deepening the private language with Jess.", progress: 0 }] } as any,
     "I get up.", "Jess is at the table when he comes in.");
-  check("a buried name is surfaced to the player", shifts.some((x) => /naming its own owner/.test(x)), shifts);
+  check("a buried name is surfaced to the player", shifts.some((x) => /with its own owner named as its target/.test(x)), shifts);
   check("and the want is still recorded rather than dropped", !!s.characters.char_jess.drive?.goal);
 }
 

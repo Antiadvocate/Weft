@@ -101,8 +101,8 @@ function world(opts: { roles: string[]; shared: number; fixated?: boolean; repai
   check("...with rounds bought by what she has in it", (st.severance?.needed ?? 0) === 4, st.severance);
 
   const d1 = severanceDirective(st);
-  check("round one: she does not hear it as final", /DO NOT HEAR IT AS FINAL/.test(d1), d1);
-  check("...and the shrug is forbidden by name", /No "okay"\. No signing it\./.test(d1), d1);
+  check("round one: she does not hear it as final", /DON'T HEAR IT AS FINAL/.test(d1), d1);
+  check("...and the shrug is forbidden by name", /There's no "okay", no signing it/.test(d1), d1);
   check("...using HER card, not a generic reaction", /pick at a flaw/.test(d1), d1);
   check("...including what would actually reach her", /firm, unambiguous statement of love/.test(d1), d1);
   check("...and the player is never blocked from leaving", /THE PLAYER STILL GETS TO LEAVE/.test(d1), d1);

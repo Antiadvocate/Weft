@@ -62,9 +62,9 @@ function check(name: string, c: boolean, extra?: unknown) {
   s.world.present = [];
   const d = crowdDirective(s);
   check("a populated place with no cast produces a directive", d.length > 0);
-  check("it forbids writing the place as deserted", /Do not write this place as deserted/.test(d));
+  check("it forbids writing the place as deserted", /Don't write this place as deserted/.test(d));
   check("it says the crowd exists without the cast", /whether or not anyone from the cast is standing here/.test(d));
-  check("it keeps them anonymous so they don't become cast", /Keep them ANONYMOUS/.test(d));
+  check("it keeps them anonymous so they don't become cast", /Keep them anonymous/.test(d));
 
   s.world.places["loc_wood"] = place("The Old Forest");
   s.world.player_location = "loc_wood";

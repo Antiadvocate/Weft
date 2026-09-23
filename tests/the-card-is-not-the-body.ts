@@ -91,7 +91,7 @@ check("nothing lost, nothing gated", !needsFaculty("Sewing and dressmaking. Expe
 /* ── WHAT THE NARRATOR IS TOLD IT MEANS ────────────────────────────────────────────────────── */
 {
   const said = lostFaculties(EMILY).map((f) => FACULTY_LOSS[f]).join("; ");
-  check("the loss is stated as a fact about the body", /has no working arms or hands/.test(said), said);
+  check("the loss is stated as a fact about the body", /has no arms or hands that work/.test(said), said);
   check("…and it reads as a sentence after a name", /^[a-z]/.test(said) && !/^[A-Z]/.test(said), said);
 }
 

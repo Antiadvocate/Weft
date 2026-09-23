@@ -192,7 +192,7 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
   const closed = tick(8);
   check("three turns of it looking done, and the engine stops asking", p.status === "kept", p.status);
   check("and says plainly that it closed it, not the story",
-    closed.length === 1 && /closed by the engine after 3 turns/.test(closed[0]), closed);
+    closed.length === 1 && /The engine closed it after 3 turns/.test(closed[0]), closed);
   check("marked as settled on evidence", p.settled_by_evidence === true && p.settled_turn === 8);
   check("with the turns it saw", JSON.stringify(p.evidence_turns) === "[6,7,8]", p.evidence_turns);
   check("and Lucia gets the trust for it", getEdge(s.world.edges, "char_player", "char_lucia").trust > 0);

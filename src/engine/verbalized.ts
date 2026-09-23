@@ -152,9 +152,9 @@ export function candidateNote(cands: Candidate[]): string {
   const rows = [...byWho].map(([who, lines]) => `${who}:\n${lines.map((l) => `    – ${l}`).join("\n")}`);
   // No prohibition anywhere in this text, and no example of what is being avoided. See the header.
   return `\n\n[LINES THESE PEOPLE MIGHT SAY.
-Each of these came back as an unlikely thing for this person to say here, and each still fits them. Treat them as a range to write within; you don't have to use any of them.
+Each of these came back as an unlikely thing for this person to say here, and each still fits them. Treat them as a range to write within, and use any of them or none.
 · ${rows.join("\n· ")}
-Write this turn's dialogue from the same area these came from, meaning the second or third thing this person might say instead of the first one that comes to mind. If one of them is right, use it. Otherwise use the range, because each line was found separately, and two people in a room who reach for something separately end up in different places.]`;
+Write this turn's dialogue from the same area these came from, meaning the second or third thing this person might say rather than the first one that comes to mind. If one of them is right, use it. Otherwise use the range, because each line was found separately, and two people in a room who reach for something separately end up in different places.]`;
 }
 
 export interface VerbalizeOpts { model: string; fallback: string; signal?: AbortSignal }

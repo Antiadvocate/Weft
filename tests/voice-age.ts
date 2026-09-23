@@ -83,7 +83,7 @@ const voiceOf = (s: SaveState, id: string) =>
   check("what she is like stays", anchor.includes("stubborn"));
   check("the life she has stays", anchor.includes("feed store"));
   check("what she could not produce stays", anchor.includes("Would never say"));
-  check("the procedure stays", anchor.includes("LENGTH COMES FROM THAT"));
+  check("the procedure stays", anchor.includes("How long a line is comes from those two things"));
 }
 
 /* ── 2. A REGISTER THAT NAMES A SUBJECT SURVIVES WHOLE ───────────────────────── */
@@ -133,7 +133,7 @@ const voiceOf = (s: SaveState, id: string) =>
 /* ── 5. EVERY BAND IS SOMETHING A MOUTH DOES ─────────────────────────────────── */
 {
   // Three of the four old bands said says-less: plain/direct, measured, settled/unhurried.
-  for (const [age, want] of [[5, "small child"], [10, "child"], [16, "adolescent"], [60, "older adult"], [80, "old"]] as const) {
+  for (const [age, want] of [[5, "small child"], [10, "child"], [16, "teenager"], [60, "older adult"], [80, "old"]] as const) {
     const { s, kid } = makeState(age as number);
     const v = voiceOf(s, kid);
     check(`${age}: named`, v.includes(`AGE: ${want}`), v.slice(0, 120));

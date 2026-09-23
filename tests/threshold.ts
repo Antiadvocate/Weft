@@ -55,8 +55,8 @@ const world = (place: string): SaveState => ({
   const fix = thresholdFix(hit);
   check("the next turn is told, quoting the line itself", fix.includes(hit!.line), fix);
   check("...that getting in is an event on the page", /happens where the reader can see it/.test(fix), fix);
-  check("...and told the past tense is the tell", /past tense or in a subordinate clause/.test(fix), fix);
-  check("...and given what to do with him now", /whoever lives there gets to ask how they got in/.test(fix), fix);
+  check("...and told the past tense is the tell", /past tense or tucked into a side clause/.test(fix), fix);
+  check("...and given what to do with him now", /Whoever lives there gets to ask how they got in/.test(fix), fix);
 }
 
 /* ── 3. and everything that is NOT this ──────────────────────────────────────── */
@@ -82,7 +82,7 @@ const world = (place: string): SaveState => ({
   const law = thresholdLaw(world("Vin's family home"));
   check("a private place gets a standing law", law.length > 0, law);
   check("...naming who is inside", /exactly the people the scene list names/.test(law), law);
-  check("...and forbidding the discovery", /Do not discover a person already in a room here/.test(law), law);
+  check("...and forbidding the discovery", /Don't find a person already in a room here/.test(law), law);
   check("a public place gets none", thresholdLaw(world("The Daily Grind")) === "");
 }
 

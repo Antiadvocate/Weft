@@ -91,10 +91,10 @@ const seeing = (s: SaveState) => volatileDigest(s, "she refuses to get in the ca
   check("the forge asks for when_that_fails", /when_that_fails/.test(FORGE_SYSTEM));
   check("...and says stubbornness is a real answer to it", /same thing harder/.test(FORGE_SYSTEM));
   check("...and that one response forever is rigidity, not a person",
-    /rigidity is a fact about a particular person/.test(FORGE_SYSTEM));
+    /rigidity is a trait belonging to a particular person/.test(FORGE_SYSTEM));
   // never_says had taken please/sorry/I feel off a manipulator — the three things she works with
   check("never_says is about what they cannot produce, not warmth they deploy",
-    /leave kind words off this list/.test(FORGE_SYSTEM), "never_says guidance missing");
+    /Leave kind words off this list/.test(FORGE_SYSTEM), "never_says guidance missing");
   check("...named with the failure it caused", /turns a charmer into a plain bully/.test(FORGE_SYSTEM));
 }
 

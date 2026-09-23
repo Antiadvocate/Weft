@@ -120,7 +120,7 @@ const tessaId = (s: SaveState) => Object.keys(s.characters).find((k) => s.charac
   p.relaxation = -4;
   const before = p.relaxation;
   const shifts = tickEmotions(s);
-  check("a clenched NPC still re-tells it", shifts.some((x) => /keeps re-telling/.test(x)), shifts);
+  check("a clenched NPC still re-tells it", shifts.some((x) => /keeps going back over/.test(x)), shifts);
   check("and still pays for it", p.relaxation < before, p.relaxation);
 }
 

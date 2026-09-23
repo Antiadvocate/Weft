@@ -44,9 +44,9 @@ check("beat directive starts with a break, so it cannot glue to the block above"
 // first newline — but that function joins with spaces, and the only newlines in it come from INSIDE
 // a clock beat's own signs list. On a clock beat it returned the signs and threw away the beat.
 const dc = beatDirective(clock, 9);
-check("a clock beat keeps its own opening line", dc.includes("PRESSURE BEAT from a maturing faction clock"), dc);
+check("a clock beat keeps its own opening line", dc.includes("PRESSURE FROM A FACTION WHOSE PLAN IS COMING TO A HEAD"), dc);
 check("a clock beat still carries its signs", dc.includes("a notice taped in the stairwell"), dc);
-check("the quiet palette form survives", beatDirective(quiet, 9).includes("TOUCHES THE SCENE, lightly and unprompted"), beatDirective(quiet, 9));
+check("the quiet palette form survives", beatDirective(quiet, 9).includes("TOUCHES THE SCENE, lightly and without being prompted"), beatDirective(quiet, 9));
 check("no beat at all is still said out loud", beatDirective(undefined, 9).includes("NOTHING FROM OUTSIDE THIS TURN"), beatDirective(undefined, 9));
 check("kind none is still said out loud", beatDirective({ kind: "none" } as Beat, 9).includes("NO NEW INCIDENT THIS TURN"));
 
@@ -78,9 +78,9 @@ check("undeferred: the beat body is where it always was", inline.includes("THE S
 check("undeferred: a palette beat at rest is carried, not overridden",
   pressureDirective(V, [FEET], 0, "mortal", palette).includes("THE STORY'S MAIN PRESSURE ARRIVES"));
 check("undeferred: and the rest paragraph stops arguing with it",
-  !pressureDirective(V, [FEET], 0, "mortal", palette).includes("Do NOT introduce any new threat"));
+  !pressureDirective(V, [FEET], 0, "mortal", palette).includes("Don't bring in any new threat"));
 check("undeferred: a turn with nothing in it is unchanged",
-  pressureDirective(V, [FEET], 0, "mortal", { kind: "none" } as Beat).includes("Do NOT introduce any new threat"));
+  pressureDirective(V, [FEET], 0, "mortal", { kind: "none" } as Beat).includes("Don't bring in any new threat"));
 check("undeferred and deferred say the same thing minus the beat",
   inline.replace(beatDirective(palette, 9).split("\n").pop()!, "").replace(/ +/g, " ").trim() === deferred.replace(/ +/g, " ").trim(),
   { inline, deferred });

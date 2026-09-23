@@ -65,8 +65,8 @@ check("no dead cast, nothing to find", !findRisen({ o: { name: "Olga Reiter" } }
   const fix = risenFix(hit);
   check("the correction names them and their state", /ARTHUR PENHALE IS DEAD/.test(fix), fix.slice(0, 90));
   check("…quotes the sentence back", fix.includes("comes through the revolving doors"));
-  check("…says a body may still be described", /a body remains a body/.test(fix));
-  check("…and forbids the scene remarking on the return", /do not have anyone in the scene remark on their return/.test(fix));
+  check("…says a body may still be described", /A body stays a body/.test(fix));
+  check("…and forbids the scene remarking on the return", /don't have anyone in the scene comment on their return/.test(fix));
   check("nothing caught means nothing said", risenFix(null) === "");
 }
 console.log(`\n${pass} passed, ${fail} failed`);

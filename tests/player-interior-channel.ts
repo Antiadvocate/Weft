@@ -68,7 +68,7 @@ const ACTION = `I hand her the towel *and I hated her for doing that*`;
     check(`${label}: the narrator is told something`, d.length > 0);
     check(`${label}: and it never contains the thought`, !/hated|her for doing/i.test(d), d);
     check(`${label}: nor names the feeling`, !/\bhatred\b|\banger\b/i.test(d), d);
-    check(`${label}: and forbids a tell that decodes`, /DOES NOT DECODE|could name it/i.test(d), d);
+    check(`${label}: and forbids a tell that decodes`, /DOESN'T GIVE IT AWAY|put a name to it/i.test(d), d);
   }
 }
 
@@ -77,9 +77,9 @@ const ACTION = `I hand her the towel *and I hated her for doing that*`;
   const { interior } = splitInterior(ACTION);
   const settled = bearingDirective(interior, 5);
   const clenched = bearingDirective(interior, -6);
-  check("a settled body puts it into the act", /goes into the ACT|wholly/.test(settled), settled);
+  check("a settled body puts it into the act", /goes into what they do|completely/.test(settled), settled);
   check("...and nothing leaks", /Nothing leaks/.test(settled), settled);
-  check("a clenched body leaks it sideways", /LEAKS|crookedness/.test(clenched), clenched);
+  check("a clenched body leaks it sideways", /leaks out/.test(clenched), clenched);
   check("the two are actually different directives", settled !== clenched);
 }
 

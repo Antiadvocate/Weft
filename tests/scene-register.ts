@@ -104,11 +104,11 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
   } as unknown as SaveState;
 
   const ordinary = habitDirective(state, ["char_player", "char_e"], false);
-  check("in an ordinary scene the trait rotation still fires", /AND THESE MUST SHOW/.test(ordinary), ordinary);
+  check("in an ordinary scene the trait rotation still fires", /AND THESE HAVE TO SHOW/.test(ordinary), ordinary);
   check("...and it is still unrefusable when it does", /make room/.test(ordinary));
 
   const guarded = habitDirective(state, ["char_player", "char_e"], true);
-  check("in a guarded scene the rotation stands down", !/AND THESE MUST SHOW/.test(guarded), guarded);
+  check("in a guarded scene the rotation stands down", !/AND THESE HAVE TO SHOW/.test(guarded), guarded);
   check("...and no trait is named at all", !/plants by name/.test(guarded), guarded);
 }
 
@@ -129,37 +129,37 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
   const ordinary = scheduleDirective(mk(), ["char_player", "char_e"], false);
   const guarded = scheduleDirective(mk(), ["char_player", "char_e"], true);
   if (/minutes before they have to leave/.test(ordinary)) {
-    check("ordinarily she may say how much time she has", /may say how much time they have/.test(ordinary), ordinary);
-    check("in a guarded scene she does not say the number", !/may say how much time they have/.test(guarded), guarded);
-    check("...and is told so in as many words", /do NOT say how much time they have/.test(guarded), guarded);
+    check("ordinarily she may say how much time she has", /might mention how much time they have/.test(ordinary), ordinary);
+    check("in a guarded scene she does not say the number", !/might mention how much time they have/.test(guarded), guarded);
+    check("...and is told so in as many words", /don't say how much time they have/.test(guarded), guarded);
     check("she still knows the hour either way", /minutes before they have to leave/.test(guarded), guarded);
   } else {
     // The heads-up window did not open for this fixture; assert the shape of the text instead.
     check("the guarded branch exists in the shipped source",
-      /do NOT say how much time they have/.test(readFileSync("src/engine/schedule.ts", "utf8")));
+      /don't say how much time they have/.test(readFileSync("src/engine/schedule.ts", "utf8")));
     check("...and the ordinary branch still licenses it",
-      /may say how much time they have/.test(readFileSync("src/engine/schedule.ts", "utf8")));
+      /might mention how much time they have/.test(readFileSync("src/engine/schedule.ts", "utf8")));
   }
 }
 
 /* ── 5. an act already running does not stop so the turn can end ─────────────── */
 {
   check("the carve-out is in the narrator's law",
-    /DO NOT APPLY TO AN ACTION ALREADY IN PROGRESS/.test(NARRATOR_SYSTEM));
+    /None of that applies to something the player is already in the middle of/.test(NARRATOR_SYSTEM));
   check("...naming disengagement as the failure it is",
-    /Do not have anyone disengage in order to end/.test(NARRATOR_SYSTEM));
+    /Don't have anyone pull away just to end a turn/.test(NARRATOR_SYSTEM));
   check("...and refusing the re-consent question as an ending",
-    /re-authorise what they already declared/.test(NARRATOR_SYSTEM));
+    /approve again what they already declared/.test(NARRATOR_SYSTEM));
   check("...with the state of both bodies required on the page",
-    /what is happening to whom/.test(NARRATOR_SYSTEM));
+    /what's happening to whom/.test(NARRATOR_SYSTEM));
   check("the original rule it qualifies is still there",
     /the turn stops at the grab, with the player still where they were/.test(NARRATOR_SYSTEM));
   check("the final check enforces it too",
-    /is still running at the end of this turn/.test(NARRATOR_SYSTEM));
+    /it's still going at the end of this turn/.test(NARRATOR_SYSTEM));
 
   // The off-topic-talk mandate is a cure, not a quota.
   check("small talk is no longer required in a scene that cannot hold it",
-    /UNLESS the scene is intimate, dangerous, tense or hushed/.test(NARRATOR_SYSTEM));
+    /unless the scene is intimate, dangerous, tense or hushed/.test(NARRATOR_SYSTEM));
 }
 
 /* ── 6. turn 10 was turn 9, and nothing noticed ──────────────────────────────── */

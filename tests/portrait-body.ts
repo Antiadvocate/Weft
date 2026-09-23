@@ -19,7 +19,7 @@ function check(name: string, cond: boolean, extra?: unknown) {
   if (cond) { pass++; console.log(`ok   ${name}`); }
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
-const NOT_PERSON = "not an ordinary person";
+const NOT_PERSON = "isn't an ordinary person";
 const PERSON = "Avoid a neutral mannequin pose";
 
 /* 1. ordinary human → humanoid framing, no anti-person directive */
@@ -275,9 +275,9 @@ const PERSON = "Avoid a neutral mannequin pose";
   s.world.present = [vel];
   const p = buildScenePrompt(s, "She went very still when his hands closed around her stem.");
   check("scene: player named and described", p.includes("Rabi") && p.includes("broken nose"), p.slice(0, 600));
-  check("scene: non-human named with gloss and law", p.includes("Vel") && p.includes("Leptoids — giant flowers") && p.includes("NOT a person"), p.slice(0, 900));
-  check("scene: gremlin clause bars creature substitutes", p.includes("no animal or creature standing in for it"));
-  check("scene: no undescribed people allowed", p.includes("no people or creatures beyond those described"));
+  check("scene: non-human named with gloss and law", p.includes("Vel") && p.includes("Leptoids — giant flowers") && p.includes("This is not a person"), p.slice(0, 900));
+  check("scene: gremlin clause bars creature substitutes", p.includes("no animal or creature in its place"));
+  check("scene: no undescribed people allowed", p.includes("no people or creatures other than those described"));
   check("scene: human cast member gets no NOT-a-person line", !/- Rabi[^\n]*NOT a person/.test(p), p.slice(0, 600));
 }
 
@@ -327,7 +327,7 @@ const PERSON = "Avoid a neutral mannequin pose";
   check("scale: gloss skips non-size species lines", !sp.includes("Mother Trees"), sp.slice(0, 1200));
   // narrator surfaces
   const card = charCard(id, s.characters[id], blankCondition(), [], true, { humanoid: false, kind: "Podian — two feet" });
-  check("scale: card body note holds scale", card.includes("Resting size: 183 cm tall, 68 kg"), card.slice(0, 700));
+  check("scale: card body note holds scale", card.includes("Size at rest: 183 cm tall, 68 kg"), card.slice(0, 700));
   const vd = volatileDigest(s, "I look");
   check("scale: present form line holds scale", vd.includes("Resting size: 183 cm tall, 68 kg"), vd.match(/form: NOT a human[^\n]*/)?.[0]?.slice(0, 500));
   check("scale: form line demands contact geometry", vd.includes("work out what can actually reach what"));
@@ -335,9 +335,9 @@ const PERSON = "Avoid a neutral mannequin pose";
 
 /* 22. the narrator law carries the scale-geometry and internal-sensation clauses */
 {
-  check("law: scale is anatomy (full tier)", NARRATOR_SYSTEM.includes("SCALE IS ANATOMY TOO") && NARRATOR_SYSTEM.includes("work out the geometry from the sizes on the record"));
+  check("law: scale is anatomy (full tier)", NARRATOR_SYSTEM.includes("Size matters too") && NARRATOR_SYSTEM.includes("work out the geometry from the sizes on the record"));
   check("law: internal sensation obeys anatomy", NARRATOR_SYSTEM.includes("without a chest feels nothing tighten there"));
-  check("law: lean tier carries scale + sensation", NARRATOR_SYSTEM_LEAN.includes("Scale binds too") && NARRATOR_SYSTEM_LEAN.includes("no tightening chest, held breath, or racing pulse"));
+  check("law: lean tier carries scale + sensation", NARRATOR_SYSTEM_LEAN.includes("Size matters too") && NARRATOR_SYSTEM_LEAN.includes("no tightening chest, held breath or racing pulse"));
   check("law: final check audits scale", NARRATOR_SYSTEM.includes("no contact written at the wrong scale"));
 }
 

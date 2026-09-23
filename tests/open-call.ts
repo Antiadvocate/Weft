@@ -105,9 +105,9 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   trackOpenCall(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.");
   const d = openCallDirective(s);
   check("the call is on the state", !!s.world.open_call, s.world.open_call);
-  check("and the narrator is told about it", /AN OPEN CALL IS STANDING/.test(d));
+  check("and the narrator is told about it", /THE PLAYER HAS PUT OUT AN OPEN CALL/.test(d));
   check("with the reach", /thousands/.test(d), d.slice(0, 200));
-  check("and told that unanimous refusal is not on the menu", /The whole population never declines together/.test(d));
+  check("and told that unanimous refusal is not on the menu", /The whole population never turns it down together/.test(d));
   check("standing decides who and why, not whether", /a different scene, but still a busy one/.test(d));
 }
 
@@ -120,8 +120,8 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   trackOpenCall(s, "I wait to see what kind of women arrive");   // a non-call must not clear it
   check("waiting does not withdraw the call", !!s.world.open_call);
   const d = openCallDirective(s);
-  check("a turn later it is overdue", /NOBODY HAS ANSWERED IT YET, a turn on/.test(d), d.slice(-200));
-  check("and someone must answer on the page", /SOMEONE ANSWERS IT THIS TURN/.test(d));
+  check("a turn later it is overdue", /NOBODY HAS ANSWERED IT YET, a turn later/.test(d), d.slice(-200));
+  check("and someone must answer on the page", /someone answers it this turn/.test(d));
 }
 
 /* ── 5. it closes when answered, and when it goes stale ───────────────────────── */
@@ -153,7 +153,7 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   const d = openCallDirective(s);
   check("four people can leave a call hanging, and it says so", /possibly nobody/.test(d), d.slice(0, 300));
   s.world.current_turn = 16;
-  check("and it is never nagged about at that scale", !/SOMEONE ANSWERS IT THIS TURN/.test(openCallDirective(s)));
+  check("and it is never nagged about at that scale", !/someone answers it this turn/.test(openCallDirective(s)));
 }
 
 /* ── 7. a witnessed power is not an unremarkable stranger ─────────────────────── */
@@ -166,8 +166,8 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   check("a mythic player at standing 0 is not written as ignorable",
     !/they are not one yet|neither afraid nor impressed/.test(mythic), mythic);
   check("the crowd reacts to the power as settled and the person as open",
-    /WATCHED, AND NOT YET JUDGED/.test(mythic) && /never be written as indifference/.test(mythic));
-  check("and the reactions are required to run both ways", /Someone approaches; someone else leaves/.test(mythic));
+    /WATCHED, BUT NOT YET JUDGED/.test(mythic) && /never be written as indifference/.test(mythic));
+  check("and the reactions are required to run both ways", /One person comes up to them while another leaves/.test(mythic));
   s.world.public_standing = -7;
   check("a genuinely feared player still reads as feared", /FEARED/.test(publicStandingDirective(s, "mythic")));
   s.world.public_standing = 7;

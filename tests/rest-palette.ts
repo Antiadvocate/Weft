@@ -117,15 +117,15 @@ const base = (over: Record<string, unknown> = {}) => ({
 
   const withBeat = pressureDirective(v, PALETTE, 0, "mortal", beat, true);
   check("it no longer tells the narrator to introduce nothing while handing it something",
-    !/Do NOT introduce any new threat/.test(withBeat), withBeat);
+    !/Don't bring in any new threat/.test(withBeat), withBeat);
   check("...it says what the exception is and whose it is",
-    /what the player wrote this story to run on/.test(withBeat), withBeat);
+    /what the player wrote this story to be about/.test(withBeat), withBeat);
   check("...and it does not print the beat body twice when the caller places it",
-    !withBeat.includes("THE STORY'S OWN SUBJECT TOUCHES THE SCENE"), withBeat);
+    !withBeat.includes("WHAT THIS STORY IS ABOUT TOUCHES THE SCENE"), withBeat);
 
   /* A quiet turn with no beat is unchanged — the rest state is still the rest state. */
   const noBeat = pressureDirective(v, PALETTE, 0, "mortal", { kind: "none" } as any, true);
-  check("a turn with nothing in it reads exactly as it always did", /Do NOT introduce any new threat/.test(noBeat));
+  check("a turn with nothing in it reads exactly as it always did", /Don't bring in any new threat/.test(noBeat));
 }
 
 /* ── 8. AND IT LANDS AT THE END, WHERE AN INSTRUCTION GOES ───────────────────── */
@@ -134,7 +134,7 @@ const base = (over: Record<string, unknown> = {}) => ({
   const d = beatDirective(beat, 0);
   check("the palette beat reaches the last block at rest", d.includes("WHAT THIS TURN IS FOR"), d);
   check("...carrying the quiet body rather than the pressing one",
-    d.includes("lightly and unprompted") && !d.includes("THE STORY'S MAIN PRESSURE ARRIVES"), d);
+    d.includes("lightly and without being prompted") && !d.includes("THE STORY'S MAIN PRESSURE ARRIVES"), d);
 
   check("nothing else the engine invented gets that slot at rest",
     beatDirective({ kind: "thread", ref: "The upstairs leak" } as any, 0) === "");

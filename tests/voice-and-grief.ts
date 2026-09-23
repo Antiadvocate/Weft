@@ -76,7 +76,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("...and not Miranda's", !/off true by about a degree/.test(v));
   check("the age is still there", /Amber Reyes — 19/.test(v));
   check("what she would never say survives", /Would never say: synergy/.test(v));
-  check("the register is named as binding, not decoration", /AND FOLLOW EACH SPEAKER'S WAY OF TALKING/.test(v));
+  check("the register is named as binding, not decoration", /AND FOLLOW HOW EACH SPEAKER TALKS/.test(v));
   check("...and says what writing without it produces", /then everyone sounds the same/.test(v));
 
   // a card with nothing on it must not produce an empty row

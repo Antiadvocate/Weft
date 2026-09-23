@@ -54,10 +54,10 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
 {
   const s = world();
   const line = feel(s, -45, 60, -4);   // hostile, clenched: the pull is not owned
-  check("hostility and desire are both stated", /cannot stand you/i.test(line) && /60/.test(line), line);
-  check("neither is allowed to cancel the other", /Do not let either one cancel the other/i.test(line), line);
+  check("hostility and desire are both stated", /can't stand you/i.test(line) && /60/.test(line), line);
+  check("neither is allowed to cancel the other", /don't let either one cancel the other/i.test(line), line);
   check("it is not written as flirtation", !/flirts|teases/.test(line), line);
-  check("and not as secret tenderness on the way to a bond", /they do not turn into a relationship/i.test(line), line);
+  check("and not as secret tenderness on the way to a bond", /they don't turn into a relationship/i.test(line), line);
   /* The behaviour named has to be contact-as-friction, and it has to be named as things a body
    * DOES. This assertion used to quote the directive's own phrasing back at it — "stand nearer than
    * the argument needs", "needling as a way of making contact" — which pinned the test to five
@@ -65,16 +65,16 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
    * behaviour instead: somebody arriving, standing too close, touching without apology, staying
    * after saying the cutting thing. */
   check("the behaviour named is contact-as-friction",
-    /stand too close/.test(line) && /do not apologise/.test(line) && /do not leave/.test(line), line);
+    /stand too close/.test(line) && /don't apologise/.test(line) && /don't leave/.test(line), line);
   check("…and it is written as things a body does, not as figures",
     !/as a way of|than the argument needs|in ways that are not/.test(line), line);
 }
 {
   const s = world();
   const line = feel(s, -45, 60, 4);    // hostile, open: she knows exactly what she is doing
-  check("an open body owns it instead of leaking it", /KNOW it about themselves/i.test(line), line);
+  check("an open body owns it instead of leaking it", /know this about themselves/i.test(line), line);
   check("still no softening", /NEVER write this as warmth breaking through/i.test(line), line);
-  check("and wanting him does not make her nicer", /do not make them nicer because they want you/i.test(line), line);
+  check("and wanting him does not make her nicer", /don't make them nicer because they want you/i.test(line), line);
 }
 
 /* ── 2. appetite with nothing behind it ──────────────────────────────────────── */
@@ -82,10 +82,10 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   const s = world();
   const line = feel(s, 0, 65, 3);
   check("desire at zero warmth is not rendered as fondness", !/flirts, teases, seeks closeness/.test(line), line);
-  check("it is named as a complete state, not an unfinished bond", /Treat that as finished rather than as a bond that has not formed yet/i.test(line), line);
+  check("it is named as a complete state, not an unfinished bond", /Treat that as settled, not as a bond that just hasn't formed yet/i.test(line), line);
   // wording changed when the contrastive epigram came out of this line; the requirement did not
-  check("interest in the body, and none in the day", /take no interest in your day/i.test(line), line);
-  check("and it is not the beginning of caring", /NEVER render this as fondness, tenderness, or the beginning of caring/i.test(line), line);
+  check("interest in the body, and none in the day", /aren't interested in your day/i.test(line), line);
+  check("and it is not the beginning of caring", /Never write this as fondness, tenderness or the beginning of caring/i.test(line), line);
 }
 
 /* ── 3. the ordinary case is untouched ───────────────────────────────────────── */
@@ -97,15 +97,15 @@ function feel(s: SaveState, warmth: number, attraction: number, relaxation = 2, 
   // takes openings"), and what this check is for is that a warm, admitted desire still reads as
   // ordinary flirtation rather than falling into one of the colder registers.
   check("desire inside a bond still reads as a bond",
-    /settled/.test(warm) && /flirts, teases/.test(warm) && !/no attachment|annoyed with you|CANNOT STAND/.test(warm), warm);
-  check("…and a settled bond is not a passive one either", /angles for closeness|makes and takes openings/.test(warm), warm);
+    /settled/.test(warm) && /they flirt, tease/.test(warm) && !/no attachment|annoyed with you|can't stand/.test(warm), warm);
+  check("…and a settled bond is not a passive one either", /angle to get close|create openings and take them/.test(warm), warm);
   const s2 = world();
   const partner = feel(s2, 10, 55, 3, ["girlfriend"]);
   check("a stated partner at low warmth is not treated as a stranger's appetite", !/no attachment behind it/.test(partner), partner);
   const s3 = world();
   check("a flat read is still a flat read", /desire toward you: none/.test(feel(s3, 5, 4, 2)));
   const s4 = world();
-  check("aversion is still aversion", /actively repelled/.test(feel(s4, -40, -30, 0)));
+  check("aversion is still aversion", /actively put off by you/.test(feel(s4, -40, -30, 0)));
 }
 
 /* ── 4. the ledger empties ───────────────────────────────────────────────────── */

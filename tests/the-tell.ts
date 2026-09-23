@@ -57,8 +57,8 @@ const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; propertie
   check("the surface goes over", note.includes("freezes mid-step"), note);
   check("the tell goes over", note.includes("her jaw sets"), note);
   check("...as a thing that happens, not a thing that might", /AND THIS SHOWS/.test(note), note);
-  check("...rendered as the body, never as a feeling named", /as the body doing it and never as a feeling named/.test(note), note);
-  check("...and not explained", /do not explain it/.test(note), note);
+  check("...rendered as the body, never as a feeling named", /as something the body does, never as the name of a feeling/.test(note), note);
+  check("...and not explained", /don't explain it/.test(note), note);
 
   // THE LINE THAT MUST NOT MOVE: truth is the bookkeeper's and the narrator never sees it.
   check("the TRUTH still never reaches the narrator", !note.includes("one heartbeat from dying"), note);
@@ -67,14 +67,14 @@ const schema = INTENT_JSON_SCHEMA as unknown as { required?: string[]; propertie
 
 /* ── 3. and the model is told why it matters ─────────────────────────────────── */
 {
-  check("the model is told a tell is required", /"tell":"REQUIRED/.test(INTENT_SYSTEM));
+  check("the model is told a tell is required", /"tell":"Required/.test(INTENT_SYSTEM));
   check("...and that it is the only route truth has to the page",
-    /ONLY way anything you write in truth ever reaches the page/.test(INTENT_SYSTEM));
+    /only way anything in truth ever reaches the page/.test(INTENT_SYSTEM));
   check("...and what happens without one",
     /seems to have no inner life/.test(INTENT_SYSTEM));
-  check("...and that it leaves the truth unread", /leaves what is behind it unread/.test(INTENT_SYSTEM));
-  check("...and must be a thing the body does", /a THING THE BODY DOES, never a feeling named/.test(INTENT_SYSTEM));
-  check("...and scales with how much is being held", /the more clenched the body, the more there is to leak/.test(INTENT_SYSTEM));
+  check("...and that it leaves the truth unread", /without explaining what's behind it/.test(INTENT_SYSTEM));
+  check("...and must be a thing the body does", /something the body does, never the name of a feeling/.test(INTENT_SYSTEM));
+  check("...and scales with how much is being held", /the tenser the body, the more leaks out/.test(INTENT_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

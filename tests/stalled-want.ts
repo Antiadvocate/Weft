@@ -137,7 +137,7 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
 
   const dated = edgeNote(e, 140);
   check("past the fresh window it is dated", /13 turns ago/.test(dated), dated);
-  check("and the numbers are said to outrank it", /warmth and trust above are current and outrank it/.test(dated), dated);
+  check("and the numbers are said to outrank it", /warmth and trust above are up to date, so they come first/.test(dated), dated);
   check("the note itself is still there", dated.startsWith("The offer was made"), dated);
 
   check("the exact case: at turn 164 it is gone", edgeNote(e, 164) === "", edgeNote(e, 164));
@@ -185,16 +185,16 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
 
   const d = nagDirective(["Mable", "Andrea"]);
   check("it names who is waiting", /Mable, Andrea/.test(d), d.slice(0, 80));
-  check("the question does not get asked a third time", /DO NOT ASK IT AGAIN/.test(d));
-  check("taking the answer given is one of the ways out", /they take the answer they were given and act on it/.test(d));
+  check("the question does not get asked a third time", /They don't ask it again this turn/.test(d));
+  check("taking the answer given is one of the ways out", /they take the answer they got and act on it/.test(d));
 
-  check("and a delivered yes is a delivered yes", /THE PLAYER GIVES IT, THE WANT IS MET/.test(d), d);
-  check("being hurt by HOW it came stays available", /may absolutely be hurt by HOW it came/.test(d));
-  check("what is refused is keeping the want open on that ground", /keep the want open, and keep asking for it/.test(d));
+  check("and a delivered yes is a delivered yes", /If the player gives them what they asked for, the want has been met/.test(d), d);
+  check("being hurt by HOW it came stays available", /may well be hurt by how it came/.test(d));
+  check("what is refused is keeping the want open on that ground", /keep the want open, and keep asking/.test(d));
   check("an unwinnable condition is named as the harm",
-    /the condition for success is revealed only after they have failed it/.test(d), d);
-  check("a still-open want has to name what is concretely missing", /name it in one clause/.test(d));
-  check("and the manner is explicitly not that thing", /"It wasn't said the right way" is not a concrete thing missing/.test(d));
+    /the condition for success only gets revealed after they've failed it/.test(d), d);
+  check("a still-open want has to name what is concretely missing", /say what it is in a few words/.test(d));
+  check("and the manner is explicitly not that thing", /"It wasn't said the right way" doesn't count as something missing/.test(d));
 }
 
 /* MY OWN BELIEFS MAKE NO SENSE. I BELIEVE ANDREA?
@@ -242,10 +242,10 @@ function withWant(goal: string, progress = 30): { s: SaveState; id: string } {
 
   // and the pass that WRITES beliefs is now told the standing, so these cannot be born
   const R = REFLECTION_SYSTEM;
-  check("the standing block is declared binding on beliefs", /A BELIEF MUST NOT CONTRADICT THEIR CURRENT FEELINGS TOWARD SOMEONE/.test(R));
-  check("it says the standing outranks the memories", /That block outranks your reading of the memories, always/.test(R));
-  check("it names the helpful-but-hated case explicitly", /the conviction that forms is NOT "she was the only one who told me the truth"/.test(R));
-  check("and the dead are required to be past tense", /THE DEAD AND THE GONE ARE PAST TENSE/.test(R));
+  check("the standing block is declared binding on beliefs", /A belief mustn't contradict how this character currently feels about the people involved/.test(R));
+  check("it says the standing outranks the memories", /That always outranks your own reading of the memories/.test(R));
+  check("it names the helpful-but-hated case explicitly", /the belief that forms isn't "she was the only one who told me the truth"/.test(R));
+  check("and the dead are required to be past tense", /The dead and the departed are in the past tense/.test(R));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

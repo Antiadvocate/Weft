@@ -42,8 +42,8 @@ function spentScene(): SaveState {
   const r = readScene(spentScene());
   check("a long quiet scene with nobody pursuing is spent", r.spent, r);
   check("and reports how it got there", r.minutes >= 75 && r.flatFor >= 4, r);
-  check("the directive tells it to end on the page", /Bring it to a close ON THE PAGE/.test(sceneCutDirective(r)));
-  check("and permits the cut, rather than ordering it", /You MAY CUT/i.test(sceneCutDirective(r)));
+  check("the directive tells it to end on the page", /Bring it to an end on the page/.test(sceneCutDirective(r)));
+  check("and permits the cut, rather than ordering it", /you can skip ahead/i.test(sceneCutDirective(r)));
   check("with the guard against inventing a reason", /Never invent an errand/.test(sceneCutDirective(r)));
 }
 
@@ -58,7 +58,7 @@ function spentScene(): SaveState {
   const s = spentScene();
   s.pressure_trace = [1, 1, 1, 6];                        // something just arrived
   const r = readScene(s);
-  check("a scene something just entered is not cut", !r.spent && /still arriving/.test(r.reason), r);
+  check("a scene something just entered is not cut", !r.spent && /still going on/.test(r.reason), r);
 }
 {
   const s = spentScene();

@@ -60,8 +60,8 @@ check("a two-word player line is too little to match on", echoOpeners(`"Yes," sh
   check("three fires the note", note.length > 0);
   check("…and it counts them, so the note is about the rate", /3 SPOKEN LINES/.test(note), note.slice(0, 90));
   check("…quotes them back", /"A date,"/.test(note));
-  check("…still allows one, for a person who would", /may repeat a phrase once/.test(note));
-  check("…and says where taking the meaning should show instead", /show it in what they DO with it/.test(note));
+  check("…still allows one, for a person who would", /can repeat a phrase once/.test(note));
+  check("…and says where taking the meaning should show instead", /show it through what they do with it/.test(note));
   check("a pile-up does not become a wall of text",
     (openerFix(Array.from({ length: 12 }, (_, i) => `line ${i}`)).match(/"/g) ?? []).length <= 8);
 }

@@ -109,9 +109,9 @@ const LIVING = "loc_mtl12i1fabqns", BEDROOM = "loc_mtl12i1gpjqaj", SHOP = "loc_m
   const her = ["Abigail Mercer"];
   const note = screenPrivacyNote("I pull out my phone and open Hinge, swiping for a bit", her);
   check("the room is told it cannot read his screen", note.length > 0);
-  check("...naming who is standing there", /ABIGAIL MERCER CANNOT READ IT/.test(note), note.slice(0, 160));
-  check("...and what IS available instead", /the angle it is held at|light on a face/i.test(note), note);
-  check("...and that being wrong about it is the good version", /Being wrong about it is the best/.test(note), note);
+  check("...naming who is standing there", /ABIGAIL MERCER CAN'T READ IT/.test(note), note.slice(0, 160));
+  check("...and what IS available instead", /the angle they hold it at|light on their face/i.test(note), note);
+  check("...and that being wrong about it is the good version", /Guessing wrong is the best option/.test(note), note);
 
   check("alone with his phone, no rule is needed", screenPrivacyNote("I check my phone", []) === "");
   check("showing her is showing her",

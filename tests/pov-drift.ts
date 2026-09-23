@@ -64,7 +64,7 @@ const AFTER = `She doesn't laugh. Her eyes stay on him, bright and steady, and t
 {
   check("the contradicting rule is gone", !/narration never addresses the reader as/.test(NARRATOR_SYSTEM),
     "the ban on second person is still in the narrator prompt");
-  check("...and the second person is stated as the mode", /THE PLAYER IS "YOU"/.test(NARRATOR_SYSTEM));
+  check("...and the second person is stated as the mode", /The story is told in the second person/.test(NARRATOR_SYSTEM));
   check("...with what was actually meant kept", /turning to the AUDIENCE|dear reader/i.test(NARRATOR_SYSTEM));
 }
 
@@ -72,15 +72,15 @@ const AFTER = `She doesn't laugh. Her eyes stay on him, bright and steady, and t
 {
   check("a clean turn adds nothing to the next prompt", povFix(null) === "");
   const fix = povFix({ third: 9, second: 0 });
-  check("a caught turn tells the narrator what it did", /wrote the player from outside/i.test(fix), fix);
+  check("a caught turn tells the narrator what it did", /DESCRIBED THE PLAYER FROM THE OUTSIDE/i.test(fix), fix);
   check("...with the count, so it is a measurement and not a scolding", /9 times/.test(fix), fix);
   // ...without pasting a specimen of the wrong form: a quoted example of the thing being banned puts
   // that sentence in the context, which tests/prompt-echo.ts ratchets against and caught here first
-  check("...and names the shape it must take instead", /addressed in the second person/i.test(fix), fix);
+  check("...and names the shape it must take instead", /addressed as "you"/i.test(fix), fix);
   check("...handing over no ready-made example of the wrong form",
     !/\b(Max|he|she) (crosses|moves|walks|sits)\b/.test(fix), fix);
   check("...and covers the solo scene, which is where it actually broke",
-    /ALONE/.test(fix), fix);
+    /when they're alone/.test(fix), fix);
   check("...while leaving everybody else in the third person", /Other characters stay in the third person/.test(fix));
 }
 

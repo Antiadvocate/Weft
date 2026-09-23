@@ -68,7 +68,7 @@ const context = (s: any, action: string, mode: any = "do") =>
     const ctx = context(s, action, mode);
     check(`${label}: the narrator knows what the player is wearing`, ctx.includes("SENT_pwearing"), label);
     check(`${label}: ...and what they are carrying`, ctx.includes("SENT_pinventory"), label);
-    check(`${label}: ...against what this world can make`, /This world can do this and no more/.test(ctx), label);
+    check(`${label}: ...against what this world can make`, /This is what this world can do, and nothing more/.test(ctx), label);
   }
 }
 
@@ -78,7 +78,7 @@ const context = (s: any, action: string, mode: any = "do") =>
   const ctx = context(s, "I nod", "do");
   check("an NPC's clothes reach the narrator", ctx.includes("SENT_nwearing"), ctx.slice(0, 200));
   check("...and what they are carrying", ctx.includes("SENT_ninventory"));
-  check("...marked as visible to the room, not as private state", /has on them \(everyone here can see it\)/.test(ctx));
+  check("...marked as visible to the room, not as private state", /has on them \(everyone here can see this\)/.test(ctx));
 }
 
 /* ── 3. the sentence the forge wrote about settling this person ──────────────── */
@@ -101,7 +101,7 @@ const context = (s: any, action: string, mode: any = "do") =>
   // splitting the visible-state fact out of it must not make it fire on a turn with no act:
   // "the scene answers this first" is about something having HAPPENED.
   check("no act, no demand that the scene answer one", reactionDirective(s, "I nod", "do") === "");
-  check("a real act still produces one", /THE SCENE ANSWERS THIS FIRST/.test(reactionDirective(s, "I ride the machine up to the gate and step off", "do")));
+  check("a real act still produces one", /THE SCENE RESPONDS TO THIS FIRST/.test(reactionDirective(s, "I ride the machine up to the gate and step off", "do")));
   check("a thought is never answered by the room", reactionDirective(s, "a long private thought about the roof and the money", "think") === "");
 }
 

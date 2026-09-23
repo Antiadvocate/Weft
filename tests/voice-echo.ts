@@ -72,7 +72,7 @@ const cond = (relaxation = 0): Condition =>
   const warm = deriveVoice(ident(), cond(), [], { warmth: 60, trust: 20 });
   const cold = deriveVoice(ident(), cond(), [], { warmth: -50, trust: -50 });
   check("who they are talking to changes it", warm !== cold);
-  check("warmth reads as a softer register", /softer register/.test(warm), warm);
+  check("warmth reads as a softer register", /warm, familiar and softer/.test(warm), warm);
   check("hostility reads as cutting", /cutting|cold/.test(cold), cold);
 }
 {

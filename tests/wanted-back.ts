@@ -52,7 +52,7 @@ const band = (a: number) => (a >= 0.6 ? "flirts" : a <= 0.35 ? "grasping" : "hal
   const a = settle(94, -1, 0.46);
   check("a woman who loves him ends up able to show it", band(a) === "flirts", a);
   const line = desireLine(world(94, 100, -1, a), "c");
-  check("…and the line she gets is the one that acts", /flirts, teases, angles for closeness/.test(line), line.slice(0, 90));
+  check("…and the line she gets is the one that acts", /they flirt, tease, angle to get close/.test(line), line.slice(0, 90));
   check("…rather than small glances", !/small glances and half-gestures/.test(line));
 }
 
@@ -94,7 +94,7 @@ check("a stranger with no attraction is still not given one",
   desireLine(world(2, 5, 0, 0.5), "c").includes("desire toward you: none"), desireLine(world(2, 5, 0, 0.5), "c"));
 // …and an established bond with low heat keeps its own branch, which is not this one.
 check("a settled bond with banked heat is left to its own line",
-  /THE BOND IS REAL/.test(desireLine(world(40, 5, 0, 0.5), "c")));
+  /the bond between you is real/.test(desireLine(world(40, 5, 0, 0.5), "c")));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
