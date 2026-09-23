@@ -50,17 +50,17 @@ function world(opts: { authored?: boolean; crystallised?: boolean; drive?: boole
   s.world.current_turn = 34;
   return s;
 }
-const NOTE = /A WANT IS NOT A SHARED FACT/;
+const NOTE = /Nobody else knows about this want/;
 
 /* ── 1. a crystallised authored want — the case from the save ────────────────── */
 {
   const d = volatileDigest(world({ authored: true, crystallised: true }), "on the couch");
-  check("the want still renders", /simply does this now/.test(d), "authored want disappeared");
+  check("the want still renders", /just does this/.test(d), "authored want disappeared");
   check("AND IT IS MARKED AS UNSHARED", NOTE.test(d), "a hand-written want is still handed over raw");
-  check("...saying nobody else has agreed to it", /agreed to it, or already believes it/.test(d));
+  check("...saying nobody else has agreed to it", /agreed to it or already believes it/.test(d));
   check("...and that a want to convince means they are not convinced",
-    /means they are not convinced/.test(d), "the persuasion case is not covered");
-  check("...and that it is not said out loud", /does not say it out loud/.test(d));
+    /that person isn't convinced yet/.test(d), "the persuasion case is not covered");
+  check("...and that it is not said out loud", /doesn't say it out loud/.test(d));
 }
 
 /* ── 2. a want still forming gets it too ─────────────────────────────────────── */
@@ -72,7 +72,7 @@ const NOTE = /A WANT IS NOT A SHARED FACT/;
 /* ── 3. the drive's own hole: a want with no approach ────────────────────────── */
 {
   const withDoor = volatileDigest(world({ drive: true, approach: "makes him ask for it first" }), "on the couch");
-  check("a drive with an approach keeps its old guard", /they do not state the want itself/.test(withDoor));
+  check("a drive with an approach keeps its old guard", /they don't say the want out loud/.test(withDoor));
   const noDoor = volatileDigest(world({ drive: true }), "on the couch");
   check("AND A DRIVE WITH NO APPROACH IS NO LONGER BARE", NOTE.test(noDoor),
     "the guard only existed on the door line");
