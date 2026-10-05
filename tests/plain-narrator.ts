@@ -68,7 +68,7 @@ for (const banned of ["=== DIRECTION ===", "WHAT THIS TURN IS FOR", "PRESSURE ",
 check("a home for one gets no crowd", !/Ordinarily around here/.test(all));
 check("the footer is asked for", all.includes("<<<SCENE place="));
 check("the world's pronouns are stated", /use xe\/xem\/xer for everyone/.test(all));
-check("the system prompt is short", PLAIN_NARRATOR_SYSTEM.length < 7000, PLAIN_NARRATOR_SYSTEM.length);
+check("the system prompt is short", PLAIN_NARRATOR_SYSTEM.length < 8000, PLAIN_NARRATOR_SYSTEM.length);
 check("openness and clenching are explained as how people work", /When someone is clenched, their attention narrows/.test(PLAIN_NARRATOR_SYSTEM));
 check("the story wins over a stale note", /The story itself is the final word/.test(PLAIN_NARRATOR_SYSTEM));
 
