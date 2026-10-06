@@ -282,7 +282,6 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
   // need different headers because they are asking for opposite things.
   const standing: string[] = [];
   const receded: string[] = [];
-  const become: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
@@ -309,13 +308,14 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
         receded.push(`${c.name}: ${crystallizedLabel(a)}`);
         continue;
       }
-      // A SETTLED AIM IS A TRAIT, NOT A BEAT. See becameTrait: ordering "wants him to believe X" as
-      // an act every turn can only produce her saying X every turn.
+      // A SETTLED AIM IS KEPT IN FORCE, NOT ARGUED FOR. See becameTrait. Ordering "wants him to
+      // believe X" as an act made her say X every turn; filing it as a quiet trait that "owes
+      // nothing" made the narrator drop it on the turn it settled and never touch it again. What a
+      // person who has really got this does is maintain it: check on it, steer back to it, act on
+      // it. So it is still ordered every turn, and the order names deeds, not a case.
       if (becameTrait(a)) {
         const g = a.goal.trim().replace(/\.$/, "");
-        become.push(MIND.test(openingClause(a))
-          ? `${c.name}: ${g}. This is ${c.name}'s own outlook now, held as plainly as anything else about them, and ${c.name} has stopped campaigning for it. It doesn't make anybody else agree with it or believe it: whether anyone shares it is only what the story has already shown. ${c.name} never makes the case for it: no reasons, no "because", no telling anyone what it does for them, and no asking anyone to agree, repeat it or say it back.`
-          : `${c.name}: ${g}. This is done. ${c.name} isn't still working toward it, so ${c.name} doesn't push for it, raise it, explain it or plan it out loud.`);
+        rows.push(`${c.name}: THIS HAS SETTLED INTO ${c.name.toUpperCase()} AND ${c.name.toUpperCase()} KEEPS IT IN FORCE: ${g}. It is part of how ${c.name} is with them now, so ${c.name} doesn't argue for it any more, and doesn't let it lapse either. This turn ${c.name} does at least one concrete thing that keeps it true or pushes it further: puts it in front of them, checks where their attention is, pulls it back when it has drifted, makes room for it in whatever they are doing, or lets them see that ${c.name} noticed whether it was there. Pick a different move from the last one and fit it to what is going on in the scene. It is done with ${c.name}'s hands, body and where ${c.name} puts them, and at most a short offhand line, the way people who live together say things. Never a speech: no reasons, no "because", no explaining what it does for them, and no asking them to agree, repeat it or say it back. It is ${c.name}'s own aim, so it doesn't make anybody else agree with it: how they respond is theirs.${THRESHOLD}`);
         continue;
       }
       // A STANDING CONDITION BINDS THE SCENE; IT DOES NOT GET STAGED. Ordering "only allows Rabi to
@@ -373,12 +373,9 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
     ? `\n[WHAT IS ALREADY TRUE OF THESE PEOPLE. These hold, but they aren't something to write a moment about.
 These are settled facts of this world. They limit what can happen, but they don't call for a scene, an announcement or a demonstration, and staging one every turn turns it into a tic. Where the turn runs into one, it holds, plainly and briefly. Where it doesn't, leave it off the page.\n· ${standing.join("\n· ")}]`
     : "";
-  const becomeNote = become.length
-    ? `\n[WHO THESE PEOPLE ARE NOW. Each of these is something a person was working toward, and it is finished. It is part of who they are now, like anything else on their card, and it is not news to them. It shows the way a trait shows: in what they do without thinking and in what they take for granted, when the scene gives it a natural place. It does not show in anything they say about it. People who have lived with something for a while don't discuss it, so don't stage it, announce it, explain it, justify it or argue for it. A turn that never touches it hasn't missed anything.\n· ${become.join("\n· ")}]`
-    : "";
-  if (!rows.length) return standingNote + becomeNote + recededNote;
+  if (!rows.length) return standingNote + recededNote;
   return `\n[WHAT IS STARTING TO FORM IN THESE PEOPLE. Every line here goes on the page this turn.
-Each line below gets a moment in this scene, at the strength given and no stronger. It isn't up to you to decide that this scene is too busy for it, that the plot matters more, or that it would work better later. The schedule keeps running whether or not it gets written, so skipping it just means the next step shows up without any explanation. If the scene seems to have no room, make room. One sentence is enough, but some of it has to be visible this turn.\n· ${rows.join("\n· ")}]${standingNote}${becomeNote}${recededNote}`;
+Each line below gets a moment in this scene, at the strength given and no stronger. It isn't up to you to decide that this scene is too busy for it, that the plot matters more, or that it would work better later. The schedule keeps running whether or not it gets written, so skipping it just means the next step shows up without any explanation. If the scene seems to have no room, make room. One sentence is enough, but some of it has to be visible this turn.\n· ${rows.join("\n· ")}]${standingNote}${recededNote}`;
 }
 
 /** The core_trait label a crystallised want became — the same normalisation `crystallize` applies,
@@ -712,14 +709,14 @@ export function isStanding(a: AuthoredDrive): boolean {
  *  The novelty ladder credits a want by finding it acted out in the prose, it never found this one,
  *  so the want stayed "fresh" and the order stayed at full strength.
  *
- *  An aim that has settled is a trait now, the same as anything else on the card: it shows in what
- *  she does and what she takes for granted, and it is never pursued, argued or explained again. It
- *  is HER outlook, though, not a fact about anyone else. tests/want-not-fact.ts is the other half of
+ *  An aim that has settled is kept in force rather than argued for: every turn she does something
+ *  that maintains it (checks on it, steers back to it, acts on it), and never makes the case for it
+ *  again. Filing it as a quiet trait instead was tried, and she dropped it the turn it settled
+ *  (tests/settled-aim.ts, section 2b). It is HER outlook, though, not a fact about anyone else. tests/want-not-fact.ts is the other half of
  *  this: a settled "Convince Max..." read as the persuasion having worked gave "I know what I am to
  *  you, Max", with Max never having agreed. Whether anyone else shares it is what the story shows. Read the opening clause
  *  only, as isStanding does: "Is desperate to keep..." opens with a state and stays an act. */
 const AIM = /^(?:wants?|hopes?|needs?|tries|is trying|aims?|intends?|longs?|is determined)\b|\b(?:convinc\w*|persuad\w*)\b/i;
-const MIND = /\b(?:believes?|convinc\w*|persuad\w*|realis\w*|realiz\w*|accepts?|understands?|sees? that|admits?)\b/i;
 
 function openingClause(a: AuthoredDrive): string {
   return String(a?.goal ?? "").trim().split(/[,;.]/)[0] ?? "";

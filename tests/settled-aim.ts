@@ -10,7 +10,7 @@
  * habitDirective ordered "SHE JUST DOES THIS NOW ... Put the act itself in this turn's prose, fully"
  * on every turn. For a belief, that act is a speech, and she gave it every turn.
  *
- * A settled aim is a trait. It is no longer pursued, so it is never argued, explained or restated.
+ * A settled aim is kept in force every turn through what she does, and never argued, explained or restated.
  * It is still HER outlook and says nothing about who else agrees (see tests/want-not-fact.ts).
  */
 import { isAim, becameTrait, habitDirective, missDirective, noteWantMisses, staleWants, MISS_CEILING } from "../src/engine/authored";
@@ -64,25 +64,40 @@ check("a settled act has not", !becameTrait(ACT));
 {
   const st = save([BELIEF, OUTCOME, ACT]);
   const h = habitDirective(st, PRESENT, false, true);
-  const act = h.indexOf("WHAT IS STARTING TO FORM");
-  const trait = h.indexOf("WHO THESE PEOPLE ARE NOW");
-  check("the settled aims reach the narrator as who she is", trait >= 0, h);
-  check("...in a block of their own, after the act block", act >= 0 && trait > act, { act, trait });
-  const actBlock = h.slice(act, trait);
-  check("the belief is no longer ordered as an act", !/serving women's feet/.test(actBlock), actBlock);
-  check("the outcome is no longer ordered as an act", !/gelded/.test(actBlock), actBlock);
-  check("the real act still is", /keep her dick deep inside/.test(actBlock), actBlock);
-  const traitBlock = h.slice(trait);
-  check("the belief is called her own outlook", /own outlook now/.test(traitBlock));
-  check("...without making anyone else agree", /doesn't make anybody else agree/.test(traitBlock));
-  check("...and she never makes the case again", /never makes the case for it/.test(traitBlock));
-  check("...no asking him to say it back", /say it back/.test(traitBlock));
-  check("the outcome is called done", /gelded[^\n]*This is done/.test(traitBlock), traitBlock);
-  check("nothing is to be explained or argued", /explain it, justify it or argue for it/.test(traitBlock));
-  check("a turn without it owes nothing", /hasn't missed anything/.test(traitBlock));
+  const block = h.slice(h.indexOf("WHAT IS STARTING TO FORM"));
+  check("settled aims are still ordered every turn", /KEEPS IT IN FORCE: Wants Rabi to believe/.test(block) && /KEEPS IT IN FORCE: Wants Rabi to get gelded/.test(block), h);
+  check("...as upkeep, not as an act to say out loud", /checks where their attention is, pulls it back when it has drifted/.test(block));
+  check("...never a speech", /Never a speech: no reasons, no "because"/.test(block));
+  check("...no asking him to say it back", /say it back/.test(block));
+  check("...varied, not one repeated gesture", /different move from the last one/.test(block));
+  check("...her own aim, not something he is written as agreeing to", /doesn't make anybody else agree with it/.test(block));
+  check("the real act is still ordered as an act", /SHE JUST DOES THIS NOW, without deciding to: Is desperate/.test(block));
+  check("the aims are not ordered as bare acts", !/SHE JUST DOES THIS NOW, without deciding to: Wants/.test(block));
 }
 
-/* ── 3. a trait can't be missed ───────────────────────────────────────────────── */
+/* ── 2b. AND IT DOESN'T GO QUIET.
+ *
+ * "She never actually enforces or tries to make certain that I actually am thinking about what she
+ *  wants me to always be thinking about ... it's just one and done now and it wasn't even mentioned.
+ *  It doesn't become a part of her."
+ *
+ * The first version of this fix filed a settled aim under "WHO THESE PEOPLE ARE NOW ... A turn that
+ * never touches it hasn't missed anything." On the next save May's "Wants Rabi to always be thinking
+ * about her feet" settled at turn 12, and turns 12 to 16 are a Starbucks drive-through and lunch plans
+ * with her feet never mentioned. Telling the narrator it owed nothing was heard as permission. */
+{
+  const ALWAYS = { goal: "Wants Rabi to always be thinking about her feet, and keep her feet as the center of his thoughts always.",
+    rate: "steady", stage: 5, turns_live: 2, inhabit_turns: 2, crystallize: true, added_turn: 11, crystallized_turn: 12,
+    label: "Wants Rabi to always be thinking about her feet, and keep her feet as the center of his thoughts" } as AuthoredDrive;
+  const h = habitDirective(save([ALWAYS]), PRESENT, false, true);
+  check("a settled aim with nothing else going on still lands in the block that has to be written",
+    /Every line here goes on the page this turn/.test(h) && /KEEPS IT IN FORCE: Wants Rabi to always be thinking about her feet/.test(h), h);
+  check("nothing tells the narrator it may skip it", !/hasn't missed anything/.test(h) && !/WHO THESE PEOPLE ARE NOW/.test(h));
+  check("...nor on an intimate turn", /KEEPS IT IN FORCE/.test(habitDirective(save([ALWAYS]), PRESENT, true, true)));
+}
+
+/* ── 3. the miss nag still stays off: its fix is "the act itself, in plain words, in the opening
+ *     lines", and for an aim the act in plain words is the lecture. ───────────────────────────────────────────────── */
 {
   const st = save([{ ...BELIEF, missed: 3 }, { ...OUTCOME, missed: MISS_CEILING + 1 }]);
   check("no miss nag for a settled aim", missDirective(st, PRESENT) === "", missDirective(st, PRESENT));
