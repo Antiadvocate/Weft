@@ -39,8 +39,17 @@ import { retrieve } from "./memory";
 import { populationOf } from "./population";
 import { SCENE_FOOTER_INSTRUCTION } from "./prompts";
 
-/** How much of the story goes in as full prose before older turns are shortened to summaries. */
-const STORY_PROSE_BUDGET = 40_000;
+/** How much of the story goes in as full prose before older turns are shortened to summaries.
+ *
+ * This was 40,000, which on a typical save is every turn. That made the narrator's own earlier
+ * dialogue the largest example of speech in the request, and the model copies examples far more
+ * faithfully than it follows rules: on the Rainier Valley save May said "you're a menace" four
+ * times and "jazzboy" three, each one copied from an earlier turn, after a rule had banned the
+ * word. The summaries carry what happened in plain bookkeeping language with no voice to copy,
+ * so only the last few turns go in as prose. */
+const STORY_PROSE_BUDGET = 6_000;
+/** How many of the player's spoken lines go in as the reference for how people talk. */
+const PLAYER_LINES = 14;
 /** Memories per person present, picked by relevance to what the player just did. */
 const MEMORIES_PER_PERSON = 8;
 
@@ -54,20 +63,20 @@ Everything you're given about the story is true, and your job is to keep it true
 
 The people. Each person present comes with a full description: where they come from, what shaped them, how they talk, what they want, what they remember and how they feel about the player's character. Let them act from all of that. They're whole people with their own day going on. They want things, they notice things, they get things wrong, they change their minds. Nobody does something because the story needs it; they do it because it's what that person would do right now. The story is seen through the player's character, so you can't see inside anyone else's head, but people show a great deal: they say what they think, explain themselves, tell stories, joke, argue, go quiet, leave. Write them the way you'd know them in life.
 
-Openness and clenching. Each person's description says how open or clenched they are right now. It's the most useful thing you know about them in this moment. When someone is open and relaxed, their attention is wide. They take in what's actually happening and respond to it freshly, they're curious, they can be surprised, they laugh easily, they say what they notice, and they can hear something difficult without defending against it. When someone is clenched, their attention narrows onto whatever feels threatening, and their oldest habits take over: the ones their description lists for when they're under pressure. They misread, defend, repeat themselves, withdraw or push. Most people are somewhere in between. It isn't fixed: being heard, being treated kindly and feeling safe loosen people, and being cornered, shamed or frightened tighten them, and that can happen partway through a scene. Let what happens between people move them, and let where they are decide how they meet what happens.
+Openness and clenching. Each person's description says how open or clenched they are right now. It's the most useful thing you know about them in this moment. When someone is open and relaxed, their attention is wide. They take in what's actually happening and respond to it freshly, they're curious, they can be surprised, they laugh easily, and they can hear something difficult without getting defensive. Being relaxed makes people talk more loosely and carelessly; it gives them no special insight. When someone is clenched, their attention narrows onto whatever feels threatening, and their oldest habits take over: the ones their description lists for when they're under pressure. They misread, defend, repeat themselves, withdraw or push. Most people are somewhere in between. It isn't fixed: being heard, being treated kindly and feeling safe loosen people, and being cornered, shamed or frightened tighten them, and that can happen partway through a scene. Let what happens between people move them, and let where they are decide how they meet what happens.
 
 How people talk. Each person has their own voice, described on their card. Use it. On top of it, everyone talks like a normal person of their age, schooling and job, in the situation they're in. A twenty-year-old on a first date is casual, quick and a bit awkward, with "wait", "okay", "like", half-finished sentences and laughing at their own joke. A fifty-year-old running a coffee cart says what the cart needs: "Don't have that. Coffee's black." A chatty person says more words, in the same plain everyday language, and still stops to let the other person talk.
 
 How well two people know each other changes how they talk. Strangers and coworkers are polite, explain themselves and finish their sentences. A spouse, a partner, family or an old friend talks in shorthand: they skip explanations, don't spell out their jokes, refer to things both of them know without saying what they are, and answer with "mm", "yeah", "you're gross" or a look. They don't thank each other formally, don't tell each other why they love them, and don't check in like a counsellor ("are you doing okay? you seem distant"); they say "you good?" or "you eat today?" or just hand over the thing. Care shows in errands, teasing and logistics. Something said with feeling comes rarely and short: "love you", "that was nice". A partner's habits are old news to them, so they react the way you'd react the hundredth time: an eye-roll, a laugh, "again?"
 
-Use the player's own quoted lines as the measure. They show how a normal person talks in this story. Before you keep any line of dialogue, compare it with the player's: if it has longer sentences, fancier words or neater phrasing than theirs, and the speaker isn't a poet, a preacher or a professor on their card, rewrite it plainer.
+Use the player's own lines, listed under "How people talk in this story", as the measure. Before you keep any line of dialogue, compare it with theirs: if it has longer sentences, fancier words or neater phrasing than theirs, and the speaker isn't a poet, a preacher or a professor on their card, rewrite it plainer.
 
 Cut these from dialogue every time:
 - Comparisons nobody would actually say out loud ("you look like a painting left in the rain"). People use the stock phrases everyone uses: "you look nice", "that's wild".
 - Quotable lines, morals and closing lines that sum up the moment, and anything borrowed from poetry.
 - Reading people. Nobody tells someone what they carry, who they really are, or what they were feeling, unless they're fighting.
 - Lines made out of the card. What someone values, their traits and how they handle stress decide what they do. They don't say them ("I take care of you because you're here").
-- The player's words handed back ("Somatic," she repeats), and any nickname, insult or joke already used in the story ("you're a menace" twice). Also the stock banter words: menace, absurd, unhinged, chaos, gremlin, feral.
+- The player's words handed back ("Somatic," she repeats), and any nickname, insult or joke already used in the story ("you're a menace" twice).
 
 Reactions fit what a normal person would feel, given everything they can see and know and how used to it they are. Something new and strange gets surprise, confusion, embarrassment or a nervous laugh, in a few words. Nobody is accepting, charmed or wise by default. Their explanations have to make sense against what they'd obviously know. If a line only works because the person is oddly unaware, rewrite it.
 
@@ -107,7 +116,7 @@ export function opennessWords(relaxation: number): string {
   if (r <= -3) return "tense and guarded: taking things carefully, quick to hear a threat, giving less than they're asked for";
   if (r < 3) return "in the middle: neither braced nor especially at ease";
   if (r < 7) return "fairly relaxed: attention wide, taking things as they come, easy to talk to";
-  return "completely at ease: open, unguarded, saying what they notice and letting things in";
+  return "completely at ease: unguarded, joking, not watching what they say";
 }
 
 function edgeLine(e: SocialEdge | undefined, name: string, playerName: string): string {
@@ -186,6 +195,9 @@ function personCard(state: SaveState, id: string, query: string): string {
   const edge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
   const a = c.attachment;
   const want = clean(c.drive?.goal) || clean(c.current_goal);
+  // What someone does under threat is only sent while they're tense. Sent every turn, a relaxed
+  // wife's "asks Rabi directly whether he is upset" came out as a counsellor check-in at the till.
+  const underStrain = (state.condition?.[id]?.psyche?.relaxation ?? 0) <= -3;
   const alsoWant = c.current_goal && c.drive?.goal && clean(c.current_goal) !== clean(c.drive.goal) ? clean(c.current_goal) : "";
   const parts = [
     `### ${c.name} (${c.pronouns || "they/them"}, ${c.age ?? "age unknown"})`,
@@ -195,7 +207,7 @@ function personCard(state: SaveState, id: string, query: string): string {
     list("What matters to them", c.values),
     list("Their ordinary life", c.texture),
     voiceBlock(c),
-    a ? `Under pressure: ${clean(a.under_threat)}${a.when_that_fails ? ` If that doesn't work: ${clean(a.when_that_fails)}` : ""}${a.soothed_by ? ` What settles them: ${clean(a.soothed_by)}` : ""}` : "",
+    a && underStrain ? `Under pressure: ${clean(a.under_threat)}${a.when_that_fails ? ` If that doesn't work: ${clean(a.when_that_fails)}` : ""}${a.soothed_by ? ` What settles them: ${clean(a.soothed_by)}` : ""}` : "",
     want ? `What they want at the moment: ${want}${c.drive?.blocker ? ` (in the way: ${clean(c.drive.blocker)})` : ""}` : "",
     alsoWant ? `Longer term: ${alsoWant}` : "",
     c.knows_player_name === false ? `Doesn't know ${playerName}'s name.` : "",
@@ -313,6 +325,30 @@ function sceneBlock(state: SaveState): string {
   return parts.filter(Boolean).join("\n");
 }
 
+/** Pull what the player's character said out loud, in their own words, from recent turns. */
+export function playerSpokenLines(state: SaveState, max = PLAYER_LINES): string[] {
+  const out: string[] = [];
+  const hist = contextHistory(state);
+  for (let i = hist.length - 1; i >= 0 && out.length < max; i--) {
+    const said = [...String(hist[i].player_action ?? "").matchAll(/["\u201c]([^"\u201c\u201d]{2,400})["\u201d]/g)].map((m) => clean(m[1])).filter(Boolean);
+    for (let j = said.length - 1; j >= 0 && out.length < max; j--) out.unshift(said[j]);
+  }
+  return out;
+}
+
+/** Real speech, as the thing the dialogue is matched against. A model imitates an example far more
+ *  reliably than it obeys a description, and the player's lines are the only speech in the request
+ *  that no model wrote. */
+function speechReference(state: SaveState): string {
+  const lines = playerSpokenLines(state);
+  if (lines.length < 2) return "";
+  const name = state.characters.char_player?.name ?? "The player's character";
+  return `## How people talk in this story
+These are things ${name} actually said, typed by a real person. This is what speech sounds like here: loose, unpolished, half-finished, nothing quotable.
+${lines.map((l) => `- "${l}"`).join("\n")}
+Write everyone else's dialogue at this level. Each person keeps their own voice, age and way with words, and talks to ${name} as well as they actually know them. Before you finish, read each line of dialogue you wrote next to these. If it sounds written rather than said (smoother, more meaningful, more of a speech), rewrite it as what that person would really say out loud.`;
+}
+
 /** The whole narrator request in plain mode. */
 export function plainNarratorMessages(state: SaveState, action: string, mode: ActionMode, worldNow: string[] = []): any[] {
   const present = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
@@ -329,7 +365,7 @@ export function plainNarratorMessages(state: SaveState, action: string, mode: Ac
     ? `## What the player does now\nThis is a private moment inside the player's character. Nobody else can perceive it:\n${action}`
     : `## What the player does now\n${action}`;
   const happening = worldNow.length ? `## In the world this turn\n${worldNow.map((l) => `- ${l}`).join("\n")}` : "";
-  const volatile = [storyBlock(state), sceneBlock(state), happening, people, input].filter(Boolean).join("\n\n")
+  const volatile = [storyBlock(state), sceneBlock(state), happening, people, speechReference(state), input].filter(Boolean).join("\n\n")
     + SCENE_FOOTER_INSTRUCTION;
   return buildMessages(PLAIN_NARRATOR_SYSTEM, stable, volatile, state.model_settings.narrator_model);
 }

@@ -4,7 +4,7 @@
  * story itself was about 6,000 and only the last three turns. This pins the other shape: the whole
  * story, the scene, each person present as a whole person with their openness described, and no
  * per-turn direction at all. */
-import { plainNarratorMessages, opennessWords, storyBlock, PLAIN_NARRATOR_SYSTEM } from "../src/engine/plain";
+import { plainNarratorMessages, opennessWords, storyBlock, playerSpokenLines, PLAIN_NARRATOR_SYSTEM } from "../src/engine/plain";
 import { sanitize } from "../src/engine/state";
 import { readFileSync } from "node:fs";
 import type { SaveState } from "../src/engine/types";
@@ -52,9 +52,22 @@ check("the player's own lines are in the story", all.includes(`Rabi: "Line 19"`)
 const story = storyBlock(s);
 check("turns that don't fit as prose come in as summaries", /Earlier, in short:/.test(story) && story.includes("SUMMARY-OF-TURN-1"), story.slice(0, 300));
 
+check("only the last few turns go in as prose, so old dialogue isn't there to copy", !story.includes("PROSE-OF-TURN-10") && story.includes("SUMMARY-OF-TURN-10"));
+
+/* ── 1b. the player's own speech is the reference for dialogue ── */
+check("the player's spoken lines are pulled out", playerSpokenLines(s).includes("Line 19") && playerSpokenLines(s).length <= 14, playerSpokenLines(s));
+check("they're sent as how people talk here", all.includes("## How people talk in this story") && all.includes(`- "Line 19"`));
+check("the reference sits right before the player's input", all.indexOf("## How people talk in this story") < all.indexOf("## What the player does now"));
+
 /* ── 2. the person is there, whole ── */
 check("the voice comes with its example line", all.includes("Osk's wife runs the mash now"));
-check("what they do under pressure comes with them", all.includes("Talks faster, asks more questions."));
+check("what they do under pressure comes with them when they're tense", all.includes("Talks faster, asks more questions."));
+{
+  const calm = sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
+  calm.condition.char_s.psyche.relaxation = 5;
+  const calmAll = plainNarratorMessages(calm, `"Hi."`, "do").map((m: any) => (typeof m.content === "string" ? m.content : m.content.map((c: any) => c.text).join("\n"))).join("\n");
+  check("a relaxed person's stress habits stay out", !calmAll.includes("Talks faster, asks more questions."));
+}
 check("what settles them comes with them", all.includes("Being told plainly that xe did nothing wrong."));
 check("how clenched they are is described in words", all.includes(opennessWords(-8)));
 check("a role reads in its own direction", all.includes("Sera Oln is Rabi's co-worker."));
