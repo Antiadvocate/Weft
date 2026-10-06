@@ -61,7 +61,20 @@ check("they're sent as how people talk here", all.includes("## How people talk i
 check("the reference sits right before the player's input", all.indexOf("## How people talk in this story") < all.indexOf("## What the player does now"));
 
 /* ── 2. the person is there, whole ── */
-check("the voice comes with its example line", all.includes("Osk's wife runs the mash now"));
+/* ── 2a. the voice card follows the Voice cards setting ── */
+check("with voice cards off, no voice card goes", !all.includes("Osk's wife runs the mash now") && !all.includes("Trade shop-talk") && !all.includes("Long looping sentences"));
+check("...not even the player's speech pattern", !all.includes("How they talk: Measured."));
+{
+  const on = sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
+  on.model_settings.voice_cards = true;
+  const onAll = plainNarratorMessages(on, `"Hi."`, "do").map((m: any) => (typeof m.content === "string" ? m.content : m.content.map((c: any) => c.text).join("\n"))).join("\n");
+  check("with voice cards on, the voice comes with its example line", onAll.includes("Osk's wife runs the mash now"));
+  check("...and the player's speech pattern", onAll.includes("How they talk: Measured."));
+  const locked = sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
+  (locked.characters.char_s as any).voice_locked = true;
+  const lockedAll = plainNarratorMessages(locked, `"Hi."`, "do").map((m: any) => (typeof m.content === "string" ? m.content : m.content.map((c: any) => c.text).join("\n"))).join("\n");
+  check("a voice the player wrote by hand still goes with the setting off", lockedAll.includes("Osk's wife runs the mash now"));
+}
 check("what they do under pressure comes with them when they're tense", all.includes("Talks faster, asks more questions."));
 {
   const calm = sanitize(JSON.parse(JSON.stringify(base))) as SaveState;

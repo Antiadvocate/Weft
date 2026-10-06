@@ -37,7 +37,7 @@ import { contextHistory } from "./context";
 import { detectWorldPronoun } from "./coerce";
 import { retrieve } from "./memory";
 import { populationOf } from "./population";
-import { SCENE_FOOTER_INSTRUCTION } from "./prompts";
+import { SCENE_FOOTER_INSTRUCTION, voiceCardsOn } from "./prompts";
 
 /** How much of the story goes in as full prose before older turns are shortened to summaries.
  *
@@ -131,7 +131,12 @@ function edgeLine(e: SocialEdge | undefined, name: string, playerName: string): 
   return bits.filter(Boolean).join(" ");
 }
 
-function voiceBlock(c: Identity): string {
+/** Off means off. The plain narrator used to send the whole voice card, example lines included,
+ *  whatever the Voice cards setting said, and the forge writes those lines in a voice nobody has:
+ *  one save's wife got three fifty-word run-ons as her reference and talked in lectures. The rule is
+ *  the directed narrator's, voiceCardsOn: a card the player wrote by hand (locked) still goes. */
+function voiceBlock(state: SaveState, c: Identity): string {
+  if (!voiceCardsOn(state, c)) return "";
   const v = c.voice;
   const lines: string[] = [];
   if (v?.diction) lines.push(`Words: ${clean(v.diction)}`);
@@ -206,7 +211,7 @@ function personCard(state: SaveState, id: string, query: string): string {
     list("What they're like", c.core_traits),
     list("What matters to them", c.values),
     list("Their ordinary life", c.texture),
-    voiceBlock(c),
+    voiceBlock(state, c),
     a && underStrain ? `Under pressure: ${clean(a.under_threat)}${a.when_that_fails ? ` If that doesn't work: ${clean(a.when_that_fails)}` : ""}${a.soothed_by ? ` What settles them: ${clean(a.soothed_by)}` : ""}` : "",
     want ? `What they want at the moment: ${want}${c.drive?.blocker ? ` (in the way: ${clean(c.drive.blocker)})` : ""}` : "",
     alsoWant ? `Longer term: ${alsoWant}` : "",
@@ -227,7 +232,7 @@ function playerCard(state: SaveState): string {
     clean(c.background) ? `Background (nobody in the world knows any of this unless the player's character has told them or it has happened in the story): ${clean(c.background)}` : "",
     list("What they're like", c.core_traits),
     list("Their ordinary life", c.texture),
-    c.speech_pattern ? `How they talk: ${clean(c.speech_pattern)}` : "",
+    c.speech_pattern && voiceCardsOn(state, c) ? `How they talk: ${clean(c.speech_pattern)}` : "",
     stateNow(state, "char_player"),
   ];
   return parts.filter(Boolean).join("\n");
