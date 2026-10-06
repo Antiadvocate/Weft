@@ -350,7 +350,7 @@ Write everyone else's dialogue at this level. Each person keeps their own voice,
 }
 
 /** The whole narrator request in plain mode. */
-export function plainNarratorMessages(state: SaveState, action: string, mode: ActionMode, worldNow: string[] = []): any[] {
+export function plainNarratorMessages(state: SaveState, action: string, mode: ActionMode, worldNow: string[] = [], lifeNow = ""): any[] {
   const present = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
   const query = `${action} ${contextHistory(state).slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 2000);
   const stable = [
@@ -365,7 +365,10 @@ export function plainNarratorMessages(state: SaveState, action: string, mode: Ac
     ? `## What the player does now\nThis is a private moment inside the player's character. Nobody else can perceive it:\n${action}`
     : `## What the player does now\n${action}`;
   const happening = worldNow.length ? `## In the world this turn\n${worldNow.map((l) => `- ${l}`).join("\n")}` : "";
-  const volatile = [storyBlock(state), sceneBlock(state), happening, people, speechReference(state), input].filter(Boolean).join("\n\n")
+  // Near the end, beside the input: in the middle of the request a want reads as reference and
+  // goes unwritten (see habitDirective).
+  const life = lifeNow.trim() ? `## What the player has set going in these people's lives\n${lifeNow.trim()}` : "";
+  const volatile = [storyBlock(state), sceneBlock(state), happening, people, life, speechReference(state), input].filter(Boolean).join("\n\n")
     + SCENE_FOOTER_INSTRUCTION;
   return buildMessages(PLAIN_NARRATOR_SYSTEM, stable, volatile, state.model_settings.narrator_model);
 }

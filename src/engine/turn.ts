@@ -3160,7 +3160,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       : storyAction)
       + (voided ? voidFrame(voided) : "")
       + (ooc?.complaint ? `\n\n(The player also said this to you, outside the story. Take it into account without mentioning it in the story: ${ooc.complaint})` : "");
-    narratorMsgs = plainNarratorMessages(state, plainAction, mode, plainWorldNow);
+    // What the player set going in these people's lives (the Cast panel's "Things going on in
+    // their life"). Plain mode left it out, so the narrator never heard of it and it never showed.
+    // It's the player's own direction, not the engine's, so it goes in, in the same words the
+    // directed narrator gets, minus the trait rotation.
+    const lifeNow = (habitDirective(state, state.world.present, register.guarded, true) + missDirective(state, state.world.present)).trim();
+    narratorMsgs = plainNarratorMessages(state, plainAction, mode, plainWorldNow, lifeNow);
   } else if (chatlog) {
     const cad = Math.max(2, state.model_settings.iframe_cadence ?? 6);
     // THE ANCHOR PINS THE SCENE, SO THE SCENE HAS TO INVALIDATE IT. The anchored digest contains

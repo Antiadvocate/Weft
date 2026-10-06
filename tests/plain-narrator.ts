@@ -6,6 +6,7 @@
  * per-turn direction at all. */
 import { plainNarratorMessages, opennessWords, storyBlock, playerSpokenLines, PLAIN_NARRATOR_SYSTEM } from "../src/engine/plain";
 import { sanitize } from "../src/engine/state";
+import { habitDirective, newAuthored } from "../src/engine/authored";
 import { readFileSync } from "node:fs";
 import type { SaveState } from "../src/engine/types";
 
@@ -85,12 +86,26 @@ check("the system prompt is short", PLAIN_NARRATOR_SYSTEM.length < 8000, PLAIN_N
 check("openness and clenching are explained as how people work", /When someone is clenched, their attention narrows/.test(PLAIN_NARRATOR_SYSTEM));
 check("the story wins over a stale note", /The story itself is the final word/.test(PLAIN_NARRATOR_SYSTEM));
 
+/* ── 3b. what the player set going in someone's life reaches the narrator ── */
+{
+  const life = sanitize(JSON.parse(JSON.stringify(base))) as SaveState;
+  life.characters.char_s.authored = [newAuthored("Starts leaving notes for Rabi in his coat pockets", 20, { inhabit_turns: 10 })];
+  life.characters.char_s.core_traits = ["Cannot sit still"];
+  const note = habitDirective(life, life.world.present, false, true);
+  check("the authored want is in the plain note", note.includes("Starts leaving notes for Rabi in his coat pockets"), note.slice(0, 200));
+  check("the trait rotation stays out of it", !note.includes("AND THESE HAVE TO SHOW"));
+  const lifeAll = plainNarratorMessages(life, `"Hi."`, "do", [], note).map((m: any) => (typeof m.content === "string" ? m.content : m.content.map((c: any) => c.text).join("\n"))).join("\n");
+  check("it's sent under its own heading, before the player's input", lifeAll.includes("## What the player has set going in these people's lives") && lifeAll.indexOf("coat pockets") < lifeAll.indexOf("## What the player does now"));
+  const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
+  check("the plain turn builds and passes it", /habitDirective\(state, state\.world\.present, register\.guarded, true\)[\s\S]{0,200}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow\)/.test(src));
+}
+
 /* ── 4. the turn uses it by default ── */
 {
   const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
   check("plain is the default", /narrator_style \?\? "plain"\) === "plain"/.test(src));
   check("no private intents are pre-written in plain mode", /plain \? \[\] : await runIntentPass/.test(src));
-  check("the plain request replaces the directed one", /if \(plain\) \{\n[\s\S]{0,900}plainNarratorMessages\(state, plainAction, mode, plainWorldNow\)/.test(src));
+  check("the plain request replaces the directed one", /if \(plain\) \{\n[\s\S]{0,1800}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow\)/.test(src));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

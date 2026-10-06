@@ -274,7 +274,7 @@ export function authoredLine(a: AuthoredDrive): string {
  * silencing those here would be the engine deciding it knows better than the player about their
  * own scene.
  */
-export function habitDirective(state: SaveState, presentIds: string[], guarded = false): string {
+export function habitDirective(state: SaveState, presentIds: string[], guarded = false, authoredOnly = false): string {
   const rows: string[] = [];
   // Kept apart from `rows` deliberately. The header over `rows` reads "NOT OPTIONAL ... If the scene
   // seems to leave no room, that is the instruction — make the room", and a standing condition
@@ -340,7 +340,9 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
   // been shown living several times over: ordering it again is what makes a person read as a single
   // repeating gesture. The rotation picks from what still has something to establish.
   const traits: string[] = [];
-  for (const id of guarded ? [] : presentIds) {
+  // The plain narrator asks for `authoredOnly`: it reads every trait on the person's card already,
+  // and the rotation is the engine's direction, where an authored want is the player's.
+  for (const id of guarded || authoredOnly ? [] : presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player" || !c.core_traits?.length) continue;
     const eligible = c.core_traits.filter((t) => {
