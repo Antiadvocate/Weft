@@ -53,14 +53,18 @@ function world(opts: { authored?: boolean; crystallised?: boolean; drive?: boole
 const NOTE = /Nobody else knows about this want/;
 
 /* ── 1. a crystallised authored want — the case from the save ────────────────── */
+// A SETTLED AIM IS A TRAIT NOW (see tests/settled-aim.ts): she stops campaigning for it, because the
+// other half of this failure was thirty turns of a wife lecturing a husband who had already agreed.
+// What this file guards still holds: it is her outlook, not something Max is written as believing.
 {
   const d = volatileDigest(world({ authored: true, crystallised: true }), "on the couch");
-  check("the want still renders", /just does this/.test(d), "authored want disappeared");
-  check("AND IT IS MARKED AS UNSHARED", NOTE.test(d), "a hand-written want is still handed over raw");
-  check("...saying nobody else has agreed to it", /agreed to it or already believes it/.test(d));
-  check("...and that a want to convince means they are not convinced",
-    /that person isn't convinced yet/.test(d), "the persuasion case is not covered");
-  check("...and that it is not said out loud", /doesn't say it out loud/.test(d));
+  check("the want still renders", /part of who they are now/.test(d), "authored want disappeared");
+  check("AND IT IS MARKED AS UNSHARED", /their own outlook/.test(d), "a hand-written want is still handed over raw");
+  check("...saying nobody else has agreed to it", /doesn't mean anybody else has agreed to it or already believes it/.test(d));
+  check("...and that sharing it is only what the story has shown",
+    /whether anyone shares it is only what the story has already shown/.test(d), "the persuasion case is not covered");
+  check("...and that it is not said out loud", /don't say it out loud/.test(d));
+  check("...nor argued for", /argue for it/.test(d));
 }
 
 /* ── 2. a want still forming gets it too ─────────────────────────────────────── */

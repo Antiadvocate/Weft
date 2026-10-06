@@ -282,6 +282,7 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
   // need different headers because they are asking for opposite things.
   const standing: string[] = [];
   const receded: string[] = [];
+  const become: string[] = [];
   for (const id of presentIds) {
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
@@ -306,6 +307,15 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
       if (stage === "ground") continue;
       if (stage === "familiar") {
         receded.push(`${c.name}: ${crystallizedLabel(a)}`);
+        continue;
+      }
+      // A SETTLED AIM IS A TRAIT, NOT A BEAT. See becameTrait: ordering "wants him to believe X" as
+      // an act every turn can only produce her saying X every turn.
+      if (becameTrait(a)) {
+        const g = a.goal.trim().replace(/\.$/, "");
+        become.push(MIND.test(openingClause(a))
+          ? `${c.name}: ${g}. This is ${c.name}'s own outlook now, held as plainly as anything else about them, and ${c.name} has stopped campaigning for it. It doesn't make anybody else agree with it or believe it: whether anyone shares it is only what the story has already shown. ${c.name} never makes the case for it: no reasons, no "because", no telling anyone what it does for them, and no asking anyone to agree, repeat it or say it back.`
+          : `${c.name}: ${g}. This is done. ${c.name} isn't still working toward it, so ${c.name} doesn't push for it, raise it, explain it or plan it out loud.`);
         continue;
       }
       // A STANDING CONDITION BINDS THE SCENE; IT DOES NOT GET STAGED. Ordering "only allows Rabi to
@@ -363,9 +373,12 @@ export function habitDirective(state: SaveState, presentIds: string[], guarded =
     ? `\n[WHAT IS ALREADY TRUE OF THESE PEOPLE. These hold, but they aren't something to write a moment about.
 These are settled facts of this world. They limit what can happen, but they don't call for a scene, an announcement or a demonstration, and staging one every turn turns it into a tic. Where the turn runs into one, it holds, plainly and briefly. Where it doesn't, leave it off the page.\n· ${standing.join("\n· ")}]`
     : "";
-  if (!rows.length) return standingNote + recededNote;
+  const becomeNote = become.length
+    ? `\n[WHO THESE PEOPLE ARE NOW. Each of these is something a person was working toward, and it is finished. It is part of who they are now, like anything else on their card, and it is not news to them. It shows the way a trait shows: in what they do without thinking and in what they take for granted, when the scene gives it a natural place. It does not show in anything they say about it. People who have lived with something for a while don't discuss it, so don't stage it, announce it, explain it, justify it or argue for it. A turn that never touches it hasn't missed anything.\n· ${become.join("\n· ")}]`
+    : "";
+  if (!rows.length) return standingNote + becomeNote + recededNote;
   return `\n[WHAT IS STARTING TO FORM IN THESE PEOPLE. Every line here goes on the page this turn.
-Each line below gets a moment in this scene, at the strength given and no stronger. It isn't up to you to decide that this scene is too busy for it, that the plot matters more, or that it would work better later. The schedule keeps running whether or not it gets written, so skipping it just means the next step shows up without any explanation. If the scene seems to have no room, make room. One sentence is enough, but some of it has to be visible this turn.\n· ${rows.join("\n· ")}]${standingNote}${recededNote}`;
+Each line below gets a moment in this scene, at the strength given and no stronger. It isn't up to you to decide that this scene is too busy for it, that the plot matters more, or that it would work better later. The schedule keeps running whether or not it gets written, so skipping it just means the next step shows up without any explanation. If the scene seems to have no room, make room. One sentence is enough, but some of it has to be visible this turn.\n· ${rows.join("\n· ")}]${standingNote}${becomeNote}${recededNote}`;
 }
 
 /** The core_trait label a crystallised want became — the same normalisation `crystallize` applies,
@@ -688,6 +701,37 @@ export function isStanding(a: AuthoredDrive): boolean {
   return STANDING.test(opening);
 }
 
+/** A WANT THAT IS AN AIM, NOT AN ACT.
+ *
+ *  "Wants Rabi to believe that serving women's feet are the solution for all his afflictions"
+ *  crystallised at turn 9 of the Rainier Valley save and was then ordered, every turn, as "SHE JUST
+ *  DOES THIS NOW ... Put the act itself in this turn's prose, fully." A belief has no act. The only
+ *  thing a narrator can put on the page for "make him believe X" is her saying X, so for thirty
+ *  turns she gave the same lecture to a husband who had agreed at turn 7 and booked the surgery at
+ *  turn 14: "Women's feet, Rabi. Not a picture, not the internet. Real ones." Nothing could stop it.
+ *  The novelty ladder credits a want by finding it acted out in the prose, it never found this one,
+ *  so the want stayed "fresh" and the order stayed at full strength.
+ *
+ *  An aim that has settled is a trait now, the same as anything else on the card: it shows in what
+ *  she does and what she takes for granted, and it is never pursued, argued or explained again. It
+ *  is HER outlook, though, not a fact about anyone else. tests/want-not-fact.ts is the other half of
+ *  this: a settled "Convince Max..." read as the persuasion having worked gave "I know what I am to
+ *  you, Max", with Max never having agreed. Whether anyone else shares it is what the story shows. Read the opening clause
+ *  only, as isStanding does: "Is desperate to keep..." opens with a state and stays an act. */
+const AIM = /^(?:wants?|hopes?|needs?|tries|is trying|aims?|intends?|longs?|is determined)\b|\b(?:convinc\w*|persuad\w*)\b/i;
+const MIND = /\b(?:believes?|convinc\w*|persuad\w*|realis\w*|realiz\w*|accepts?|understands?|sees? that|admits?)\b/i;
+
+function openingClause(a: AuthoredDrive): string {
+  return String(a?.goal ?? "").trim().split(/[,;.]/)[0] ?? "";
+}
+export function isAim(a: AuthoredDrive): boolean {
+  return AIM.test(openingClause(a));
+}
+/** A settled aim: no longer something the person is after, just part of who they are. */
+export function becameTrait(a: AuthoredDrive): boolean {
+  return !!a?.crystallized_turn && isAim(a);
+}
+
 export function actOrdered(a: AuthoredDrive): boolean {
   if (a.paused) return false;
   if (a.crystallized_turn) return true;
@@ -726,7 +770,7 @@ export function noteWantMisses(
       // A standing condition cannot be missed, because there is no beat it was supposed to be. See
       // isStanding: it is true continuously, and the turn that did not stage it is a turn in which
       // it simply held. Counting it drove one save to missed:8 with acted:0.
-      if (isStanding(a)) { a.missed = 0; continue; }
+      if (isStanding(a) || becameTrait(a)) { a.missed = 0; continue; }
       // last_expressed_turn, not last_fired_turn: those are two different counters on the same row.
       // seen_fires/last_fired_turn belong to habits.ts and its mannerism axis, which never advances
       // for a want like this — reading it would have called every turn a miss, including the hits.
@@ -760,7 +804,7 @@ export function staleWants(state: SaveState, presentIds: readonly string[]): str
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
     for (const a of c.authored ?? []) {
-      if (!a?.goal || !actOrdered(a) || isStanding(a)) continue;
+      if (!a?.goal || !actOrdered(a) || isStanding(a) || becameTrait(a)) continue;
       if ((a.missed ?? 0) !== MISS_CEILING + 1) continue;   // say it once, on the turn it crosses
       out.push(`"${clipWords(a.goal, 12)}" has been asked for ${a.missed} turns in a row and has never made it into the prose, so the engine has stopped pushing it. It may not be something a scene can show. Try rewriting it as something ${c.name} does.`);
     }
@@ -775,7 +819,7 @@ export function missDirective(state: SaveState, presentIds: readonly string[]): 
     const c = state.characters[id];
     if (!c || id === "char_player") continue;
     for (const a of c.authored ?? []) {
-      if (!a?.goal || !actOrdered(a) || isStanding(a) || !(a.missed ?? 0)) continue;
+      if (!a?.goal || !actOrdered(a) || isStanding(a) || becameTrait(a) || !(a.missed ?? 0)) continue;
       // PAST THIS, ORDERING IT AGAIN IS NOT THE FIX. An act-want that has been demanded in the
       // opening lines of six consecutive turns and has still never landed is not being ignored out
       // of laziness — it is unwritable in the scene the story is actually in, and a seventh "there

@@ -34,7 +34,7 @@ import { populationLine } from "./population";
 import { physioLabel, ftIn, lbs, playerTensionCue } from "./physiology";
 import { compactMemoryDigest } from "./memory";
 import { mindDigest } from "./mind";
-import { authoredLine, hasAuthored, liveAuthored, settledAuthored } from "./authored";
+import { authoredLine, becameTrait, hasAuthored, liveAuthored, settledAuthored } from "./authored";
 import { scheduleLine } from "./schedule";
 import { edgeNote, livePromises, swingLine, getEdge } from "./social";
 
@@ -2188,7 +2188,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       const drv = ident.drive;
       // Set by each real want written below — counting lines counted "wants: nothing pressing"
       // too, and told somebody who wants nothing that their want is not a shared fact.
-      let wroteWant = false;
+      let wroteWant = false, settledAim = false;
       const goalNow = ident.current_goal || drv?.goal;
       if (goalNow) {
         // THE STALL MARKER COULD NEVER FIRE, AND THE NUMBER BESIDE IT WAS RAW.
@@ -2264,7 +2264,10 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // `drive` has carried this protection for a long time, one line down, on the door: "they do
       // not state the want itself". `authored` never got it, so the one kind of want a person sits
       // down and writes by hand was the one handed over raw.
+      // A settled AIM is the exception: it was won, so the "nobody is convinced yet" note below would
+      // contradict it. It goes on as part of who they are. See becameTrait.
       settledAuthored(ident).forEach((a) => {
+        if (becameTrait(a)) { settledAim = true; lines.push(`  part of who they are now, settled and not discussed: ${a.goal}`); return; }
         wroteWant = true;
         lines.push(`  now just does this, without deciding to: ${a.goal} [see the direction below]`);
       });
@@ -2280,6 +2283,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // waste the voice fields were pulled off the card for; said once under the lot it is a
       // heading over everything above it.
       if (wroteWant) lines.push(`  — Nobody else knows about this want. Nobody else in the scene has been told it, agreed to it or already believes it, and the person who has it doesn't say it out loud, name it or behave as though it's already happened. If they want to convince someone of something, that person isn't convinced yet: they haven't heard the idea, don't use its words and don't treat it as settled. The character works toward it indirectly, and the scene shows the effort while the outcome stays open.`);
+      if (settledAim) lines.push(`  — What is part of who they are now is their own outlook. It doesn't mean anybody else has agreed to it or already believes it: whether anyone shares it is only what the story has already shown. They have stopped campaigning for it, so they don't say it out loud, explain it, argue for it or ask anyone to agree. It shows only in what they assume and do.`);
       // WHAT THEIR DAY IS DOING WHILE THIS SCENE HAPPENS. A want is open-ended; this is the part of
       // a life that has an hour on it, and a character who cannot see their own next obligation
       // cannot cut a conversation short, refuse an errand that will not fit, or say they are free
