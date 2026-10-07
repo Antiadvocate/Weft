@@ -571,6 +571,25 @@ export function actorValence(what: string): number {
   return cruel ? -1 : 1;
 }
 
+/** A home: somewhere people live, as opposed to somewhere people go. */
+const HOME = /\b(?:house|home|flat|apartment|cottage|cabin|bedroom)\b/i;
+
+/** The actor's name when this event puts them inside a home that isn't theirs and they weren't
+ *  already in; null otherwise. Residents are whoever the place's name or identity names. */
+export function trespasses(state: any, ev: OffstageEvent): string | null {
+  const place = Object.values<any>(state.world?.places ?? {}).find(
+    (p: any) => p.name?.toLowerCase().trim() === String(ev.place ?? "").toLowerCase().trim());
+  if (!place || !HOME.test(`${place.name} ${place.identity ?? ""}`)) return null;
+  const actor = Object.values<any>(state.characters ?? {}).find(
+    (c: any) => c.name?.toLowerCase().trim() === String(ev.actor ?? "").toLowerCase().trim());
+  if (!actor) return null;
+  if (actor.location === place.id) return null;
+  const first = String(actor.name).trim().split(/\s+/)[0];
+  const owners = `${place.name} ${place.identity ?? ""}`;
+  if (first && new RegExp(`\\b${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(owners)) return null;
+  return actor.name;
+}
+
 export function applyOffstage(state: any, events: OffstageEvent[], retired: string[] = []): string[] {
   const byName = new Map<string, string>();
   for (const [id, c] of Object.entries<any>(state.characters ?? {})) {
@@ -599,6 +618,17 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     // the rule above, and this, which does not need the model to have obeyed it.
     if (playerAuthored(ev.what, playerName)) {
       log.push(`offstage: dropped an event that had ${playerName || "the player"} doing something he never did: "${String(ev.what).slice(0, 90)}…"`);
+      continue;
+    }
+
+    // NOBODY WALKS INTO SOMEBODY ELSE'S HOME. The place is free text from the model and was taken as
+    // written. Rainier Valley, Day 4, 05:12: Ellie, whose location was "elsewhere", "let herself in"
+    // to Rabi and May's house with a folder as her excuse, and May, standing at that address, was
+    // filed as having witnessed it. Ellie has never been there and has no key. A home belongs to the
+    // people it names; anyone else has to already be standing in it.
+    const intruder = trespasses(state, ev);
+    if (intruder) {
+      log.push(`offstage: dropped an event that had ${intruder} inside ${ev.place}, which isn't theirs: "${String(ev.what).slice(0, 90)}…"`);
       continue;
     }
 
@@ -636,8 +666,13 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
     // authored one: beat selection weighs it, the pressure system can pick it as a source, the fate
     // spine counts it. Capped hard — the world gets to raise questions, not to bury the story in
     // them — and never duplicated against a thread that already says the same thing.
+    // ...AND NEVER ONE ABOUT THE PLAYER. The world pass is told not to open "what will the player do";
+    // the per-person pass was not, and filed "Where was Rabi before four in the morning?" off an
+    // afternoon that had invented the four o'clock. Where the player was is the player's to say.
     const ot = ev.opens_thread;
-    if (ot?.title?.trim() && ot?.description?.trim()) {
+    const aboutPlayer = !!playerName && new RegExp(`\\b${playerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(`${ot?.title ?? ""} ${ot?.description ?? ""}`);
+    if (aboutPlayer) log.push(`offstage: declined a question about ${playerName}: "${clipText(ot!.title ?? "", 80)}"`);
+    if (!aboutPlayer && ot?.title?.trim() && ot?.description?.trim()) {
       const title = clipText(ot.title, 90);
       const active = (state.world.threads ?? []).filter((t: any) => t.status === "active");
       const dup = active.some((t: any) => {

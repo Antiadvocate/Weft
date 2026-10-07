@@ -375,6 +375,9 @@ export function pickActors(state: SaveState, n: number): string[] {
  * all: the engine knows who is standing at that place, and fills it from the state. The one name
  * the actor may add is somebody they deliberately told, which is a thing only they know.
  */
+/** How word reaches somebody who isn't in the room. */
+const AT_A_DISTANCE = /\b(?:sent|sends) (?:word|(?:a|an|the|her|him|them) (?:message|note|text|letter|email|rider|runner))|\b(?:called|calls|phoned|rang|texted|messaged|emailed|e-mailed|wrote to|writes to|left (?:a|her|him|them) (?:message|note|voicemail))\b/i;
+
 export function actToEvent(state: SaveState, id: string, act: AgentAct): OffstageEvent | null {
   const c = state.characters?.[id];
   if (!c || !act?.what?.trim()) return null;
@@ -385,13 +388,22 @@ export function actToEvent(state: SaveState, id: string, act: AgentAct): Offstag
       && o.status !== "dead" && o.status !== "departed")
     .map(([, o]) => o.name);
 
-  // Somebody told on purpose is a witness whether or not they were standing there — that is what
-  // being told is. Only a real name, and only one.
+  // Somebody told is a witness wherever they were standing: that is what being told is. Only a real
+  // name, and only one. But telling somebody who isn't in sight needs a way to reach them, and the
+  // act has to say what it was. Rainier Valley, Day 3, 19:27: May "read the whole Sonia email aloud
+  // to Ellie Navarro" at her own dining table, told: Ellie, while Ellie was nowhere near the house.
+  // "Sent word", a call, a text: those cross the distance. Reading aloud across a table does not.
+  // The whole act is built around the telling, so it goes rather than being filed without its
+  // listener.
   const told = String(act.told ?? "").trim().toLowerCase();
   if (told) {
     const match = Object.entries(state.characters ?? {})
       .find(([oid, o]) => oid !== id && oid !== "char_player" && o.name.toLowerCase() === told);
-    if (match && !witnesses.includes(match[1].name)) witnesses.push(match[1].name);
+    if (match) {
+      const inSight = !!c.location && c.location !== "loc_offscene" && match[1].location === c.location;
+      if (!inSight && !AT_A_DISTANCE.test(act.what)) return null;
+      if (!witnesses.includes(match[1].name)) witnesses.push(match[1].name);
+    }
   }
 
   const ev: OffstageEvent = {
