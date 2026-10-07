@@ -718,6 +718,7 @@ export function simulatorSchemaHint(): string {
 "character_exits":[{"char_id":"","kind":"dead","note":""}],
 "texture_add":[{"char_id":"","item":""}],
 "traits_expressed":[{"char_id":"","traits":["the core trait exactly as it's written in that character's Core: list, word for word"]}],
+"player_self":["Only when the player's character said something this turn about their own life: their job or role, what is or isn't their project or responsibility, how their work is organised, who does what. One plain sentence each, in the third person with their name, as a fact: \"Rabi is a project manager on 37 projects, and Beacon Works is Ellie's project.\" Use their own claim as they stated it, and leave out what anyone else thinks about it. Leave this out on every other turn."],
 "rumors_new":[{"content":"","truth":"true","salience":5,"origin_char":"","about_char":""}],
 "consequences_new":[{"description":"","fire_in_days":0,"fire_in_hours":0,"fire_in_turns":0,"severity":"notable","source_char":"","location_trigger":""}],
 "clocks_advance":[{"id":"","segments":1}],

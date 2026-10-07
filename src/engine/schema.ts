@@ -38,6 +38,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   threads_update: A(S({ id: str, title: str, status: { type: "string", enum: ["active", "resolved"] }, description: str, tension: num }, ["title", "status"])),
   character_exits: A(S({ char_id: str, kind: { type: "string", enum: ["dead", "departed"] }, note: str }, ["char_id", "kind"])),
   texture_add: A(S({ char_id: str, item: str }, ["char_id", "item"])),
+  player_self: strA,
   rumors_new: A(S({ content: str, truth: { type: "string", enum: ["true", "distorted", "false"] }, salience: num, origin_char: str, about_char: str }, ["content"])),
   consequences_new: A(S({ description: str, fire_in_days: num, fire_in_hours: num, fire_in_turns: num, severity: { type: "string", enum: ["minor", "notable", "major"] }, source_char: str, location_trigger: str }, ["description"])),
   clocks_advance: A(S({ id: str, segments: num }, ["id"])),

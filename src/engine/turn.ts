@@ -25,6 +25,7 @@ import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { plainNarratorMessages } from "./plain";
 import { recordRecall } from "./record";
+import { recordSelfStated, selfStatedLine, threadsThatReach } from "./own";
 import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
@@ -2166,9 +2167,12 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // name, were all still standing in the save where he walked back in six times. The prose gate
   // catches him once written; this stops the engine asking for him. See pressure.namesTheGone.
   const goneNames = [...goneMap(state).keys()];
+  // ONLY THE QUESTIONS THAT REACH THIS SCENE PRESS ON IT. Andre's switchgear key at Rabi's sofa was
+  // the hottest open thread in the world and nobody's business in the room. See engine/own.ts.
+  const reaching = threadsThatReach(state);
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
-    threads: state.world.threads, consequences: state.world.consequences, clocks: state.world.clocks, action,
+    threads: reaching, consequences: state.world.consequences, clocks: state.world.clocks, action,
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
@@ -2233,7 +2237,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const minutesSinceExo = sinceStamp(state.pressure_state.last_exo_time);
   const beatInput = {
     turn, now: state.world.current_time, tension: state.model_settings.tension ?? 5,
-    threads: state.world.threads, clocks: state.world.clocks, consequences: state.world.consequences,
+    threads: reaching, clocks: state.world.clocks, consequences: state.world.consequences,
     agents, palette: state.world_bible.pressure_palette, gone: goneNames,
     last_beat_turn: state.pressure_state.last_beat_turn, last_exo_turn: state.pressure_state.last_exo_turn,
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
@@ -3153,6 +3157,8 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // THE RECORD. When the player disputes something that already happened, the turns it happened in
   // go to the narrator as the one account nobody may contradict. See engine/record.ts.
   const recordNote = recordRecall(state, action, state.world.present, state.model_settings.history_window ?? 5);
+  // What the player has said about their own job and role, held as true every turn. See engine/own.ts.
+  const ownNote = selfStatedLine(state) ? `\n\n=== WHAT THE PLAYER'S CHARACTER HAS SAID ABOUT THEIR OWN LIFE ===\n${selfStatedLine(state)}` : "";
   const chatlog = state.model_settings.context_mode === "chatlog";
   let narratorMsgs: any[];
   if (plain) {
@@ -3198,13 +3204,13 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${ownNote}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${ownNote}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }
@@ -7062,6 +7068,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     }
     if (existing && tu.status === "resolved") shifts.push(`Thread resolved: ${tu.title}.`);
   }
+
+  // WHAT THE PLAYER SAID ABOUT THEMSELVES STANDS. See engine/own.ts.
+  { const said = recordSelfStated(state, diff.player_self, turn); if (said.length) shifts.push(`Noted, from ${state.characters.char_player?.name ?? "the player"}: ${said.join(" ")}`); }
 
   for (const r of diff.rumors_new ?? []) {
     if (!r?.content) continue;

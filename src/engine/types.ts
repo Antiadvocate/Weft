@@ -416,6 +416,9 @@ export interface Identity {
    *  three are useful on a character the engine authored and all three are vandalism on one a person
    *  sat down and wrote. Set here, every one of them steps around this character. */
   voice_locked?: boolean;
+  /** The player only: what they have said about their own life, work and responsibilities, newest
+   *  per subject. Held as true until they say otherwise. See engine/own.ts. */
+  self_stated?: { text: string; turn: number }[];
   /** Auto-registered from prose because the simulator never declared them. The record is a sketch:
    *  no traits, no conscience, background copied from the sentences they appeared in. The simulator
    *  is asked to complete it; until it does, nothing should treat this as a finished person. */
@@ -1297,6 +1300,7 @@ export interface SimulatorDiff {
   traits_expressed?: { char_id: string; traits: string[] }[]; // which core traits this turn actually put on screen, judged by meaning (a gelato expresses "loves ice cream")
   texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
+  player_self?: string[]; // what the player's character said this turn about their own job, role and responsibilities. See engine/own.ts.
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];
   new_characters: { name: string; age: number; appearance_facts: string; background: string; core_traits: string[]; speech_pattern: string; gregariousness: number }[];

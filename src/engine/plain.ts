@@ -38,6 +38,7 @@ import { detectWorldPronoun } from "./coerce";
 import { retrieve } from "./memory";
 import { populationOf } from "./population";
 import { SCENE_FOOTER_INSTRUCTION, voiceCardsOn } from "./prompts";
+import { selfStatedLine } from "./own";
 
 /** How much of the story goes in as full prose before older turns are shortened to summaries.
  *
@@ -233,6 +234,7 @@ function playerCard(state: SaveState): string {
     list("What they're like", c.core_traits),
     list("Their ordinary life", c.texture),
     c.speech_pattern && voiceCardsOn(state, c) ? `How they talk: ${clean(c.speech_pattern)}` : "",
+    selfStatedLine(state),
     stateNow(state, "char_player"),
   ];
   return parts.filter(Boolean).join("\n");
