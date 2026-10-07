@@ -178,7 +178,13 @@ export function hasAuthored(c: Identity | undefined): boolean {
 function bind(a: AuthoredDrive, stage: number): string {
   const g = a.goal.trim().replace(/\.$/, "");
   if (stage < 3) {
-    return ` At this stage the thing itself doesn't happen yet, and the thing itself is: ${g}. What goes on the page is her getting close to it and turning away from it, written so that a reader who had been told how this ends would recognise it as the beginning.`;
+    // THE SLOW APPROACH IS FOR HER OWN MOVES. On a fast want the rungs are four in-world hours each,
+    // and in the hour after Ellie's "take Rabi from May" want was written, Rabi kissed her hand, told
+    // her he wanted her and kissed her foot. The rung said "turning away", so she turned away from
+    // him: "I think we should not be alone again today." The player read it, correctly, as her
+    // dropping the thing she was written to want. A want she is too nervous to start is still a want
+    // she takes when it is held out to her.
+    return ` At this stage the thing itself doesn't happen yet, and the thing itself is: ${g}. What goes on the page is her getting close to it and turning away from it, written so that a reader who had been told how this ends would recognise it as the beginning. That holding back is only for moves she would start herself. If the other person is already offering it, asking for it or moving toward it, she doesn't turn away from them, invent a reason to stop, or ask for distance, because she wanted this all along. She takes what is held out to her at the pace they set, and how fast it goes from there is theirs to decide.`;
   }
   return ` And "it" means this, literally and physically: ${g}. That act happens in this turn's prose, clearly enough that nobody could mistake it for anything else. A move toward it doesn't count, and neither does a gesture that looks like it, a moment of skin showing, or a hand or a look that someone who already knew would read that way. Those belong to the earlier stages, and writing one of them here means writing the wrong stage. To check, imagine cutting the act out of your paragraph: if the paragraph still makes sense without it, you didn't write it. It also can't be the same moment as last turn, because repeating the same near miss stalls the story while making it look as though it's moving.${THRESHOLD}`;
 }

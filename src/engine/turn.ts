@@ -24,6 +24,7 @@ import { frameDirective } from "./frame";
 import { threadsFromSuccess } from "./consequence";
 import { runIntentPass, intentForNarrator, intentForBookkeeper, type NpcIntent } from "./intent";
 import { plainNarratorMessages } from "./plain";
+import { recordRecall } from "./record";
 import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradiction, dissolveWornHabits } from "./habits";
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
@@ -3149,6 +3150,9 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   //   live state. Between anchors the entire growing history is byte-identical, so providers with
   //   implicit prefix caching (DeepSeek ~0.1x, Gemini ~0.25x, Anthropic cache_control) bill almost
   //   all input at the cached rate. Re-anchoring resets the cache once per window — amortized.
+  // THE RECORD. When the player disputes something that already happened, the turns it happened in
+  // go to the narrator as the one account nobody may contradict. See engine/record.ts.
+  const recordNote = recordRecall(state, action, state.world.present, state.model_settings.history_window ?? 5);
   const chatlog = state.model_settings.context_mode === "chatlog";
   let narratorMsgs: any[];
   if (plain) {
@@ -3165,7 +3169,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     // It's the player's own direction, not the engine's, so it goes in, in the same words the
     // directed narrator gets, minus the trait rotation.
     const lifeNow = (habitDirective(state, state.world.present, register.guarded, true) + missDirective(state, state.world.present)).trim();
-    narratorMsgs = plainNarratorMessages(state, plainAction, mode, plainWorldNow, lifeNow);
+    narratorMsgs = plainNarratorMessages(state, plainAction, mode, plainWorldNow, lifeNow, recordNote);
   } else if (chatlog) {
     const cad = Math.max(2, state.model_settings.iframe_cadence ?? 6);
     // THE ANCHOR PINS THE SCENE, SO THE SCENE HAS TO INVALIDATE IT. The anchored digest contains
@@ -3194,13 +3198,13 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     const pairs = replayPairs(state.history, a.turn, cad);
     narratorMsgs = buildChatlogMessages(
       narratorSystem(lean), a.digest, pairs,
-      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${deltaNote(state, memQuery)}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   } else {
     narratorMsgs = buildMessages(
       narratorSystem(lean), prefix,
-      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
+      `${digest}\n\n=== DIRECTION ===\n${fullDirective}${groundNote}${intentForNarrator(intents)}${habitVerdict}${noveltyNote}${spentNote}${faultNote}${severNote}${mindNote}${speechNote}${apertureNote_}${bearingNote_}${becomingNote}${vsNote}${becomingFinal}${recordNote}${beatNote}\n\n=== PLAYER ACTION (the player did exactly this and nothing more, so don't add any actions or inner thoughts for them) ===\n${framedAction}${sovereignty(state)}${SURFACE_TAIL}`,
       state.model_settings.narrator_model,
     );
   }

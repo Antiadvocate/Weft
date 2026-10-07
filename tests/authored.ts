@@ -432,6 +432,9 @@ const wantsLines = (s: SaveState) =>
 
   a.turns_live = 1;   // 20% — "near it, by circumstance"
   check("below the act, the goal is named as the thing NOT happening", /At this stage the thing itself doesn't happen yet, and the thing itself is: Makes Rabi lick/.test(bodyOf()), bodyOf());
+  // Ellie, Rainier Valley T42-51: a rung-one want turned her away from a player who was offering it.
+  check("...but holding back is only for her own moves, not for what the player offers",
+    /only for moves she would start herself/.test(bodyOf()) && /doesn't turn away from them, invent a reason to stop, or ask for distance/.test(bodyOf()), bodyOf());
 
   a.turns_live = 3;   // 60% — the sideways first time, where it must occur
   const mid = bodyOf();

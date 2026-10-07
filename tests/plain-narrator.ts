@@ -110,7 +110,7 @@ check("the story wins over a stale note", /The story itself is the final word/.t
   const lifeAll = plainNarratorMessages(life, `"Hi."`, "do", [], note).map((m: any) => (typeof m.content === "string" ? m.content : m.content.map((c: any) => c.text).join("\n"))).join("\n");
   check("it's sent under its own heading, before the player's input", lifeAll.includes("## What the player has set going in these people's lives") && lifeAll.indexOf("coat pockets") < lifeAll.indexOf("## What the player does now"));
   const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
-  check("the plain turn builds and passes it", /habitDirective\(state, state\.world\.present, register\.guarded, true\)[\s\S]{0,200}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow\)/.test(src));
+  check("the plain turn builds and passes it", /habitDirective\(state, state\.world\.present, register\.guarded, true\)[\s\S]{0,200}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow(?:, recordNote)?\)/.test(src));
 }
 
 /* ── 4. the turn uses it by default ── */
@@ -118,7 +118,7 @@ check("the story wins over a stale note", /The story itself is the final word/.t
   const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
   check("plain is the default", /narrator_style \?\? "plain"\) === "plain"/.test(src));
   check("no private intents are pre-written in plain mode", /plain \? \[\] : await runIntentPass/.test(src));
-  check("the plain request replaces the directed one", /if \(plain\) \{\n[\s\S]{0,1800}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow\)/.test(src));
+  check("the plain request replaces the directed one", /if \(plain\) \{\n[\s\S]{0,1800}plainNarratorMessages\(state, plainAction, mode, plainWorldNow, lifeNow(?:, recordNote)?\)/.test(src));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

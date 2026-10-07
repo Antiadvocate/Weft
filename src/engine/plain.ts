@@ -355,7 +355,7 @@ Write everyone else's dialogue at this level. Each person keeps their own voice,
 }
 
 /** The whole narrator request in plain mode. */
-export function plainNarratorMessages(state: SaveState, action: string, mode: ActionMode, worldNow: string[] = [], lifeNow = ""): any[] {
+export function plainNarratorMessages(state: SaveState, action: string, mode: ActionMode, worldNow: string[] = [], lifeNow = "", record = ""): any[] {
   const present = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
   const query = `${action} ${contextHistory(state).slice(-1)[0]?.narrator_prose ?? ""}`.slice(0, 2000);
   const stable = [
@@ -373,7 +373,8 @@ export function plainNarratorMessages(state: SaveState, action: string, mode: Ac
   // Near the end, beside the input: in the middle of the request a want reads as reference and
   // goes unwritten (see habitDirective).
   const life = lifeNow.trim() ? `## What the player has set going in these people's lives\n${lifeNow.trim()}` : "";
-  const volatile = [storyBlock(state), sceneBlock(state), happening, people, life, speechReference(state), input].filter(Boolean).join("\n\n")
+  // The record of a disputed night sits beside the input, where it is an instruction. See record.ts.
+  const volatile = [storyBlock(state), sceneBlock(state), happening, people, life, speechReference(state), record.trim(), input].filter(Boolean).join("\n\n")
     + SCENE_FOOTER_INSTRUCTION;
   return buildMessages(PLAIN_NARRATOR_SYSTEM, stable, volatile, state.model_settings.narrator_model);
 }

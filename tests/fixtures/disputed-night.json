@@ -1,0 +1,460 @@
+{
+ "may_id": "char_muvkzoek1ngvq",
+ "history": [
+  {
+   "turn": 55,
+   "time_label": "Day 1, 15:13 (Afternoon)",
+   "summary": "Rabi stared at Ellie Navarro's discarded shoes under her desk, prompting Ellie Navarro to pull her feet back under her chair and confront Rabi about his promise to respect her boundaries.",
+   "player_action": "I just, sit there. Unmoving. For a bit. I try to glance at her shoes longingly. The shape of them. As if they held some higher truth."
+  },
+  {
+   "turn": 56,
+   "time_label": "Day 1, 15:18 (Afternoon)",
+   "summary": "Rabi apologized to Ellie Navarro and moved with his laptop to a corner desk across the floor, but Ellie Navarro followed Rabi with the red Beacon Works folder and asked whether Rabi intended to keep running away or work on the load profile with her.",
+   "player_action": "\"Oh sorry. Yes just idly staring. I'll go to another cubicle.\" In my guilt I take my laptop and go to the other side of the office. And sit at a corner table. A hotel cubicle."
+  },
+  {
+   "turn": 57,
+   "time_label": "Day 1, 15:28 (Afternoon)",
+   "summary": "Rabi lectured Ellie Navarro on load profiles and engineering procedure at the corner table, and Ellie Navarro stood her ground, explaining her caution about preliminary assumptions and asking Rabi to stop treating her like she needs tutoring.",
+   "player_action": "\"Ellie. I've marked up the profile already. You told me it wasn't ready. But I don't know what that means. A load profile is what the building uses in a given span of time. It's in our system from meter reads. You have interval data there. We cannot individualize the services that info comes from customer profiling on their side of the gear. We don't have any info past the meter. So you're giving them a large load profile and if you want a study done that's distribution engineering. Like I said earlier, service engineering is best. If you'd like to learn how to handle a project, focusing on one task for hours is a way to not get anything done ever. If you need me to look at it and explain it to you and how load profiles look like on our backend system I can do that.\" I say flatly and now a bit frustrated"
+  },
+  {
+   "turn": 58,
+   "time_label": "Day 1, 15:32 (Afternoon)",
+   "summary": "Rabi insisted the meter data were facts rather than assumptions and suggested doing the project while Ellie Navarro shadowed Rabi, prompting Ellie Navarro to push back against being patronized and set the red Beacon Works folder on the table.",
+   "player_action": "\"They aren't assumptions. This is real data from the meter. They are not estimates. I redlined their usage, their max amps city so they can estimate to prefill their actual demand info against the gear they need to order. That's what this is typically for. Hence load study. Helping you is tutoring you. I'm trying to help you, but I also have 37 projects so if me explaining the method doesn't help. I can do the project and you can shadow me\""
+  },
+  {
+   "turn": 59,
+   "time_label": "Day 1, 15:35 (Afternoon)",
+   "summary": "Rabi shut down the conversation with Ellie Navarro and turned back to his email drafts, prompting Ellie Navarro to leave the red folder on the table and return to her desk to work in silence.",
+   "player_action": "\"Ok then I don't know why I'm trying to help. I'll stop\" and with that I go back to my work email responses."
+  },
+  {
+   "turn": 60,
+   "time_label": "Day 1, 17:00 (Evening)",
+   "summary": "Rabi worked through his emails in silence until five, then packed his laptop and took the elevator down to his car without speaking to Ellie Navarro.",
+   "player_action": "I work until 5 pm. Then get up and head to the car."
+  },
+  {
+   "turn": 61,
+   "time_label": "Day 1, 17:45 (Evening)",
+   "summary": "Rabi drove home through I-5 traffic to an empty house, finding mail in the entryway tray and a note on the kitchen counter from May explaining she would be late because Sonia Vale moved the schedule block again.",
+   "player_action": "I drove home."
+  },
+  {
+   "turn": 62,
+   "time_label": "Day 1, 18:20 (Evening)",
+   "summary": "Rabi cooked chicken alfredo, cleaned the kitchen, ate his dinner standing at the counter, and stored a portion in the refrigerator for May.",
+   "player_action": "I make may some dinner. Chciken Alfredo. And get the house cleaned up before she comes home"
+  },
+  {
+   "turn": 63,
+   "time_label": "Day 1, 18:25 (Evening)",
+   "summary": "Rabi reread May's note on the counter and texted May to ask when she would be home, and May replied that she expected to be home a little after seven after a check-in with Sonia Vale.",
+   "player_action": "I read the note. And text may \"hey babe. When are you coming home?\""
+  },
+  {
+   "turn": 64,
+   "time_label": "Day 1, 18:50 (Evening)",
+   "summary": "Rabi texted May that he had cooked dinner and saved her a portion, then sat on the sofa eating and watching television while May texted back warmly in appreciation.",
+   "player_action": "\"Ugh believe it or not I made you dinner. And saved it so now we have two dinners. Hope you like left over chicken Alfredo. See you later tonight sweetheart. Love you\" I go to the sofa and turn on a show with dinner."
+  },
+  {
+   "turn": 65,
+   "time_label": "Day 1, 21:05 (Night)",
+   "summary": "Rabi finished his dinner on the sofa while watching television into the evening, and May texted him to say that Sonia Vale was keeping them late at Alder Span Engineering.",
+   "player_action": "I eat and watch til 9"
+  },
+  {
+   "turn": 66,
+   "time_label": "Day 1, 21:25 (Night)",
+   "summary": "Rabi turned off the television, brushed his teeth upstairs, got into bed, and received a text from May saying she was on her way home.",
+   "player_action": "I sigh. And go to bed."
+  },
+  {
+   "turn": 67,
+   "time_label": "Day 1, 21:50 (Night)",
+   "summary": "Rabi set his phone face down on the nightstand and drifted off to sleep in bed while waiting for May to return from Alder Span Engineering.",
+   "player_action": "I sleep."
+  },
+  {
+   "turn": 68,
+   "time_label": "Day 2, 00:14 (Deep Night)",
+   "summary": "Rabi slept until past midnight and woke up to find May's side of the bed still empty and no car in the driveway.",
+   "player_action": "I sleep"
+  },
+  {
+   "turn": 69,
+   "time_label": "Day 2, 06:14 (Dawn)",
+   "summary": "Rabi slept until six in the morning, took a hot shower, dressed for work, and found May's keys in the entry tray upon coming downstairs.",
+   "player_action": "I sleep til 6 am. Wake up and shower."
+  },
+  {
+   "turn": 70,
+   "time_label": "Day 2, 06:59 (Dawn)",
+   "summary": "Rabi ate cereal at the counter, gathered his keys, laptop bag, and the Beacon Works folder, drove downtown through the morning mist, and arrived at Seattle Municipal Tower.",
+   "player_action": "I get ready for work. And then take off after having breakfast"
+  },
+  {
+   "turn": 71,
+   "time_label": "Day 2, 07:04 (Dawn)",
+   "summary": "Rabi texted May saying he was disappointed in May and that they might need a break, silenced his phone, and sat at a desk across the room from Ellie Navarro, who called out across the floor asking if Rabi was done pretending not to see Ellie.",
+   "player_action": "I text May *im disappointed in you. I think we may need a break. Talk about it later.* then I silence my phone. And get to my desk far from Ellie."
+  },
+  {
+   "turn": 72,
+   "time_label": "Day 2, 07:09 (Dawn)",
+   "summary": "Rabi told Ellie Navarro that Rabi was choosing to maintain professional boundaries, but Ellie Navarro walked over to Rabi's desk to confront Rabi directly about Rabi's sudden distance and mixed signals.",
+   "player_action": "\"I see you. I'm choosing to maintain professional boundaries. I have work. Unless you need something from me, please let me go about it. I have some meetings today\""
+  },
+  {
+   "turn": 73,
+   "time_label": "Day 2, 07:12 (Dawn)",
+   "summary": "Rabi told Ellie Navarro that Rabi might leave May soon and demanded they act strictly as professional coworkers, but Ellie Navarro stepped up to Rabi's desk and refused to let Rabi unilaterally set the terms.",
+   "player_action": "\"Yes I can. I admitted my feelings for you, you shut me down instantly because I can't leave may which ironically I might end up doing soon. So thank you. Regardless, your treatment of my desire is all I needed to see how you actually felt. So I'd appreciate us being professional and you not bringing up my comments anymore so we can resume working like coworkers. Thanks\""
+  },
+  {
+   "turn": 74,
+   "time_label": "Day 2, 07:17 (Dawn)",
+   "summary": "Rabi threatened Ellie Navarro with human resources and asserted his senior engineer status to make Ellie Navarro back off, prompting Ellie Navarro to call out Rabi's evasion before Ellie Navarro returned to her own desk.",
+   "player_action": "\"Yes. I do. I'm a senior engineer. That is requesting you back off. Before this escalated into an HR situation. And I'm needing to change positions. Because i certainly will\""
+  },
+  {
+   "turn": 75,
+   "time_label": "Day 2, 07:32 (Dawn)",
+   "summary": "Rabi ignored Ellie Navarro and tried to focus on the Beacon Works load file, while Ellie Navarro silently copied papers and marked them up at her desk.",
+   "player_action": "I don't wait for her to have some kind of drama tantrum, I breathe and get back to work."
+  },
+  {
+   "turn": 76,
+   "time_label": "Day 2, 12:02 (Afternoon)",
+   "summary": "Rabi worked through the morning at Seattle Municipal Tower before walking to a nearby caf\u00e9 for lunch, where Ellie Navarro approached his table and asked if she could sit with him.",
+   "player_action": "I work til noon. Then go down to the cafe to get a chocolate latte while I read the news on my phone."
+  },
+  {
+   "turn": 77,
+   "time_label": "Day 2, 12:10 (Afternoon)",
+   "summary": "Rabi asked Ellie Navarro to sit elsewhere to maintain boundaries, and Ellie sat alone by the door while Rabi read texts from May asking if Rabi was at work or home.",
+   "player_action": "\"Sorry Ellie. I'm trying to maintain my boundaries. Like I said, and you agreed to. I think you should find another spot. But thanks for asking me first\" I sit my drink and go back to my phone. I look at my texts."
+  },
+  {
+   "turn": 78,
+   "time_label": "Day 2, 12:13 (Afternoon)",
+   "summary": "Rabi stepped outside the caf\u00e9 to answer May's call about where he was, while Ellie Navarro watched him through the window and prepared to leave.",
+   "player_action": "I call May and step outside."
+  },
+  {
+   "turn": 79,
+   "time_label": "Day 2, 12:16 (Afternoon)",
+   "summary": "Rabi confronted May over the phone about her absence and told May that Rabi needed to reconsider their marriage, while Ellie Navarro stood nearby on the patio listening.",
+   "player_action": "\"May. You told me you'd come home and then didn't. I was alone. I think I need to reconsider our relationship maybe I need some time to myself. I'm not someone you can just dismiss. This isn't a marriage that works for me if it's going to be like this May\""
+  },
+  {
+   "turn": 80,
+   "time_label": "Day 2, 12:21 (Afternoon)",
+   "summary": "Rabi cursed at May over the phone and hung up on her outside Juniper Cup, after which Ellie Navarro came outside and told Rabi she would not leave him alone on the sidewalk.",
+   "player_action": "\"It's your fucking house you asshole. No I'm at fucking work. Serious May. Go fuck yourself. I don't give a shit what excuse you have for literally not coming home at night\" I hang up on her."
+  },
+  {
+   "turn": 81,
+   "time_label": "Day 2, 12:26 (Afternoon)",
+   "summary": "Rabi rejected Ellie Navarro's company outside Juniper Cup, demanding professional boundaries, and walked away while Ellie Navarro questioned his comment about deserving broken trust.",
+   "player_action": "\"Professional boundaries. Last thing I need is you stepping harder on my trust after I just had it broken. I deserve it but that's fine. No thanks Ellie.\" I walk outside. And walk to uwajimaya."
+  },
+  {
+   "turn": 82,
+   "time_label": "Day 2, 12:51 (Afternoon)",
+   "summary": "Rabi bought food at Uwajimaya, returned to his desk at Seattle Municipal Tower to eat and work, while Ellie Navarro returned silently to her desk and May texted Rabi asking him to call her when he could.",
+   "player_action": "I go get some food. And go back to work and at my desk I eat and work"
+  },
+  {
+   "turn": 83,
+   "time_label": "Day 2, 17:41 (Evening)",
+   "summary": "Rabi worked through the afternoon at Seattle Municipal Tower opposite a silent Ellie Navarro, packed his things shortly after five, and drove home to Rabi and May's House, where May called out to Rabi from the kitchen.",
+   "player_action": "I work to 5 pm. Then drive home."
+  },
+  {
+   "turn": 84,
+   "time_label": "Day 2, 17:44 (Evening)",
+   "summary": "Rabi arrived home and greeted May with sarcasm, prompting May to cautiously offer dinner and ask if Rabi had come straight from work.",
+   "player_action": "\"You decided to come home today? Shocking.\""
+  },
+  {
+   "turn": 85,
+   "time_label": "Day 2, 17:49 (Evening)",
+   "summary": "Rabi confronted May about staying out the previous night and breaking her promises to return home, threatening the relationship over the two wasted dinners in the fridge, while May apologized and explained being caught up with Sonia at work.",
+   "player_action": "\"No. I'm not that easy. Last. Ight you didn't come home. You just ignored me. Kept texting me you'd come home. There's two dinners in the fridge. You didn't even come home the next day. I cannot be with someone like that\""
+  },
+  {
+   "turn": 86,
+   "time_label": "Day 2, 17:54 (Evening)",
+   "summary": "May explained to Rabi that she had slept on the couch in the wellness room at Alder Span after working late with Sonia, apologized for missing dinner, and offered her phone to verify her whereabouts.",
+   "player_action": "\"No. You didn't. You texted me you were staying late. And for what? It's HR what the fuck. Where did you even sleep? I'm supposed to be glad you came straight home today and didn't go and sleep who the fuck knows where? Awesome. Thank you wife of mine. Great trust building exercise\""
+  },
+  {
+   "turn": 87,
+   "time_label": "Day 2, 17:59 (Evening)",
+   "summary": "Rabi told May that Rabi did not believe her explanation and would sleep on the couch to maintain distance, while May quietly accepted his decision and insisted from the stairs that she had truly been at work.",
+   "player_action": "\"I don't believe you. And neither am I in a place to try. I'm going to keep some distance from you and I'll be sleeping on the couch. Just let me have my space. Thanks\""
+  },
+  {
+   "turn": 88,
+   "time_label": "Day 3, 00:59 (Deep Night)",
+   "summary": "Rabi fell asleep on the living room sofa while May quietly turned off the stove, covered Rabi with a blanket, and sat watching from the stairs with a mug as gray light entered the house.",
+   "player_action": "I get on the sofa and crawl to falling asleep early. I sleep."
+  },
+  {
+   "turn": 89,
+   "time_label": "Day 3, 07:09 (Dawn)",
+   "summary": "Rabi woke up on the living room sofa and asked May what was going on, while May, still sitting on the stairs with her mug, explained she had stayed nearby and offered to make coffee before her morning desk hours.",
+   "player_action": "I wake up. And look at her. \"What's up.\""
+  },
+  {
+   "turn": 90,
+   "time_label": "Day 3, 07:19 (Dawn)",
+   "summary": "Rabi gently thanked May and suggested getting Starbucks, after which May smoothed the sofa blanket and headed to start the car while Rabi went upstairs to change clothes.",
+   "player_action": "\"I'm ok... thank you for thinking of me. I can do Starbucks. But... thank you\" I say gently. I watch her feet. Missing the comfort. I get out of bed and change clothes"
+  },
+  {
+   "turn": 91,
+   "time_label": "Day 3, 07:24 (Dawn)",
+   "summary": "Rabi told May they would drive separately and sharply remarked that he would see her tonight if she decided to come home again, prompting May to defend herself and insist she had come home and would be there tonight.",
+   "player_action": "\"I'm driving my car. You're going in yours. So I'll see you later tonight. If you decide to come home again\""
+  },
+  {
+   "turn": 92,
+   "time_label": "Day 3, 08:09 (Morning)",
+   "summary": "Rabi challenged May to prove she would come home before driving to Alder Span Engineering, where Ellie Navarro was already working silently at her desk.",
+   "player_action": "\"Prove it. Take care and have a nice day..\" I say to her ss I drive to work n I arrive at my desk on the far cornerv"
+  },
+  {
+   "turn": 93,
+   "time_label": "Day 3, 08:19 (Morning)",
+   "summary": "Rabi sorted through his work emails at Seattle Municipal Tower while Ellie Navarro pointed out discrepancies in the Beacon Works folder and admitted she had looked for his car out front.",
+   "player_action": "I work through my emails"
+  },
+  {
+   "turn": 94,
+   "time_label": "Day 3, 08:24 (Morning)",
+   "summary": "Rabi told Ellie Navarro that Beacon Works was not his project and that she should talk to a supervisor or the assigned engineer, prompting Ellie Navarro to clarify why she brought the red folder to Rabi and ask who the assigned engineer was.",
+   "player_action": "Please forward these to your assigned engineer. I am not on beacon works. Or talk to the supervisor to understand how projects are assigned. I also already marked up beacon works yesterday. I have other stuff to handle. This your project\""
+  },
+  {
+   "turn": 95,
+   "time_label": "Day 3, 08:34 (Morning)",
+   "summary": "Rabi directed Ellie Navarro to look up the Beacon Works service order in WAMS, where Ellie Navarro discovered that it was an unassigned service upgrade in distribution with a mismatched load schedule and apologised to Rabi for making it seem like she was handing him the project.",
+   "player_action": "\"Literally go into WAMs type on the address. See if they have an app on request and what the service request is for. Outage, new construction, temp? What is it? Who's it assigned to? I'm guessing you. Since my list is 37 projects. You need to realists an engineering assignment from distribution, systems or service. It depends on job scope. I wish we had training...\""
+  },
+  {
+   "turn": 96,
+   "time_label": "Day 3, 08:44 (Morning)",
+   "summary": "Rabi explained the procedural steps for processing the Beacon Works application and turned to his inbox, after which Ellie Navarro began marking the documents and offered to walk the packet directly to Alan.",
+   "player_action": "\"Service upgrade is fine. Then have them send us a proper completed packet. It's a requirement before engineer is assigned or can be. Email them their owner should be on the app, tell them explicitly what's needed. Get it. Upload it. Then ask Francis for an engineering assignment. It'll take a month. Alan will do a capacity review study once engineer is assigned. You might be able to ask Alan about it now. But yes. Your project. Now I can get back to my own. Thanks Ellie\" I start working on my inbox"
+  },
+  {
+   "turn": 97,
+   "time_label": "Day 3, 08:47 (Morning)",
+   "summary": "Rabi told Ellie Navarro to find Alan Hall on the other side of the floor without looking up from his monitor, and Ellie Navarro gathered her tote and asked whether to tell Alan that Rabi sent her.",
+   "player_action": "\"Ok. Go find him then. Don't look at me. Alan Hall. He's on the other side of this floor. He should be in the office\" I don't look up from my monitor."
+  },
+  {
+   "turn": 98,
+   "time_label": "Day 3, 08:52 (Morning)",
+   "summary": "Rabi advised Ellie Navarro to look up construction standards on the utility website rather than expecting him to explain the job, put his headphones on, and turned back to his emails while Ellie Navarro packed her papers into her tote.",
+   "player_action": "\"I'm going to get back to work. And I hope you can figure this out and do it per our utility requirements. I'd advise you to search construction standards on SCLs website to understand what you need to do. I'm sorry Ellie. I cannot spend all day on one job explaining this job to you\" input my headphones on and then go back to emails."
+  },
+  {
+   "turn": 99,
+   "time_label": "Day 3, 08:57 (Morning)",
+   "summary": "Rabi told Ellie Navarro he was working until four, and Ellie Navarro set her tote down and said she would be at her desk until six if Rabi wanted to review the standards together.",
+   "player_action": "I work til 4 pm"
+  },
+  {
+   "turn": 100,
+   "time_label": "Day 3, 17:02 (Evening)",
+   "summary": "Rabi formally bade Ellie Navarro goodnight and packed his bag to leave, while Ellie Navarro told Rabi she had reviewed the construction standards independently and wished Rabi a good night with his wife.",
+   "player_action": "\"Yes. I am leaving now. Have a nice night Ms. Navarro\" I pack up my laptop. And head towards the car."
+  },
+  {
+   "turn": 101,
+   "time_label": "Day 3, 17:47 (Evening)",
+   "summary": "Rabi told Ellie Navarro to email him, and Ellie Navarro apologized for making things weird before Rabi took the elevator to his car and drove home to a dark house.",
+   "player_action": "\"Email me. Thanks\" I walk into the elevator. Get to my car and drive home. Upset, frustrated about Ellie continuing to act like more than coworkers after telling me to be a coworker. I breathe through my drive. Ignoring thoughts of may and how I feel about her now"
+  },
+  {
+   "turn": 102,
+   "time_label": "Day 3, 17:52 (Evening)",
+   "summary": "Rabi arrived home to find May waiting in the dark living room, where May told Rabi she had texted about dinner and asked if Rabi was okay.",
+   "player_action": "\"Oh hey. You're home today... I guess. You did come back. Thanks.\""
+  },
+  {
+   "turn": 103,
+   "time_label": "Day 3, 17:57 (Evening)",
+   "summary": "Rabi told May directly that he was not okay and that she had hurt him by staying out all night, and May admitted her fault and asked what Rabi needed from her.",
+   "player_action": "\"I'm not ok obviously. My wife left me alone all night and didn't tell me anything except delayed texts about coming home. I'm upset. I'm sad about it. I'm trying to be ok. It's taking some time. You hurt me\""
+  },
+  {
+   "turn": 104,
+   "time_label": "Day 3, 18:02 (Evening)",
+   "summary": "Rabi hugged May and told May that she was a jerk but that he wanted her around, and May held Rabi tightly, apologized, and admitted she had waited without eating so they could eat together.",
+   "player_action": "I hug her. \"You're a jerk. I'll... try hard to get over it. But thanks for being home tonight. I don't care what's for dinner. I just want you aroun"
+  },
+  {
+   "turn": 105,
+   "time_label": "Day 3, 18:07 (Evening)",
+   "summary": "Rabi sat next to May on the couch, and May listed dinner options while resting her hand on Rabi's arm and asking if Rabi had eaten.",
+   "player_action": "\"Yeah I'd like to..\" I go sit next to her"
+  },
+  {
+   "turn": 106,
+   "time_label": "Day 3, 18:17 (Evening)",
+   "summary": "Rabi told May that Rabi had been too upset to eat, decided to order sushi delivery, and kissed May's knuckles while May suggested spicy tuna and edamame.",
+   "player_action": "\"No, I didn't. I was too upset. But it's ok. It'll pass. Yeah.. I just. I'll just ubereats something.\" I grab my phone and scroll through it. \"You like sushi. What about that? Marination station.\" I kiss her hand while she replies"
+  },
+  {
+   "turn": 107,
+   "time_label": "Day 3, 18:27 (Evening)",
+   "summary": "Rabi ordered dinner for both of them, and May cuddled against Rabi's shoulder on the couch while recounting the frustrations of May's workday at Alder Span.",
+   "player_action": "I order the food and order a salmon bowl for myself. Then I go the sofa \"can we cuddle? You can tell me about your day\""
+  },
+  {
+   "turn": 108,
+   "time_label": "Day 3, 18:32 (Evening)",
+   "summary": "Rabi told May that her work-life balance was unacceptable and suggested she find a new job, prompting May to remind Rabi that he did not need to fix her problems when she was just venting.",
+   "player_action": "\"Just too many emails and not enough time. I hate thinking about it. Your day sounds rough. I really don't like your work life imbalance. They can't keep you overnight like that. You need a new job if this is going to be a thing\""
+  },
+  {
+   "turn": 109,
+   "time_label": "Day 3, 18:37 (Evening)",
+   "summary": "Rabi questioned May about whether she was union or paid hourly, and May pushed back, clarifying that she was salaried and stating that deciding on her job was her own call.",
+   "player_action": "\"I mean. They kept you overnight. Are you getting paid hourly? Are you union?\""
+  },
+  {
+   "turn": 110,
+   "time_label": "Day 3, 18:41 (Evening)",
+   "summary": "Rabi pressed May about working overnight at her desk, prompting May to clarify that she came home at seven and fell asleep on the living room couch, before asking if they could simply have dinner together.",
+   "player_action": "\"I am hourly and salaried. Yes. I get paid for time I invest in work. I don't know if staying overnight at your job and sleeping at your desk is a bad afternoon\""
+  },
+  {
+   "turn": 111,
+   "time_label": "Day 3, 18:46 (Evening)",
+   "summary": "Rabi accused May of staying out all night the day before and gaslighting him, and May denied it, recounting her texts and arrival home while pulling away on the couch.",
+   "player_action": "\"No. The day before. You didn't come home. You left at 9 am I dropped you off. Then you literally didn't come home the whole night you just texted me you were 20 minutes away every hour and you got home the next day after I came back from work. I was pissed for a reason. Please don't gaslight me more\""
+  },
+  {
+   "turn": 112,
+   "time_label": "Day 3, 18:51 (Evening)",
+   "summary": "Rabi showed May text messages to claim she stayed out all night, but May pushed the phone away and pointed out the messages were from Friday, rejecting his accusation that she was losing her mind.",
+   "player_action": "\"Nope. In the morning you weren't at home. You were still at the office. You told me you slept at your desk\" I show her the messages \"are you losing it now so you must be the victim?\""
+  },
+  {
+   "turn": 113,
+   "time_label": "Day 3, 18:54 (Evening)",
+   "summary": "Rabi stood up and told May he was right to ask for time apart, but May remained on the couch, confronted Rabi about putting a blanket on her, and told Rabi to sit down.",
+   "player_action": "\"Well. Then this isn't for me. Now you're telling me that you actually did come home and somehow slept and I didn't feel you in bed or see you or anything in the morning. I woke up at midnight and you weren't home\" I stand up. \"I think maybe I was right to ask for time apart\" I say quietly \"this just isn't how I can relax\""
+  },
+  {
+   "turn": 114,
+   "time_label": "Day 3, 18:59 (Evening)",
+   "summary": "Rabi swore at May, accused May of gaslighting him, and shut himself in the bathroom to run the bath, while May followed to the hallway outside and asked Rabi through the door to tell her what he thinks happened.",
+   "player_action": "\"No I didn't. You weren't at home! I don't know what you're talking about. Stop fucking gaslighting me what speech?! I'm pissed you're inventing memories for me instead of listening to me. I cannot talk to you I'm going to take a break\" I go to the bathroom and turn on the bath and close the door."
+  }
+ ],
+ "may_memory": [
+  {
+   "turn": 85,
+   "event_turn": 85,
+   "anchor_rel": "after staying out overnight",
+   "content": "Rabi told me that Rabi could not be with someone who stayed away all night and ignored texts after cooking two dinners.",
+   "full_content": "Rabi told me that Rabi could not be with someone who stayed away all night and ignored texts after cooking two dinners.",
+   "decay_stage": 1,
+   "importance": 8,
+   "emotional_charge": "panicked and remorseful",
+   "last_accessed_turn": 113,
+   "when_label": "Day 2, 17:44 (Evening)",
+   "where": "Rabi and May's House",
+   "source": "witnessed",
+   "folded": true,
+   "swept": true
+  },
+  {
+   "turn": 87,
+   "event_turn": 87,
+   "anchor_rel": "after returning home from Alder Span",
+   "content": "Rabi told me that Rabi did not believe me and decided to sleep on the couch to keep distance from me.",
+   "full_content": "Rabi told me that Rabi did not believe me and decided to sleep on the couch to keep distance from me.",
+   "decay_stage": 2,
+   "importance": 7,
+   "emotional_charge": "terrified and wounded",
+   "last_accessed_turn": 105,
+   "when_label": "evening of Day 2",
+   "source": "witnessed",
+   "folded": true,
+   "swept": true
+  },
+  {
+   "turn": 86,
+   "event_turn": 86,
+   "content": "I explained to Rabi that I slept on the wellness couch after Sonia\u2026",
+   "full_content": "I explained to Rabi that I slept on the wellness couch after Sonia kept me late, offered him my phone, and apologized for the dinners in the fridge.",
+   "decay_stage": 3,
+   "importance": 6,
+   "emotional_charge": "anxious",
+   "last_accessed_turn": 90,
+   "when_label": "Day 2, 17:49 (Evening)",
+   "source": "witnessed",
+   "folded": true,
+   "swept": true
+  },
+  {
+   "turn": 88,
+   "event_turn": 88,
+   "content": "I put a blanket over Rabi as Rabi slept on the sofa and sat on the bottom step holding a mug, watching Rabi wake up.",
+   "full_content": "I put a blanket over Rabi as Rabi slept on the sofa and sat on the bottom step holding a mug, watching Rabi wake up.",
+   "decay_stage": 2,
+   "importance": 6,
+   "emotional_charge": "tender grief",
+   "last_accessed_turn": 114,
+   "when_label": "Day 2, 17:59 (Evening)",
+   "source": "witnessed",
+   "scheduled_time": "unresolved",
+   "commitment_status": "pending",
+   "folded": true,
+   "swept": true
+  },
+  {
+   "turn": 110,
+   "event_turn": 110,
+   "content": "I told Rabi that I came home at seven and fell asleep on our couch, and asked Rabi if we could just eat dinner together.",
+   "full_content": "I told Rabi that I came home at seven and fell asleep on our couch, and asked Rabi if we could just eat dinner together.",
+   "decay_stage": 0,
+   "importance": 6,
+   "emotional_charge": "frustrated",
+   "last_accessed_turn": 114,
+   "when_label": "Day 3, 18:37 (Evening)",
+   "where": "Rabi and May's House",
+   "source": "witnessed",
+   "scheduled_time": "unresolved",
+   "commitment_status": "pending",
+   "folded": true,
+   "swept": true
+  },
+  {
+   "turn": 113,
+   "event_turn": 113,
+   "content": "Rabi threatened taking time apart again, but I reminded Rabi that he had covered me with a blanket on the couch and told Rabi to sit down.",
+   "full_content": "Rabi threatened taking time apart again, but I reminded Rabi that he had covered me with a blanket on the couch and told Rabi to sit down.",
+   "decay_stage": 0,
+   "importance": 7,
+   "emotional_charge": "defensive and deeply hurt",
+   "last_accessed_turn": 113,
+   "when_label": "Day 3, 18:51 (Evening)",
+   "where": "Rabi and May's House",
+   "source": "witnessed",
+   "folded": true,
+   "swept": true
+  }
+ ]
+}
