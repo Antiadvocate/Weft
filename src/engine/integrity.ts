@@ -60,6 +60,7 @@ const LABEL: Record<string, string> = {
   pov: "the player written from outside instead of addressed as you",
   player_voice: "a line put in your mouth that you never typed",
   held: "you said you were leaving and the scene kept you there",
+  nuked: "a storyline you wiped, brought back by the narration",
 };
 
 /** Turns the rolling window looks back over. */

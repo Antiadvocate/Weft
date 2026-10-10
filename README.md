@@ -348,6 +348,19 @@ A second round, from reading the code of the open-source projects that do a piec
 - **What you're keeping track of.** In the **Journal**, pin a question ("Is the bridge still standing?") and it is re-answered from the record every few turns. It runs alongside the bookkeeper, so it adds no wait. The narrator writes consistently with the answer.
 - **How background people decide.** When a background character's afternoon is decided, it first settles who they are, then what situation they're in, then what a person like that does in it.
 
+## Leaving, your own words, and ending a storyline
+
+- **When you say you're going, you go.** "I drive home", "I head to Juniper Cup" or "I walk out" makes that turn about getting you there. You leave, the trip takes a line or two, and the turn ends where you arrive. People can react as you go, but nobody holds you there. If you said you were going home and haven't got there yet, "Continue" or "I take the elevator" finishes the trip.
+- **Lines you never typed are cut.** If the narration gives your character a line of dialogue you didn't write ("Fine," you say), that line is cut before the bookkeeper records it as something you said. The narrator is shown it on the next turn. If your action reports speech without quoting it ("I tell her I'm leaving"), the narrator can still write the line out.
+- **Web search looks up your question.** With grounding on and no `((target))`, the search is built from what your turn asks, plus the place and the setting. It no longer uses the names of the people in your story.
+- **Nuke a storyline.** *Tuning → World → Nuke a storyline.* Type the words that mark a plot you're done with, such as "Beacon Works, Beacon". You'll see what goes before anything changes. Wiping it removes:
+  - the place and anyone named by those words;
+  - other people's wants, goals, schedule blocks and voice lines about it;
+  - memories, beliefs, established facts, threads, rumours and consequences about it;
+  - the sentences about it in past turns and chapter summaries.
+
+  Everyone else keeps their place in the story. Your rollback points are cleaned too, and there's an undo. Afterwards, new narration that brings it back is cut, unless you raise it yourself.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

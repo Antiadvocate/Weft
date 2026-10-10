@@ -943,6 +943,9 @@ export interface WorldState {
    *  record — but are no longer fed to any model. Set by "Clear the log"; 0/undefined = no line
    *  drawn. See engine/context.ts. */
   context_from_turn?: number;
+  /** Storylines the player nuked: the words, and the turn. The turn loop cuts any new sentence that
+   *  mentions one unless the player's own action brought it up. See engine/nuke.ts. */
+  nuked?: { terms: string[]; turn: number }[];
   scene_started_time?: string; // when the current scene began (same format) — resets on location change or a ≥2h jump; the digest prints scene elapsed so timed world laws can be judged
   weather: string;
   player_location: string;

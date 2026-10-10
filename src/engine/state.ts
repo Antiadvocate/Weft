@@ -183,6 +183,29 @@ export async function pushSnapshot(state: SaveState): Promise<void> {
   while (state.snapshots.length > 7) state.snapshots.splice(1, 1);
 }
 
+/** Rewrite every rollback point with `fn`, so a change meant to be permanent (a nuked storyline)
+ *  doesn't come back with the next rollback. A snapshot that can't be read is left as it was.
+ *  Returns how many were rewritten. */
+export async function mapSnapshots(state: SaveState, fn: (snap: SaveState) => void): Promise<number> {
+  let n = 0;
+  for (const snap of state.snapshots ?? []) {
+    try {
+      const raw = snap.z ? await gunz(snap.blob) : snap.blob;
+      const s = JSON.parse(raw) as SaveState;
+      s.snapshots ??= [];
+      fn(s);
+      const { snapshots: _drop, ...rest } = s;
+      const blob = JSON.stringify(rest);
+      const zipped = await gz(blob);
+      if (zipped) { snap.blob = zipped; snap.z = true; } else { snap.blob = blob; delete snap.z; }
+      n++;
+    } catch (e) {
+      console.warn(`[snapshots] couldn't rewrite the turn ${snap.turn} snapshot: ${e}`);
+    }
+  }
+  return n;
+}
+
 export async function rollback(state: SaveState, toTurn: number): Promise<SaveState | null> {
   const snap = [...state.snapshots].reverse().find((s) => s.turn <= toTurn);
   if (!snap) return null;

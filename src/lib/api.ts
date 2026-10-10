@@ -6,7 +6,7 @@ import type {
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
 import { DEFAULT_MODELS } from "../engine/types";
-import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
+import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes, mapSnapshots } from "../engine/state";
 import { strikeFigures } from "../engine/aphorism";
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
@@ -42,6 +42,7 @@ import { sampleSource } from "../engine/source";
 import { pickCanvass, pickFactions, knowsLines, type CanvassPick } from "../engine/canvass";
 import { askableFactions, institutionContext } from "../engine/institution";
 import { runAnalyst, type AnalystStep } from "../engine/analyst";
+import { planNuke, nukeStoryline, nukeCandidates, nukeSuggestions, type NukeReport } from "../engine/nuke";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
@@ -659,6 +660,25 @@ export const api = {
     }
     await putSave(t);
     return clientView(t);
+  },
+
+  /** NUKE A STORYLINE, preview half: what would go, who it touches, and words that keep company with
+   *  it. Changes nothing. See engine/nuke.ts. */
+  nukePreview: async (id: string, terms: string, removePeople: string[] = []): Promise<{ report: NukeReport; people: { id: string; name: string; central: boolean; named: boolean }[]; suggestions: string[] }> => {
+    const s = await need(id);
+    return { report: planNuke(s, terms, { removePeople }), people: nukeCandidates(s, terms), suggestions: nukeSuggestions(s, terms) };
+  },
+
+  /** NUKE A STORYLINE. Wipes it from the save and from every rollback point, records it as a veto,
+   *  and keeps the pre-nuke state as the recovery row, so undoRollback brings it all back. */
+  nuke: async (id: string, terms: string, removePeople: string[] = []): Promise<{ save: ClientSave; report: NukeReport; snapshots: number }> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);                 // same safety rail as rollback/strike
+    const report = nukeStoryline(s, terms, { removePeople });
+    if (!report.terms.length) throw new Error("say what to wipe: a name, a place, a project");
+    const snapshots = await mapSnapshots(s, (snap) => { nukeStoryline(snap, terms, { removePeople }); });
+    await putSave(s);
+    return { save: clientView(s), report, snapshots };
   },
 
   /** Drop a standing retcon by index (the struck thing is allowed back into the story). */

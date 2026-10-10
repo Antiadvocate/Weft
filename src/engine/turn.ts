@@ -40,6 +40,7 @@ import { dueTracked, askTracked, applyTracked } from "./tracked";
 import { turnSearchQuery } from "./grounding";
 import { playerTrip, leavingBeat } from "./leaving";
 import { scrubPlayerVoice, voicedFix } from "./playervoice";
+import { guardNuked } from "./nuke";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -92,7 +93,7 @@ import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCei
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
-import { clipText, clipTail, overlapRatio } from "./text";
+import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes } from "./text";
 import { clamp } from "./num";
 
 export interface TurnEvents {
@@ -443,31 +444,7 @@ export function isParrot(spoken: string, actionLine: string): boolean {
   return liftedFraction(spoken, actionLine) >= need;
 }
 
-/**
- * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
- *
- * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
- * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
- * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
- * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
- * follows it.
- */
-export function splitSentencesOutsideQuotes(para: string): string[] {
-  const out: string[] = [];
-  let buf = "", inQuote = false;
-  for (let i = 0; i < para.length; i++) {
-    const ch = para[i];
-    buf += ch;
-    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
-    if (inQuote || !".!?".includes(ch)) continue;
-    // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
-    while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
-    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
-    out.push(buf); buf = "";
-  }
-  if (buf) out.push(buf);
-  return out.length ? out : [para];
-}
+export { splitSentencesOutsideQuotes } from "./text";
 
 /**
  * WHAT SOMEBODY IS CALLED IS NOT WHAT THEY ARE NAMED.
@@ -3682,6 +3659,15 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       noteFire(state, "player_voice", `gave the player a line they never typed: "${pv.cut[0].line.slice(0, 60)}"`);
       ev.onMeta({ shifts: [`The narration gave you ${pv.cut.length === 1 ? "a line" : `${pv.cut.length} lines`} you never typed; ${pv.cut.length === 1 ? "it was" : "they were"} cut`] });
       console.warn(`[turn] player voice: cut ${pv.cut.length} line(s) the player never typed`);
+    }
+  }
+  // ...AND A STORYLINE THE PLAYER NUKED, coming back anyway. Cut unless the player raised it. See nuke.ts.
+  if (!opts?.proseOverride && state.world.nuked?.length) {
+    const g = guardNuked(state, prose, action);
+    if (g.cut) {
+      prose = g.prose;
+      noteFire(state, "nuked", `the narration brought back a storyline you wiped; ${g.cut} sentence(s) cut`);
+      console.warn(`[turn] nuked storyline: cut ${g.cut} sentence(s)`);
     }
   }
 

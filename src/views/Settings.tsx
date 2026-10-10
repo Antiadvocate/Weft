@@ -3,6 +3,7 @@ import { beatCooldown } from "../engine/pressure";
 import { ModelPicker, loadLocalModels } from "./ModelPicker";
 import { Braces, Check, Copy, Download, Wrench, SlidersHorizontal, BookOpen, HelpCircle } from "lucide-react";
 import Inspector from "./Inspector";
+import NukeStoryline from "./NukeStoryline";
 import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking } from "../lib/tts";
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
@@ -569,7 +570,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
   const [openingBusy, setOpeningBusy] = useState(false);
   const [tab, setTab] = useState<Tab>("world");
   const [bibleSaved, setBibleSaved] = useState(false);
-  const [bible, setBible] = useState({
+  const bibleOf = (wb: ClientSave["world_bible"]) => ({
     name: wb.name ?? "", era: wb.era ?? "", technology_level: wb.technology_level ?? "",
     magic_rules: wb.magic_rules ?? "", forbidden: wb.forbidden ?? "",
     political_situation: wb.political_situation ?? "", what_people_fear: wb.what_people_fear ?? "", start_date: wb.start_date ?? "",
@@ -580,6 +581,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
     destination_turns: wb.destination_turns ?? 0,
     art_direction: wb.art_direction ?? "",
   });
+  const [bible, setBible] = useState(() => bibleOf(wb));
   // ONE PER LINE, NOT COMMA-SEPARATED. These round-tripped through `join(", ")` / `split(",")`,
   // which shreds any entry containing a comma and does it again on every save: "Political intrigue
   // without immediate, personal stakes" became "Political intrigue without immediate" plus a lost
@@ -590,6 +592,14 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
   const [godMode, setGodMode] = useState(!!wb.god_mode);
   const [canon, setCanon] = useState(((save.world as any).canon ?? []).join("\n"));
   const [difficulty, setDifficulty] = useState({ ...wb.difficulty_profile });
+  // A wipe rewrites the canon and the bible on disk, and these drafts were read before it: without
+  // this, the next "Save world bible" would write the wiped lines straight back.
+  const resyncWorld = (s: ClientSave) => {
+    setBible(bibleOf(s.world_bible));
+    setCanon(((s.world as any).canon ?? []).join("\n"));
+    setPalette((s.world_bible.pressure_palette ?? []).join("\n"));
+    setForbidPrimary((s.world_bible.forbidden_as_primary ?? []).join("\n"));
+  };
 
   const DIFF_OPTIONS = {
     lethality: ["low", "medium", "high"],
@@ -791,6 +801,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
           Edit the world directly: its rules, storylines, faction clocks, places, relationships and established facts. Useful on turn 1 for fixing anything the world builder overdid.
         </div>
       </div>
+      <NukeStoryline save={save} onDone={(s) => { setSave(s); resyncWorld(s); }} />
       <div className="card p-4">
         <div className="font-mono text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-lo)" }}>Opening scene</div>
         <div className="text-[12px] mb-2" style={{ color: "var(--text-mid)" }}>The scene you start in, before turn 1. Generate one, edit it, or clear it.</div>
