@@ -281,7 +281,9 @@ export function sanitize(state: SaveState): SaveState {
       ...p,
       id: String(p.id ?? uid("promise")),
       text: String(p.text).trim(),
-      status: ["open", "kept", "broken"].includes(p.status) ? p.status : "open",
+      // "retired" was missing from this list, so every load turned a promise the player had retired
+      // by hand back into an open one — the Journal's Retire button undid itself on the next turn.
+      status: ["open", "kept", "broken", "retired"].includes(p.status) ? p.status : "open",
       weight: [1, 2, 3].includes(Number(p.weight)) ? Number(p.weight) : 1,
     }));
   state.world.consequences = (state.world.consequences ?? [])

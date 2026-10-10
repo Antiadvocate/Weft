@@ -28,6 +28,7 @@
 import { readFileSync } from "node:fs";
 import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence, reopenPromise } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
+import { sanitize, newSave } from "../src/engine/state";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -281,6 +282,15 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
   const journal = readFileSync("src/views/Journal.tsx", "utf8");
   check("the Journal only offers them while open", /p\.status === "open" && \(/.test(journal));
   check("and offers all three ways out", /"kept"[\s\S]{0,200}"broken"[\s\S]{0,200}"retired"/.test(journal));
+}
+
+/* ── a retired promise stays retired across a load ────────────────────────────
+ * sanitize runs on every getSave, and its status list had no "retired" in it — so the Retire
+ * button's work was undone the next time the save was opened, which is every turn. */
+{
+  const s = newSave("x", { name: "x" } as any);
+  s.world.promises = [{ id: "p1", from: "char_player", to: "char_x", text: "Payment for lodgings through the Ides", made_turn: 1, weight: 2, status: "retired", settled_by_hand: true } as any];
+  check("a retired promise is still retired after a load", sanitize(s).world.promises![0].status === "retired");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
