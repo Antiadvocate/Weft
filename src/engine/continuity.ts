@@ -17,6 +17,7 @@
 import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } from "./types";
 import { absMinutes, advance } from "./time";
 import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche, tickBonds } from "./social";
+import { runLifeEvents } from "./lifeevents";
 import { regenerateDrives } from "./drives";
 import { syncPresence } from "./turn";
 import { buildMessages, complete, safeJson } from "../llm";
@@ -59,6 +60,7 @@ export function simulateForward(state: SaveState, days: number, rng: () => numbe
     report.drive_log.push(...regenerateDrives(state, rng)); // tracked idle NPCs get fresh wants across the days
     report.rumor_log.push(...diffuseRumors(state, rng));
     report.drive_log.push(...tickBonds(state, rng)); // offscreen same-place pairs drift closer/cooler
+    report.drive_log.push(...runLifeEvents(state, rng, (days * 24 * 60) / rounds)); // and some of that drift arrives somewhere
   }
   // psyche valence resettles
   for (const id of Object.keys(state.condition)) {
@@ -448,7 +450,9 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
     r.origin_char = swap(r.origin_char);
     if (r.about_char) r.about_char = swap(r.about_char);
     r.knowers = [...new Set(r.knowers.map(swap))];
+    if (r.distorted) r.distorted = [...new Set(r.distorted.map(swap))];
   }
+  for (const le of state.world.life_events ?? []) { le.a = swap(le.a); le.b = swap(le.b); }
   for (const cq of state.world.consequences) if (cq.source_char) cq.source_char = swap(cq.source_char);
   // the player now inhabits the target's body → the world's player_location is wherever that body is
   state.world.player_location = state.characters["char_player"].location ?? state.world.player_location;

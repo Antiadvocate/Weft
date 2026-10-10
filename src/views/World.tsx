@@ -151,6 +151,13 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
               </span>
             </div>
             <div className="text-[12.5px] mt-0.5" style={{ color: "var(--text-mid)" }}>{c.objective}</div>
+            {/* WHAT IT SAYS — the public line, which its members repeat in company and which may not
+                be the objective above. See engine/institution.ts. */}
+            {c.public_line && (
+              <div className="text-[12px] mt-0.5 italic" style={{ color: "var(--text-lo)" }}>
+                says in public: “{c.public_line}”{c.speaks_through ? ` — ${c.speaks_through}` : ""}
+              </div>
+            )}
             {/* HOW THEY KNOW — the route, hop by hop. A clock with no chain has learned nothing
                 and is not advancing, which is the answer to "how does this guy even know?" */}
             {(c as any).knowledge_chain?.length ? (

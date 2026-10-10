@@ -65,6 +65,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     // MIGRATION: authored was a single want before it was a list. Saves written then hold an object.
     authored: Array.isArray(ident.authored) ? ident.authored : ident.authored ? [ident.authored as any] : undefined,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
+    affiliation: ident.affiliation ? asText(ident.affiliation) || undefined : undefined,
     // These were previously dropped, which (a) broke the central-character cap — every new
     // character silently entered as central because `central` never landed on the record —
     // and (b) erased life_history when carrying a cast into a new chapter.
@@ -280,7 +281,9 @@ export function sanitize(state: SaveState): SaveState {
       ...p,
       id: String(p.id ?? uid("promise")),
       text: String(p.text).trim(),
-      status: ["open", "kept", "broken"].includes(p.status) ? p.status : "open",
+      // "retired" was missing from this list, so every load turned a promise the player had retired
+      // by hand back into an open one — the Journal's Retire button undid itself on the next turn.
+      status: ["open", "kept", "broken", "retired"].includes(p.status) ? p.status : "open",
       weight: [1, 2, 3].includes(Number(p.weight)) ? Number(p.weight) : 1,
     }));
   state.world.consequences = (state.world.consequences ?? [])

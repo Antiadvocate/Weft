@@ -73,6 +73,10 @@ export interface LocalEndpoint {
    *  is still the only thing deciding where a scene actually stops. Prose calls only — a bookkeeping
    *  diff is JSON and needs its own room. 0 = no cap. */
   max_output?: number;
+  /** KOBOLDCPP ONLY: ban the stock-phrase list in the sampler (banned_strings). KoboldCpp
+   *  backtracks before a banned phrase is emitted; llama.cpp's server rejects the unknown field,
+   *  which is why this is a switch and not a default. See engine/stock.ts. */
+  phrase_ban?: boolean;
 }
 
 /** Sampler values used when the endpoint config doesn't say. Modest on purpose: enough to break a

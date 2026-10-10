@@ -26,8 +26,9 @@
  * The engine cannot infer its way out of either. What it needs is a door.
  */
 import { readFileSync } from "node:fs";
-import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence } from "../src/engine/social";
+import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence, reopenPromise } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
+import { sanitize, newSave } from "../src/engine/state";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -196,6 +197,22 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
   check("marked as settled on evidence", p.settled_by_evidence === true && p.settled_turn === 8);
   check("with the turns it saw", JSON.stringify(p.evidence_turns) === "[6,7,8]", p.evidence_turns);
   check("and Lucia gets the trust for it", getEdge(s.world.edges, "char_player", "char_lucia").trust > 0);
+
+  /* ...AND IT CAN BE TAKEN BACK. The close is a guess and the ledger's buttons only exist on open
+   * promises, so a wrong one used to be permanent. Reopening gives back exactly what it changed. */
+  const e = getEdge(s.world.edges, "char_player", "char_lucia");
+  const mems = s.memory.char_player.episodic.length;
+  const msg = reopenPromise(s, p);
+  check("an engine close can be taken back", !!msg && p.status === "open", msg);
+  check("the trust and warmth it gave are given back", e.trust === 0 && e.warmth === 0, e);
+  check("the note it overwrote comes back", e.notes === "", e.notes);
+  check("the memory it wrote is withdrawn", s.memory.char_player.episodic.length === mems - 1);
+  check("and the engine doesn't close it on its own again", (tick(9), tick(10), tick(11), p.status === "open"), p.status);
+  check("a promise closed by hand is not reopened this way", (() => {
+    const q = addPromise(s, "char_clodia", "char_player", "Clodia will bring the ledger to the villa before dark.", 1)!;
+    q.status = "kept"; q.settled_by_hand = true;
+    return reopenPromise(s, q) === null && q.status === "kept";
+  })());
 }
 
 /* ── 7. what the engine will NOT close for you ────────────────────────────────
@@ -265,6 +282,15 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
   const journal = readFileSync("src/views/Journal.tsx", "utf8");
   check("the Journal only offers them while open", /p\.status === "open" && \(/.test(journal));
   check("and offers all three ways out", /"kept"[\s\S]{0,200}"broken"[\s\S]{0,200}"retired"/.test(journal));
+}
+
+/* ── a retired promise stays retired across a load ────────────────────────────
+ * sanitize runs on every getSave, and its status list had no "retired" in it — so the Retire
+ * button's work was undone the next time the save was opened, which is every turn. */
+{
+  const s = newSave("x", { name: "x" } as any);
+  s.world.promises = [{ id: "p1", from: "char_player", to: "char_x", text: "Payment for lodgings through the Ides", made_turn: 1, weight: 2, status: "retired", settled_by_hand: true } as any];
+  check("a retired promise is still retired after a load", sanitize(s).world.promises![0].status === "retired");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

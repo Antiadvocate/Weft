@@ -36,6 +36,7 @@
  */
 import { complete } from "../llm";
 import { isCancel } from "../llm";
+import { stockIn, introducesStock } from "./stock";
 
 /** CHATLOG PROSE SCRUB — the loop that made the POV rule unenforceable.
  *
@@ -190,6 +191,9 @@ export interface FlaggedSentence {
   sent: number;      // sentence index within that paragraph
   text: string;      // the sentence, trimmed
   phrase: string;    // the matched construction
+  /** "claim" — the narration claiming to know an interior (the patterns above). "stock" — a phrase
+   *  from the corpus of over-used ones (stock.ts). Absent means claim. */
+  family?: "claim" | "stock";
 }
 
 /** Everything the reviser would work on, computed locally and for free. A turn whose narration is
@@ -206,7 +210,11 @@ export function flagTics(prose: string): FlaggedSentence[] {
       if (text.length <= 25) return;
       if (DIALOGUE_MARK.test(text)) return;
       const phrase = matchedPhrase(text);
-      if (phrase) out.push({ para: pi, sent: si, text, phrase });
+      if (phrase) { out.push({ para: pi, sent: si, text, phrase }); return; }
+      // ...and the phrase a thousand other stories already used. Same sentence-level unit, same
+      // dialogue rule above — a sentence with a quotation mark in it is never edited. See stock.ts.
+      const stock = stockIn(text)[0];
+      if (stock) out.push({ para: pi, sent: si, text, phrase: stock.phrase, family: "stock" });
     });
   });
   return out;
@@ -220,6 +228,8 @@ const MAX_REVISIONS = 6;
 export const REVISER_SYSTEM = `You fix single sentences of third-person story narration, one at a time. You're given sentences from one scene, and each comes with one quoted phrase that mustn't appear in the finished version.
 
 Each quoted phrase is a place where the narration claimed to know something it can't know. It said what a character felt, knew, decided, intended or was privately concluding, or it told the reader what a gesture or a tone meant, or it made a general claim about how people are. The narration can only report what can be seen and heard, and it can't know what's going on inside anybody.
+
+Some phrases are marked STOCK PHRASE instead. Those don't claim anything; they're stretches of words that appear in thousands of other stories, so they fit any person in any room. Treat them the same way: cut the phrase, keep what this sentence shows that belongs to this scene, and if the phrase was carrying an action, say that action in the fewest words already in the sentence.
 
 Your only job is to remove that phrase and leave a grammatical sentence. Fix each one and send it back.
 
@@ -309,6 +319,7 @@ export function acceptable(original: string, phrase: string, replacement: string
   if (DIALOGUE_MARK.test(r)) return false;               // narration must not become speech
   if (r.toLowerCase().includes(phrase.toLowerCase())) return false;  // the phrase survived
   if (MOTIVE_LEAK.test(r)) return false;                 // it traded one tic for another
+  if (introducesStock(original, r)) return false;        // ...or for a stock phrase
   if (reintroducesInterior(original, r)) return false;   // ...or for one the detector can't see
   for (const n of properNouns(original)) if (!r.includes(n)) return false;  // a name went missing
   return true;
@@ -342,7 +353,7 @@ export async function reviseProse(prose: string, opts: ReviseOpts): Promise<Revi
   const work = [...flagged].sort((a, b) => b.text.length - a.text.length).slice(0, MAX_REVISIONS);
 
   const listing = work
-    .map((f, i) => `[${i}] PHRASE TO REMOVE: «${f.phrase}»\nSENTENCE: ${f.text}`)
+    .map((f, i) => `[${i}] ${f.family === "stock" ? "STOCK PHRASE" : "PHRASE"} TO REMOVE: «${f.phrase}»\nSENTENCE: ${f.text}`)
     .join("\n\n");
 
   let parsed: { revisions?: { i: number; text: string }[] };

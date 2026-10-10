@@ -34,6 +34,9 @@ import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolida
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
+import { siftStory } from "./sift";
+import { runLifeEvents } from "./lifeevents";
+import { dueTracked, askTracked, applyTracked } from "./tracked";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -69,6 +72,7 @@ import { adoptCanonLaws } from "./authored";
 import { isDependentGoal } from "./driveforge";
 import { storyFrame, findDeclaredMiss, declaredFix } from "./declared";
 import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
+import { stockToQuote, stockFix } from "./stock";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
@@ -2906,7 +2910,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3454,6 +3458,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     {
       const maxims = findMaxims(prose);
       state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
+      // ...and the narration reaching for a phrase a thousand other stories already used. Quoted
+      // back only when it recurs — two in a turn, or the same one coming back. See stock.ts.
+      {
+        const st = stockToQuote(prose, contextHistory(state).map((h) => h.narrator_prose ?? "").filter((x) => x.trim()));
+        state.last_stock = st ? { phrase: st.phrase, sentence: st.sentence.slice(0, 240) } : null;
+      }
       // AND WHETHER THE WORLD DID WHAT THE PLAYER WROTE. Only on the channel that promises it, and
       // only against the prose actually committed. See engine/declared.ts.
       state.last_declared = mode === "story" && !voided ? findDeclaredMiss(action, prose) : null;
@@ -3674,6 +3684,14 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
         if (!isCancel(e)) console.warn(`[reviser] pass threw, prose left as written: ${e}`);
         return null;
       })
+    : null;
+
+  // ── THE PLAYER'S TRACKED QUESTIONS ── Same placement as the reviser and for the same reason: started
+  // now, from the finished prose and the state as it stood before this turn's bookkeeping, and
+  // collected at the commit. Nothing due, no socket. See engine/tracked.ts.
+  const trackedPass = !opts?.proseOverride && dueTracked(state, turn).length
+    ? askTracked(state, prose, { model: state.model_settings.simulator_model, fallback: state.model_settings.fallback_model, signal, turn })
+        .catch((e) => { if (!isCancel(e)) console.warn(`[tracked] ${e}`); return [] as { id: string; answer: string }[]; })
     : null;
 
   let footer = parsedScene.footer;
@@ -4372,6 +4390,10 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // ...and it is TOLD which thread this turn was assigned to, rather than trying to read that back
   // out of the prose afterwards. See the note at the top of the loop in threads.ts.
   offscreenLog.push(...sweepThreads(state, prose, beat.kind === "thread" ? (beat as { id?: string }).id : undefined));
+  // AND THE SITUATIONS NOBODY OPENED. The relationship web holds stories no thread names — a want
+  // that isn't returned, two people after the same person, a friendship one side doesn't share.
+  // The sifter reads them out of the state and keeps them as threads. See sift.ts.
+  offscreenLog.push(...siftStory(state, turn));
   // AND THE PROMISE LEDGER, for exactly the same reason threads needed it: nothing ever took an
   // entry OFF except the bookkeeper choosing to, so small favours the story moved past accumulated
   // forever — each one holding a slot in the ten shown to the bookkeeper every turn and a line on a
@@ -4381,6 +4403,10 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   offscreenLog.push(...returnFromOffscene(state));
   try { offscreenLog.push(...(await runOffstage(state, state.model_settings.forge_model))); }
   catch { /* the world simply didn't move this interval */ }
+  // AND WHAT HAPPENED BETWEEN OTHER PEOPLE. A couple forming, a marriage ending, two friends
+  // falling out — milestones the numbers had reached with nobody to make them happen. Offstage
+  // people only; never the player. See lifeevents.ts.
+  offscreenLog.push(...runLifeEvents(state));
   offscreenLog.push(...seedWitnessRumors(state, state.world.current_turn));
   // STANDING BEFORE SPREAD. What the player just did in public moves their reputation, and the
   // updated reputation is what decides how this turn's rumors about them travel — a deed done by
@@ -4632,6 +4658,10 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // ── THE REVISER, COLLECTED ── Started before the bookkeeper, awaited here. `null` covers every
   // way it can decline: switched off, nothing flagged, provider down, no usable repair — and every
   // one of them lands the player on the narrator's own words, which is where they were before.
+  if (trackedPass) {
+    const n = applyTracked(state, await trackedPass, turn);
+    if (n) ev.onMeta?.({ shifts: [`${n} tracked question${n > 1 ? "s" : ""} brought up to date — see the Journal`] });
+  }
   let proseRead: string | undefined;
   if (revisePass) {
     const rev = await revisePass;

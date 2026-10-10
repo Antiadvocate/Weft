@@ -317,6 +317,37 @@ concrete they are wrong about, with you nowhere near it.
 Off by default, because it changes what your background is made of, and that is a choice about your
 story rather than a fix for a bug.
 
+## Asking the world, and starting from a book
+
+A few things here were taken from a swarm-simulation project, MiroFish, which models public opinion with thousands of agents. Most of that project is plumbing around somebody else's simulator, and a lot of the stance and influence settings it generates are never read by the code that runs the simulation. The questions it asks are good ones, though, and Weft already had the state to answer them properly.
+
+- **Start from a text.** The Forge takes a file or a paste: a chapter, a setting document, a story bible. Your idea above still says who you are; leave it blank and you arrive as a newcomer. A long text is never cut off at the beginning. It is split into parts, and evenly spaced excerpts from the first part to the last go in, so people who only appear late in the book are in the world too.
+- **The cast knows each other from turn one.** The Forge now writes the characters' relationships to *each other*, one entry from each side, with the role ("her older sister") and the reason behind the numbers. Before, every pair of characters started as strangers whatever their backgrounds said, which also left rumours with no bonds to travel along. A new chapter keeps these bonds as well; it used to keep only each character's bond with you.
+- **Hearing about someone changes what you think of them.** When a rumour reaches someone, their opinion of the person it's about moves a little. How much depends on how far they trust whoever told them, and on how firmly they already think otherwise. People who can't stand each other pass stories along less, and people who already agree about someone pass stories about them more. A story that grew on the way is marked as grown for the person who got it that way, and the narrator is told their version is off. The numbers are in KERNEL.md under *Hearsay*.
+- **Ask several people at once.** In **Cast**, *ask several people* puts one question to a handful of characters out of scene, and nothing gets recorded. Weft suggests who to ask: the people the question touches most, picked so that their feelings about you differ. Each answers from what they actually hold, including a wrong read of you and rumours in the version they heard. You can also ask a faction, marked *official*, and get its public position back.
+- **Factions say things.** A faction now has a line it gives in public beside what it is actually doing, and a way that line reaches people (a notice, a sermon, a crier). Characters who belong to it hold to that line in company. The World tab shows the line under the faction's objective. The faction's own voice is built only from what is public, so it can't let its real aim slip.
+- **Ask the record.** At the top of the **Chronicle**, ask a question about your own save, such as *why does she distrust me?* or *how did the Hall find out?* A small loop has to look things up before it may answer: the turns, each person's memories and notes, who told whom each rumour, how a faction learned something. The answer cites what it found. It can see hidden state, so it can spoil things, and it changes nothing.
+- **Promises the engine closed can be reopened.** When the engine marks a promise kept on its own, the Journal now says so, and *not kept — reopen* undoes exactly what that changed.
+
+## Stories nobody opened, and a past before turn one
+
+A second round, from reading the code of the open-source projects that do a piece of what Weft does: Talk of the Town and Neighborly (social simulation), Max Kreminski's Winnow (story sifting), Concordia (Google DeepMind's generative-agent library), Talemate (roleplay engine), and Sam Paech's anti-slop work.
+
+- **Story sifting.** The engine reads the relationship web for dramatic shapes nobody opened a thread for:
+  - someone who wants a person who doesn't want them back, or who wants somebody else;
+  - two people who want the same person, which can be you;
+  - a friendship only one side feels;
+  - someone trusting a person who means them no good;
+  - someone bound to two people who are at war;
+  - two people each after something from the same person.
+
+  A shape that touches you is opened as a thread with the next step that would move it on, at most two at a time, and closed again when the numbers stop showing it. It never reads your own feelings: you can be the one wanted, never the one wanting.
+- **Life between other people.** While you're elsewhere, people the numbers have brought there can get together, break up, fall out and patch it up. Each one becomes a memory for both of them and news they carry. It's scaled by in-world time, so a ten-minute turn almost never produces one and a fortnight's time skip can. Never you, and never anyone in your scene.
+- **Formative memories.** At the Forge each character gets four to six dated memories from before the story, written from their card. A memory that names a person or place the card doesn't is thrown away, so nobody acquires a sister their background says they never had. For older saves, **Cast → ⋯ → Write their past**.
+- **Stock phrases.** A list of a few hundred phrases models over-use in fiction, derived from Sam Paech's antislop-sampler (Apache-2.0; see `src/engine/stockphrases.ts`). It never goes into a prompt. With the reviser on, a narration sentence containing one is repaired. When the narrator leans on them, two in a turn or the same one again, the next turn quotes its own sentence back once. Text inside quotation marks is never read. On a local **KoboldCpp**, *Tuning → Local AI → Ban stock phrases* has the sampler refuse them as it writes. Leave that off for other servers.
+- **What you're keeping track of.** In the **Journal**, pin a question ("Is the bridge still standing?") and it is re-answered from the record every few turns. It runs alongside the bookkeeper, so it adds no wait. The narrator writes consistently with the answer.
+- **How background people decide.** When a background character's afternoon is decided, it first settles who they are, then what situation they're in, then what a person like that does in it.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

@@ -14,7 +14,7 @@
  * So: the first block below is the whole argument for the module, written as assertions about
  * what is absent from a string. */
 import { newSave, registerCharacter } from "../src/engine/state";
-import { actorBrief, pickActors, actToEvent, collide, formIntent, centrality, choreLike, spendStalledWants, MAX_ACTORS } from "../src/engine/agency";
+import { actorBrief, pickActors, actToEvent, collide, formIntent, centrality, choreLike, spendStalledWants, MAX_ACTORS, AGENCY_SYSTEM } from "../src/engine/agency";
 import { agencyTurn, applyOffstage, readOffstage } from "../src/engine/offstage";
 import { regenerateDrives } from "../src/engine/drives";
 import type { SaveState } from "../src/engine/types";
@@ -567,6 +567,16 @@ function makeState(): SaveState {
   spendStalledWants(queued);
   check("the backup is promoted rather than the slot left empty",
     !!queued.characters[ID.recluse].drive?.goal.includes("tongs"), queued.characters[ID.recluse].drive);
+}
+
+/* ── THE DECISION, IN ORDER ── Concordia's procedure: who am I, what is this situation, what does a
+ * person like me do in it. Kept internal, so the reply shape is unchanged. */
+{
+  const i1 = AGENCY_SYSTEM.indexOf("what kind of person you are");
+  const i2 = AGENCY_SYSTEM.indexOf("what kind of situation you're in");
+  const i3 = AGENCY_SYSTEM.indexOf("what a person like that does in a situation like this");
+  check("the agent settles who it is, then the situation, then what such a person does", i1 > 0 && i2 > i1 && i3 > i2, { i1, i2, i3 });
+  check("and the reply shape is unchanged", /Reply with only this JSON:\n\{"what"/.test(AGENCY_SYSTEM));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

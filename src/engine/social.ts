@@ -22,6 +22,7 @@ import { uid } from "./state";
 import { obduracyIn } from "./obduracy";
 import { populationOf } from "./population";
 import { recordHop, wordCouldReach } from "./knowledge";
+import { hearsayShift, rumorSubject, tellBias } from "./hearsay";
 import type { PowerTier } from "./pressure";
 
 export const RUMOR_BASE_P = 0.45;
@@ -686,6 +687,9 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
     // A rumor about the player is read through the standing they have actually built (see
     // rumorCharge); a rumor about anyone else is read on its words alone.
     const charge = rumorCharge(rumor.content, rumor.about_char === "char_player" ? (state.world.public_standing ?? 0) : 0);
+    // Who this story is about, as an actor — read once per rumour per turn. It decides who trades it
+    // more readily (people who already agree about the subject) and whose opinion of whom it moves.
+    const subject = rumorSubject(state, rumor);
     let fed = false; // a rumor grows at most once per turn, no matter how many rooms carry it
     for (const group of groups) {
       const mood = groupMood.get(group) ?? 0;
@@ -717,7 +721,12 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
               if (reachable && !reachable.possible) reach = 0;   // not yet; it keeps trying next turn
             }
           }
-          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread * reach;
+          // WHO TELLS WHOM. Co-presence decided who COULD hear; it never asked whether these two talk.
+          // Two people who can't stand each other passed stories across a room as freely as old
+          // friends. tellBias is 1 for strangers — the rate the field always had — and leans with the
+          // bond, and with whether the two already see the subject the same way. See hearsay.ts.
+          const bias = tellBias(state, k, j, subject);
+          const p = RUMOR_BASE_P * (rumor.salience / 10) * ((gk + gj) / 2) * spread * reach * bias;
           if (rng() < p) {
             rumor.knowers.push(j);
             // PROVENANCE: record who told whom, where, and when. Without this the knowers list is
@@ -725,12 +734,29 @@ export function diffuseRumors(state: SaveState, rng: () => number = Math.random)
             // answer the engine can give.
             recordHop(rumor, k, j, state.world.current_turn, state.world.places[state.characters[j]?.location ?? ""]?.name);
             log.push(`${state.characters[j]?.name ?? j} hears: "${rumor.content}" (from ${state.characters[k]?.name ?? k})`);
+            // A grown version is passed on as it was received.
+            let sharpened = !!rumor.distorted?.includes(k);
             // GROWTH: carried by matching weather, the story sharpens in the telling — the CA's
             // accrual term, balanced against the decay above so the field can't only complexify.
             if (!fed && match >= 3) {
               rumor.salience = Math.min(10, rumor.salience + 0.6);
               fed = true;
+              // ...and the person it grew on the way to is holding a version that is no longer
+              // what the witness saw. `truth` stays the event's; the drift is theirs.
+              sharpened = true;
               log.push(`the story grows in the telling, and "${rumor.content}" gets sharper as it spreads.`);
+            }
+            if (sharpened && !(rumor.distorted ??= []).includes(j)) rumor.distorted.push(j);
+            // HEARING CHANGES WHAT YOU THINK. Until now this was the end of it: j knew, and j's
+            // opinion of the person the story was about stood exactly where it was. See hearsay.ts.
+            const shift = hearsayShift(state, rumor, j, k, sharpened);
+            if (shift) {
+              applyEdgeDelta(state.world.edges, { from: j, to: shift.subject, warmth_delta: shift.warmth, trust_delta: shift.trust, power_delta: 0 }, state.world.current_turn,
+                { chars: state.characters, traits: state.traits });
+              const jn = state.characters[j]?.name ?? j, sn = state.characters[shift.subject]?.name ?? shift.subject;
+              log.push(shift.warmth < 0
+                ? `${jn} thinks less of ${sn} now, going by what ${state.characters[k]?.name ?? k} told them.`
+                : `${jn} thinks better of ${sn} now, going by what ${state.characters[k]?.name ?? k} told them.`);
             }
           }
         }
@@ -1416,8 +1442,17 @@ export function creditPromiseEvidence(state: SaveState, action: string, prose: s
     if (promiseEvidence(state, p, action, prose) === null) continue;
     const seen = (p.evidence_turns ??= []);
     if (!seen.includes(turn)) seen.push(turn);
-    if (p.weight >= 3 || seen.length < PROMISE_EVIDENCE_TO_CLOSE) continue;
+    if (p.weight >= 3 || seen.length < PROMISE_EVIDENCE_TO_CLOSE || p.no_auto_close) continue;
+    // Measure what the close does, so the player can take it back exactly (reopenPromise).
+    const e = getEdge(state.world.edges, p.to, p.from);
+    const before = { warmth: e.warmth, trust: e.trust, notes: e.notes, notes_turn: e.notes_turn };
+    const memBefore = state.memory[p.to]?.episodic.length ?? 0;
     resolvePromise(state, p, "kept", turn);
+    p.engine_close = {
+      warmth: e.warmth - before.warmth, trust: e.trust - before.trust,
+      prev_notes: before.notes, prev_notes_turn: before.notes_turn,
+      memory: (state.memory[p.to]?.episodic.length ?? 0) > memBefore ? state.memory[p.to]!.episodic.at(-1)!.content : undefined,
+    };
     p.settled_turn = turn;
     p.settled_by_evidence = true;
     // Say that the ENGINE did this. The player is the only one who can tell it apart from a promise
@@ -1557,6 +1592,36 @@ export function resolvePromise(state: SaveState, p: PromiseRec, outcome: "kept" 
     });
     return to === "char_player" ? `${fromName} broke their word: ${p.text}.` : `${fromName} broke a promise to ${toName}${hist.broken > 0 ? " — not the first time" : ""}.`;
   }
+}
+
+/**
+ * TAKE BACK AN ENGINE CLOSE. The player says a promise the engine marked kept was not kept: the
+ * relationship gives back exactly what the close gave it, the note it overwrote comes back, the
+ * memory it wrote is withdrawn, and the promise is open again — and stays out of the evidence path,
+ * because the player has now ruled on it. Returns null when there is nothing to take back.
+ */
+export function reopenPromise(state: SaveState, p: PromiseRec): string | null {
+  if (!p.settled_by_evidence || p.status !== "kept") return null;
+  const c = p.engine_close;
+  if (c) {
+    const e = getEdge(state.world.edges, p.to, p.from);
+    e.warmth = clamp(e.warmth - c.warmth, -100, 100);
+    e.trust = clamp(e.trust - c.trust, -100, 100);
+    e.notes = c.prev_notes ?? "";
+    e.notes_turn = c.prev_notes_turn;
+    const mem = state.memory[p.to]?.episodic;
+    if (mem && c.memory) {
+      const i = mem.findIndex((m) => m.turn === p.settled_turn && m.content === c.memory);
+      if (i >= 0) mem.splice(i, 1);
+    }
+  }
+  p.status = "open";
+  p.settled_turn = undefined;
+  p.settled_by_evidence = undefined;
+  p.engine_close = undefined;
+  p.evidence_turns = [];
+  p.no_auto_close = true;
+  return `Reopened: "${p.text}". The engine's close is undone, and it won't close this one on its own again.`;
 }
 
 // ─────────────────────────── OFF-SCREEN BOND DRIFT ───────────────────────────

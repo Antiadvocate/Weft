@@ -1,6 +1,7 @@
 /** OpenRouter client (browser). Streaming + JSON, fallback chain, usage accounting.
  *  The key is read from localStorage and sent directly to OpenRouter from the browser. */
 import { getApiKey, getLocalEndpoint, isLocalModel, localModelId, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT } from "./config";
+import { STOCK_BANS } from "./engine/stockphrases";
 import { currentPush, getRelay, startJob, streamJob, type RawUsage } from "./relay";
 
 const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -517,7 +518,12 @@ export async function* completeStream(messages: any[], model: string, fallback: 
       // THE BUDGET IS CAPPED ON THE WAY OUT. See LocalEndpoint.max_output: a local window is small
       // enough that a 5000-token ask can eat a third of it, and a looping model fills whatever it
       // is given. TURN ENDINGS still decides where the scene stops; this only bounds the room.
-      ? { model: tgt.model, messages: outMsgs, max_tokens: localMaxTokens(maxTokens), temperature: 0.85, stream: true, ...localSampler() }
+      // ...EXCEPT ONE FIELD, AND ONLY WHEN ASKED. KoboldCpp bans literal phrases in its sampler
+      // (banned_strings, backtracking before the phrase is ever emitted); llama.cpp's server would
+      // reject the field, so it is sent only when the player has said their server is KoboldCpp.
+      // Prose only — this is the stream that writes the story. See engine/stock.ts.
+      ? { model: tgt.model, messages: outMsgs, max_tokens: localMaxTokens(maxTokens), temperature: 0.85, stream: true, ...localSampler(),
+          ...(localEp?.phrase_ban ? { banned_strings: [...STOCK_BANS] } : {}) }
       : { model: m, messages: outMsgs, max_tokens: maxTokens, ...proseSampler(), stream: true, usage: { include: true },
       // routing rides the narrator stream too — it's the biggest call of the turn. On a re-route
       // after a stall, drop the price sort and the provider pin: whoever answers fastest.
