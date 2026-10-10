@@ -218,8 +218,15 @@ export const api = {
 
   /** Fork a long save into a NEW chapter: distill current world-state to a fresh start,
    *  carry forward evolved cast + relationships as background, open with a RECAP after a time skip. */
-  forkNewSeason: async (id: string, direction?: string): Promise<ClientSave> => {
+  forkNewSeason: async (id: string, direction?: string, leaveBehind?: string): Promise<ClientSave> => {
     const s = await need(id);
+    // LEFT AT THE TIME SKIP. Rainier Valley's second chapter opened on the Beacon Works binder, the
+    // wife newly assigned to the same account, and a recap of the garage scene with Ellie, because
+    // the forge was shown all of it and nothing let the player say what not to carry. What the player
+    // names here is wiped from this in-memory copy before the forge reads a word of it (the save it
+    // came from is never written back), and the veto and the guard go with the new chapter. See
+    // engine/nuke.ts.
+    const left = String(leaveBehind ?? "").trim() ? nukeStoryline(s, String(leaveBehind)) : null;
     // build a compact digest of the story so far for the model
     const cast = Object.entries(s.characters).filter(([cid, c]) => cid !== "char_player" && c.status !== "dead" && c.status !== "departed").map(([cid, c]) => {
       const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
@@ -437,7 +444,9 @@ export const api = {
         drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
       });
       const prevEdge = prev ? s.world.edges.find((e) => e.from === prev.character_id && e.to === "char_player") : undefined;
-      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1 });
+      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1,
+        // being turned away carries over a time skip too; it lifts the same way, when the player warms to them
+        ...((prevEdge as any)?.rejected ? { rejected: (prevEdge as any).rejected } : {}) } as any);
       ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
       ns.traits[cid] = carry.carried_traits;                            // full traits intact
       if (prev) carriedCast.set(prev.character_id, cid);
@@ -469,6 +478,10 @@ export const api = {
     syncPresence(ns);
     const recapText = `RECAP: ${g.recap}${g.time_skip ? `\n\n${g.time_skip}.` : ""}\n\n${g.opening_scene}`;
     ns.history = [{ turn: 0, kind: "opening", player_action: "", narrator_prose: recapText, summary: "A new chapter begins.", offscreen: [], time_label: ns.world.current_time, weather: "" }];
+    if (left?.terms.length) {
+      ns.world.nuked = [...(ns.world.nuked ?? []), { terms: left.terms, turn: 0 }];
+      ns.retcons = [...(ns.retcons ?? []), ...(s.retcons ?? []).filter((r) => r.kind === "veto" && left.terms.some((t) => r.text.includes(t)))].slice(-12);
+    }
 
     await putSave(ns);
     return clientView(ns);

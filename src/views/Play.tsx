@@ -17,6 +17,7 @@ import { AnimNumber } from "../lib/AnimNumber";
 import { Odometer } from "../lib/Odometer";
 import { turnDeltas } from "../lib/ledger";
 import { previouslyHere, dueSoon, dueLabel } from "../lib/psychic";
+import { storyInstruction, type StoryInstruction } from "../engine/instruction";
 
 const PHASE_LABEL: Record<string, string> = {
   pressure: "reading the room",
@@ -88,6 +89,10 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   const [proseDone, setProseDone] = useState(false);
   const [armedRollback, setArmedRollback] = useState<number | null>(null);
   const [undoTurn, setUndoTurn] = useState<number | null>(null);
+  // An instruction about the story typed into the action box, held back until the player says what
+  // to do with it. See engine/instruction.ts.
+  const [instr, setInstr] = useState<{ action: string; found: StoryInstruction; wiped?: boolean; corrected?: boolean } | null>(null);
+  const [instrBusy, setInstrBusy] = useState(false);
   const pendingRef = useRef<string | null>(null);
   const [drawer, setDrawer] = useState<null | "cast">(null);
   const [drawerSel, setDrawerSel] = useState<string | null>(null);
@@ -359,7 +364,35 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       if (proseDone && !pendingRef.current) { pendingRef.current = a; setHasPending(true); setAction(""); pushToasts(["queued — sends when this turn finishes recording"]); }
       return;
     }
+    // NOT SOMETHING THE CHARACTER DOES. "Change the story to adjust. Remove beacon works..." went in
+    // as Rabi's action and was played as him reading email in a towel. Offer the tools first.
+    const found = storyInstruction(a);
+    if (found) { setInstr({ action: a, found }); return; }
     await runAction(a);
+  };
+
+  const instrWipe = async () => {
+    if (!instr?.found.terms || instrBusy) return;
+    setInstrBusy(true);
+    const before = save.world.current_turn;
+    try {
+      const out = await api.nuke(save.id, instr.found.terms);
+      setSave(out.save); setUndoTurn(before); setAction("");
+      const r = out.report;
+      pushToasts([`wiped "${r.terms.join(", ")}"${r.places.length ? ` — ${r.places.join(", ")} deleted` : ""}${r.turns.length ? `, cut from ${r.turns.length} past turns` : ""}`, "to undo it: ⋯ → Undo rollback"]);
+      setInstr((x) => (x ? { ...x, wiped: true } : x));
+    } catch (e: any) { setError(e.message ?? "the wipe didn't go through"); }
+    finally { setInstrBusy(false); }
+  };
+  const instrCorrect = async () => {
+    if (!instr?.found.correction || instrBusy) return;
+    setInstrBusy(true);
+    try {
+      setSave(await api.correct(save.id, instr.found.correction)); setAction("");
+      pushToasts(["added as a fact the story has to follow"]);
+      setInstr((x) => (x ? { ...x, corrected: true } : x));
+    } catch (e: any) { setError(e.message ?? "correction failed"); }
+    finally { setInstrBusy(false); }
   };
 
   const doRollback = async (turn: number) => {
@@ -1032,6 +1065,44 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       {/* WHAT IS OPEN, ON DEMAND. The focus phase and anything coming due were two permanent
           strips of text between the prose and the composer. They are on the rail above as an icon
           each now, and this is what those icons open — same information, none of the page. */}
+      {instr && (
+        <div className="px-4 pb-1.5">
+          <div className="card p-3" style={{ borderColor: "var(--accent-glow)" }}>
+            <div className="text-[12.5px] mb-2" style={{ color: "var(--text-mid)" }}>
+              That reads like an instruction about the story, not something {save.characters.char_player?.name ?? "your character"} does in it.
+              <span className="block text-[11.5px] italic mt-1" style={{ color: "var(--text-lo)", overflowWrap: "anywhere" }}>"{instr.found.line}"</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {!!instr.found.terms && (
+                <button className="btn btn-danger w-full" disabled={instrBusy || instr.wiped} onClick={() => void instrWipe()}>
+                  {instr.wiped ? "wiped" : `Wipe "${instr.found.terms}" from the story`}
+                </button>
+              )}
+              {!!instr.found.correction && (
+                <button className="btn w-full" disabled={instrBusy || instr.corrected} onClick={() => void instrCorrect()} style={{ height: "auto", minHeight: 40, whiteSpace: "normal" }}>
+                  {instr.corrected ? "added as a fact" : `Make it a fact: "${instr.found.correction}"`}
+                </button>
+              )}
+              <div className="flex gap-1.5">
+                {(instr.wiped || instr.corrected) ? (
+                  <button className="btn btn-accent flex-1" onClick={() => setInstr(null)}>Done</button>
+                ) : (
+                  <>
+                    <button className="btn btn-ghost flex-1" disabled={instrBusy} onClick={() => { const a = instr.action; setInstr(null); void runAction(a); }}>Play it as an action</button>
+                    <button className="btn btn-ghost flex-1" disabled={instrBusy} onClick={() => setInstr(null)}>Edit</button>
+                  </>
+                )}
+              </div>
+              {!instr.found.terms && !instr.found.correction && (
+                <div className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+                  To change the story itself: tap a turn and use law (a fact that's true from now on), or Tuning → World → Nuke a storyline.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {railPanel && (
         <div className="px-4 pb-1.5">
           <div className="card p-2.5">

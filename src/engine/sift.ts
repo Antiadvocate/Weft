@@ -26,6 +26,7 @@
  */
 import type { SaveState, SocialEdge, Thread } from "./types";
 import { uid } from "./state";
+import { arePartners } from "./rejection";
 
 /** Attraction that counts as wanting someone, and the most that counts as not wanting them back. */
 const WANTS = 35;
@@ -64,11 +65,15 @@ export function siftSituations(state: SaveState): Situation[] {
   const npcs = cast.filter((id) => id !== "char_player");
   const E = index(state.world.edges ?? []);
   const name = (id: string) => state.characters[id]?.name ?? id;
-  const att = (a: string, b: string) => E(a, b)?.attraction ?? 0;
+  // Someone the player turned away doesn't count as wanting the player. See rejection.ts.
+  const att = (a: string, b: string) => {
+    const e = E(a, b) as (SocialEdge & { rejected?: unknown }) | undefined;
+    return b === "char_player" && e?.rejected ? 0 : e?.attraction ?? 0;
+  };
   const warm = (a: string, b: string) => E(a, b)?.warmth ?? 0;
   const trust = (a: string, b: string) => E(a, b)?.trust ?? 0;
   const roles = (a: string, b: string) => (E(a, b)?.roles ?? []).join(" ");
-  const partners = (a: string, b: string) => PARTNER.test(roles(a, b)) || PARTNER.test(roles(b, a));
+  const partners = (a: string, b: string) => PARTNER.test(roles(a, b)) || PARTNER.test(roles(b, a)) || arePartners(state, a, b);
   const out: Situation[] = [];
 
   // ── A wants B, who wants C (and not A). C may be the player: being wanted is not an interior. ──
@@ -97,7 +102,10 @@ export function siftSituations(state: SaveState): Situation[] {
     });
   }
   // ── A and B both want X. X may be the player. ──
+  // Not when X has a partner: a marriage and somebody wanting in is not two rivals, and in Rainier
+  // Valley it was read as "May and Ellie Navarro both want Rabi" with the wife as one of the two.
   for (const x of cast) {
+    if (cast.some((p) => p !== x && partners(p, x))) continue;
     const wanting = npcs.filter((a) => a !== x && att(a, x) >= WANTS && !partners(a, x));
     for (let i = 0; i < wanting.length; i++) for (let j = i + 1; j < wanting.length; j++) {
       const [a, b] = [wanting[i], wanting[j]].sort();
@@ -170,6 +178,36 @@ export function siftSituations(state: SaveState): Situation[] {
   return out.sort((p, q) => q.ripeness - p.ripeness || p.key.localeCompare(q.key));
 }
 
+/** Patterns that are about wanting someone, and the one that is about being double-crossed. */
+const ROMANTIC = new Set(["triangle", "unrequited", "rivals"]);
+const BETRAYING = new Set(["misplaced trust"]);
+/** A story the player said is gentle, or one whose forbidden list rules out what these lead to. */
+const CALM_TONE = /\b(?:slice[- ]of[- ]life|cozy|cosy|wholesome|gentle|comfort(?:ing)?|domestic|healing|low[- ]stakes|feel[- ]good|everyday)\b/i;
+const NO_AFFAIRS = /\b(?:betray\w*|affairs?|infidelity|cheat\w*|jealous\w*|love triangles?|romantic rival\w*|homewreck\w*|adulter\w*)\b/i;
+
+/**
+ * WHAT THIS STORY IS FOR DECIDES WHAT THE SIFTER MAY OPEN.
+ *
+ * Rainier Valley, chapter two. Tone: "Slice of life". Forbidden as a primary subject: "Sudden
+ * relationship betrayal". On turns 1 and 2 the sifter opened "May and Ellie Navarro both want Rabi"
+ * (what would move it on: one of them finds out about the other) and "Sonia Vale wants May, who
+ * wants Rabi", and between them they were the pressure source on 8 of the next 27 turns, including
+ * the one that walked Ellie into the house while the player was in the shower. The patterns were
+ * read correctly off the numbers. The numbers weren't the story the player asked for.
+ *
+ * So in a story whose tone is gentle, or whose forbidden list names betrayal, affairs, cheating or
+ * jealousy, the romantic shapes and the double-cross aren't opened, and any that are live are set
+ * aside. Friendship gone sour, being caught between two people, two people wanting the same thing
+ * from someone: those are slice of life too, and stay. If the player starts a romance or a rivalry
+ * themselves, the story follows the player; it doesn't need a thread to.
+ */
+export function allowedHere(state: SaveState, s: Situation): boolean {
+  if (!ROMANTIC.has(s.pattern) && !BETRAYING.has(s.pattern)) return true;
+  const b = (state.world_bible ?? {}) as { tone?: string; forbidden?: string; forbidden_as_primary?: string[] };
+  const forbidden = [b.forbidden ?? "", ...(b.forbidden_as_primary ?? [])].join(" | ");
+  return !CALM_TONE.test(b.tone ?? "") && !NO_AFFAIRS.test(forbidden);
+}
+
 /** How much this situation concerns the player: they are in it, or someone in it matters to them. */
 function nearPlayer(state: SaveState, s: Situation): number {
   if (s.who.includes("char_player")) return 1;
@@ -192,11 +230,19 @@ function nearPlayer(state: SaveState, s: Situation): number {
 export function siftStory(state: SaveState, turn: number): string[] {
   const log: string[] = [];
   const threads: Thread[] = (state.world.threads ??= []);
-  const found = siftSituations(state);
+  const all = siftSituations(state);
+  const found = all.filter((s) => allowedHere(state, s));
   const byKey = new Map(found.map((s) => [s.key, s]));
+  const ruledOut = new Set(all.filter((s) => !byKey.has(s.key)).map((s) => s.key));
 
   for (const t of threads) {
     if (!t.sifted || (t.status !== "active" && t.status !== "dormant")) continue;
+    if (ruledOut.has(t.sifted)) {
+      t.status = "abandoned";
+      t.turn_resolved = turn;
+      log.push(`Set aside, because this story isn't about that: ${t.title}.`);
+      continue;
+    }
     const s = byKey.get(t.sifted);
     if (!s) {
       t.status = "resolved";

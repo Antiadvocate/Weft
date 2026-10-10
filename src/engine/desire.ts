@@ -546,7 +546,8 @@ export function tickDesire(state: SaveState): string[] {
     // which left a devoted companion sitting at warmth 33 frozen forever — indistinguishable, in
     // the state and therefore on the page, from a stranger. Closeness starts earning desire where
     // closeness starts, and earns it faster the closer it gets.
-    if (e.warmth >= 20 && e.attraction >= 0 && e.attraction < ceiling && player && orientationCap(c, player) === null) {
+    // ...never for someone the player turned away: being told no doesn't build desire. See rejection.ts.
+    if (!(e as any).rejected && e.warmth >= 20 && e.attraction >= 0 && e.attraction < ceiling && player && orientationCap(c, player) === null) {
       const rate = 0.1 + clamp((e.warmth - 20) / 40, 0, 1) * 0.2; // 0.1/turn at warmth 20 → 0.3 at 60+
       e.attraction = Math.min(ceiling, +(e.attraction + rate).toFixed(2));
     }

@@ -383,11 +383,26 @@ export function returnFromOffscene(state: any): string[] {
     const elsewhere = real.filter((p: any) => p.id !== state.world.player_location);
     const away = (elsewhere.length ? elsewhere : real)[Math.floor(Math.random() * (elsewhere.length || real.length))].id;
 
+    // ── NEVER ONTO THE PLAYER. ──
+    //
+    // A want that named the player, or a bond, used to send them to `state.world.player_location`
+    // itself. Presence is derived from co-location, so on the next turn they were in the room with
+    // no arrival written — and the narrator, handed a person in the scene it never introduced, wrote
+    // one. Rainier Valley, chapter two: "Ellie Navarro is back in the world, at Rabi and May's
+    // House", logged on turn 9; she sat in the cast list unseen through turns 10 to 13 while the
+    // player walked round the block; on turn 14 she let herself in with groceries while he was in
+    // the shower. It was the fifth story to end with someone the player couldn't get rid of.
+    //
+    // Coming back to the world is not the same as coming to the player. They go home, or to a place
+    // their want names, or somewhere else; if they want the player, the story brings them there
+    // the way it brings anyone, with an arrival somebody writes. The one exception is the player
+    // standing in their own home: someone who lives there goes home.
+    const here = state.world.player_location;
     const target =
-      namedPlace ??
-      (wantsThePlayer || (bond && !grudge) ? state.world.player_location : undefined) ??
-      home ??
+      (namedPlace && namedPlace !== here ? namedPlace : undefined) ??
+      (home && (home !== here || (homeHit === here && !grudge)) ? home : undefined) ??
       away;
+    void wantsThePlayer; void bond;
 
     c.location = target;
     delete c.offscene_since;

@@ -34,10 +34,13 @@ export default function Library({ onOpen, onForge, onCreated }: {
   // protagonist's boredom, because their interior is the only antagonist left. This is the steering.
   const [composing, setComposing] = React.useState<string | null>(null);
   const [brief, setBrief] = React.useState("");
+  // What NOT to carry into the next chapter: a storyline, a place, a person. Wiped before the forge
+  // reads the save. See engine/nuke.ts.
+  const [leave, setLeave] = React.useState("");
   const forkSeason = async (id: string, direction: string) => {
     setComposing(null);
     setForking(id);
-    try { onCreated(await api.forkNewSeason(id, direction)); }
+    try { onCreated(await api.forkNewSeason(id, direction, leave)); }
     catch (e: any) { alert(`New chapter failed: ${e.message}`); }
     finally { setForking(null); }
   };
@@ -69,7 +72,7 @@ export default function Library({ onOpen, onForge, onCreated }: {
                 </div>
                 <button className="p-2" style={{ color: "var(--text-lo)" }} title="start a new chapter from this save"
                   data-tour={i === 0 ? "lib-sprout" : undefined}
-                  onClick={(e) => { e.stopPropagation(); setBrief(""); setComposing(composing === s.id ? null : s.id); }}>
+                  onClick={(e) => { e.stopPropagation(); setBrief(""); setLeave(""); setComposing(composing === s.id ? null : s.id); }}>
                   <Sprout size={15} style={{ color: forking === s.id || composing === s.id ? "var(--accent)" : "var(--text-lo)" }} />
                 </button>
                 <button className="p-2" style={{ color: "var(--text-lo)" }}
@@ -95,6 +98,14 @@ export default function Library({ onOpen, onForge, onCreated }: {
                   />
                   <div className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
                     The forge follows this when it writes the threads, the opening and the time skip. Leave it blank and the forge decides on its own.
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-wider pt-2" style={{ color: "var(--text-lo)" }}>
+                    Leave behind (optional)
+                  </div>
+                  <input className="field w-full text-[13px]" style={{ minWidth: 0 }} value={leave} onChange={(e) => setLeave(e.target.value)}
+                    placeholder="Beacon Works, Beacon" aria-label="what to leave behind" />
+                  <div className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
+                    Words that mark a storyline, place or person you're done with, separated by commas. It's wiped before the new chapter is written, so it isn't in the recap, the opening or anyone's wants. The old save keeps it.
                   </div>
                   <div className="flex gap-2 pt-1">
                     <button className="chip chip-accent" onClick={() => forkSeason(s.id, brief)}>

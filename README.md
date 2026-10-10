@@ -361,6 +361,19 @@ A second round, from reading the code of the open-source projects that do a piec
 
   Everyone else keeps their place in the story. Your rollback points are cleaned too, and there's an undo. Afterwards, new narration that brings it back is cut, unless you raise it yourself.
 
+## When someone won't leave
+
+- **Nobody is put back in the world on top of you.** Someone who has been offstage for a while comes back at home, at a place their goal names, or somewhere else. If they want you, the story has to write them arriving.
+- **No means no.** Telling someone to stay away marks it and lowers their attraction to you. So do "leave me alone", "get out of my house", "I can't leave my wife", or naming them while calling the police. Their goals stop being about you, and the game gives them goals about their own life instead. It lifts if you warm to them again. An angry line at your partner doesn't count; "I want a divorce" does.
+- **Arrests stick.** "Police arrest Ellie" or "held for 90 days without bond", whether you write it or the story does, keeps that person held until the story releases them.
+- **Gentle stories stay gentle.** When the tone is slice of life (or cozy, wholesome, and so on), or your forbidden list names betrayal, affairs or jealousy, the game doesn't open threads about love triangles, rivals or someone wanting a person who doesn't want them back. It never treats your partner as a "rival" for you.
+- **"Drop it" drops it.** "Stop asking", "it's not my project" or "if you ask me another question" closes the subject. The people in the room let it go, and for the next four turns nobody brings it back unless you do.
+- **Instructions about the story aren't played as actions.** "Change the story… remove X from the story" typed into the action box opens a card instead of being sent as your character's action. It offers:
+  - wiping X;
+  - making the facts you stated true;
+  - playing it as an action anyway.
+- **New chapters can leave things behind.** When you start a new chapter, you can type words in the field under the chapter brief. That storyline is wiped before the new chapter is written, and the old save keeps it.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

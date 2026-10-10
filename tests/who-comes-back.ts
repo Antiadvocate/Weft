@@ -83,17 +83,20 @@ console.log("\n── the save's four edges, run through the returner ──");
   check("Chloe goes home instead", at(s, "chloe") === APT, String(at(s, "chloe")));
   check("Miranda at -28 is not delivered to the player's house", at(s, "miranda") !== HOUSE, String(at(s, "miranda")));
   check("Leo at +4 goes home rather than being scattered", at(s, "leo") === LEOS, String(at(s, "leo")));
-  check("Amber at +57 does come to him — a bond still draws", at(s, "amber") === HOUSE, String(at(s, "amber")));
+  // RAINIER VALLEY, THE FIFTH TIME. A bond and a stated want still delivered people ONTO the player,
+  // and a coworker he'd had arrested was put back in his house the same way. Returning to the world
+  // is now never the same as arriving where the player is: an arrival is something the story writes.
+  check("Amber at +57 goes home, not onto him: a bond brings her through the story, not a teleport", at(s, "amber") !== HOUSE, String(at(s, "amber")));
 }
 
-console.log("\n── a stated want is the one thing that overrides a grudge ──");
+console.log("\n── a stated want sends them toward a place, never onto the player ──");
 {
   const s = world(
     { chloe: { name: "Chloe", drive: { goal: "Find Vin and make him say it to her face." } } },
     [{ from: "chloe", to: "char_player", warmth: -100, trust: -100 }],
   );
   returnFromOffscene(s);
-  check("a want that names the player sends her to him even at -100", at(s, "chloe") === HOUSE, String(at(s, "chloe")));
+  check("a want that names the player no longer puts her in his house", at(s, "chloe") !== HOUSE, String(at(s, "chloe")));
 }
 {
   const s = world(
@@ -114,16 +117,16 @@ console.log("\n── a stated want is the one thing that overrides a grudge ─
 
 {
   // The save's Miranda: warmth -28.3, trust -50.9, and a want that reads "Get Vin back into the
-  // same bed and touching her again". She still comes — and that is the point of the rule. Before,
-  // she came because |−28| ≥ 25 and nobody could see why. Now she comes because of a sentence
-  // written on her card that the player can read, argue with, or delete.
+  // same bed and touching her again". This used to bring her to his house on the strength of that
+  // sentence. It doesn't any more: if she comes, the story has her arrive, which the player sees and
+  // can answer, rather than finding her already standing in the room.
   const s = world(
     { miranda: { name: "Miranda", drive: { goal: "Get Vin back into the same bed and touching her again — on her own terms." } } },
     [{ from: "miranda", to: "char_player", warmth: -28.3, trust: -50.9 }],
   );
   returnFromOffscene(s);
-  check("a grudge with a stated want about him still brings her, for a reason on the page",
-    at(s, "miranda") === HOUSE, String(at(s, "miranda")));
+  check("a grudge with a stated want about him doesn't put her in his house either",
+    at(s, "miranda") !== HOUSE, String(at(s, "miranda")));
 }
 {
   const s = world(
@@ -184,10 +187,10 @@ console.log("\n── the rest of the contract, unchanged ──");
   check("sixty returns at -100 and not one of them is his house", onPlayer === 0, `${onPlayer}/60`);
 }
 {
-  // trust alone is enough of a bond, as it always was
+  // trust alone is a bond, and a bond is no longer a teleport
   const s = world({ tam: { name: "Tam" } }, [{ from: "tam", to: "char_player", warmth: 5, trust: 40 }]);
   returnFromOffscene(s);
-  check("high trust alone still draws someone to the player", at(s, "tam") === HOUSE, String(at(s, "tam")));
+  check("high trust alone doesn't put someone on the player either", at(s, "tam") !== HOUSE && at(s, "tam") !== OFF, String(at(s, "tam")));
 }
 {
   // ...but not when the other half of the tie is a grudge

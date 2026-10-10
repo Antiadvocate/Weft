@@ -41,6 +41,8 @@ import { turnSearchQuery } from "./grounding";
 import { playerTrip, leavingBeat } from "./leaving";
 import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
+import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
+import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -61,7 +63,7 @@ import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
-import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
+import { departureEvidence, releaseEvidence, findRisen, risenFix, recordCustody } from "./exit";
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, becomingFinalLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -2424,9 +2426,15 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // standing in" — the palette, a person's want, a relationship, a thread — waits. See leaving.ts.
   const trip = mode === "think" ? null : playerTrip(state, action);
   const scheduled = !!beat && (beat.kind === "consequence" || beat.kind === "clock" || beat.kind === "exogenous");
+  // ...AND WHEN WHAT THE PLAYER SAID WAS "DROP IT", the turn is for dropping it, and the next few
+  // turns are reminded the subject is closed. Same precedence as a departure. See dropit.ts.
+  const dropLine = mode === "think" || trip ? "" : dropItLine(action);
+  if (dropLine) recordDropped(state, dropLine, turn);
   const beatNote = trip
     ? `\n\n=== WHAT THIS TURN IS FOR ===\n${leavingBeat(state, trip)}${scheduled ? beatDirective(beat, dial) : ""}`
-    : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
+    : dropLine
+      ? `\n\n=== WHAT THIS TURN IS FOR ===\n${dropItBeat(dropLine)}${scheduled ? beatDirective(beat, dial) : ""}`
+      : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
   // What the world itself brings to this turn, as facts for the plain narrator: a change that has
   // finished arriving, and a consequence that was already scheduled and is due now.
   const plainWorldNow = [
@@ -2900,7 +2908,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + droppedNote(state, action) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -4146,7 +4154,20 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   const presentDuringTurn = [...state.world.present];
   // `let`, not `const`: everything below pushes into it, and the sift just before the history
   // push replaces it with the part a person should actually read. See engine/shifts.ts.
+  const presentBeforeDiff = [...(state.world.present ?? [])];
   let shifts = applyDiff(state, diff, action, prose, !!footer);
+  // SOMEBODY ELSE HAS THEM. An arrest the player wrote, or the prose showed, holds whoever is gone
+  // from the scene, so they aren't put back in the world on the next pass. See exit.ts recordCustody.
+  for (const n of recordCustody(state, prose, mode === "think" ? "" : action, turn)) shifts.push(`${n} is in custody and isn't free to walk back in.`);
+  // NO MEANS NO. The player turning someone away marks it, steps their attraction down, and takes
+  // any want aimed at the player off them; the sweep keeps it that way. A save from before this
+  // reads its own history once. See engine/rejection.ts.
+  backfillRejections(state);
+  if (mode !== "think") for (const line of applyRejection(state, rejectedBy(state, action, presentBeforeDiff), turn)) shifts.push(line);
+  {
+    const swept = sweepPursuit(state);
+    if (swept.length) console.info(`[rejection] ${swept.join(", ")}: wants aimed at the player dropped, since they keep away`);
+  }
   // A turn that was for leaving and ended with the player still where they started is a failure the
   // player should hear about, counted with the others. See leaving.ts and integrity.ts.
   if (trip?.toId && state.world.player_location !== trip.toId) {
@@ -6808,6 +6829,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   const drivesByChar = new Map<string, typeof diff.drives_update>();
   for (const du of diff.drives_update ?? []) {
     const id = resolveId(state, du.char_id); if (!id || id === "char_player" || !du.goal) continue;
+    // Turned away by the player, or held somewhere: a want aimed at the player isn't kept. See rejection.ts.
+    if (keepsAway(state, id) && namesPlayer(state, du.goal)) {
+      console.warn(`[rejection] dropped a want aimed at the player for ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
+      continue;
+    }
     // MISATTRIBUTION GUARD. The narrator writes unnamed people constantly — an innkeeper, a
     // boatman, a stallholder — and the bookkeeper, needing an id to hang their wants on and having
     // none, reaches for a real cast member. That is how a guard captain who had never left another

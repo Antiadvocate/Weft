@@ -12,6 +12,7 @@
  *  bit-players recede — no drive, no upkeep — until something elevates them. */
 import type { Identity, SaveState } from "./types";
 import { epistemicGoal } from "./mind";
+import { keepsAway, namesPlayer } from "./rejection";
 
 const pick = <T,>(xs: T[], rng: () => number): T => xs[Math.floor(rng() * xs.length)];
 
@@ -36,6 +37,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   const has = (...words: string[]) => words.some((w) => blob.includes(w));
 
   const candidates: string[] = [];
+  let selfStartShift = 0;
 
   // 1) relational pulls — the engine of most autonomous behavior
   if (coldest && coldest.warmth <= -20) {
@@ -122,7 +124,7 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
 
   // SELF-INTEREST set — the antidote to the chorus. These pull a character toward their OWN
   // life instead of the group's shared object. Tagged so dispersion can prefer them.
-  const selfStart = candidates.length;
+  let selfStart = candidates.length;
   candidates.push(
     `tend to something of their own that's been neglected`,
     `get what they personally came here for and not much else`,
@@ -132,11 +134,21 @@ export function seedDrive(state: SaveState, id: string, rng: () => number = Math
   if (has("ambition", "climb", "career", "work")) candidates.push("steal time for their own ambition while everyone's distracted");
   if (has("tired", "weary", "cynic", "jaded")) candidates.push("conserve energy and stop carrying everyone else");
 
+  // TURNED AWAY. Someone the player has told to keep away, or who is held, gets no want aimed at the
+  // player: the relational candidates above are read off numbers, and "dislikes him, still wants
+  // him" reads as pursuit. What's left is their own life. See rejection.ts.
+  if (keepsAway(state, id)) {
+    const kept = candidates.filter((g) => !namesPlayer(state, g));
+    const cut = candidates.length - kept.length;
+    candidates.splice(0, candidates.length, ...kept);
+    selfStartShift = cut;
+  }
   if (!candidates.length) return null;
 
   // SELECTION. Normally weight toward the front (relational/thread goals), stochastic.
   // Under high dispersion, bias HARD toward the self-interest tail and re-roll a few times
   // to avoid handing them a goal aimed at the over-focused magnet (the chorus magnet).
+  selfStart = Math.max(0, selfStart - selfStartShift);
   const goalAt = (i: number) => candidates[Math.min(candidates.length - 1, i)];
   const avoidName = avoid ? (state.characters[avoid]?.name ?? "") : "";
   const aimsAtMagnet = (g: string) => !!avoidName && g.toLowerCase().includes(avoidName.toLowerCase());
