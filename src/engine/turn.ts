@@ -37,6 +37,7 @@ import { runOffstage, returnFromOffscene } from "./offstage";
 import { siftStory } from "./sift";
 import { runLifeEvents } from "./lifeevents";
 import { dueTracked, askTracked, applyTracked } from "./tracked";
+import { turnSearchQuery } from "./grounding";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -3142,12 +3143,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
-  // the toggle, derive a focused query from the SCENE (place + freshest canon) rather than letting
-  // Exa auto-derive from the whole digest — that auto-query is exactly what pulled off-topic links.
+  // the toggle, search for what THIS TURN asks, at this place, in this setting. It used to be the
+  // location's internal id plus the two newest canon lines, which searched for the characters
+  // instead of the question. See engine/grounding.ts.
   const resolvedQuery = searchTarget
-    || (opts?.ground === true
-        ? [state.world.player_location, ...(state.world.canon ?? []).slice(-2)].filter(Boolean).join(" — ").slice(0, 200)
-        : "");
+    || (opts?.ground === true ? turnSearchQuery(state, action) : "");
   const groundNote = groundOn ? `\n\n=== GETTING THE FACTS RIGHT (this turn) ===\nThis story is set in a real place or deals with real subject matter. Use web search to get the real-world facts right${resolvedQuery ? ` about: ${resolvedQuery}` : ""}, such as actual locations, layouts, names, how things really work, and accurate details of the period or setting, and work that accuracy naturally into the prose. Don't cite sources or step outside the story; just get it right.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
