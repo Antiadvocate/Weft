@@ -65,6 +65,7 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     // MIGRATION: authored was a single want before it was a list. Saves written then hold an object.
     authored: Array.isArray(ident.authored) ? ident.authored : ident.authored ? [ident.authored as any] : undefined,
     tracked: ident.tracked, status: ident.status, location: ident.location, portrait_url: ident.portrait_url,
+    affiliation: ident.affiliation ? asText(ident.affiliation) || undefined : undefined,
     // These were previously dropped, which (a) broke the central-character cap — every new
     // character silently entered as central because `central` never landed on the record —
     // and (b) erased life_history when carrying a cast into a new chapter.

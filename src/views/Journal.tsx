@@ -25,6 +25,16 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
 
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const reopen = async (id: string, text: string) => {
+    if (!confirm(`Reopen "${text}"?\n\nThe engine marked it kept on its own. Reopening gives back what that changed in the relationship and takes back the memory it wrote, and the engine won't close it on its own again.`)) return;
+    setBusy(id);
+    try {
+      const r = await api.reopenPromise(save.id, id);
+      onSave?.(r.save);
+      setNote(r.log);
+    } catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(null); }
+  };
   const settle = async (id: string, outcome: "kept" | "broken" | "retired", text: string) => {
     const ask = outcome === "retired"
       ? `Retire "${text}"?\n\nIt comes off the list and has no effect on anyone's relationship. Use this for a standing arrangement, or something the story has moved past.`
@@ -85,6 +95,19 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
         )}
         {p.status !== "open" && p.settled_by_hand && (
           <div className="text-[9.5px] mt-0.5" style={{ color: "var(--text-lo)" }}>closed by hand{p.settled_turn ? ` on turn ${p.settled_turn}` : ""}</div>
+        )}
+        {/* THE ENGINE CLOSED THIS ONE. It saw a few turns that looked like the promise being made good
+            and marked it kept without the bookkeeper. That is a guess, and the player is the only one
+            who can tell it from a promise genuinely kept — so it says so, and it can be taken back. */}
+        {p.status === "kept" && p.settled_by_evidence && (
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="text-[10px]" style={{ color: "var(--text-lo)" }}>
+              closed by the engine{p.settled_turn ? ` on turn ${p.settled_turn}` : ""}{p.evidence_turns?.length ? `, after ${p.evidence_turns.length} turns that looked done` : ""}
+            </span>
+            <button disabled={busy === p.id} className="btn-sm" style={{ borderColor: "var(--line)", color: "var(--text-mid)" }}
+              title="It wasn't kept: undo the engine's close and open it again"
+              onClick={() => reopen(p.id, p.text)}>not kept — reopen</button>
+          </div>
         )}
       </div>
     );

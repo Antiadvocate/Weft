@@ -4,6 +4,7 @@ import { api, type ClientSave } from "../lib/api";
 import type { AcquiredTrait, Belief, Chapter } from "../engine/types";
 import { Bars, MoodArc, Sparkline, Stat, Seismograph } from "../lib/charts";
 import { asLine, nice, niceCap } from "../lib/format";
+import AskRecord from "./AskRecord";
 
 
 /** Everything here is computed locally from telemetry — zero token cost. */
@@ -179,6 +180,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
+      <Fade delay={0}><AskRecord save={save} /></Fade>
       {!!save.world_bible.destination?.trim() && (
         <Fade delay={0}>
           <div className="card p-4">

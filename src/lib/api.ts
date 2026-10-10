@@ -16,7 +16,7 @@ import { runInterlude, embodyCharacter, condenseForNewChapter, appendBackground 
 import { runMontage } from "../engine/montage-run";
 import { preflightDirection } from "../engine/montage";
 import { seedDrive } from "../engine/drives";
-import { resolvePromise } from "../engine/social";
+import { resolvePromise, reopenPromise } from "../engine/social";
 import { fetchJob, getRelay, newJobId } from "../relay";
 import { newAuthored, setback, findSameWant, retireLabel, crystallizedLabel, repairAuthoredHabitCounts } from "../engine/authored";
 import { resolveOverdue } from "../engine/commitments";
@@ -28,13 +28,18 @@ import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
 import { completeSketch, pendingSketches, characterFromBrief } from "../engine/sketch";
 import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
-import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, buildPortraitDiffusion, buildSceneDiffusion, visualSignature, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
+import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, ANALYST_SYSTEM, INSTITUTION_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, buildPortraitDiffusion, buildSceneDiffusion, visualSignature, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { generateLocalImage, shrinkDataUrl } from "./diffusion";
 import { getLocalImage, isLocalModel, localModelId } from "../config";
 import { formatTime, parseTime } from "../engine/time";
 import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun, rolesFromRelation } from "../engine/coerce";
+import { applyForgeTies } from "../engine/ties";
+import { sampleSource } from "../engine/source";
+import { pickCanvass, pickFactions, knowsLines, type CanvassPick } from "../engine/canvass";
+import { askableFactions, institutionContext } from "../engine/institution";
+import { runAnalyst, type AnalystStep } from "../engine/analyst";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
@@ -124,6 +129,35 @@ async function need(id: string): Promise<SaveState> {
   if (pruned) console.warn(`[memory] removed ${pruned} empty memory entr${pruned === 1 ? "y" : "ies"} on load`);
   if (pruned || reset || settled.length) await putSave(s);
   return s;
+}
+
+/** One out-of-scene answer from one character: the interview, and each voice in a canvass. They
+ *  answer from what they hold — their card, their mood, their memories, their read of the player
+ *  (which may be wrong) and what they have heard (in the version they heard it). */
+async function askOutOfScene(s: SaveState, char_id: string, question: string, transcript: { q: string; a: string }[] = []): Promise<string> {
+  const c = s.characters[char_id];
+  if (!c || char_id === "char_player") throw new Error("no such character");
+  const cond = s.condition[char_id];
+  const mem = s.memory[char_id];
+  const edge = s.world.edges.find((e) => e.from === char_id && e.to === "char_player");
+  const traits = (s.traits[char_id] ?? []).slice(0, 5).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ");
+  const memDigest = mem ? compactMemoryDigest(mem, question, s.world.current_turn, 6, s.world.current_time, cond?.psyche.relaxation ?? 0) : "";
+  const ctx = [
+    `CHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. ${c.background}`,
+    c.life_history ? `Since the story began: ${c.life_history}` : "",
+    `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
+    traits ? `Learned: ${traits}` : "",
+    cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (this affects every answer, following the rules about openness).` : "",
+    edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth, because liking someone isn't the same as wanting them)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
+    ...knowsLines(s, char_id),
+    memDigest,
+  ].filter(Boolean).join("\n");
+  const msgs: any[] = [{ role: "system", content: INTERVIEW_SYSTEM }, { role: "user", content: ctx }];
+  msgs.push({ role: "assistant", content: "(I settle in, myself, ready to speak plainly or not at all.)" });
+  for (const t of transcript.slice(-6)) { msgs.push({ role: "user", content: t.q }); msgs.push({ role: "assistant", content: t.a }); }
+  msgs.push({ role: "user", content: question });
+  const out = await complete(msgs, s.model_settings.simulator_model, s.model_settings.fallback_model, false, 500);
+  return out.text.trim();
 }
 
 export const api = {
@@ -364,6 +398,7 @@ export const api = {
 
     // surviving cast carry forward COMPLETE — full memory, full traits, full identity. The
     // background_addition is APPENDED as a "where they ended up" note, never replacing who they are.
+    const carriedCast = new Map<string, string>();   // old character id → new character id
     for (const c of (g.cast ?? [])) {
       if (c.still_present === false || !c.name) continue;
       const prev = Object.values(s.characters).find((x) => x.name.toLowerCase() === c.name.toLowerCase());
@@ -384,6 +419,7 @@ export const api = {
         conscience: prev?.conscience,
         voice: prev?.voice,
         attachment: prev?.attachment,
+        affiliation: prev?.affiliation,
         portrait_url: prev?.portrait_url,
         tracked: true,
         // WHERE THEY ARE. Every carried character used to be placed at `lid` — the player's own
@@ -401,6 +437,22 @@ export const api = {
       ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1 });
       ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
       ns.traits[cid] = carry.carried_traits;                            // full traits intact
+      if (prev) carriedCast.set(prev.character_id, cid);
+    }
+    // THE CAST'S BONDS WITH EACH OTHER CARRY TOO. Only the edge toward the player was carried, so a
+    // chapter that "carries over the consequences" reset every relationship between two surviving
+    // characters to strangers — a marriage, a feud, a debt, all back to 0/0 with no roles. The time
+    // skip is the recap's to describe; the bond itself is a fact, and it comes across as it stood.
+    for (const e of s.world.edges) {
+      if (e.from === "char_player" || e.to === "char_player") continue;
+      const from = carriedCast.get(e.from), to = carriedCast.get(e.to);
+      if (!from || !to) continue;
+      ns.world.edges.push({
+        from, to, warmth: e.warmth, trust: e.trust, power: e.power ?? 0,
+        attraction: e.attraction, attraction_base: e.attraction_base,
+        roles: e.roles?.length ? [...e.roles] : undefined,
+        notes: e.notes ?? "", notes_turn: e.notes ? 1 : undefined, updated_turn: 1,
+      });
     }
     // carry canon forward (the world-altering facts still happened)
     ns.world.canon = [...(s.world.canon ?? [])].slice(-12);
@@ -883,6 +935,20 @@ export const api = {
     return { save: clientView(s), log };
   },
 
+  /** UNDO AN ENGINE CLOSE. A promise the engine marked kept on evidence, which the player says was
+   *  not: everything the close changed is given back and the promise is open again. See
+   *  reopenPromise in engine/social.ts. */
+  reopenPromise: async (id: string, promise_id: string): Promise<{ save: ClientSave; log: string }> => {
+    const s = await need(id);
+    const p = (s.world.promises ?? []).find((x) => x.id === promise_id);
+    if (!p) throw new Error("No such promise.");
+    const log = reopenPromise(s, p);
+    if (!log) throw new Error("Only a promise the engine closed on its own can be reopened.");
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return { save: clientView(s), log };
+  },
+
   /**
    * FIRE A CLOCK NOW.
    *
@@ -1243,28 +1309,53 @@ export const api = {
    *  memory written; the character answers from their own digest on the cheap model. */
   interview: async (id: string, char_id: string, question: string, transcript: { q: string; a: string }[] = []): Promise<{ answer: string }> => {
     const s = await need(id);
-    const c = s.characters[char_id];
-    if (!c || char_id === "char_player") throw new Error("no such character");
-    const cond = s.condition[char_id];
-    const mem = s.memory[char_id];
-    const edge = s.world.edges.find((e) => e.from === char_id && e.to === "char_player");
-    const traits = (s.traits[char_id] ?? []).slice(0, 5).map((t) => `${t.label} — ${t.behavioral_impact}`).join("; ");
-    const memDigest = mem ? compactMemoryDigest(mem, question, s.world.current_turn, 6, s.world.current_time, cond?.psyche.relaxation ?? 0) : "";
-    const ctx = [
-      `CHARACTER: ${c.name}, ${c.age}${c.pronouns ? `, ${c.pronouns}` : ""}. ${c.background}`,
-      c.life_history ? `Since the story began: ${c.life_history}` : "",
-      `Voice: ${c.speech_pattern}. Core: ${c.core_traits.join(", ")}.`,
-      traits ? `Learned: ${traits}` : "",
-      cond ? `Right now: mood ${cond.psyche.mood || "even"}; relaxation ${cond.psyche.relaxation} (this affects every answer, following the rules about openness).` : "",
-      edge ? `Toward the player: ${edge.roles?.length ? edge.roles.join(" & ") + ", " : ""}warmth ${edge.warmth}, trust ${edge.trust}${edge.attraction !== undefined ? `, desire ${edge.attraction} (separate from warmth, because liking someone isn't the same as wanting them)` : ""}${edge.notes ? ` — ${edge.notes}` : ""}.` : "They barely know the player.",
-      memDigest,
-    ].filter(Boolean).join("\n");
-    const msgs: any[] = [{ role: "system", content: INTERVIEW_SYSTEM }, { role: "user", content: ctx }];
-    msgs.push({ role: "assistant", content: "(I settle in, myself, ready to speak plainly or not at all.)" });
-    for (const t of transcript.slice(-6)) { msgs.push({ role: "user", content: t.q }); msgs.push({ role: "assistant", content: t.a }); }
-    msgs.push({ role: "user", content: question });
-    const out = await complete(msgs, s.model_settings.simulator_model, s.model_settings.fallback_model, false, 500);
-    return { answer: out.text.trim() };
+    return { answer: await askOutOfScene(s, char_id, question, transcript) };
+  },
+
+  /** ASK THE RECORD — a question about this save, answered by a small tool-using loop that has to
+   *  look things up in the save before it may answer, and cites what it found. Read-only: nothing
+   *  it does is written back. See engine/analyst.ts. */
+  askRecord: async (id: string, question: string, onStep?: (step: AnalystStep) => void): Promise<{ answer: string; steps: AnalystStep[] }> => {
+    const s = await need(id);
+    return runAnalyst(s, question, ANALYST_SYSTEM, async (msgs) =>
+      (await complete(msgs as any, s.model_settings.simulator_model, s.model_settings.fallback_model, false, 900)).text, onStep);
+  },
+
+  /** CANVASS — who to put a question to: the most relevant people, spread across how they stand
+   *  toward the player. Deterministic and free; see engine/canvass.ts. */
+  canvassPicks: async (id: string, question: string, n = 4): Promise<{ people: CanvassPick[]; factions: { id: string; faction: string; why: string }[]; askable: { id: string; faction: string }[] }> => {
+    const s = await need(id);
+    return {
+      people: pickCanvass(s, question, n),
+      factions: pickFactions(s, question),
+      askable: askableFactions(s).map((k) => ({ id: k.id, faction: k.faction })),
+    };
+  },
+
+  /** CANVASS — the same question to each of these people, out of scene, answered side by side.
+   *  Nothing is recorded, exactly like the single interview it is built from. Three at a time, so a
+   *  canvass of six is not six simultaneous requests against one key. */
+  canvass: async (id: string, char_ids: string[], question: string): Promise<{ id: string; name: string; answer?: string; error?: string }[]> => {
+    const s = await need(id);
+    // "faction:<clock id>" asks the institution itself, in its public voice. See engine/institution.ts.
+    const ids = [...new Set(char_ids)].filter((cid) => cid.startsWith("faction:") ? s.world.clocks.some((k) => `faction:${k.id}` === cid) : cid !== "char_player" && !!s.characters[cid]).slice(0, 8);
+    const label = (cid: string) => cid.startsWith("faction:") ? s.world.clocks.find((k) => `faction:${k.id}` === cid)!.faction : s.characters[cid].name;
+    const answerOf = (cid: string) => {
+      if (!cid.startsWith("faction:")) return askOutOfScene(s, cid, question);
+      const k = s.world.clocks.find((x) => `faction:${x.id}` === cid)!;
+      return complete([{ role: "system", content: INSTITUTION_SYSTEM }, { role: "user", content: `${institutionContext(s, k)}\n\nTHE PLAYER ASKS: ${question}` }],
+        s.model_settings.simulator_model, s.model_settings.fallback_model, false, 400).then((o) => o.text.trim());
+    };
+    const out: { id: string; name: string; answer?: string; error?: string }[] = [];
+    for (let i = 0; i < ids.length; i += 3) {
+      const batch = ids.slice(i, i + 3);
+      const res = await Promise.all(batch.map(async (cid) => {
+        try { return { id: cid, name: label(cid), answer: await answerOf(cid) }; }
+        catch (e: any) { if (isCancel(e)) throw e; return { id: cid, name: label(cid), error: e?.message ?? "no answer" }; }
+      }));
+      out.push(...res);
+    }
+    return out;
   },
 
 
@@ -1706,12 +1797,15 @@ export const api = {
     return { url: entry.illustration_url, save: clientView(s) };
   },
 
-  forge: async (seed: string, model = DEFAULT_MODELS.forge_model, destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string): Promise<ClientSave> => {
+  forge: async (seed: string, model = DEFAULT_MODELS.forge_model, destinationTurns?: number, ground?: boolean, seedThreads?: { title: string; description?: string; tension?: number }[], tone?: string, source?: { name?: string; text: string }): Promise<ClientSave> => {
     // WEB SEARCH TARGET in the seed: ((real subject)) names exactly what to ground on and is
     // stripped from the seed text the forge actually builds from. Falls back to the whole seed as
     // the query when grounding is on without an explicit ((...)) — the seed IS the topic here, and
     // it's short, so Exa stays on-target (unlike the play loop's giant digest).
     let searchTarget = "";
+    // A SOURCE TEXT with no seed is a request to start inside that text; the seed then says so.
+    const sample = source?.text?.trim() ? sampleSource(source.text) : null;
+    if (sample && !seed.trim()) seed = "Start the story inside the source text below, with the player as a newcomer to it.";
     const cleanSeed = seed.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
     const online = ground || !!searchTarget;
     const searchQuery = searchTarget || (online ? cleanSeed.slice(0, 200) : undefined);
@@ -1721,7 +1815,14 @@ export const api = {
     const toneBlock = tone?.trim()
       ? `\n\nGENRE AND TONE (the kind of story this has to be built and written as, so shape the world, the threat, the sources of pressure and the cast to fit it): ${tone.trim()}`
       : "";
-    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + toneBlock + beatsBlock, model);
+    // THE SOURCE GOES LAST, after everything the player typed, so the seed's own instructions (who
+    // the player is, where they come in) are read before the forty thousand characters they apply to.
+    // Sampled, never truncated: see engine/source.ts.
+    const sourceBlock = sample
+      ? `\n\nSOURCE TEXT${source?.name ? ` (${source.name})` : ""}:\n${sample.text}`
+      : "";
+    if (sample?.sampled) console.info(`[forge] source text sampled: ${sample.used} of ${sample.parts} parts from ${sample.total} characters`);
+    const msgs = buildMessages(FORGE_SYSTEM, "SEED IDEA:", cleanSeed + toneBlock + beatsBlock + sourceBlock, model);
     let g: any = null, lastErr = "";
     for (const m of [model, model, "google/gemini-2.0-flash-001"]) {
       try {
@@ -1803,8 +1904,13 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
       const seededRoles = rolesFromRelation(n.relation_to_player);
       s.world.edges.push({ from: cid, to: "char_player", warmth: Math.max(-100, Math.min(100, n.warmth ?? 0)), trust: Math.max(-100, Math.min(100, n.trust ?? 0)), power: 0, notes: n.relation_to_player ?? "", roles: seededRoles.length ? seededRoles : undefined, updated_turn: 1 });
     }
+    // TIES: the cast's relationships to each other, filed as directed edges the way the presets file
+    // theirs. Without this every NPC pair started at 0/0 with no roles — see engine/ties.ts.
+    const tied = applyForgeTies(s, g.ties);
+    if (tied.length) console.info(`[forge] ${tied.length} tie(s) between the cast: ${tied.join("; ")}`);
     for (const c of g.clocks ?? []) {
-      s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], status: "running" });
+      s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], status: "running",
+        public_line: String(c.public_line ?? "").trim() || undefined, speaks_through: String(c.speaks_through ?? "").trim() || undefined });
     }
     for (const n of g.norms ?? []) {
       s.world.norms.push({ id: uid("nrm"), rule: n.rule ?? "", enforcement: n.enforcement ?? "gossip", holders: n.holders ?? "" });

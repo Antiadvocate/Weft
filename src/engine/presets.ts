@@ -89,6 +89,8 @@ function sump9(): SaveState {
     segments: 6, filled: 1, consequence: "Weir lockout: no chits, no water, debtors named on the grate wall",
     visible_signs: ["new tally chalk on the grate", "collectors counting heads at the Ray Deck", "rumor of a debtor's boots found empty"],
     status: "running",
+    public_line: "the levy keeps the pumps running for every soul in the Sump",
+    speaks_through: "chalk tallies on the grate wall, read out by whichever collector is on shift",
   });
   s.world.norms.push({ id: uid("nrm"), rule: "Never speak of the Hum near an open socket", enforcement: "shunning", holders: "Dredgers" });
   s.world.player_location = ray;

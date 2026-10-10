@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, BookOpen, Hammer } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, Hammer, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
 import { ModelPicker } from "./ModelPicker";
 import { DEFAULT_MODELS } from "../engine/types";
 import { guidesOff, setGuidesOff } from "../lib/tour";
+import { sampleSource } from "../engine/source";
 
 const SPARKS = [
   "A lighthouse town where the keeper has been dead three weeks and no one will say it",
@@ -28,11 +29,33 @@ export default function Forge({ onBack, onCreated, onGuide }: {
   const [chronicle, setChronicle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A TEXT TO START INSIDE: a chapter, a setting document, a story bible. Sampled before it is sent,
+  // never truncated — see engine/source.ts.
+  const [source, setSource] = useState<{ name: string; text: string } | null>(null);
+  const [pasting, setPasting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const sample = React.useMemo(() => (source ? sampleSource(source.text) : null), [source]);
+  const sampleNote = sample
+    ? `${sample.total.toLocaleString()} characters. ${sample.sampled
+      ? `Too long to send whole, so ${sample.used} evenly spaced excerpts from ${sample.parts} parts go in, covering the opening, the middle and the end.`
+      : "It goes in whole."}`
+    : "";
+  const loadFile = async (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { setError("That file is over 20 MB. Use a plain-text export of the part you want."); return; }
+    const text = await f.text();
+    // A binary file read as text is mostly control characters; refuse it rather than send noise.
+    const junk = (text.slice(0, 4000).match(/[\u0000-\u0008\u000E-\u001F]/g) ?? []).length;
+    if (junk > 40) { setError(`${f.name} isn't plain text. Save it as .txt or .md first.`); return; }
+    setError(null);
+    setPasting(false);
+    setSource({ name: f.name, text });
+  };
   // The veteran's escape hatch, put where a new player is guaranteed to stand at least once.
   const [veteran, setVeteran] = useState(() => guidesOff());
 
   const go = async () => {
-    if (!seed.trim() || busy) return;
+    if ((!seed.trim() && !source?.text.trim()) || busy) return;
     setBusy(true); setError(null);
     try {
       const m = model.trim();
@@ -48,7 +71,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
         const m = clean.match(/^(.*?)\s*(?:—|--|:)\s*(.+)$/);
         return m ? { title: m[1].trim(), description: m[2].trim() } : { title: clean };
       }).filter((t) => t.title);
-      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded, seedThreads.length ? seedThreads : undefined, tone.trim() || undefined));
+      onCreated(await api.forge(fullSeed, m || undefined, budget || undefined, grounded, seedThreads.length ? seedThreads : undefined, tone.trim() || undefined, source?.text.trim() ? source : undefined));
     } catch (e: any) {
       setError(e.message ?? "world generation failed");
       setBusy(false);
@@ -75,6 +98,45 @@ export default function Forge({ onBack, onCreated, onGuide }: {
               {s.length > 44 ? s.slice(0, 43) + "…" : s}
             </button>
           ))}
+        </div>
+
+        <div className="mt-5" data-tour="forge-source">
+          <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: "var(--text-lo)" }}>
+            Start from a text <span style={{ opacity: 0.6 }}>(optional)</span>
+          </div>
+          {pasting ? (
+            <>
+              <textarea className="field" rows={6} autoFocus value={source?.text ?? ""}
+                placeholder="Paste a chapter, a setting document or a story bible…"
+                onChange={(e) => setSource(e.target.value.trim() ? { name: "pasted text", text: e.target.value } : null)}
+                onBlur={(e) => { if (!e.target.value.trim()) setPasting(false); }} />
+              {sample && (
+                <div className="flex items-start gap-2 mt-1.5">
+                  <div className="text-[11.5px] leading-relaxed flex-1" style={{ color: "var(--text-lo)" }}>{sampleNote}</div>
+                  <button className="chip shrink-0" aria-label="remove the text" onClick={() => { setSource(null); setPasting(false); }}><X size={11} /></button>
+                </div>
+              )}
+            </>
+          ) : source ? (
+            <div className="card p-3 flex items-start gap-2.5">
+              <FileText size={15} className="shrink-0 mt-0.5" style={{ color: "var(--accent)" }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] truncate" style={{ color: "var(--text-hi)" }}>{source.name}</div>
+                <div className="text-[11.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-lo)" }}>{sampleNote}</div>
+              </div>
+              <button className="chip shrink-0" aria-label="remove the text" onClick={() => { setSource(null); setPasting(false); }}><X size={11} /></button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              <button className="chip" onClick={() => fileRef.current?.click()}><FileText size={11} /> choose a file</button>
+              <button className="chip" onClick={() => setPasting(true)}>paste text</button>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.text,text/plain,text/markdown" className="hidden"
+            onChange={(e) => { void loadFile(e.target.files?.[0]); e.target.value = ""; }} />
+          <div className="text-[11.5px] leading-relaxed mt-1.5" style={{ color: "var(--text-lo)" }}>
+            The world is built from the text: its people, places, relationships and rules, under the names it uses. Your idea above still says who you are and where you come in; leave it blank to arrive as a newcomer. Plain text or Markdown.
+          </div>
         </div>
 
         <div className="mt-5" data-tour="forge-destination">
@@ -183,7 +245,7 @@ export default function Forge({ onBack, onCreated, onGuide }: {
         )}
 
         <motion.button className="btn btn-accent w-full mt-5" style={{ height: 50 }} data-tour="forge-go"
-          whileTap={{ scale: 0.97 }} onClick={go} disabled={busy || !seed.trim()}>
+          whileTap={{ scale: 0.97 }} onClick={go} disabled={busy || (!seed.trim() && !source?.text.trim())}>
           <Hammer size={15} />
           {busy ? "forging — this takes a minute…" : "Forge the world"}
         </motion.button>

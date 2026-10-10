@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import Canvass from "./Canvass";
 import { splitLines } from "../engine/turn";
 import { visualSignature } from "../engine/prompts";
 import { nice, niceCap } from "../lib/format";
@@ -305,6 +306,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
           </div>
         )}
       </div>
+
+      <Canvass save={save} />
 
       {elsewhereIds.length > 0 && (
         <>

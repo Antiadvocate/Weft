@@ -219,6 +219,12 @@ export interface Promise {
    *  not need a fourth prompt. See creditPromiseEvidence in social.ts. */
   evidence_turns?: number[];
   settled_by_evidence?: boolean;
+  /** WHAT THE ENGINE'S CLOSE CHANGED, so it can be taken back. An evidence close is a guess — the
+   *  comment on creditPromiseEvidence says so — and until this was kept, a wrong guess was permanent:
+   *  the ledger's buttons only exist on open promises. Measured off the edge, not recomputed. */
+  engine_close?: { warmth: number; trust: number; prev_notes: string; prev_notes_turn?: number; memory?: string };
+  /** The player reopened an engine close; the engine does not close this one on evidence again. */
+  no_auto_close?: boolean;
 }
 
 /** Directed edge a→b. Axes in [-100, 100]. */
@@ -266,6 +272,11 @@ export interface Rumor {
    *  rather than an assumption. A rumor with no path is pre-provenance (old save) and is treated
    *  as origin-only. */
   path?: { to: string; from: string | null; turn: number; how: "witnessed" | "told"; where?: string | null }[];
+  /** WHOSE VERSION IS OFF. `truth` is fixed at birth and is about the event; a rumour that was true
+   *  when the witness first told it can still reach someone sharpened, because it grew in the telling
+   *  on the way. Knowers listed here carry the grown version — and pass it on — while the witness and
+   *  everyone told before it grew still hold the true one. See diffuseRumors. */
+  distorted?: string[];
 }
 
 export interface FactionClock {
@@ -284,6 +295,12 @@ export interface FactionClock {
    *  waiting on picks up where it left off instead of being retired by a bookkeeping step. */
   original_objective?: string;
   knowledge_chain?: string[];  // how this faction came to know — printed in the World tab, oldest hop first
+  /** WHAT IT SAYS OUT LOUD. `objective` is what the faction is actually doing; this is the reason it
+   *  gives in public, which may not be the same thing. Its members say this in company, and a
+   *  canvass can put a question to the faction itself and get this voice back. */
+  public_line?: string;
+  /** How that line reaches ordinary people: a notice on the mill door, the Sunday sermon, a crier. */
+  speaks_through?: string;
   status: "running" | "fired" | "stalled";
   /** Set by the chapter auditor, exactly as on Thread — this clock's objective is one of the things
    *  the world bible listed as never-the-engine. The clock keeps ticking and still fires on
@@ -438,6 +455,10 @@ export interface Identity {
   authored?: AuthoredDrive[]; // STANDING wants the player wrote onto this person by hand — see AuthoredDrive
   schedule?: Schedule;        // OPTIONAL standing week — where this person has to be, and when. See engine/schedule.ts
   tracked?: boolean;          // followed in the long game: keeps regenerating drives, persists offscreen
+  /** The faction this person belongs to, by the name its clock uses. knowledge.factionMembers has
+   *  always read this field first and nothing ever wrote it, so membership was a name-match against
+   *  the background. The forge writes it now; see the clocks' public_line. */
+  affiliation?: string;
   central?: boolean;          // a CENTRAL character: full fidelity (memory, traits, drives, portrait, theory-of-mind). When false, the character is "non-central" — a background/environment figure with minimal token footprint and simple handling. The cap (max_central_characters, default 6) governs how many can be central at once; overflow registers as non-central until promoted.
   status?: "active" | "dead" | "departed"; // dead = killed/gone for good; departed = left the story (moved away, exiled). active is default.
   exit_turn?: number;         // when they died/left

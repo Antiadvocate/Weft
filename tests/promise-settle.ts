@@ -26,7 +26,7 @@
  * The engine cannot infer its way out of either. What it needs is a door.
  */
 import { readFileSync } from "node:fs";
-import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence } from "../src/engine/social";
+import { addPromise, resolvePromise, getEdge, promisedPlace, promiseEvidence, creditPromiseEvidence, reopenPromise } from "../src/engine/social";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -196,6 +196,22 @@ function settle(s: SaveState, id: string, outcome: "kept" | "broken" | "retired"
   check("marked as settled on evidence", p.settled_by_evidence === true && p.settled_turn === 8);
   check("with the turns it saw", JSON.stringify(p.evidence_turns) === "[6,7,8]", p.evidence_turns);
   check("and Lucia gets the trust for it", getEdge(s.world.edges, "char_player", "char_lucia").trust > 0);
+
+  /* ...AND IT CAN BE TAKEN BACK. The close is a guess and the ledger's buttons only exist on open
+   * promises, so a wrong one used to be permanent. Reopening gives back exactly what it changed. */
+  const e = getEdge(s.world.edges, "char_player", "char_lucia");
+  const mems = s.memory.char_player.episodic.length;
+  const msg = reopenPromise(s, p);
+  check("an engine close can be taken back", !!msg && p.status === "open", msg);
+  check("the trust and warmth it gave are given back", e.trust === 0 && e.warmth === 0, e);
+  check("the note it overwrote comes back", e.notes === "", e.notes);
+  check("the memory it wrote is withdrawn", s.memory.char_player.episodic.length === mems - 1);
+  check("and the engine doesn't close it on its own again", (tick(9), tick(10), tick(11), p.status === "open"), p.status);
+  check("a promise closed by hand is not reopened this way", (() => {
+    const q = addPromise(s, "char_clodia", "char_player", "Clodia will bring the ledger to the villa before dark.", 1)!;
+    q.status = "kept"; q.settled_by_hand = true;
+    return reopenPromise(s, q) === null && q.status === "kept";
+  })());
 }
 
 /* ── 7. what the engine will NOT close for you ────────────────────────────────

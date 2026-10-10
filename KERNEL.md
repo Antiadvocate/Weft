@@ -223,6 +223,20 @@ boredom, not old age), while transmission in matching weather feeds `+0.6` once 
 story grows in the telling"). Growth and decay on the same rule — the destruction phase is
 inherited from the kernel the field rides.
 
+**Hearsay** (`hearsay.ts`, inside `diffuseRumors`). Knowing used to be the end of it: a hop added a
+name to `knowers` and moved nothing. Now three things ride each hop. *Who tells whom* — spread
+probability is multiplied by `tellBias`: 1 for strangers (the old rate), leaning with the teller's
+warmth toward the hearer (×0.4…1.5) and the hearer's trust in the teller (×0.75…1.25), and ×1.25 /
+×0.8 when both already lean the same / opposite way on the rumour's subject. *What it does to the
+hearer's opinion* — the subject is the doer of the first act in the sentence (seen, active, or
+passive-with-"by"; a victim is never the subject), the valence is the act's (harm −1, help +1, an
+illness or a plan 0), and the hearer's edge toward the subject moves by
+`5 × salience/10 × credence × resistance` through `applyEdgeDelta`, where credence is
+`0.5 + trust(hearer→teller)/200` clamped to [0.15, 1] and resistance damps news against a strong
+opinion by its strength and the mind layer's confidence (floor 0.2 — never sealed). *Whose version
+is off* — a hop on which the story grows marks that hearer in `rumor.distorted`, and they pass the
+grown version on; `truth` stays the event's.
+
 **Departure evidence guard** (applyDiff, LOCATION pass). `diff.locations` is the bookkeeper's
 claim about where everyone is, and `world.present` is derived from it — so a bad claim dumps a
 speaking character offscene and the next turn's narrator faithfully renders an empty room. The

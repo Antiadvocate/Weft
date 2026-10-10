@@ -448,6 +448,7 @@ export async function embodyCharacter(state: SaveState, targetId: string): Promi
     r.origin_char = swap(r.origin_char);
     if (r.about_char) r.about_char = swap(r.about_char);
     r.knowers = [...new Set(r.knowers.map(swap))];
+    if (r.distorted) r.distorted = [...new Set(r.distorted.map(swap))];
   }
   for (const cq of state.world.consequences) if (cq.source_char) cq.source_char = swap(cq.source_char);
   // the player now inhabits the target's body → the world's player_location is wherever that body is
