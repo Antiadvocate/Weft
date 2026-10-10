@@ -22,6 +22,7 @@ import { apertureOf } from "./aperture";
 import { remodelCue } from "./remodel";
 import { clipText, clipTail } from "./text";
 import { speaksForLine } from "./institution";
+import { trackedBlock } from "./tracked";
 import { groundCue } from "./ground";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
@@ -1153,6 +1154,8 @@ export function deltaNote(state: SaveState, query: string): string {
   }
   const shifts = contextHistory(state).at(-1)?.shifts;
   if (shifts?.length) lines.push(`Shifts last turn: ${shifts.slice(0, 5).join(" | ")}`);
+  // The player's tracked questions move between anchors; the anchor's copy goes stale. See tracked.ts.
+  { const tb = trackedBlock(state).trim(); if (tb) lines.push(tb); }
   return lines.join("\n");
 }
 
@@ -2511,7 +2514,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // ORDER = VOLATILITY. Canon/threads/clocks change rarely; they lead so the provider's
     // implicit prefix cache extends past the stable prefix into the digest. The turn/time line —
     // guaranteed to change every turn — goes as late as possible.
-    return `${canonBlock}${landedBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}${goneBlock}=== NOW ===
+    return `${canonBlock}${landedBlock}${chaptersBlock}${threadsBlock}${clocksBlock}${focusBlock}${offBlock}${goneBlock}${trackedBlock(state)}=== NOW ===
 Turn ${turn} | ${state.world.current_time}${dateLabel(state.world.current_time, state.world_bible.start_date) ? ` — ${dateLabel(state.world.current_time, state.world_bible.start_date)}` : ""} | Weather: ${state.world.weather}
 Scene: ${loc ? `${loc.name}${loc.identity?.trim() ? ` — ${loc.identity.trim()} (this does not change)` : ""}${loc.description_facts?.trim() ? ` | as it stands now: ${loc.description_facts.trim()}` : ""}` : state.world.player_location}${hostFrame}${loc?.contains.length ? ` | Here with you: ${loc.contains.filter((id) => id !== "char_player").map((id) => state.characters[id]?.name ?? id).join(", ") || "no one"}` : ""} | scene running ~${Math.max(0, minutesBetween(state.world.scene_started_time ?? state.world.current_time, state.world.current_time))} min
 Player carries: ${state.world.money || "—"}${(() => {

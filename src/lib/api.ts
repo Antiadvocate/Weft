@@ -36,6 +36,8 @@ import { compactMemoryDigest } from "../engine/memory";
 import { groundMemoryContent, knownNameWhitelist } from "../engine/facts";
 import { detectWorldPronoun, rolesFromRelation } from "../engine/coerce";
 import { applyForgeTies } from "../engine/ties";
+import { writeFormative } from "../engine/formative";
+import { addTracked, removeTracked, askTracked, applyTracked, MAX_TRACKED } from "../engine/tracked";
 import { sampleSource } from "../engine/source";
 import { pickCanvass, pickFactions, knowsLines, type CanvassPick } from "../engine/canvass";
 import { askableFactions, institutionContext } from "../engine/institution";
@@ -834,6 +836,16 @@ export const api = {
     return clientView(s);
   },
 
+  /** Write formative memories for one character who has none — for saves forged before they
+   *  existed, and for people added mid-story. See engine/formative.ts. */
+  writeFormativeFor: async (id: string, char_id: string): Promise<{ save: ClientSave; log: string }> => {
+    const s = await need(id);
+    if (!s.characters[char_id] || char_id === "char_player") throw new Error("no such character");
+    const log = await writeFormative(s, [char_id], s.model_settings.forge_model, s.model_settings.fallback_model);
+    await putSave(s);
+    return { save: clientView(s), log: log.join("\n") || "Nothing came back." };
+  },
+
   // Re-read one character's script cold. The refresher sees the card as it stands now — core traits
   // plus what play has made them — and never sees a line of prose, so it cannot inherit the drift.
   // example_lines are REPLACED: keeping the old ones would feed the drifted voice back in as an
@@ -933,6 +945,29 @@ export const api = {
     s.updated_at = new Date().toISOString();
     await putSave(s);
     return { save: clientView(s), log };
+  },
+
+  /** TRACKED QUESTIONS — the player's own variables, kept current by the story. See engine/tracked.ts. */
+  trackedAdd: async (id: string, question: string, every = 3): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!addTracked(s, question, every)) throw new Error(`You can track up to ${MAX_TRACKED} questions, and a question can't be blank.`);
+    await putSave(s);
+    return clientView(s);
+  },
+  trackedRemove: async (id: string, tracked_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    removeTracked(s, tracked_id);
+    await putSave(s);
+    return clientView(s);
+  },
+  /** Answer every tracked question now, from the record as it stands. */
+  trackedAnswerNow: async (id: string): Promise<{ save: ClientSave; answered: number }> => {
+    const s = await need(id);
+    const last = [...(s.history ?? [])].reverse().find((h) => h.narrator_prose)?.narrator_prose ?? "";
+    const answers = await askTracked(s, last, { model: s.model_settings.simulator_model, fallback: s.model_settings.fallback_model, force: true });
+    const answered = applyTracked(s, answers, s.world.current_turn);
+    await putSave(s);
+    return { save: clientView(s), answered };
   },
 
   /** UNDO AN ENGINE CLOSE. A promise the engine marked kept on evidence, which the player says was
@@ -1908,6 +1943,12 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
     // theirs. Without this every NPC pair started at 0/0 with no roles — see engine/ties.ts.
     const tied = applyForgeTies(s, g.ties);
     if (tied.length) console.info(`[forge] ${tied.length} tie(s) between the cast: ${tied.join("; ")}`);
+    // FORMATIVE MEMORIES: what each of them carries in from before the story. One batched call,
+    // after the ties are filed so the brief can name them; fails open. See engine/formative.ts.
+    try {
+      const fm = await writeFormative(s, Object.keys(s.characters).filter((cid) => cid !== "char_player"), model);
+      if (fm.length) console.info(`[forge] ${fm.join(" | ")}`);
+    } catch (e) { if (isCancel(e)) throw e; }
     for (const c of g.clocks ?? []) {
       s.world.clocks.push({ id: uid("clk"), faction: c.faction ?? "", objective: c.objective ?? "", segments: Math.max(2, c.segments ?? 6), filled: 0, consequence: c.consequence ?? "", visible_signs: c.visible_signs ?? [], status: "running",
         public_line: String(c.public_line ?? "").trim() || undefined, speaks_through: String(c.speaks_through ?? "").trim() || undefined });

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ScrollText, HandshakeIcon, CircleHelp, Users2 } from "lucide-react";
 import { api, type ClientSave } from "../lib/api";
+import TrackedQuestions from "./TrackedQuestions";
 
 /**
  * The PLAYER JOURNAL — a near-zero-LLM view derived entirely from state the engine already tracks:
@@ -151,6 +152,8 @@ export default function Journal({ save, onSave }: { save: ClientSave; onSave?: (
         <h2 className="text-lg font-semibold">Journal</h2>
         <span className="text-[11px] ml-2" style={{ color: "var(--text-lo)" }}>where you stand — drawn from what's actually happened, nothing invented</span>
       </div>
+
+      <TrackedQuestions save={save} onSave={onSave} />
 
       {/* ── PROMISES ── */}
       <section className="mb-7">

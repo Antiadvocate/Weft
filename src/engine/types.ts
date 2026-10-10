@@ -776,6 +776,7 @@ export interface EpisodicMemory {
   scheduled_time?: string;     // commitments: "Day 3, 19:00"
   commitment_status?: "pending" | "fulfilled" | "missed" | "cancelled";
   folded?: boolean;            // a high-salience memory already folded into the character's background (identity consolidation)
+  formative?: boolean;         // written at creation from before the story began (formative.ts) — never an event of play
   source?: MemorySource;       // provenance: how this character came to know this (witnessed / rumor / inferred / told_by). Backfilled to "witnessed" on old saves.
   last_accessed_turn: number;
 }
@@ -869,6 +870,9 @@ export interface Thread {
    *  naming it. It does not close the thread — the situation is still real and the player may
    *  still act on it; the world just stops reaching for it as the reason a scene happens. */
   forbidden_engine?: boolean;
+  /** Opened by the story sifter (sift.ts), not the bookkeeper: the pattern key it was read from,
+   *  so the sifter can keep it current and close it when the state stops showing it. */
+  sifted?: string;
 }
 
 export interface ConsequenceEvent {
@@ -951,6 +955,12 @@ export interface WorldState {
   /** The world's own motion, offstage. Events not aimed at the player, reported every
    *  OFFSTAGE_INTERVAL_MIN of in-world time; they reach the player only via witnesses → rumors. */
   offstage_log?: { turn: number; time: string; what: string; place?: string; actor?: string }[];
+  /** Relationship milestones between offstage people — see lifeevents.ts. Newest last, capped. */
+  life_events?: { kind: "together" | "breakup" | "fallout" | "makeup"; a: string; b: string; turn: number; time?: string }[];
+  /** The in-world time life events were last evaluated, so a call covers exactly the time since. */
+  life_clock?: string;
+  /** Questions the player pinned, kept current every few turns. See tracked.ts. */
+  tracked?: { id: string; question: string; every: number; created_turn: number; answer?: string; answered_turn?: number }[];
   offstage_last_time?: string;
   /** How many offstage intervals have run since agency was switched on. The world pass rides every
    *  `agency_world_ratio`-th one of them, so the weather and the factions nobody stands in keep
@@ -1145,6 +1155,8 @@ export interface SaveState {
    *  reliably broken a narrator habit is being shown the sentence at the end of the next turn's
    *  directive. See engine/maxims.ts. */
   last_maxim?: string | null;
+  /** A stock phrase the narrator wrote last turn, quoted back once when stock phrasing recurs. See stock.ts. */
+  last_stock?: { phrase: string; sentence: string } | null;
   /** A thing the player WROTE INTO THE WORLD on the story channel that the prose then declined to
    *  render — absent, hedged into an approach to itself, or interrupted by something the player
    *  never wrote. Quoted back at the start of the next turn, the same mechanism as last_maxim and

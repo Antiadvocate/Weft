@@ -237,6 +237,23 @@ opinion by its strength and the mind layer's confidence (floor 0.2 — never sea
 is off* — a hop on which the story grows marks that hearer in `rumor.distorted`, and they pass the
 grown version on; `truth` stays the event's.
 
+**Story sifting** (`sift.ts`, after `sweepThreads`). Deterministic patterns over edges, roles,
+wants and minds: triangle (A→B attraction ≥ 35, B→A ≤ 10, B→C ≥ 35), unrequited, rivals (two
+NPCs ≥ 35 toward one target, the player allowed as target only), one-sided (warmth ≥ 35 against
+≤ −15), misplaced trust (trust ≥ 40 against warmth ≤ −25), caught between (bound to two people
+whose mutual warmth ≤ −30), same quarry (two drives `about` one person). Each has a ripeness 0…1.
+Scored by ripeness × closeness to the player; one new a turn, at most `MAX_SIFTED_LIVE` (2) live,
+opened as `kind: "relationship"` threads keyed by `sifted`, closed when the pattern no longer
+holds, not reopened for 12 turns.
+
+**Life events** (`lifeevents.ts`, after the offstage pass and once per time-skip round).
+Offstage NPC pairs only, never the player. Per-day rates: together 0.15 × (0.3 + attraction
+excess) × reach, needing mutual attraction ≥ 40, warmth ≥ 25 and both unattached; breakup 0.08 ×
+(0.5 + depth), for partners at warmth ≤ −10 or trust ≤ −25; fallout 0.3 × reach, for friends with
+a warmth swing ≤ −12; makeup 0.2 × reach, after a fallout once warmth ≥ 20 again. Probability per
+call is `1 − (1 − rate)^(days elapsed)`, at most one event per call, with a 3-day pair cooldown.
+Each event changes roles, writes a memory for both, seeds a rumour and appends to `offstage_log`.
+
 **Departure evidence guard** (applyDiff, LOCATION pass). `diff.locations` is the bookkeeper's
 claim about where everyone is, and `world.present` is derived from it — so a bad claim dumps a
 speaking character offscene and the next turn's narrator faithfully renders an empty room. The

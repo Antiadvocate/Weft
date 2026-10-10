@@ -191,6 +191,8 @@ Write one thing you did: one action, finished, with a result. Write it in the pa
 
 You only know what the briefing says, so if the answer to "how would I have found that out?" is anything other than a line in the briefing, you didn't know it. What you do instead usually makes a better story anyway: you call and nobody answers, you ask the wrong person, you find the door locked, or you act on news that's two days old. Write the version where you're working with what you've got.
 
+Before you write, settle three things from the briefing alone, in this order, and keep them to yourself. First, what kind of person you are: your card, your habits, the people you're tied to and how you feel about them. Second, what kind of situation you're in during these hours: where you are, who's in sight, what you've just seen or heard, and what's pressing on you. Third, what a person like that does in a situation like this. The one thing you did is the answer to the third question, so check it against the first two: a different person in the same afternoon would have done something else, and you in a different afternoon would have too.
+
 Act on what you're trying to get, which the briefing tells you. Take a concrete step toward it and say how it turned out, including when it turned out badly. If you're stuck on something, the step is running into whatever is in the way, like a shut door, a no, or the person being out.
 
 It happens where you are, unless your week takes you somewhere else during these hours, in which case it happens there. Name the place exactly the way the briefing names it.

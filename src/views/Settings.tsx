@@ -150,6 +150,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
   const [url, setUrl] = useState(cur?.url ?? "");
   const [lkey, setLkey] = useState(cur?.key ?? "");
   const [noThink, setNoThink] = useState(cur?.no_think === true);
+  const [phraseBan, setPhraseBan] = useState(cur?.phrase_ban === true);
   const [loopGuard, setLoopGuard] = useState(String(cur?.loop_guard ?? LOCAL_SAMPLER_DEFAULTS.loop_guard));
   const [topP, setTopP] = useState(String(cur?.top_p ?? LOCAL_SAMPLER_DEFAULTS.top_p));
   const [maxOut, setMaxOut] = useState(String(cur?.max_output ?? LOCAL_MAX_OUTPUT_DEFAULT));
@@ -160,7 +161,7 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
     const clean = url.trim().replace(/\/+$/, "");
     if (!clean) { setLocalEndpoint(null); setStatus("local AI off — every call goes to OpenRouter"); return; }
     setLocalEndpoint({
-      url: clean, key: lkey.trim() || undefined, no_think: noThink,
+      url: clean, key: lkey.trim() || undefined, no_think: noThink, phrase_ban: phraseBan || undefined,
       loop_guard: Math.max(0, Math.min(2, Number(loopGuard) || 0)),
       top_p: Math.max(0, Math.min(1, Number(topP) || 0)),
       max_output: Math.max(0, Math.min(32000, Number(maxOut) || 0)),
@@ -183,6 +184,9 @@ function LocalAI({ onPreset, onRestore, presetApplied }: { onPreset: () => void;
       <Toggle on={noThink} onFlip={() => setNoThink((v) => !v)}
         title="Suppress local thinking (/no_think)"
         desc="OFF BY DEFAULT, and leave it off unless you know your model honors it. It appends Qwen3's control token to the last message — but a model that doesn't recognise it reads the token as CONTENT and prints it back into the story, which is worse than the thinking it was meant to prevent. Deliberation is stripped either way: closed <think>/<analysis> blocks never reach the page, and an unclosed one is cut out of the prose." />
+      <Toggle on={phraseBan} onFlip={() => setPhraseBan((v) => !v)}
+        title="Ban stock phrases in the sampler (KoboldCpp only)"
+        desc="KoboldCpp can refuse a list of phrases while it writes, backing up a few tokens and taking another path the moment one starts, so the story never contains them. The list is a few hundred phrases models over-use in fiction, such as the deep breath and the shiver down the spine. Leave this off for llama.cpp, LM Studio or Ollama: llama.cpp's server rejects the field and every turn would fail." />
       <div className="flex gap-2">
         <div className="flex-1"><TextField label="Loop guard (frequency penalty)" value={loopGuard} onChange={setLoopGuard} mono /></div>
         <div className="flex-1"><TextField label="top_p" value={topP} onChange={setTopP} mono /></div>

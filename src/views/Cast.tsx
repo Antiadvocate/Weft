@@ -67,6 +67,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [imgErr, setImgErr] = useState<string | null>(null);
   const [revoicing, setRevoicing] = useState(false);
   const [retraiting, setRetraiting] = useState(false);
+  const [writingPast, setWritingPast] = useState(false);   // formative memories, see engine/formative.ts
+  const [pastNote, setPastNote] = useState("");
   const [menu, setMenu] = useState(false);
   const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "", speech_pattern: "", voice_diction: "", voice_syntax: "", voice_rhythm: "", voice_tics: "", voice_never_says: "", voice_example_lines: "", voice_locked: false });
   const [editNote, setEditNote] = useState("");
@@ -78,7 +80,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [ivLog, setIvLog] = useState<{ q: string; a: string }[]>([]);
   const [ivErr, setIvErr] = useState("");
 
-  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now"); }, [sel]);
+  useEffect(() => { setIvLog([]); setIvErr(""); setIvQ(""); setNewFact(""); setEditNote(""); setMenu(false); setTab("now"); setPastNote(""); }, [sel]);
 
   /* ESCAPE CLOSES IT. The character drawer's veil is fixed at z-40 and the tab bar sits at z-30, so
      while a card is open the bottom navigation is behind it and cannot be reached — tapping the veil
@@ -449,6 +451,12 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                                 note="work out again how they talk from their character card, ignoring recent changes"
                                 busy={revoicing}
                                 on={async () => { setRevoicing(true); try { setSave(await api.refreshVoice(save.id, sel!)); } catch { /* leave voice */ } finally { setRevoicing(false); } }} />}
+                              {npc && !(save.memory[sel!]?.episodic ?? []).some((m) => m.formative) && (
+                                <Item icon={<Brain size={15} style={grey} />} label="Write their past"
+                                  note="four to six memories from before the story, built from their card and nothing else"
+                                  busy={writingPast}
+                                  on={async () => { setWritingPast(true); setPastNote(""); try { const r = await api.writeFormativeFor(save.id, sel!); setSave(r.save); setPastNote(r.log); } catch (e: any) { setImgErr(e?.message ?? "couldn't write their past"); } finally { setWritingPast(false); } }} />
+                              )}
                               <Item icon={<Heart size={15} style={grey} />} label="Re-score attractiveness"
                                 note={typeof c.beauty === "number" ? `currently ${c.beauty} — recomputes from appearance` : "recomputes from appearance"}
                                 busy={scoring} on={rescore} />
@@ -482,6 +490,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
               </div>
               {painting && <div className="px-5 pb-1 font-mono text-[10px]"><span className="shimmer">generating portrait…</span></div>}
               {imgErr && <div className="px-5 pb-1 font-mono text-[10px]" style={{ color: "var(--danger)" }}>{imgErr}</div>}
+              {pastNote && <div className="px-5 pb-1 font-mono text-[10px]" style={{ color: "var(--text-lo)" }}>{pastNote}</div>}
 
               <TabCtx.Provider value={tab}>
               <div className="scroll-y px-5 pb-6 space-y-4">
