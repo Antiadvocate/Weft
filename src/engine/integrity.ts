@@ -58,6 +58,8 @@ const LABEL: Record<string, string> = {
   swap: "the cast list disagreeing with the prose",
   invention: "a person or place the prose invented and the player struck",
   pov: "the player written from outside instead of addressed as you",
+  player_voice: "a line put in your mouth that you never typed",
+  held: "you said you were leaving and the scene kept you there",
 };
 
 /** Turns the rolling window looks back over. */

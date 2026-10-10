@@ -38,6 +38,8 @@ import { siftStory } from "./sift";
 import { runLifeEvents } from "./lifeevents";
 import { dueTracked, askTracked, applyTracked } from "./tracked";
 import { turnSearchQuery } from "./grounding";
+import { playerTrip, leavingBeat } from "./leaving";
+import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -2437,7 +2439,17 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the turn is for answering that. See answerThePlayer.
   const answerBody = answerThePlayer(action, mode);
   const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder";
-  const beatNote = answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
+  // ...EXCEPT WHEN WHAT THE PLAYER DID WAS LEAVE. "They go on talking to the player about it" is an
+  // instruction to keep somebody who said they were going home, and in Rainier Valley it kept him
+  // in the office for four turns. A departure gets the slot instead: they go, and get there. What
+  // the world had scheduled (a consequence, a clock, a threat, an outside event) still follows it
+  // and finds them where they end up; a beat that would happen "in the room the characters are
+  // standing in" — the palette, a person's want, a relationship, a thread — waits. See leaving.ts.
+  const trip = mode === "think" ? null : playerTrip(state, action);
+  const scheduled = !!beat && (beat.kind === "consequence" || beat.kind === "clock" || beat.kind === "exogenous");
+  const beatNote = trip
+    ? `\n\n=== WHAT THIS TURN IS FOR ===\n${leavingBeat(state, trip)}${scheduled ? beatDirective(beat, dial) : ""}`
+    : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
   // What the world itself brings to this turn, as facts for the plain narrator: a change that has
   // finished arriving, and a consequence that was already scheduled and is due now.
   const plainWorldNow = [
@@ -2911,7 +2923,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3659,6 +3671,19 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       console.warn(`[turn] tic guard: cut ${cuts} echo/canned sentence(s)`);
     }
   }
+  // ...AND A LINE GIVEN TO THE PLAYER THAT THE PLAYER NEVER TYPED. Cut here, before the bookkeeper
+  // reads the prose, because once it's read it is something the room heard him say. The first one
+  // cut is quoted back next turn. See engine/playervoice.ts.
+  if (!opts?.proseOverride) {
+    const pv = scrubPlayerVoice(prose, action, mode);
+    state.last_voiced = pv.cut[0] ?? null;
+    if (pv.cut.length) {
+      prose = pv.prose;
+      noteFire(state, "player_voice", `gave the player a line they never typed: "${pv.cut[0].line.slice(0, 60)}"`);
+      ev.onMeta({ shifts: [`The narration gave you ${pv.cut.length === 1 ? "a line" : `${pv.cut.length} lines`} you never typed; ${pv.cut.length === 1 ? "it was" : "they were"} cut`] });
+      console.warn(`[turn] player voice: cut ${pv.cut.length} line(s) the player never typed`);
+    }
+  }
 
   // ── THE REVISER ── The prose has stopped changing, so this is where the repair pass can see the
   // finished turn. It is STARTED here and AWAITED at the commit, which puts it alongside the
@@ -4136,6 +4161,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // `let`, not `const`: everything below pushes into it, and the sift just before the history
   // push replaces it with the part a person should actually read. See engine/shifts.ts.
   let shifts = applyDiff(state, diff, action, prose, !!footer);
+  // A turn that was for leaving and ended with the player still where they started is a failure the
+  // player should hear about, counted with the others. See leaving.ts and integrity.ts.
+  if (trip?.toId && state.world.player_location !== trip.toId) {
+    noteFire(state, "held", `said "${trip.said.slice(0, 60)}" and the turn ended at ${state.world.places[state.world.player_location]?.name ?? "the same place"}`);
+  }
   // AND THE PLAYER IS TOLD. "I CREATE A GUN AND KILL MYSELF" was typed four times in one save
   // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
   // from being ignored, so the reasonable response is to type it again, louder.
