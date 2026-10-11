@@ -16,6 +16,7 @@
 // This is the same shape as the voice refresh, for the same reason: drift toward the centre of the
 // context is fixed by changing the context, not by arguing with it.
 
+import { keepsAway, namesPlayer } from "./rejection";
 import { buildMessages, complete, safeJson } from "../llm";
 import { tidyPhrase, ownWant } from "./coerce";
 import { figureIn } from "./aphorism";
@@ -197,6 +198,7 @@ function brief(state: any, id: string): string {
     `SETTING: ${b.name ?? ""} — ${b.era ?? ""}. ${b.technology_level ?? ""}`,
     `WHAT PEOPLE HERE FEAR: ${b.what_people_fear ?? ""}`,
     `SEASON AND TIME: ${state.world.current_time}`,
+    keepsAway(state, id) ? `\nTHEIR SITUATION WITH ${String(state.characters?.char_player?.name ?? "the player").toUpperCase()}: ${c.held ? "they are being held where they can't reach anyone" : "told to keep away, and keeping away"}, so the want you write is about their own life rather than about ${String(state.characters?.char_player?.name ?? "the player")}.` : "",
     others ? `\nOTHER PEOPLE IN THEIR LIFE:\n${others}` : "",
     // WHAT EVERYONE ELSE IS ALREADY DOING. Each want used to be forged in isolation, so nine
     // independent calls under the same constraints converged on the same locally-optimal shape and
@@ -251,6 +253,12 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       const j = safeJson<{ goal?: string; step?: string; why?: string }>(out.text, {});
       const goal = String(j.goal ?? "").trim();
       if (!goal || goal.length < 8) continue;
+      // TURNED AWAY BY THE PLAYER, OR HELD: a want aimed at the player isn't theirs to have. See rejection.ts.
+      if (keepsAway(state, id) && namesPlayer(state, goal)) {
+        console.info(`[drives] rejected a want aimed at the player for ${c.name}, who keeps away: "${goal}"`);
+        rejection = `\n\nYour last attempt was about ${playerName || "the player"}, who has told this person to keep away${c.held ? ", and they are being held where they can't reach anyone" : ""}, so write a want about their own life, their work, their friends or their home that doesn't involve ${playerName || "the player"} at all.`;
+        continue;
+      }
       if (isDependentGoal(goal, playerName)) {
         console.info(`[drives] rejected player-contingent goal for ${c.name}: "${goal}"`);
         rejection = "\n\nYour last attempt was rejected for being a decision, waiting for someone's answer, or trying to win someone's approval. Write what this person does.";

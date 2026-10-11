@@ -136,6 +136,8 @@ export interface Chapter {
   on_contract?: boolean;      // did this chapter honor the standing direction (story contract)?
   drift?: string;             // one-line description of the drift, when off contract
   persona?: { mbti: string; read: string; traits: string[]; shift?: string }; // how the PLAYER acted this chapter, typed from behavior
+  /** The player deleted it. Kept, empty, so its turns aren't summarised again. See engine/chapters.ts. */
+  deleted?: boolean;
 }
 
 export interface WorldBible {
@@ -943,6 +945,9 @@ export interface WorldState {
    *  record — but are no longer fed to any model. Set by "Clear the log"; 0/undefined = no line
    *  drawn. See engine/context.ts. */
   context_from_turn?: number;
+  /** Storylines the player nuked: the words, and the turn. The turn loop cuts any new sentence that
+   *  mentions one unless the player's own action brought it up. See engine/nuke.ts. */
+  nuked?: { terms: string[]; names?: string[]; turn: number }[];
   scene_started_time?: string; // when the current scene began (same format) — resets on location change or a ≥2h jump; the digest prints scene elapsed so timed world laws can be judged
   weather: string;
   player_location: string;
@@ -1157,6 +1162,9 @@ export interface SaveState {
   last_maxim?: string | null;
   /** A stock phrase the narrator wrote last turn, quoted back once when stock phrasing recurs. See stock.ts. */
   last_stock?: { phrase: string; sentence: string } | null;
+  /** A line of dialogue the narration gave the player that the player never typed, cut from the
+   *  prose and quoted back once next turn. See engine/playervoice.ts. */
+  last_voiced?: { line: string; sentence: string } | null;
   /** A thing the player WROTE INTO THE WORLD on the story channel that the prose then declined to
    *  render — absent, hedged into an approach to itself, or interrupted by something the player
    *  never wrote. Quoted back at the start of the next turn, the same mechanism as last_maxim and

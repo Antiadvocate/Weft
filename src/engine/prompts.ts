@@ -12,6 +12,7 @@
  *     can see, not just how they feel.
  */
 import { visibleOnPlayer } from "./reaction";
+import { liveChapters } from "./chapters";
 import { MAX_LIVE } from "./threads";
 import { isBesieged } from "./pressure";
 import { readAnatomy, anatomyNote } from "./anatomy";
@@ -2027,8 +2028,8 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       + landed.map((c) => `\u2022 ${clipText(c.description, 200)}`).join("\n")
       + `\nEach of these already happened before this turn began. Nobody announces it, discovers it or resolves it again. It's simply how things are in the story now, and it keeps showing in what people do and what the world is like, this turn and every turn after, until something in the story changes it.\n\n`
     : "";
-  const chaptersBlock = state.chapters?.length
-    ? `=== STORY SO FAR (chapters) ===\n${state.chapters.slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`
+  const chaptersBlock = liveChapters(state).length
+    ? `=== STORY SO FAR (chapters) ===\n${liveChapters(state).slice(-6).map((c) => `${c.idx}. ${c.title}: ${c.summary}`).join("\n")}\n\n`
     : "";
 
   // Build each present character's block at a chosen detail level:

@@ -31,6 +31,7 @@
  * of them and respond to it freshly. A clenched person's attention narrows onto the threat and their
  * old habits run them. Both come from the person and the moment, and both can change within a scene.
  */
+import { liveChapters } from "./chapters";
 import type { SaveState, Identity, ActionMode, SocialEdge, EpisodicMemory } from "./types";
 import { buildMessages } from "../llm";
 import { contextHistory } from "./context";
@@ -299,7 +300,7 @@ export function storyBlock(state: SaveState): string {
     cut = i;
   }
   const older = hist.slice(0, cut).map((h) => `- ${h.time_label ? `${h.time_label}: ` : ""}${clean(h.summary) || clean(h.player_action)}`);
-  const chapters = (state.chapters ?? []).filter((c) => (c.to_turn ?? 0) < (hist[cut]?.turn ?? Infinity));
+  const chapters = liveChapters(state).filter((c) => (c.to_turn ?? 0) < (hist[cut]?.turn ?? Infinity));
   const parts: string[] = ["## The story so far"];
   if (chapters.length) parts.push(chapters.map((c) => `${c.title}: ${clean(c.summary)}`).join("\n"));
   if (older.length) parts.push(`Earlier, in short:\n${older.join("\n")}`);

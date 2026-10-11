@@ -14,6 +14,7 @@
  *       memories, bonds, wounds, traits, wants. Your old self remains in the
  *       world as a person the world remembers.
  */
+import { keepsAway } from "./rejection";
 import type { SaveState, TurnTelemetry, Identity, CharMemory, AcquiredTrait } from "./types";
 import { absMinutes, advance } from "./time";
 import { consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, tickDrives, tickPsyche, tickBonds } from "./social";
@@ -249,7 +250,9 @@ export async function runInterlude(state: SaveState, days: number, ev: { onPhase
   if (parsed.weather) state.world.weather = parsed.weather;
   const back = (parsed.present_on_return ?? [])
     .map((nm) => Object.entries(state.characters).find(([id, c]) => id !== "char_player" && c.name.toLowerCase() === String(nm).toLowerCase())?.[0])
-    .filter((x): x is string => !!x && state.characters[x].status !== "dead" && state.characters[x].status !== "departed");
+    .filter((x): x is string => !!x && state.characters[x].status !== "dead" && state.characters[x].status !== "departed")
+    // Not someone held elsewhere, and not someone the player turned away. See rejection.ts.
+    .filter((x) => !keepsAway(state, x));
   // present is DERIVED from co-location everywhere else in the engine. Setting present without
   // moving anyone meant the very next turn's syncPresence wiped this list. Move the returners
   // to the player's location, then derive the scene the normal way.

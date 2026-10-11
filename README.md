@@ -348,6 +348,40 @@ A second round, from reading the code of the open-source projects that do a piec
 - **What you're keeping track of.** In the **Journal**, pin a question ("Is the bridge still standing?") and it is re-answered from the record every few turns. It runs alongside the bookkeeper, so it adds no wait. The narrator writes consistently with the answer.
 - **How background people decide.** When a background character's afternoon is decided, it first settles who they are, then what situation they're in, then what a person like that does in it.
 
+## Leaving, your own words, and ending a storyline
+
+- **When you say you're going, you go.** "I drive home", "I head to Juniper Cup" or "I walk out" makes that turn about getting you there. You leave, the trip takes a line or two, and the turn ends where you arrive. People can react as you go, but nobody holds you there. If you said you were going home and haven't got there yet, "Continue" or "I take the elevator" finishes the trip.
+- **Lines you never typed are cut.** If the narration gives your character a line of dialogue you didn't write ("Fine," you say), that line is cut before the bookkeeper records it as something you said. The narrator is shown it on the next turn. If your action reports speech without quoting it ("I tell her I'm leaving"), the narrator can still write the line out.
+- **Web search looks up your question.** With grounding on and no `((target))`, the search is built from what your turn asks, plus the place and the setting. It no longer uses the names of the people in your story.
+- **Nuke a storyline.** *Tuning → World → Nuke a storyline.* Type the words that mark a plot you're done with, such as "Beacon Works, Beacon". You'll see what goes before anything changes. Wiping it removes:
+  - the place and anyone named by those words;
+  - other people's wants, goals, schedule blocks and voice lines about it;
+  - memories, beliefs, established facts, threads, rumours and consequences about it;
+  - the sentences about it in past turns and chapter summaries.
+
+  Everyone else keeps their place in the story. Your rollback points are cleaned too, and there's an undo. Afterwards, new narration that brings it back is cut, unless you raise it yourself.
+
+## When someone won't leave
+
+- **Nobody is put back in the world on top of you.** Someone who has been offstage for a while comes back at home, at a place their goal names, or somewhere else. If they want you, the story has to write them arriving.
+- **No means no.** Telling someone to stay away marks it and lowers their attraction to you. So do "leave me alone", "get out of my house", "I can't leave my wife", or naming them while calling the police. Their goals stop being about you, and the game gives them goals about their own life instead. It lifts if you warm to them again. An angry line at your partner doesn't count; "I want a divorce" does.
+- **Arrests stick.** "Police arrest Ellie" or "held for 90 days without bond", whether you write it or the story does, keeps that person held until the story releases them.
+- **Gentle stories stay gentle.** When the tone is slice of life (or cozy, wholesome, and so on), or your forbidden list names betrayal, affairs or jealousy, the game doesn't open threads about love triangles, rivals or someone wanting a person who doesn't want them back. It never treats your partner as a "rival" for you.
+- **"Drop it" drops it.** "Stop asking", "it's not my project" or "if you ask me another question" closes the subject. The people in the room let it go, and for the next four turns nobody brings it back unless you do.
+- **Instructions about the story aren't played as actions.** "Change the story… remove X from the story" typed into the action box opens a card instead of being sent as your character's action. It offers:
+  - wiping X;
+  - making the facts you stated true;
+  - playing it as an action anyway.
+- **New chapters can leave things behind.** When you start a new chapter, you can type words in the field under the chapter brief. That storyline is wiped before the new chapter is written, and the old save keeps it.
+
+## Deleting people, threads and chapters
+
+- **A person, completely.** *Cast → a character → ⋯ → Delete completely.* You see what goes before it goes. Their card goes, and so does everything said about them: other people's memories and beliefs, rumours, relationships, threads, and the sentences that mention them in past turns and chapter summaries. Their name is retired so the bookkeeper can't register someone new under it. If new narration mentions them, that sentence is cut, unless you name them yourself. Names are matched as written, so deleting May leaves the word "may" alone. To edit any part of a character instead, use *⋯ → Raw edit*.
+- **A thread.** *World → Threads*, including dormant and closed ones: **edit** changes the title, description, tension or status, and **delete** removes it for good. A deleted thread leaves a tombstone, so neither the bookkeeper, the offstage world nor story sifting can open it again, even under a reworded title.
+- **A chapter.** *Chronicle → The story so far.* The narrator reads the last six chapter summaries every turn, so a summary of a storyline you're done with keeps it alive. **edit** rewrites the title or summary. **delete** empties it, and the narrator stops reading it. The empty marker stays, so those turns aren't summarised again.
+
+Every delete keeps an undo: *⋯ → Undo rollback*.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

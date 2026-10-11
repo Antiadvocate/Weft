@@ -6,7 +6,7 @@ import type {
   Condition, CharMemory, TurnHistoryEntry, TurnTelemetry,
 } from "../engine/types";
 import { DEFAULT_MODELS } from "../engine/types";
-import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes } from "../engine/state";
+import { newSave, registerCharacter, rollback as doRollback, sanitize, uid, healTraits, addCanon, healCharacterTypes, mapSnapshots } from "../engine/state";
 import { strikeFigures } from "../engine/aphorism";
 import { relevance, pruneEmptyMemories } from "../engine/memory";
 import { buildPreset, PRESET_LIST } from "../engine/presets";
@@ -42,6 +42,9 @@ import { sampleSource } from "../engine/source";
 import { pickCanvass, pickFactions, knowsLines, type CanvassPick } from "../engine/canvass";
 import { askableFactions, institutionContext } from "../engine/institution";
 import { runAnalyst, type AnalystStep } from "../engine/analyst";
+import { planNuke, nukeStoryline, nukeCandidates, nukeSuggestions, type NukeReport } from "../engine/nuke";
+import { liveChapters, editChapter, deleteChapter } from "../engine/chapters";
+import { deleteThread, editThread } from "../engine/threads";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
@@ -217,8 +220,15 @@ export const api = {
 
   /** Fork a long save into a NEW chapter: distill current world-state to a fresh start,
    *  carry forward evolved cast + relationships as background, open with a RECAP after a time skip. */
-  forkNewSeason: async (id: string, direction?: string): Promise<ClientSave> => {
+  forkNewSeason: async (id: string, direction?: string, leaveBehind?: string): Promise<ClientSave> => {
     const s = await need(id);
+    // LEFT AT THE TIME SKIP. Rainier Valley's second chapter opened on the Beacon Works binder, the
+    // wife newly assigned to the same account, and a recap of the garage scene with Ellie, because
+    // the forge was shown all of it and nothing let the player say what not to carry. What the player
+    // names here is wiped from this in-memory copy before the forge reads a word of it (the save it
+    // came from is never written back), and the veto and the guard go with the new chapter. See
+    // engine/nuke.ts.
+    const left = String(leaveBehind ?? "").trim() ? nukeStoryline(s, String(leaveBehind)) : null;
     // build a compact digest of the story so far for the model
     const cast = Object.entries(s.characters).filter(([cid, c]) => cid !== "char_player" && c.status !== "dead" && c.status !== "departed").map(([cid, c]) => {
       const edge = s.world.edges.find((e) => e.from === cid && e.to === "char_player");
@@ -436,7 +446,9 @@ export const api = {
         drive: c.new_drive ? { goal: c.new_drive, progress: 0, priority: 1, updated_turn: 1 } : undefined,
       });
       const prevEdge = prev ? s.world.edges.find((e) => e.from === prev.character_id && e.to === "char_player") : undefined;
-      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1 });
+      ns.world.edges.push({ from: cid, to: "char_player", warmth: clampNum(c.warmth_to_player, -100, 100), trust: clampNum(c.trust_to_player, -100, 100), power: 0, attraction: prevEdge?.attraction, attraction_base: prevEdge?.attraction_base, notes: "carried from the last chapter", updated_turn: 1,
+        // being turned away carries over a time skip too; it lifts the same way, when the player warms to them
+        ...((prevEdge as any)?.rejected ? { rejected: (prevEdge as any).rejected } : {}) } as any);
       ns.memory[cid] = { ...carry.carried_memory, character_id: cid }; // full memory intact — nothing stripped
       ns.traits[cid] = carry.carried_traits;                            // full traits intact
       if (prev) carriedCast.set(prev.character_id, cid);
@@ -468,6 +480,10 @@ export const api = {
     syncPresence(ns);
     const recapText = `RECAP: ${g.recap}${g.time_skip ? `\n\n${g.time_skip}.` : ""}\n\n${g.opening_scene}`;
     ns.history = [{ turn: 0, kind: "opening", player_action: "", narrator_prose: recapText, summary: "A new chapter begins.", offscreen: [], time_label: ns.world.current_time, weather: "" }];
+    if (left?.terms.length) {
+      ns.world.nuked = [...(ns.world.nuked ?? []), { terms: left.terms, turn: 0 }];
+      ns.retcons = [...(ns.retcons ?? []), ...(s.retcons ?? []).filter((r) => r.kind === "veto" && left.terms.some((t) => r.text.includes(t)))].slice(-12);
+    }
 
     await putSave(ns);
     return clientView(ns);
@@ -659,6 +675,85 @@ export const api = {
     }
     await putSave(t);
     return clientView(t);
+  },
+
+  /** NUKE A STORYLINE, preview half: what would go, who it touches, and words that keep company with
+   *  it. Changes nothing. See engine/nuke.ts. */
+  nukePreview: async (id: string, terms: string, removePeople: string[] = []): Promise<{ report: NukeReport; people: { id: string; name: string; central: boolean; named: boolean }[]; suggestions: string[] }> => {
+    const s = await need(id);
+    return { report: planNuke(s, terms, { removePeople }), people: nukeCandidates(s, terms), suggestions: nukeSuggestions(s, terms) };
+  },
+
+  /** NUKE A STORYLINE. Wipes it from the save and from every rollback point, records it as a veto,
+   *  and keeps the pre-nuke state as the recovery row, so undoRollback brings it all back. */
+  nuke: async (id: string, terms: string, removePeople: string[] = []): Promise<{ save: ClientSave; report: NukeReport; snapshots: number }> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);                 // same safety rail as rollback/strike
+    const report = nukeStoryline(s, terms, { removePeople });
+    if (!report.terms.length) throw new Error("say what to wipe: a name, a place, a project");
+    const snapshots = await mapSnapshots(s, (snap) => { nukeStoryline(snap, terms, { removePeople }); });
+    await putSave(s);
+    return { save: clientView(s), report, snapshots };
+  },
+
+  /** DELETE SOMEBODY COMPLETELY: what would go, without doing it. */
+  deleteCharacterPreview: async (id: string, char_id: string): Promise<NukeReport> => {
+    const s = await need(id);
+    if (char_id === "char_player" || !s.characters[char_id]) throw new Error("that character can't be deleted");
+    return planNuke(s, "", { removePeople: [char_id] });
+  },
+
+  /** DELETE SOMEBODY COMPLETELY. Their record goes, and so does everything said about them: other
+   *  people's memories and beliefs, rumours, relationships, the sentences that mention them in past
+   *  turns and chapters. Their name is retired so the bookkeeper can't register somebody new under
+   *  it, and new narration that mentions them is cut unless the player names them. Rollback points
+   *  are cleaned too; the pre-delete state is the recovery row, so undoRollback brings them back.
+   *  See engine/nuke.ts. */
+  deleteCharacter: async (id: string, char_id: string): Promise<{ save: ClientSave; report: NukeReport }> => {
+    const s = await need(id);
+    if (char_id === "char_player" || !s.characters[char_id]) throw new Error("that character can't be deleted");
+    await putSideRow(id, "recovery", s);
+    const report = nukeStoryline(s, "", { removePeople: [char_id] });
+    await mapSnapshots(s, (snap) => { if (snap.characters?.[char_id]) nukeStoryline(snap, "", { removePeople: [char_id] }); });
+    await putSave(s);
+    return { save: clientView(s), report };
+  },
+
+  /** Edit a thread: title, description, tension, status. See engine/threads.ts. */
+  editThread: async (id: string, thread_id: string, patch: { title?: string; description?: string; tension?: number; status?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!editThread(s, thread_id, patch)) throw new Error("No such thread.");
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Delete a thread for good. It leaves a tombstone so nothing reopens it under another wording.
+   *  The pre-delete state is the recovery row, so undoRollback brings it back. */
+  deleteThread: async (id: string, thread_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);
+    if (!deleteThread(s, thread_id)) throw new Error("No such thread.");
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Edit a chapter's title or summary: what the Chronicle shows and the narrator reads as STORY SO FAR. */
+  editChapter: async (id: string, idx: number, patch: { title?: string; summary?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!editChapter(s, idx, patch)) throw new Error("No such chapter.");
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Delete a chapter summary. Its turns aren't summarised again. Undo via undoRollback. */
+  deleteChapter: async (id: string, idx: number): Promise<ClientSave> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);
+    if (!deleteChapter(s, idx)) throw new Error("No such chapter.");
+    await putSave(s);
+    return clientView(s);
   },
 
   /** Drop a standing retcon by index (the struck thing is allowed back into the story). */
@@ -1456,7 +1551,7 @@ export const api = {
    *  show it, refreshable any time. */
   analyzePersona: async (id: string): Promise<{ turn: number; mbti: string; read: string; traits: string[]; arc: string }> => {
     const s = await need(id);
-    const chapters = (s.chapters ?? []).map((c) => `Ch${c.idx} "${c.title}": ${c.summary}${c.persona ? ` [read then: ${c.persona.mbti}]` : ""}`).join("\n");
+    const chapters = liveChapters(s).map((c) => `Ch${c.idx} "${c.title}": ${c.summary}${c.persona ? ` [read then: ${c.persona.mbti}]` : ""}`).join("\n");
     const acts = s.history.filter((h) => h.kind !== "opening" && h.player_action);
     const step = Math.max(1, Math.floor(acts.length / 60));
     const sample = acts.filter((_, i) => i % step === 0).map((h) => `T${h.turn}: ${h.player_action.slice(0, 80)}`).join("\n");

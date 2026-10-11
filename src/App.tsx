@@ -206,7 +206,7 @@ export default function App() {
               {tab === "play" && <Play save={save} setSave={setSave} />}
               {tab === "cast" && <Cast save={save} setSave={setSave} />}
               {tab === "world" && <World save={save} onSave={setSave} />}
-              {tab === "chronicle" && <Chronicle save={save} />}
+              {tab === "chronicle" && <Chronicle save={save} onSave={setSave} />}
               {tab === "journal" && <Journal save={save} onSave={setSave} />}
               {tab === "settings" && <Settings save={save} setSave={setSave} onGuide={() => setPrimer(true)} />}
             </motion.div>

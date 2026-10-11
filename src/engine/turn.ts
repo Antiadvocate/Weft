@@ -37,6 +37,12 @@ import { runOffstage, returnFromOffscene } from "./offstage";
 import { siftStory } from "./sift";
 import { runLifeEvents } from "./lifeevents";
 import { dueTracked, askTracked, applyTracked } from "./tracked";
+import { turnSearchQuery } from "./grounding";
+import { playerTrip, leavingBeat } from "./leaving";
+import { scrubPlayerVoice, voicedFix } from "./playervoice";
+import { guardNuked } from "./nuke";
+import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
+import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
 import { crowdDirective, openCallDirective, trackOpenCall, creditCallAnswer } from "./population";
@@ -57,7 +63,7 @@ import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
-import { departureEvidence, releaseEvidence, findRisen, risenFix } from "./exit";
+import { departureEvidence, releaseEvidence, findRisen, risenFix, recordCustody } from "./exit";
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, becomingFinalLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -79,7 +85,7 @@ import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificati
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer } from "./reaction";
 import { consultDirective } from "./consult";
-import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
+import { sweepThreads, mentioned, MAX_LIVE, isDeletedThread } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
 import { reflectionDue, cleanMemoryContent, sweepMemories, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
@@ -89,7 +95,7 @@ import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCei
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
-import { clipText, clipTail, overlapRatio } from "./text";
+import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes } from "./text";
 import { clamp } from "./num";
 
 export interface TurnEvents {
@@ -440,31 +446,7 @@ export function isParrot(spoken: string, actionLine: string): boolean {
   return liftedFraction(spoken, actionLine) >= need;
 }
 
-/**
- * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
- *
- * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
- * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
- * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
- * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
- * follows it.
- */
-export function splitSentencesOutsideQuotes(para: string): string[] {
-  const out: string[] = [];
-  let buf = "", inQuote = false;
-  for (let i = 0; i < para.length; i++) {
-    const ch = para[i];
-    buf += ch;
-    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
-    if (inQuote || !".!?".includes(ch)) continue;
-    // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
-    while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
-    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
-    out.push(buf); buf = "";
-  }
-  if (buf) out.push(buf);
-  return out.length ? out : [para];
-}
+export { splitSentencesOutsideQuotes } from "./text";
 
 /**
  * WHAT SOMEBODY IS CALLED IS NOT WHAT THEY ARE NAMED.
@@ -2436,7 +2418,23 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the turn is for answering that. See answerThePlayer.
   const answerBody = answerThePlayer(action, mode);
   const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder";
-  const beatNote = answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
+  // ...EXCEPT WHEN WHAT THE PLAYER DID WAS LEAVE. "They go on talking to the player about it" is an
+  // instruction to keep somebody who said they were going home, and in Rainier Valley it kept him
+  // in the office for four turns. A departure gets the slot instead: they go, and get there. What
+  // the world had scheduled (a consequence, a clock, a threat, an outside event) still follows it
+  // and finds them where they end up; a beat that would happen "in the room the characters are
+  // standing in" — the palette, a person's want, a relationship, a thread — waits. See leaving.ts.
+  const trip = mode === "think" ? null : playerTrip(state, action);
+  const scheduled = !!beat && (beat.kind === "consequence" || beat.kind === "clock" || beat.kind === "exogenous");
+  // ...AND WHEN WHAT THE PLAYER SAID WAS "DROP IT", the turn is for dropping it, and the next few
+  // turns are reminded the subject is closed. Same precedence as a departure. See dropit.ts.
+  const dropLine = mode === "think" || trip ? "" : dropItLine(action);
+  if (dropLine) recordDropped(state, dropLine, turn);
+  const beatNote = trip
+    ? `\n\n=== WHAT THIS TURN IS FOR ===\n${leavingBeat(state, trip)}${scheduled ? beatDirective(beat, dial) : ""}`
+    : dropLine
+      ? `\n\n=== WHAT THIS TURN IS FOR ===\n${dropItBeat(dropLine)}${scheduled ? beatDirective(beat, dial) : ""}`
+      : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
   // What the world itself brings to this turn, as facts for the plain narrator: a change that has
   // finished arriving, and a consequence that was already scheduled and is due now.
   const plainWorldNow = [
@@ -2910,7 +2908,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + droppedNote(state, action) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3142,12 +3140,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // A player-supplied ((query)) forces grounding on for this turn even if the toggle was off.
   const groundOn = opts?.ground === true || !!searchTarget;
   // RESOLVED QUERY — prefer the player's explicit ((target)). Otherwise, when grounding is on via
-  // the toggle, derive a focused query from the SCENE (place + freshest canon) rather than letting
-  // Exa auto-derive from the whole digest — that auto-query is exactly what pulled off-topic links.
+  // the toggle, search for what THIS TURN asks, at this place, in this setting. It used to be the
+  // location's internal id plus the two newest canon lines, which searched for the characters
+  // instead of the question. See engine/grounding.ts.
   const resolvedQuery = searchTarget
-    || (opts?.ground === true
-        ? [state.world.player_location, ...(state.world.canon ?? []).slice(-2)].filter(Boolean).join(" — ").slice(0, 200)
-        : "");
+    || (opts?.ground === true ? turnSearchQuery(state, action) : "");
   const groundNote = groundOn ? `\n\n=== GETTING THE FACTS RIGHT (this turn) ===\nThis story is set in a real place or deals with real subject matter. Use web search to get the real-world facts right${resolvedQuery ? ` about: ${resolvedQuery}` : ""}, such as actual locations, layouts, names, how things really work, and accurate details of the period or setting, and work that accuracy naturally into the prose. Don't cite sources or step outside the story; just get it right.` : "";
   // ── CONTEXT MODE ──────────────────────────────────────────────────────────
   // "digest" (classic): system + stable prefix + full digest rebuilt each turn. Correct, but only
@@ -3659,6 +3656,28 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       console.warn(`[turn] tic guard: cut ${cuts} echo/canned sentence(s)`);
     }
   }
+  // ...AND A LINE GIVEN TO THE PLAYER THAT THE PLAYER NEVER TYPED. Cut here, before the bookkeeper
+  // reads the prose, because once it's read it is something the room heard him say. The first one
+  // cut is quoted back next turn. See engine/playervoice.ts.
+  if (!opts?.proseOverride) {
+    const pv = scrubPlayerVoice(prose, action, mode);
+    state.last_voiced = pv.cut[0] ?? null;
+    if (pv.cut.length) {
+      prose = pv.prose;
+      noteFire(state, "player_voice", `gave the player a line they never typed: "${pv.cut[0].line.slice(0, 60)}"`);
+      ev.onMeta({ shifts: [`The narration gave you ${pv.cut.length === 1 ? "a line" : `${pv.cut.length} lines`} you never typed; ${pv.cut.length === 1 ? "it was" : "they were"} cut`] });
+      console.warn(`[turn] player voice: cut ${pv.cut.length} line(s) the player never typed`);
+    }
+  }
+  // ...AND A STORYLINE THE PLAYER NUKED, coming back anyway. Cut unless the player raised it. See nuke.ts.
+  if (!opts?.proseOverride && state.world.nuked?.length) {
+    const g = guardNuked(state, prose, action);
+    if (g.cut) {
+      prose = g.prose;
+      noteFire(state, "nuked", `the narration brought back a storyline you wiped; ${g.cut} sentence(s) cut`);
+      console.warn(`[turn] nuked storyline: cut ${g.cut} sentence(s)`);
+    }
+  }
 
   // ── THE REVISER ── The prose has stopped changing, so this is where the repair pass can see the
   // finished turn. It is STARTED here and AWAITED at the commit, which puts it alongside the
@@ -4135,7 +4154,25 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   const presentDuringTurn = [...state.world.present];
   // `let`, not `const`: everything below pushes into it, and the sift just before the history
   // push replaces it with the part a person should actually read. See engine/shifts.ts.
+  const presentBeforeDiff = [...(state.world.present ?? [])];
   let shifts = applyDiff(state, diff, action, prose, !!footer);
+  // SOMEBODY ELSE HAS THEM. An arrest the player wrote, or the prose showed, holds whoever is gone
+  // from the scene, so they aren't put back in the world on the next pass. See exit.ts recordCustody.
+  for (const n of recordCustody(state, prose, mode === "think" ? "" : action, turn)) shifts.push(`${n} is in custody and isn't free to walk back in.`);
+  // NO MEANS NO. The player turning someone away marks it, steps their attraction down, and takes
+  // any want aimed at the player off them; the sweep keeps it that way. A save from before this
+  // reads its own history once. See engine/rejection.ts.
+  backfillRejections(state);
+  if (mode !== "think") for (const line of applyRejection(state, rejectedBy(state, action, presentBeforeDiff), turn)) shifts.push(line);
+  {
+    const swept = sweepPursuit(state);
+    if (swept.length) console.info(`[rejection] ${swept.join(", ")}: wants aimed at the player dropped, since they keep away`);
+  }
+  // A turn that was for leaving and ended with the player still where they started is a failure the
+  // player should hear about, counted with the others. See leaving.ts and integrity.ts.
+  if (trip?.toId && state.world.player_location !== trip.toId) {
+    noteFire(state, "held", `said "${trip.said.slice(0, 60)}" and the turn ended at ${state.world.places[state.world.player_location]?.name ?? "the same place"}`);
+  }
   // AND THE PLAYER IS TOLD. "I CREATE A GUN AND KILL MYSELF" was typed four times in one save
   // because nothing ever said it was not landing — and a refusal nobody can see is indistinguishable
   // from being ignored, so the reasonable response is to type it again, louder.
@@ -4147,7 +4184,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
   // rather than what the prose gestured at. Rationed inside the module; a no-op on most turns.
-  const grown = await threadsFromSuccess(state, diff, action, prose);
+  const grown = (await threadsFromSuccess(state, diff, action, prose)).filter((t) => !isDeletedThread(state, t.title));
   if (grown.length) {
     state.world.threads.push(...grown);
     state.last_establish_turn = turn;
@@ -6792,6 +6829,11 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   const drivesByChar = new Map<string, typeof diff.drives_update>();
   for (const du of diff.drives_update ?? []) {
     const id = resolveId(state, du.char_id); if (!id || id === "char_player" || !du.goal) continue;
+    // Turned away by the player, or held somewhere: a want aimed at the player isn't kept. See rejection.ts.
+    if (keepsAway(state, id) && namesPlayer(state, du.goal)) {
+      console.warn(`[rejection] dropped a want aimed at the player for ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
+      continue;
+    }
     // MISATTRIBUTION GUARD. The narrator writes unnamed people constantly — an innkeeper, a
     // boatman, a stallholder — and the bookkeeper, needing an id to hang their wants on and having
     // none, reaches for a real cast member. That is how a guard captain who had never left another
@@ -7093,6 +7135,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // a real crisis earns its 9 turn by turn. This is the fix for "the world was born armed":
       // a turn-1 manhunt at tension 9 with no history contradicts any bible it lives in.
       const birthCap = turn <= 10 ? 5 : 6;
+      // ...and never one the player deleted, under any wording. See threads.ts deleteThread.
+      if (isDeletedThread(state, tu.title)) { console.info(`[threads] refused "${tu.title}" — the player deleted a thread like it`); continue; }
       state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, last_touched_turn: turn, tension: clamp(Math.min(tu.tension ?? 3, birthCap), 0, 10) });
       shifts.push(`A new thread: ${tu.title}.`);
     }

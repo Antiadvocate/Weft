@@ -139,3 +139,29 @@ export function overlapRatio(rawA: unknown, rawB: unknown): number {
   for (const w of a) if (b.has(w)) shared++;
   return shared / Math.min(a.size, b.size);
 }
+
+/**
+ * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
+ *
+ * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
+ * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
+ * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
+ * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
+ * follows it.
+ */
+export function splitSentencesOutsideQuotes(para: string): string[] {
+  const out: string[] = [];
+  let buf = "", inQuote = false;
+  for (let i = 0; i < para.length; i++) {
+    const ch = para[i];
+    buf += ch;
+    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
+    if (inQuote || !".!?".includes(ch)) continue;
+    // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
+    while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
+    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
+    out.push(buf); buf = "";
+  }
+  if (buf) out.push(buf);
+  return out.length ? out : [para];
+}

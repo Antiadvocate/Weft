@@ -206,6 +206,8 @@ function owns(text: string, probes: string[], others: string[], re: RegExp): boo
 const HELD = new RegExp([
   /\b(?:arrest(?:ed|s|ing)?|under arrest|taken into custody|into custody|handcuff(?:ed|s|ing)?|cuffed|in cuffs|detained|remanded|sentenced|convicted|jailed|imprisoned|deported|sectioned|committed to|booked (?:him|her|them|into|in at)|locked (?:him|her|them) up|goes to prison|went to prison|taken to the (?:hospital|station|precinct)|loaded (?:\w+ )?into the ambulance|read (?:him|her|them|\w+) (?:his|her|their) rights)\b/i.source,
   CUFFS.source,
+  // what a sentence handed down says, which a player writes as often as an arrest
+  /\bheld (?:for \d+ (?:days?|weeks?|months?|years?)|without (?:bond|bail)|in custody|until (?:trial|court|(?:her|his|their) (?:trial|court date|hearing)))\b|\bbehind bars\b/i.source,
 ].join("|"), "i");
 const REMOVED = new RegExp([EJECTED.source, CARRIED_OUT.source, SPILLED.source, CUSTODY.source, CUFFS.source].join("|"), "i");
 
@@ -400,4 +402,49 @@ export function risenFix(hit: RisenHit | null | undefined): string {
     + `Where the story has already shown them gone, they stay gone. A body stays a body, and it can be described, stepped around or carried, but that's all it can do now. `
     + `If the scene needs someone, a different person arrives, or nobody does and the scene works around their absence. `
     + `Write this turn as if the sentence above had never been written, and don't have anyone in the scene comment on their return, explain it or wonder about it.`;
+}
+
+/**
+ * SOMEBODY ELSE HAS THEM, FROM THE PLAYER'S OWN PEN OR THE PROSE.
+ *
+ * The departure guard can only mark custody on a turn the bookkeeper records a move, and a person
+ * the footer simply stops listing never passes through it. In Rainier Valley the player wrote "Police
+ * arrive and arrest Ellie for trespassing", the prose handcuffed her and drove her off in a cruiser,
+ * and two turns later the player wrote "Ellie will be held for 90 days without bond". None of it set
+ * `held`, so she was an ordinary offscreen character with a want naming the player, eight turns from
+ * being put back in the world.
+ *
+ * So the turn reads it directly, for anyone no longer in the player's scene: this turn's prose and
+ * action, and the turns since they went. The strict HELD list only, quoted speech masked, the name
+ * owning the phrase. Returns who was taken.
+ */
+export function recordCustody(
+  state: { characters: Record<string, any>; world: { current_turn: number; player_location: string }; history?: { turn: number; player_action?: string; narrator_prose?: string }[] },
+  prose: string, action: string, turn: number,
+): string[] {
+  const out: string[] = [];
+  const cast = Object.entries(state.characters ?? {}).filter(([id, c]) => id !== "char_player" && c?.name && !c.held && c.status !== "dead" && c.status !== "departed");
+  for (const [id, c] of cast) {
+    const others = cast.filter(([oid]) => oid !== id).map(([, o]) => String(o.name));
+    const probes = nameProbes(String(c.name));
+    if (!probes.length) continue;
+    const own = new Set(probes);
+    const theirs = others.flatMap(nameProbes).filter((p) => !own.has(p));
+    // Someone still standing in the scene isn't held yet, whatever was said near their name: an
+    // arrest that is real takes them out of the room, and a wrong hold would take them out of the
+    // story. So only people gone from the scene are read, back to a few turns before they went.
+    if (c.location === state.world.player_location) continue;
+    const texts = [prose, String(action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " ")];
+    const since = typeof c.offscene_since === "number" ? c.offscene_since - 2 : turn - 4;
+    for (const h of state.history ?? []) {
+      if (h.turn < since) continue;
+      texts.push(h.narrator_prose ?? "", String(h.player_action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " "));
+    }
+    const taken = texts.some((t) => owns(maskQuotes(t).toLowerCase().replace(/\s+/g, " "), probes, theirs, HELD));
+    if (!taken) continue;
+    if (releaseEvidence({ prose, action, name: String(c.name), others })) continue;
+    c.held = { since_turn: turn, where: "custody", note: `taken on or before turn ${turn}` };
+    out.push(String(c.name));
+  }
+  return out;
 }
