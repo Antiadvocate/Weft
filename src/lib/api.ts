@@ -43,6 +43,8 @@ import { pickCanvass, pickFactions, knowsLines, type CanvassPick } from "../engi
 import { askableFactions, institutionContext } from "../engine/institution";
 import { runAnalyst, type AnalystStep } from "../engine/analyst";
 import { planNuke, nukeStoryline, nukeCandidates, nukeSuggestions, type NukeReport } from "../engine/nuke";
+import { liveChapters, editChapter, deleteChapter } from "../engine/chapters";
+import { deleteThread, editThread } from "../engine/threads";
 import { buildMessages, complete, generateImage, safeJson, isCancel } from "../llm";
 import { getSave, putSave, deleteSave as dbDelete, listSaves as dbList, putSideRow, getSideRow, deleteSideRow } from "../store";
 import { forgeCastVoices, refreshVoice, refreshStaleVoices } from "../engine/voiceforge";
@@ -692,6 +694,66 @@ export const api = {
     const snapshots = await mapSnapshots(s, (snap) => { nukeStoryline(snap, terms, { removePeople }); });
     await putSave(s);
     return { save: clientView(s), report, snapshots };
+  },
+
+  /** DELETE SOMEBODY COMPLETELY: what would go, without doing it. */
+  deleteCharacterPreview: async (id: string, char_id: string): Promise<NukeReport> => {
+    const s = await need(id);
+    if (char_id === "char_player" || !s.characters[char_id]) throw new Error("that character can't be deleted");
+    return planNuke(s, "", { removePeople: [char_id] });
+  },
+
+  /** DELETE SOMEBODY COMPLETELY. Their record goes, and so does everything said about them: other
+   *  people's memories and beliefs, rumours, relationships, the sentences that mention them in past
+   *  turns and chapters. Their name is retired so the bookkeeper can't register somebody new under
+   *  it, and new narration that mentions them is cut unless the player names them. Rollback points
+   *  are cleaned too; the pre-delete state is the recovery row, so undoRollback brings them back.
+   *  See engine/nuke.ts. */
+  deleteCharacter: async (id: string, char_id: string): Promise<{ save: ClientSave; report: NukeReport }> => {
+    const s = await need(id);
+    if (char_id === "char_player" || !s.characters[char_id]) throw new Error("that character can't be deleted");
+    await putSideRow(id, "recovery", s);
+    const report = nukeStoryline(s, "", { removePeople: [char_id] });
+    await mapSnapshots(s, (snap) => { if (snap.characters?.[char_id]) nukeStoryline(snap, "", { removePeople: [char_id] }); });
+    await putSave(s);
+    return { save: clientView(s), report };
+  },
+
+  /** Edit a thread: title, description, tension, status. See engine/threads.ts. */
+  editThread: async (id: string, thread_id: string, patch: { title?: string; description?: string; tension?: number; status?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!editThread(s, thread_id, patch)) throw new Error("No such thread.");
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Delete a thread for good. It leaves a tombstone so nothing reopens it under another wording.
+   *  The pre-delete state is the recovery row, so undoRollback brings it back. */
+  deleteThread: async (id: string, thread_id: string): Promise<ClientSave> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);
+    if (!deleteThread(s, thread_id)) throw new Error("No such thread.");
+    s.updated_at = new Date().toISOString();
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Edit a chapter's title or summary: what the Chronicle shows and the narrator reads as STORY SO FAR. */
+  editChapter: async (id: string, idx: number, patch: { title?: string; summary?: string }): Promise<ClientSave> => {
+    const s = await need(id);
+    if (!editChapter(s, idx, patch)) throw new Error("No such chapter.");
+    await putSave(s);
+    return clientView(s);
+  },
+
+  /** Delete a chapter summary. Its turns aren't summarised again. Undo via undoRollback. */
+  deleteChapter: async (id: string, idx: number): Promise<ClientSave> => {
+    const s = await need(id);
+    await putSideRow(id, "recovery", s);
+    if (!deleteChapter(s, idx)) throw new Error("No such chapter.");
+    await putSave(s);
+    return clientView(s);
   },
 
   /** Drop a standing retcon by index (the struck thing is allowed back into the story). */
@@ -1489,7 +1551,7 @@ export const api = {
    *  show it, refreshable any time. */
   analyzePersona: async (id: string): Promise<{ turn: number; mbti: string; read: string; traits: string[]; arc: string }> => {
     const s = await need(id);
-    const chapters = (s.chapters ?? []).map((c) => `Ch${c.idx} "${c.title}": ${c.summary}${c.persona ? ` [read then: ${c.persona.mbti}]` : ""}`).join("\n");
+    const chapters = liveChapters(s).map((c) => `Ch${c.idx} "${c.title}": ${c.summary}${c.persona ? ` [read then: ${c.persona.mbti}]` : ""}`).join("\n");
     const acts = s.history.filter((h) => h.kind !== "opening" && h.player_action);
     const step = Math.max(1, Math.floor(acts.length / 60));
     const sample = acts.filter((_, i) => i % step === 0).map((h) => `T${h.turn}: ${h.player_action.slice(0, 80)}`).join("\n");

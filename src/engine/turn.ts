@@ -85,7 +85,7 @@ import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificati
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer } from "./reaction";
 import { consultDirective } from "./consult";
-import { sweepThreads, mentioned, MAX_LIVE } from "./threads";
+import { sweepThreads, mentioned, MAX_LIVE, isDeletedThread } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
 import { witnessRecord } from "./witness";
 import { reflectionDue, cleanMemoryContent, sweepMemories, applyReflection, tickMemoryDecay, reconsolidate, integrationGate, compactGist, relevance } from "./memory";
@@ -4184,7 +4184,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
 
   // SUCCESSES MAKE WORK. Runs after the diff lands, so it sees what this turn actually established
   // rather than what the prose gestured at. Rationed inside the module; a no-op on most turns.
-  const grown = await threadsFromSuccess(state, diff, action, prose);
+  const grown = (await threadsFromSuccess(state, diff, action, prose)).filter((t) => !isDeletedThread(state, t.title));
   if (grown.length) {
     state.world.threads.push(...grown);
     state.last_establish_turn = turn;
@@ -7135,6 +7135,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       // a real crisis earns its 9 turn by turn. This is the fix for "the world was born armed":
       // a turn-1 manhunt at tension 9 with no history contradicts any bible it lives in.
       const birthCap = turn <= 10 ? 5 : 6;
+      // ...and never one the player deleted, under any wording. See threads.ts deleteThread.
+      if (isDeletedThread(state, tu.title)) { console.info(`[threads] refused "${tu.title}" — the player deleted a thread like it`); continue; }
       state.world.threads.push({ id: uid("thr"), title: tu.title, status: "active", description: tu.description ?? "", turn_started: turn, last_touched_turn: turn, tension: clamp(Math.min(tu.tension ?? 3, birthCap), 0, 10) });
       shifts.push(`A new thread: ${tu.title}.`);
     }

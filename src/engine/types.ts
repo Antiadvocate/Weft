@@ -136,6 +136,8 @@ export interface Chapter {
   on_contract?: boolean;      // did this chapter honor the standing direction (story contract)?
   drift?: string;             // one-line description of the drift, when off contract
   persona?: { mbti: string; read: string; traits: string[]; shift?: string }; // how the PLAYER acted this chapter, typed from behavior
+  /** The player deleted it. Kept, empty, so its turns aren't summarised again. See engine/chapters.ts. */
+  deleted?: boolean;
 }
 
 export interface WorldBible {
@@ -945,7 +947,7 @@ export interface WorldState {
   context_from_turn?: number;
   /** Storylines the player nuked: the words, and the turn. The turn loop cuts any new sentence that
    *  mentions one unless the player's own action brought it up. See engine/nuke.ts. */
-  nuked?: { terms: string[]; turn: number }[];
+  nuked?: { terms: string[]; names?: string[]; turn: number }[];
   scene_started_time?: string; // when the current scene began (same format) — resets on location change or a ≥2h jump; the digest prints scene elapsed so timed world laws can be judged
   weather: string;
   player_location: string;

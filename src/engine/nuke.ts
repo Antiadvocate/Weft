@@ -40,6 +40,8 @@ export interface NukeOptions {
 
 export interface NukeReport {
   terms: string[];
+  /** The names deleted people went by, matched case-sensitively from here on. */
+  names?: string[];
   places: string[];
   removed: string[];
   trimmed: { id: string; name: string; central: boolean }[];
@@ -67,7 +69,39 @@ export function termRegex(terms: string[]): RegExp | null {
 
 /** Cut the sentences that mention it. Paragraphs left empty go; a paragraph left with a stranded
  *  quote mark goes too, because half a line of dialogue is worse than none. */
-export function cutSentences(text: string, re: RegExp): string {
+/** Anything that can say whether a sentence mentions it: a RegExp, or a `matcher`. */
+export type Mentions = { test(s: string): boolean };
+
+/**
+ * Terms and people, matched differently. A term the player typed ("beacon works") is matched in any
+ * case. A PERSON'S NAME is matched as written, capital and all, because names are words: deleting
+ * May must not cut every sentence with "may" in it, and deleting Will must not take "will" with him.
+ */
+export function matcher(terms: string[], names: string[] = []): Mentions | null {
+  const a = termRegex(terms);
+  const alts = [...new Set(names.map((n) => n.trim()).filter((n) => n.length >= 2))].sort((x, y) => y.length - x.length).map((n) => esc(n).replace(/\s+/g, "\\s+"));
+  const b = alts.length ? new RegExp(`(?<![\\w-])(?:${alts.join("|")})(?:'?s)?(?![\\w-])`) : null;
+  if (!a && !b) return null;
+  return { test: (x: string) => (!!a && a.test(x)) || (!!b && b.test(x)) };
+}
+
+/** The names a deleted person goes by: their full name, and their first name when nobody left in
+ *  the cast shares it. */
+export function personNames(state: SaveState, ids: Iterable<string>): string[] {
+  const gone = new Set(ids);
+  const out: string[] = [];
+  for (const id of gone) {
+    const full = String(state.characters?.[id]?.name ?? "").trim();
+    if (!full) continue;
+    out.push(full);
+    const first = full.split(/\s+/)[0];
+    const shared = Object.entries(state.characters ?? {}).some(([oid, c]) => !gone.has(oid) && String(c?.name ?? "").split(/\s+/)[0]?.toLowerCase() === first.toLowerCase());
+    if (first !== full && first.length >= 3 && !shared) out.push(first);
+  }
+  return out;
+}
+
+export function cutSentences(text: string, re: Mentions): string {
   if (!text || !re.test(text)) return text;
   return text.split(/\n\n+/).map((para) => {
     if (!re.test(para)) return para;
@@ -117,7 +151,7 @@ export function nukeStoryline(state: SaveState, rawTerms: string | string[], opt
   const terms = nukeTerms(rawTerms);
   const report: NukeReport = { terms, places: [], removed: [], trimmed: [], counts: {}, turns: [], samples: [] };
   const baseRe = termRegex(terms);
-  if (!baseRe) return report;
+  if (!baseRe && !(opts.removePeople ?? []).length) return report;
   const bump = (k: string, n = 1) => { if (n > 0) report.counts[k] = (report.counts[k] ?? 0) + n; };
   const sample = (s: unknown) => { const t = typeof s === "string" ? s : JSON.stringify(s); if (report.samples.length < 8 && t) report.samples.push(t.slice(0, 160)); };
 
@@ -125,11 +159,13 @@ export function nukeStoryline(state: SaveState, rawTerms: string | string[], opt
   //    terms, so the memories and rumours about them go with them.
   const goneIds = new Set<string>(opts.removePeople ?? []);
   for (const [id, c] of Object.entries(state.characters ?? {})) {
-    if (id !== "char_player" && c?.name && baseRe.test(c.name)) goneIds.add(id);
+    if (id !== "char_player" && c?.name && baseRe?.test(c.name)) goneIds.add(id);
   }
   goneIds.delete("char_player");
   const goneNames = [...goneIds].map((id) => state.characters?.[id]?.name).filter((n): n is string => !!n);
-  const re = termRegex([...terms, ...goneNames])!;
+  const names = personNames(state, goneIds);
+  report.names = names;
+  const re = matcher(terms, names)!;
 
   // ── WHERE GOES: places named by a term. Their ids count as mentions from here on, because a
   //    schedule block or an offstage note refers to a place by id, not by name.
@@ -162,6 +198,10 @@ export function nukeStoryline(state: SaveState, rawTerms: string | string[], opt
     const c = state.characters[id];
     if (!c) continue;
     report.removed.push(c.name);
+    // the name is retired, so the bookkeeper can't register somebody new under it
+    const retired = (state.world.retired_names ??= []);
+    const low = String(c.name).trim().toLowerCase();
+    if (low.length >= 3 && !retired.includes(low)) retired.push(low);
     delete state.characters[id]; delete state.condition?.[id]; delete state.memory?.[id]; delete state.minds?.[id];
     delete (state.traits as Record<string, unknown> | undefined)?.[id];
   }
@@ -292,12 +332,14 @@ export function nukeStoryline(state: SaveState, rawTerms: string | string[], opt
   }
 
   // The standing veto, and the record the turn loop reads to keep it out.
-  const label = terms.join(" / ");
+  const label = [...terms, ...goneNames].join(" / ");
   state.retcons = [...(state.retcons ?? []), {
-    text: `Everything to do with ${label}: the place, the work, and every plan, task, argument and person's interest in it. None of it exists in this story.`,
+    text: terms.length
+      ? `Everything to do with ${label}: the place, the work, and every plan, task, argument and person's interest in it. None of it exists in this story.`
+      : `${label} ${goneNames.length === 1 ? "has" : "have"} never existed in this story, so nobody remembers, meets, mentions or misses ${goneNames.length === 1 ? "them" : "any of them"}.`,
     turn: state.world.current_turn, kind: "veto" as const,
   }].slice(-12);
-  (state.world.nuked ??= []).push({ terms, turn: state.world.current_turn });
+  (state.world.nuked ??= []).push({ terms, names, turn: state.world.current_turn });
   return report;
 }
 
@@ -328,7 +370,7 @@ export function nukeCandidates(state: SaveState, rawTerms: string | string[]): {
  */
 export function guardNuked(state: SaveState, prose: string, action: string): { prose: string; cut: number } {
   const terms = (state.world.nuked ?? []).flatMap((n) => n.terms);
-  const re = termRegex(terms);
+  const re = matcher(terms, (state.world.nuked ?? []).flatMap((n) => n.names ?? []));
   if (!re || !re.test(prose) || re.test(action)) return { prose, cut: 0 };
   const before = prose.split(/\n\n+/).reduce((n, p) => n + splitSentencesOutsideQuotes(p).length, 0);
   const out = cutSentences(prose, re);

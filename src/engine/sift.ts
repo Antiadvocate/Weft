@@ -27,6 +27,7 @@
 import type { SaveState, SocialEdge, Thread } from "./types";
 import { uid } from "./state";
 import { arePartners } from "./rejection";
+import { isDeletedThread } from "./threads";
 
 /** Attraction that counts as wanting someone, and the most that counts as not wanting them back. */
 const WANTS = 35;
@@ -256,7 +257,7 @@ export function siftStory(state: SaveState, turn: number): string[] {
 
   const live = threads.filter((t) => t.sifted && t.status === "active").length;
   if (live >= MAX_SIFTED_LIVE) return log;
-  const blocked = (key: string) => threads.some((t) => t.sifted === key
+  const blocked = (key: string) => isDeletedThread(state, byKey.get(key)?.title ?? "", key) || threads.some((t) => t.sifted === key
     && (t.status === "active" || t.status === "dormant" || t.status === "abandoned"
       || (t.turn_resolved !== undefined && turn - t.turn_resolved < REOPEN_AFTER)));
   const pick = found

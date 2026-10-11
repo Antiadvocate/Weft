@@ -8,7 +8,21 @@ import AskRecord from "./AskRecord";
 
 
 /** Everything here is computed locally from telemetry — zero token cost. */
-export default function Chronicle({ save }: { save: ClientSave }) {
+export default function Chronicle({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) => void }) {
+  // EDITING A CHAPTER. The narrator reads the last six as STORY SO FAR, so a summary of a storyline
+  // the player is finished with keeps it alive. See engine/chapters.ts.
+  const [chEdit, setChEdit] = useState<{ idx: number; title: string; summary: string } | null>(null);
+  const [chBusy, setChBusy] = useState(false);
+  const saveChapter = async () => {
+    if (!chEdit || chBusy) return;
+    setChBusy(true);
+    try { onSave?.(await api.editChapter(save.id, chEdit.idx, { title: chEdit.title, summary: chEdit.summary })); setChEdit(null); }
+    finally { setChBusy(false); }
+  };
+  const dropChapter = async (idx: number, title: string) => {
+    if (!confirm(`Delete chapter ${idx}, "${title}"?\n\nIts summary is erased, the narrator stops reading it, and those turns aren't summarised again. The turns themselves stay in the story. You can undo this from ⋯ → Undo rollback.`)) return;
+    onSave?.(await api.deleteChapter(save.id, idx));
+  };
   const [reading, setReading] = useState((save as any).persona_reading as { turn: number; mbti: string; read: string; traits: string[]; arc: string } | undefined);
   const [readingBusy, setReadingBusy] = useState(false);
   const tel = save.telemetry;
@@ -176,7 +190,7 @@ export default function Chronicle({ save }: { save: ClientSave }) {
     .slice(-30)
     .reverse();
 
-  const chapters = (save as any).chapters as Chapter[] | undefined;
+  const chapters = ((save as any).chapters as Chapter[] | undefined)?.filter((c) => !c.deleted);
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3 space-y-3">
@@ -249,10 +263,33 @@ export default function Chronicle({ save }: { save: ClientSave }) {
                       style={{ background: "var(--ink-2)", color: "var(--accent)" }}>{c.idx}</span>
                     {c.idx !== chapters[chapters.length - 1].idx && <span className="flex-1 w-px mt-1" style={{ background: "var(--ink-2)" }} />}
                   </div>
-                  <div className="pb-1">
-                    <div className="text-[13.5px] font-display">{c.title}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>turns {c.from_turn}–{c.to_turn}</div>
-                    <div className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-mid)" }}>{c.summary}</div>
+                  <div className="pb-1 min-w-0 flex-1">
+                    {chEdit?.idx === c.idx ? (
+                      <div className="space-y-1.5">
+                        <input className="field w-full text-[13px]" style={{ minWidth: 0 }} value={chEdit.title} aria-label="chapter title"
+                          onChange={(e) => setChEdit({ ...chEdit, title: e.target.value })} />
+                        <textarea className="field w-full text-[12.5px]" rows={5} value={chEdit.summary} aria-label="chapter summary"
+                          onChange={(e) => setChEdit({ ...chEdit, summary: e.target.value })} />
+                        <div className="flex gap-2">
+                          <button className="btn btn-accent flex-1" disabled={chBusy} onClick={() => void saveChapter()}>{chBusy ? "saving…" : "Save"}</button>
+                          <button className="btn btn-ghost flex-1" onClick={() => setChEdit(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="text-[13.5px] font-display min-w-0">{c.title}</div>
+                          {onSave && (
+                            <span className="shrink-0 flex gap-2.5 font-mono text-[9.5px]" style={{ color: "var(--text-lo)" }}>
+                              <button className="opacity-70 hover:opacity-100" onClick={() => setChEdit({ idx: c.idx, title: c.title, summary: c.summary })}>edit</button>
+                              <button className="opacity-70 hover:opacity-100" style={{ color: "var(--danger)" }} onClick={() => void dropChapter(c.idx, c.title)}>delete</button>
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }}>turns {c.from_turn}–{c.to_turn}</div>
+                        <div className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: "var(--text-mid)" }}>{c.summary}</div>
+                      </>
+                    )}
                     {c.persona && (
                       <div className="mt-1.5 pl-2" style={{ borderLeft: "2px solid var(--ink-2)" }}>
                         <span className="font-mono text-[10px]" style={{ color: "var(--accent)" }}>{c.persona.mbti}</span>

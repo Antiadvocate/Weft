@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import type { ClientSave } from "../lib/api";
+import type { Thread } from "../engine/types";
 import { RelationshipWeb } from "./RelationshipWeb";
 import StoryMap from "../lib/StoryMap";
 import { nice } from "../lib/format";
@@ -11,6 +12,8 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
   const w = save.world;
   const liveRumors = w.rumors.filter((r) => !r.dead);
   const activeThreads = w.threads.filter((t) => t.status === "active");
+  const closedThreads = w.threads.filter((t) => t.status !== "active");
+  const [showClosed, setShowClosed] = React.useState(false);
   const name = (id: string) => save.characters[id]?.name ?? id;
 
   // Emotional weather: the REAL signal now — each present/tracked character's openness
@@ -113,31 +116,18 @@ export default function World({ save, onSave }: { save: ClientSave; onSave?: (s:
 
       <Block title="Threads" delay={0.04}>
         {activeThreads.length === 0 && <Empty>No active threads yet.</Empty>}
-        {activeThreads.map((t) => (
-          <div key={t.id} className="py-2">
-            <div className="flex justify-between items-baseline gap-2">
-              <div className="font-display text-[14px]">{t.title}</div>
-              <span className="font-mono text-[9.5px] shrink-0" style={{ color: t.tension >= 7 ? "var(--danger)" : "var(--text-lo)" }}>
-                tension {t.tension}/10
-              </span>
-              {/* The narrator reads every active thread on every turn as a live question the story
-                  is carrying. Editing the world bible cannot reach one, so a storyline the player
-                  has decided they are finished with had no way out except the raw JSON editor. */}
-              <button
-                className="font-mono text-[9.5px] shrink-0 opacity-60 hover:opacity-100"
-                style={{ color: "var(--text-lo)" }}
-                title="Close this thread — the narrator stops carrying it"
-                onClick={async () => {
-                  if (!confirm(`Retire "${t.title}"?\n\nThe narrator stops carrying this storyline. It stays in the record as resolved.`)) return;
-                  const s = await api.retireThread(save.id, t.id);
-                  onSave?.(s);
-                }}
-              >retire</button>
-            </div>
-            <div className="text-[12.5px] mt-0.5 leading-relaxed" style={{ color: "var(--text-mid)" }}>{t.description}</div>
-            <div className="meter mt-2"><div style={{ width: `${t.tension * 10}%`, background: t.tension >= 7 ? "var(--danger)" : "var(--accent)" }} /></div>
+        {activeThreads.map((t) => <ThreadRow key={t.id} save={save} t={t} onSave={onSave} />)}
+        {/* NOT ONLY THE LIVE ONES. A resolved or dormant thread can be woken by the bookkeeper
+            naming it again, so a storyline the player is finished with has to be deletable here
+            too, not just retired. See engine/threads.ts deleteThread. */}
+        {closedThreads.length > 0 && (
+          <div className="pt-2">
+            <button className="font-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--text-lo)" }} onClick={() => setShowClosed((v) => !v)}>
+              {showClosed ? "hide" : "show"} dormant and closed ({closedThreads.length})
+            </button>
+            {showClosed && closedThreads.map((t) => <ThreadRow key={t.id} save={save} t={t} onSave={onSave} closed />)}
           </div>
-        ))}
+        )}
       </Block>
 
       <Block title="Clocks" delay={0.05} tour="world-clocks">
@@ -415,6 +405,55 @@ function Places({ save, onSave }: { save: ClientSave; onSave?: (s: ClientSave) =
       </div>
 
       {err && <div className="text-[11.5px]" style={{ color: "var(--danger)" }}>{err}</div>}
+    </div>
+  );
+}
+
+/** One thread, with what the player can do to it: edit any part, retire it, or delete it for good. */
+function ThreadRow({ save, t, onSave, closed }: { save: ClientSave; t: Thread; onSave?: (s: ClientSave) => void; closed?: boolean }) {
+  const [edit, setEdit] = React.useState<{ title: string; description: string; tension: number; status: string } | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const run = async (f: () => Promise<ClientSave>) => { setBusy(true); try { onSave?.(await f()); setEdit(null); } finally { setBusy(false); } };
+  const lo = { color: "var(--text-lo)" };
+  if (edit) {
+    return (
+      <div className="py-2 space-y-1.5">
+        <input className="field w-full text-[13px]" style={{ minWidth: 0 }} value={edit.title} aria-label="thread title" onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+        <textarea className="field w-full text-[12.5px]" rows={3} value={edit.description} aria-label="thread description" onChange={(e) => setEdit({ ...edit, description: e.target.value })} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[10px]" style={lo}>tension {edit.tension}</span>
+          <input type="range" min={0} max={10} step={1} value={edit.tension} className="flex-1" style={{ accentColor: "var(--accent)", minWidth: 120 }}
+            onChange={(e) => setEdit({ ...edit, tension: Number(e.target.value) })} aria-label="tension" />
+          <select className="field text-[12px]" style={{ width: "auto" }} value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} aria-label="status">
+            {["active", "dormant", "resolved", "abandoned"].map((x) => <option key={x} value={x}>{x}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button className="btn btn-accent flex-1" disabled={busy || !edit.title.trim()} onClick={() => void run(() => api.editThread(save.id, t.id, edit))}>{busy ? "saving…" : "Save"}</button>
+          <button className="btn btn-ghost flex-1" onClick={() => setEdit(null)}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="py-2">
+      <div className="flex justify-between items-baseline gap-2">
+        <div className="font-display text-[14px] min-w-0" style={closed ? lo : undefined}>{t.title}</div>
+        <span className="font-mono text-[9.5px] shrink-0" style={{ color: !closed && t.tension >= 7 ? "var(--danger)" : "var(--text-lo)" }}>
+          {closed ? t.status : `tension ${t.tension}/10`}
+        </span>
+      </div>
+      <div className="text-[12.5px] mt-0.5 leading-relaxed" style={{ color: closed ? "var(--text-lo)" : "var(--text-mid)" }}>{t.description}</div>
+      {!closed && <div className="meter mt-2"><div style={{ width: `${t.tension * 10}%`, background: t.tension >= 7 ? "var(--danger)" : "var(--accent)" }} /></div>}
+      <div className="flex gap-3 mt-1.5 font-mono text-[9.5px]" style={lo}>
+        <button className="opacity-70 hover:opacity-100" disabled={busy} onClick={() => setEdit({ title: t.title, description: t.description ?? "", tension: t.tension ?? 0, status: t.status })}>edit</button>
+        {!closed && (
+          <button className="opacity-70 hover:opacity-100" disabled={busy} title="Close this thread — the narrator stops carrying it"
+            onClick={() => { if (confirm(`Retire "${t.title}"?\n\nThe narrator stops carrying this storyline. It stays in the record as resolved.`)) void run(() => api.retireThread(save.id, t.id)); }}>retire</button>
+        )}
+        <button className="opacity-70 hover:opacity-100" style={{ color: "var(--danger)" }} disabled={busy}
+          onClick={() => { if (confirm(`Delete "${t.title}" for good?\n\nIt's removed from the story, and nothing will open a thread like it again. To wipe what it was about from people's memories too, use Tuning → World → Nuke a storyline. You can undo this from ⋯ → Undo rollback.`)) void run(() => api.deleteThread(save.id, t.id)); }}>delete</button>
+      </div>
     </div>
   );
 }

@@ -170,3 +170,65 @@ export function sweepThreads(state: SaveState, prose: string, beatThreadId?: str
 export function liveThreads(state: SaveState): Thread[] {
   return (state.world.threads ?? []).filter((t) => t.status === "active");
 }
+
+/* ── DELETING A THREAD, AND KEEPING IT DELETED ─────────────────────────────────────────────────
+ *
+ * Retiring a thread marks it resolved and leaves it in the record, and that was the only way out.
+ * A player who wanted one gone, not finished, found it reopened under a reworded title: the
+ * bookkeeper matches threads by title, a deleted one has no title left to match, and a new "The
+ * Beacon load review" is just a new thread. Story sifting reopens a pattern the moment its key is
+ * free. So a deleted thread leaves a tombstone, its title and its sifted key, and nothing opens a
+ * thread that matches one. */
+
+/** Words in a title that say what it's about, for comparing a new title with a deleted one. */
+function titleWords(t: string): Set<string> {
+  return new Set((String(t ?? "").toLowerCase().match(/[a-z0-9']{4,}/g) ?? []).filter((w) => !["with", "from", "that", "this", "about", "their", "they", "them", "what", "into", "over"].includes(w)));
+}
+
+/** Whether a thread with this title (or sifted key) was deleted by the player. */
+export function isDeletedThread(state: SaveState, title: string, sifted?: string): boolean {
+  const dead = (state.world as any).deleted_threads as { title: string; sifted?: string }[] | undefined;
+  if (!dead?.length) return false;
+  if (sifted && dead.some((d) => d.sifted === sifted)) return true;
+  const mine = titleWords(title);
+  if (!mine.size) return false;
+  return dead.some((d) => {
+    if (String(d.title).trim().toLowerCase() === String(title).trim().toLowerCase()) return true;
+    const theirs = titleWords(d.title);
+    const shared = [...mine].filter((w) => theirs.has(w)).length;
+    return shared >= Math.max(2, Math.ceil(Math.min(mine.size, theirs.size) * 0.6));
+  });
+}
+
+/** Remove a thread for good, leaving the tombstone. Returns the thread removed, or null. */
+export function deleteThread(state: SaveState, id: string): Thread | null {
+  const list = state.world.threads ?? [];
+  const t = list.find((x) => x.id === id);
+  if (!t) return null;
+  state.world.threads = list.filter((x) => x.id !== id);
+  const dead = ((state.world as any).deleted_threads ??= []) as { title: string; sifted?: string; turn: number }[];
+  dead.push({ title: t.title, sifted: (t as any).sifted, turn: state.world.current_turn });
+  if (dead.length > 60) dead.splice(0, dead.length - 60);
+  // a beat aimed at it, or the pressure system's memory of it, would point at nothing
+  if (state.pressure_state?.recent) state.pressure_state.recent = state.pressure_state.recent.filter((r) => r.ref !== t.title);
+  // The ending's own thread is rebuilt from the destination every turn, so deleting it means the
+  // player is done with the destination.
+  if (t.id === "thread_fate" && state.world_bible) state.world_bible.destination = "";
+  return t;
+}
+
+/** Edit any part of a thread the player can see. Unknown fields are ignored. */
+export function editThread(state: SaveState, id: string, patch: { title?: string; description?: string; tension?: number; status?: string }): Thread | null {
+  const t = (state.world.threads ?? []).find((x) => x.id === id);
+  if (!t) return null;
+  if (typeof patch.title === "string" && patch.title.trim()) t.title = patch.title.trim().slice(0, 160);
+  if (typeof patch.description === "string") t.description = patch.description.trim().slice(0, 600);
+  if (typeof patch.tension === "number" && Number.isFinite(patch.tension)) t.tension = Math.max(0, Math.min(10, Math.round(patch.tension)));
+  if (patch.status && ["active", "dormant", "resolved", "abandoned"].includes(patch.status)) {
+    t.status = patch.status as Thread["status"];
+    if (patch.status === "resolved" || patch.status === "abandoned") { t.turn_resolved = state.world.current_turn; t.tension = Math.min(t.tension ?? 0, patch.tension ?? 0); }
+    else delete (t as any).turn_resolved;
+  }
+  t.last_touched_turn = state.world.current_turn;
+  return t;
+}

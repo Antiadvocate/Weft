@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, X } from "lucide-react";
+import { Activity, ArrowDownToLine, Braces, Brain, Brush, DoorOpen, Eye, EyeOff, Fingerprint, Heart, Mic, MoreHorizontal, Pencil, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import type { NukeReport } from "../engine/nuke";
 import { api, type ClientSave } from "../lib/api";
 import Canvass from "./Canvass";
 import { splitLines } from "../engine/turn";
@@ -36,6 +37,10 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [painting, setPainting] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [embodyConfirm, setEmbodyConfirm] = useState(false);
+  // DELETE COMPLETELY: the preview of what goes, then the wipe. See engine/nuke.ts.
+  const [delPreview, setDelPreview] = useState<NukeReport | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState<{ name: string; turns: number } | null>(null);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [rawErr, setRawErr] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -232,6 +237,15 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
 
   return (
     <div className="scroll-y h-full px-4 pb-10 pt-3">
+      {deleted && (
+        <div className="card p-3 mb-3 text-[12.5px]" style={{ color: "var(--text-mid)" }}>
+          {deleted.name} is gone from the story{deleted.turns ? `, and from ${deleted.turns} past turns` : ""}.
+          <div className="flex gap-2 mt-2">
+            <button className="btn btn-ghost flex-1" onClick={async () => { try { setSave(await api.undoRollback(save.id)); } finally { setDeleted(null); } }}>Undo</button>
+            <button className="btn btn-ghost flex-1" onClick={() => setDeleted(null)}>OK</button>
+          </div>
+        </div>
+      )}
       <div className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: "var(--accent)" }}>
         In the scene
       </div>
@@ -480,6 +494,11 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                                   note="they leave the story and this scene — reversible from the Gone list"
                                   on={() => { if (confirm(`Send ${c.name} away for good? They leave the story and the current scene. You can bring them back later from the Gone list.`)) changeStatus(sel!, "away"); }} />
                               )}
+                              {npc && (
+                                <Item icon={<Trash2 size={15} style={{ color: "var(--danger)" }} />} label="Delete completely" danger
+                                  note="they never existed: their record, every memory and rumour about them, and the lines about them in past turns"
+                                  on={async () => { setImgErr(null); try { setDelPreview(await api.deleteCharacterPreview(save.id, sel!)); } catch (e: any) { setImgErr(e?.message ?? "couldn't look"); } }} />
+                              )}
                             </>
                           );
                         })()}
@@ -516,6 +535,36 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                         </button>
                       );
                     })}
+                  </div>
+                )}
+                {delPreview && (
+                  <div className="card p-4" style={{ borderColor: "rgba(207,90,78,.45)" }}>
+                    <div className="font-display text-[15px] mb-1">Delete {c.name} completely?</div>
+                    <div className="text-[12.5px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                      They'll never have existed. This removes their card and everything said about them:
+                      {" "}{Object.entries(delPreview.counts).filter(([k]) => k !== "past turns").map(([k, n]) => `${k} ${n}`).join(" · ") || "nothing else mentions them"}
+                      {delPreview.turns.length ? `, and the sentences that mention them in ${delPreview.turns.length} past turn${delPreview.turns.length === 1 ? "" : "s"}` : ""}.
+                      {" "}The name "{c.name}" is retired, so nobody new turns up under it, and new narration that mentions {(delPreview.names ?? [c.name]).map((n) => `"${n}"`).join(" or ")} is cut unless you name them yourself.
+                    </div>
+                    {!!delPreview.samples.length && (
+                      <div className="mt-2">
+                        {delPreview.samples.slice(0, 3).map((x, i) => (
+                          <div key={i} className="text-[11px] italic py-0.5" style={{ color: "var(--text-lo)", overflowWrap: "anywhere" }}>{x}</div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-3">
+                      <button className="btn btn-danger flex-1" disabled={deleting} onClick={async () => {
+                        setDeleting(true);
+                        try {
+                          const out = await api.deleteCharacter(save.id, sel!);
+                          setDeleted({ name: c.name, turns: out.report.turns.length });
+                          setDelPreview(null); setSel(null); setSave(out.save);
+                        } catch (e: any) { setImgErr(e?.message ?? "the delete didn't go through"); }
+                        finally { setDeleting(false); }
+                      }}>{deleting ? "deleting…" : "Delete them"}</button>
+                      <button className="btn btn-ghost flex-1" onClick={() => setDelPreview(null)}>Keep them</button>
+                    </div>
                   </div>
                 )}
                 {embodyConfirm && (

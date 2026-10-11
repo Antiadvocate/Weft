@@ -33,6 +33,7 @@ import {
   planBeats, captureOrigins, beatAllowance, scoreChecklist, pairKey,
 } from "./montage";
 import { clamp } from "./num";
+import { isDeletedThread } from "./threads";
 
 
 /** applyEdgeDelta hard-clamps warmth to ±15 and trust to ±20 per call. An envelope
@@ -222,7 +223,7 @@ function applyThreads(
       (x) => x.status === "active"
         && (String(x.title ?? "").toLowerCase() === title.toLowerCase() || overlapRatio(String(x.title ?? ""), title) >= 0.6),
     );
-    if (dupe) continue;
+    if (dupe || isDeletedThread(state, title)) continue;
     if (state.world.threads.filter((x) => x.status === "active").length >= 12) break;
     state.world.threads.push({
       id: uid("thr"), title, status: "active",

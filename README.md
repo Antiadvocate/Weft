@@ -374,6 +374,14 @@ A second round, from reading the code of the open-source projects that do a piec
   - playing it as an action anyway.
 - **New chapters can leave things behind.** When you start a new chapter, you can type words in the field under the chapter brief. That storyline is wiped before the new chapter is written, and the old save keeps it.
 
+## Deleting people, threads and chapters
+
+- **A person, completely.** *Cast → a character → ⋯ → Delete completely.* You see what goes before it goes. Their card goes, and so does everything said about them: other people's memories and beliefs, rumours, relationships, threads, and the sentences that mention them in past turns and chapter summaries. Their name is retired so the bookkeeper can't register someone new under it. If new narration mentions them, that sentence is cut, unless you name them yourself. Names are matched as written, so deleting May leaves the word "may" alone. To edit any part of a character instead, use *⋯ → Raw edit*.
+- **A thread.** *World → Threads*, including dormant and closed ones: **edit** changes the title, description, tension or status, and **delete** removes it for good. A deleted thread leaves a tombstone, so neither the bookkeeper, the offstage world nor story sifting can open it again, even under a reworded title.
+- **A chapter.** *Chronicle → The story so far.* The narrator reads the last six chapter summaries every turn, so a summary of a storyline you're done with keeps it alive. **edit** rewrites the title or summary. **delete** empties it, and the narrator stops reading it. The empty marker stays, so those turns aren't summarised again.
+
+Every delete keeps an undo: *⋯ → Undo rollback*.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

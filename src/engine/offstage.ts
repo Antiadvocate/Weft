@@ -27,6 +27,7 @@ import { placeIntent } from "./places";
 import { scheduleDigestLine } from "./schedule";
 import { clipText } from "./text";
 import { runAgency, MAX_ACTORS } from "./agency";
+import { isDeletedThread } from "./threads";
 import { cleanMemoryContent } from "./memory";
 import { updateMind } from "./mind";
 import type { SaveState, Stance } from "./types";
@@ -695,7 +696,7 @@ export function applyOffstage(state: any, events: OffstageEvent[], retired: stri
         const b = title.toLowerCase().split(/\W+/).filter(Boolean);
         return b.length && b.filter((w) => a.has(w)).length / b.length > 0.6;
       });
-      if (!dup && active.length < 12) {
+      if (!dup && active.length < 12 && !isDeletedThread(state, title)) {
         state.world.threads.push({
           id: uid("thr"), title, description: clipText(ot.description, 300),
           status: "active", tension: 3, turn_started: turn,
