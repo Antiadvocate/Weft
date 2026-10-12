@@ -81,12 +81,12 @@ check("the cast going cold is reported in a gentle story", !!castGoneCold(cold))
 cold.history = [{ turn: 20, player_action: "I separate the flesh from her body. And watch her die." }] as any;
 check("…but not as a fault right after the player's own violence", castGoneCold(cold) === null);
 
-// ── 7. no new pressure on a turn of violence ──
+// ── 7. what counts as the player's violence (fear.ts reads it; see tests/fear.ts) ──
 for (const a of ["I set isolade on fire with a spell.", "I burn her alive.", "I cut his head off with a sword.", "I separate his head from his body.", "I smash his head on the ground.", "I spear her directly through the face."]) {
   check(`"${a}" is violence`, PLAYER_VIOLENCE.test(physicalAct(a)));
 }
 check("a threat in dialogue isn't", !PLAYER_VIOLENCE.test(physicalAct(`"I'll kill you." I sit down.`)));
-check("on such a turn the beat is the room's reaction, unless something was already scheduled", /const violentAct = mode !== "think" && PLAYER_VIOLENCE\.test\(physicalAct\(action\)\)/.test(turn) && /violentAct && !!beat && beat\.kind !== "consequence"/.test(turn));
+check("no special rule for violent turns: the beat runs as on any turn, and fear is read from what happened", !/violentAct/.test(turn) && /appraiseDanger\(state, \{/.test(turn));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

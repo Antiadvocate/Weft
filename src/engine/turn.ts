@@ -30,7 +30,7 @@ import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradicti
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold, PLAYER_VIOLENCE } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -42,6 +42,7 @@ import { playerTrip, leavingBeat } from "./leaving";
 import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
+import { appraiseDanger, shiftFear } from "./fear";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
@@ -84,7 +85,7 @@ import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
 import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
-import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer, physicalAct } from "./reaction";
+import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer } from "./reaction";
 import { consultDirective } from "./consult";
 import { sweepThreads, mentioned, MAX_LIVE, isDeletedThread } from "./threads";
 import { commonGroundNote, doorFor } from "./commonground";
@@ -2466,15 +2467,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // ...unless the player just said or did something and the beat is a quiet one, in which case
   // the turn is for answering that. See answerThePlayer.
   const answerBody = answerThePlayer(action, mode);
-  // AND WHEN WHAT THE PLAYER DID WAS VIOLENCE, the turn is for the people who just saw it. Kingdom of
-  // Veythar: on the turn the king flayed a woman in front of the council the beat was "THE STORY'S
-  // MAIN PRESSURE ARRIVES NOW: Desire and longing", and a man walked in through the far door; two
-  // turns later a courtesan was standing by the wall waiting to petition him. A pressure beat is the
-  // world adding something, and on a turn like that the world has nothing to add that the room isn't
-  // already reacting to. What was already scheduled still lands.
-  const violentAct = mode !== "think" && PLAYER_VIOLENCE.test(physicalAct(action));
-  const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder"
-    || (violentAct && !!beat && beat.kind !== "consequence" && beat.kind !== "clock" && beat.kind !== "exogenous");
+  const quietBeat = !beat || beat.kind === "none" || beat.kind === "reminder";
   // ...EXCEPT WHEN WHAT THE PLAYER DID WAS LEAVE. "They go on talking to the player about it" is an
   // instruction to keep somebody who said they were going home, and in Rainier Valley it kept him
   // in the office for four turns. A departure gets the slot instead: they go, and get there. What
@@ -3845,7 +3838,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     (d.memories?.length ?? 0) + (d.facts?.length ?? 0) + ((d as any).facts_learned?.length ?? 0) +
     (d.offscreen?.length ?? 0) + (d.new_characters?.length ?? 0) + (d.canon_add?.length ?? 0) +
     (d.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
-    (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
+    (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || ((x as any).fear_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
   const proseWords = prose.split(/\s+/).filter(Boolean).length;
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
@@ -4255,6 +4248,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // `let`, not `const`: everything below pushes into it, and the sift just before the history
   // push replaces it with the part a person should actually read. See engine/shifts.ts.
   const presentBeforeDiff = [...(state.world.present ?? [])];
+  const aliveBeforeDiff = new Set(Object.entries(state.characters).filter(([, c]) => c && c.status !== "dead").map(([id]) => id));
   let shifts = applyDiff(state, diff, action, prose, !!footer);
   // SOMEBODY ELSE HAS THEM. An arrest the player wrote, or the prose showed, holds whoever is gone
   // from the scene, so they aren't put back in the world on the next pass. See exit.ts recordCustody.
@@ -4263,6 +4257,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // any want aimed at the player off them; the sweep keeps it that way. A save from before this
   // reads its own history once. See engine/rejection.ts.
   backfillRejections(state);
+  // FEAR. What the people here saw and heard the player do, and what they've heard said about it,
+  // moves how afraid of the player they are; the narrator describes them from that. See fear.ts.
+  for (const line of appraiseDanger(state, {
+    action, mode, presentAtStart: presentBeforeDiff, turn, elapsedMinutes: diff.elapsed_minutes,
+    diedThisTurn: [...aliveBeforeDiff].filter((id) => state.characters[id]?.status === "dead"),
+  })) shifts.push(line);
   if (mode !== "think") for (const line of applyRejection(state, rejectedBy(state, action, presentBeforeDiff), turn)) shifts.push(line);
   {
     const swept = sweepPursuit(state);
@@ -6660,6 +6660,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       if (trustD > 0) trustD = 0;
     }
     applyEdgeDelta(state.world.edges, { from, to, warmth_delta: warmthD, trust_delta: trustD, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
+    // FEAR, as the bookkeeper read it: the dangers the engine's own patterns can't see. See fear.ts.
+    {
+      const rawFear = Number((e as any).fear_delta ?? 0);
+      if (rawFear && to === "char_player" && from !== "char_player" && state.characters[from]) {
+        shiftFear(state, from, clamp(rawFear, -10, 40), clipText(e.note || "something about the player frightened them", 120), turn);
+      }
+    }
     // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
     // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
     // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.

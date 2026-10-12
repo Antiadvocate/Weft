@@ -1313,7 +1313,7 @@ export interface SimulatorDiff {
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
-  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; note?: string; roles_set?: string[] }[];
+  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; fear_delta?: number; note?: string; roles_set?: string[] }[];
   aliases_add?: { id: string; alias: string }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact
   facts_learned?: { char_id: string; fact: string; quote?: string; corrects?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage

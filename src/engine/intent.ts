@@ -19,6 +19,7 @@
 // runs on the cheap model. Most turns it fires for zero or one character. No stakes →
 // no call → zero added cost.
 
+import { fearLine, fearOf, AFRAID } from "./fear";
 import type { SaveState } from "./types";
 import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
@@ -259,6 +260,7 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
     const cond = state.condition[id];
     const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
     const belief = state.minds?.[id]?.about?.find((b) => b.target === "char_player")?.held_false;
+    const afraid = fearOf(state, id) >= AFRAID;
     const ctx = [
       `CHARACTER: ${c.name}${c.pronouns ? ` (${c.pronouns})` : ""}, age ${c.age ?? "?"}.`,
       c.core_traits?.length ? `Nature: ${(Array.isArray(c.core_traits) ? c.core_traits.join(", ") : c.core_traits)}.` : "",
@@ -267,13 +269,16 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       // them — the same shape as every other bug this engine has had: a pass told to act on state it
       // is not given. Without the blocker it cannot know the want is frightening; without the
       // approach it invents a door the character does not use.
-      c.drive?.goal ? `Wants: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
+      c.drive?.goal ? `Wants${afraid ? " (waiting until they're safe from the player)" : ""}: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
       // the want's own door if it has one, otherwise the person's — see doorFromVoice. A pass with
       // no door writes the surface AS the want, which is the announcement this rule exists to stop.
-      (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
+      // Someone afraid of the player for their life isn't going after it in front of him.
+      afraid ? "" : (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
                return door ? `How they go about it (the surface should be exactly this): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
       e ? `Toward the player: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.attraction !== undefined ? `, desire ${Math.round(e.attraction)}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
+      // fear of the player, which nothing here could see: see engine/fear.ts
+      fearLine(state, id),
       `WHY THIS MOMENT MATTERS TO THEM: ${reason}`,
       priorIntentBlock(state, id),
       // THE LOOP THIS PASS CANNOT SEE FROM INSIDE ONE CALL. priorIntentBlock catches a want that

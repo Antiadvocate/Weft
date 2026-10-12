@@ -13,6 +13,7 @@
  */
 import { visibleOnPlayer } from "./reaction";
 import { liveChapters } from "./chapters";
+import { fearOf, fearBlock, AFRAID, WARY } from "./fear";
 import { MAX_LIVE } from "./threads";
 import { isBesieged } from "./pressure";
 import { readAnatomy, anatomyNote } from "./anatomy";
@@ -548,6 +549,7 @@ Relationships aren't only between the player and everyone else, and this is the 
 
 stances record how a character answered when they were under real pressure to do or accept something, such as a request, a demand, a proposal or a guilt trip. Record {character, stance, about, toward}. The stance is "yielded" if they gave in even though they didn't want to, "refused" if they said no, or "countered" if they negotiated or set conditions. Ordinary willing agreement isn't a stance, so only record answers given under pressure. "about" is a few words describing what was asked, and "toward" is who asked (leave it out when it was the player). The engine uses this: giving in against something they actively want puts a strain on the character, refusing or countering marks the pair as having had a real disagreement, and trust that grows straight after a disagreement counts as repair.
 
+fear_delta, only on an edge to char_player, is how much more afraid this person now is of the player, for their life or their safety, and it's separate from warmth: someone can like a person and still be terrified of what they just did. The engine already counts violence the player did in front of them, killings they walked in on, and spoken threats, so leave those at 0. Use it for danger the engine has no way to read from the words: the player cornering them, drawing a weapon or calling up a power without using it, or the person learning what the player has done some other way. It goes down a little after a long stretch of the player being gentle with them, and a change runs from -10 to +40 but is usually 0.
 attraction_delta only moves when something happens that matches the character's taste. It never moves for kindness, help or gratitude, which move warmth instead. Attraction and warmth are separate and can move in opposite directions in the same turn: someone who is drawn to a person who just treated them badly has rising attraction and falling warmth, so record both. Never nudge warmth up because desire went up, or hold desire down because warmth is negative. attracted_to is a hard limit, and "no one" means never. Changes run from 2 to 6 either way, they're rare, and they're slower than changes in warmth. Never record attraction coming from char_player. Rare and slow doesn't mean frozen, though. When the prose clearly shows desire (a confession, sustained flirting, open longing), the number has to reflect it, and a clear confession sitting next to an attraction value near zero is a mistake. When a character who wants someone watches a rival succeed with that person (flirting returned, a date accepted, closeness welcomed), it affects them: record a negative relaxation_delta for them and a memory of what they saw.
 
 power_delta runs from −10 to 10 and is usually 0, because it's about standing, separate from liking: how far the first character thinks they are above or below the second, with a negative number meaning they defer. It moves when a scene shows who can do what to whom, for example a title being used, force being shown, resources being produced, an ability nobody else present can match, someone being outclassed or humiliated in front of others, or someone accepting a favour or protection. It doesn't move because of warmth, and being liked doesn't raise anyone's standing. Two people who genuinely deal with each other as equals stay at 0, which is the usual case.
@@ -640,6 +642,7 @@ edges hold warmth and trust as they stand today. Any turn showing care, gratitud
 
 stances: when a character answers under real pressure (a request, a demand, a proposal, a guilt trip), record {character, stance, about, toward}, where the stance is "yielded" (gave in though unwilling), "refused" (said no) or "countered" (negotiated or set conditions). Willing agreement isn't a stance, so only record pressured answers. "about" is a few words describing what was asked, and "toward" is who asked (leave it out for the player). Giving in against something they actively want puts a strain on the character, refusing or countering marks the pair as having had a real disagreement, and trust that grows straight after a disagreement counts as repair.
 
+fear_delta, only on an edge to char_player, is how much more afraid this person now is of the player for their life or safety, separate from warmth. Violence done in front of them, killings they walked in on and spoken threats are already counted, so use it for danger the engine can't read from the words: being cornered by the player, or a weapon or power drawn and held. It goes down a little after a long stretch of gentleness, and a change runs from -10 to +40 but is usually 0.
 attraction_delta only moves when something matches the character's taste, and never for kindness, help or gratitude. attracted_to is a hard limit, and changes run from 2 to 6 either way, they're rare and slower than warmth, and attraction never comes from char_player. Attraction and warmth are separate and can move in opposite directions in the same turn (being drawn to someone who just treated them badly means attraction up and warmth down). Rare and slow doesn't mean frozen, though: when the prose clearly shows desire (a confession, sustained flirting), the number has to reflect it, and a confession next to an attraction near zero is a mistake. A character watching a rival succeed with the person they want gets a negative relaxation_delta and a memory of what they saw.
 
 power_delta runs from −10 to 10 and is usually 0, because it's about standing, separate from liking: how far the first character thinks they are above or below the second, with a negative number meaning they defer. It moves when a scene shows who can do what to whom, for example a title being used, force being shown, resources being produced, an ability nobody else present can match, someone being outclassed or humiliated in front of others, or someone accepting a favour or protection. It doesn't move because of warmth, and being liked doesn't raise anyone's standing. Two people who genuinely deal with each other as equals stay at 0, which is the usual case.
@@ -705,7 +708,7 @@ export function simulatorSchemaHint(): string {
 {"scene_summary":"One sentence that names every person in it: write \"Miranda handed Vin the towel\", never \"she handed him the towel\". This is the same rule as in the memories field, for the same reason. A bare she, he, him, his or hers can be misread later, and this sentence is fed back into later turns as the record of what happened, so an unclear one gives the next turn the wrong scene. When it matters whose something is (whose body, whose words, whose idea, whose fault), put the owner's name in (\"Miranda's\", \"Vin's\") rather than his or hers. Two people in the same scene often share a pronoun, and then the summary can get who did what to whom backwards, and that mistake becomes canon.","elapsed_minutes":30,"weather":"","player_location":"a name from the LOCATIONS list","locations":[{"char_id":"","place":"a name from LOCATIONS, or elsewhere","said":"the words in the prose that say they moved"}],"money":"","present":["optional hint; who is actually in the scene is decided by where people are"],
 "facts":[{"char_id":"","field":"fatigue|hunger|thirst|slept|condition_add|condition_remove|inventory_add|inventory_remove|wearing_add|wearing_remove|injury|injury_remove","value":""}],
 "psyche":[{"char_id":"","relaxation_delta":0,"mood":"","states_add":[],"states_remove":[]}],
-"edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"attraction_delta":0,"note":"","roles_set":["Leave this key out unless a role changed this turn. It's the complete current list, so an empty array erases every role they have, which is almost never what happened. A role is a lasting fact, like husband, sister, employer or neighbour, rather than a feeling."]}],
+"edges":[{"from":"","to":"","warmth_delta":0,"trust_delta":0,"power_delta":0,"attraction_delta":0,"fear_delta":0,"note":"","roles_set":["Leave this key out unless a role changed this turn. It's the complete current list, so an empty array erases every role they have, which is almost never what happened. A role is a lasting fact, like husband, sister, employer or neighbour, rather than a feeling."]}],
 "stances":[{"character":"","stance":"yielded | refused | countered","about":"what was asked, in a few words","toward":"who asked (omit for the player)"}],
 "faults":[{"character":"who did something wrong","toward":"who they wronged","about":"what they actually did, in a few words, describing the act itself and not how anyone felt about it"}],
 "aliases_add":[{"id":"","alias":"a nickname or title the story now uses for this person (\"the captain\", \"Sor\"), recorded so that later mentions of it can be matched to them"}],
@@ -1139,7 +1142,7 @@ export function deltaNote(state: SaveState, query: string): string {
           }).join(", ")}`
         : "",
       c.drive?.goal || c.current_goal ? `wants: ${c.current_goal || c.drive!.goal}` : "",
-      e ? `toward player: ${e.roles?.length ? e.roles.join(" & ") + ", " : ""}w${Math.round(e.warmth)}/t${Math.round(e.trust)}${e.attraction !== undefined ? `/desire: ${attractionWord(e.attraction)}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}` : "",
+      e ? `toward player: ${e.roles?.length ? e.roles.join(" & ") + ", " : ""}w${Math.round(e.warmth)}/t${Math.round(e.trust)}${e.attraction !== undefined ? `/desire: ${attractionWord(e.attraction)}` : ""}${fearOf(state, id) >= WARY ? `/fear ${fearOf(state, id)}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}` : "",
       strangerCue,
       cond.psyche.relaxation <= -3 && c.attachment?.under_threat ? `under stress: ${c.attachment.under_threat}` : "",
     ].filter(Boolean).join("; ");
@@ -1230,7 +1233,7 @@ export function simulatorContext(state: SaveState): string {
     // bookkeeper can't tell a salient beat (a flirt from someone who wants the player) from a
     // nothing-beat (the same gesture seen by someone indifferent), and mis-weights memory/traits.
     const pe = id !== "char_player" ? state.world.edges.find((e) => e.from === id && e.to === "char_player") : undefined;
-    const edgeBit = pe ? `toward player: warmth ${Math.round(pe.warmth)}, trust ${Math.round(pe.trust)}${pe.attraction !== undefined ? `, desire ${Math.round(pe.attraction)}` : ""}${pe.roles?.length ? `, roles ${pe.roles.join("/")}` : ""}` : "";
+    const edgeBit = pe ? `toward player: warmth ${Math.round(pe.warmth)}, trust ${Math.round(pe.trust)}${pe.attraction !== undefined ? `, desire ${Math.round(pe.attraction)}` : ""}${fearOf(state, id) ? `, fear ${fearOf(state, id)}` : ""}${pe.roles?.length ? `, roles ${pe.roles.join("/")}` : ""}` : "";
     const bits = [
       `fatigue ${c.fatigue}, hunger ${c.hunger}`,
       c.conditions.length ? `conditions: ${c.conditions.join(", ")}${bodySeverity(c) >= 3 ? " [BODY WRECKED — dominates everything they do]" : ""}` : "",
@@ -2164,7 +2167,12 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // about their inner life; this says what they then produce, which is the only part the reader
       // gets. Measured before it existed: one scene rendered across the whole clench range moved
       // four lines of a fifty-six-line block, two of them the mood word. See engine/clench.ts.
-      { const cl = clenchDirective(cond, ident.name); if (cl) lines.push(`  ${cl.trim()}`); }
+      // FEAR FIRST. Someone afraid for their life around the player is described as that, and the
+      // tension register below (touchy, arguing back) is for a hard conversation, not for standing
+      // in front of a man who has just killed somebody. See engine/fear.ts.
+      const afraid = fearOf(state, id) >= AFRAID;
+      { const fb = fearBlock(state, id); if (fb) lines.push(`  ${fb}`); }
+      if (!afraid) { const cl = clenchDirective(cond, ident.name); if (cl) lines.push(`  ${cl.trim()}`); }
       // WHAT THE STORY HAS DONE TO THIS BODY, when it has done anything. Comparative and
       // behavioural — what they no longer react to, or what they can now take — never the number.
       // Empty for everybody still resting where they started, which is most people. See remodel.ts.
@@ -2172,7 +2180,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // AND WHETHER THE ROOM ITSELF IS DOING SOMETHING TO THEM. Only on the turn they walked in,
       // only when the place actually holds something for this person. See engine/ground.ts.
       { const gc = groundCue(state, id); if (gc) lines.push(gc); }
-      if (cond.psyche.relaxation <= -3 && ident.attachment?.under_threat) {
+      if (!afraid && cond.psyche.relaxation <= -3 && ident.attachment?.under_threat) {
         lines.push(`  under stress this person: ${ident.attachment.under_threat}`);
         // AND WHEN THAT IS PLAINLY NOT WORKING.
         //
@@ -2237,13 +2245,13 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         const sinceMoved = drv?.progress_turn !== undefined ? state.world.current_turn - drv.progress_turn : 0;
         const stalledHere = sinceMoved >= 3 && (drv?.progress ?? 0) < 100;
         wroteWant = true;
-        lines.push(`  wants: ${goalNow}${drv && drv.progress > 0 ? ` [${Math.round(drv.progress)}% of the way there]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? ` — ${sinceMoved} turns of trying it this way with no progress; they may keep at it or try another approach` : ""}`);
+        lines.push(`  wants${afraid ? " (waiting until they're safe from the player)" : ""}: ${goalNow}${drv && drv.progress > 0 ? ` [${Math.round(drv.progress)}% of the way there]` : ""}${drv?.blocker ? ` — blocked by: ${drv.blocker}` : ""}${stalledHere ? ` — ${sinceMoved} turns of trying it this way with no progress; they may keep at it or try another approach` : ""}`);
         // The want is what they are after; this is how they go at it. Rendered on its own line
         // because it is the instruction that actually governs their dialogue this turn — the want
         // is not something they say, it is something they work toward sideways.
         // same fallback as the intent pass: a want with no door still has a PERSON with one
         { const door = drv?.approach?.trim() || doorFromVoice(ident);
-          if (door) lines.push(`  goes at it by (this is what they do about it; they don't say the want out loud): ${door}`); }
+          if (door && !afraid) lines.push(`  goes at it by (this is what they do about it; they don't say the want out loud): ${door}`); }
         // WHAT NOT DEALING WITH IT HAS TURNED IT INTO. The stall line above reports that a want has
         // not moved; this reports what that has COST them, which is a different thing and the only
         // one a scene can show. A want set aside long enough stops being a plan and becomes weight:
@@ -2255,7 +2263,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
         // The room decides first, then whether they have the reserve to face it; importance only
         // breaks ties between things that pass both.
         { const lw = liveWant(state, id, state.world.current_turn);
-          if (lw && lw.goal !== goalNow) lines.push(`  BUT THE ONE THEY ACTUALLY PURSUE THIS TURN: ${lw.goal} — ${lw.why}. The other want stays pending and becomes more pressing as it waits.`); }
+          if (lw && lw.goal !== goalNow && !afraid) lines.push(`  BUT THE ONE THEY ACTUALLY PURSUE THIS TURN: ${lw.goal} — ${lw.why}. The other want stays pending and becomes more pressing as it waits.`); }
       } else if (!hasAuthored(ident) && !settledAuthored(ident).length) {
         lines.push(`  wants: nothing pressing`);
       }
@@ -2327,8 +2335,9 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       // With voice cards off this carries only what the scene is doing to them, and on a settled
       // turn that is nothing. An empty "voice now:" is a label with a blank after it, which reads
       // to a model as a field it failed to fill rather than one with nothing to say.
+      // (not for someone afraid of the player: "voice now" renders tension as anger in the room)
       { const vn = deriveVoice(ident, cond, isPlayer ? [] : traits, pedgeForVoice, voiceCardsOn(state, ident));
-        if (vn.trim()) lines.push(`  voice now: ${vn}`); }
+        if (vn.trim() && !(fearOf(state, id) >= AFRAID)) lines.push(`  voice now: ${vn}`); }
       // CONVERSATIONAL RANGE — moved out of detail>=2, which only ever fires at the top context
       // level. These two lines are the only thing on the card that says what this person can talk
       // about when the scene is not about the plot; gating them behind the most generous budget is
@@ -2367,8 +2376,9 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       }
       const pedge = state.world.edges.find((e) => e.from === id && e.to === "char_player");
       if (pedge) {
-        const pn = detail >= 2 ? edgeNote(pedge, state.world.current_turn) : "";
-        lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${Math.round(pedge.warmth)}, trust ${Math.round(pedge.trust)}${pn ? ` — ${pn}` : ""}`);
+        // a note written before they were afraid ("refuses to cower") is how they were, and the fear block above says how they are
+        const pn = detail >= 2 && fearOf(state, id) < AFRAID ? edgeNote(pedge, state.world.current_turn) : "";
+        lines.push(`  toward player: ${pedge.roles?.length ? `${pedge.roles.join(" & ")} — ` : ""}warmth ${Math.round(pedge.warmth)}, trust ${Math.round(pedge.trust)}${fearOf(state, id) ? `, fear ${fearOf(state, id)}` : ""}${pn ? ` — ${pn}` : ""}`);
         // AND WHAT JUST MOVED IT. A level renders a settled person; a person mid-fall is not
         // settled, and the number alone cannot tell those apart. Only appears when something
         // actually moved, so it costs nothing on a quiet turn.
@@ -2377,7 +2387,11 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
       }
       // desire is rendered EVERY turn for present central characters — its absence is exactly how
       // a model defaults to "warm = available". One short line, gated by openness.
-      { const dl = desireLine(state, id); if (dl) lines.push(`  ${dl}`); }
+      // ...except that fear of the player is on top of it. Wanting somebody doesn't send you toward
+      // them while you're afraid they'll kill you; the want is still there for when it's safe.
+      { const dl = desireLine(state, id);
+        if (dl && fearOf(state, id) >= AFRAID && /^desire toward you: (?:real|strong)/.test(dl)) lines.push(`  desire toward you: there underneath, but fear of you is on top of it, so it doesn't show while they're afraid.`);
+        else if (dl) lines.push(`  ${dl}`); }
       // theory of mind: what they BELIEVE about the player (may be wrong — the scene runs on this, not the truth)
       const mind = mindDigest(state, id);
       if (mind) lines.push(`  ${mind}`);
