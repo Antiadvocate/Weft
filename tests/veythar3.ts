@@ -25,7 +25,7 @@
 import { goneByTheEnd } from "../src/engine/exit";
 import { properNameFromRole, adoptProperNames } from "../src/engine/sketch";
 import { beatOrder, keptAtTheDoor, atTheDoorNote, stationGap, standingToward } from "../src/engine/station";
-import { fearBlock, AFRAID } from "../src/engine/fear";
+import { fearBlock, AFRAID, appraiseAct, appraiseDanger, fearOf } from "../src/engine/fear";
 import { lint } from "../tools/promptlint";
 import type { SaveState } from "../src/engine/types";
 import { readFileSync } from "node:fs";
@@ -126,6 +126,45 @@ const fresh = (): SaveState => {
   check("nobody afraid for their life trades remarks with the one they fear", /Nobody afraid for their life trades remarks with the one they're afraid of, makes a point at him, or needles him/.test(fb));
   check("a hard man's fear shows as stillness", /a hard man's fear shows as stillness and care with every word/.test(fb));
   check("the block passes the prompt lint", lint(fb).length === 0, lint(fb));
+}
+
+/* ── 6. the fourth run: flayed to the bone, and chatting ──
+ *
+ * Turn 26: "I skin her so she is nothing but a skeleton." The skeleton turned its skull to him and
+ * said "You are the king. I heard you the first time. I am Mara. I came from the river district."
+ * Fear was only read after the turn was written, and "skin her" wasn't a word it knew. */
+{
+  const s = fresh();
+  const M = "char_mara";
+  (s.characters as any)[M] = { character_id: M, name: "Mara", pronouns: "she/her", status: "active", location: (s.world as any).player_location };
+  s.world.present = [M]; s.world.current_turn = 26;
+  const skin = `"I AM THE KING" I skin her so she is nothing but a skeleton. I use my magic to do it. "WHO ARE YOU?"`;
+  const said = appraiseAct(s, { action: skin, mode: "do", present: [M], turn: 26 });
+  check("the act is read before the turn is written: she's afraid for her life on the page that shows it", fearOf(s, M) >= AFRAID && said.includes("Mara is afraid of you now."), [fearOf(s, M), said]);
+  const fb = fearBlock(s, M);
+  check("…and what was done to her body comes first: if it would kill a person it kills her, and if not she's in agony", /What was just done to Mara does to their body what it would do to anyone's: if it would kill a person, it kills them, and if they live through it, they are in agony and terror, and nothing calm or composed comes out of them\./.test(fb), fb.slice(0, 500));
+  check("…which the prompt lint passes", lint(fb).length === 0, lint(fb));
+  const once = fearOf(s, M);
+  appraiseDanger(s, { action: skin, mode: "do", presentAtStart: [M], diedThisTurn: [], turn: 26 });
+  check("reading the turn afterwards doesn't count the act twice", fearOf(s, M) === once, [once, fearOf(s, M)]);
+  s.world.current_turn = 27;
+  check("the next turn, her card no longer says it's just been done", !/What was just done to Mara/.test(fearBlock(s, M)));
+  for (const a of ["I crush her in a hug.", "I blind her with a smile.", "I freeze her out of the conversation.", "I lift her onto the horse.", "I throw her the keys.", "I break her fall."]) {
+    const t = fresh();
+    (t.characters as any)[M] = { character_id: M, name: "Mara", pronouns: "she/her", status: "active" };
+    t.world.present = [M]; t.world.current_turn = 5;
+    appraiseAct(t, { action: a, mode: "do", present: [M], turn: 5 });
+    check(`"${a}" frightens nobody`, fearOf(t, M) === 0, fearOf(t, M));
+  }
+  for (const a of ["I crush her skull.", "I melt her.", "I turn her to ash."]) {
+    const t = fresh();
+    (t.characters as any)[M] = { character_id: M, name: "Mara", pronouns: "she/her", status: "active" };
+    t.world.present = [M]; t.world.current_turn = 5;
+    appraiseAct(t, { action: a, mode: "do", present: [M], turn: 5 });
+    check(`"${a}" is done to her`, fearOf(t, M) >= 50, fearOf(t, M));
+  }
+  const turn = readFileSync("src/engine/turn.ts", "utf8");
+  check("the turn reads the act before the intent pass and before any card is built", turn.indexOf("appraiseAct(state, { action, mode, present: state.world.present, turn })") > 0 && turn.indexOf("appraiseAct(state, { action, mode, present: state.world.present, turn })") < turn.indexOf("await runIntentPass(state, action)") && turn.indexOf("await runIntentPass(state, action)") < turn.indexOf("const digest = volatileDigest(state"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

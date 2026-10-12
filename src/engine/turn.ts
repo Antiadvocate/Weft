@@ -42,7 +42,7 @@ import { playerTrip, leavingBeat } from "./leaving";
 import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
-import { appraiseDanger, shiftFear } from "./fear";
+import { appraiseDanger, appraiseAct, shiftFear } from "./fear";
 import { setStation, beatOrder, keptAtTheDoor, atTheDoorNote } from "./station";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
@@ -2432,6 +2432,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // that pass reads, so a character reminded of the thing they have been avoiding brings THAT into
   // the beat rather than arriving composed and being sad about it afterwards. See engine/neglect.ts.
   { const nl = tickNeglect(state, turn); if (nl.length) ev.onMeta({ shifts: nl }); }
+
+  // WHAT THE PLAYER JUST DID TO THE PEOPLE HERE, read before anyone's card is built, so the turn that
+  // shows it shows them afraid of it. See engine/fear.ts appraiseAct.
+  { const fa = appraiseAct(state, { action, mode, present: state.world.present, turn }); if (fa.length) ev.onMeta({ shifts: fa }); }
 
   // PLAIN MODE writes nobody's private intent in advance. On Velora the intent pass invented a want
   // (Sera "is going to say xer mother's name") that nothing in the story had started, kept it alive

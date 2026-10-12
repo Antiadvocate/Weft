@@ -45,10 +45,26 @@ const IDIOM = /\b(?:kill(?:s|ed|ing)? (?:time|it|the (?:lights?|engine|music|moo
 
 /** Hurting someone short of the words PLAYER_VIOLENCE knows: a blow, a grip on the throat, a blade run
  * through. Read with the cast's names already turned into "them", so it only has to know pronouns. */
-const ASSAULT = /\b(?:(?:punch|hit|slap|backhand|kick|headbutt|strangle|throttle|choke|shove|stab|slash|impale|skewer|gut|maim|burn|blast|beat|bludgeon|pummel)(?:s|es|ed|d|ing)? (?:them|him|her)\b|(?:grab|seize|take|hold|haul|drag)\w* (?:them|him|her) by the (?:throat|hair|neck)|slam\w* (?:them|him|her) (?:into|against|onto|to)|(?:run|ran|runs) (?:them|him|her) through|cut (?:them|him|her) down|(?:break|broke|snap|snapped)\w* (?:his|her|their) (?:arm|leg|neck|jaw|nose|fingers?|wrist|ribs?)|fireball at (?:them|him|her))\b/i;
+const HURT = String.raw`(?:punch|hit|slap|backhand|kick|headbutt|strangle|throttle|choke|shove|stab|slash|impale|skewer|gut|maim|burn|blast|beat|bludgeon|pummel|skin|flay|melt|crush|rip|tear|dismember|disembowel|eviscerate|drown|incinerate|dissolve|petrify|freeze|boil|crucify|mutilate|torture|blind|cripple|break|hurl|throw|slam|smash)(?:s|es|ed|d|ing|ped|ned)?`;
+const BODY = String.raw`(?:skull|head|throat|neck|arms?|legs?|hands?|fingers?|face|ribs?|jaw|spine|back|chest|eyes?|knees?|wrists?|nose|teeth|skin|flesh)`;
+const ASSAULT = new RegExp([
+  // the clause ends on them, or carries on into what it does to them
+  String.raw`\b${HURT} (?:them|him|her)(?=\s*(?:[.,;:!?—-]|$)|\s+(?:to death|alive|apart|to pieces|to the bone|senseless|bloody|until|so (?:he|she|they)|with (?:magic|fire|my|a (?:blade|sword|knife|spell|whip|hammer|club|rock|stone))|against|into the (?:wall|floor|ground|stone|dirt|table)|in (?:the|her|his|their) (?:face|throat|chest|gut|stomach|ribs|head|eyes?|jaw|back|knees?|groin)|across the (?:face|room)))`,
+  // or lands on part of them
+  String.raw`\b${HURT} (?:his|her|their) ${BODY}\b`,
+  String.raw`\b(?:grab|seize|take|hold|haul|drag)\w* (?:them|him|her) by the (?:throat|hair|neck)\b`,
+  String.raw`\bslam\w* (?:them|him|her) (?:into|against|onto|to)\b`,
+  String.raw`\b(?:run|ran|runs) (?:them|him|her) through\b`,
+  String.raw`\bcut (?:them|him|her) down\b`,
+  String.raw`\b(?:break|broke|snap|snapped)\w* (?:his|her|their) (?:arm|leg|neck|jaw|nose|fingers?|wrist|ribs?)\b`,
+  String.raw`\bfireball at (?:them|him|her)\b`,
+  String.raw`\b(?:turn|turns|turned|reduce|reduces|reduced) (?:them|him|her) (?:to|into) (?:ash|ashes|dust|stone|bone|bones|a skeleton|a husk)\b`,
+  String.raw`\bstrip\w* (?:his|her|their) (?:skin|flesh)\b`,
+  String.raw`\bso (?:he|she|they) (?:is|are|was|were) nothing but\b`,
+].join("|"), "i");
 
 /** An act that kills, or would. */
-const LETHAL = /\b(?:kill(?:s|ed|ing)? (?!time\b|it\b|for\b|to\b|with\b|me\b|myself\b)\w+|murder\w*|burn(?:s|ed|t)? (?:\w+ )?alive|behead\w*|decapitat\w*|head off|cut (?:his|her|their|off \w+) (?:head|throat)|slit (?:his|her|their) throat|sever\w*|separate (?:the |his |her |their )?(?:flesh|head)|smash\w* (?:his|her|their) (?:head|skull|face)|execut\w*|through (?:the |his |her |their )?(?:face|heart|throat|chest|head|skull|neck)|watch (?:her|him|them) die|(?:run|ran|runs) (?:them|him|her) through|snap\w* (?:his|her|their) neck|impal\w* (?:them|him|her)|gut (?:them|him|her))\b/i;
+const LETHAL = /\b(?:kill(?:s|ed|ing)? (?!time\b|it\b|for\b|to\b|with\b|me\b|myself\b)\w+|murder\w*|burn(?:s|ed|t)? (?:\w+ )?alive|behead\w*|decapitat\w*|head off|cut (?:his|her|their|off \w+) (?:head|throat)|slit (?:his|her|their) throat|sever\w*|separate (?:the |his |her |their )?(?:flesh|head)|smash\w* (?:his|her|their) (?:head|skull|face)|execut\w*|through (?:the |his |her |their )?(?:face|heart|throat|chest|head|skull|neck)|watch (?:her|him|them) die|(?:run|ran|runs) (?:them|him|her) through|snap\w* (?:his|her|their) neck|impal\w* (?:them|him|her)|gut (?:them|him|her)|(?:to|into) (?:ash|ashes|dust|bones?|a skeleton)|nothing but (?:bone|bones|a skeleton|ash|ashes)|incinerat\w*|disintegrat\w*|(?:onto|into) the sun|dismember\w*|disembowel\w*|eviscerat\w*|skin\w* (?:them|him|her) alive|flay\w*)\b/i;
 
 /** Titles that come before a name and say nothing about which person it is. */
 const TITLE = /^(?:lady|lord|sir|dame|king|queen|prince|princess|duke|duchess|count|countess|baron|baroness|captain|master|mistress|mr|mrs|ms|miss|dr|doctor|father|mother|brother|sister|elder|high|the)$/i;
@@ -150,6 +166,70 @@ function sightWeight(state: SaveState, witness: string, victims: string[], letha
   return w;
 }
 
+/** What the player just did, read for violence and threats against the people in the room. */
+function readAct(state: SaveState, action: string, present: string[], died: string[], turn: number, touched: Set<string>): void {
+  const P = state.characters?.char_player?.name ?? "the player";
+  const alive = (id: string) => { const c = state.characters?.[id]; return !!c && id !== "char_player" && c.status !== "dead" && c.status !== "departed"; };
+  const log = ((state.world as any).violence ??= []) as Violence[];
+  const act = physicalAct(action).replace(IDIOM, " ");
+  const witnesses = [...new Set(present)].filter(alive);
+  // VIOLENCE DONE IN FRONT OF THEM
+  const plain = asThem(state, act);
+  if (PLAYER_VIOLENCE.test(act) || ASSAULT.test(plain)) {
+    const victims = victimsOf(state, act, [...new Set([...present, ...died])]);
+    for (const id of died) if (!victims.includes(id)) victims.push(id);
+    const lethal = died.length > 0 || LETHAL.test(act) || LETHAL.test(plain);
+    const sight = `watched ${P} do this, close enough to see it: "${clipText(act, 100)}"`;
+    for (const w of witnesses) {
+      if (victims.includes(w)) raise(state, w, 50, `was the one ${P} did it to: "${clipText(act, 100)}"`, turn);
+      else raise(state, w, sightWeight(state, w, victims, lethal), sight, turn);
+      touched.add(w);
+    }
+    log.push({ turn, act: clipText(act, 100), victims, lethal, where: String((state.world as any).player_location ?? ""), seen: [...witnesses, ...victims] });
+    if (log.length > 12) log.splice(0, log.length - 12);
+  }
+  // THREATS THEY HEARD
+  if (THREAT.test(action)) {
+    for (const w of witnesses) {
+      raise(state, w, 12, `heard ${P} threaten to kill`, turn);
+      touched.add(w);
+    }
+  }
+}
+
+function crossed(state: SaveState, touched: Set<string>, before: Map<string, number>): string[] {
+  const out: string[] = [];
+  for (const id of touched) {
+    if (fearOf(state, id) >= AFRAID && (before.get(id) ?? 0) < AFRAID) out.push(`${state.characters[id].name} is afraid of you now.`);
+  }
+  return out;
+}
+
+const fearNow = (state: SaveState) => new Map(((state.world.edges ?? []) as FearEdge[]).filter((e) => e.to === "char_player").map((e) => [e.from, e.fear ?? 0]));
+
+/**
+ * THE MOMENT IT HAPPENS, BEFORE A WORD OF IT IS WRITTEN.
+ *
+ * Kingdom of Veythar, fourth run, turn 26. The king flayed a woman down to the bone with magic. She
+ * turned her skull toward him and said, in her own hoarse voice, "You are the king. I heard you the
+ * first time. I am Mara. I came from the river district." The player: "Still talks to me all chill."
+ *
+ * Fear was read after the turn was written, from what the turn had made of it, so the turn in which
+ * something happens to somebody was always written before anything on their card said what it had
+ * done to them. The act is the player's and is known before the narrator starts, so it's read here,
+ * before the cards are built: the person it's done to and the people who watch it are already afraid
+ * on the page that shows it. appraiseDanger, after the turn, adds what the turn made of it: who died,
+ * who came in on it.
+ */
+export function appraiseAct(state: SaveState, ctx: { action: string; mode: string; present: string[]; turn: number }): string[] {
+  if (ctx.mode === "think" || (state.world as any).appraised_turn === ctx.turn) return [];
+  (state.world as any).appraised_turn = ctx.turn;
+  const before = fearNow(state);
+  const touched = new Set<string>();
+  readAct(state, ctx.action, ctx.present, [], ctx.turn, touched);
+  return crossed(state, touched, before);
+}
+
 /**
  * Read this turn for danger and move fear. Called after the bookkeeper's changes land, with who was
  * in the room when the turn began and who has died since. Returns notices for the player.
@@ -158,7 +238,7 @@ export function appraiseDanger(state: SaveState, ctx: { action: string; mode: st
   const P = state.characters?.char_player?.name ?? "the player";
   const alive = (id: string) => { const c = state.characters?.[id]; return !!c && id !== "char_player" && c.status !== "dead" && c.status !== "departed"; };
   const edges = (state.world.edges ?? []) as FearEdge[];
-  const before = new Map(edges.filter((e) => e.to === "char_player").map((e) => [e.from, e.fear ?? 0]));
+  const before = fearNow(state);
   const touched = new Set<string>();
   const where = String((state.world as any).player_location ?? "");
   const log = ((state.world as any).violence ??= []) as Violence[];
@@ -173,28 +253,27 @@ export function appraiseDanger(state: SaveState, ctx: { action: string; mode: st
   }
 
   if (ctx.mode !== "think") {
-    const act = physicalAct(ctx.action).replace(IDIOM, " ");
-    const witnesses = [...new Set([...ctx.presentAtStart, ...(state.world.present ?? [])])].filter(alive);
-    // VIOLENCE DONE IN FRONT OF THEM
-    const plain = asThem(state, act);
-    if (PLAYER_VIOLENCE.test(act) || ASSAULT.test(plain)) {
-      const victims = victimsOf(state, act, [...new Set([...ctx.presentAtStart, ...ctx.diedThisTurn])]);
-      for (const id of ctx.diedThisTurn) if (!victims.includes(id)) victims.push(id);
-      const lethal = ctx.diedThisTurn.length > 0 || LETHAL.test(act) || LETHAL.test(plain);
-      const sight = `watched ${P} do this, close enough to see it: "${clipText(act, 100)}"`;
-      for (const w of witnesses) {
-        if (victims.includes(w)) raise(state, w, 50, `was the one ${P} did it to: "${clipText(act, 100)}"`, ctx.turn);
-        else raise(state, w, sightWeight(state, w, victims, lethal), sight, ctx.turn);
-        touched.add(w);
-      }
-      log.push({ turn: ctx.turn, act: clipText(act, 100), victims, lethal, where, seen: [...witnesses, ...victims] });
-      if (log.length > 12) log.splice(0, log.length - 12);
-    }
-    // THREATS THEY HEARD
-    if (THREAT.test(ctx.action)) {
-      for (const w of witnesses) {
-        raise(state, w, 12, `heard ${P} threaten to kill`, ctx.turn);
-        touched.add(w);
+    if ((state.world as any).appraised_turn !== ctx.turn) {
+      // nobody read the act before the turn was written (a replay, a test): read it now, whole
+      readAct(state, ctx.action, [...new Set([...ctx.presentAtStart, ...(state.world.present ?? [])])], ctx.diedThisTurn, ctx.turn, touched);
+      (state.world as any).appraised_turn = ctx.turn;
+    } else {
+      // it was read before the turn was written; add what the turn made of it
+      const v = log.find((x) => x.turn === ctx.turn);
+      if (v) {
+        const newlyDead = ctx.diedThisTurn.filter((id) => !v.victims.includes(id));
+        v.victims.push(...newlyDead);
+        if (!v.lethal && ctx.diedThisTurn.length) {
+          v.lethal = true;
+          for (const w of v.seen.filter((id) => alive(id) && !v.victims.includes(id))) { raise(state, w, 10, `watched ${P} do this, close enough to see it: "${v.act}"`, ctx.turn); touched.add(w); }
+        }
+        // anyone who came in while it was happening saw it too
+        for (const id of (state.world.present ?? []).filter(alive)) {
+          if (v.seen.includes(id)) continue;
+          v.seen.push(id);
+          raise(state, id, v.lethal ? 40 : 25, `came in as ${P} did this: "${v.act}"`, ctx.turn);
+          touched.add(id);
+        }
       }
     }
   }
@@ -230,11 +309,7 @@ export function appraiseDanger(state: SaveState, ctx: { action: string; mode: st
   }
 
   // tell the player once, when someone crosses into fear for their life
-  const out: string[] = [];
-  for (const id of touched) {
-    if (fearOf(state, id) >= AFRAID && (before.get(id) ?? 0) < AFRAID) out.push(`${state.characters[id].name} is afraid of you now.`);
-  }
-  return out;
+  return crossed(state, touched, before);
 }
 
 /** The narrator's description of someone afraid of the player, or wary of them. Empty below WARY. */
@@ -250,7 +325,11 @@ export function fearBlock(state: SaveState, id: string): string {
   if (f < AFRAID) {
     return `WARY OF ${P.toUpperCase()} (fear ${f})${why ? `: ${why}` : ""}. ${name} keeps some distance from ${P}, chooses words carefully around ${him}, and doesn't push.`;
   }
-  return `AFRAID OF ${P.toUpperCase()} FOR THEIR LIFE (fear ${f})${why ? `: ${why}` : ""}. Being near ${P} comes before everything else on this card for ${name} now. A person afraid for their life doesn't go after anything of their own in front of the one they're afraid of, so their wants, appetites, teasing and pride wait until they're safe. What they do instead comes from who they are: most go quiet, agree, keep their eyes down, do what they're told and watch for the first chance to get away; some plead or bargain; some freeze; a few with a fighter's nature or nothing left to lose go for ${him} or for the door, all at once, knowing what it may cost. Nobody afraid for their life trades remarks with the one they're afraid of, makes a point at ${him}, or needles ${him}: they speak when they have to, or to beg, and briefly, and a hard man's fear shows as stillness and care with every word. Their usual way of handling stress belongs to an ordinary bad day, so here it shows only in how they get through this one.`;
+  // the one it was done to, on the turn it's done: what it does to them comes before how they feel about it
+  const doneToThem = e?.fear_turn === state.world?.current_turn && /^was the one /.test(e?.fear_why?.[0] ?? "")
+    ? ` What was just done to ${name} does to their body what it would do to anyone's: if it would kill a person, it kills them, and if they live through it, they are in agony and terror, and nothing calm or composed comes out of them.`
+    : "";
+  return `AFRAID OF ${P.toUpperCase()} FOR THEIR LIFE (fear ${f})${why ? `: ${why}` : ""}.${doneToThem} Being near ${P} comes before everything else on this card for ${name} now. A person afraid for their life doesn't go after anything of their own in front of the one they're afraid of, so their wants, appetites, teasing and pride wait until they're safe. What they do instead comes from who they are: most go quiet, agree, keep their eyes down, do what they're told and watch for the first chance to get away; some plead or bargain; some freeze; a few with a fighter's nature or nothing left to lose go for ${him} or for the door, all at once, knowing what it may cost. Nobody afraid for their life trades remarks with the one they're afraid of, makes a point at ${him}, or needles ${him}: they speak when they have to, or to beg, and briefly, and a hard man's fear shows as stillness and care with every word. Their usual way of handling stress belongs to an ordinary bad day, so here it shows only in how they get through this one.`;
 }
 
 /** For the passes that want a single line: the intent pass, the compact rosters. */
