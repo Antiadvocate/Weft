@@ -50,7 +50,7 @@ export function regexSites(root = "src"): { total: number; byFile: [string, numb
 }
 
 /** May fall, never rise. Lower it in the commit that removes them. */
-const BUDGET = 1837;
+const BUDGET = 1803;
 {
   const { total, byFile } = regexSites();
   console.log(`     (regex sites left in src: ${total}, budget ${BUDGET})`);

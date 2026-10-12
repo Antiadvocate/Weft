@@ -49,7 +49,7 @@ export interface ActionRead {
   ends_with: string[];
   /** Harm the player does to people: who (ids, or "someone" for an unnamed person), what, and whether it kills. */
   harms: { who: string[]; what: string; kills: boolean }[];
-  /** Ids of people the player threatens with death or harm. */
+  /** Ids of people the player threatens with death or harm, or "someone" for people unnamed. */
   threatens: string[];
   /** A weapon or a power drawn, shown or held without being used on anyone. */
   shows_power: string;
@@ -91,7 +91,7 @@ The player's character is named below, along with the people in the scene and th
 Read it the way a careful person would, because a sentence can say the opposite of the words in it ("I haven't found a reason to make you go away" sends nobody away) and a figure of speech is a way of talking ("I crush her in a hug" harms nobody, and "I kill time" kills nobody). Words inside quotation marks are said aloud unless the player is plainly thinking them, and words between asterisks, or plainly private, are thoughts. Something only threatened or shown is a threat or a show of power, and harm is what the player actually does to someone. A line aimed at the game, the narrator or the AI ("stop narrating", "you're a terrible writer", "change the story so that...") goes in to_the_game, and if it asks for the story itself to change, story_change says what to take out and what's now true. Leave every field empty, false or [] when the turn has nothing of that kind, which is most of them on most turns.
 
 Reply with only this JSON:
-{"said":["each line the player says aloud, verbatim"],"did":"what anyone in the room could see the player do, in plain words, apart from speech and thought","thought":"what the player only thinks or feels","to_the_game":"anything said to the game, the narrator or the AI, outside the world of the story","story_change":{"asked":false,"remove":"what they asked to have taken out of the story, in a few words","true_now":"what they said is true now, as a plain statement"},"leaving":{"going":false,"to":"where they're going, if they said"},"drop_subject":"the player's own words, if they're closing a subject they're done with","gives_to":["ids of people the player gives, makes or mends something for"],"orders":[{"to":["ids"],"what":"what they're told to do"}],"turns_away":["ids of people the player sends away, turns down or tells to keep their distance"],"ends_with":["ids of people the player ends a relationship with"],"harms":[{"who":["ids, or someone"],"what":"what the player does to them","kills":false}],"threatens":["ids of people the player threatens with death or harm"],"shows_power":"a weapon or a power drawn, shown or held, and kept from use","removes":["ids of people the player physically puts out of the scene, has arrested or has taken away"],"declares":"anything the player declares true about the world or another person, as a statement of fact","says_described_back":false}`;
+{"said":["each line the player says aloud, verbatim"],"did":"what anyone in the room could see the player do, in plain words, apart from speech and thought","thought":"what the player only thinks or feels","to_the_game":"anything said to the game, the narrator or the AI, outside the world of the story","story_change":{"asked":false,"remove":"what they asked to have taken out of the story, in a few words","true_now":"what they said is true now, as a plain statement"},"leaving":{"going":false,"to":"where they're going, if they said"},"drop_subject":"the player's own words, if they're closing a subject they're done with","gives_to":["ids of people the player gives, makes or mends something for"],"orders":[{"to":["ids"],"what":"what they're told to do"}],"turns_away":["ids of people the player sends away, turns down or tells to keep their distance"],"ends_with":["ids of people the player ends a relationship with"],"harms":[{"who":["ids, or someone"],"what":"what the player does to them","kills":false}],"threatens":["ids of people the player threatens with death or harm, or someone"],"shows_power":"a weapon or a power drawn, shown or held, and kept from use","removes":["ids of people the player physically puts out of the scene, has arrested or has taken away"],"declares":"anything the player declares true about the world or another person, as a statement of fact","says_described_back":false}`;
 
 /** The cast as the reader sees it: who's here first, then everyone else the story knows. */
 function roster(state: SaveState): string {
@@ -148,7 +148,7 @@ export function shapeRead(state: SaveState, g: any): ActionRead {
     turns_away: ids(state, g.turns_away),
     ends_with: ids(state, g.ends_with),
     harms: (Array.isArray(g.harms) ? g.harms : []).map((h: any) => ({ who: ids(state, h?.who, true), what: text(h?.what, 200), kills: !!h?.kills })).filter((h: { what: string }) => h.what).slice(0, 6),
-    threatens: ids(state, g.threatens),
+    threatens: ids(state, g.threatens, true),
     shows_power: text(g.shows_power, 200),
     removes: ids(state, g.removes),
     declares: text(g.declares, 300),

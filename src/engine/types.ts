@@ -270,6 +270,8 @@ export interface Rumor {
   knowers: string[];         // char_ids who currently hold it
   born_turn: number;
   about_char?: string;
+  /** About someone hurting or killing someone: whoever hears it is frightened of the one it's about. See fear.ts. */
+  violent?: boolean;
   dead?: boolean;            // fully diffused or decayed out
   /** PROVENANCE — every hop, oldest first. Answers "how does this person know?" with a route
    *  rather than an assumption. A rumor with no path is pre-provenance (old save) and is treated
@@ -1350,7 +1352,7 @@ export interface SimulatorDiff {
   character_exits?: { char_id: string; kind: "dead" | "departed"; note?: string }[]; // someone died or left the story for good
   traits_expressed?: { char_id: string; traits: string[] }[]; // which core traits this turn actually put on screen, judged by meaning (a gelato expresses "loves ice cream")
   texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")
-  rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string }[];
+  rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string; violent?: boolean }[];
   player_self?: string[]; // what the player's character said this turn about their own job, role and responsibilities. See engine/own.ts.
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];

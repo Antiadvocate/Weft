@@ -200,6 +200,14 @@ export function unquoted(text: unknown): string {
   return out;
 }
 
+/** The object pronoun in a pronoun set like "she/her" or "he/him", or "them". */
+export function objectPronoun(pronouns: unknown): string {
+  const set = new Set(words(String(pronouns ?? "").toLowerCase()));
+  if (set.has("she") || set.has("her")) return "her";
+  if (set.has("he") || set.has("him")) return "him";
+  return "them";
+}
+
 /** Whitespace collapsed, ends trimmed. Model output arrives with stray newlines and doubled spaces
  *  more often than not, and they make every length measurement below lie. */
 function normalize(text: unknown): string {

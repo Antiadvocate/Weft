@@ -7330,6 +7330,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       salience: clamp(r.salience ?? 5, 1, 10), origin_char: origin,
       knowers: [origin, ...state.world.present.filter(() => Math.random() < 0.6)],
       born_turn: turn, about_char: r.about_char ? resolveId(state, r.about_char) ?? undefined : undefined,
+      violent: r.violent ? true : undefined,
     });
     if (state.world.rumors.length > 40) state.world.rumors = state.world.rumors.slice(-40);
     shifts.push(r.truth === "true" ? `A new rumor is spreading.` : `A new rumor is spreading, and it isn't true.`);
