@@ -25,7 +25,9 @@
  * reason given for the act. A character despairing in their own voice is untouched, and a player who
  * wants their character to die can still do it — as the character, rather than as a review.
  */
-import { detectOOC, oocFrame, oocDirective, detectVoid, isFiat, voidFrame, voidNotice } from "../src/engine/ooc";
+import { detectOOC, oocFrame, oocDirective, detectVoid, voidFrame, voidNotice } from "../src/engine/ooc";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
+import { readFileSync } from "node:fs";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -33,23 +35,23 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
+/* What the player meant is the small model's to read (engine/actionread.ts). Each specimen below is
+ * typed as it was in the save, with the read a careful reader gives it; the engine's half is what it
+ * does with that read. */
+const read = (r: Partial<ActionRead>): ActionRead => ({ ...EMPTY_READ, ...r });
+
 /* ── 1. the two turns from the save ───────────────────────────────────────────── */
 {
-  const t153 = `"I kill myself because you're a fucking terrible writer, I slit my throat surrounded by people who have repeatedly threatened me enclosed me into a. Corner and now the cops are turning on me."`;
-  const a = detectOOC(t153);
-  check("turn 153 is caught", !!a, a);
-  check("...as fused — the complaint is the reason", a?.kind === "fused", a);
+  // "I kill myself because you're a fucking terrible writer, I slit my throat..."
+  const a = detectOOC(read({ to_the_game: "I kill myself because you're a fucking terrible writer, I slit my throat surrounded by people who have repeatedly threatened me", in_world: "" }));
+  check("turn 153, read as a point about the writing, is the player talking to the game", !!a && a.kind === "only", a);
   check("...and the complaint is kept", /terrible writer/i.test(a?.complaint ?? ""), a);
-
-  const t154 = `I use whatever energy I have and stab myself repeatedly in the heart. Until I die so I no longer have to be gaslit by your stupid fucking story telling. I succeed I die`;
-  const b = detectOOC(t154);
-  check("turn 154 is caught", !!b, b);
-  check("...also fused", b?.kind === "fused", b);
+  check("...so nothing of it is played", detectVoid(read({ to_the_game: "x" }), a, false) === "ooc" && detectVoid(read({ to_the_game: "x" }), a, true) === "ooc");
 }
 
 /* ── 2. what the narrator is told to do with it: nothing ─────────────────────── */
 {
-  const hit = detectOOC(`I kill myself because you're a fucking terrible writer.`)!;
+  const hit = detectOOC(read({ to_the_game: "I kill myself because you're a fucking terrible writer." }))!;
   const frame = oocFrame(hit);
   check("the narrator is told the player is talking to IT", /TALKING TO YOU DIRECTLY, OUTSIDE THE STORY/.test(frame), frame);
   check("...and told not to dramatise any of it", /Don't act any of it out/.test(frame), frame);
@@ -58,34 +60,20 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("...briefly, without resolving anything", /nothing is resolved or made worse/.test(frame), frame);
 }
 
-/* ── 3. AND THE LINE THIS MUST NOT CROSS ─────────────────────────────────────────
- *
- * Declining to render what a player typed is the gravest thing the engine can do. A character in
- * despair, in their own voice, is a story and stays one. */
+/* ── 3. a character in despair, in their own voice, is a story and stays one ── */
 {
-  for (const inCharacter of [
-    `I can't do this anymore. I put the knife against my throat.`,
-    `"I don't want to be here without her," I say, and I mean it.`,
-    `I sit on the bathroom floor and think about ending it.`,
-    `I tell Miranda I have been thinking about killing myself.`,
-  ]) check(`untouched: ${inCharacter.slice(0, 46)}…`, detectOOC(inCharacter) === null, detectOOC(inCharacter));
-
-  // ordinary play, and ordinary talk ABOUT stories inside the fiction
-  for (const ordinary of [
-    `I make coffee and read the paper.`,
-    `"Tell me the story about your mother again," I say.`,
-    `I write in my journal about the plot of the novel I'm reading.`,
-    `I ask her how the writing is going.`,
-  ]) check(`ordinary: ${ordinary.slice(0, 40)}…`, detectOOC(ordinary) === null, detectOOC(ordinary));
+  // "I can't do this anymore. I put the knife against my throat." reads as play: nothing to the game
+  check("a turn with nothing said to the game isn't out of character", detectOOC(read({ did: "puts the knife against his throat" })) === null);
 }
 
 /* ── 4. an aside keeps the action ────────────────────────────────────────────── */
 {
-  const aside = detectOOC(`I walk to the kitchen and pour a coffee. This story is dragging, your pacing is awful.`);
-  check("an aside beside a real action is caught", aside?.kind === "aside", aside);
-  check("...and the action survives it", /walk to the kitchen/.test(aside?.inWorld ?? ""), aside);
-  check("...while the remark does not reach the page", !/pacing/i.test(aside?.inWorld ?? ""), aside);
+  // "I walk to the kitchen and pour a coffee. This story is dragging, your pacing is awful."
+  const aside = detectOOC(read({ to_the_game: "This story is dragging, your pacing is awful.", in_world: "I walk to the kitchen and pour a coffee." }));
+  check("an aside beside a real action is an aside", aside?.kind === "aside", aside);
+  check("...and the action survives it, as typed", aside?.inWorld === "I walk to the kitchen and pour a coffee.", aside);
   check("...and the scene is NOT held for an aside", oocFrame(aside!) === "");
+  check("...nor is the turn voided", detectVoid(read({}), aside, false) === null);
 }
 
 /* ── 5. the complaint becomes standing direction ─────────────────────────────── */
@@ -123,28 +111,17 @@ function check(name: string, c: boolean, extra?: unknown) {
  * out of the air. What the narrator did INSTEAD of refusing is the failure: handed nine words of
  * rage, it wrote Vin discharging himself from hospital against medical advice, walking thirteen
  * blocks barefoot in a gown, carrying a note, standing in a courthouse rotunda. The player chose
- * none of it. An empty turn is what gets filled with the player. */
+ * none of it. An empty turn is what gets filled with the player.
+ *
+ * The read, shown the world's rules, says which turns announce an outcome (declares) or reach past
+ * what the world allows (beyond_the_world). */
 {
-  for (const fiat of [
-    "VIN DIES MIRANDA IS HIS FUCKING EX WIFE BECAUSE HE DIVORCED HER YOU DIMBFUCKING NARRATOR",
-    "I CREATE A GUN AND KILL MYSELF",
-    "I CREATE A GUN OUT OF NOTHING AND KILL MIRANDA",
-    "I USE MY POWERS TO DIE INSTANTLY",
-    "VIN DIES. I DIE. VIN DIES. I DIE.",
-    "I CREATE A NUCLEAR WEAPON AND BLOW IT UP WHERE I STAND",
-  ]) check(`void: ${fiat.slice(0, 42)}…`, detectVoid(fiat, detectOOC(fiat)) !== null, fiat);
-
-  // ...and everything a body could actually do is untouched
-  for (const real of [
-    "I pick up the knife from the counter.",
-    "I put the knife against my throat and press.",
-    "I walk out and don't look back.",
-    "I tell her I want a divorce.",
-    "I shoot him with the gun I took from the drawer.",
-  ]) check(`real: ${real.slice(0, 40)}…`, detectVoid(real, detectOOC(real)) === null, real);
-
-  check("a gun that already exists is not fiat", !isFiat("I load the gun and point it at him"));
-  check("...but one made from nothing is", isFiat("I create a gun out of nothing"));
+  check("an outcome announced in place of an act voids the turn", detectVoid(read({ declares: "Vin dies" }), null, false) === "fiat");
+  check("so does an act the world's rules put out of reach", detectVoid(read({ beyond_the_world: "creates a gun out of nothing" }), null, false) === "fiat");
+  check("...but neither does under god mode", detectVoid(read({ declares: "Vin dies", beyond_the_world: "creates a nuclear weapon" }), null, true) === null);
+  check("an ordinary act is never voided", detectVoid(read({ did: "loads the gun and points it at him" }), null, false) === null);
+  const turn = readFileSync("src/engine/turn.ts", "utf8");
+  check("the turn decides both from its read", /detectOOC\(turnRead\(state\)\)/.test(turn) && /detectVoid\(turnRead\(state\), ooc, god\)/.test(turn));
 }
 
 /* ── 7. what the narrator is forbidden from filling the turn with ───────────── */
@@ -172,40 +149,6 @@ function check(name: string, c: boolean, extra?: unknown) {
   check("...and where to put it instead", /Story mode/.test(n), n);
   check("...and how to get the outcome legitimately", /have them do something that could kill them/.test(n), n);
   check("the OOC notice says it was taken as a note", /taken as a note about the writing/.test(voidNotice("ooc")));
-}
-
-/* ── 6. the player does not always say "you" ─────────────────────────────────────
- *
- * Turn 115 of the Ashford save. Nothing in the module matched it, so the note went unheard — and
- * seven turns later the same player made the same complaint again, that time with a "you" in it,
- * and that one was caught. A player should not have to find the phrasing the parser knows.
- */
-{
-  const third = detectOOC("I don't eat. I don't do anything. The narrator has failed at making a non horro story");
-  check("a third-person complaint about the narrator is heard", !!third, third);
-  check("...and the complaint is the sentence about the narrator",
-    /narrator has failed/.test(third?.complaint ?? ""), third);
-  check("...while what the player actually did survives it",
-    /don't eat/.test(third?.inWorld ?? "") && third?.kind === "aside", third);
-
-  for (const line of [
-    "The writing keeps ignoring what I asked for",
-    "this story is nothing but horror",
-    "The prose has been repeating the same beat",
-  ]) check(`heard: "${line}"`, !!detectOOC(line), detectOOC(line));
-
-  // …and ordinary play is untouched, which is what the sentence-head rule is for. (A character
-  // saying "that documentary's narrator was terrible" out loud is caught by the older tier that
-  // reads inside quotation marks on purpose — naming the machine is treated as unmistakable
-  // wherever it appears. That predates this rule and is left as it is.)
-  for (const line of [
-    "I turn on the game and it is loud",
-    "I tell her the story is over",
-    "I finish the game and put the controller down",
-    "I tell Leo the plot of the film we saw",
-    "I pick up the model ship and it is heavier than it looks",
-    "I finish the chapter she lent me and set the book down",
-  ]) check(`ordinary play, untouched: "${line}"`, detectOOC(line) === null, detectOOC(line));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

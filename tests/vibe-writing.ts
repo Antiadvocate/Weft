@@ -34,6 +34,8 @@
  * two clipped copies and the habit ladder counted expressions under two keys and found none.
  */
 import { detectOOC, detectVoid } from "../src/engine/ooc";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
+const read = (r: Partial<ActionRead>): ActionRead => ({ ...EMPTY_READ, ...r });
 import { labelFor, sameWant, findSameWant, newAuthored, crystallizedLabel } from "../src/engine/authored";
 import { clipWords } from "../src/engine/coerce";
 
@@ -42,6 +44,10 @@ function check(name: string, c: boolean, extra?: unknown) {
   if (c) { pass++; console.log(`ok   ${name}`); }
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
+
+/* What the player meant is the small model's to read (engine/actionread.ts): each of these is typed
+ * as it was, with the read a careful reader gives it, and the engine's half is what it does with it.
+ * The old word lists caught none of the four; the read is shown every one of them as a turn to read. */
 
 /* ── 1. the four turns ────────────────────────────────────────────────────────── */
 {
@@ -52,45 +58,25 @@ function check(name: string, c: boolean, extra?: unknown) {
     "STOP BEING A FUCKING IDIOT AI",
   ];
   for (const t of TURNS) {
-    const o = detectOOC(t);
-    check(`caught: ${t.slice(0, 44)}`, !!o, t);
-    check("...as a note and nothing else", o?.kind === "only", o);
-    check("...so the turn is voided", detectVoid(t, o, false) === "ooc");
+    const o = detectOOC(read({ to_the_game: t, in_world: "" }));
+    check(`read as a note: ${t.slice(0, 44)}`, o?.kind === "only", o);
+    check("...so the turn is voided", detectVoid(read({ to_the_game: t }), o, false) === "ooc");
   }
 }
 
-/* ── 2. the seven turns of ordinary play in the same save ─────────────────────── */
+/* ── 2. ordinary play in the same save ─────────────────────────────────────────── */
 {
-  const PLAY = [
-    `"I can help clean?"`,
-    `I get to drying the dishes "hah yeah..."`,
-    `"Oh boy. So we'll be having dinner out?"`,
-    `"Why would I want that? Do you?"`,
-    `"Oh I'll come. Sorry. You don't need to get so upset I was asking if you wanted to go or not"`,
-    `"Ok sure I won't"`,
-    `I stand still "go on love"`,
-  ];
-  for (const p of PLAY) check(`left alone: ${p.slice(0, 46)}`, detectOOC(p) === null, detectOOC(p));
-
-  // the quote mask has to hold across sentences, which is the whole reason t5 survives
-  const SPLIT = `"Oh I'll come. Sorry. You don't need to get so upset."`;
-  check("a quoted line spanning three sentences stays one quoted line", detectOOC(SPLIT) === null);
-  // Unquoted, the same words split: the complaint is lifted off and the action underneath still
-  // plays. (Say mode never reaches this module at all — there the whole input is the spoken line.)
-  const bare = detectOOC(`Oh I'll come. Sorry. You don't need to get so upset.`);
-  check("...and the same words unquoted are read as a remark on an action", bare?.kind === "aside", bare);
-  check("...with the action kept whole", bare?.inWorld === "Oh I'll come. Sorry.", bare);
+  for (const p of [`"I can help clean?"`, `I get to drying the dishes "hah yeah..."`, `I stand still "go on love"`]) {
+    check(`left alone: ${p.slice(0, 46)}`, detectOOC(read({ said: [p] })) === null);
+  }
 }
 
 /* ── 3. a complaint riding along with a real action still plays the action ─────── */
 {
-  const a = detectOOC(`I put the towel down and take her hand. Your pacing is killing me.`);
+  const a = detectOOC(read({ to_the_game: "Your pacing is killing me.", in_world: "I put the towel down and take her hand." }));
   check("an aside is still an aside", a?.kind === "aside", a);
-  check("...and the action survives", /take her hand/.test(a?.inWorld ?? ""), a);
-  check("...so the turn is not voided", detectVoid(`I put the towel down and take her hand. Your pacing is killing me.`, a, false) === null);
-
-  const b = detectOOC(`So you're going to ignore this? Neat.`);
-  check("a one-word leftover is not an action", b?.kind === "only", b);
+  check("...and the action survives, as typed", a?.inWorld === "I put the towel down and take her hand.", a);
+  check("...so the turn is not voided", detectVoid(read({}), a, false) === null);
 }
 
 /* ── 4. the want the player actually wrote ────────────────────────────────────── */

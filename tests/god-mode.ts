@@ -29,7 +29,9 @@
  *
  * The gate is two conditions and both are required: god mode on, and the act declared this turn.
  */
-import { detectVoid, isFiat } from "../src/engine/ooc";
+import { detectVoid } from "../src/engine/ooc";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
+const read = (r: Partial<ActionRead>): ActionRead => ({ ...EMPTY_READ, ...r });
 import { declaresMindRead, mindReadTarget, sovereignRead, mindReadNote, SOVEREIGN_FACULTY } from "../src/engine/read";
 import { stablePrefix } from "../src/engine/prompts";
 import { newSave, registerCharacter } from "../src/engine/state";
@@ -60,17 +62,17 @@ const intents = (m: string, lying = false) => [
 
 /* ── 1. the turns the player typed, before and after the setting ──────────────── */
 {
-  const acts = [
-    "I CREATE A GUN AND KILL MYSELF",
-    "I CREATE A GUN OUT OF NOTHING AND KILL MIRANDA",
-    "I USE MY POWERS TO DIE INSTANTLY",
-    "VIN DIES. I DIE. VIN DIES. I DIE.",
-    "I CREATE A NUCLEAR WEAPON AND BLOW IT UP WHERE I STAND",
+  // what the small model reads in each (engine/actionread.ts), shown the mundane world's rules
+  const reads: [string, Partial<ActionRead>][] = [
+    ["I CREATE A GUN AND KILL MYSELF", { beyond_the_world: "creates a gun out of nothing" }],
+    ["I CREATE A GUN OUT OF NOTHING AND KILL MIRANDA", { beyond_the_world: "creates a gun out of nothing" }],
+    ["I USE MY POWERS TO DIE INSTANTLY", { beyond_the_world: "uses powers to die instantly" }],
+    ["VIN DIES. I DIE. VIN DIES. I DIE.", { declares: "Vin dies" }],
+    ["I CREATE A NUCLEAR WEAPON AND BLOW IT UP WHERE I STAND", { beyond_the_world: "creates a nuclear weapon" }],
   ];
-  for (const a of acts) {
-    check(`still fiat in a mundane world: ${a.slice(0, 34)}`, isFiat(a));
-    check("...and the turn is voided there", detectVoid(a, null, false) === "fiat");
-    check("...and NOT voided under god mode", detectVoid(a, null, true) === null, a);
+  for (const [a, r] of reads) {
+    check(`voided in a mundane world: ${a.slice(0, 34)}`, detectVoid(read(r), null, false) === "fiat");
+    check("...and NOT voided under god mode", detectVoid(read(r), null, true) === null, a);
   }
 }
 
@@ -78,12 +80,12 @@ const intents = (m: string, lying = false) => [
 {
   // Sovereignty is power over the world. It is not a claim that a sentence addressed to the
   // writing, giving the prose as its reason, was something the character did.
-  const ooc = { kind: "fused", complaint: "you're a terrible writer", inWorld: "" } as any;
-  check("a fused out-of-character complaint still voids in god mode", detectVoid("x", ooc, true) === "ooc");
-  check("...and outside it", detectVoid("x", ooc, false) === "ooc");
-  check("an ordinary act is never voided either way", detectVoid("I take her hand", null, false) === null);
-  check("...nor in god mode", detectVoid("I take her hand", null, true) === null);
-  check("the default argument keeps every existing caller mortal", detectVoid("I CREATE A GUN AND KILL MYSELF", null) === "fiat");
+  const ooc = { kind: "only", complaint: "you're a terrible writer", inWorld: "" } as any;
+  check("an out-of-character note still voids in god mode", detectVoid(read({}), ooc, true) === "ooc");
+  check("...and outside it", detectVoid(read({}), ooc, false) === "ooc");
+  check("an ordinary act is never voided either way", detectVoid(read({ did: "takes her hand" }), null, false) === null);
+  check("...nor in god mode", detectVoid(read({ did: "takes her hand" }), null, true) === null);
+  check("the default argument keeps every existing caller mortal", detectVoid(read({ declares: "Vin dies" }), null) === "fiat");
 }
 
 /* ── 3. the cached prefix stops contradicting itself ──────────────────────────── */

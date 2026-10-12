@@ -2081,7 +2081,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // second person in it is somebody in the room and this module has no business reading it — the
   // quote mask does that job in every other mode, and say mode is the one where there are no quotes
   // to mask because the whole input is the line.
-  const ooc = mode === "say" ? null : detectOOC(action);
+  const ooc = mode === "say" ? null : detectOOC(turnRead(state));
   // A REPEAT IS THE SAME NOTE, LOUDER. Counted while the previous one is still standing, so a
   // player who has to say it twice is heard as having said it twice rather than starting over.
   if (ooc) {
@@ -2105,7 +2105,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the player writes as what happens, which is exactly wrong for a sentence aimed at the software.
   // A pure complaint voids in either mode; fiat is still a do-mode question, because declaring an
   // outcome is what story mode is FOR.
-  const voided = mode === "do" ? detectVoid(action, ooc, god)
+  const voided = mode === "do" ? detectVoid(turnRead(state), ooc, god)
     : mode === "story" && ooc?.kind === "only" ? "ooc" as const
     : null;
   const storyAction = voided ? "" : (ooc ? (ooc.inWorld || outwardAction) : outwardAction);
@@ -2493,11 +2493,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // the world had scheduled (a consequence, a clock, a threat, an outside event) still follows it
   // and finds them where they end up; a beat that would happen "in the room the characters are
   // standing in" — the palette, a person's want, a relationship, a thread — waits. See leaving.ts.
-  const trip = mode === "think" ? null : playerTrip(state, action);
+  const trip = mode === "think" ? null : playerTrip(state);
   const scheduled = !!beat && (beat.kind === "consequence" || beat.kind === "clock" || beat.kind === "exogenous");
   // ...AND WHEN WHAT THE PLAYER SAID WAS "DROP IT", the turn is for dropping it, and the next few
   // turns are reminded the subject is closed. Same precedence as a departure. See dropit.ts.
-  const dropLine = mode === "think" || trip ? "" : dropItLine(action);
+  const dropLine = mode === "think" || trip ? "" : dropItLine(turnRead(state));
   if (dropLine) recordDropped(state, dropLine, turn);
   // WHAT THE ENGINE ADDS STILL HAS TO FIT THE WORLD, and reach the player the way things reach
   // someone of their station. See station.ts beatOrder.
@@ -2988,7 +2988,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + narratedBackFix(state.last_narrated_back) + droppedNote(state, action) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + narratedBackFix(state.last_narrated_back) + droppedNote(state) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
