@@ -39,10 +39,26 @@ const STRONG = new RegExp([
   String.raw`\bstop (?:texting|calling|messaging|contacting|following|emailing|coming (?:here|over|to my))\b`,
   String.raw`\bdon'?t (?:text|call|message|contact|email|come near|come back|come here|touch) (?:me|us|again)\b`,
   String.raw`\b(?:i'?m|i am) not interested\b`,
-  String.raw`\bi (?:don'?t|do not|never) want (?:you|to see you|anything (?:to do )?with you)\b`,
+  String.raw`\bi (?:don'?t|do not|never) want (?:you|to see you|anything (?:to do )?with you)\b(?!\s+to\s+(?:go|leave|stay away|move|worry|feel|think|be (?:sad|hurt|upset|alone)))`,
   String.raw`\bi (?:can'?t|cannot|won'?t|will not|am not going to|'m not going to) leave my (?:wife|husband|partner|girlfriend|boyfriend)\b`,
   String.raw`\b(?:restraining|protection|protective|no[- ]contact) order\b`,
 ].join("|"), "i");
+/** The same words said the other way round. Kingdom of Veythar, turn 5: "I haven't found a reason
+ *  to make you go away", and the player was told she'd keep her distance from him now. A turning-
+ *  away with a negation before it in the same clause ("haven't", "don't want you to", "no reason to"),
+ *  or made into something done to her ("make you go away"), turns nobody away. */
+const UNSAID = /\b(?:not|never|no|haven'?t|hasn'?t|hadn'?t|don'?t|doesn'?t|didn'?t|won'?t|wouldn'?t|shouldn'?t|can'?t|couldn'?t|without)\b[^.!?;"]{0,40}$|\bmake (?:you|her|him|them|us)\s*$/i;
+
+/** Whether the input turns someone away: some match of these words that isn't negated. */
+function turnsAway(re: RegExp, text: string): boolean {
+  const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+  for (const m of text.matchAll(g)) {
+    const before = text.slice(Math.max(0, (m.index ?? 0) - 60), m.index ?? 0);
+    if (!UNSAID.test(before)) return true;
+  }
+  return false;
+}
+
 /** ...and words that turn someone away only when that someone is named in the same input, because
  *  "call the police" and "stalker" are as often the plot of a thriller as a door closing on a person. */
 const NAMED_ONLY = /\b(?:call(?:ing)? (?:the )?(?:cops|police)|call(?:ing)? 911|harass(?:ing|ment|ed)?|stalk(?:er|ing|ed)?|trespass(?:ing|ed)?|(?:get(?:ting)? you|you'?re|have you) fired|get (?:the fuck )?out)\b/i;
@@ -97,8 +113,8 @@ export function namesPlayer(state: SaveState, goal: string): boolean {
  *  whoever in the room wants the player (attraction 30+) and isn't their partner. */
 export function rejectedBy(state: SaveState, action: string, present: string[]): string[] {
   const text = String(action ?? "");
-  const strong = STRONG.test(text) || BREAKUP.test(text);
-  if (!strong && !NAMED_ONLY.test(text)) return [];
+  const strong = turnsAway(STRONG, text) || turnsAway(BREAKUP, text);
+  if (!strong && !turnsAway(NAMED_ONLY, text)) return [];
   const t = lower(text);
   const cast = Object.entries(state.characters ?? {}).filter(([id, c]) => id !== "char_player" && c?.name);
   const named = cast.filter(([, c]) => {
@@ -112,7 +128,7 @@ export function rejectedBy(state: SaveState, action: string, present: string[]):
     const e = (state.world.edges ?? []).find((x) => x.from === id && x.to === "char_player");
     return (e?.attraction ?? 0) >= 30;
   });
-  return pool.filter((id) => !isPartner(state, id) || BREAKUP.test(text));
+  return pool.filter((id) => !isPartner(state, id) || turnsAway(BREAKUP, text));
 }
 
 /** Record it: the edge is marked, attraction steps down, and a want aimed at the player goes. */

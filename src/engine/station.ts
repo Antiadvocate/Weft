@@ -160,3 +160,42 @@ export function setStation(state: SaveState, id: string, place: unknown, rank: u
   c.station = { place: p || c.station?.place || "", rank: Math.max(0, Math.min(100, Math.round(r))), source };
   return true;
 }
+
+/* HOW A FEELING COMES OUT TOWARD SOMEONE FAR ABOVE YOU.
+ *
+ * Kingdom of Veythar, second run, with stations in place. Emily's card said, correctly, that she was
+ * a commoner a very long way below the king. The same card also said, in other lines, that when
+ * clenched she answers the worst reading of what's said "out loud", that her anger "comes out AT
+ * the other person: asking again, following it across the room", and that her desire for him shows
+ * as flirting, teasing and taking openings. Each of those was written for two people on level ground.
+ * So she told the king "I don't think you know, and I don't think you like not knowing", and, with a
+ * guard's hand on her arm, "You cannot put someone in a cell for the afternoon because the
+ * conversation tired you."
+ *
+ * People far beneath someone feel all the same things toward them, and it comes out differently:
+ * inside the forms, held back, said to someone else, or later. These are the clauses each of those
+ * lines gets when the person it describes stands far below the player. */
+const FAR_BELOW = -40;
+
+function beneath(state: SaveState, id: string): string {
+  if (id === "char_player" || standingToward(state, id, "char_player") > FAR_BELOW) return "";
+  return state.characters?.char_player?.name ?? "the player";
+}
+
+/** For the clenched register, which otherwise has them answer the misreading out loud. */
+export function beneathClench(state: SaveState, id: string): string {
+  const P = beneath(state, id);
+  return P ? ` When the one they'd answer is ${P}, who stands far above them, the misreading shows in a stiff, overcareful answer, in what they leave unsaid and in their face, and they say it out loud only to people nearer their own station or once ${P} has gone.` : "";
+}
+
+/** For "voice now", which otherwise sends anger straight at the other person. */
+export function beneathVoice(state: SaveState, id: string): string {
+  const P = beneath(state, id);
+  return P ? `; toward ${P}, far above them, it stays inside the forms, coming through the teeth, in a too-correct answer or in a silence, and at full strength only toward people nearer their own station or after ${P} has gone` : "";
+}
+
+/** For desire, which otherwise flirts, teases and takes openings as if between equals. */
+export function beneathDesire(state: SaveState, id: string): string {
+  const P = beneath(state, id);
+  return P ? ` Between people this far apart it shows inside the forms: in looks, in lingering, in small liberties taken and taken back the moment they might cost something, and anything bolder toward ${P} is a gamble they know they're making.` : "";
+}

@@ -129,5 +129,38 @@ function garden(): SaveState {
   check("the cached prefix is untouched by it", !/station:/.test(stablePrefix(s)));
 }
 
+/* ── 8. the second run: the rest of her card was written for two people on level ground ──
+ *
+ * With stations in, Emily curtsied and said "Your Majesty". Then the clenched register had her answer
+ * the worst reading "out loud", "voice now" sent her anger "AT the other person", her desire had her
+ * "flirt, tease, angle to get close", and she told the king "I don't think you know, and I don't
+ * think you like not knowing", and, with a guard's hand on her arm, "You cannot put someone in a
+ * cell for the afternoon because the conversation tired you." */
+{
+  const s = garden();
+  const c = (s.condition as any)[EMILY];
+  c.psyche.relaxation = -8;
+  const e = (s.world.edges as any[]).find((x) => x.from === EMILY && x.to === P);
+  e.attraction = 41; e.desire_admissibility = 0.7;
+  const card = volatileDigest(s, "riff raff");
+  const em = card.slice(card.lastIndexOf(`— Emily Veyne [${EMILY}]`));
+  check("clenched, she answers the king's words in a stiff, overcareful answer and says the rest elsewhere", /IS TAKING THINGS[^\n]*When the one they'd answer is King Aldric the First, who stands far above them, the misreading shows in a stiff, overcareful answer/.test(em), em.match(/IS TAKING THINGS[^\n]*/)?.[0]?.slice(-400));
+  check("her anger toward him stays inside the forms", /voice now:[^\n]*toward King Aldric the First, far above them, it stays inside the forms/.test(em), em.match(/voice now:[^\n]*/)?.[0]);
+  check("her wanting him shows as looks and small liberties she takes back", /desire toward you: (?:real|strong)[^\n]*\. Between people this far apart it shows inside the forms/.test(em), em.match(/desire toward you:[^\n]*/)?.[0]);
+  const dn = deltaNote(s, "riff raff").split("\n").find((l) => l.startsWith("— Emily Veyne")) ?? "";
+  check("far beneath him she keeps her opinion of him to herself and lets him end it", /keep their opinion of you, and of what kind of man or woman you are, to themselves, and let you be the one to end the conversation/.test(dn));
+  const flat = garden();
+  (flat.world_bible as any).hierarchy = 0.1;
+  (flat.condition as any)[EMILY].psyche.relaxation = -8;
+  const fe = (flat.world.edges as any[]).find((x) => x.from === EMILY && x.to === P);
+  fe.attraction = 41; fe.desire_admissibility = 0.7;
+  const fc = volatileDigest(flat, "riff raff");
+  check("between equals the same card keeps its argument and its flirting", !/far above them|Between people this far apart/.test(fc.slice(fc.lastIndexOf(`— Emily Veyne [${EMILY}]`))));
+  for (const clause of [/When the one they'd answer is[^\n]*/, /toward King Aldric the First, far above them[^\n]*/, /Between people this far apart[^\n]*/]) {
+    const t = em.match(clause)?.[0] ?? "";
+    if (t) check(`the clause passes the prompt lint: "${t.slice(0, 40)}…"`, lint(t).length === 0, lint(t));
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
