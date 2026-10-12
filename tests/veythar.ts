@@ -15,6 +15,7 @@ import { ruminationLine, releasedLine, moodPassedLine, feelingKind } from "../sr
 import { castGoneCold, PLAYER_VIOLENCE } from "../src/engine/social";
 import { physicalAct } from "../src/engine/reaction";
 import { playerTrip } from "../src/engine/leaving";
+import { rejectedBy } from "../src/engine/rejection";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
@@ -87,6 +88,19 @@ for (const a of ["I set isolade on fire with a spell.", "I burn her alive.", "I 
 }
 check("a threat in dialogue isn't", !PLAYER_VIOLENCE.test(physicalAct(`"I'll kill you." I sit down.`)));
 check("no special rule for violent turns: the beat runs as on any turn, and fear is read from what happened", !/violentAct/.test(turn) && /appraiseDanger\(state, \{/.test(turn));
+
+// ── 8. the second run, turn 5: "I haven't found a reason to make you go away", and the player was
+// told she'd keep her distance from him now ──
+{
+  const r = newSave("V", { name: "V" } as any);
+  (r.characters as any).char_e = { character_id: "char_e", name: "Emily Veyne", pronouns: "she/her" };
+  r.world.edges.push({ from: "char_e", to: "char_player", warmth: 30, trust: 10, power: 0, attraction: 50 } as any);
+  const said = `"No. Girls don't wander into the garden. I am a king. And guarded as one. But you are here. And I am sitting here. And I haven't found a reason to make you go away" I let the fire dissipate`;
+  check("\"haven't found a reason to make you go away\" turns nobody away", rejectedBy(r, said, ["char_e"]).length === 0);
+  check("\"I don't want you to go away\" either", rejectedBy(r, `"I don't want you to go away."`, ["char_e"]).length === 0);
+  check("\"Go away. Don't come back.\" still does", rejectedBy(r, `"Go away. Don't come back."`, ["char_e"]).length === 1);
+  check("\"Leave me alone, Emily\" still does", rejectedBy(r, `"Leave me alone, Emily."`, ["char_e"]).length === 1);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
