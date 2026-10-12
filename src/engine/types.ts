@@ -1074,6 +1074,8 @@ export type ActionMode = "do" | "say" | "think" | "story";
 export type Stance = "press" | "maneuver" | "hold" | "yield";
 
 export interface TurnHistoryEntry {
+  /** What the player meant that turn, as the small model read it. See actionread.ts. */
+  read?: import("./actionread").ActionRead;
   /** The beat paragraph this turn actually carried — what the engine decided the turn was FOR,
    *  verbatim. Separate from `directive` because beatNote is concatenated after it at the call
    *  site and was therefore in no record at any length. See the note in turn.ts. */
@@ -1118,6 +1120,8 @@ export interface TurnHistoryEntry {
 }
 
 export interface SaveState {
+  /** The small model's reading of the turn being played: what was said, done and meant. See actionread.ts. */
+  action_read?: { action: string; mode: string; turn: number; read: import("./actionread").ActionRead };
   id: string;
   name: string;
   created_at: string;

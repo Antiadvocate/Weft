@@ -43,6 +43,7 @@ import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
 import { appraiseDanger, appraiseAct, shiftFear } from "./fear";
+import { readAction, turnRead, EMPTY_READ } from "./actionread";
 import { setStation, beatOrder, keptAtTheDoor, atTheDoorNote } from "./station";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
@@ -2031,6 +2032,10 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const signal = opts?.signal;
   const stopped = (): boolean => !!signal?.aborted;
   const checkStop = (): void => { if (stopped()) throw new Cancelled(); };
+  // THE TURN, READ FOR WHAT IT MEANS, before anything is built from it. One small-model call, reused
+  // from the Play screen's own check when that already ran on the same words. See actionread.ts.
+  if (!opts?.proseOverride) { ev.onPhase("reading"); await readAction(state, action, mode, signal); }
+  checkStop();
   // WEB SEARCH TARGET — the player can name exactly what to ground on with ((double parens)):
   //   "I lead the Imperial Guard into the breach ((Warhammer 40k Astra Militarum tactics))"
   // The ((...)) is a directive to the search layer, NOT story text, so it's stripped from the
@@ -4872,8 +4877,10 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   if (sifted.held.length) console.debug(`[shifts] held ${sifted.held.length} this turn:`, sifted.held);
   shifts = sifted.shown;
 
+  const thisRead = turnRead(state);
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
+    ...(thisRead !== EMPTY_READ ? { read: thisRead } : {}),
     ...(proseRead ? { narrator_prose_read: proseRead } : {}),
     reads: turnReads.length ? turnReads : undefined,
     /* THE SUMMARY IS WHAT GETS REPLAYED, so it is where a hallucination becomes history. On the

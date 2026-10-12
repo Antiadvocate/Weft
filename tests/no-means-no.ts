@@ -13,7 +13,8 @@ import { rejectedBy, applyRejection, keepsAway, backfillRejections, sweepPursuit
 import { seedDrive } from "../src/engine/drives";
 import { siftStory, siftSituations, allowedHere } from "../src/engine/sift";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "../src/engine/dropit";
-import { storyInstruction } from "../src/engine/instruction";
+import { instructionFromRead } from "../src/engine/instruction";
+import { EMPTY_READ } from "../src/engine/actionread";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
@@ -154,10 +155,12 @@ function world(tone = "Slice of life", forbidden: string[] = ["Sudden relationsh
 // ── 6. an instruction about the story ──
 {
   const t14 = "Rabi's not the point of contact. Ellie is. Change the story to adjust. Remove beacon works from Rabi and anything having to do with it should no longer appear in the story.";
-  const i = storyInstruction(t14);
-  check("turn 14 is read as an instruction, with what to wipe and what's true", !!i && i.terms === "beacon works" && i.correction === "Rabi's not the point of contact. Ellie is.", i);
-  check("play isn't", storyInstruction("I go home and take a shower.") === null && storyInstruction(`"Change the story, May." I sit down.`) === null && storyInstruction("I remove the batteries from the remote.") === null);
-  check("the Play view offers the tools before sending", /const found = storyInstruction\(a\);\s*if \(found\) \{ setInstr/.test(readFileSync("src/views/Play.tsx", "utf8")));
+  // what it means is the small model's to read; the engine's part is what it does with that read
+  const read = { ...EMPTY_READ, to_the_game: "Change the story to adjust. Remove beacon works from Rabi and anything having to do with it should no longer appear in the story.", story_change: { asked: true, remove: "beacon works", true_now: "Rabi's not the point of contact. Ellie is." } };
+  const i = instructionFromRead(read, t14);
+  check("turn 14, read as an instruction, offers what to wipe and what's true", !!i && i.terms === "beacon works" && i.correction === "Rabi's not the point of contact. Ellie is.", i);
+  check("play isn't", instructionFromRead(EMPTY_READ, "I go home and take a shower.") === null);
+  check("the Play view reads the turn and offers the tools before sending", /found = instructionFromRead\(await api\.readAction\(save\.id, a, mode\), a\);/.test(readFileSync("src/views/Play.tsx", "utf8")) && /if \(found\) \{ setInstr/.test(readFileSync("src/views/Play.tsx", "utf8")));
 }
 
 // ── 4b. a new chapter can leave things behind ──
