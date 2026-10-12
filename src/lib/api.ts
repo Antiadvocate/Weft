@@ -26,7 +26,7 @@ import { forgeSchedule } from "../engine/scheduleforge";
 import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
-import { completeSketch, pendingSketches, characterFromBrief } from "../engine/sketch";
+import { completeSketch, pendingSketches, characterFromBrief, adoptProperNames } from "../engine/sketch";
 import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, ANALYST_SYSTEM, INSTITUTION_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, buildPortraitDiffusion, buildSceneDiffusion, visualSignature, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { generateLocalImage, shrinkDataUrl } from "./diffusion";
@@ -2305,6 +2305,8 @@ export async function streamTurn(saveId: string, action: string, mode: ActionMod
     // The job id exists before the call does, so the journal can point at it even if the app dies
     // during the very first second of narration.
     const job = getRelay() ? newJobId() : undefined;
+    // people known only by their job get the name their own record gives them (engine/sketch.ts)
+    for (const n of adoptProperNames(s)) console.info(`[cast] ${n}`);
     writeJournal(saveId, { turn: s.world.current_turn, action: act, mode: observe ? "story" : mode, ts: Date.now(), job });
     let proseAcc = "";
     let lastJournaled = 0;

@@ -98,6 +98,13 @@ export function hierarchyOf(state: SaveState): number {
   return 0.5;
 }
 
+/** Rank is steeper at the top. Kingdom of Veythar, third run: the king's own advisor (55) came out
+ *  only "below" the king, on a straight line, and told him there'd be a fee for doing what he'd
+ *  been ordered. The ladder's lower rungs sit close together and its top rungs far apart, so
+ *  rank is squared before the gap is taken: a slum seamstress and a carter are neighbours, an
+ *  advisor and his king are not. */
+const worth = (rank: number) => (rank * rank) / 100;
+
 const INTIMATE = /\b(?:wife|husband|spouse|consort|mother|father|son|daughter|brother|sister|sibling|lover|partner|mistress|fianc\w*|best friend|childhood friend|old friend|friend)\b/i;
 
 /**
@@ -108,7 +115,7 @@ const INTIMATE = /\b(?:wife|husband|spouse|consort|mother|father|son|daughter|br
 export function stationGap(state: SaveState, from: string, to: string): number {
   const a = stationOf(state, from), b = stationOf(state, to);
   if (!a && !b) return 0;
-  const gap = ((a?.rank ?? ORDINARY) - (b?.rank ?? ORDINARY)) * hierarchyOf(state);
+  const gap = (worth(a?.rank ?? ORDINARY) - worth(b?.rank ?? ORDINARY)) * hierarchyOf(state);
   const edge = (state.world?.edges ?? []).find((e) => e.from === from && e.to === to);
   const close = (edge?.roles ?? []).some((r) => INTIMATE.test(String(r)));
   return Math.round(Math.max(-100, Math.min(100, close ? gap / 2 : gap)));
@@ -135,10 +142,10 @@ export function stationLine(state: SaveState, id: string): string {
 /** A few words for the lateral line, when two people present are far apart. */
 export function stationTag(state: SaveState, from: string, to: string): string {
   const g = stationGap(state, from, to);
-  if (g >= 50) return "far outranks them";
-  if (g >= 25) return "outranks them";
-  if (g <= -50) return "far beneath them in rank";
-  if (g <= -25) return "beneath them in rank";
+  if (g >= 40) return "far outranks them";
+  if (g >= 20) return "outranks them";
+  if (g <= -40) return "far beneath them in rank";
+  if (g <= -20) return "beneath them in rank";
   return "";
 }
 
@@ -198,4 +205,47 @@ export function beneathVoice(state: SaveState, id: string): string {
 export function beneathDesire(state: SaveState, id: string): string {
   const P = beneath(state, id);
   return P ? ` Between people this far apart it shows inside the forms: in looks, in lingering, in small liberties taken and taken back the moment they might cost something, and anything bolder toward ${P} is a gamble they know they're making.` : "";
+}
+
+/* WHAT THE ENGINE SENDS INTO A SCENE HAS TO FIT THE WORLD IT'S SENT INTO.
+ *
+ * Kingdom of Veythar, third run, turn 19. The king told his advisor to have the girl in the cells
+ * freed and brought to him. The engine's pressure beat that turn was the story's palette, "Financial
+ * desperation", told to happen "through the people who are actually there". The only person there
+ * was the advisor, so the advisor told the king there'd be a silver mark's fee to open the cells and
+ * that half the night watch hadn't been paid in four weeks: in a kingdom whose bible says it is
+ * stable and prosperous, to its sovereign, about his own order. Turn 22's palette beat, "Power and
+ * control", went the same way through a gang boss who had just watched the king summon a sword.
+ *
+ * So anything the engine adds says it agrees with what the world has established about itself, and
+ * when the player sits at the top of a steep order, that it reaches him the way things reach someone
+ * there. */
+export function beatOrder(state: SaveState): string {
+  const b = (state.world_bible ?? {}) as any;
+  const facts = String(b.political_situation ?? "").split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
+  const me = stationOf(state, "char_player");
+  const P = state.characters?.char_player?.name ?? "the player";
+  const pp = String(state.characters?.char_player?.pronouns ?? "");
+  const him = /\bshe\b|\bher\b/i.test(pp) ? "her" : /\bhe\b|\bhim\b/i.test(pp) ? "him" : "them";
+  const parts: string[] = [];
+  if (facts) parts.push(`Whatever it is agrees with what this world has established about itself (${facts.slice(0, 220)}).`);
+  if (me && me.rank >= 75 && hierarchyOf(state) >= 0.6) {
+    parts.push(`It reaches ${P}, who is ${me.place || "at the top of this world's order"}, the way things reach someone of that station here: as news, a report or a petition, brought by people far beneath ${him} who know it, and ${P}'s orders get carried out, fearfully or badly perhaps, with nobody in ${him === "them" ? "their" : him === "her" ? "her" : "his"} service putting a price or a condition on one.`);
+  }
+  return parts.length ? `\n${parts.join(" ")}` : "";
+}
+
+/** Someone far beneath the player who has come looking for them is stopped at the door, and word is
+ *  brought. Kingdom of Veythar, third run: a gang boss and a travelling stranger each walked into the
+ *  king's private corridor, the second straight onto a fresh killing, because the engine moved anyone
+ *  who had been trying long enough to reach the player into the player's room. */
+export function keptAtTheDoor(state: SaveState, id: string): boolean {
+  return id !== "char_player" && standingToward(state, id, "char_player") <= FAR_BELOW;
+}
+
+export function atTheDoorNote(state: SaveState, names: string[]): string {
+  if (!names.length) return "";
+  const P = state.characters?.char_player?.name ?? "the player";
+  const where = state.world?.places?.[state.world?.player_location ?? ""]?.name ?? "where the player is";
+  return `\nASKING TO SEE ${P.toUpperCase()}: ${names.join(", ")}. ${names.length > 1 ? "They have" : "They've"} come to ${where} to reach ${P}, and people of their station don't get into ${P}'s presence by walking in. Whoever keeps the door stops them, and word is brought to ${P} of who it is and what they say they want. They aren't in the room, and they come in only if ${P} has them brought in.`;
 }

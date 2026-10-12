@@ -261,6 +261,8 @@ export function applySketch(state: SaveState, c: Identity, g: any): void {
   // still hollow. The pass runs again after the next turn, which is what it is for.
   c.provisional = undefined;
   if (isSketch(c)) c.provisional = true;
+  // ...and if the life just written names somebody who was only ever called by their job, that's them
+  adoptProperNames(state);
 }
 
 /**
@@ -358,4 +360,50 @@ export async function characterFromBrief(
   c.location = match ? match.id : "loc_offscene";
 
   return { id, name: c.name, where: match ? match.name : "elsewhere", tie: asText(g.tie).trim() };
+}
+
+/**
+ * A PERSON CALLED BY THEIR JOB.
+ *
+ * Kingdom of Veythar, third run, turn 18: the player asked "one of the advisors" about the girl in
+ * the cells, and the scene footer declared a new person named "Advisor". The sketch pass then wrote
+ * him a life that opens "Edrin Mallowe was born in Hessick Ford", and the record kept the job as his
+ * name. From then on the narrator wrote him as a proper noun ("Advisor makes a sound low in his
+ * throat"), and the departure check, which looks for a name, had nothing to look for.
+ *
+ * When someone's name is only a role and their background opens by naming them, that's their name,
+ * and the role stays on as an alias so "the advisor" still finds him.
+ */
+const ROLE_ONLY = /^(?:the |a |an )?(?:(?:royal|palace|head|chief|old|older|young|younger|senior|junior|night|day|court|duty|castle|city|town|gate|kitchen|stable|tall|short|grey|gray)\s+)*(?:advis[eo]r|guard|guardsman|maid|servant|chamberlain|steward|captain|soldier|merchant|innkeeper|bartender|barkeep|waitress|waiter|clerk|priest|priestess|healer|doctor|nurse|messenger|courier|page|squire|knight|cook|gardener|stranger|travell?er|woman|man|girl|boy|officer|sergeant|jailer|gaoler|warden|scribe|herald|footman|butler|driver|landlord|landlady|neighbou?r|councill?or|counselor|minister|nobleman|noblewoman|courtesan|thief|beggar|hunter|smith|blacksmith|farmer|fisherman|sailor|monk|nun|secretary|assistant|receptionist|manager|boss|cashier|bouncer|cop|detective|agent|attendant|porter|valet|groom|nanny|tutor)$/i;
+const LEADING_NAME = /^((?:[A-Z][\p{L}'’-]+)(?:\s+(?:[A-Z][\p{L}'’-]+|de|da|la|le|du|del|della|di|dos|das|van|von|der|of|the|al|bin|ibn)){0,4})\s+(?:was|is|grew|came|has|had|spent|served|started|began|arrived|works|worked|lives|lived|joined|left|became)\b/u;
+const NOT_A_NAME = /^(?:he|she|they|it|the|a|an|his|her|their|this|that|born|raised)$/i;
+
+/** The proper name a role-named person's own background gives them, or null. */
+export function properNameFromRole(c: { name?: string; background?: string }): string | null {
+  const name = String(c?.name ?? "").trim();
+  if (!ROLE_ONLY.test(name)) return null;
+  const m = String(c?.background ?? "").trim().match(LEADING_NAME);
+  if (!m) return null;
+  const nm = m[1].trim();
+  if (NOT_A_NAME.test(nm.split(/\s+/)[0]) || ROLE_ONLY.test(nm)) return null;
+  return nm;
+}
+
+/** Give everyone known only by their job the name their own record gives them. Returns notices. */
+export function adoptProperNames(state: SaveState): string[] {
+  const out: string[] = [];
+  for (const [id, c] of Object.entries(state.characters ?? {})) {
+    if (id === "char_player" || !c) continue;
+    const nm = properNameFromRole(c);
+    if (!nm) continue;
+    const taken = Object.entries(state.characters).some(([o, x]) => o !== id && (x?.name ?? "").toLowerCase() === nm.toLowerCase());
+    if (taken) continue;
+    const old = c.name;
+    c.name = nm;
+    const have = new Set((c.aliases ?? []).map((a) => a.toLowerCase()));
+    const role = old.replace(/^(?:the|a|an)\s+/i, "");
+    c.aliases = [...(c.aliases ?? []), ...[old, role, `the ${role.toLowerCase()}`].filter((a, i, all) => !have.has(a.toLowerCase()) && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i)].slice(0, 8);
+    out.push(`The ${role.toLowerCase()}'s name is ${nm}.`);
+  }
+  return out;
 }

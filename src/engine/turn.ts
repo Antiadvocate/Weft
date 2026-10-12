@@ -43,7 +43,7 @@ import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
 import { appraiseDanger, shiftFear } from "./fear";
-import { setStation } from "./station";
+import { setStation, beatOrder, keptAtTheDoor, atTheDoorNote } from "./station";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
@@ -66,7 +66,7 @@ import { apertureNote, heardYouNote, attributeLines } from "./aperture";
 import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
-import { departureEvidence, releaseEvidence, findRisen, risenFix, recordCustody } from "./exit";
+import { departureEvidence, releaseEvidence, findRisen, risenFix, recordCustody, goneByTheEnd } from "./exit";
 import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, becomingFinalLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
@@ -1489,6 +1489,15 @@ export function replanDrives(state: SaveState): void {
       const needed = travelMinutesBetween(state, fromName, destName);
       const elapsed = minutesBetween(state.world.time_at_turn?.[p.since] ?? "", state.world.current_time);
       if (needed > 0 && elapsed < needed) continue;   // they are still on the road
+      // SOMEONE FAR BENEATH THE PLAYER DOESN'T WALK IN. They're stopped at the door and word is
+      // brought; the player decides whether they're let in. See station.ts keptAtTheDoor.
+      if (keptAtTheDoor(state, p.id)) {
+        const q = ((state.world as any).at_the_door ??= []) as string[];
+        if (!q.includes(c.name)) q.push(c.name);
+        if (c.drive) { c.drive.pursuit_since = turn; c.drive.blocker = `waiting to be let in to see ${state.characters["char_player"]?.name ?? "the player"}`; }
+        console.info(`[drives] ${c.name} reaches ${destName} and is kept at the door, standing far beneath ${state.characters["char_player"]?.name ?? "the player"}`);
+        break;
+      }
       c.location = dest;
       c.paged = false;                         // they are in the room; the narrator has to be able to see them
       if (c.drive) { c.drive.updated_turn = turn; delete c.drive.pursuit_since; }
@@ -2481,11 +2490,22 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // turns are reminded the subject is closed. Same precedence as a departure. See dropit.ts.
   const dropLine = mode === "think" || trip ? "" : dropItLine(action);
   if (dropLine) recordDropped(state, dropLine, turn);
+  // WHAT THE ENGINE ADDS STILL HAS TO FIT THE WORLD, and reach the player the way things reach
+  // someone of their station. See station.ts beatOrder.
+  const fitted = (d: string) => (d && !quietBeat ? `${d}${beatOrder(state)}` : d);
+  // ...AND IT COMES AFTER THE ANSWER, NOT INSTEAD OF IT. Kingdom of Veythar, third run, turn 19: the
+  // king ordered a prisoner freed, the palette beat took the turn ("Financial desperation"), and
+  // the order came back as a fee. Something the world brings into the room follows what the player
+  // just said or ordered; it doesn't replace the answer to it.
+  const inRoom = !!beat && (beat.kind === "palette" || beat.kind === "thread" || beat.kind === "agent");
   const beatNote = trip
-    ? `\n\n=== WHAT THIS TURN IS FOR ===\n${leavingBeat(state, trip)}${scheduled ? beatDirective(beat, dial) : ""}`
+    ? `\n\n=== WHAT THIS TURN IS FOR ===\n${leavingBeat(state, trip)}${scheduled ? fitted(beatDirective(beat, dial)) : ""}`
     : dropLine
-      ? `\n\n=== WHAT THIS TURN IS FOR ===\n${dropItBeat(dropLine)}${scheduled ? beatDirective(beat, dial) : ""}`
-      : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}` : beatDirective(beat, dial);
+      ? `\n\n=== WHAT THIS TURN IS FOR ===\n${dropItBeat(dropLine)}${scheduled ? fitted(beatDirective(beat, dial)) : ""}`
+      : answerBody && quietBeat ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}`
+      : answerBody && inRoom && beatDirective(beat, dial)
+        ? `\n\n=== WHAT THIS TURN IS FOR ===\n${answerBody}\n\nAND ONCE THAT HAS BEEN ANSWERED, ALSO THIS TURN: ${fitted(beatDirective(beat, dial).replace(/^\s*=== WHAT THIS TURN IS FOR ===\n/, ""))}`
+        : fitted(beatDirective(beat, dial));
   // What the world itself brings to this turn, as facts for the plain narrator: a change that has
   // finished arriving, and a consequence that was already scheduled and is due now.
   const plainWorldNow = [
@@ -3035,9 +3055,16 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // carded standing in it read to the narrator as deserted. See engine/population.ts.
   // Someone finished a journey to the player this turn. If the narrator is not told, they simply
   // materialise in the room — which is precisely what "Andrea just magically appeared" was.
-  const arrivalNote = (state.world.arrivals_pending ?? []).length
-    ? `\nARRIVING NOW: ${state.world.arrivals_pending!.join(", ")}. They have been travelling to reach the player and they get here this turn. Write them arriving on the page, coming through the door or in off the road, with where they came from, what the journey was like and why they came. They don't just turn out to be already there, and nobody can already be in the middle of a conversation with them. This is their entrance.`
-    : "";
+  // Only the living arrive. Kingdom of Veythar, third run: this list was never cleared, so "ARRIVING
+  // NOW: Rook" went out on every turn after he got there, including the one after he was killed,
+  // and the narrator sent a stranger in who'd "walked three weeks for a man who's already dead".
+  const arriving = (state.world.arrivals_pending ?? []).filter((nm) => {
+    const c = Object.values(state.characters).find((x) => x?.name === nm);
+    return !c || (c.status !== "dead" && c.status !== "departed");
+  });
+  const arrivalNote = (arriving.length
+    ? `\nARRIVING NOW: ${arriving.join(", ")}. They have been travelling to reach the player and they get here this turn. Write them arriving on the page, coming through the door or in off the road. What they walk into comes first: they react to what's in front of them, and to who is, as the people they are, before anything they came to say, and only then, if it's still the moment for it, why they came. They don't just turn out to be already there, and nobody can already be in the middle of a conversation with them. This is their entrance.`
+    : "") + atTheDoorNote(state, ((state.world as any).at_the_door ?? []) as string[]);
   // AND THE SAME COURTESY IN THE OTHER DIRECTION. Somebody's own week took them out of the scene
   // between turns — always because a shift had been standing for so long that the engine stopped
   // waiting. A cast list that is simply one name shorter is not a departure the reader can see, so
@@ -4007,6 +4034,16 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
 
     const rebuilt: { char_id: string; place: string; said?: string }[] = [];
     const hereName = state.world.places[state.world.player_location]?.name ?? "";
+    // whose last word in this turn's prose is leaving, by name or by any alias ("the advisor"). See exit.ts goneByTheEnd.
+    const leftForGood = (id: string): boolean => {
+      const c = state.characters[id];
+      if (!c || !state.world.present.includes(id)) return false;
+      const others = state.world.present.filter((o) => o !== id && state.characters[o]?.name);
+      return [c.name, ...(c.aliases ?? [])].filter((n) => n && n.length >= 3).some((n) => goneByTheEnd({
+        prose, name: n, pronouns: c.pronouns,
+        others: others.map((o) => state.characters[o].name), othersPronouns: others.map((o) => state.characters[o].pronouns),
+      }));
+    };
     // NOBODY ARRIVES THAT THE PROSE NEVER SHOWS. Kingdom of Veythar, turn 23: Seraphina was at the
     // Golden Lily counting the afternoon's takings, the turn's prose never mentioned her, and the
     // footer listed her in the throne room anyway; turn 24 opened on "Seraphina has been standing
@@ -4049,6 +4086,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
           continue;
         }
         if (!shownHere(id)) continue;
+        if (leftForGood(id)) { console.info(`[places] footer listed ${c?.name} as here, but the prose's last word on them is leaving`); continue; }
         hereIds.add(id);
       }
       for (const id of hereIds) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: in scene" });
@@ -4067,6 +4105,8 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       const already = new Set(rebuilt.map((r) => r.char_id));
       for (const id of presenceFromProse(state, prose)) {
         if (movedOut.has(id) || already.has(id)) continue;
+        // acting or speaking earlier in the turn doesn't hold someone the turn then walks out
+        if (leftForGood(id)) { rebuilt.push({ char_id: id, place: "elsewhere", said: "prose: left by the end" }); continue; }
         rebuilt.push({ char_id: id, place: footer.place || hereName, said: "prose: acted in scene" });
       }
     }
@@ -6412,6 +6452,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   for (const line of applyUnexplained(state, (diff as { unexplained?: { what: string; witnesses?: string[] } }).unexplained, turn)) shifts.push(line);
 
   syncPresence(state, diff.present);
+  // said once, on the turn they arrive or are announced (the schedule queues for the next turn after this)
+  state.world.arrivals_pending = [];
+  (state.world as any).at_the_door = [];
 
   // FIRST READ — the moment two people share a scene, each gets a conditioned read of the
   // other: taste meeting what the person actually is. Set once; never authors the player's.
