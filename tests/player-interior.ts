@@ -108,7 +108,8 @@ const tessaId = (s: SaveState) => Object.keys(s.characters).find((k) => s.charac
   p.relaxation = 4;                          // settled: self-liberation, exactly as before
   const shifts = tickEmotions(s);
   check("a settled body still releases at two turns", !p.active_states.includes("ashamed"), p.active_states);
-  check("with its residue", shifts.some((x) => /Tessa's ashamed/.test(x)), shifts);
+  // worded for an adjective now: "Tessa's ashamed loosens…" read as a typo. See emotions.ts feelingKind.
+  check("with its residue", shifts.some((x) => /Tessa's feeling of being ashamed loosens into honesty/.test(x)), shifts);
 }
 {
   const s = world();

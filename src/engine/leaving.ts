@@ -91,14 +91,38 @@ export function playerHome(state: SaveState): { id?: string; name: string } {
 }
 
 /** A tracked place named in `words`, other than where the player already is. */
+/** The kind of place a word names, so "the castle" finds "The Royal Palace of Veythar" and "the pub"
+ *  finds "The Black Boar Tavern". Each group is words people use for the same sort of building. */
+const KINDS: string[][] = [
+  ["castle", "palace", "keep", "fortress", "citadel", "court"],
+  ["tavern", "inn", "pub", "bar", "alehouse", "saloon"],
+  ["temple", "church", "chapel", "shrine", "cathedral", "abbey"],
+  ["market", "marketplace", "bazaar", "market square"],
+  ["office", "workplace", "firm"],
+  ["shop", "store"],
+  ["park", "gardens", "garden"],
+  ["library", "archives", "archive"],
+  ["school", "academy", "college", "university"],
+  ["hospital", "infirmary", "clinic"],
+];
+
 function placeIn(state: SaveState, words: string): [string, string] | undefined {
   const w = words.toLowerCase();
-  return places(state)
+  const all = places(state)
     .filter(([id]) => id !== state.world.player_location)
-    .map(([id, name]) => [id, name, name.toLowerCase().replace(/^the\s+/, "")] as const)
+    .map(([id, name]) => [id, name, name.toLowerCase().replace(/^the\s+/, "")] as const);
+  const exact = all
     .filter(([, , n]) => n.length >= 3 && w.includes(n))
     .sort((a, b) => b[2].length - a[2].length)
     .map(([id, name]) => [id, name] as [string, string])[0];
+  if (exact) return exact;
+  // no name in the words: a kind of place, when exactly one place of that kind exists
+  for (const group of KINDS) {
+    if (!group.some((k) => new RegExp(`\\b${k}\\b`).test(w))) continue;
+    const of = all.filter(([, , n]) => group.some((k) => new RegExp(`\\b${k}\\b`).test(n)));
+    if (of.length === 1) return [of[0][0], of[0][1]];
+  }
+  return undefined;
 }
 
 /** The trip this action states, on its own, without looking back. */

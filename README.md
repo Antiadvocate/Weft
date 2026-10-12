@@ -382,6 +382,15 @@ A second round, from reading the code of the open-source projects that do a piec
 
 Every delete keeps an undo: *⋯ → Undo rollback*.
 
+## Who's in the room
+
+- **Dismissed means gone.** When the prose shows someone leaving through a pronoun ("She walks out", "as they walk her out", "the door closes behind her"), the engine works out who that pronoun means and takes them out of the scene. Names that are only the object of a sentence ("she does not look at Emily") no longer count as the person leaving.
+- **Left behind stays behind.** Someone calling after you across a garden, seen through a window, or "where you left her" isn't with you. The presence rules no longer bring them along to where you go next, and the bookkeeper is told the same. "I go back to the castle" now finds the palace.
+- **Nobody appears unseen.** If the narrator lists someone in the scene who wasn't there and the prose never names them, they aren't added.
+- **People stop narrating you to your face.** Dialogue like "you're down in the grass being eaten by your own cats" or "instead you stand up and shout for them" is caught when it recurs, or at once if you complain about it in the scene. The narrator is told to answer what you did, not report it.
+- **A violent turn is the room's turn.** When your action is violence, no new pressure is added that turn: nobody walks in and nothing new starts. Something already scheduled still happens.
+- **Notices read properly.** Feelings are worded for the kind of word they are ("keeps going back over what left her exposed", not "the exposed"). The dead don't get notices. Fear of you isn't called "possessive". "Everyone has gone cold on you" isn't reported as a fault right after your own violence. A room full of unnamed guards no longer trips the "you were written in the third person" check.
+
 ## Where your data lives
 
 Saves (including any AI-generated portraits and scene art) are stored in your browser via **IndexedDB**. They persist across reloads but are tied to that browser/profile. Use **Tuning → Export save** to download a `.weft.json` you can back up or move; **Library → Import** to load one anywhere.

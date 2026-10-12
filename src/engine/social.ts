@@ -1737,8 +1737,16 @@ const COLD_MEAN = -10;
  * Says it once, when it crosses, rather than every turn: this is a thing to notice, not a nag. The
  * numbers come with it because the whole problem was that they were invisible.
  */
+/** What the player just did to people, from their own typing: the cast going cold after it is the
+ *  story answering it, not a fault to report. */
+export const PLAYER_VIOLENCE = /\b(?:kill(?:s|ed|ing)?|murder\w*|burn(?:s|ed|t)? (?:her|him|them|\w+) alive|set \w+ on fire|stab\w*|behead\w*|decapitat\w*|flay\w*|slit (?:his|her|their) throat|shoot|shot|strangl\w*|smash\w* (?:his|her|their) (?:head|skull|face)|cut (?:his|her|their|off \w+) (?:head|throat)|spear (?:\w+ ){1,2}(?:through|in)|tortur\w*|execut\w*|separate (?:the |his |her |their )?(?:flesh|head)|severed?)\b/i;
+
 export function castGoneCold(state: SaveState): string | null {
   if (!WARM_GENRE.test(state.world_bible?.tone ?? "")) return null;
+  // Kingdom of Veythar, turn 22: the player had burned one woman alive, flayed another and taken a
+  // man's head off, and the engine told him everyone had gone cold on him, as if it were a fault,
+  // and that he could change it in the Cast panel.
+  if ((state.history ?? []).slice(-8).some((h) => PLAYER_VIOLENCE.test(String(h.player_action ?? "")))) return null;
   const all = (state.world.edges ?? []).filter((e) => {
     const c = state.characters[e.from];
     return e.to === "char_player" && c && c.status !== "dead" && c.status !== "departed";

@@ -1165,6 +1165,8 @@ export interface SaveState {
   /** A line of dialogue the narration gave the player that the player never typed, cut from the
    *  prose and quoted back once next turn. See engine/playervoice.ts. */
   last_voiced?: { line: string; sentence: string } | null;
+  /** Spoken lines that told the player what the player was doing, quoted back once. See narratedback.ts. */
+  last_narrated_back?: { lines: string[]; complained: boolean } | null;
   /** A thing the player WROTE INTO THE WORLD on the story channel that the prose then declined to
    *  render — absent, hedged into an approach to itself, or interrupted by something the player
    *  never wrote. Quoted back at the start of the next turn, the same mechanism as last_maxim and

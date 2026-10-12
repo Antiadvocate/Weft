@@ -92,6 +92,39 @@ const TRANSMUTE: { match: RegExp; residue: string }[] = [
   { match: /hurt|betray|wounded/i, residue: "settles into knowing exactly where the line is now" },
 ];
 
+/**
+ * WHAT KIND OF WORD A FEELING IS. States are stored however the bookkeeper wrote them: a noun ("fear",
+ * "humiliation"), an adjective ("exposed", "fearful", "energized") or something being done ("replaying
+ * it"). The notices were written for nouns, so the player read "Emily Veyne keeps going back over the
+ * exposed" and "King Aldric the First's energized passes on its own". Each notice is now worded for
+ * the kind of word it's holding.
+ */
+const NOUN_FEELING = /^(?:fear|dread|anger|rage|fury|grief|sorrow|shame|guilt|hurt|pain|panic|terror|horror|disgust|contempt|pride|envy|jealousy|longing|desire|lust|love|hate|hatred|joy|relief|hope|despair|anxiety|worry|unease|tension|loneliness|resentment|regret|remorse|humiliation|embarrassment|awe|wonder|curiosity|boredom|exhaustion|frustration|irritation|annoyance|bitterness|sadness|misery|agony|apathy|numbness|calm|peace|warmth|affection|tenderness|devotion|suspicion|distrust|confusion|shock|heartbreak|homesickness|craving|yearning|ache|spite|scorn|disdain|vengeance|denial|betrayal)$/i;
+export function feelingKind(st: string): "noun" | "adj" | "doing" {
+  const w = String(st ?? "").trim().toLowerCase();
+  if (NOUN_FEELING.test(w) || /(?:ness|ment|tion|sion|ity|ance|ence|ism|ship|dom)$/.test(w)) return "noun";
+  if (/^[a-z]+ing\b/.test(w)) return "doing";
+  return "adj";
+}
+/** Their object pronoun, for "what left her exposed". */
+function themOf(pronouns?: string): string {
+  return /\bshe\b|\bher\b/i.test(pronouns ?? "") ? "her" : /\bhe\b|\bhim\b/i.test(pronouns ?? "") ? "him" : "them";
+}
+export function releasedLine(name: string, st: string, residue: string): string {
+  const k = feelingKind(st);
+  return k === "noun" ? `${name}'s ${st} ${residue}.` : k === "adj" ? `${name}'s feeling of being ${st} ${residue}.` : `${name} has stopped ${st}; it ${residue}.`;
+}
+export function ruminationLine(name: string, st: string, pronouns?: string): string {
+  const k = feelingKind(st);
+  return k === "noun" ? `${name} keeps going back over the ${st}, and reliving it has become painful in itself.`
+    : k === "adj" ? `${name} keeps going back over what left ${themOf(pronouns)} ${st}, and reliving it has become painful in itself.`
+    : `${name} can't stop ${st}, and it has become painful in itself.`;
+}
+export function moodPassedLine(name: string, mood: string): string {
+  const k = feelingKind(mood);
+  return k === "noun" ? `${name}'s ${mood} has passed.` : k === "adj" ? `${name} is no longer ${mood}.` : `${name} has stopped ${mood}.`;
+}
+
 function residueFor(stateName: string): string {
   for (const t of TRANSMUTE) if (t.match.test(stateName)) return t.residue;
   return "passes on its own once it has been fully felt";
@@ -178,10 +211,10 @@ export function tickEmotions(state: SaveState): string[] {
         // SELF-LIBERATION: released, and it leaves its information behind.
         p.active_states = p.active_states.filter((x) => x !== st);
         if (p.state_ages) delete p.state_ages[st];
-        shifts.push(`${c.name}'s ${st} ${residueFor(st)}.`);
+        shifts.push(releasedLine(c.name, st, residueFor(st)));
       } else if (!isPlayer && r <= -3 && age === 3) {
         // SECOND HIT: announced once, when the re-telling starts.
-        shifts.push(`${c.name} keeps going back over the ${st}, and reliving it has become painful in itself.`);
+        shifts.push(ruminationLine(c.name, st, c.pronouns));
       }
     }
     // while clenched with an aged emotional state, the story feeds itself: small ongoing drain
@@ -196,7 +229,7 @@ export function tickEmotions(state: SaveState): string[] {
     if (p.mood && p.mood !== "even" && p.mood_set_turn !== undefined) {
       const age = turn - p.mood_set_turn;
       if ((r >= 2 && age >= 4) || age >= STATE_MAX_TURNS) {
-        shifts.push(`${c.name}'s ${p.mood} passed — weather, not climate.`);
+        shifts.push(moodPassedLine(c.name, p.mood));
         p.mood = "even";
         p.mood_set_turn = turn;
       }

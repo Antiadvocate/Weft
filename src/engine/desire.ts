@@ -591,7 +591,11 @@ export function tickDesire(state: SaveState): string[] {
     }
     const label = `fixated on ${player?.name ?? "you"}`;
     const has = cond.psyche.active_states.includes(label);
-    if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && !has) {
+    // Tense AND attracted reads as clinging only when they still like the player. Kingdom of
+    // Veythar: Emily, at warmth 8 and trust -34, had just watched the king burn a woman alive, and the
+    // notice said she was "holding on too tightly, and the wanting has turned possessive". That
+    // tension was fear of him.
+    if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && (e.warmth ?? 0) >= 15 && !(e as any).rejected && !has) {
       cond.psyche.active_states.push(label);
       shifts.push(`${c.name} is holding on too tightly, and the wanting has turned possessive.`);
     } else if (has && cond.psyche.relaxation >= 2) {
