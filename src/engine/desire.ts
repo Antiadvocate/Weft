@@ -591,7 +591,11 @@ export function tickDesire(state: SaveState): string[] {
     }
     const label = `fixated on ${player?.name ?? "you"}`;
     const has = cond.psyche.active_states.includes(label);
-    if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && !has) {
+    // Tense AND attracted reads as clinging only when they still like the player. Kingdom of
+    // Veythar: Emily, at warmth 8 and trust -34, had just watched the king burn a woman alive, and the
+    // notice said she was "holding on too tightly, and the wanting has turned possessive". That
+    // tension was fear of him.
+    if (e.attraction >= 45 && cond.psyche.relaxation <= -3 && (e.warmth ?? 0) >= 15 && !(e as any).rejected && !has) {
       cond.psyche.active_states.push(label);
       shifts.push(`${c.name} is holding on too tightly, and the wanting has turned possessive.`);
     } else if (has && cond.psyche.relaxation >= 2) {
@@ -656,6 +660,9 @@ export function effectiveStanding(power: number, witnessedTier?: string | null):
 }
 
 function standingCue(power: number): string {
+  // A whole order of society between them, which the station line on their card names (station.ts).
+  if (power <= -60) return " They are far beneath you in this world's order and they know it (standing " + Math.round(power) + "), so whatever they feel about you shows inside the forms someone of their station keeps before someone of yours here: how they address you, how close they come, whether they sit while you stand, and whether they speak before you've spoken to them. Whatever they want from you, they ask for it inside those forms too, because stepping outside them in front of others could cost them dearly.";
+  if (power >= 60) return " They are far above you in this world's order (standing " + Math.round(power) + "), and they deal with you the way someone of their station deals with someone of yours here: they expect the forms from you, speak when they choose, and end the conversation when they like.";
   if (power <= -20) return " They are also far below you in standing and they know it (standing " + Math.round(power) + "), so they defer to you. They let you talk, keep any opinion of you to themselves, and let you be the one to end the conversation. Disagreement comes out indirectly or not at all: a half-finished sentence, looking away, or doing what you asked while plainly not wanting to. When they refuse you, the refusal is short and clearly hard for them.";
   if (power <= -6) return " They are also below you in standing (standing " + Math.round(power) + "), so they choose their words carefully around you, let you finish, and don't sum up your character to your face. They can still refuse you and still stand firm, but they do it briefly and without having the last word.";
   if (power >= 20) return " They also have the power here (standing " + Math.round(power) + "), so they can afford to take their time, interrupt you, and say no without explaining.";

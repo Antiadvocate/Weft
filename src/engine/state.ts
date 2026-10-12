@@ -56,6 +56,10 @@ export function registerCharacter(state: SaveState, ident: Partial<Identity> & {
     speech_pattern: asText(ident.speech_pattern) || "plain", skills: ident.skills ?? {},
     texture: asList(ident.texture),
     pronouns: ident.pronouns ? asText(ident.pronouns) : undefined,
+    // where they sit in this world's order, as the forge, the bookkeeper or the player gave it (station.ts)
+    station: ident.station && Number.isFinite(Number((ident.station as any).rank))
+      ? { place: asText((ident.station as any).place).slice(0, 120), rank: Math.max(0, Math.min(100, Math.round(Number((ident.station as any).rank)))), source: (ident.station as any).source ?? "forge" }
+      : undefined,
     height_cm: asNum(ident.height_cm, 30, 300), weight_kg: asNum(ident.weight_kg, 2, 500),
     intelligence: ident.intelligence ?? "average",
     gregariousness: asNum(ident.gregariousness, 0, 1) ?? 0.5,

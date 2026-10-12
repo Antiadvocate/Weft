@@ -1990,6 +1990,8 @@ await forgeCastVoices(g.npcs ?? [], g.world_bible, model);
       ...g.world_bible,
       difficulty_profile: g.world_bible.difficulty_profile ?? { lethality: "medium", friction_density: "balanced", antagonist_aggression: "slow_burn", protagonist_competence: "average" },
     };
+    // RANK: how much it governs dealings here, as a number however the forge wrote it (station.ts)
+    { const h = Number((bible as any).hierarchy); if (Number.isFinite(h)) bible.hierarchy = Math.max(0, Math.min(1, h)); else delete bible.hierarchy; }
     // GENRE: an explicit player-set tone wins over whatever the forge model inferred, so the
     // narrator's GENRE line reflects what the player actually asked for.
     if (tone?.trim()) bible.tone = tone.trim();

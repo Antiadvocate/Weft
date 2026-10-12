@@ -161,6 +161,14 @@ function spansOf(text: string, probes: string[]): [number, number][] {
   return out;
 }
 
+/** The sentence holding `at` opens with a personal pronoun and names nobody before `at`. */
+function pronounLed(text: string, at: number, probes: string[], others: string[]): boolean {
+  const cut = Math.max(text.lastIndexOf(".", at - 1), text.lastIndexOf("!", at - 1), text.lastIndexOf("?", at - 1), text.lastIndexOf("\n", at - 1));
+  const head = text.slice(cut + 1, at);
+  if (!/^\s*(?:and\s+|then\s+|but\s+)?(?:she|he|they)\b/i.test(head)) return false;
+  return ![...probes, ...others].some((p) => head.includes(p));
+}
+
 const gap = (a: [number, number], b: [number, number]): number =>
   a[1] <= b[0] ? b[0] - a[1] : b[1] <= a[0] ? a[0] - b[1] : 0;
 
@@ -184,6 +192,9 @@ function owns(text: string, probes: string[], others: string[], re: RegExp): boo
   while ((m = g.exec(text))) {
     const at: [number, number] = [m.index, m.index + m[0].length];
     if (g.lastIndex === m.index) g.lastIndex++;
+    // "She walks out, and she does not look at Emily" and "Tom shrugged at Anna. He walked out." are
+    // about whoever the pronoun means, which nearness can't tell; pronounOwns decides those.
+    if (pronounLed(text, m.index, probes, others) && ![...probes, ...others].some((p) => m![0].includes(p))) continue;
     const mineGap = Math.min(...mine.map((s) => gap(s, at)));
     if (mineGap > WINDOW) continue;
     // a name inside the span settles it before distance is consulted
@@ -234,6 +245,10 @@ export function departureEvidence(opts: {
    *  arrest. The player is deliberately excluded — see `owns`. */
   others?: string[];
   destination?: string;
+  /** Their pronouns ("she/her"), and the others' in the same order as `others`, so "she walked
+   *  out" can be told apart from "he walked out" when both were just named. */
+  pronouns?: string;
+  othersPronouns?: (string | undefined)[];
 }): ExitEvidence {
   const rawLow = String(opts.prose ?? "").toLowerCase().replace(/\s+/g, " ");
   const proseLow = maskQuotes(String(opts.prose ?? "")).toLowerCase().replace(/\s+/g, " ");
@@ -259,6 +274,16 @@ export function departureEvidence(opts: {
   // has to keep holding after this turn ends. See `heldEvidence` / `releaseEvidence`.
   if (owns(proseLow, probes, others, HELD)) return { ok: true, why: "custody" };
   if (owns(proseLow, probes, others, REMOVED)) return { ok: true, why: "removed" };
+  // ...AND WHEN THE PROSE SAYS "SHE". Kingdom of Veythar, turn 14: "Isolde gets up. ... She walks
+  // out with her head up, and she does not look at Emily as she passes. The door closes behind
+  // her." Every departure in it is a pronoun, the nearest NAME to "walks out" is Emily's, and the
+  // guard concluded Isolde never left; next turn the narrator, handed her as present, had her step
+  // out from behind a pillar. Turn 15 did the same to Emily ("as they walk her out"). So a
+  // departure carried by a pronoun belongs to the person that pronoun last named.
+  {
+    const byPronoun = pronounOwns(proseLow, probes, others, [HELD, LEAVES, EJECTED, CARRIED_OUT, SPILLED, DOOR_BEHIND, REMOVED], opts.pronouns, opts.othersPronouns ?? [], opts.others ?? []);
+    if (byPronoun) return { ok: true, why: byPronoun === HELD ? "custody" : "left (by pronoun)" };
+  }
 
   // THE PLAYER'S OWN HAND. Quoted speech is stripped first: the engine treats dialogue as dialogue
   // everywhere else, and a shouted order is something a character may refuse.
@@ -283,6 +308,48 @@ export function departureEvidence(opts: {
   return { ok: false, why: "" };
 }
 
+
+/** A door shutting behind somebody: the last thing a reader sees of a person leaving. */
+const DOOR_BEHIND = /\b(?:the )?door (?:closes|closed|shuts|shut|swings shut|swung shut|bangs shut|banged shut|clicks shut|clicked shut|thuds shut) behind (?:her|him|them)\b/i;
+const PRONOUN = /\b(?:she|he|they|her|him|them)\b/i;
+const gender = (p?: string): "f" | "m" | "" => /\bshe\b|\bher\b/i.test(p ?? "") ? "f" : /\bhe\b|\bhim\b/i.test(p ?? "") ? "m" : "";
+const pronounGender = (w: string): "f" | "m" | "" => /^(she|her)$/i.test(w) ? "f" : /^(he|him)$/i.test(w) ? "m" : "";
+
+/**
+ * Whose act a pronoun-led sentence is. Reads the narration sentence by sentence, tracking who was
+ * named last (by gender, when it's known), and for a sentence whose act is carried by a pronoun with
+ * no name in front of it, asks whether that pronoun points at this person. Returns the pattern that
+ * matched, or null. A sentence that opens on a pronoun keeps that pronoun's person as the antecedent:
+ * the names later in it ("she does not look at Emily") are what she looked at.
+ */
+export function pronounOwns(proseLow: string, probes: string[], others: string[], res: RegExp[], myPronouns: string | undefined, othersPronouns: (string | undefined)[], otherNames: string[]): RegExp | null {
+  const otherGender = new Map<string, "f" | "m" | "">();
+  otherNames.forEach((n, i) => { for (const p of nameProbes(n)) otherGender.set(p, gender(othersPronouns[i])); });
+  const me = gender(myPronouns);
+  let lastAny: "me" | "other" | null = null, lastF: "me" | "other" | null = null, lastM: "me" | "other" | null = null;
+  const note = (who: "me" | "other", g: "f" | "m" | "") => { lastAny = who; if (g === "f") lastF = who; if (g === "m") lastM = who; };
+  const sentences = proseLow.match(/[^.!?\n]+[.!?]*/g) ?? [proseLow];
+  for (const sent of sentences) {
+    for (const re of res) {
+      const m = sent.match(re);
+      if (!m || m.index === undefined) continue;
+      const before = sent.slice(0, m.index);
+      const named = [...probes, ...others].some((p) => before.includes(p));
+      const pron = (before.match(PRONOUN) ?? m[0].match(PRONOUN))?.[0] ?? "";
+      if (named || !pron) continue;
+      const g = pronounGender(pron);
+      const who = g === "f" ? lastF ?? (me === "f" || !me ? lastAny : null) : g === "m" ? lastM ?? (me === "m" || !me ? lastAny : null) : lastAny;
+      if (who === "me" && (!g || !me || g === me)) return re;
+    }
+    const ledByPronoun = /^\s*(?:and\s+|then\s+|but\s+)?(?:she|he|they)\b/i.test(sent);
+    const hits: { at: number; who: "me" | "other"; g: "f" | "m" | "" }[] = [];
+    for (const p of probes) { let i = sent.indexOf(p); while (i !== -1) { hits.push({ at: i, who: "me", g: me }); i = sent.indexOf(p, i + 1); } }
+    for (const p of others) { let i = sent.indexOf(p); while (i !== -1) { hits.push({ at: i, who: "other", g: otherGender.get(p) ?? "" }); i = sent.indexOf(p, i + 1); } }
+    if (ledByPronoun && hits.length) continue;
+    for (const h of hits.sort((a, b) => a.at - b.at)) note(h.who, h.g);
+  }
+  return null;
+}
 
 /**
  * DID SOMETHING GIVE THEM BACK. Read on every turn for anyone the world is holding — the release
@@ -440,7 +507,12 @@ export function recordCustody(
       if (h.turn < since) continue;
       texts.push(h.narrator_prose ?? "", String(h.player_action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " "));
     }
-    const taken = texts.some((t) => owns(maskQuotes(t).toLowerCase().replace(/\s+/g, " "), probes, theirs, HELD));
+    const otherNames = cast.filter(([oid]) => oid !== id).map(([, o]) => String(o.name));
+    const otherPron = cast.filter(([oid]) => oid !== id).map(([, o]) => o.pronouns as string | undefined);
+    const taken = texts.some((t) => {
+      const low = maskQuotes(t).toLowerCase().replace(/\s+/g, " ");
+      return owns(low, probes, theirs, HELD) || !!pronounOwns(low, probes, theirs, [HELD], c.pronouns, otherPron, otherNames);
+    });
     if (!taken) continue;
     if (releaseEvidence({ prose, action, name: String(c.name), others })) continue;
     c.held = { since_turn: turn, where: "custody", note: `taken on or before turn ${turn}` };

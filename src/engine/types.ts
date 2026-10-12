@@ -171,6 +171,7 @@ export interface WorldBible {
   era_theme?: string; // ui palette: auto | ember | verdigris | rust | frost
   difficulty_profile: DifficultyProfile;
   pressure_palette?: string[];        // allowed pressure sources, genre-bound
+  hierarchy?: number;                 // 0..1: how much rank governs dealings between people here. A court with a throne ~0.85, a modern office ~0.3. See station.ts.
   forbidden_as_primary?: string[];    // never the primary engine of a scene
 }
 
@@ -400,6 +401,7 @@ export interface Identity {
   name: string;
   age: number;
   pronouns?: string;          // "she/her", "he/him", "they/them" — pinned so the narrator never has to guess gender
+  station?: { place: string; rank: number; source?: "forge" | "bookkeeper" | "guessed" | "player" }; // where they sit in this world's order, 0..100. See station.ts.
   appearance_facts: string;    // BEDROCK look — face, eyes, hair, build, skin. Set at creation, appended-to only by permanent bodily events, replaced only by the player. The engine must never overwrite this.
   appearance_now?: string;
   height_cm?: number;          // physical constant — moves through the world with them, shapes portraits
@@ -1165,6 +1167,8 @@ export interface SaveState {
   /** A line of dialogue the narration gave the player that the player never typed, cut from the
    *  prose and quoted back once next turn. See engine/playervoice.ts. */
   last_voiced?: { line: string; sentence: string } | null;
+  /** Spoken lines that told the player what the player was doing, quoted back once. See narratedback.ts. */
+  last_narrated_back?: { lines: string[]; complained: boolean } | null;
   /** A thing the player WROTE INTO THE WORLD on the story channel that the prose then declined to
    *  render — absent, hedged into an approach to itself, or interrupted by something the player
    *  never wrote. Quoted back at the start of the next turn, the same mechanism as last_maxim and
@@ -1311,8 +1315,10 @@ export interface SimulatorDiff {
   present?: string[];             // optional hint; the engine derives the real scene from co-location with the player
   facts: { char_id: string; field: "fatigue" | "hunger" | "thirst" | "slept" | "condition_add" | "condition_remove" | "inventory_add" | "inventory_remove" | "wearing_add" | "wearing_remove" | "injury" | "injury_remove"; value: string }[];
   psyche: { char_id: string; relaxation_delta: number; mood: string; states_add?: string[]; states_remove?: string[] }[];
-  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; note?: string; roles_set?: string[] }[];
+  edges: { from: string; to: string; warmth_delta: number; trust_delta: number; power_delta: number; attraction_delta?: number; fear_delta?: number; note?: string; roles_set?: string[] }[];
   aliases_add?: { id: string; alias: string }[];
+  /** Where someone sits in this world's order, for anyone whose station is unknown, guessed or changed. See station.ts. */
+  stations?: { char_id: string; place?: string; rank: number }[];
   memories: { char_id: string; content: string; importance: number; emotional_charge: string; scheduled_time?: string; anchor?: string; core?: boolean }[]; // core: life-defining — promoted to permanent core memory + durable fact
   facts_learned?: { char_id: string; fact: string; quote?: string; corrects?: string }[]; // durable declarative facts, verbatim-quoted — verified by the engine before storage
   traits: { char_id: string; label: string; origin: string; behavioral_impact: string; intensity: number }[];

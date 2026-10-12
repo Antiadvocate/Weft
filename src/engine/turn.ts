@@ -42,6 +42,9 @@ import { playerTrip, leavingBeat } from "./leaving";
 import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
+import { appraiseDanger, shiftFear } from "./fear";
+import { setStation } from "./station";
+import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
@@ -135,6 +138,53 @@ export interface TurnEvents {
  *  that "Dumbledore would want to know about this" does not teleport Dumbledore into the room.
  *  It only ever ADDS presence; removal stays with the footer, because absence of evidence in one
  *  paragraph is not evidence someone left. */
+/** SEEN OR HEARD FROM SOMEWHERE ELSE. A sentence that puts a person at a distance from the player:
+ *  calling after them across a garden, seen through a window, still standing where the player left
+ *  them. Kingdom of Veythar, turns 9 and 10: "Behind you, Emily's voice comes clearly across the
+ *  garden", then "Below, through the window, you can see the garden where you left Emily". Both were
+ *  read as Emily acting in the scene, so she was put in the palace with him, and on turn 12 the
+ *  narrator, handed her as present, walked her up from the garden into his room. */
+export const AWAY = /\b(?:behind you|after you|across the (?:garden|gardens|room|yard|street|courtyard|square|hall|field|lawn|water|road|river|crowd)|through the (?:window|glass|gate|bars)|from the (?:garden|gardens|window|street|yard|courtyard|doorway behind you|far end)|below (?:you|the window)|in the distance|far off|from afar|where you left (?:her|him|them)|where you left|back (?:in|at) the|out of earshot|over (?:your|his|her) shoulder as you|calls? after|called after|voice (?:comes|came|carries|carried|follows|followed) (?:after|across|from|down|up))\b/i;
+
+/** A name right after one of these is somebody being looked at, walked away from or talked about,
+ *  not somebody doing anything: "stares after Emily", "you turn from Emily". */
+const AS_OBJECT = /\b(?:after|toward|towards|at|to|from|with|beside|past|by|for|about|over|on|onto|into|of|left|leave|leaves|leaving)\s+$/i;
+
+/**
+ * Whether the prose has this person somewhere other than with the player. When they do something in
+ * it, every sentence where they do has to place them at a distance (AWAY). When they're only ever
+ * mentioned, never acting, one mention that places them away is enough: "you can see the garden
+ * where you left Emily" is a woman in a garden. A paragraph that opens on the distance carries it:
+ * "Below, through the window, you can see the garden where you left Emily. ... Emily has not sat
+ * down to put them on" is still the garden, though the second sentence doesn't say so again.
+ */
+export function onlySeenFromAfar(prose: string, handles: string[]): boolean {
+  const esc = (h: string) => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let acting = 0, actingAway = 0, mentionedAway = 0;
+  for (const para of String(prose ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " ").split(/\n\s*\n/)) {
+    const sents = para.match(/[^.!?\n]+[.!?]*/g) ?? [];
+    let framedAway = false;
+    for (const sent of sents) {
+      let any = false, actor = false;
+      for (const h of handles) {
+        const re = new RegExp(`\\b${esc(h)}\\b`, "gi");
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(sent))) {
+          any = true;
+          if (!AS_OBJECT.test(sent.slice(0, m.index))) actor = true;
+        }
+      }
+      if (!any) continue;
+      const away = framedAway || AWAY.test(sent);
+      if (away) framedAway = true;
+      if (actor) { acting++; if (away) actingAway++; }
+      else if (away) mentionedAway++;
+    }
+  }
+  if (acting) return actingAway === acting;
+  return mentionedAway > 0;
+}
+
 function presenceFromProse(state: SaveState, prose: string): string[] {
   if (!prose) return [];
   // Three signals, any one of which means the sentence is ABOUT this person doing something here:
@@ -162,7 +212,8 @@ function presenceFromProse(state: SaveState, prose: string): string[] {
       if (MODAL.test(m[3] ?? "")) continue;      // hypothetical mention
       hit = true;                                 // sentence-initial or possessive subject
     }
-    if (hit || near.test(prose)) out.push(id);
+    // ...unless every mention of them is from a distance. See AWAY.
+    if ((hit || near.test(prose)) && !onlySeenFromAfar(prose, [c.name, c.name.split(/\s+/)[0], ...(c.aliases ?? [])].filter((h) => h && h.length >= 3))) out.push(id);
   }
   return out;
 }
@@ -2908,7 +2959,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // making the same move because nothing ever told it not to.
   const oocNote = state.last_ooc?.complaint
     ? oocDirective(state.last_ooc.complaint, state.world.current_turn - state.last_ooc.turn, state.last_ooc.said ?? 1) : "";
-  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + droppedNote(state, action) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
+  const maximNote = oocNote + declaredFix(state.last_declared) + maximFix(state.last_maxim) + stockFix(state.last_stock) + voicedFix(state.last_voiced) + narratedBackFix(state.last_narrated_back) + droppedNote(state, action) + figureFix(state.last_figure) + metaTalkFix(state.last_meta_talk) + neverSaidFix(state.last_never_said) + missedClaimFix(state.last_missed_claim) + echoFix(state.last_echo) + openerFix(state.last_openers) + reprintFix(state.last_reprint) + povFix(state.last_pov) + lineReprintFix(state.last_line_reprint) + anatomyFix(state.last_anatomy) + kinFix(state.last_kin) + retoldNote(state.last_retold) + thresholdFix(state.last_intrusion) + thresholdLaw(state) + (() => {
     // SETTING THE READER HAS STOPPED SEEING. Computed from the recent prose rather than stored,
     // and handed over the same way a maxim or an echo is: at the end of the NEXT turn's direction,
     // quoting what was actually written, never pasted in advance.
@@ -3485,6 +3536,13 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
         noteFire(state, "meta_talk", `${state.last_meta_talk.name} narrated the conversation for ${state.last_meta_talk.runs} turns`);
         ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation instead of having it, and this will be corrected next turn`] });
       }
+      // ...and people telling the player what the player is doing, to their face. See narratedback.ts.
+      state.last_narrated_back = findNarratedBack(
+        prose,
+        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).slice(-2).map((h) => h.narrator_prose ?? ""),
+        action,
+      );
+      if (state.last_narrated_back) noteFire(state, "narrated_back", state.last_narrated_back.complained ? "the player said the scene keeps describing them back to themselves" : `dialogue described the player back to them: "${state.last_narrated_back.lines[0]?.slice(0, 60) ?? ""}"`);
       // ...and a line off somebody's own never-says list. The card is printed to the narrator every
       // turn as reference and nothing has ever checked the output against it.
       state.last_never_said = findNeverSaid(state, state.world.present, prose);
@@ -3781,7 +3839,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     (d.memories?.length ?? 0) + (d.facts?.length ?? 0) + ((d as any).facts_learned?.length ?? 0) +
     (d.offscreen?.length ?? 0) + (d.new_characters?.length ?? 0) + (d.canon_add?.length ?? 0) +
     (d.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
-    (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
+    (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || ((x as any).fear_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
   const proseWords = prose.split(/\s+/).filter(Boolean).length;
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
@@ -3949,9 +4007,28 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
 
     const rebuilt: { char_id: string; place: string; said?: string }[] = [];
     const hereName = state.world.places[state.world.player_location]?.name ?? "";
+    // NOBODY ARRIVES THAT THE PROSE NEVER SHOWS. Kingdom of Veythar, turn 23: Seraphina was at the
+    // Golden Lily counting the afternoon's takings, the turn's prose never mentioned her, and the
+    // footer listed her in the throne room anyway; turn 24 opened on "Seraphina has been standing
+    // near the far wall this whole time" and she walked up to petition a king standing in three
+    // people's blood. A footer entry for someone who wasn't in the scene when the turn began counts
+    // only if the narration names them.
+    const narration = prose.replace(/["\u201c][^"\u201d]*["\u201d]/g, " ");
+    const shownHere = (id: string): boolean => {
+      if (state.world.present.includes(id)) return true;
+      const c = state.characters[id];
+      if (!c?.name) return false;
+      const handles = [c.name, c.name.split(/\s+/)[0], ...(c.aliases ?? [])].filter((h) => h && h.length >= 3);
+      const named = handles.some((h) => new RegExp(`\\b${h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(narration));
+      if (!named) {
+        noteFire(state, "phantom", `${c.name} was listed in the scene without the prose ever showing them`);
+        console.warn(`[places] refused phantom arrival of ${c.name}: the footer listed them, the prose never named them`);
+      }
+      return named;
+    };
     for (const nm of footer.entered) {
       const id = findChar(nm);
-      if (id) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: entered" });
+      if (id && shownHere(id)) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: entered" });
     }
     for (const nm of footer.left) {
       const id = findChar(nm);
@@ -3962,7 +4039,18 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     // ledger believes is here is moved out — otherwise a stale presence lingers forever.
     if (footer.here.length) {
       const hereIds = new Set<string>();
-      for (const nm of footer.here) { const id = findChar(nm); if (id) hereIds.add(id); }
+      for (const nm of footer.here) {
+        const id = findChar(nm);
+        if (!id) continue;
+        // listed because they spoke, though the prose has them across the garden or through a window
+        const c = state.characters[id];
+        if (c && onlySeenFromAfar(prose, [c.name, c.name.split(/\s+/)[0]].filter((h) => h && h.length >= 3))) {
+          console.info(`[places] footer listed ${c.name} as here, but the prose only has them at a distance`);
+          continue;
+        }
+        if (!shownHere(id)) continue;
+        hereIds.add(id);
+      }
       for (const id of hereIds) rebuilt.push({ char_id: id, place: footer.place || hereName, said: "narrator: in scene" });
       for (const [id, c] of Object.entries(state.characters)) {
         if (id === "char_player" || hereIds.has(id)) continue;
@@ -4021,6 +4109,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
         if (!c || c.status === "dead" || c.status === "departed") continue;
         const first = c.name.split(/\s+/)[0]?.toLowerCase() ?? "";
         if (first.length < 3 || !hay.includes(first)) continue;
+        // Named because they were LEFT BEHIND isn't coming along: "the garden where you left Emily",
+        // "her voice comes across the garden". See AWAY.
+        if (onlySeenFromAfar(prose, [c.name, c.name.split(/\s+/)[0]].filter((h) => h && h.length >= 3))) {
+          console.info(`[places] ${c.name} is only seen from a distance in the prose — left where they were`);
+          continue;
+        }
         (diff.locations ??= []).push({ char_id: cid, place: destName, said: "narrator: travelled with the player" });
         console.info(`[places] ${c.name} was still in the scene on arrival — brought along to "${destName}"`);
       }
@@ -4155,6 +4249,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // `let`, not `const`: everything below pushes into it, and the sift just before the history
   // push replaces it with the part a person should actually read. See engine/shifts.ts.
   const presentBeforeDiff = [...(state.world.present ?? [])];
+  const aliveBeforeDiff = new Set(Object.entries(state.characters).filter(([, c]) => c && c.status !== "dead").map(([id]) => id));
   let shifts = applyDiff(state, diff, action, prose, !!footer);
   // SOMEBODY ELSE HAS THEM. An arrest the player wrote, or the prose showed, holds whoever is gone
   // from the scene, so they aren't put back in the world on the next pass. See exit.ts recordCustody.
@@ -4163,6 +4258,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // any want aimed at the player off them; the sweep keeps it that way. A save from before this
   // reads its own history once. See engine/rejection.ts.
   backfillRejections(state);
+  // FEAR. What the people here saw and heard the player do, and what they've heard said about it,
+  // moves how afraid of the player they are; the narrator describes them from that. See fear.ts.
+  for (const line of appraiseDanger(state, {
+    action, mode, presentAtStart: presentBeforeDiff, turn, elapsedMinutes: diff.elapsed_minutes,
+    diedThisTurn: [...aliveBeforeDiff].filter((id) => state.characters[id]?.status === "dead"),
+  })) shifts.push(line);
   if (mode !== "think") for (const line of applyRejection(state, rejectedBy(state, action, presentBeforeDiff), turn)) shifts.push(line);
   {
     const swept = sweepPursuit(state);
@@ -6028,9 +6129,12 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           name: c.name ?? "",
           // so a bystander standing beside somebody else's arrest doesn't inherit it
           others: [...presentAtStart]
-            .filter((o) => o !== cid && o !== "char_player")
-            .map((o) => state.characters[o]?.name ?? "")
-            .filter(Boolean),
+            .filter((o) => o !== cid && o !== "char_player" && state.characters[o]?.name)
+            .map((o) => state.characters[o]!.name),
+          othersPronouns: [...presentAtStart]
+            .filter((o) => o !== cid && o !== "char_player" && state.characters[o]?.name)
+            .map((o) => state.characters[o]!.pronouns),
+          pronouns: c.pronouns,
           destination: state.world.places[pid]?.name ?? mv.place,
         });
         if (!evidence.ok) {
@@ -6531,6 +6635,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // is only ever discovered from a player report. See engine/remodel.ts.
   for (const r of state.last_remodel ?? []) {
     if (r.turn !== turn) continue;
+    // nothing is normal for the dead any more
+    const rc = state.characters[r.id];
+    if (!rc || rc.status === "dead" || rc.status === "departed") continue;
     shifts.push(r.dir === "wear"
       ? `${nameOf(r.id)} has been tense for so long that being tense is now normal for them.`
       : `${nameOf(r.id)} has been calm for so long that being calm is now normal for them.`);
@@ -6554,6 +6661,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       if (trustD > 0) trustD = 0;
     }
     applyEdgeDelta(state.world.edges, { from, to, warmth_delta: warmthD, trust_delta: trustD, power_delta: e.power_delta ?? 0, note: e.note, roles_set: e.roles_set }, turn, { chars: state.characters, traits: state.traits });
+    // FEAR, as the bookkeeper read it: the dangers the engine's own patterns can't see. See fear.ts.
+    {
+      const rawFear = Number((e as any).fear_delta ?? 0);
+      if (rawFear && to === "char_player" && from !== "char_player" && state.characters[from]) {
+        shiftFear(state, from, clamp(rawFear, -10, 40), clipText(e.note || "something about the player frightened them", 120), turn);
+      }
+    }
     // ATTRACTION — its own axis, never bundled into warmth and NEVER echoed back (desire isn't
     // mutual). Orientation-gated: a stated orientation is a hard cap the simulator can't move past.
     // The player's own desire is never authored (rule 5) — their edge only moves if they're the target.
@@ -6769,6 +6883,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (c.aliases.length > 6) c.aliases.shift();
   }
 
+  // STATIONS — where someone sits in this world's order, for the guessed, the unknown and the
+  // changed. A station the player set on the Cast page stays theirs. See station.ts.
+  for (const st of diff.stations ?? []) {
+    const id = resolveId(state, st?.char_id ?? "");
+    if (id) setStation(state, id, st?.place, st?.rank, "bookkeeper");
+  }
+
   for (const cn of diff.canon_add ?? []) {
     if (!cn || !addCanon(state, cn)) continue;
     // Canon is world-altering and PUBLIC, but knowledge of it PROPAGATES — it does not teleport
@@ -6865,7 +6986,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (isDependentGoal(String(du.goal), state.characters["char_player"]?.name ?? "")) {
       const prev = state.characters[id].drive;
       if (prev?.goal && du.blocker) prev.blocker = du.blocker;
-      shifts.push(`${nameOf(id)}'s want was recorded as something ${state.characters["char_player"]?.name ?? "the player"} has to do, so it was dropped and they'll get one of their own`);
+      // an engine correction, not news about the story: the console, not the player's notices
+      console.info(`[drives] ${nameOf(id)}'s want was something the player has to do; dropped, they'll get one of their own`);
       console.warn(`[drives] dependent goal rejected for ${nameOf(id)}: "${String(du.goal).slice(0, 70)}"`);
       continue;
     }

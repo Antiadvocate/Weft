@@ -368,5 +368,5 @@ export function answerThePlayer(action: string, mode: ActionMode): string {
   const said = perceptibleInput(action);
   if (said.length < 12) return "";
   return `ANSWER THE PLAYER. The people here just heard and saw this: "${said.slice(0, 300)}"\n`
-    + `That's what this turn is about. Each person present responds to it as who they are: they might believe it, doubt it, laugh, get angry, get frightened, say plainly that they can't follow it, or ask the obvious next question. They stay with it for the whole turn, and they go on talking to the player about it. Nobody changes the subject to get away from it, and nobody goes back to a chore as though it hadn't been said. Nothing new arrives from outside the scene this turn.`;
+    + `That's what this turn is about. Each person present responds to it as who they are and as what they've just seen and heard has left them: they might believe it, doubt it, laugh, get angry, get frightened, say plainly that they can't follow it, ask the obvious next question, or go silent, if fear has made silence the safest thing, and it stays the subject for the whole turn. Nobody changes the subject to get away from it, and nobody goes back to a chore as though it hadn't been said. Nothing new arrives from outside the scene this turn.`;
 }

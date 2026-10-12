@@ -61,6 +61,7 @@ const LABEL: Record<string, string> = {
   player_voice: "a line put in your mouth that you never typed",
   held: "you said you were leaving and the scene kept you there",
   nuked: "a storyline you wiped, brought back by the narration",
+  narrated_back: "people describing what you're doing back to you",
 };
 
 /** Turns the rolling window looks back over. */
@@ -131,6 +132,11 @@ export function integrityLog(state: SaveState, limit = 20): IntegrityFire[] {
  * when nobody else present shares the player's set, because "his" in a room with two men attributes
  * to nothing.
  */
+/** People in the narration who have no name and share the player's pronouns. Not "king" or
+ *  "queen": a ruler player is "the king" to everyone, and narration calling them that is the slip. */
+const UNNAMED_MEN = /\b(?:man|men|guard|guards|lord|lords|boy|boys|father|son|brother|husband|priest|priests|soldier|soldiers|page|elder|councill?or|councill?ors|clerk|clerks|serjeant|sergeant|monk|knight|knights|gentleman|gentlemen|merchant|captain|officer|doctor|driver|waiter|barman|innkeeper|bartender|stranger|old man|young man)\b/i;
+const UNNAMED_WOMEN = /\b(?:woman|women|girl|girls|lady|ladies|mother|daughter|sister|wife|maid|maids|nun|widow|waitress|barmaid|nurse|stranger|old woman|young woman)\b/i;
+
 export function povDrift(
   prose: string,
   playerFirstName: string,
@@ -152,7 +158,12 @@ export function povDrift(
   // third-person pronouns count only when they can belong to nobody else in the room
   const fam = (p?: string) => /\bhe\b|\bhim\b|\bhis\b/i.test(p ?? "") ? "m" : /\bshe\b|\bher\b/i.test(p ?? "") ? "f" : "";
   const mine = fam(playerPronouns);
-  if (mine && !othersPronouns.some((o) => fam(o) === mine)) {
+  // ...and nobody UNNAMED either. Kingdom of Veythar, turns 16 to 25: a throne room full of guards
+  // and council lords, none of them on the cast list, every "his" and "he" in the narration theirs,
+  // and the check reported the king written in the third person 29 times in a turn that called him
+  // "you" throughout, then fed that to the narrator as a correction, every turn, for ten turns.
+  const unnamedSameSet = mine === "m" ? UNNAMED_MEN.test(narration) : mine === "f" ? UNNAMED_WOMEN.test(narration) : false;
+  if (mine && !unnamedSameSet && !othersPronouns.some((o) => fam(o) === mine)) {
     const re = mine === "m" ? /\b(he|him|his)\b/gi : /\b(she|her|hers)\b/gi;
     third += (narration.match(re) ?? []).length;
   }
