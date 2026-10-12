@@ -20,6 +20,7 @@
 // no call → zero added cost.
 
 import { fearLine, fearOf, AFRAID } from "./fear";
+import { standingToward, stationLine } from "./station";
 import type { SaveState } from "./types";
 import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
@@ -276,7 +277,9 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       afraid ? "" : (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
                return door ? `How they go about it (the surface should be exactly this): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
-      e ? `Toward the player: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.attraction !== undefined ? `, desire ${Math.round(e.attraction)}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(e.power ?? 0, state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
+      e ? `Toward the player: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.attraction !== undefined ? `, desire ${Math.round(e.attraction)}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(standingToward(state, id, "char_player"), state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
+      // where they sit relative to the player in this world's order: see engine/station.ts
+      stationLine(state, id),
       // fear of the player, which nothing here could see: see engine/fear.ts
       fearLine(state, id),
       `WHY THIS MOMENT MATTERS TO THEM: ${reason}`,

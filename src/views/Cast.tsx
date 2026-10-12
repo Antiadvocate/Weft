@@ -9,6 +9,7 @@ import { visualSignature } from "../engine/prompts";
 import { nice, niceCap } from "../lib/format";
 import { CuspGlyph } from "../lib/charts";
 import { attractionWord } from "../engine/desire";
+import { stationOf } from "../engine/station";
 import { clockLabel, dayOf, minutesOfDay, weekdayIndex, WEEKDAY_FULL } from "../engine/time";
 import { daysLabel, readSchedule, runsOn } from "../engine/schedule";
 import { DayRibbon, WeekPips, type DaySegment } from "../lib/charts";
@@ -75,7 +76,7 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
   const [writingPast, setWritingPast] = useState(false);   // formative memories, see engine/formative.ts
   const [pastNote, setPastNote] = useState("");
   const [menu, setMenu] = useState(false);
-  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "", speech_pattern: "", voice_diction: "", voice_syntax: "", voice_rhythm: "", voice_tics: "", voice_never_says: "", voice_example_lines: "", voice_locked: false });
+  const [draft, setDraft] = useState({ name: "", age: "", background: "", life_history: "", appearance_facts: "", appearance_now: "", current_goal: "", core_traits: "", height_ft: "", height_in: "", weight_lb: "", visual_signature: "", speech_pattern: "", voice_diction: "", voice_syntax: "", voice_rhythm: "", voice_tics: "", voice_never_says: "", voice_example_lines: "", voice_locked: false, station_place: "", station_rank: "" });
   const [editNote, setEditNote] = useState("");
   const [newFact, setNewFact] = useState("");
   const [factsBusy, setFactsBusy] = useState(false);
@@ -134,6 +135,8 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
       voice_never_says: (c.voice?.never_says ?? []).join("\n"),
       voice_example_lines: (c.voice?.example_lines ?? []).join("\n"),
       voice_locked: !!c.voice_locked,
+      station_place: stationOf(save as unknown as SaveState, sel!)?.place ?? "",
+      station_rank: String(stationOf(save as unknown as SaveState, sel!)?.rank ?? ""),
     });
     setEditing(true);
   };
@@ -169,6 +172,16 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
           example_lines: splitLines(draft.voice_example_lines),
         },
         voice_locked: draft.voice_locked,
+        // STATION: only written when it was changed here, so opening the form doesn't turn the
+        // engine's guess into the player's own setting (station.ts)
+        ...(() => {
+          const was = stationOf(save as unknown as SaveState, sel);
+          const rank = Number(draft.station_rank);
+          const changed = draft.station_place.trim() !== (was?.place ?? "") || (draft.station_rank.trim() !== "" && rank !== was?.rank);
+          return changed && draft.station_rank.trim() !== "" && Number.isFinite(rank)
+            ? { station: { place: draft.station_place.trim(), rank: Math.max(0, Math.min(100, Math.round(rank))), source: "player" as const } }
+            : {};
+        })(),
       } },
     });
     setSave(s); setEditing(false);
@@ -618,6 +631,14 @@ export default function Cast({ save, setSave, initialSel }: { save: ClientSave; 
                     <EditField label="Background — core identity (never auto-trimmed)" v={draft.background} set={(v) => setDraft((d) => ({ ...d, background: v }))} rows={3} />
                     <EditField label="Story so far — what’s happened in play (auto-grows & compresses)" v={draft.life_history} set={(v) => setDraft((d) => ({ ...d, life_history: v }))} rows={3} />
                     <EditField label="Current goal" v={draft.current_goal} set={(v) => setDraft((d) => ({ ...d, current_goal: v }))} />
+                    <div className="flex gap-2">
+                      <div className="flex-[3]"><EditField label="Station" v={draft.station_place} set={(v) => setDraft((d) => ({ ...d, station_place: v }))} /></div>
+                      <div className="flex-1"><EditField label="Rank (0–100)" v={draft.station_rank} set={(v) => setDraft((d) => ({ ...d, station_rank: v }))} /></div>
+                    </div>
+                    <div className="text-[11px] -mt-1 mb-2" style={{ color: "var(--text-lo)" }}>
+                      Where they sit in this world, like “a seamstress from the slums” at 12 or “the king” at 100. How far apart two people's ranks are shapes how they deal with each other, scaled by how much rank matters in this world (Tuning, under World).
+                      {stationOf(save as unknown as SaveState, sel!)?.source === "guessed" ? " This one is the engine's guess from their card; the bookkeeper replaces it the next time they're in a scene, unless you set it here." : ""}
+                    </div>
                     <EditField label="Core traits (one per line)" v={draft.core_traits} set={(v) => setDraft((d) => ({ ...d, core_traits: v }))} rows={4} />
                     <div className="py-1.5 mt-2 border-t" style={{ borderColor: "var(--line)" }}>
                       <label className="flex items-start gap-2 cursor-pointer py-1.5">

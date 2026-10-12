@@ -8,6 +8,8 @@ import { getTtsPrefs, setTtsPrefs, listVoices, ttsAvailable, speak, stopSpeaking
 import { api, type ClientSave, type ModelSettings } from "../lib/api";
 import { DEFAULT_MODELS } from "../engine/types";
 import { splitLines } from "../engine/turn";
+import { hierarchyOf } from "../engine/station";
+import type { SaveState } from "../engine/types";
 import type { Becoming } from "../engine/becoming";
 import { getApiKey, setApiKey, getLocalEndpoint, setLocalEndpoint, isLocalModel, LOCAL_SAMPLER_DEFAULTS, LOCAL_MAX_OUTPUT_DEFAULT,
   getLocalImage, setLocalImage, LOCAL_IMAGE_DEFAULTS, LOCAL_PREFIX, type LocalImageEndpoint } from "../config";
@@ -580,6 +582,7 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
     destination: wb.destination ?? "",
     destination_turns: wb.destination_turns ?? 0,
     art_direction: wb.art_direction ?? "",
+    hierarchy: typeof wb.hierarchy === "number" ? String(wb.hierarchy) : "",
   });
   const [bible, setBible] = useState(() => bibleOf(wb));
   // ONE PER LINE, NOT COMMA-SEPARATED. These round-tripped through `join(", ")` / `split(",")`,
@@ -628,6 +631,8 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
     const s = await api.edit(save.id, { canon: canon.split("\n").map((x: string) => x.trim()).filter(Boolean), world_bible: {
       ...bible,
       destination_turns: Math.max(0, parseInt(String(bible.destination_turns ?? 0), 10) || 0),
+      // blank goes back to reading it off the era and politics (station.ts)
+      hierarchy: bible.hierarchy.trim() !== "" && Number.isFinite(Number(bible.hierarchy)) ? Math.max(0, Math.min(1, Number(bible.hierarchy))) : undefined,
       god_mode: godMode,
       difficulty_profile: difficulty,
       pressure_palette: splitLines(palette),
@@ -725,6 +730,11 @@ export default function Settings({ save, setSave, onGuide }: { save: ClientSave;
         <TextField label="Forbidden in this world" value={bible.forbidden} onChange={setB("forbidden")} rows={2} />
         <TextField label="Start date of Day 1 (YYYY-MM-DD; this adds weekdays, months and years to the clock)" value={bible.start_date} onChange={setB("start_date")} />
         <TextField label="Political situation" value={bible.political_situation} onChange={setB("political_situation")} rows={3} />
+        <TextField label="How much rank matters here, 0 to 1" value={bible.hierarchy} onChange={setB("hierarchy")} />
+        <div className="text-[11px] -mt-1 mb-1" style={{ color: "var(--text-lo)" }}>
+          How far apart two people's stations (set on each person's card) push them in how they deal with each other. A court with a throne is around 0.85, a 19th-century city around 0.6, a modern office around 0.3.
+          {bible.hierarchy.trim() === "" ? ` Blank reads it off the era and politics, which gives ${hierarchyOf(save as unknown as SaveState)} here.` : ""}
+        </div>
         <TextField label="What people fear" value={bible.what_people_fear} onChange={setB("what_people_fear")} rows={2} />
         <TextField label="Cultures & languages" value={bible.cultures_and_languages} onChange={setB("cultures_and_languages")} rows={2} />
         <TextField label="Climate & geography" value={bible.climate_and_geography} onChange={setB("climate_and_geography")} rows={2} />

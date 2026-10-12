@@ -43,6 +43,7 @@ import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
 import { appraiseDanger, shiftFear } from "./fear";
+import { setStation } from "./station";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
@@ -6880,6 +6881,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (c.name.toLowerCase() === lower || c.aliases.some((x) => x.toLowerCase() === lower)) continue;
     c.aliases.push(a);
     if (c.aliases.length > 6) c.aliases.shift();
+  }
+
+  // STATIONS — where someone sits in this world's order, for the guessed, the unknown and the
+  // changed. A station the player set on the Cast page stays theirs. See station.ts.
+  for (const st of diff.stations ?? []) {
+    const id = resolveId(state, st?.char_id ?? "");
+    if (id) setStation(state, id, st?.place, st?.rank, "bookkeeper");
   }
 
   for (const cn of diff.canon_add ?? []) {
