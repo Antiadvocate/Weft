@@ -13,7 +13,8 @@ import { rejectedBy, applyRejection, keepsAway, backfillRejections, sweepPursuit
 import { seedDrive } from "../src/engine/drives";
 import { siftStory, siftSituations, allowedHere } from "../src/engine/sift";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "../src/engine/dropit";
-import { storyInstruction } from "../src/engine/instruction";
+import { instructionFromRead } from "../src/engine/instruction";
+import { EMPTY_READ } from "../src/engine/actionread";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
@@ -132,32 +133,35 @@ function world(tone = "Slice of life", forbidden: string[] = ["Sudden relationsh
 // ── 5. drop it ──
 {
   const t9 = `"Holy mother of idiots. You NEED TO ASK ELLIE ITS HER PROJECT I am exasperated do you fucking understand? I swear to god I'm leaving this house if you ask me another question related to this"`;
-  const line = dropItLine(t9);
-  check("'if you ask me another question' closes the subject", /if you ask me another question/.test(line), line);
-  check("so does 'it's not my project'", !!dropItLine(`"No. It's not my project."`) && !dropItLine("I read the email."));
+  // the read of t9 (actionread.ts) names the closing line; the engine takes it from there
+  const line = dropItLine({ ...EMPTY_READ, drop_subject: "I swear to god I'm leaving this house if you ask me another question related to this" });
+  check("the read's closing line is the line", /if you ask me another question/.test(line), line);
+  check("a turn that closes nothing has no line", dropItLine(EMPTY_READ) === "");
   const beat = dropItBeat(line);
   check("the beat drops it", /drop it, so nobody asks about it again/.test(beat) && lint(beat).length === 0, lint(beat));
   const s = world();
   s.history = [{ turn: 8, summary: "May asked who should be the primary contact for Beacon Works." } as any];
   recordDropped(s, line, 9);
   s.world.current_turn = 10;
-  const note = droppedNote(s, "I make coffee.");
+  const note = droppedNote(s, EMPTY_READ);
   check("the next turns are reminded the subject is closed", /A SUBJECT THE PLAYER CLOSED/.test(note) && /primary contact for Beacon Works/.test(note) && lint(note).length === 0, note);
   s.world.current_turn = 14;
-  check("for four turns", droppedNote(s, "I make coffee.") === "");
+  check("for four turns", droppedNote(s, EMPTY_READ) === "");
   s.world.current_turn = 11;
-  check("or until the player raises it again", droppedNote(s, "Who is the primary contact for Beacon Works anyway?") === "");
+  check("or until the player raises it again, as the read says", droppedNote(s, { ...EMPTY_READ, reopens_subject: true }) === "" && !(s.world as any).dropped);
   const turn = readFileSync("src/engine/turn.ts", "utf8");
-  check("the turn uses it ahead of ANSWER THE PLAYER", /: dropLine\s*\? `[^`]*\$\{dropItBeat\(dropLine\)\}/.test(turn) && /droppedNote\(state, action\)/.test(turn));
+  check("the turn uses it ahead of ANSWER THE PLAYER", /: dropLine\s*\? `[^`]*\$\{dropItBeat\(dropLine\)\}/.test(turn) && /droppedNote\(state\)/.test(turn) && /dropItLine\(turnRead\(state\)\)/.test(turn));
 }
 
 // ── 6. an instruction about the story ──
 {
   const t14 = "Rabi's not the point of contact. Ellie is. Change the story to adjust. Remove beacon works from Rabi and anything having to do with it should no longer appear in the story.";
-  const i = storyInstruction(t14);
-  check("turn 14 is read as an instruction, with what to wipe and what's true", !!i && i.terms === "beacon works" && i.correction === "Rabi's not the point of contact. Ellie is.", i);
-  check("play isn't", storyInstruction("I go home and take a shower.") === null && storyInstruction(`"Change the story, May." I sit down.`) === null && storyInstruction("I remove the batteries from the remote.") === null);
-  check("the Play view offers the tools before sending", /const found = storyInstruction\(a\);\s*if \(found\) \{ setInstr/.test(readFileSync("src/views/Play.tsx", "utf8")));
+  // what it means is the small model's to read; the engine's part is what it does with that read
+  const read = { ...EMPTY_READ, to_the_game: "Change the story to adjust. Remove beacon works from Rabi and anything having to do with it should no longer appear in the story.", story_change: { asked: true, remove: "beacon works", true_now: "Rabi's not the point of contact. Ellie is." } };
+  const i = instructionFromRead(read, t14);
+  check("turn 14, read as an instruction, offers what to wipe and what's true", !!i && i.terms === "beacon works" && i.correction === "Rabi's not the point of contact. Ellie is.", i);
+  check("play isn't", instructionFromRead(EMPTY_READ, "I go home and take a shower.") === null);
+  check("the Play view reads the turn and offers the tools before sending", /found = instructionFromRead\(await api\.readAction\(save\.id, a, mode\), a\);/.test(readFileSync("src/views/Play.tsx", "utf8")) && /if \(found\) \{ setInstr/.test(readFileSync("src/views/Play.tsx", "utf8")));
 }
 
 // ── 4b. a new chapter can leave things behind ──

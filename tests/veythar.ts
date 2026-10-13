@@ -15,6 +15,7 @@ import { ruminationLine, releasedLine, moodPassedLine, feelingKind } from "../sr
 import { castGoneCold, PLAYER_VIOLENCE } from "../src/engine/social";
 import { physicalAct } from "../src/engine/reaction";
 import { playerTrip } from "../src/engine/leaving";
+import { EMPTY_READ } from "../src/engine/actionread";
 import { rejectedBy } from "../src/engine/rejection";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
@@ -47,7 +48,7 @@ check("the bookkeeper and the footer are told the same", /calling after the play
 const s0 = newSave("V", { name: "V" } as any);
 s0.world.places = { gardens: { id: "gardens", name: "The Royal Gardens" }, palace: { id: "palace", name: "The Royal Palace of Veythar" }, tav: { id: "tav", name: "The Black Boar Tavern" } } as any;
 s0.world.player_location = "gardens";
-check("'I go back to the castle' is a trip to the palace", playerTrip(s0, "I go back to the castle.")?.toId === "palace");
+check("'I go back to the castle', read as the palace, is a trip there", playerTrip(s0, { ...EMPTY_READ, did: "goes back to the castle", leaving: { going: true, to: "the castle", place: "palace", home: false } })?.toId === "palace");
 
 // ── 3. nobody listed in a room the prose never shows them in ──
 check("a footer entry for someone not already here needs the narration to name them", /const shownHere = \(id: string\): boolean =>/.test(turn) && /if \(!shownHere\(id\)\) continue;/.test(turn) && /if \(id && shownHere\(id\)\)/.test(turn));

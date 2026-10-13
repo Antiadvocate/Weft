@@ -14,6 +14,7 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { parseSceneFooter, splitOutsideParens, isPersonName, pruneParseArtifacts, applyDiff, repairPlaceDescriptions } from "../src/engine/turn";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
+import { setRead } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -108,6 +109,7 @@ function placeState(): SaveState {
 /* 7. and when the bookkeeper misses it, the record stops claiming the old truth */
 {
   const s = placeState();
+  setRead(s, "I destroy the town and everyone in it", { changes_place: [{ place: "loc_town", what: "destroys the town and everyone in it" }], harms: [{ who: ["someone"], what: "kills everyone in the town", kills: true, mass: true }] });
   applyDiff(s, {} as unknown as SimulatorDiff, "I destroy the town and everyone in it", "The ground opened.");
   const p = s.world.places["loc_town"];
   check("an unrevised transformed place is flagged stale", /older than that/.test(p.stale_note ?? ""), p.stale_note);
@@ -120,7 +122,9 @@ function placeState(): SaveState {
   check("an ordinary action leaves it alone", !s2.world.places["loc_town"].stale_note);
 }
 
-/* 7b. the false positives that put a quote of the player's own dialogue in a description */
+/* 7b. the false positives that put a quote of the player's own dialogue in a description.
+ * Telling a figure of speech or a threat from a demolition is the turn read's call
+ * (engine/actionread.ts): it names no changed place for these, and the engine follows it. */
 {
   // a figure of speech, inside dialogue, in a place with no description yet
   const s = placeState();
@@ -139,9 +143,11 @@ function placeState(): SaveState {
 
   // ...but the real thing still lands
   const s3 = placeState();
+  setRead(s3, "I destroy the town", { changes_place: [{ place: "loc_town", what: "destroys the town" }] });
   applyDiff(s3, {} as unknown as SimulatorDiff, "I destroy the town", "It came apart.");
   check("an actual demolition is still caught", !!s3.world.places["loc_town"].stale_note, s3.world.places["loc_town"].stale_note);
   const s4 = placeState();
+  setRead(s4, "I raze Thornwood to the ground", { changes_place: [{ place: "loc_town", what: "razes Thornwood to the ground" }] });
   applyDiff(s4, {} as unknown as SimulatorDiff, "I raze Thornwood to the ground", "Nothing stood.");
   check("naming the place works too", !!s4.world.places["loc_town"].stale_note);
 }

@@ -40,7 +40,7 @@ export const SIMULATOR_JSON_SCHEMA: object = S({
   character_exits: A(S({ char_id: str, kind: { type: "string", enum: ["dead", "departed"] }, note: str }, ["char_id", "kind"])),
   texture_add: A(S({ char_id: str, item: str }, ["char_id", "item"])),
   player_self: strA,
-  rumors_new: A(S({ content: str, truth: { type: "string", enum: ["true", "distorted", "false"] }, salience: num, origin_char: str, about_char: str }, ["content"])),
+  rumors_new: A(S({ content: str, truth: { type: "string", enum: ["true", "distorted", "false"] }, salience: num, origin_char: str, about_char: str, violent: { type: "boolean" } }, ["content"])),
   consequences_new: A(S({ description: str, fire_in_days: num, fire_in_hours: num, fire_in_turns: num, severity: { type: "string", enum: ["minor", "notable", "major"] }, source_char: str, location_trigger: str }, ["description"])),
   clocks_advance: A(S({ id: str, segments: num }, ["id"])),
   new_characters: A(S({ name: str, age: num, pronouns: str, height_cm: num, weight_kg: num, appearance_facts: str, background: str, core_traits: strA, values: strA, speech_pattern: str, texture: strA, gregariousness: num, capacity: num, attracted_to: str, taste: str, conscience: num, beauty: num, example_lines: strA, never_says: strA, attachment_style: str, under_threat: str, when_that_fails: str, soothed_by: str, drive_goal: str, drive_goals: strA, station: S({ place: str, rank: num }) }, ["name"])),

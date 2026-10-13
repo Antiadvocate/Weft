@@ -17,9 +17,10 @@ import { AnimNumber } from "../lib/AnimNumber";
 import { Odometer } from "../lib/Odometer";
 import { turnDeltas } from "../lib/ledger";
 import { previouslyHere, dueSoon, dueLabel } from "../lib/psychic";
-import { storyInstruction, type StoryInstruction } from "../engine/instruction";
+import { instructionFromRead, type StoryInstruction } from "../engine/instruction";
 
 const PHASE_LABEL: Record<string, string> = {
+  reading: "reading what you did",
   pressure: "reading the room",
   narrator: "the world responds",
   simulator: "recording changes",
@@ -281,7 +282,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
     cancelRef.current = ctrl;
     try {
       await streamTurn(save.id, a, mode, {
-        onPhase: (p) => { setPhase(p); if (p && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
+        onPhase: (p) => { setPhase(p); if (p && p !== "reading" && p !== "pressure" && p !== "narrator" && p !== "eco") setProseDone(true); },
         onRead: setReads,
         onDelta: (t) => setLiveProse((p) => p + t),
         onMeta: (m) => { if ((m as any).restream) setLiveProse(""); if (Array.isArray((m as any).shifts)) pushToasts((m as any).shifts as string[]); },
@@ -313,7 +314,7 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
   };
 
   /** Cancellable up to the last exit: once consequences start applying, the world has moved. */
-  const CANCELLABLE = ["undertow", "pressure", "narrator", "simulator", "eco"];
+  const CANCELLABLE = ["reading", "undertow", "pressure", "narrator", "simulator", "eco"];
   const canStop = running && !!phase && CANCELLABLE.includes(phase) && !!cancelRef.current;
   const doStop = () => {
     const c = cancelRef.current;
@@ -365,8 +366,14 @@ export default function Play({ save, setSave }: { save: ClientSave; setSave: (s:
       return;
     }
     // NOT SOMETHING THE CHARACTER DOES. "Change the story to adjust. Remove beacon works..." went in
-    // as Rabi's action and was played as him reading email in a towel. Offer the tools first.
-    const found = storyInstruction(a);
+    // as Rabi's action and was played as him reading email in a towel. The small model reads what
+    // was typed first (the turn reuses the same read), and an instruction about the story gets the
+    // tools offered before anything is sent. See engine/actionread.ts.
+    setRunning(true); setPhase("reading");
+    let found: StoryInstruction | null = null;
+    try { found = instructionFromRead(await api.readAction(save.id, a, mode), a); }
+    catch { /* an unread turn is played as typed */ }
+    finally { setRunning(false); setPhase(null); }
     if (found) { setInstr({ action: a, found }); return; }
     await runAction(a);
   };

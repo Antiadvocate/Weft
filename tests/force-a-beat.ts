@@ -14,6 +14,7 @@
  * and the bookkeeper never see a character of it. */
 import { selectBeat, beatSources, type Beat, type BeatInput } from "../src/engine/pressure";
 import { readFileSync } from "node:fs";
+import { takeBeatMark } from "../src/engine/turn";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -97,9 +98,8 @@ check("...the threads with their tension", rows.some((r) => r.includes("thread s
 check("...and how long each has waited", rows.some((r) => r.includes("last fired turn 38, 1 ago")) && rows.some((r) => r.includes("never fired")), rows);
 
 // ---- the parser -------------------------------------------------------------------------------
-// Mirrors the strip in turn.ts. The point of every case here is that the narrator never sees it.
-const RE = /\[\[\s*beat\s*(?::\s*([^\]]*))?\]\]/gi;
-const parse = (a: string) => { let f: string | undefined; const out = a.replace(RE, (_m, w) => { f = String(w ?? "").trim(); return ""; }).replace(/\s{2,}/g, " ").trim(); return { f, out }; };
+// The strip turn.ts runs. The point of every case here is that the narrator never sees it.
+const parse = (a: string) => { const r = takeBeatMark(a); return { f: r.beat, out: r.action }; };
 check("bare form parses to the empty string, not undefined", parse("I put the kettle on [[beat]]").f === "");
 check("...and leaves the action clean", parse("I put the kettle on [[beat]]").out === "I put the kettle on");
 check("named form parses", parse("[[beat: voice]] I wait").f === "voice");
@@ -113,7 +113,7 @@ check("nothing of it survives into the action", !parse("[[beat: voice]] I wait")
 
 // ---- and turn.ts wires it ----------------------------------------------------------------------
 const src = readFileSync(new URL("../src/engine/turn.ts", import.meta.url), "utf8");
-check("turn.ts strips the directive off the action", /action = action\.replace\(\/\\\[\\\[\\s\*beat/.test(src));
+check("turn.ts strips the directive off the action", src.includes("takeBeatMark(action)"));
 check("...before the interior split, so the narrator never sees it",
   src.indexOf("let forceBeat") < src.indexOf("const { outward: outwardAction"));
 check("...passes it to the selector", /selectBeat\(\{ \.\.\.beatInput, force: forceBeat \}\)/.test(src));

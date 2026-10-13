@@ -520,3 +520,49 @@ export function recordCustody(
   }
   return out;
 }
+
+
+/**
+ * GONE BY THE END OF THE TURN.
+ *
+ * Kingdom of Veythar, third run, turn 21. The king threw his advisor across the corridor and gave
+ * him an hour to bring the girl. The prose: "'Yes, Your Highness,' he says again, and goes. Not down
+ * the corridor past the guard, but sideways, toward the servant's stair." The footer still listed
+ * him, and the floor that keeps anyone who acted or spoke this turn in the scene kept him, because
+ * he had spoken before he went. So he was in the corridor for the next three turns, shaking against
+ * the stair, while the girl stayed in her cell: "not doing his fucking job", in the player's words.
+ *
+ * Read from the last paragraph that names this person to the end of the turn: if that stretch takes
+ * them out and nothing brings them back, they've gone, whatever they did before it.
+ */
+const COMES_BACK = /\b(?:comes? back|came back|returns?|returned|walks? back in|walked back in|reappears?|reappeared|is back|was back)\b/i;
+
+/** Going out of the room, in words that can't mean anything else. Stricter than LEAVES, which only
+ *  ever had to permit a move the bookkeeper asked for: "the body leaves the floor" and "the space
+ *  the guards left open" are not anybody walking out. */
+const GOES_OUT = new RegExp([
+  String.raw`\b(?:walks?|walked|strides?|strode|hurr(?:ies|ied|y)|runs?|ran|goes|went|slips?|slipped|steps?|stepped|storms?|stormed|backs?|backed|edges?|edged|limps?|limped|stumbles?|stumbled|flees|fled|bolts?|bolted|scurr(?:ies|ied)|scrambles?|scrambled|crawls?|crawled)\s+(?:out|away|off|from the room|down the (?:corridor|hall|hallway|stairs?|path|street|passage)|up the (?:stairs?|corridor)|through the (?:door(?:way)?|arch(?:way)?|gate))\b`,
+  String.raw`\b(?:and|then) (?:goes|went|leaves|left|is gone)(?=\s*[.!;,—]|\s*$)`,
+  String.raw`\b(?:is|was|has) gone(?=\s*[.!;,—]|\s+(?:from|out|away|now|too|already|down|through|again)\b)`,
+  String.raw`\bis through the (?:door(?:way)?|arch(?:way)?|gate)\b`,
+  String.raw`\b(?:leaves|left|exits?|exited)\s+(?:the (?:room|hall|corridor|garden|gardens|house|building|throne room|chamber|palace)|without)\b`,
+].join("|"), "i");
+
+export function goneByTheEnd(opts: { prose: string; name: string; pronouns?: string; others?: string[]; othersPronouns?: (string | undefined)[] }): boolean {
+  const probes = nameProbes(opts.name);
+  if (!probes.length) return false;
+  const own = new Set(probes);
+  const others = (opts.others ?? []).flatMap(nameProbes).filter((p) => !own.has(p));
+  const body = String(opts.prose ?? "").replace(/<<<[\s\S]*?>>>/g, " ");
+  const paras = body.split(/\n\s*\n/);
+  const named = (p: string) => { const low = maskQuotes(p).toLowerCase(); return probes.some((pr) => new RegExp(`\\b${pr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(low)); };
+  let last = -1;
+  paras.forEach((p, i) => { if (named(p)) last = i; });
+  if (last < 0) return false;
+  // "she doesn't step away yet" is somebody staying
+  const tail = maskQuotes(paras.slice(last).join("\n\n")).toLowerCase().replace(/\s+/g, " ")
+    .replace(/\b(?:doesn'?t|does not|don'?t|didn'?t|did not|won'?t|will not|isn'?t|wasn'?t|not|never|without)\s+(?:\w+\s+){0,2}?(?:walk|step|go|leav|run|mov|turn|head)\w*\s+(?:out|away|off)\b/g, " ");
+  if (COMES_BACK.test(tail) || owns(tail, probes, others, STAYS)) return false;
+  if (owns(tail, probes, others, GOES_OUT) || owns(tail, probes, others, HELD) || owns(tail, probes, others, REMOVED)) return true;
+  return !!pronounOwns(tail, probes, others, [GOES_OUT, HELD, EJECTED, CARRIED_OUT, DOOR_BEHIND], opts.pronouns, opts.othersPronouns ?? [], opts.others ?? []);
+}

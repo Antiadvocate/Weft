@@ -34,22 +34,197 @@
  * function now.
  */
 
+/* ── PLAIN TEXT, BY HAND ───────────────────────────────────────────────────────────────────────
+ *
+ * Nothing in this engine reads text with a regular expression. What a sentence MEANS is the
+ * models' to judge, and it reaches the engine as structured fields (see actionread.ts and the
+ * bookkeeper's schema); a pattern over words was always a guess at that, and a narrator that can
+ * phrase anything any way outruns every list. What's left is handling text as text: spaces, words,
+ * sentences, paragraphs, quoted lines. These do that by walking the characters. */
+
+const SPACES = new Set([" ", "\n", "\t", "\r", "\f", "\v", "\u00a0", "\u1680", "\u2028", "\u2029", "\u202f", "\u205f", "\u3000", "\ufeff"]);
+export function isSpace(ch: string): boolean {
+  return SPACES.has(ch) || (ch >= "\u2000" && ch <= "\u200a");
+}
+export function isDigit(ch: string): boolean { return ch >= "0" && ch <= "9"; }
+/** A letter in any script that has case, plus the caseless scripts (CJK, Arabic, Hebrew, Thai and so on). */
+export function isLetter(ch: string): boolean {
+  if (!ch) return false;
+  if (ch.toLowerCase() !== ch.toUpperCase()) return true;
+  const c = ch.codePointAt(0) ?? 0;
+  return c >= 0x0590 && !(c >= 0x2000 && c <= 0x2bff) && !(c >= 0x3000 && c <= 0x303f) && !(c >= 0xfe30 && c <= 0xfe4f) && !(c >= 0xff00 && c <= 0xff20);
+}
+export function isWordChar(ch: string): boolean { return isLetter(ch) || isDigit(ch) || ch === "_"; }
+
+/** Whitespace runs collapsed to one space, ends trimmed. */
+export function collapseSpaces(text: unknown): string {
+  const s = String(text ?? "");
+  let out = "", gap = false;
+  for (const ch of s) {
+    if (isSpace(ch)) { gap = out.length > 0; continue; }
+    if (gap) { out += " "; gap = false; }
+    out += ch;
+  }
+  return out;
+}
+
+/** Trim any of `chars` (and whitespace) off the end. */
+export function trimEndOf(text: string, chars: string): string {
+  let end = text.length;
+  while (end > 0 && (chars.includes(text[end - 1]) || isSpace(text[end - 1]))) end--;
+  return text.slice(0, end);
+}
+/** Trim any of `chars` (and whitespace) off both ends. */
+export function trimOf(text: string, chars: string): string {
+  let start = 0;
+  while (start < text.length && (chars.includes(text[start]) || isSpace(text[start]))) start++;
+  return trimEndOf(text.slice(start), chars);
+}
+
+/** The words in it: runs of letters, digits and inner apostrophes ("don't", "Isolde's"). */
+export function words(text: unknown): string[] {
+  const s = String(text ?? "");
+  const out: string[] = [];
+  let cur = "";
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    const apostrophe = (ch === "'" || ch === "\u2019") && cur && isWordChar(s[i + 1] ?? "");
+    if (isWordChar(ch) || apostrophe) { cur += ch; continue; }
+    if (cur) { out.push(cur); cur = ""; }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/** Index of `phrase` in `text` as whole words, case-insensitive, from `from`; -1 when absent. */
+export function indexOfWords(text: string, phrase: string, from = 0): number {
+  const hay = text.toLowerCase(), needle = phrase.toLowerCase().trim();
+  if (!needle) return -1;
+  let at = hay.indexOf(needle, from);
+  while (at !== -1) {
+    const before = at === 0 ? "" : hay[at - 1];
+    const after = hay[at + needle.length] ?? "";
+    if (!isWordChar(before) && !isWordChar(after)) return at;
+    at = hay.indexOf(needle, at + 1);
+  }
+  return -1;
+}
+/** Whether `phrase` appears in `text` as whole words, case-insensitive. */
+export function hasWords(text: unknown, phrase: string): boolean {
+  return indexOfWords(String(text ?? ""), phrase) !== -1;
+}
+
+const TERMINAL = ".!?\u2026";
+const CLOSERS = "\"\u201d')]\u2019";
+
+/** Sentences, each with its own end mark and any closing quote; a quoted line isn't split inside. */
+export function sentences(text: unknown): string[] {
+  const s = String(text ?? "");
+  const out: string[] = [];
+  let buf = "";
+  for (let i = 0; i < s.length; i++) {
+    buf += s[i];
+    if (!TERMINAL.includes(s[i])) continue;
+    while (i + 1 < s.length && TERMINAL.includes(s[i + 1])) buf += s[++i];
+    while (i + 1 < s.length && CLOSERS.includes(s[i + 1])) buf += s[++i];
+    if (i + 1 < s.length && !isSpace(s[i + 1])) continue;
+    const t = buf.trim();
+    if (t) out.push(t);
+    buf = "";
+  }
+  const t = buf.trim();
+  if (t) out.push(t);
+  return out;
+}
+
+/** Paragraphs: blocks separated by a blank line. */
+export function paragraphs(text: unknown): string[] {
+  const out: string[] = [];
+  let cur: string[] = [];
+  for (const line of String(text ?? "").split("\n")) {
+    if (line.trim() === "") { if (cur.length) { out.push(cur.join("\n")); cur = []; } continue; }
+    cur.push(line);
+  }
+  if (cur.length) out.push(cur.join("\n"));
+  return out;
+}
+
+/** Every span between `open` and `close`, without the marks. Unclosed spans run to the end. */
+export function between(text: unknown, open: string, close: string): string[] {
+  const s = String(text ?? "");
+  const out: string[] = [];
+  let at = s.indexOf(open);
+  while (at !== -1) {
+    const end = s.indexOf(close, at + open.length);
+    out.push(s.slice(at + open.length, end === -1 ? undefined : end));
+    if (end === -1) break;
+    at = s.indexOf(open, end + close.length);
+  }
+  return out;
+}
+/** The text with every span between `open` and `close` (marks included) replaced by `fill`. */
+export function without(text: unknown, open: string, close: string, fill = " "): string {
+  const s = String(text ?? "");
+  let out = "", from = 0;
+  let at = s.indexOf(open);
+  while (at !== -1) {
+    out += s.slice(from, at) + fill;
+    const end = s.indexOf(close, at + open.length);
+    if (end === -1) return out;
+    from = end + close.length;
+    at = s.indexOf(open, from);
+  }
+  return out + s.slice(from);
+}
+
+/** The lines spoken in quotation marks, straight or curly. */
+export function quotedLines(text: unknown): string[] {
+  const s = String(text ?? "");
+  const out: string[] = [];
+  let buf = "", open: string | null = null;
+  for (const ch of s) {
+    if (open === null) { if (ch === '"' || ch === "\u201c") { open = ch; buf = ""; } continue; }
+    if ((open === '"' && ch === '"') || (open === "\u201c" && (ch === "\u201d" || ch === '"'))) { const t = buf.trim(); if (t) out.push(t); open = null; continue; }
+    buf += ch;
+  }
+  return out;
+}
+/** The text with every quoted line replaced by a space: what was done, as opposed to what was said. */
+export function unquoted(text: unknown): string {
+  const s = String(text ?? "");
+  let out = "", open: string | null = null;
+  for (const ch of s) {
+    if (open === null) { if (ch === '"' || ch === "\u201c") { open = ch; out += " "; } else out += ch; continue; }
+    if ((open === '"' && ch === '"') || (open === "\u201c" && (ch === "\u201d" || ch === '"'))) open = null;
+  }
+  return out;
+}
+
+/** The object pronoun in a pronoun set like "she/her" or "he/him", or "them". */
+export function objectPronoun(pronouns: unknown): string {
+  const set = new Set(words(String(pronouns ?? "").toLowerCase()));
+  if (set.has("she") || set.has("her")) return "her";
+  if (set.has("he") || set.has("him")) return "him";
+  return "them";
+}
+
 /** Whitespace collapsed, ends trimmed. Model output arrives with stray newlines and doubled spaces
  *  more often than not, and they make every length measurement below lie. */
 function normalize(text: unknown): string {
-  return String(text ?? "").replace(/\s+/g, " ").trim();
+  return collapseSpaces(text);
 }
 
 /** Where a sentence ends, inside `head`. Handles the ellipsis and the closing quote that a line of
  *  dialogue ends on, so a quoted sentence counts as a whole statement. */
 function lastSentenceEnd(head: string): number {
   let best = -1;
-  for (const m of head.matchAll(/[.!?…]["”')\]]?(?=\s)/g)) {
-    const end = m.index! + m[0].length;
-    if (end > best) best = end;
+  for (let i = 0; i < head.length; i++) {
+    if (!TERMINAL.includes(head[i])) continue;
+    let end = i + 1;
+    if (end < head.length && CLOSERS.includes(head[end])) end++;
+    // a terminal mark at the very end of the head counts too: there is no trailing space to find
+    if (end === head.length || isSpace(head[end])) best = Math.max(best, end);
   }
-  // a terminal mark at the very end of the head counts too — there is no trailing space to match
-  if (/[.!?…]["”')\]]?$/.test(head)) best = head.length;
   return best;
 }
 
@@ -69,8 +244,8 @@ export function clipText(text: unknown, max: number): string {
   const stop = lastSentenceEnd(head);
   if (stop >= max * 0.5) return head.slice(0, stop).trim();
 
-  const clause = Math.max(head.lastIndexOf("; "), head.lastIndexOf(", "), head.lastIndexOf(" — "));
-  if (clause >= max * 0.6) return head.slice(0, clause).trim().replace(/[,;]$/, "") + "…";
+  const clause = Math.max(head.lastIndexOf("; "), head.lastIndexOf(", "), head.lastIndexOf(" \u2014 "));
+  if (clause >= max * 0.6) return trimEndOf(head.slice(0, clause).trim(), ",;") + "\u2026";
 
   // `s`, not `head`: clipWords measures against the budget, and a head that is already exactly
   // `max` long looks to it like text that fits — which returned the mid-word cut untouched.
@@ -84,7 +259,7 @@ export function clipWords(text: unknown, max: number): string {
   if (!s || s.length <= max) return s;
   const head = s.slice(0, max);
   const sp = head.lastIndexOf(" ");
-  return (sp > 0 ? head.slice(0, sp) : head).replace(/[\s,;:—-]+$/, "") + "…";
+  return trimEndOf(sp > 0 ? head.slice(0, sp) : head, ",;:\u2014-") + "\u2026";
 }
 
 /**
@@ -97,9 +272,9 @@ export function clipWords(text: unknown, max: number): string {
 export function firstSentences(text: unknown, n: number): string {
   const s = normalize(text);
   if (!s) return s;
-  const parts = s.match(/[^.!?…]+(?:[.!?…]+["”')\]]?|$)/g);
-  if (!parts || parts.length <= n) return s;
-  return parts.slice(0, n).map((x) => x.trim()).join(" ").trim();
+  const parts = sentences(s);
+  if (parts.length <= n) return s;
+  return parts.slice(0, n).join(" ").trim();
 }
 
 /**
@@ -113,8 +288,11 @@ export function clipTail(text: unknown, max: number): string {
   const s = normalize(text);
   if (!s || s.length <= max) return s;
   const cut = s.slice(s.length - max);
-  const start = cut.search(/[.!?…]\s+\S/);
-  return `…${(start >= 0 ? cut.slice(start + 1) : cut).trim()}`;
+  let start = -1;
+  for (let i = 0; i + 2 < cut.length; i++) {
+    if (TERMINAL.includes(cut[i]) && isSpace(cut[i + 1]) && !isSpace(cut[i + 2])) { start = i; break; }
+  }
+  return `\u2026${(start >= 0 ? cut.slice(start + 1) : cut).trim()}`;
 }
 
 /**
@@ -132,7 +310,7 @@ const OVERLAP_STOP = new Set(
 
 export function overlapRatio(rawA: unknown, rawB: unknown): number {
   const toks = (v: unknown) =>
-    new Set(String(v ?? "").toLowerCase().split(/\W+/).filter((w) => w.length > 3 && !OVERLAP_STOP.has(w)));
+    new Set(words(String(v ?? "").toLowerCase()).map((w) => w.split("'").join("").split("\u2019").join("")).filter((w) => w.length > 3 && !OVERLAP_STOP.has(w)));
   const a = toks(rawA), b = toks(rawB);
   if (!a.size || !b.size) return 0;
   let shared = 0;
@@ -143,11 +321,10 @@ export function overlapRatio(rawA: unknown, rawB: unknown): number {
 /**
  * Split a paragraph into sentences, treating a quoted line as one indivisible thing.
  *
- * `para.match(/[^.!?]+[.!?]*​/g)` — the obvious version — cuts "Hi. I'm Rabi." into three pieces and
- * hands them to callers that may drop one, which leaves an opening quote mark with no line behind
- * it and an attribution for words nobody said. Full stops inside quotation marks are not sentence
- * ends as far as any caller here is concerned: the unit is the spoken line plus whatever attribution
- * follows it.
+ * The obvious version cuts "Hi. I'm Rabi." into three pieces and hands them to callers that may drop
+ * one, which leaves an opening quote mark with no line behind it and an attribution for words nobody
+ * said. Full stops inside quotation marks are not sentence ends as far as any caller here is
+ * concerned: the unit is the spoken line plus whatever attribution follows it.
  */
 export function splitSentencesOutsideQuotes(para: string): string[] {
   const out: string[] = [];
@@ -155,11 +332,11 @@ export function splitSentencesOutsideQuotes(para: string): string[] {
   for (let i = 0; i < para.length; i++) {
     const ch = para[i];
     buf += ch;
-    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : ch === "“" ? true : !inQuote; continue; }
+    if (ch === '"' || ch === "\u201c" || ch === "\u201d") { inQuote = ch === "\u201d" ? false : ch === "\u201c" ? true : !inQuote; continue; }
     if (inQuote || !".!?".includes(ch)) continue;
     // run out any repeated terminals and the whitespace that follows, so the split lands cleanly
     while (i + 1 < para.length && ".!?".includes(para[i + 1])) buf += para[++i];
-    while (i + 1 < para.length && /\s/.test(para[i + 1])) buf += para[++i];
+    while (i + 1 < para.length && isSpace(para[i + 1])) buf += para[++i];
     out.push(buf); buf = "";
   }
   if (buf) out.push(buf);
