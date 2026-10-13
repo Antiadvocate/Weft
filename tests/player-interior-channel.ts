@@ -28,6 +28,7 @@
  * forms, and the narrator never receives it.
  */
 import { splitInterior, outwardOnly, bearingDirective, chargeOf, directionOf } from "../src/engine/interior";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -36,14 +37,20 @@ function check(name: string, c: boolean, extra?: unknown) {
 }
 
 const ACTION = `I hand her the towel *and I hated her for doing that*`;
+/** How much the feeling carries, and which way, comes from the turn's read (engine/actionread.ts).
+ *  What a careful reader gives the towel: a good deal of it, and it tightens him. */
+const HATED: ActionRead = { ...EMPTY_READ, thought: "and I hated her for doing that", inner: { charge: 0.7, direction: -1 } };
+/** ...and a passing "hm": next to nothing, no way about it. */
+const HM: ActionRead = { ...EMPTY_READ, thought: "hm", inner: { charge: 0.05, direction: 0 } };
 
 /* ── 1. the split ─────────────────────────────────────────────────────────────── */
 {
-  const { outward, interior } = splitInterior(ACTION);
+  const { outward, interior } = splitInterior(ACTION, HATED);
   check("the act survives", outward === "I hand her the towel", outward);
   check("the thought is out of the outward half", !/hated/i.test(outward), outward);
   check("...and is held for the bookkeeper", !!interior && /hated her/i.test(interior.content), interior);
   check("it reads as tightening", interior?.direction === -1, interior);
+  check("without a read it carries nothing the narrator is told about", splitInterior(ACTION).interior?.charge === 0 && bearingDirective(splitInterior(ACTION).interior, -6) === "");
 
   // parentheses are the same channel
   const paren = splitInterior(`he walked out. (I was pissed, didn't want her to see me)`);
@@ -62,7 +69,7 @@ const ACTION = `I hand her the towel *and I hated her for doing that*`;
 
 /* ── 2. nothing the narrator receives contains the words ──────────────────────── */
 {
-  const { interior } = splitInterior(ACTION);
+  const { interior } = splitInterior(ACTION, HATED);
   for (const [label, relax] of [["settled", 5], ["clenched", -6], ["middling", 0]] as const) {
     const d = bearingDirective(interior, relax);
     check(`${label}: the narrator is told something`, d.length > 0);
@@ -74,7 +81,7 @@ const ACTION = `I hand her the towel *and I hated her for doing that*`;
 
 /* ── 3. the two roads: grip decides which ─────────────────────────────────────── */
 {
-  const { interior } = splitInterior(ACTION);
+  const { interior } = splitInterior(ACTION, HATED);
   const settled = bearingDirective(interior, 5);
   const clenched = bearingDirective(interior, -6);
   check("a settled body puts it into the act", /goes into what they do|completely/.test(settled), settled);
@@ -85,12 +92,13 @@ const ACTION = `I hand her the towel *and I hated her for doing that*`;
 
 /* ── 4. a passing note is not a beat ──────────────────────────────────────────── */
 {
-  const faint = splitInterior(`I nod *hm*`);
+  const faint = splitInterior(`I nod *hm*`, HM);
   check("two characters of interior raise nothing", bearingDirective(faint.interior, -6) === "", faint);
-  check("an action with no private channel raises nothing", bearingDirective(splitInterior("I nod").interior, -6) === "");
-  check("charge rises with what is actually carried",
-    chargeOf("and I hated her for doing that") > chargeOf("hm"));
-  check("an unreadable interior has no direction", directionOf("the thing about the door") === 0);
+  check("an action with no private channel raises nothing", bearingDirective(splitInterior("I nod", HATED).interior, -6) === "");
+  check("charge rises with what is actually carried", chargeOf(HATED) > chargeOf(HM));
+  // "the thing about the door": mixed or unclear, so the reader gives it no direction
+  check("an unreadable interior has no direction", directionOf({ ...EMPTY_READ, inner: { charge: 0.3, direction: 0 } }) === 0);
+  check("an empty read carries nothing", chargeOf(EMPTY_READ) === 0 && directionOf(EMPTY_READ) === 0);
 }
 
 /* ── 5. THE HISTORY LEAK, which is the one that would have made all of this pointless ──

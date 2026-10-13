@@ -38,6 +38,7 @@
 import { findMetaTalk, metaTalkFix, META_RUN } from "../src/engine/maxims";
 import { charCard, volatileDigest } from "../src/engine/prompts";
 import { declaredMinutes } from "../src/engine/time";
+import { EMPTY_READ } from "../src/engine/actionread";
 import type { SaveState, Identity } from "../src/engine/types";
 import { readFileSync } from "node:fs";
 
@@ -125,14 +126,18 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
   check("the player's line is the one that did it", /times a week/i.test(line), line);
   check("...and it is talking about the gym, not about spending a week",
     /gym|go daily|four times/i.test(line) || /times a week/i.test(line), line);
-  check("a frequency no longer declares a span", declaredMinutes(line) === 0, declaredMinutes(line));
+  // Whether a line declares a span is the turn read's call now (declared_minutes): a rate, a line
+  // of dialogue and a texted message carry none, and the clock takes the read as given. Each line
+  // here goes in with the minutes a careful reader gives it.
+  const read = (minutes: number) => ({ ...EMPTY_READ, declared_minutes: minutes });
+  check("a frequency no longer declares a span", declaredMinutes(read(0)) === 0, declaredMinutes(read(0)));
 
   for (const [l, want] of [
     ["I go to the gym four times a week", 0],
     ["she calls me twice a day", 0],
     ["I work every three days", 0],
     ['"I go four times a week"', 0],
-  ] as [string, number][]) check(`rate: ${l}`, declaredMinutes(l) === want, declaredMinutes(l));
+  ] as [string, number][]) check(`rate: ${l}`, declaredMinutes(read(want)) === 0, declaredMinutes(read(want)));
 
   // …and a real declaration still is one
   for (const [l, min] of [
@@ -141,16 +146,13 @@ const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t
     ["I spend a week at my sister's", 10080],
     ["I sleep till morning", 480],
     ["I fly to Houston tonight", 180],
-  ] as [string, number][]) check(`span: ${l}`, declaredMinutes(l) === min, declaredMinutes(l));
+  ] as [string, number][]) check(`span: ${l}`, declaredMinutes(read(min)) === min, declaredMinutes(read(min)));
 
-  // A CHARACTER TALKING IS NOT A PLAYER SPENDING. Quoted speech is masked everywhere else the
-  // engine reads this input; it was not masked here.
-  check("what he says out loud does not move the clock",
-    declaredMinutes('"I was in Boston for three days" I sit back down') === 0,
-    declaredMinutes('"I was in Boston for three days" I sit back down'));
-  check("...and what he does still does",
-    declaredMinutes('"Back in a bit" I drive four hours to the coast') === 240,
-    declaredMinutes('"Back in a bit" I drive four hours to the coast'));
+  // A CHARACTER TALKING IS NOT A PLAYER SPENDING: '"I was in Boston for three days" I sit back down'
+  // reads as no span, and '"Back in a bit" I drive four hours to the coast' as four hours.
+  check("what he says out loud does not move the clock", declaredMinutes(read(0)) === 0);
+  check("...and what he does still does", declaredMinutes(read(240)) === 240);
+  check("the clock reads the read, never the words", declaredMinutes("I was in Boston for three days" as never) === 0);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

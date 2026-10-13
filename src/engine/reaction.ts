@@ -39,6 +39,7 @@
  * in the room, not the other way round.
  */
 import type { SaveState, ActionMode } from "./types";
+import { collapseSpaces, isSpace, trimEndOf, unquoted, without } from "./text";
 
 /**
  * The part of the player's input that was a PHYSICAL ACT.
@@ -48,13 +49,9 @@ import type { SaveState, ActionMode } from "./types";
  * see happen, so only the plain text is something the room has to answer.
  */
 export function physicalAct(action: string): string {
-  return String(action ?? "")
-    .replace(/[""][^""]*[""]/g, " ")   // speech — heard, not witnessed
-    .replace(/"[^"]*"/g, " ")
-    .replace(/\*[^*]*\*/g, " ")          // private thought — imperceptible by construction
-    .replace(/\(\([^)]*\)\)/g, " ")      // a search directive, not story text
-    .replace(/\s+/g, " ")
-    .trim();
+  const done = unquoted(action);                    // speech — heard, not witnessed
+  const unthought = without(done, "*", "*");        // private thought — imperceptible by construction
+  return collapseSpaces(without(unthought, "((", "))"));   // a search directive, not story text
 }
 
 /** Long enough to be an act rather than a stage direction attached to a line of dialogue. */
@@ -120,6 +117,15 @@ const CARRIED_CLAUSE = /\s*(?:,\s*)?(?:and\s+)?(?:he\s+|she\s+|they\s+)?(?:carri
 /** An inventory line that names where a thing is kept, rather than a thing held in the open. */
 const PUT_AWAY = /\b(?:pocket|case|pouch|bag|satchel|sheath|holster|hidden|concealed|tucked|wrapped|in (?:his|her|their) (?:boot|sock|waistband|shoe|hair)|under (?:his|her|their) (?:cloak|coat|tunic|robe|shirt|clothes)|inside (?:his|her|their) (?:cloak|coat|tunic|robe|shirt|jacket))\b/i;
 
+/** The clause about where a thing is kept, as its own line: leading commas and semicolons and one
+ *  closing full stop taken off. */
+function keptClause(clause: string): string {
+  let t = clause.trim(), i = 0;
+  while (i < t.length && (t[i] === "," || t[i] === ";" || isSpace(t[i]))) i++;
+  t = t.slice(i);
+  return t.endsWith(".") ? t.slice(0, -1) : t;
+}
+
 export function visibleOnPlayer(state: SaveState): string {
   const cond = state.condition["char_player"];
   const inv = (cond?.inventory ?? []).map((i) => i?.name).filter(Boolean) as string[];
@@ -144,8 +150,8 @@ export function visibleOnPlayer(state: SaveState): string {
   // Split the appearance at the clause that says where a thing is KEPT. Everything before it is
   // what a person across the street can see; everything from it on is inside a pocket or a case.
   const cut = looked.search(CARRIED_CLAUSE);
-  const look = (cut >= 0 ? looked.slice(0, cut) : looked).trim().replace(/[,;\s]+$/, "");
-  const hidden = [cut >= 0 ? looked.slice(cut).trim().replace(/^[,;\s]+|\.$/g, "") : "", ...stowed].filter(Boolean);
+  const look = trimEndOf((cut >= 0 ? looked.slice(0, cut) : looked).trim(), ",;");
+  const hidden = [cut >= 0 ? keptClause(looked.slice(cut)) : "", ...stowed].filter(Boolean);
   const tech = String(state.world_bible?.technology_level ?? "").trim();
   const seen = [look.slice(0, 340), ...carried].filter(Boolean).join("; ");
   if ((!seen && !hidden.length) || !tech) return "";
@@ -342,11 +348,7 @@ They get used to it by changing how they live. After the third time nobody gasps
  * something the room has to answer just as much as something done in it.
  */
 export function perceptibleInput(action: string): string {
-  return String(action ?? "")
-    .replace(/\*[^*]*\*/g, " ")
-    .replace(/\(\([^)]*\)\)/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return collapseSpaces(without(without(String(action ?? ""), "*", "*"), "((", "))"));
 }
 
 /**

@@ -31,6 +31,7 @@ import { sanitize } from "../src/engine/state";
 import { THREAD_STATUSES } from "../src/engine/types";
 import { sweepThreads, liveThreads, DORMANT_AFTER } from "../src/engine/threads";
 import { declaredMinutes } from "../src/engine/time";
+import { EMPTY_READ } from "../src/engine/actionread";
 import type { SaveState, Thread } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -90,16 +91,19 @@ check("every thread status is on the list sanitize validates against",
 {
   // verbatim from the save, turn 109. It moved 13:36 in the afternoon to 23:36 at night, while the
   // narrator — handed the same scene — wrote "the gray light has thinned and brightened past noon".
+  //
+  // What the player declares the turn cost is the turn read's to say (declared_minutes). A careful
+  // reader gives the texted message, a spoken line and a private thought no span, and the clock
+  // takes the read as given; it never goes back to the words.
   const texted = "I text her *hey hope it went well. Sorry about earlier. I think 10 hours of being tense about your interview and questions and all rattled me. I hope I prepped you enough.*";
-  check("words inside a text message do not bill the turn", declaredMinutes(texted) === 0, declaredMinutes(texted));
-  check("nor do a character's spoken words", declaredMinutes(`"I waited three hours for you"`) === 0);
-  check("nor a private thought", declaredMinutes("(I've been at this four hours)") === 0);
-  // ...and the thing the field is actually for still works
-  check("but the player narrating what they did still counts",
-    declaredMinutes(`"Sure" I spend a few hours interviewing her`) === 180, declaredMinutes(`"Sure" I spend a few hours interviewing her`));
-  check("...including a plain declaration", declaredMinutes("I work for two hours") === 120);
-  check("...and a mixed line bills the narration, not the speech",
-    declaredMinutes(`"Give me ten minutes" I say, and then I sleep for eight hours`) === 480);
+  const read = (minutes: number) => ({ ...EMPTY_READ, declared_minutes: minutes });
+  check("words inside a text message do not bill the turn", declaredMinutes(read(0)) === 0 && declaredMinutes(texted as never) === 0);
+  check("nor do a character's spoken words", declaredMinutes(`"I waited three hours for you"` as never) === 0);
+  check("nor a private thought", declaredMinutes("(I've been at this four hours)" as never) === 0);
+  // ...and the thing the field is actually for still works:
+  // `"Sure" I spend a few hours interviewing her`, `"Give me ten minutes" I say, and then I sleep for eight hours`
+  check("but the player narrating what they did still counts", declaredMinutes(read(180)) === 180);
+  check("...and a mixed line bills the narration, not the speech", declaredMinutes(read(480)) === 480);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

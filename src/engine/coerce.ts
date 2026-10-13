@@ -258,9 +258,20 @@ export function ownWant(ownerName: string, text: unknown): { goal: string; slipp
  *  One object where a list belongs is a list of one; that reading is never wrong. Normalising once
  *  at the boundary is also the only version that stays fixed — guarding the call sites means
  *  guarding all of them forever, and there are thirty, and the next one added will not be guarded. */
+/** Diff fields the schema defines as ONE object, never a list. Wrapping these turned the bible
+ *  update, the unexplained sighting and the prose check into one-element arrays, and every reader
+ *  of them takes fields off an object, so all three silently did nothing. */
+const SINGLE_OBJECT = new Set(["bible_update", "unexplained", "prose_check"]);
+
 export function normalizeDiffArrays<T extends Record<string, unknown>>(diff: T): T {
   for (const [k, v] of Object.entries(diff)) {
-    if (v === null || v === undefined || Array.isArray(v)) continue;
+    if (v === null || v === undefined) continue;
+    if (SINGLE_OBJECT.has(k)) {
+      // the opposite slip: a model that returned the object inside a list
+      if (Array.isArray(v)) (diff as Record<string, unknown>)[k] = v.find((x) => x && typeof x === "object") ?? undefined;
+      continue;
+    }
+    if (Array.isArray(v)) continue;
     // Only fields the engine iterates. A scalar (elapsed_minutes, scene_summary) stays a scalar;
     // wrapping those would turn a number into [number] and break arithmetic downstream.
     if (typeof v === "object") (diff as Record<string, unknown>)[k] = [v];

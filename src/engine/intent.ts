@@ -26,7 +26,8 @@ import { contextHistory } from "./context";
 import { complete, buildMessages, safeJson } from "../llm";
 import { effectiveStanding, dispositionCue } from "./desire";
 import { relevance } from "./memory";
-import { clipText } from "./text";
+import { clipText, collapseSpaces, isDigit, isLetter, isSpace, isWordChar, trimEndOf, without } from "./text";
+import { turnRead, type ActionRead } from "./actionread";
 import { doorFromVoice } from "./coerce";
 import { playerSaysAnswered, deixisNote } from "./turn";
 
@@ -108,12 +109,16 @@ Rules:
  * written from outside is still information the bookkeeper can use; what it is not is her. The rule
  * itself lives in INTENT_SYSTEM where it costs nothing, and this is how to check whether it landed.
  */
+const SUBJECT_PRONOUNS = new Set(["she", "he", "they", "her", "him", "them", "his", "their"]);
+
 export function narratedFromOutside(truth: string, name?: string): boolean {
   const t = String(truth ?? "").trim();
   if (!t) return false;
-  const first = String(name ?? "").trim().split(/\s+/)[0] ?? "";
-  if (/^(?:she|he|they|her|him|them|his|their)\b/i.test(t)) return false;
-  if (first.length > 2 && new RegExp(`^${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(t)) return false;
+  const first = collapseSpaces(name).split(" ")[0] ?? "";
+  let k = 0;
+  while (k < t.length && isWordChar(t[k])) k++;
+  if (SUBJECT_PRONOUNS.has(t.slice(0, k).toLowerCase())) return false;
+  if (first.length > 2 && t.toLowerCase().startsWith(first.toLowerCase()) && !isWordChar(t[first.length] ?? "")) return false;
   return true;
 }
 
@@ -186,13 +191,80 @@ function priorIntentBlock(state: SaveState, id: string): string {
  * than a deleted clause.
  */
 export function deQuoteIntent(t: string): string {
-  return String(t ?? "")
-    .replace(/\s*[,:]?\s*(?:and\s+)?(?:she|he|they)?\s*says?,?\s*["“][^"“”]*["”]/gi, "")
-    .replace(/["“][^"“”]{4,}["”]/g, "")
-    .replace(/(^|[\s(\[])['‘]([^'‘’\n]{4,})['’](?=$|[\s.,!?;:)\]])/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s+([.,])/g, "$1")
-    .trim();
+  return tidySpaces(withoutSingleQuoted(withoutDoubleQuoted(String(t ?? "")))).trim();
+}
+
+/** The word ending just before `end` in `text` (lowercased), and where it starts; "" when there isn't one. */
+function wordBefore(text: string, end: number): { word: string; start: number } {
+  let start = end;
+  while (start > 0 && isWordChar(text[start - 1])) start--;
+  return { word: text.slice(start, end).toLowerCase(), start };
+}
+
+/** Double-quoted lines taken out: every one with "says" in front of it, attribution and all
+ *  (", and she says, "…""), and any other of four characters or more. */
+function withoutDoubleQuoted(text: string): string {
+  let out = "", from = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '"' && text[i] !== "“") continue;
+    let j = i + 1;
+    while (j < text.length && !'"“”'.includes(text[j])) j++;
+    if (j >= text.length) break;
+    if (text[j] === "“") { i = j - 1; continue; }   // a second opening mark: the span starts there instead
+    // what's in front of the quote: [,|:] [and] [she|he|they] say(s)[,]
+    let at = i;
+    const back = () => { while (at > from && isSpace(text[at - 1])) at--; };
+    back();
+    if (at > from && text[at - 1] === ",") { at--; back(); }
+    const verb = wordBefore(text, at);
+    let cut = -1;
+    if ((verb.word === "say" || verb.word === "says") && verb.start >= from) {
+      at = verb.start; back();
+      const who = wordBefore(text, at);
+      if (["she", "he", "they"].includes(who.word) && who.start >= from) { at = who.start; back(); }
+      const and = wordBefore(text, at);
+      if (and.word === "and" && and.start >= from) { at = and.start; back(); }
+      if (at > from && (text[at - 1] === "," || text[at - 1] === ":")) { at--; back(); }
+      cut = at;
+    } else if (j - i - 1 >= 4) cut = i;
+    if (cut < 0) { i = j; continue; }
+    out += text.slice(from, cut);
+    from = j + 1;
+    i = j;
+  }
+  return out + text.slice(from);
+}
+
+/** A single-quoted span of four characters or more, opening and closing at a word boundary, taken
+ *  out. An apostrophe inside a word ("doesn't", "He's") never opens or closes one. */
+function withoutSingleQuoted(text: string): string {
+  let out = "", from = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "'" && text[i] !== "‘") continue;
+    if (i > 0 && !isSpace(text[i - 1]) && text[i - 1] !== "(" && text[i - 1] !== "[") continue;
+    let j = i + 1;
+    while (j < text.length && !"'‘’\n".includes(text[j])) j++;
+    if (j >= text.length || text[j] === "‘" || text[j] === "\n" || j - i - 1 < 4) continue;
+    const after = text[j + 1] ?? "";
+    if (after && !isSpace(after) && !".,!?;:)]".includes(after)) continue;
+    out += text.slice(from, i);
+    from = j + 1;
+    i = j;
+  }
+  return out + text.slice(from);
+}
+
+/** Runs of two or more spaces closed up to one, and no space left in front of a full stop or comma. */
+function tidySpaces(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    if (!isSpace(text[i])) { out += text[i]; continue; }
+    let j = i;
+    while (j < text.length && isSpace(text[j])) j++;
+    if (text[j] !== "." && text[j] !== ",") out += j - i >= 2 ? " " : text[i];
+    i = j - 1;
+  }
+  return out;
 }
 
 /** Cut to a length without cutting mid-sentence. A hard slice left the GM panel full of intents that
@@ -208,7 +280,7 @@ export function deQuoteIntent(t: string): string {
  * no vocabulary, so a real pair scores far below this and only a copy trips it.
  */
 export function collapsed(surface: string, truth: string): boolean {
-  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  const norm = (x: string) => collapseSpaces([...x.toLowerCase()].map((ch) => (isLetter(ch) || isDigit(ch) ? ch : " ")).join(""));
   const a = norm(surface), b = norm(truth);
   if (!a || !b) return true;
   if (a === b) return true;
@@ -235,6 +307,16 @@ export function repeatedIntent(prior: string[]): boolean {
   return relevance(prev, last) >= 0.4 || relevance(last, prev) >= 0.4;
 }
 
+/** What the room could perceive of the player's turn: what they visibly did, then each line they
+ *  said aloud, in quotes. When the read has nothing in it at all, the typed line with *asterisked*
+ *  and (parenthetical) private parts taken out. Empty when there was nothing to perceive. */
+export function perceptibleFrom(read: ActionRead, typed: string): string {
+  const lines = read.said.map((l) => `"${l}"`).join(" ");
+  const seen = collapseSpaces([read.did, lines].filter((x) => x.trim()).join(" "));
+  if (seen || read.thought.trim()) return seen;
+  return trimEndOf(collapseSpaces(without(without(String(typed ?? ""), "*", "*", " "), "(", ")", " ")), ":;,");
+}
+
 /** Run the intent pass for all present NPCs with stakes. Returns their private intents.
  *  Fires zero calls when nobody has stakes. One cheap call per staked NPC (usually 0–1). */
 export async function runIntentPass(state: SaveState, playerAction: string): Promise<NpcIntent[]> {
@@ -247,14 +329,13 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
     .filter((x): x is { id: string; reason: string } => !!x.reason);
   if (!staked.length) return [];
 
-  // What the player AUDIBLY said / VISIBLY did — the only player input an NPC may react to.
-  // Strip *private thoughts* and (parenthetical inner state); keep "speech" and plain action.
-  const perceptibleAction = playerAction
-    .replace(/\*[^*]*\*/g, "")
-    .replace(/\([^)]*\)/g, "")
-    .replace(/[:;,]\s*$/, "")
-         .replace(/\s{2,}/g, " ")
-    .trim() || "(the player did nothing others could perceive this beat)";
+  // What the player AUDIBLY said / VISIBLY did — the only player input an NPC may react to — as
+  // the turn read has it: what anyone could see them do, and their lines spoken aloud. Private
+  // thought isn't in either. A read with nothing at all in it (the call failed) falls back to the
+  // typed line with *private thoughts* and (parenthetical inner state) taken out, as before.
+  const read = turnRead(state);
+  const perceptibleAction = perceptibleFrom(read, playerAction)
+    || "(the player did nothing others could perceive this beat)";
 
   const results = await Promise.all(staked.map(async ({ id, reason }) => {
     const c = state.characters[id];
@@ -270,12 +351,12 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       // them — the same shape as every other bug this engine has had: a pass told to act on state it
       // is not given. Without the blocker it cannot know the want is frightening; without the
       // approach it invents a door the character does not use.
-      c.drive?.goal ? `Wants${afraid ? " (waiting until they're safe from the player)" : ""}: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
+      c.drive?.goal ? `Wants${afraid ? " (and goes after it carefully, being afraid of the player)" : ""}: ${c.drive.goal}${c.drive.blocker ? ` — but: ${c.drive.blocker}` : ""}` : "",
       // the want's own door if it has one, otherwise the person's — see doorFromVoice. A pass with
       // no door writes the surface AS the want, which is the announcement this rule exists to stop.
-      // Someone afraid of the player for their life isn't going after it in front of him.
-      afraid ? "" : (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
-               return door ? `How they go about it (the surface should be exactly this): ${door}` : ""; })(),
+      // Fear changes how they go at it, never whether: see engine/fear.ts.
+      (() => { const door = c.drive?.approach?.trim() || doorFromVoice(c);
+               return door ? `How they go about it (the surface should be exactly this${afraid ? ", done carefully enough not to set the player off" : ""}): ${door}` : ""; })(),
       `Mood: ${cond.psyche.mood || "even"}; openness ${cond.psyche.relaxation}.`,
       e ? `Toward the player: warmth ${Math.round(e.warmth)}, trust ${Math.round(e.trust)}${e.attraction !== undefined ? `, desire ${Math.round(e.attraction)}` : ""}${e.roles?.length ? `, roles ${e.roles.join("/")}` : ""} — ${dispositionCue(e.warmth ?? 0, e.trust ?? 0, effectiveStanding(standingToward(state, id, "char_player"), state.power_witnessed?.tier))}${belief ? `. WRONGLY BELIEVES: ${belief}` : ""}.` : "They barely know the player, so they are polite, sizing the player up, and noncommittal about favours, trust and risk. They still do their ordinary work or duty for a stranger the way they would for anyone.",
       // where they sit relative to the player in this world's order: see engine/station.ts
@@ -290,7 +371,9 @@ export async function runIntentPass(state: SaveState, playerAction: string): Pro
       // say so — "I already answered you", "I'm tired of repeating myself" — that is a direct
       // report on this pass's output, from the only participant with the whole sequence in front of
       // them. It is worth more than anything in the state, because the state is what is wrong.
-      playerSaysAnswered(playerAction)
+      // As the turn read has it. This passed the typed string for as long as playerSaysAnswered
+      // read one, and kept passing it after it started taking the read, which made it always false.
+      playerSaysAnswered(read)
         ? `THE PLAYER HAS JUST SAID THEY ALREADY ANSWERED THIS AND ARE TIRED OF REPEATING THEMSELVES. They're right, so treat it as fact. Whatever this character has been waiting to hear, they heard it several moments ago. Don't write them still wanting it, still unsure about it, still working out how to get it out of the player, or hurt that it took so long. Write what a person does after they've got their answer: they accept it and act on it, or they decide plainly that they don't believe it and act on that, or they want something else now. The subject is closed, and by the end of this moment their attention has moved somewhere new.`
         : "",
       // This pass gets the player's raw words with the quotes intact and has to decide what they

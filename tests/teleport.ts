@@ -31,6 +31,7 @@
  */
 import { travelMinutesBetween, worldScale, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
 import { declaredMinutes, minutesBetween } from "../src/engine/time";
+import { EMPTY_READ } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 import { readFileSync } from "node:fs";
 
@@ -50,15 +51,20 @@ const MARKET = "Columbia City Farmers Market";
   const t40 = FIX.time_at_turn["40"], t41 = FIX.time_at_turn["41"];
   check("the flight really was billed at minutes", minutesBetween(t40, t41) <= 5, { t40, t41 });
 
-  const declared = declaredMinutes(FIX.actions["41"]);
+  // How long the player says the turn took is the turn read's to say (declared_minutes); the floor
+  // takes what it's given. "After hours of travel. I finally arrive in Houston" reads as hours.
+  const declared = declaredMinutes({ ...EMPTY_READ, declared_minutes: 4 * 60 });
   check("the player's own words declare hours", declared >= 3 * 60, { declared, action: FIX.actions["41"] });
   check("...and the declaration outranks the bill", declared > minutesBetween(t40, t41));
 
   // The floor reads the PLAYER, never the prose — a narrator writing "hours later" is a guess.
-  check("an ordinary turn declares nothing", declaredMinutes("I sit down and eat my eggs") === 0);
-  check("a counted span is read", declaredMinutes("I wait three hours") === 180);
-  check("a flight is read even unnumbered", declaredMinutes("I fly to Houston tonight") >= 180);
-  check("...but only when it is a journey", declaredMinutes("I think about the airport") === 0);
+  // "I sit down and eat my eggs", "I think about the airport": a careful reader gives them no span.
+  check("an ordinary turn declares nothing", declaredMinutes(EMPTY_READ) === 0);
+  check("a counted span is taken as read", declaredMinutes({ ...EMPTY_READ, declared_minutes: 180 }) === 180);
+  check("a fortnight is the most one turn can declare", declaredMinutes({ ...EMPTY_READ, declared_minutes: 60 * 24 * 365 }) === 14 * 24 * 60);
+  check("and nonsense declares nothing", declaredMinutes({ ...EMPTY_READ, declared_minutes: -30 }) === 0
+    && declaredMinutes({ ...EMPTY_READ, declared_minutes: NaN }) === 0);
+  check("a bare string is no read", declaredMinutes("I wait three hours" as never) === 0);
 }
 
 /* ── 2. one world, two scales ────────────────────────────────────────────────── */

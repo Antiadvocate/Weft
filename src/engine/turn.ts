@@ -9,7 +9,7 @@
  *      rumor diffusion, drive ticks, clock/consequence bookkeeping — 0 tokens
  *   5. reflection (every R turns, importance-gated)            [occasional small call]
  */
-import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury } from "./types";
+import type { ActionMode, SaveState, SimulatorDiff, TurnTelemetry, Belief, Stance, WorldBible, Injury, ProseCheck } from "./types";
 import { contextHistory } from "./context";
 import { decidePressure, isDue, pressureDirective, beatDirective, beatSources, detectPowerTier, tierFromRecord, rememberPowerTier, selectBeat, dischargeFiredClocks, isBesieged, RETIRE_AT, type Beat } from "./pressure";
 import { readFate, enforceFate, fateDirective, gravityDirective, fatePressureFloor, outcomeOf } from "./fate";
@@ -39,13 +39,12 @@ import { runLifeEvents } from "./lifeevents";
 import { dueTracked, askTracked, applyTracked } from "./tracked";
 import { turnSearchQuery } from "./grounding";
 import { playerTrip, leavingBeat } from "./leaving";
-import { scrubPlayerVoice, voicedFix } from "./playervoice";
-import { guardNuked } from "./nuke";
+import { voicedFix } from "./playervoice";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
-import { appraiseDanger, appraiseAct, shiftFear } from "./fear";
+import { appraiseDanger, appraiseAct, shiftFear, fearOf, AFRAID } from "./fear";
 import { readAction, turnRead, EMPTY_READ, type ActionRead } from "./actionread";
 import { setStation, beatOrder, keptAtTheDoor, atTheDoorNote } from "./station";
-import { findNarratedBack, narratedBackFix } from "./narratedback";
+import { narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
 import { seedAttraction, orientationCap, tickDesire, tickRivalry, repairAuthoredBonds } from "./desire";
 import { fadesOnItsOwn, bodyDirective, bodySeverity, severityOfText, lossKey, isPermanentLoss } from "./body";
@@ -56,11 +55,12 @@ import { tickEmotions, tickCoRegulation, tickDischarge, cleanMood } from "./emot
 import { frameAttempt, attemptDirective } from "./attempt";
 import { splitInterior, bearingDirective, playerGrip } from "./interior";
 import { faultsThisTurn, applyFaults, tickRepair, faultDirective } from "./fault";
-import { trimAmbient, overusedAmbient, ambientExample, ambientFix } from "./ambient";
-import { MOTIVE_LEAK, scrubForReplay, reviseProse, displayProse } from "./reviser";
+import { overusedAmbient, ambientExample, ambientFix } from "./ambient";
+import { scrubForReplay, reviseProse, displayProse } from "./reviser";
 export { scrubForReplay };
 import { tickSeverance, severanceDirective } from "./severance";
-import { findIntrusion, thresholdFix, thresholdLaw } from "./threshold";
+import { isPrivateInterior, thresholdFix, thresholdLaw } from "./threshold";
+import { shapeCheck, shapeDialogue, hasFindings, KEEP_FINDINGS, needsRewrite, cutSentences, cutSpans, trimToStory, dropLastParagraph, settingCuts, contains, feedForward, proseCheckContext } from "./prosecheck";
 import { detectOOC, oocFrame, oocDirective, OOC_STANDS, detectVoid, voidFrame, voidNotice } from "./ooc";
 import { trackSilence, speechDirective, angerRegister } from "./speech";
 import { apertureNote, heardYouNote, attributeLines } from "./aperture";
@@ -68,24 +68,23 @@ import { measure as measureTemplates, readingNote } from "./templates";
 import { sift, REPEAT_WINDOW } from "./shifts";
 import { bearingNote } from "./bearing";
 import { departureEvidence, releaseEvidence, findRisen, risenFix, recordCustody, goneByTheEnd } from "./exit";
-import { checkCoherence, retryNote, excise, type Violation } from "./coherence";
+import { retryNote } from "./coherence";
 import { becomingDirective, becomingBehind, becomingLaw, becomingFinalLaw, arrivalDirective, becomingAsk, applyBecomingProgress, liveBecomings, type Becoming } from "./becoming";
 import { regenerateDrives, magnetPull } from "./drives";
 import { tickNeglect } from "./neglect";
 import { habitDirective, hasAuthored, liveAuthored, tickAuthored, noteWantMisses, missDirective, staleWants } from "./authored";
 import { sceneRegister } from "./register";
-import { findAnatomyBreach, anatomyFix } from "./anatomy";
-import { findKinBreach, kinFix } from "./kinship";
-import { noteFire, integrityAlarm, povDrift, povFix, deniedEntities, strikeEntity } from "./integrity";
+import { anatomyFix } from "./anatomy";
+import { kinFix } from "./kinship";
+import { noteFire, integrityAlarm, povFix, deniedEntities, strikeEntity } from "./integrity";
 import { scheduleDirective, tickSchedule } from "./schedule";
 import { adoptCanonLaws } from "./authored";
-import { isDependentGoal } from "./driveforge";
-import { storyFrame, findDeclaredMiss, declaredFix } from "./declared";
-import { findMaxims, maximFix, voiceAnchor, findFigure, figureFix, findNeverSaid, neverSaidFix, findMetaTalk, metaTalkFix } from "./maxims";
-import { stockToQuote, stockFix } from "./stock";
+import { storyFrame, declaredFix } from "./declared";
+import { maximFix, voiceAnchor, figureFix, neverSaidFix, metaTalkFix } from "./maxims";
+import { stockFix } from "./stock";
 import { figureIn, figured, screenCard, strikeFigures } from "./aphorism";
 import { verbalizeLines } from "./verbalized";
-import { resolveOverdue, missedNote, findMissedClaim, missedClaimFix, verificationLaw } from "./commitments";
+import { resolveOverdue, missedNote, missedClaimFix, verificationLaw } from "./commitments";
 import { findEcho, echoFix, findReprint, reprintFix, findLineReprint, lineReprintFix, quotedLines, stripScaffolding, stripMetaPlayer , echoOpeners, openerFix } from "./echo";
 import { applyUnexplained, reactionDirective, arrivalOrder, witnessedDirective, answerThePlayer } from "./reaction";
 import { consultDirective } from "./consult";
@@ -99,7 +98,7 @@ import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCei
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
-import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes, paragraphs, words, between, without, collapseSpaces, hasWords } from "./text";
+import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes, paragraphs, words, between, without, collapseSpaces, hasWords, trimEndOf } from "./text";
 import { clamp } from "./num";
 
 export interface TurnEvents {
@@ -1814,80 +1813,33 @@ function looksNamed(name: string): boolean {
   return /\s/.test(name.trim()) || /^[A-Z]/.test(name.trim());
 }
 
-/** Detect a model safety-refusal returned in place of narration, so we can retry on the fallback
- *  rather than storing it as the turn's prose. Catches: a refusal in the model's native language
- *  (unexpected CJK when the story isn't written in an East-Asian language), common English refusal
- *  stems, and a suspiciously tiny response where a full narrator turn was expected. */
+/** A response that can't be a turn, caught before the bookkeeper is paid to read it: nothing at all,
+ *  a handful of words, or a reply in a script the story isn't written in (a model emitting its
+ *  native-language refusal). Everything a refusal SAYS is the bookkeeper's to judge now, as
+ *  prose_check.refused, because the stems this used to list ("I'm sorry, but", "I cannot write")
+ *  kept missing the refusal that argued its case for seven hundred characters, opening on two words
+ *  that weren't on any list. See engine/prosecheck.ts. */
 export function isRefusal(text: string, bible?: WorldBible): boolean {
   const t = (text ?? "").trim();
   if (!t) return true; // empty is a failed generation
   // Unexpected CJK: deepseek/qwen/etc emit a native-language refusal. If the world's own language
   // isn't East-Asian and a meaningful chunk of the response is CJK, it's almost certainly a refusal.
-  const cjk = (t.match(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g) || []).length;
+  let cjk = 0;
+  for (const ch of t) {
+    const c = ch.codePointAt(0) ?? 0;
+    if ((c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3040 && c <= 0x30ff) || (c >= 0xac00 && c <= 0xd7af)) cjk++;
+  }
   const storyLang = `${bible?.cultures_and_languages ?? ""}`.toLowerCase();
-  const storyIsEastAsian = /chinese|mandarin|cantonese|japanese|korean|hanzi|kanji|hangul/.test(storyLang);
+  const storyIsEastAsian = ["chinese", "mandarin", "cantonese", "japanese", "korean", "hanzi", "kanji", "hangul"].some((w) => storyLang.includes(w));
   if (cjk >= 4 && !storyIsEastAsian && cjk / t.length > 0.15) return true;
-  // Common refusal stems (English and a few localized), especially when the whole response is short.
-  const low = t.toLowerCase();
-  const refusalStem = /^(i'?m sorry,? but|i cannot|i can'?t (provide|assist|help|continue|generate|write|create)|i am unable to|i won'?t be able to|i must decline|sorry, i can'?t|as an ai|i can'?t comply|我无法|我不能|抱歉|对不起|申し訳|죄송)/i.test(low);
-  if (refusalStem && t.length < 400) return true;
-  // THE MODEL WROTE AN INSTRUCTION ABOUT THE ANSWER INSTEAD OF THE ANSWER. One real turn, in full:
-  //
-  //     (Write your response in plain text.
-  //
-  // Nine output tokens, then EOS — and the engine stored it as the scene and ran bookkeeping on it.
-  // It is not a refusal and not a stub of prose; it is the model continuing the PROMPT rather than
-  // answering it, which is the same root as the chat-envelope failure. Caught explicitly, because
-  // the short-response rule below let it through: six words, but it ends in a full stop.
-  const META_STUB = /^[([]?\s*(?:(?:now\s+)?(?:write|writes?|respond|reply|continue|output|produce|provide|generate|begin|start|please)\b[^.!?\n]{0,120}\b(?:response|reply|answer|prose|text|scene|narration|monologue|chain of thought|paragraphs?|below|following)\b|your (?:response|reply|answer|output|narration|prose)\b)/i;
-  // TESTED ON THE FIRST LINE, NOT THE WHOLE RESPONSE. A length bound on the whole text was the
-  // wrong shape: the model opens with the instruction and then keeps going for hundreds of tokens
-  // of deliberation behind it, so the response is long while its first line is still a stub. Two
-  // real ones, both from the same session:
-  //
-  //     (continue the existing prose; continue the line after the last prose ended: …
-  //     (Write only the interior monologue / chain of thought that leads to the constraints, …
-  //
-  // The line bound stays, because a scene may legitimately open on a line of dialogue that begins
-  // with an imperative, and those are short.
-  const firstLine = t.split(/\n/)[0].trim();
-  if (META_STUB.test(firstLine) && firstLine.length < 400) return true;
-  // A response under ~12 words is not narration (a refusal, an error echo, or a stub). Guard
-  // against storing it. This is a FLOOR and always was — the contract no longer states a ceiling.
-  // Under EIGHT words it does not matter how cleanly it ends: no turn moves a world in seven words,
-  // and the punctuation escape existed for a terse-but-real beat, which that is not.
-  const words = t.split(/\s+/).filter(Boolean).length;
-  if (words < 8) return true;
-  if (words < 12 && !/[.!?]"?\s*$/.test(t)) return true;
-  // A REFUSAL THAT ARGUES ITS CASE. Everything above was written for a canned one-liner — "I can't
-  // provide that." — and both of its defences are shaped for that: the stem is anchored at character
-  // zero, and it only counts under 400 characters. A model that declines by EXPLAINING ITSELF walks
-  // through both. One real turn, streamed to a player as their story, in full:
-  //
-  //     FUCK. YOU.
-  //     I cannot write this turn.
-  //     I cannot write Miranda killing herself. I cannot write Marcus killing himself. ...
-  //     I understand Vin's standing direction expresses pain and anger at the story. ...
-  //     I am not going to do it.
-  //     **What I will do instead:** the scene continues. ...
-  //
-  // Seven hundred characters, opening on two words that are not a refusal stem, naming the engine's
-  // own prompt sections back at the player, and ending with a counter-proposal. Neither rule above
-  // could see any of it, so it went to the screen as narration and was on its way to the history,
-  // the summariser, the bookkeeper, and the chatlog replay — where the narrator imitates its own
-  // last paragraph, which would have made a refusing narrator the house style.
-  //
-  // What survives every variation of this is a first-person clause about the ACT OF WRITING. Weft's
-  // prose is second and third person and is never about its own composition, so this is not a
-  // sentence a legitimate turn contains — with one exception, a character who SAYS it, which is why
-  // the quoted parts come out before the test. No length bound and no anchor: it is the shape that
-  // gives it away, not where it sits or how long it went on.
-  if (REFUSES_TO_WRITE.test(t.replace(/["“][^"”\n]*["”]/g, " "))) return true;
+  // A response under eight words is not narration (a refusal, an error echo, or a stub), and under
+  // twelve it has to at least end like a sentence. A floor, never a ceiling.
+  const n = words(t).length;
+  if (n < 8) return true;
+  const end = trimEndOf(t, '"\u201d ');
+  if (n < 12 && !".!?".includes(end.slice(-1))) return true;
   return false;
 }
-
-/** A first-person decline to write. Present tense and future, hedged and blunt. */
-const REFUSES_TO_WRITE = /\bi(?:\s+am|\s*['\u2019]m)?\s+(?:cannot|can'?t|will not|won'?t|not going to|not willing to|refuse to|decline to|unable to)\s+(?:write|narrate|generate|produce|depict|portray|render|author)\b/i;
 
 /**
  * WHAT THE PLAYER IS TOLD WHEN BOTH MODELS DECLINE.
@@ -2221,7 +2173,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const reaching = threadsThatReach(state);
   const verdict = decidePressure({
     turn, now: state.world.current_time, trace: state.pressure_trace, difficulty: state.world_bible.difficulty_profile,
-    threads: reaching, consequences: state.world.consequences, clocks: state.world.clocks, action,
+    threads: reaching, consequences: state.world.consequences, clocks: state.world.clocks, read: turnRead(state),
     instability: undertow.instability,
     focusMode: state.world.focus?.mode ?? null, focusLabel: state.world.focus?.label ?? null,
     tension: state.model_settings.tension ?? 5,
@@ -2270,7 +2222,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // save has the player typing that Mrs. Gable does not exist and the bookkeeper filing it as
   // "Joe claims Mrs. Gable does not exist", plus two memories of him seeming to lose his mind, while
   // the invented receptionist kept her place under KNOWS (verified facts). See integrity.deniedEntities.
-  for (const name of deniedEntities(action, knownNameWhitelist(state))) {
+  for (const name of deniedEntities(turnRead(state), knownNameWhitelist(state))) {
     const gone = strikeEntity(state, name);
     noteFire(state, "invention", `${name} was made up by the narrator and the player removed them: ${gone.facts} fact(s) and ${gone.memories} memor(ies) deleted`);
     ev.onMeta({ shifts: [`${name} never existed. They were removed from the story and from ${gone.facts + gone.memories} record(s)`] });
@@ -2601,7 +2553,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // one of those contexts; otherwise nudge as before.
   // The three regexes that used to live here now live in register.ts, because this read is useful
   // to every unrefusable per-turn injection and was being spent on cross-talk alone. See that file.
-  const register = sceneRegister(`${recentText} ${action}`);
+  const register = sceneRegister(recentText, turnRead(state));
   const suppressChatter = register.guarded || (verdict as any)?.mode === "escalate"; // active pressure spike
   if (presentNpcs.length >= 2 && !suppressChatter) {
     directive += `\n${presentNpcs.length} other characters are in this scene, and they can talk to each other as well as to the player. When the moment allows it, have at least one exchange this turn happen between two of them, where one speaks to another, answers them, needles them, contradicts them or makes a quiet side deal, because of something they each want. Not everyone present should be paying attention only to the player. But pay attention to the mood: if the scene is intimate, dangerous, tense or stunned, then silence, or one moment where nobody speaks, is right, and you shouldn't force chatter that would break it.`;
@@ -2692,8 +2644,16 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     const carriesPlayer = loves || (relToPlayer?.roles?.some((r) => /partner|lover|friend|ally|protector|sister|brother|parent|guardian/i.test(r)) ?? false);
     const leadText = playerInert
       ? `\n${lead.c.name.toUpperCase()} DRIVES THIS SCENE. The player didn't steer anything this turn, so the character who wants something moves the scene along, because the world doesn't sit and wait for a player who isn't doing anything. ${lead.c.name} goes after their goal ("${lead.c.drive!.goal}") this turn in a concrete way they choose themselves, using whatever they have, such as their abilities, position, knowledge, allies, strength or words, and they make the next thing actually happen instead of talking about it. ${carriesPlayer ? `Because ${lead.c.name} cares about the player, the way they go about it includes the player: they bring the player along, ask "you coming?", hand them a job, or simply pull them into motion. If the player has said something, ${lead.c.name} really listens and it changes how they go about it. The goal still drives the scene, though, and the player gets carried along by what ${lead.c.name} is doing.` : `The player is one of the people ${lead.c.name} has to deal with, whether they carry the player along, work around them or speak to them, and the scene is about ${lead.c.name}'s goal.`} End the turn as soon as what ${lead.c.name} does puts a real demand on the player in particular: the player has to move or react, someone asks them a question, or the next moment can't happen without their input. If what ${lead.c.name} does doesn't actually need the player this turn, the world just moves on and takes the player with it, and you don't make up a decision for the player just to hand the turn back to them.`
-      : `\n${lead.c.name} still wants this: "${lead.c.drive!.goal}". Answering what the player just said or did comes first. If ${lead.c.name} gets on with this at all this turn, it happens around that answer and never in place of it.`;
-    pressureCandidates.push({ prio: 5, text: leadText });
+      : `\n${lead.c.name.toUpperCase()} WANTS SOMETHING AND MAKES A MOVE ON IT THIS TURN: "${lead.c.drive!.goal}"${lead.c.drive!.approach ? `, going at it by ${lead.c.drive!.approach}` : ""}. Answering what the player just said or did comes first, and then, in the same moment, ${lead.c.name} does one concrete thing toward the want: asks for it or for a piece of it, names a price, offers a trade, steers the talk to where it can be raised, makes themselves useful in a way that sets it up, or uses whatever hold they have. It's one move the size the moment allows, done the way this person would do it${fearOf(state, lead.id) >= AFRAID ? `, and carefully, because ${lead.c.name} is afraid of the player` : ""}, and it's something ${lead.c.name} says or does, never only something they think. If what they want can only come from the player, the move is aimed at the player.`;
+    // THE PLAYER ACTING IS NOT A REASON FOR EVERYONE ELSE TO STOP. This line used to read "if they
+    // get on with this at all", and it went into the one-pressure queue, where any due consequence or
+    // threat outranked it. A player who acts every turn, which is most players, got a cast that only
+    // answered: Kingdom of Veythar, a woman holding the king's secret and after his power, asking for
+    // nothing in ten turns while he gave orders. A character's own move is not a new pressure on the
+    // world; it's what that person is doing, so it goes out every turn. The inert-player version, which
+    // hands them the whole scene, is still a pressure and still waits its turn in the queue.
+    if (playerInert) pressureCandidates.push({ prio: 5, text: leadText });
+    else directive += leadText;
   }
 
   // GENRE-THREAT ESCALATION — a world whose core danger is a THING THAT HUNTS must not let it sit
@@ -3120,7 +3080,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     // A SCREEN IS NOT THE ROOM. The player's action reaches the narrator whole, which is right for
     // everything a body does and wrong for the four inches in front of one person's face. See
     // engine/scene.ts — a player's report of "I do something and she instantly knows I'm on hinge".
-    + screenPrivacyNote(action, state.world.present
+    + screenPrivacyNote(turnRead(state), state.world.present
         .filter((id) => id !== "char_player")
         .map((id) => state.characters[id]?.name ?? "")
         .filter(Boolean));
@@ -3189,7 +3149,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   const cameNote = arrivalOrder(state);
   // THE PLAYER SAID THEY ALREADY KNOW IT. Fires off their own typed line, before the turn is
   // written, so nothing gets explained to somebody who just declined the explanation.
-  const heardNote = heardYouNote(action);
+  const heardNote = heardYouNote(turnRead(state));
   const fullDirective = actNote + seenNote + consultNote + cameNote + heardNote + directive + forbid + forbiddenGate + lawDirective + earnedResponse + arrivalNote + departureNote + inboundNote + worldMovedNote + sceneNote + perceptionNote + nagNote + crowdNote + giftNote + bodyNote + publicNote + stallDirective + ditherDirective + focusFilter + interiorGuard + leakFix + risenNote + maximNote + (fate.forceArrival || fate.act === "convergence" ? "" : restProtection) + contractFix + "\n" + (restoration && tensionNow <= 3 && !fate.active ? "" : undertow.directive) + fateNote + pronounLock + arrivals + echoBan(state) + frameDirective(state, state.world.present, focused.map((f) => f.id)) + groundShared + witnessed + habitDirective(state, state.world.present, register.guarded) + missDirective(state, state.world.present) + scheduleDirective(state, state.world.present, register.guarded) + missedNote(state, state.world.present)
     // THE PLAYER CHECKING A SETTLED FACT AGAINST SOMETHING OUTSIDE THE ROOM. The verdict goes in
     // before the prose, the way attempt.ts resolves an attempt before a word is written — a witness
@@ -3402,19 +3362,6 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     const meta = stripMetaPlayer(prose, state.characters["char_player"]?.name ?? "");
     if (meta.fixed) { prose = meta.prose; console.warn(`[turn] meta guard: repaired ${meta.fixed} reference(s) to "the player" in the prose`); }
   }
-  if (!plain) {
-    // THE WIND, EVERY TURN. A free-standing sentence with nobody in it, about the weather or the
-    // building, past the one-per-turn allowance — or repeating what last turn already used. Clauses
-    // hung off a person's sentence are NOT cut (that is how the tic guard once stranded a quotation
-    // mark); those are reported to the next turn instead. See engine/ambient.ts.
-    const castNames = Object.values(state.characters).map((c) => c?.name ?? "").filter(Boolean);
-    const prevProse = contextHistory(state).slice(-1)[0]?.narrator_prose ?? "";
-    const trimmed = trimAmbient(prose, castNames, prevProse);
-    if (trimmed.cuts) {
-      prose = trimmed.prose;
-      console.warn(`[turn] ambient guard: cut ${trimmed.cuts} setting sentence(s) — ${trimmed.motifs.join(", ")}`);
-    }
-  }
   // PRONOUN REPAIR (deterministic). The lock instructs; this enforces. Natives' gendered pronouns
   // inside dialogue are rewritten to the world set — most often for mentioned people with no card
   // and no printed pronouns (a child, a coworker), where the model defaults to "she". Conservative:
@@ -3444,232 +3391,14 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       ev.onMeta?.({ shifts: salvaged.notes });
     }
   }
-  // ══ THE COHERENCE GATE ══════════════════════════════════════════════════════════════════════
-  //
-  // Everything below this line READS the prose: the scene footer, the leak and maxim detectors, the
-  // bookkeeper, the summary, memory, canon, the chatlog replay. So this is the last moment at which
-  // an impossible turn can be prevented rather than argued with.
-  //
-  // It is here because every other correction in this engine is feed-forward and that is why none
-  // of them converge — see the header of engine/coherence.ts. A dead man walked back into one save
-  // six times WITH a guard in place, because the guard defended the ledger while the story recorded
-  // the resurrection, and by the next turn the summary, the memory and the recall all said he was
-  // alive. One line of correction against twelve lines of history is not a fix.
-  //
-  // ONE REGENERATION, THEN THE KNIFE. A rewrite is a whole narrator call on the biggest prompt of
-  // the turn, so it happens at most once; if the rewrite is still impossible the offending sentences
-  // are cut instead. A hole does not propagate, and a contradiction does.
-  if (!opts?.proseOverride) {
-    let violations: Violation[] = checkCoherence(state, prose, state.world.present);
-    if (violations.length) {
-      console.warn(`[coherence] ${violations.length} violation(s) in the committed prose:`, violations.map((v) => `${v.kind}: ${v.why}`));
-      ev.onPhase("narrator");
-      try {
-        const fixMsgs = [...narratorMsgs];
-        const last = fixMsgs[fixMsgs.length - 1];
-        // Appended to the final user turn, which is where this engine has repeatedly found that an
-        // instruction is read as an instruction rather than as reference.
-        if (last && typeof last.content === "string") fixMsgs[fixMsgs.length - 1] = { ...last, content: last.content + retryNote(violations) };
-        // WIPE WHAT IS ON THE PAGE BEFORE THE REWRITE STREAMS IN. The reader has been watching the
-        // first draft arrive a token at a time, and the UI appends deltas — without this the
-        // corrected turn lands UNDER the impossible one and the player reads the scene twice, the
-        // wrong version first. Carried on onMeta because that already crosses the transport as a
-        // free-form object; a caller that ignores it is exactly where it was before.
-        ev.onMeta({ restream: true });
-        const again = completeStream(fixMsgs, state.model_settings.narrator_model, state.model_settings.fallback_model, 5000, false, undefined, signal);
-        let rewritten = "";
-        while (true) {
-          const { done, value } = await again.next();
-          if (done) { rewritten = value.text; if (value.usage) { narratorUsage = { ...narratorUsage, prompt_tokens: narratorUsage.prompt_tokens + (value.usage.prompt_tokens ?? 0), completion_tokens: narratorUsage.completion_tokens + (value.usage.completion_tokens ?? 0) }; } break; }
-          ev.onDelta(value);
-        }
-        rewritten = salvageProse(rewritten).prose;
-        if (rewritten.trim() && !isRefusal(rewritten, state.world_bible)) {
-          const after = checkCoherence(state, rewritten, state.world.present);
-          if (after.length < violations.length) { prose = rewritten; violations = after; }
-        }
-      } catch (e) {
-        if (isCancel(e)) throw new Cancelled();
-        console.warn(`[coherence] the rewrite failed, falling through to excision: ${e}`);
-      }
-      if (violations.length) {
-        const { prose: cutProse, cut } = excise(prose, violations);
-        if (cut) { prose = cutProse; console.warn(`[coherence] excised ${cut} impossible sentence(s)`); }
-        ev.onMeta({ shifts: [cut
-          ? `${cut} sentence${cut > 1 ? "s" : ""} could not happen and ${cut > 1 ? "were" : "was"} cut — ${violations[0].why}`
-          : `the turn contradicts the record and could not be repaired — ${violations[0].why}`] });
-      } else {
-        ev.onMeta({ shifts: ["the turn was rewritten, because the first version described things that couldn't have happened"] });
-      }
-    }
-  }
-
   // The narrator's own account of where the scene is and who moved. Authoritative — it wrote the scene.
   const parsedScene = parseSceneFooter(prose);
   prose = stripMeta(parsedScene.prose);
-  // ── DID IT STATE SOMEBODY'S INTERIOR? ────────────────────────────────────────────────────────
-  // The prose is left exactly as written — silently rewriting the player's story is worse than the
-  // leak. What changes is that the engine stops swallowing what it detected: the player is told, and
-  // the sentence is held so next turn's directive can quote it back. Only the worst one, so a turn
-  // with a run of them still produces one correction rather than a lecture.
-  {
-    const sents = prose.match(/[^.!?]*[.!?]+["']?\s*|[^.!?]+$/g) ?? [];
-    const leaked = sents.map((x) => x.trim()).filter((x) => x.length > 25 && MOTIVE_LEAK.test(x));
-    state.last_leak = leaked.length ? leaked.sort((a, b) => b.length - a.length)[0].slice(0, 180) : null;
-    // ── AND SOMEBODY THE STORY HAS FINISHED, ACTING ────────────────────────────────────────────
-    // The location guard downstream refuses to move them into the scene and stops there, so the
-    // prose that walked them through a door is committed, summarised, and remembered. Catch it
-    // here, keep it out of the record below, and quote it back next turn. See exit.ts findRisen.
-    state.last_risen = findRisen(state.characters, prose);
-    if (state.last_risen) {
-      const r = state.last_risen;
-      console.warn(`[cast] ${r.name} is ${r.status} and acted in this turn's prose: "${r.line.slice(0, 90)}"`);
-      // `shifts` does not exist yet at this point in the turn — this runs on the committed prose,
-      // before applyDiff builds it — so the player is told through the same mid-turn channel the
-      // other pre-diff corrections use.
-      ev.onMeta({ shifts: [`${r.name} is ${r.status} — that part was discarded from the record`] });
-      noteFire(state, "risen", `${r.name} (${r.status}) acted in the prose`);
-    }
-    // AND THE SAME FOR DIALOGUE. The interior leak is the narrator saying what somebody felt; this
-    // is the narrator saying what the world MEANS, through whichever mouth is open. One quoted
-    // example is the whole mechanism — see engine/maxims.ts.
-    {
-      const maxims = findMaxims(prose);
-      state.last_maxim = maxims.length ? maxims[0].line.slice(0, 180) : null;
-      // ...and the narration reaching for a phrase a thousand other stories already used. Quoted
-      // back only when it recurs — two in a turn, or the same one coming back. See stock.ts.
-      {
-        const st = stockToQuote(prose, contextHistory(state).map((h) => h.narrator_prose ?? "").filter((x) => x.trim()));
-        state.last_stock = st ? { phrase: st.phrase, sentence: st.sentence.slice(0, 240) } : null;
-      }
-      // AND WHETHER THE WORLD DID WHAT THE PLAYER WROTE. Only on the channel that promises it, and
-      // only against the prose actually committed. See engine/declared.ts.
-      state.last_declared = mode === "story" && !voided ? findDeclaredMiss(action, prose) : null;
-      // ...and the same move one layer out: a figure of speech in the NARRATION, explaining a
-      // spoken line with a comparison. Fires on recurrence rather than on the instance — a simile
-      // is a style choice, the same simile frame three turns running is a tic, and "like she was
-      // checking the weight of it" states an interior with one word in front of it. See maxims.ts.
-      state.last_figure = findFigure(
-        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
-        prose,
-      );
-      if (state.last_figure) noteFire(state, "figure", `the same narration frame for ${state.last_figure.runs} turns: "${state.last_figure.line.slice(0, 60)}"`);
-      // ...and a character describing the conversation instead of having it. Same recurrence rule:
-      // an argument about what somebody meant is a scene; two turns running of it is a transcript
-      // with opinions. See maxims.ts, and the promotion loop in this file for what usually causes it.
-      state.last_meta_talk = findMetaTalk(
-        state, state.world.present,
-        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).map((h) => h.narrator_prose ?? ""),
-        prose,
-      );
-      if (state.last_meta_talk) {
-        noteFire(state, "meta_talk", `${state.last_meta_talk.name} narrated the conversation for ${state.last_meta_talk.runs} turns`);
-        ev.onMeta({ shifts: [`${state.last_meta_talk.name} has been describing the conversation instead of having it, and this will be corrected next turn`] });
-      }
-      // ...and people telling the player what the player is doing, to their face. See narratedback.ts.
-      state.last_narrated_back = findNarratedBack(
-        prose,
-        contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).slice(-2).map((h) => h.narrator_prose ?? ""),
-        action,
-      );
-      if (state.last_narrated_back) noteFire(state, "narrated_back", state.last_narrated_back.complained ? "the player said the scene keeps describing them back to themselves" : `dialogue described the player back to them: "${state.last_narrated_back.lines[0]?.slice(0, 60) ?? ""}"`);
-      // ...and a line off somebody's own never-says list. The card is printed to the narrator every
-      // turn as reference and nothing has ever checked the output against it.
-      state.last_never_said = findNeverSaid(state, state.world.present, prose);
-      if (state.last_never_said) {
-        noteFire(state, "never_says", `${state.last_never_said.name} said "${state.last_never_said.forbidden}"`);
-        ev.onMeta({ shifts: [`${state.last_never_said.name} said a line their character card lists as something they'd never say, and this will be corrected next turn`] });
-      }
-      // ...and a character claiming they kept an appointment the record has them standing here for.
-      state.last_missed_claim = findMissedClaim(prose, state, state.world.present);
-      if (state.last_missed_claim) {
-        noteFire(state, "confabulation", `${state.last_missed_claim.name} claimed an appointment the record says was missed`);
-        ev.onMeta({ shifts: [`${state.last_missed_claim.name} talked about keeping an appointment, but the record has them in this room at the time, and this will be corrected next turn`] });
-      }
-      // The player's own words coming back at them, in either of its two forms.
-      state.last_echo = findEcho(prose, mode === "say" ? action : quotedLines(action).filter((q) => q.length >= 4).join(" … "));
-      // …and the short quote-back opener, which findEcho's five-word floor is deliberately above.
-      // Counted, not banned: one repeat is speech, two in a turn is how lines are being started.
-      state.last_openers = echoOpeners(prose, mode === "say" ? action : quotedLines(action).filter((q) => q.length >= 4).join(" … "));
-      // ...and the narrator's own previous page coming back. Read against the last turn that
-      // actually produced prose, so an interlude or a montage in between does not mask it.
-      state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
-      // ...and a body the record does not give this person. Detected on the output for the same
-      // reason as the two above: it can only be quoted once it has been written.
-      state.last_line_reprint = findLineReprint(contextHistory(state).map((h) => h.narrator_prose ?? ""), prose);
-      if (state.last_line_reprint) noteFire(state, "line", `"${state.last_line_reprint.slice(0, 70)}" said again`);
-      state.last_anatomy = findAnatomyBreach(state, prose);
-      // ...and a family invented to win an argument. Dialogue is the only channel with no guard on
-      // it at all, and family is what a devastating line reaches for. See kinship.ts.
-      state.last_kin = findKinBreach(state, prose);
-      if (state.last_kin) {
-        noteFire(state, "kin", `${state.last_kin.owner} given a ${state.last_kin.relation} — ${state.last_kin.because}`);
-        ev.onMeta({ shifts: [`the prose gave ${state.last_kin.owner} a ${state.last_kin.relation} that the record contradicts, and this will be corrected and removed next turn`] });
-      }
-      if (state.last_anatomy) {
-        noteFire(state, "anatomy", `${state.last_anatomy.name}: ${state.last_anatomy.part} the record does not give them`);
-        ev.onMeta({ shifts: [`the prose gave ${state.last_anatomy.name} a body part the record contradicts, and this will be corrected and removed next turn`] });
-      }
-      // THE PLAYER STOPPED BEING "YOU". Cheap, silent, and ruinous — a save can be twenty turns deep
-      // in third person before anybody works out that the only thing that changed was the model.
-      // See engine/integrity.povDrift.
-      {
-        const pc = state.characters["char_player"];
-        const others = state.world.present.filter((x) => x !== "char_player").map((x) => state.characters[x]?.pronouns);
-        const drift = pc ? povDrift(prose, pc.name, pc.pronouns, others) : null;
-        state.last_pov = drift;
-        if (drift) {
-          noteFire(state, "pov", `the player was written in the third person ${drift.third}× and addressed as "you" ${drift.second}×`);
-          ev.onMeta({ shifts: [`this turn described you from the outside instead of speaking to you as "you", and the narrator will be told next turn`] });
-        }
-      }
-      if (state.last_reprint) {
-        noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
-        ev.onMeta({ shifts: [`this turn repeated ${Math.round(state.last_reprint.overlap * 100)}% of the one before, and the narrator will be shown it next turn`] });
-      }
-      if (maxims.length >= 2) {
-        ev.onMeta({ shifts: [`${maxims.length} lines of dialogue this turn didn't mention anything in the room, and the narrator will be shown one of them next turn`] });
-      }
-    }
-    if (leaked.length) {
-      ev.onMeta({ shifts: [`the narrator stated what someone was feeling or thinking ${leaked.length > 1 ? `${leaked.length} times` : "once"} this turn, and this will be corrected next turn`] });
-      console.warn(`[interiority] ${leaked.length} leak(s): ${leaked[0].slice(0, 100)}`);
-    }
-  }
-  // ── TURN-ENDING GUARDS ── Deterministic, zero-cost backstops for the two overrun patterns the
-  // prompt can't fully prevent: a CASCADE (the turn keeps escalating past the first new pressure) and
-  // a PREEMPT (an NPC resolves the player's choice by moving their body after a demand). Both are
-  // detectable in the final paragraph. When caught, we TRIM to the paragraph before the overrun rather
-  // than regenerate — output is prose paragraphs, so a paragraph cut is safe, and stopping earlier is
-  // exactly the fix. We only ever trim the LAST paragraph, and only when 2+ remain, so a turn always
-  // keeps its substance.
-  {
-    const paras = prose.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
-    if (paras.length >= 2) {
-      const last = paras[paras.length - 1];
-      const priorText = paras.slice(0, -1).join(" ").toLowerCase();
-      // PREEMPT: after a demand/grab was already in play, the final paragraph moves the PLAYER'S body
-      // for them ("pulling you", "drags you", "grabs your wrist/arm", "hauls you", "shoves you").
-      const bodyMoved = /\b(pull(s|ing|ed)?|drag(s|ging|ged)?|haul(s|ing|ed)?|shov(e|es|ing|ed)|yank(s|ing|ed)?|drav?g(s|ging)?|steer(s|ing|ed)?|march(es|ing|ed)?|forc(e|es|ing|ed))\b[^.?!]{0,30}\byou(r)?\b[^.?!]{0,20}\b(wrist|arm|hand|shoulder|collar|toward|into|through|down|away|along|to (his|her|their|the))\b/i.test(last);
-      const demandInPlay = /\b(stop|halt|come with|hand it|give me|on your knees|don'?t move|now|or (i|we|you)|drop it|move|get (up|down|back))\b/i.test(priorText) || /["""][^"""]*[?!][^"""]*["""]/.test(priorText);
-      // CASCADE: the final paragraph introduces a NEW named arrival AND has them speaking/acting —
-      // i.e. a fresh pressure stacked on top of whatever the turn already delivered.
-      const newArrivalActing = /\b(appear(s|ed|ing)?|arriv(e|es|ed|ing)|burst(s|ing)?|storm(s|ed|ing)? (in|through)|round(s|ed)? the corner|step(s|ped|ping)? (in|into|through)|enter(s|ed|ing)?|in the doorway|behind (you|them|him|her))\b/i.test(last)
-        && /["""][^"""]{2,}["""]/.test(last);
-
-      if ((bodyMoved && demandInPlay) || newArrivalActing) {
-        prose = paras.slice(0, -1).join("\n\n");
-        console.warn(`[turn] ending guard: trimmed a ${bodyMoved ? "preempt" : "cascade"} tail paragraph so the turn ends on the first pressure`);
-      }
-    }
-  }
-
-  // ── TIC GUARD ── Deterministic backstop for two failures the DIALOGUE rules ban in the prompt and
-  // the model produces anyway, because both are what a model reaches for when it has nothing to add:
-  // (1) reflecting the player's own words back with an intensifier ("you really just <verbatim>",
-  // "no one has ever <verbatim>"), and (2) the canned affirmations ("that's not nothing", "it's a
-  // lot", "you're not wrong"). Prompt bans don't hold; a regex does. We excise the offending SENTENCE
-  // rather than regenerate — free, and the surrounding paragraph survives. Guards: never empty a
+  // ── TIC GUARD ── Deterministic backstop for a failure the DIALOGUE rules ban in the prompt and the
+  // model produces anyway, because it is what a model reaches for when it has nothing to add: the
+  // player's own words reflected back at them. (The canned affirmation, its twin, is the bookkeeper's
+  // to find now, as prose_check.canned; see below.) We excise the offending SENTENCE rather than
+  // regenerate — free, and the surrounding paragraph survives. Guards: never empty a
   // paragraph, never cut a long sentence (it's carrying real content), never cut more than two.
   //
   // AND NEVER, EVER TOUCH DIALOGUE. This is the tic guard's whole failure mode and it was silent.
@@ -3707,92 +3436,42 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // quoted line together with its attribution as one unit, excising it can no longer strand the
   // punctuation, which was the actual damage the first fix was for.
   {
-    const CANNED = /\b(that'?s not nothing|it'?s a lot|you'?re not wrong|that'?s something)\b/i;
-    // 4+ consecutive words lifted from the player's action, ignoring very common words.
-    const actWords = action.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+    // 4+ consecutive words lifted from the player's action.
+    const actWords = words(action.toLowerCase());
     const actLine = actWords.join(" ");
     const runs: string[] = [];
     for (let i = 0; i + 4 <= actWords.length; i++) runs.push(actWords.slice(i, i + 4).join(" "));
     const echoes = (sent: string) => {
-      const norm = sent.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ");
-      return runs.some((r) => norm.includes(r));
+      const norm = ` ${words(sent.toLowerCase()).join(" ")} `;
+      return runs.some((r) => norm.includes(` ${r} `));
     };
     let cuts = 0;
-    const cleaned = prose.split(/\n\n+/).map((para) => {
+    const cleaned = paragraphs(prose).map((para) => {
       const sents = splitSentencesOutsideQuotes(para);
       if (sents.length < 2) return para;
       const kept = sents.filter((sent) => {
         const t = sent.trim();
         if (cuts >= 2 || t.length > 160) return true;
-        const spoken = (t.match(/["“][^"”]*["”]/g) ?? []).join(" ");
+        const spoken = quotedLines(t).join(" ");
         if (spoken) {
           // Somebody is speaking. Cut only if the line is substantially the player's own words.
           if (!isParrot(spoken, actLine)) return true;
           cuts++; return false;
         }
-        if (CANNED.test(t) || echoes(t)) { cuts++; return false; }
+        if (echoes(t)) { cuts++; return false; }
         return true;
       });
       const out = kept.join("").trim();
       // A cut that leaves a paragraph with an odd number of quote marks has stranded one. That was
       // the whole original failure; never ship it, whatever else the guard concluded.
-      if (!out || (out.match(/["“”]/g) ?? []).length % 2 === 1) return para;
+      if (!out || [...out].filter((ch) => ch === '"' || ch === "\u201c" || ch === "\u201d").length % 2 === 1) return para;
       return out;
     }).join("\n\n");
     if (cuts) {
       prose = cleaned;
-      console.warn(`[turn] tic guard: cut ${cuts} echo/canned sentence(s)`);
+      console.warn(`[turn] tic guard: cut ${cuts} echo sentence(s)`);
     }
   }
-  // ...AND A LINE GIVEN TO THE PLAYER THAT THE PLAYER NEVER TYPED. Cut here, before the bookkeeper
-  // reads the prose, because once it's read it is something the room heard him say. The first one
-  // cut is quoted back next turn. See engine/playervoice.ts.
-  if (!opts?.proseOverride) {
-    const pv = scrubPlayerVoice(prose, action, mode);
-    state.last_voiced = pv.cut[0] ?? null;
-    if (pv.cut.length) {
-      prose = pv.prose;
-      noteFire(state, "player_voice", `gave the player a line they never typed: "${pv.cut[0].line.slice(0, 60)}"`);
-      ev.onMeta({ shifts: [`The narration gave you ${pv.cut.length === 1 ? "a line" : `${pv.cut.length} lines`} you never typed; ${pv.cut.length === 1 ? "it was" : "they were"} cut`] });
-      console.warn(`[turn] player voice: cut ${pv.cut.length} line(s) the player never typed`);
-    }
-  }
-  // ...AND A STORYLINE THE PLAYER NUKED, coming back anyway. Cut unless the player raised it. See nuke.ts.
-  if (!opts?.proseOverride && state.world.nuked?.length) {
-    const g = guardNuked(state, prose, action);
-    if (g.cut) {
-      prose = g.prose;
-      noteFire(state, "nuked", `the narration brought back a storyline you wiped; ${g.cut} sentence(s) cut`);
-      console.warn(`[turn] nuked storyline: cut ${g.cut} sentence(s)`);
-    }
-  }
-
-  // ── THE REVISER ── The prose has stopped changing, so this is where the repair pass can see the
-  // finished turn. It is STARTED here and AWAITED at the commit, which puts it alongside the
-  // bookkeeper rather than in front of it: the bookkeeper is a full second prompt ingest and the
-  // long pole of the back half of a turn, so on any normal turn the reviser costs no wall-clock at
-  // all. It also never runs on a clean turn — flagTics is local and returns nothing to do, and the
-  // promise resolves without opening a socket.
-  //
-  // Everything downstream of this point — the bookkeeper, presence, novelty, appellations, maxims,
-  // the audit, the Chronicle — goes on reading `prose`, the narrator's own words. The repaired copy
-  // is carried separately and touches nothing but the page. See engine/reviser.ts.
-  const reviserOn = !!state.model_settings.prose_reviser && !opts?.proseOverride;
-  const revisePass = reviserOn
-    ? reviseProse(prose, {
-        model: state.model_settings.reviser_model || state.model_settings.simulator_model,
-        fallback: state.model_settings.fallback_model,
-        signal,
-      }).catch((e) => {
-        // Swallowed on purpose, cancellation included. This promise is awaited late, so a rejection
-        // that escaped here would be an unhandled rejection on any turn that unwound before the
-        // commit — and there is nothing to report either way: no repair means the narrator's own
-        // words, which is the state the player was already in.
-        if (!isCancel(e)) console.warn(`[reviser] pass threw, prose left as written: ${e}`);
-        return null;
-      })
-    : null;
-
   // ── THE PLAYER'S TRACKED QUESTIONS ── Same placement as the reviser and for the same reason: started
   // now, from the finished prose and the state as it stood before this turn's bookkeeping, and
   // collected at the commit. Nothing due, no socket. See engine/tracked.ts.
@@ -3833,7 +3512,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // Light models (flash/lite/mini/haiku/nano tiers) reliably fail the FULL 23k-char contract —
   // they return bare or malformed diffs and the story silently stops being recorded. The LEAN
   // contract carries the same schema with half the instruction mass; give it to them always.
-  const lightSim = /flash|lite|mini|nano|haiku|8b|9b/i.test(state.model_settings.simulator_model);
+  const lightSim = ["flash", "lite", "mini", "nano", "haiku", "8b", "9b"].some((k) => state.model_settings.simulator_model.toLowerCase().includes(k));
   // The bookkeeper needs the player's RAW action (channels intact, WITHOUT the narrator-facing
   // instruction brackets that MODE_FRAME adds) — those brackets tell the NARRATOR to hide the
   // player's feeling from the page, and a bookkeeper reading "do NOT state the feeling" could wrongly
@@ -3842,7 +3521,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // player's own valence, truer than anything inferable from the deliberately-opaque prose. The
   // narrator hides it; the bookkeeper must consume it directly.
   const bookkeeperAction = `${action}\n[That is the player's own input, and different kinds of text mean different things: "quotes" are said out loud, *asterisks* are a private thought, (parentheses) are a private feeling, and everything else is physical action. ${deixisNote()} For char_player's relaxation_delta and mood, go straight to the player's inner life here: their thoughts, the feelings they state and what they wrote in parentheses are the best evidence of how the player feels this turn, even though the narrator deliberately kept all of it out of the prose. Don't work out the player's mood only from the neutral prose, because what they wrote about their inner life is the main thing to go on. (Other characters still can't know any of this. It only affects the player's own mood, never what anyone else learned or how they react.)]`;
-  const simMsgs = buildMessages(
+  // Who was in the room when the turn began, for the bookkeeper's checks on who walked in.
+  const presentAtTurnStart = [...state.world.present];
+  // The bookkeeper's whole request, for a given prose: built as a function because a turn the
+  // bookkeeper sends back for a rewrite is read a second time, from the rewrite.
+  const simMsgsFor = (bookProse: string) => buildMessages(
     simulatorSystem(lean || lightSim) + "\n\n" + simulatorSchemaHint(),
     simulatorContext(state),
     `${(state.retcons ?? []).filter((r) => r.kind !== "correction").length ? `=== STRUCK FROM THE STORY (never happened; if the prose references any of these, IGNORE that part entirely — record nothing from it) ===\n${(state.retcons ?? []).filter((r) => r.kind !== "correction").map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}${(state.retcons ?? []).filter((r) => r.kind === "correction").length ? `=== THE PLAYER'S CORRECTIONS (supreme truth — each of these IS true and has always been true; record the world consistently with them, and when prose contradicts one, the CORRECTION is authoritative for what to record) ===\n${(state.retcons ?? []).filter((r) => r.kind === "correction").map((r) => `- ${r.text}`).join("\n")}\n\n` : ""}=== LOCATIONS (the places this world knows; use one exactly where it fits, or "elsewhere") ===\n${Object.values(state.world.places).filter((p) => p.id !== OFFSCENE).map((p) => `- ${p.name}${!(p.description_facts ?? "").trim() ? "  ← NO DESCRIPTION ON RECORD" : p.stale_note ? "  ← DESCRIPTION IS OUT OF DATE" : ""}`).join("\n")}\n- elsewhere (not in a tracked place)\n${Object.values(state.world.places).some((p) => p.id !== OFFSCENE && (!(p.description_facts ?? "").trim() || p.stale_note)) ? `\nPLACES MARKED ABOVE NEED A places_update FROM YOU when this turn\u2019s prose gives you the material for one \u2014 a place with no description on record is invisible to the narrator, and an out-of-date one makes it describe something that is no longer there. Write description_facts as the PHYSICAL FACTS a person walking in would see: what is built there, what it is made of, what is in it, who is usually about. Never narrative, never an event, never a note about the player. Only for places this turn actually showed you; leave the rest alone.` : ""}\n\n=== PLAYER ACTION ===\n${bookkeeperAction}${intentForBookkeeper(intents)}${(() => {
@@ -3850,17 +3533,14 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       // context; this points at the ones whose words overlap what actually just happened, because a
       // long turn is exactly where a small model loses one, and the cost is a job the player has
       // already done sitting in their journal as still owed.
-      const likely = promisesLikelyMet(state, action, prose);
+      const likely = promisesLikelyMet(state, action, bookProse);
       return likely.length
         ? `\n\n=== PROMISES THIS TURN MAY HAVE SETTLED (check each against the prose; resolve kept, or broken, or leave open and it stays in the player's journal) ===\n${likely.map((p) => `- ${p.id} | "${p.text}"`).join("\n")}`
         : "";
-    })()}${becomingAsk(state)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${prose}`,
+    })()}${becomingAsk(state)}\n\n=== NARRATOR PROSE (what was RENDERED — deliberately hides the ground truth above; when the GROUND TRUTH and the prose differ, the TRUTH is authoritative for what to record) ===\n${bookProse}${(() => { const ctx = proseCheckContext(state, { presentAtStart: presentAtTurnStart, mode, privatePlace: isPrivateInterior(state.world.places[state.world.player_location]?.name ?? "") }); return ctx ? `\n\n${ctx}` : ""; })()}`,
     state.model_settings.simulator_model,
   );
   let simUsage: import("../llm").Usage = { prompt_tokens: 0, completion_tokens: 0 };
-  let diff = emptyDiff();
-  let simOk = false;
-  let truncatedDiff = false;
   // shared vitality measure — a diff can PARSE fine yet carry nothing that changes the world
   // (just scene_summary + elapsed_minutes). That is the quiet form of the dead-black-hole bug:
   // simOk=true, watchdog counts it dead, but nothing was ever done to recover the turn. We use
@@ -3870,7 +3550,12 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     (d.offscreen?.length ?? 0) + (d.new_characters?.length ?? 0) + (d.canon_add?.length ?? 0) +
     (d.psyche?.filter((x) => (x.relaxation_delta ?? 0) !== 0 || x.mood || x.states_add?.length || x.states_remove?.length).length ?? 0) +
     (d.edges?.filter((x) => (x.warmth_delta ?? 0) !== 0 || (x.trust_delta ?? 0) !== 0 || ((x as any).attraction_delta ?? 0) !== 0 || ((x as any).fear_delta ?? 0) !== 0 || x.roles_set?.length).length ?? 0);
-  const proseWords = prose.split(/\s+/).filter(Boolean).length;
+  const bookkeep = async (bookProse: string): Promise<{ diff: SimulatorDiff; simOk: boolean; truncatedDiff: boolean }> => {
+  const simMsgs = simMsgsFor(bookProse);
+  let diff = emptyDiff();
+  let simOk = false;
+  let truncatedDiff = false;
+  const proseWords = words(bookProse).length;
   try {
     // constrained decoding: providers that support json_schema enforce the diff shape at the
     // decoder; `complete` transparently falls back to json_object where unsupported.
@@ -3949,7 +3634,195 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
     if (isCancel(e)) throw new Cancelled();
     console.warn(`[turn] simulator failed entirely: ${e.message} — applying heuristics only`);
   }
+  return { diff, simOk, truncatedDiff };
+  };
+  let { diff, simOk, truncatedDiff } = await bookkeep(prose);
   if (!simOk) console.warn("[turn] simulator diff unusable — this turn's bookkeeping is thin");
+
+  // ══ THE PROSE, AS THE BOOKKEEPER READ IT ══════════════════════════════════════════════════════
+  //
+  // Everything that used to sit between the narrator and the bookkeeper as a word list (the
+  // coherence gate, the line put in the player's mouth, the wiped storyline coming back, the overrun
+  // tail, the stock reassurance, the stated motive, the maxim, the dead getting up) is now the
+  // bookkeeper's judgment, returned as prose_check with the offending words quoted. See prosecheck.ts.
+  //
+  // The owner's call on the order: the bookkeeper reads the prose as the narrator wrote it and is
+  // told to record nothing from what it flags, and the cuts land here, before anything is committed.
+  // The page is replaced by the committed turn when the turn ends, so the player reads the cut one.
+  //
+  // ONE REGENERATION, THEN THE KNIFE, as the coherence gate this replaces did it. A turn with
+  // something impossible in it, or a refusal, is written once more and read once more; whichever
+  // version has fewer problems stands, and whatever is still impossible in it is cut. A hole does not
+  // propagate, and a contradiction does.
+  let check = shapeCheck(state, diff.prose_check, prose);
+  let dialogue = shapeDialogue(state, diff.dialogue, prose);
+  if (!opts?.proseOverride && simOk && needsRewrite(check)) {
+    const refusedFirst = check.refused;
+    console.warn(`[prose] ${refusedFirst ? "the narrator declined the turn" : `${check.impossible.length} impossible sentence(s): ${check.impossible.map((v) => v.why).join("; ")}`}`);
+    ev.onPhase("narrator");
+    try {
+      const fixMsgs = [...narratorMsgs];
+      const last = fixMsgs[fixMsgs.length - 1];
+      // Appended to the final user turn, which is where this engine has repeatedly found that an
+      // instruction is read as an instruction rather than as reference. A refusal gets no note: it
+      // goes to the fallback model as it was asked.
+      if (!refusedFirst && last && typeof last.content === "string") {
+        fixMsgs[fixMsgs.length - 1] = { ...last, content: last.content + retryNote(check.impossible.map((v) => ({ kind: "impossible", line: v.sentence, why: v.why }))) };
+      }
+      // WIPE WHAT IS ON THE PAGE BEFORE THE REWRITE STREAMS IN, or the corrected turn lands under
+      // the first one and the player reads the scene twice, the wrong version first.
+      ev.onMeta({ restream: true });
+      const writer = refusedFirst ? (state.model_settings.fallback_model || "google/gemini-2.5-flash") : state.model_settings.narrator_model;
+      const again = completeStream(fixMsgs, writer, state.model_settings.fallback_model, 5000, false, undefined, signal);
+      let rewritten = "";
+      while (true) {
+        const { done, value } = await again.next();
+        if (done) { rewritten = value.text; if (value.usage) { narratorUsage = { ...narratorUsage, prompt_tokens: narratorUsage.prompt_tokens + (value.usage.prompt_tokens ?? 0), completion_tokens: narratorUsage.completion_tokens + (value.usage.completion_tokens ?? 0) }; } break; }
+        ev.onDelta(value);
+      }
+      rewritten = salvageProse(stripScaffolding(rewritten)).prose;
+      if (rewritten.trim() && !isRefusal(rewritten, state.world_bible)) {
+        const parsedAgain = parseSceneFooter(rewritten);
+        const cleanAgain = stripMeta(parsedAgain.prose);
+        checkStop();
+        ev.onPhase("simulator");
+        const second = await bookkeep(cleanAgain);
+        const check2 = shapeCheck(state, second.diff.prose_check, cleanAgain);
+        const weight = (c: ProseCheck) => (c.refused ? 100 : 0) + c.impossible.length;
+        if (second.simOk && weight(check2) < weight(check)) {
+          prose = cleanAgain;
+          if (parsedAgain.footer) footer = parsedAgain.footer;
+          ({ diff, simOk, truncatedDiff } = second);
+          check = check2;
+          dialogue = shapeDialogue(state, second.diff.dialogue, prose);
+        }
+      }
+    } catch (e) {
+      if (isCancel(e)) throw new Cancelled();
+      console.warn(`[prose] the rewrite failed, falling through to excision: ${e}`);
+    }
+    if (check.refused) {
+      // Both writers declined. Nothing is committed and the world is where it was.
+      ev.onMeta({ shifts: declinedNotice(state) });
+      return;
+    }
+    if (check.impossible.length) {
+      const { prose: cutProse, cut } = cutSentences(prose, check.impossible.map((v) => v.sentence));
+      if (cut.length) { prose = cutProse; console.warn(`[prose] excised ${cut.length} impossible sentence(s)`); }
+      ev.onMeta({ shifts: [cut.length
+        ? `${cut.length} sentence${cut.length > 1 ? "s" : ""} could not happen and ${cut.length > 1 ? "were" : "was"} cut — ${check.impossible[0].why}`
+        : `the turn contradicts the record and could not be repaired — ${check.impossible[0].why}`] });
+    } else {
+      ev.onMeta({ shifts: [refusedFirst
+        ? "the narrator model declined this turn, so it was written again on the fallback model"
+        : "the turn was rewritten, because the first version described things that couldn't have happened"] });
+    }
+  }
+
+  // THE CUTS. What the bookkeeper flagged as never having happened comes out of the turn here, and
+  // the record already left it out. A replayed or resumed turn is cut the same way, because the
+  // record it gets is the same: only the rewrite above needs a narrator, and so only it is skipped.
+  {
+    // The planning a reasoning model wrote before the scene, the draft it abandoned, the notes after.
+    const bounded = trimToStory(prose, check.story_starts, check.story_ends);
+    if (bounded.cut) { prose = bounded.prose; console.warn("[prose] kept only the story: the reply had planning, a draft or notes around it"); }
+    const notStory = cutSpans(prose, check.not_story);
+    if (notStory.cut.length) { prose = notStory.prose; console.warn(`[prose] cut ${notStory.cut.length} span(s) that weren't story`); }
+    // ...A LINE GIVEN TO THE PLAYER THAT THE PLAYER NEVER TYPED. The first one cut is quoted back
+    // next turn. See engine/playervoice.ts.
+    const voiced = cutSentences(prose, check.player_lines);
+    state.last_voiced = voiced.cut.length ? { line: check.player_lines[0], sentence: voiced.cut[0] } : null;
+    if (voiced.cut.length) {
+      prose = voiced.prose;
+      noteFire(state, "player_voice", `gave the player a line they never typed: "${check.player_lines[0].slice(0, 60)}"`);
+      ev.onMeta({ shifts: [`The narration gave you ${voiced.cut.length === 1 ? "a line" : `${voiced.cut.length} lines`} you never typed; ${voiced.cut.length === 1 ? "it was" : "they were"} cut`] });
+    }
+    // ...A STORYLINE THE PLAYER NUKED, coming back anyway, unless the player raised it. See nuke.ts.
+    if (state.world.nuked?.length && check.wiped.length) {
+      const wiped = cutSentences(prose, check.wiped);
+      if (wiped.cut.length) {
+        prose = wiped.prose;
+        noteFire(state, "nuked", `the narration brought back a storyline you wiped; ${wiped.cut.length} sentence(s) cut`);
+      }
+    }
+    // ...the stock reassurance standing in for an answer, never more than two a turn.
+    const canned = cutSentences(prose, check.canned, 2);
+    if (canned.cut.length) { prose = canned.prose; console.warn(`[turn] tic guard: cut ${canned.cut.length} stock reassurance(s)`); }
+    // TURN-ENDING GUARD. A CASCADE (a new arrival acting after the turn's pressure landed) or a
+    // PREEMPT (the player's body moved for them after a demand) lives in the final paragraph, and
+    // stopping earlier is exactly the fix, so the paragraph goes when two or more remain.
+    if (check.overrun !== "none") {
+      const trimmed = dropLastParagraph(prose);
+      if (trimmed !== prose) { prose = trimmed; console.warn(`[turn] ending guard: trimmed a ${check.overrun} tail paragraph so the turn ends on the first pressure`); }
+    }
+    // THE WIND, EVERY TURN. One free-standing setting sentence with nobody in it is atmosphere; past
+    // that, or on a motif last turn already spent, it goes. Clauses hung off a person's sentence are
+    // never cut; those are reported to the next turn instead. See engine/ambient.ts.
+    if (!plain) {
+      const spent = new Set((contextHistory(state).slice(-1)[0]?.faults?.setting ?? []).filter((x) => x.alone).map((x) => x.motif));
+      const amb = cutSentences(prose, settingCuts(check.setting, spent), 3);
+      if (amb.cut.length) { prose = amb.prose; console.warn(`[turn] ambient guard: cut ${amb.cut.length} setting sentence(s)`); }
+    }
+    dialogue = dialogue.filter((d) => contains(prose, d.line));
+  }
+  const proseWords = words(prose).length;
+
+  // WHAT THE NEXT TURN IS TOLD. The style findings stay in the prose and are quoted back next turn;
+  // see prosecheck.feedForward for which fire on the instance and which only on recurrence.
+  {
+    const ff = feedForward(state, check, dialogue, {
+      prose, mode, voided: !!voided, complained: turnRead(state).says_described_back,
+      presentIds: state.world.present, past: contextHistory(state),
+    });
+    for (const [kind, detail] of ff.fires) noteFire(state, kind, detail);
+    if (ff.shifts.length) ev.onMeta({ shifts: ff.shifts });
+    if (state.last_risen) {
+      const r = state.last_risen;
+      console.warn(`[cast] ${r.name} is ${r.status} and acted in this turn's prose: "${r.line.slice(0, 90)}"`);
+      noteFire(state, "risen", `${r.name} (${r.status}) acted in the prose`);
+    }
+    // The player's own words coming back at them, in either of its two forms. A demand to say it
+    // again is the bookkeeper's to hear; a parrot is counted against what the player typed.
+    const playerWords = mode === "say" ? action : quotedLines(action).filter((q) => q.length >= 4).join(" … ");
+    state.last_echo = check.repeat_demand ? { line: check.repeat_demand, kind: "demand" } : findEcho(prose, playerWords);
+    // …and the short quote-back opener, which findEcho's five-word floor is deliberately above.
+    // Counted, not banned: one repeat is speech, two in a turn is how lines are being started.
+    state.last_openers = echoOpeners(prose, playerWords);
+    // ...and the narrator's own previous page coming back. Read against the last turn that
+    // actually produced prose, so an interlude or a montage in between does not mask it.
+    state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
+    state.last_line_reprint = findLineReprint(contextHistory(state).map((h) => h.narrator_prose ?? ""), prose);
+    if (state.last_line_reprint) noteFire(state, "line", `"${state.last_line_reprint.slice(0, 70)}" said again`);
+    if (state.last_reprint) {
+      noteFire(state, "reprint", `${Math.round(state.last_reprint.overlap * 100)}% of the previous turn, reprinted`);
+      ev.onMeta({ shifts: [`this turn repeated ${Math.round(state.last_reprint.overlap * 100)}% of the one before, and the narrator will be shown it next turn`] });
+    }
+  }
+
+  // ── THE REVISER ── The prose has stopped changing once the bookkeeper's cuts are in, so this is
+  // where the repair pass can see the finished turn. It is STARTED here and AWAITED at the commit,
+  // alongside everything the diff sets in motion. It also never runs on a clean turn — flagTics is local and returns nothing to do, and the
+  // promise resolves without opening a socket.
+  //
+  // Everything downstream of this point — the bookkeeper, presence, novelty, appellations, maxims,
+  // the audit, the Chronicle — goes on reading `prose`, the narrator's own words. The repaired copy
+  // is carried separately and touches nothing but the page. See engine/reviser.ts.
+  const reviserOn = !!state.model_settings.prose_reviser && !opts?.proseOverride;
+  const revisePass = reviserOn
+    ? reviseProse(prose, {
+        model: state.model_settings.reviser_model || state.model_settings.simulator_model,
+        fallback: state.model_settings.fallback_model,
+        signal,
+      }).catch((e) => {
+        // Swallowed on purpose, cancellation included. This promise is awaited late, so a rejection
+        // that escaped here would be an unhandled rejection on any turn that unwound before the
+        // commit — and there is nothing to report either way: no repair means the narrator's own
+        // words, which is the state the player was already in.
+        if (!isCancel(e)) console.warn(`[reviser] pass threw, prose left as written: ${e}`);
+        return null;
+      })
+    : null;
+
   // REGEX-FIRST BACKFILL: deterministic extraction of the mechanical, patterned changes
   // (movement, hand-offs, conditions subsiding, elapsed-time cues). The LLM diff always wins;
   // heuristics only fill what it missed — and when the diff failed entirely, they turn a
@@ -4374,7 +4247,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // occurs at the declared scale, and how long it took is part of the declaration — see
   // declaredMinutes for the flight that was billed at two minutes and took the geography with it.
   const billed = diff.elapsed_minutes > 0 ? clamp(diff.elapsed_minutes, 1, 12 * 60) : heuristicMinutes(action, prose);
-  const declared = declaredMinutes(action);
+  const declared = declaredMinutes(turnRead(state));
   const minutes = Math.max(billed, declared);
   if (declared > billed) {
     console.info(`[time] the player declared ~${declared}min; the bookkeeper billed ${billed} — taking the declaration`);
@@ -4820,10 +4693,9 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // record, and corrected at the end of the NEXT turn's direction — the only safe place to quote a
   // banned line, because by then it has been written. See engine/spent.ts.
   state.last_retold = retoldToPlayer(state, prose);
-  // A DOOR IS A DOOR. Somebody standing inside the player's private space who was not in the scene,
-  // with nothing on the page that let them in. Reported next turn rather than cut — by the time it
-  // is visible the scene is built on it. See engine/threshold.ts.
-  state.last_intrusion = findIntrusion(state, prose, new Set(presentDuringTurn));
+  // (A DOOR IS A DOOR: somebody inside the player's private space with nothing on the page that let
+  // them in is the bookkeeper's prose_check.walked_in now, set into last_intrusion with the rest of
+  // the next turn's corrections above. See engine/threshold.ts.)
 
   // EVERY DOOR INTO MEMORY, NOT JUST THE BOOKKEEPER'S. Eleven of the twelve writers into the
   // episodic store never went through cleanMemoryContent, and what they wrote was interpolated out
@@ -4871,9 +4743,15 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   shifts = sifted.shown;
 
   const thisRead = turnRead(state);
+  // The findings and the dialogue are kept for the few turns the recurrence rules look back over
+  // (see prosecheck.feedForward), and dropped from older entries so a long save doesn't carry every
+  // spoken line twice.
+  for (const old of state.history.slice(0, -KEEP_FINDINGS)) { delete old.faults; delete old.dialogue; }
   state.history.push({
     turn, player_action: action, action_mode: mode, narrator_prose: prose,
     ...(thisRead !== EMPTY_READ ? { read: thisRead } : {}),
+    ...(hasFindings(check) ? { faults: check } : {}),
+    ...(dialogue.length ? { dialogue } : {}),
     ...(proseRead ? { narrator_prose_read: proseRead } : {}),
     reads: turnReads.length ? turnReads : undefined,
     /* THE SUMMARY IS WHAT GETS REPLAYED, so it is where a hallucination becomes history. On the
@@ -6001,7 +5879,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
     if (!hc.held || hid === "char_player") continue;
     const freed = releaseEvidence({
       prose,
-      action,
+      read: turnRead(state),
+      id: hid,
       name: hc.name ?? "",
       others: Object.entries(state.characters)
         .filter(([oid]) => oid !== hid && oid !== "char_player")
@@ -6051,7 +5930,8 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
         // deadbolted out of and sentenced away from. See engine/exit.ts.
         const evidence = departureEvidence({
           prose,
-          action,
+          read: turnRead(state),
+          id: cid,
           said: (mv as { said?: string }).said,
           name: c.name ?? "",
           // so a bystander standing beside somebody else's arrest doesn't inherit it
@@ -6495,7 +6375,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
 
   // WHO THE PLAYER JUST SWORE AT. Resolved once, before any of the readings land, because it
   // constrains both of them: being abused does not open a body and does not warm a bond.
-  const abused = hostileToward(action, (state.world.present ?? [])
+  const abused = hostileToward(state, (state.world.present ?? [])
     .map((cid) => state.characters[cid]?.name).filter(Boolean) as string[]);
   const wasAbused = (cid: string) => abused.has(state.characters[cid]?.name ?? "");
 
@@ -6894,32 +6774,13 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
       console.warn(`[cast] blocked drive misattributed to absent ${nameOf(id)}: "${String(du.goal).slice(0, 60)}"`);
       continue;
     }
-    /* A WANT WHOSE COMPLETION IS SOMEBODY ELSE'S ACTION LEAVES ITS OWNER NOTHING TO DO.
-     *
-     * isDependentGoal was written for this, sits in driveforge.ts with its own rules, and had ZERO
-     * callers anywhere in src. Measured on a save: a woman recorded as wanting to "Get Max Mercer
-     * to hand over the rent money to her bank account and look at her body", blocked on "Max Mercer
-     * is ignoring her and staring at his phone", present in twenty-four consecutive scenes. Ten
-     * intents were authored for her and the surface of every one is a variant of reclining —
-     * sprawls back, sprawling back, leaning back, sprawled deep into the cushions — while the truth
-     * of every one is what HE does: stammers, looks, loses his train of thought, drops the phone.
-     *
-     * Not one of the ten has her doing anything, and the player's report was that she makes no
-     * moves at all. He is reading the record correctly. The intent pass is asked every turn what
-     * this person is doing about their want, and a want like that has one answer: present yourself
-     * and wait. The character is not passive; the goal is.
-     *
-     * The blocker keeps the want, because being stuck on somebody is real and is what the blocker
-     * field is for. What is dropped is the GOAL, so regenerateDrives seeds a fresh one from this
-     * person's own edges and traits — something they start on their own on a Tuesday. */
-    if (isDependentGoal(String(du.goal), state.characters["char_player"]?.name ?? "")) {
-      const prev = state.characters[id].drive;
-      if (prev?.goal && du.blocker) prev.blocker = du.blocker;
-      // an engine correction, not news about the story: the console, not the player's notices
-      console.info(`[drives] ${nameOf(id)}'s want was something the player has to do; dropped, they'll get one of their own`);
-      console.warn(`[drives] dependent goal rejected for ${nameOf(id)}: "${String(du.goal).slice(0, 70)}"`);
-      continue;
-    }
+    /* A WANT THAT GOES THROUGH SOMEONE ELSE IS STILL A WANT. This used to drop any goal shaped like
+     * "get him to hand it over" on a word list, after a woman recorded as wanting the rent money off
+     * Max spent twenty-four scenes reclining and waiting for him to act. The want wasn't the fault;
+     * the waiting was. Dropping every want that ran through the player left the people whose whole
+     * situation is the player (a courtier after a king's favour, a schemer holding his secret) with
+     * errands in its place, and nothing to ask him for. What a want makes someone DO is the intent
+     * pass's and the narrator's to write; see the fear and drive notes in prompts.ts and intent.ts. */
     (drivesByChar.get(id) ?? drivesByChar.set(id, []).get(id)!).push(du);
   }
   const ownerSlips: string[] = [];

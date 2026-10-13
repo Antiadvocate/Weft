@@ -5,6 +5,7 @@
  * filed both as things Rabi said. A quoted line attributed to "you" that the player didn't type is
  * now cut before the bookkeeper reads the prose, and quoted back next turn. */
 import { scrubPlayerVoice, voicedFix } from "../src/engine/playervoice";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
 import { lint } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
 
@@ -21,23 +22,29 @@ The man two desks down looks up. "You're leaving? It's barely half two."
 "Just—going home," you say. You don't bother with the rest of it.
 
 Across the aisle, the woman in the navy blazer pulls her headset off.`;
-const r = scrubPlayerVoice(t51, `"She can ask her" I get up and start heading home`, "do");
+/** The read a careful reader gives each action: what was said aloud, and whether speech was reported. */
+const said = (...lines: string[]): ActionRead => ({ ...EMPTY_READ, said: lines });
+const r = scrubPlayerVoice(t51, `"She can ask her" I get up and start heading home`, "do", said("She can ask her"));
 check("the invented line is cut", r.cut.length === 1 && !/Just—going home/.test(r.prose), r);
 check("what's around it stays", /The man two desks down looks up\. "You're leaving\? It's barely half two\."/.test(r.prose) && /navy blazer/.test(r.prose) && /You don't bother with the rest of it\./.test(r.prose), r.prose);
 check("the cut is reported with its sentence", r.cut[0]?.line === "Just—going home," && /you say\./.test(r.cut[0].sentence), r.cut);
 
 const t52 = `The man stands up. "Hey, wait. Dana's going to—"\n\n"Dana can ask Ellie," you say, and sling your bag over your shoulder.\n\nNobody stops you this time.`;
-const r52 = scrubPlayerVoice(t52, "I take the laptop and go home to work from home.", "do");
+const r52 = scrubPlayerVoice(t52, "I take the laptop and go home to work from home.", "do", EMPTY_READ);
 check("the attribution and the rest of its sentence go together", r52.cut.length === 1 && !/sling your bag/.test(r52.prose) && /Nobody stops you this time\./.test(r52.prose), r52.prose);
 
-check("a line the player did type stays", scrubPlayerVoice(`"Let's go," you say, and pull out.`, `"Ok. Let's go." I drive her to work.`, "do").cut.length === 0);
-check("another person's line stays", scrubPlayerVoice(`"Well?" she asks. "You going?"`, "I stand there", "do").cut.length === 0);
-check("'You say nothing' after someone's question isn't a line", scrubPlayerVoice(`"Well?" You say nothing.`, "I wait", "do").cut.length === 0);
-check("'you say nothing' lowercase isn't either", scrubPlayerVoice(`She waits. "Well?" you say nothing, and she sighs.`, "I wait", "do").cut.length === 0);
-check("an attribution in front of the quote is caught too", scrubPlayerVoice(`You tell her, "I'm done with Beacon." She blinks.`, "I shrug", "do").cut.length === 1);
-check("reported speech in the action lets the narrator write it out", scrubPlayerVoice(`"I'm going home," you tell her.`, "I tell her I'm leaving", "do").cut.length === 0);
-check("the story channel is left alone", scrubPlayerVoice(`"Fine," you say.`, "Rabi gives in", "story").cut.length === 0);
-check("a turn is never emptied", scrubPlayerVoice(`"Fine," you say.`, "I nod", "do").prose === `"Fine," you say.`);
+check("a line the player did type stays", scrubPlayerVoice(`"Let's go," you say, and pull out.`, `"Ok. Let's go." I drive her to work.`, "do", said("Ok. Let's go.")).cut.length === 0);
+check("...and stays when the read failed, from the quotes he typed", scrubPlayerVoice(`"Let's go," you say, and pull out.`, `"Ok. Let's go." I drive her to work.`, "do", EMPTY_READ).cut.length === 0);
+check("...or from all of it, on the say channel", scrubPlayerVoice(`"Let's go," you say, and pull out.`, `Ok. Let's go.`, "say", EMPTY_READ).cut.length === 0);
+check("words from what he did aren't words he said", scrubPlayerVoice(`"Heading home," you say.\n\nShe nods.`, "I get up and start heading home", "do", { ...EMPTY_READ, did: "gets up and heads home" }).cut.length === 1);
+check("another person's line stays", scrubPlayerVoice(`"Well?" she asks. "You going?"`, "I stand there", "do", EMPTY_READ).cut.length === 0);
+check("'You say nothing' after someone's question isn't a line", scrubPlayerVoice(`"Well?" You say nothing.`, "I wait", "do", EMPTY_READ).cut.length === 0);
+check("'you say nothing' lowercase isn't either", scrubPlayerVoice(`She waits. "Well?" you say nothing, and she sighs.`, "I wait", "do", EMPTY_READ).cut.length === 0);
+check("an attribution in front of the quote is caught too", scrubPlayerVoice(`You tell her, "I'm done with Beacon." She blinks.`, "I shrug", "do", EMPTY_READ).cut.length === 1);
+// "I tell her I'm leaving": reported speech, as the turn read has it (reported_speech)
+check("reported speech in the action lets the narrator write it out", scrubPlayerVoice(`"I'm going home," you tell her.`, "I tell her I'm leaving", "do", { ...EMPTY_READ, reported_speech: true }).cut.length === 0);
+check("the story channel is left alone", scrubPlayerVoice(`"Fine," you say.`, "Rabi gives in", "story", EMPTY_READ).cut.length === 0);
+check("a turn is never emptied", scrubPlayerVoice(`"Fine," you say.`, "I nod", "do", EMPTY_READ).prose === `"Fine," you say.`);
 check("no stranded quote marks", !/(^|\n)\s*"\s*$/m.test(r.prose));
 
 const fix = voicedFix(r.cut[0]);
@@ -46,7 +53,8 @@ check("the correction passes the prompt linter", lint(fix).length === 0, lint(fi
 check("nothing to say, nothing said", voicedFix(null) === "");
 
 const turn = readFileSync("src/engine/turn.ts", "utf8");
-check("the turn scrubs before the bookkeeper and quotes it back", /scrubPlayerVoice\(prose, action, mode\)/.test(turn) && /voicedFix\(state\.last_voiced\)/.test(turn));
+// which lines the player never typed is the bookkeeper's call now (prose_check.player_lines)
+check("the turn cuts what the bookkeeper flags and quotes it back", /cutSentences\(prose, check\.player_lines\)/.test(turn) && /voicedFix\(state\.last_voiced\)/.test(turn));
 check("and counts it", /noteFire\(state, "player_voice"/.test(turn) && /player_voice:/.test(readFileSync("src/engine/integrity.ts", "utf8")));
 
 console.log(`\n${pass} passed, ${fail} failed`);

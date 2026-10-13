@@ -30,7 +30,7 @@
  * The gate is two conditions and both are required: god mode on, and the act declared this turn.
  */
 import { detectVoid } from "../src/engine/ooc";
-import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
+import { EMPTY_READ, setRead, type ActionRead } from "../src/engine/actionread";
 const read = (r: Partial<ActionRead>): ActionRead => ({ ...EMPTY_READ, ...r });
 import { declaresMindRead, mindReadTarget, sovereignRead, mindReadNote, SOVEREIGN_FACULTY } from "../src/engine/read";
 import { stablePrefix } from "../src/engine/prompts";
@@ -104,8 +104,13 @@ const intents = (m: string, lying = false) => [
   check("...where the bible is still plain law", /Forces\/Magic: None\./.test(off));
 }
 
-/* ── 4. a declared act of perception ──────────────────────────────────────────── */
+/* ── 4. a declared act of perception ──────────────────────────────────────────────
+ *
+ * Whether the player reads somebody's mind, and whose, is the turn's read (engine/actionread.ts,
+ * `reads_mind_of`). Each specimen is handed the read a careful reader gives it: Miranda's id for the
+ * player reading her, nothing for somebody reading the player or for an ordinary look. */
 {
+  const { m } = fixture();
   for (const a of [
     "I read Miranda's mind",
     "I read her mind",
@@ -116,7 +121,9 @@ const intents = (m: string, lying = false) => [
     "I know what she is really thinking",
     "I see what she is actually feeling",
     "I know what she's hiding from me",
-  ]) check(`declared: ${a}`, declaresMindRead(a), a);
+    // both directions in one sentence: the player's channel opens on the half that is theirs
+    "She reads my mind, so I read Miranda's thoughts right back",
+  ]) check(`declared: ${a}`, declaresMindRead(read({ reads_mind_of: m })), a);
 
   for (const a of [
     "I look at her",
@@ -126,30 +133,27 @@ const intents = (m: string, lying = false) => [
     "I hear the door",
     "She reads my mind",           // the opposite act: somebody reading the player
     "Miranda reads my thoughts",
-  ]) check(`left alone: ${a}`, !declaresMindRead(a), a);
-  // Both directions in one sentence: the player's channel opens on the half that is theirs. It
-  // takes a named object to do it — a bare "and I read hers" is a gap, and a sentence nobody types.
-  check("both ways round in one sentence still opens", declaresMindRead("She reads my mind, so I read Miranda's thoughts right back"));
+  ]) check(`left alone: ${a}`, !declaresMindRead(read({})), a);
 }
 
 /* ── 5. who is being read ─────────────────────────────────────────────────────── */
 {
   const { s, m } = fixture();
-  check("a named person present", mindReadTarget(s, "I read Miranda's mind") === m);
-  check("a pronoun, with one other person in the room", mindReadTarget(s, "I read her mind") === m);
+  check("the person the read names, here in the scene", mindReadTarget(s, read({ reads_mind_of: m })) === m);
+  check("nobody named resolves to nobody", mindReadTarget(s, read({})) === null);
 
   const s2: any = fixture().s;
   const c = registerCharacter(s2, { name: "Chloe", age: 30, background: "b", core_traits: ["t"] } as any);
   s2.characters[c].location = "loc_x";
   s2.world.present.push(c);
-  check("a name still resolves with two of them here", mindReadTarget(s2, "I read Chloe's thoughts") === c);
-  check("a bare pronoun with two of them resolves to nobody", mindReadTarget(s2, "I read her mind") === null);
-  check("nobody present resolves to nobody", mindReadTarget({ ...s, world: { ...s.world, present: ["char_player"] } } as any, "I read her mind") === null);
+  check("with two of them here, the one the read names", mindReadTarget(s2, read({ reads_mind_of: c })) === c);
+  check("nobody present resolves to nobody", mindReadTarget({ ...s, world: { ...s.world, present: ["char_player"] } } as any, read({ reads_mind_of: m })) === null);
 }
 
 /* ── 6. the read itself ───────────────────────────────────────────────────────── */
 {
   const { s, m } = fixture(true);
+  setRead(s, "I read Miranda's mind", { reads_mind_of: m });
   const r = sovereignRead(s, "I read Miranda's mind", intents(m));
   check("it fires", r.reads.length === 1, r);
   check("...owned by a faculty that is never wrong", r.reads[0]?.faculty === SOVEREIGN_FACULTY);
@@ -161,8 +165,12 @@ const intents = (m: string, lying = false) => [
   const lying = sovereignRead(s, "I read Miranda's mind", intents(m, true));
   check("a lie is named as one", /What Miranda is letting show is deliberate and different from this\./.test(lying.reads[0]?.line ?? ""), lying.reads[0]);
 
+  setRead(s, "I take her hand", {});
   check("nothing without the declaration", sovereignRead(s, "I take her hand", intents(m)).reads.length === 0);
-  check("nothing without god mode", sovereignRead(fixture(false).s, "I read Miranda's mind", intents(m)).reads.length === 0);
+  const mortal = fixture(false).s;
+  setRead(mortal, "I read Miranda's mind", { reads_mind_of: m });
+  check("nothing without god mode", sovereignRead(mortal, "I read Miranda's mind", intents(m)).reads.length === 0);
+  setRead(s, "I read Miranda's mind", { reads_mind_of: m });
   check("nothing when the intent pass wrote no intent for her", sovereignRead(s, "I read Miranda's mind", [] as any).reads.length === 0);
   check("...and a quiet turn is never an invented one", sovereignRead(s, "I read Miranda's mind", [{ char_id: m, name: "Miranda", surface: "s", truth: "  ", lying: false }] as any).reads.length === 0);
 }
@@ -170,6 +178,7 @@ const intents = (m: string, lying = false) => [
 /* ── 7. what the narrator is told, so the prose cannot invent a second thought ── */
 {
   const { s, m } = fixture(true);
+  setRead(s, "I read Miranda's mind", { reads_mind_of: m });
   const n = mindReadNote(s, "I read Miranda's mind", intents(m));
   check("the narrator is told it is happening", /READING MIRANDA'S MIND THIS TURN/.test(n), n);
   check("...and in this world it can", /in this world they can/.test(n));
@@ -178,8 +187,11 @@ const intents = (m: string, lying = false) => [
   check("...and forbidden a different version", /it doesn't differ from the sentence above/.test(n));
   check("...while she goes on as somebody whose inside is private", /carries on exactly like someone whose thoughts are still private/.test(n));
 
+  setRead(s, "I take her hand", {});
   check("nothing crosses the seal on an ordinary turn", mindReadNote(s, "I take her hand", intents(m)) === "");
-  check("...or with the switch off", mindReadNote(fixture(false).s, "I read Miranda's mind", intents(m)) === "");
+  const mortal = fixture(false).s;
+  setRead(mortal, "I read Miranda's mind", { reads_mind_of: m });
+  check("...or with the switch off", mindReadNote(mortal, "I read Miranda's mind", intents(m)) === "");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

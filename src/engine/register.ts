@@ -30,6 +30,13 @@
  * character still has somewhere to be.
  */
 
+import type { ActionRead } from "./actionread";
+
+/* THE PROSE HALF. These three still read the recent narration, and stay until the bookkeeper reads
+ * a scene's register as a field. The player's half of the read no longer goes through them: what
+ * the player typed was appended to the prose and run through the same lists, and the turn read now
+ * carries its pitch directly (`register`, actionread.ts), because the lists kept missing it. */
+
 /** Bodies, closeness, sex. */
 const INTIMATE = /\b(kiss|kissed|kissing|naked|undress|undressed|bare|caress|breath|whisper|moan|trembl|skin|intimate|tender|make love|between them|close enough to|foreheads?|cock|cunt|nipple|thrust|aroused|arousal|orgasm|climax|panting|straddl|grind|lick|suck|swallow|on (?:his|her|their) knees|in (?:his|her|their) mouth|inside (?:him|her|them))\b/i;
 
@@ -48,11 +55,12 @@ export interface SceneRegister {
   guarded: boolean;
 }
 
-/** Read the register from recent prose plus whatever the player just typed. */
-export function sceneRegister(text: string): SceneRegister {
-  const t = String(text ?? "").toLowerCase();
-  const intimate = INTIMATE.test(t);
-  const dangerous = DANGEROUS.test(t);
-  const hushed = HUSHED.test(t);
+/** Read the register from the recent prose, and from the turn read for whatever the player just
+ *  typed. `prose` is narration only: the player's own line belongs in `read`. */
+export function sceneRegister(prose: string, read: ActionRead): SceneRegister {
+  const t = String(prose ?? "").toLowerCase();
+  const intimate = INTIMATE.test(t) || read.register.intimate;
+  const dangerous = DANGEROUS.test(t) || read.register.dangerous;
+  const hushed = HUSHED.test(t) || read.register.hushed;
   return { intimate, dangerous, hushed, guarded: intimate || dangerous || hushed };
 }

@@ -52,6 +52,7 @@
  * is permission plus a measured fact about what the last few turns actually did.
  */
 import type { SaveState } from "./types";
+import type { ActionRead } from "./actionread";
 import { isMannerism } from "./novelty";
 
 /* ── BANDS ──────────────────────────────────────────────────────────────────── */
@@ -483,15 +484,12 @@ export function apertureNote(state: SaveState, presentIds: string[]): string {
  *                down, so there's no PMI, and the rate's fixed, so it doesn't jump."
  *
  * This one does not need measuring after the fact, because the evidence arrives in the player's own
- * typed line before the turn is written. It fires on that.
+ * typed line before the turn is written. It fires on that, as the turn read has it
+ * (`says_already_knows`, actionread.ts). It was a list of ways to say so, from "I know how" to "I'm
+ * a grownup", and every other way of saying it walked straight past the list.
  */
-const KNOWS_ALREADY = new RegExp("\\b(i know how|i know what|i know that|i already know|i understand how|i understand what|"
-  + "i get it|i get how|i know\\b[^.?!]{0,12}\\balready|you (?:already )?told me|you said that already|"
-  + "i'?m a grown(?:up| man| woman| adult)|no need to explain|don'?t need (?:it )?explain|"
-  + "you don'?t (?:have to|need to) explain|i can read|i've seen it|i have seen it)\\b", "i");
-
-export function heardYouNote(action: string): string {
-  if (!KNOWS_ALREADY.test(String(action ?? ""))) return "";
+export function heardYouNote(read: ActionRead): string {
+  if (!read?.says_already_knows) return "";
   return `\n\n=== THE PLAYER SAID THEY ALREADY KNOW ===\nWhat the player said this turn makes it clear they already have this: they know how it works, they've been told, or they can read it for themselves. `
     + `Nobody explains it to them, whether at length, in a shorter version, as a quick recap "just so it's clear", or by walking them through the document while saying they don't have to look. `
     + `When someone they trust says "I know how that works", a person says some short version of okay and moves on, and whatever they say next is about something else. `

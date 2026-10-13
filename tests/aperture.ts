@@ -12,6 +12,7 @@
  * to, and that a character behaving perfectly ordinarily still gets no note at all.
  */
 import { newSave, registerCharacter } from "../src/engine/state";
+import { EMPTY_READ } from "../src/engine/actionread";
 import {
   apertureOf, attributeLines, wantSaturation, steeringStreak, driftSubject,
   apertureNote, heardYouNote, isInstruction, SATURATED_AT, STEERING_AT,
@@ -134,11 +135,16 @@ check("an ordinary settled body is wide", apertureOf(2.51) === "wide", apertureO
 }
 
 /* ── I already know ────────────────────────────────────────────────────────── */
-check("the player's own line fires it",
-  heardYouNote("\"I'm a grownup Amber... I understand how a mortgage works hah but sure.\"").includes("ALREADY KNOW"));
-check("so does being told twice", heardYouNote("you already told me that last night").includes("ALREADY KNOW"));
-check("an ordinary line does not", heardYouNote("I pull up my ID \"here you go\"") === "");
-check("nor does asking to be told", heardYouNote("\"How does the mortgage work?\"") === "");
+// Whether the player says they already know is the turn read's call (says_already_knows). The
+// lines are the save's; each goes in with the read a careful reader gives it.
+{
+  const knows = { ...EMPTY_READ, says_already_knows: true };
+  // "I'm a grownup Amber... I understand how a mortgage works hah but sure." / "you already told me that last night"
+  check("the player's own line fires it", heardYouNote(knows).includes("ALREADY KNOW"));
+  // `I pull up my ID "here you go"` / `"How does the mortgage work?"`
+  check("an ordinary line, or asking to be told, does not", heardYouNote(EMPTY_READ) === "");
+  check("a bare string is never read as one", heardYouNote("you already told me that last night" as never) === "");
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

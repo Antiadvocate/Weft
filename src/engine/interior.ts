@@ -35,6 +35,8 @@
  * writes what the room can see, is kept from it.
  */
 import type { SaveState } from "./types";
+import type { ActionRead } from "./actionread";
+import { collapseSpaces } from "./text";
 
 /** What the player privately reported this turn, and how much of it there is. */
 export interface PlayerInterior {
@@ -46,65 +48,76 @@ export interface PlayerInterior {
   direction: -1 | 0 | 1;
 }
 
-/** Private spans: *asterisks* (a thought) and (parentheses) (the state behind the act).
- *  Double ((parens)) are a search directive, not story text, and are left to their own handler. */
-const PRIVATE_SPAN = /\*([^*]+)\*|(?<!\()\(([^()]+)\)(?!\))/g;
+/** Private spans: *asterisks* (a thought) and (parentheses) (the state behind the act). Double
+ *  ((parens)) are a search directive, not story text, and are left to their own handler. Found by
+ *  walking the characters: each span's inside goes to `take`, and the text comes back with every
+ *  span, marks and all, replaced by a space. */
+function withoutPrivate(text: string, take?: (inside: string) => void): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "*") {
+      const close = text.indexOf("*", i + 1);
+      if (close > i + 1) { take?.(text.slice(i + 1, close)); out += " "; i = close + 1; continue; }
+    } else if (ch === "(" && text[i - 1] !== "(") {
+      // a single pair with nothing nested inside, and not the outer marks of a ((directive))
+      let close = i + 1;
+      while (close < text.length && text[close] !== "(" && text[close] !== ")") close++;
+      if (text[close] === ")" && close > i + 1 && text[close + 1] !== ")") { take?.(text.slice(i + 1, close)); out += " "; i = close + 1; continue; }
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
 
-const TIGHTENS = /\b(hat(?:e|ed|ing)|angr|anger|furious|rage|resent|sick of|disgust|contempt|afraid|scared|terrif|dread|anxious|panic|humiliat|ashamed|shame|grief|grieving|hurt|betray|jealous|envy|tired of|exhausted|numb|dead inside|can'?t stand|wanted to scream|bit(?:e|ing) (?:my|back))\b/i;
-const EASES = /\b(happy|glad|relie(?:f|ved)|love[ds]?|loving|tender|grateful|gratitude|safe|warm|calm|settled|at ease|proud|delight|joy|content|fond|melt(?:ed|ing)?|let go|softened)\b/i;
-/** Words that mean the feeling is being held hard rather than merely noted. */
-const INTENSIFIERS = /\b(so|really|absolutely|completely|utterly|fucking|god|never|always|every time|still|again)\b/i;
+/* HOW MUCH, AND WHICH WAY. These were word lists (hate, angry, dread for tightening; glad, relief,
+ * tender for easing; "so", "really", "fucking" for intensity) plus a word count, and the lists kept
+ * missing phrasings: a feeling put any way but the listed one read as unreadable. The turn's read
+ * (engine/actionread.ts, `inner`) now carries both, judged by a model reading the whole turn. */
 
 /**
  * How much is being carried, 0..1.
  *
- * Deliberately crude — it decides between "nothing shows", "something flickers" and "something
- * shows", and no finer reading than that is used anywhere. Length is the main signal because a
- * player who types six words about how they feel is carrying more than one who types two.
+ * Deliberately coarse: it decides between "nothing shows", "something flickers" and "something
+ * shows", and no finer reading than that is used anywhere.
  */
-export function chargeOf(text: string): number {
-  const t = String(text ?? "").trim();
-  if (!t) return 0;
-  const words = t.split(/\s+/).filter(Boolean).length;
-  let c = Math.min(0.6, words / 14);
-  if (TIGHTENS.test(t) || EASES.test(t)) c += 0.25;
-  if (INTENSIFIERS.test(t)) c += 0.15;
-  if (/[!?]/.test(t)) c += 0.1;
-  return Math.max(0, Math.min(1, c));
+export function chargeOf(read: ActionRead): number {
+  const c = Number(read?.inner?.charge ?? 0);
+  return Number.isFinite(c) ? Math.max(0, Math.min(1, c)) : 0;
 }
 
 /** Which way the body went. Unreadable is a legitimate answer and renders as nothing. */
-export function directionOf(text: string): -1 | 0 | 1 {
-  const tight = TIGHTENS.test(text), ease = EASES.test(text);
-  if (tight && !ease) return -1;
-  if (ease && !tight) return 1;
-  return 0;
+export function directionOf(read: ActionRead): -1 | 0 | 1 {
+  const d = read?.inner?.direction ?? 0;
+  return d > 0 ? 1 : d < 0 ? -1 : 0;
 }
 
 /**
  * Split the player's input into what the room can witness and what only they carry.
  *
  * Speech stays in the outward half: it was said aloud, everyone heard it, and removing it would
- * break attribution. Only the private channels come out.
+ * break attribution. Only the private channels come out. How much the private half carries, and
+ * which way, is the turn's read; without one it carries nothing the narrator is told about.
  */
-export function splitInterior(action: string): { outward: string; interior: PlayerInterior | null } {
+export function splitInterior(action: string, read?: ActionRead): { outward: string; interior: PlayerInterior | null } {
   const raw = String(action ?? "");
   const held: string[] = [];
-  const outward = raw.replace(PRIVATE_SPAN, (_m, star, paren) => {
-    const inner = String(star ?? paren ?? "").trim();
-    if (inner) held.push(inner);
-    return " ";
-  }).replace(/\s+/g, " ").trim();
+  const outward = collapseSpaces(withoutPrivate(raw, (inside) => {
+    const t = inside.trim();
+    if (t) held.push(t);
+  }));
   if (!held.length) return { outward: raw.trim(), interior: null };
   const content = held.join(" ");
-  return { outward, interior: { content, charge: chargeOf(content), direction: directionOf(content) } };
+  return { outward, interior: { content, charge: read ? chargeOf(read) : 0, direction: read ? directionOf(read) : 0 } };
 }
 
 /** Strip every private span from a piece of the player's own text. Used wherever a PAST turn's
  *  action is replayed to the narrator — LAST TURNS was quietly handing back every thought the
  *  player ever typed, so closing this turn's leak without closing that one closes nothing. */
 export function outwardOnly(action: string): string {
-  return String(action ?? "").replace(PRIVATE_SPAN, " ").replace(/\s+/g, " ").trim();
+  return collapseSpaces(withoutPrivate(String(action ?? "")));
 }
 
 /**

@@ -26,7 +26,8 @@
  * Somebody who turned tension to 0 to stop the world inventing plots and then wrote a want onto
  * their neighbour meant for that want to happen." tickAuthored runs above the tension gate for that
  * reason. The palette sat below it. */
-import { selectBeat, pressureDirective, beatDirective } from "../src/engine/pressure";
+import { selectBeat, pressureDirective, beatDirective, decidePressure } from "../src/engine/pressure";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -179,6 +180,20 @@ const base = (over: Record<string, unknown> = {}) => ({
   check("...and the middle is busier than the low end", mid >= low, { low, mid });
   check("...and the top is busier than the middle", high >= mid, { mid, high });
   check("rest is not silent either", rest > 0, { rest });
+}
+
+/* A TURN SPENT RESTING EASES THE BAND, AS THE TURN READ HAS IT. The restful bias used to be a list of
+ * twenty verbs over the typed line, "walk" among them; whether the player is sleeping, eating,
+ * washing, resting or only waiting is the read's to say now (restores, passive). */
+{
+  const at = (read: ActionRead) => decidePressure({
+    turn: 10, trace: [3, 3, 3], threads: [], consequences: [], clocks: [], read, rng: () => 0.75,
+    difficulty: { lethality: "medium", friction_density: "balanced", antagonist_aggression: "active", protagonist_competence: "average" } as never,
+  }).pressure;
+  const busy = at({ ...EMPTY_READ, did: "walks into the bank" });
+  check("an ordinary turn presses as sampled", busy >= 3, busy);
+  check("a turn spent sleeping presses less", at({ ...EMPTY_READ, restores: ["sleep"] }) < busy, at({ ...EMPTY_READ, restores: ["sleep"] }));
+  check("so does one spent only waiting", at({ ...EMPTY_READ, passive: true }) < busy);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

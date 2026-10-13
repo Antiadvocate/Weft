@@ -25,6 +25,7 @@
  */
 import type { SaveState } from "./types";
 import { minutesBetween } from "./time";
+import { turnRead, type ActionRead } from "./actionread";
 
 /** In-scene minutes before a scene can be considered spent at all. */
 const SCENE_LONG_MIN = 75;
@@ -95,12 +96,11 @@ export function readScene(state: SaveState): SceneRead {
   return mk(true, "spent");
 }
 
-/** The player is going under, or already is. The engine has had this regex since sleep credit
- *  existed — it just ran in the apply phase, long after the narrator had already written the turn. */
-// The SUBJECT has to be the player. A bare verb match read "I ask her whether the baby slept through
-// the night" as the player losing consciousness, which would blank the camera on an ordinary line of
-// dialogue. Player actions are written in the first person, so require that and keep the gap short.
-const UNDER = /\bI(?:'m|\s+am)?\s+(?:\w+\s+){0,2}(?:sleep|sleeping|asleep|nap|napping|doze|dozing|pass out|passing out|black out|blacking out|lie down|bed down|turn in|go to bed|going to bed|call it a night)\b/i;
+/** The player is going under, or already is. Already under is in their conditions; going under this
+ *  turn is the turn read's to say (`restores` includes sleep, actionread.ts). That half used to be a
+ *  word list over the action, and it had to be patched in both directions: once to require the
+ *  player as the subject, after it read "I ask her whether the baby slept through the night" as the
+ *  player losing consciousness, while every way of nodding off it hadn't been given went unread. */
 const UNCONSCIOUS_COND = /\b(asleep|sleeping|unconscious|blacked out|knocked out|passed out|comatose|sedated|drugged)\b/i;
 
 /**
@@ -119,9 +119,9 @@ const UNCONSCIOUS_COND = /\b(asleep|sleeping|unconscious|blacked out|knocked out
  * by the POV rule's own argument, whatever is written becomes the record, so a scene nobody witnessed
  * is filed as something the player knows.
  */
-export function perceptionGapDirective(state: SaveState, action: string): string {
+export function perceptionGapDirective(state: SaveState, _action?: string): string {
   const cond = state.condition["char_player"];
-  const out = (cond?.conditions ?? []).some((c) => UNCONSCIOUS_COND.test(c)) || UNDER.test(action);
+  const out = (cond?.conditions ?? []).some((c) => UNCONSCIOUS_COND.test(c)) || turnRead(state).restores.includes("sleep");
   if (!out) return "";
   return `
 THE PLAYER IS FALLING ASLEEP OR OTHERWISE LOSING AWARENESS. There's nobody left in this scene to see things, so the narration stays with the player. Write only what a body that's going under can still feel, like a touch, a weight, a sound, warmth, or the light going out, and stop when that stops. Don't describe anyone else's face, expression, private gesture or inner life while the player can't see it. What they do once he's under, what they let themselves feel and what they look at all stay out of the prose. This matters because whatever you write gets recorded as something the player saw.
@@ -149,24 +149,20 @@ End the turn on the last thing he could actually sense, or go straight to him wa
  * has to look, ask, be shown, or take the phone.
  */
 
-/** A device or surface whose content lives at reading distance from exactly one person. */
-const SURFACE = /\b(?:phone|cell|mobile|screen|laptop|tablet|ipad|computer|monitor|inbox|browser|app|dm|dms|texts?|messages?|email|notification|letter|note|photo|photos|gallery|feed)\b/i;
-/** …and a verb of USING one. "I put my phone down" is not somebody reading anything. */
-const USES = /\b(?:open(?:s|ed|ing)?|check(?:s|ed|ing)?|pull(?:s|ed|ing)?\s+out|unlock(?:s|ed|ing)?|scroll(?:s|ed|ing)?|swip(?:e|es|ed|ing)|typ(?:e|es|ed|ing)|text(?:s|ed|ing)?|messag(?:e|es|ed|ing)|read(?:s|ing)?|look(?:s|ed|ing)?\s+(?:at|up)|search(?:es|ed|ing)?|googl(?:e|es|ed|ing)|repl(?:y|ies|ied|ying)|answer(?:s|ed|ing)?|delet(?:e|es|ed|ing)|download(?:s|ed|ing)?|install(?:s|ed|ing)?|log(?:s|ged|ging)?\s+(?:in|into)|match(?:es|ed|ing)?|swipes?\s+(?:left|right))\b/i;
-/** The player deliberately handing it over. Then the room absolutely does see it. */
-const SHOWS = /\b(?:show(?:s|ed|ing)?|hand(?:s|ed|ing)?\s+(?:her|him|them|it)|hold(?:s|ing)?\s+(?:it\s+)?up|turn(?:s|ed|ing)?\s+(?:the\s+)?(?:screen|phone|laptop)|read(?:s|ing)?\s+(?:it\s+)?(?:out|aloud)|passes?\s+(?:her|him|them)\s+(?:the|my|his|her))\b/i;
-
 /**
  * What the room can actually perceive when the player's action happens on a screen.
  *
  * Silent when nobody else is there — a man alone with his phone needs no rule — and silent when the
  * player is plainly showing it to somebody, because then they meant to.
+ *
+ * Whether the turn is one of these is the turn read's to say (`private_screen`, actionread.ts). It
+ * was three word lists here, a surface, a verb of using one and a verb of showing it, and each new
+ * app, gesture or way of glancing at a phone the player typed needed another entry in one of them.
  */
-export function screenPrivacyNote(action: string, others: readonly string[]): string {
-  const act = String(action ?? "");
+export function screenPrivacyNote(read: ActionRead, others: readonly string[]): string {
   if (!others.length) return "";
-  if (!SURFACE.test(act) || !USES.test(act)) return "";
-  if (SHOWS.test(act)) return "";
+  // showing the screen to somebody isn't turning to something private, so the read leaves it false
+  if (!read.private_screen) return "";
   const who = others.length === 1 ? others[0] : `${others.slice(0, -1).join(", ")} and ${others[others.length - 1]}`;
   return `
 

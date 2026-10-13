@@ -178,10 +178,12 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
   const card = (d: string) => { const i = d.lastIndexOf(`— Seraphina [${SERA}]`); return d.slice(i, d.indexOf("\n—", i + 5) > 0 ? d.indexOf("\n—", i + 5) : i + 6000); };
   const before = card(calm), after = card(afraid);
   check("the card says she's afraid for her life, and why", /AFRAID OF KING ALDRIC THE FIRST FOR THEIR LIFE/.test(after) && /came in soon after/.test(after), after.slice(0, 400));
-  check("her wants are still on the card, waiting", /wants \(waiting until they're safe from the player\):/.test(after) && !/wants \(waiting/.test(before), after);
+  // Fear changes how she goes after them, never whether: see the Veythar run 5 note in fear.ts.
+  check("her wants are still on the card, and she goes after them carefully", /wants \(and goes after it carefully, being afraid of the player\):/.test(after) && !/goes after it carefully/.test(before), after);
   check("the bookkeeper's old note that she \"refuses to cower\" is gone from it", /refuses to cower/.test(before) && !/refuses to cower/.test(after));
   check("her desire for him doesn't show while she's afraid", !/desire toward you: (?:real|strong)/.test(after) && (/desire toward you: (?:real|strong)/.test(before) ? /fear of you is on top of it/.test(after) : true), before.match(/desire toward you:[^\n]*/)?.[0]);
-  check("no \"goes at it by\", \"voice now\" or stress habit runs underneath it", !/goes at it by|voice now:|under stress this person/.test(after), after);
+  check("no \"voice now\" or ordinary stress habit runs underneath it", !/voice now:|under stress this person/.test(after), after);
+  check("but how she goes at what she wants stays, done carefully", !/goes at it by/.test(after) || /goes at it by \([^)]*carefully, being afraid of the player\)/.test(after), after);
   check("the line toward the player carries the number", /toward player: warmth -?\d+, trust -?\d+, fear \d+/.test(after));
   check("the bookkeeper is shown it too", /toward player: warmth -?\d+, trust -?\d+(?:, desire -?\d+)?, fear \d+/.test(afraid.slice(afraid.indexOf("fatigue"))) || /, fear \d+/.test(afraid));
   check("the block itself passes the prompt lint", lint(fearBlock(s, SERA)).length === 0, lint(fearBlock(s, SERA)));
@@ -195,7 +197,7 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
   const intent = readFileSync("src/engine/intent.ts", "utf8");
   check("no special rule for violent turns in the turn loop", !/violentAct/.test(turn));
   check("answering the player no longer means going on talking to him", !/go on talking to the player/.test(reaction) && /fear has made silence the safest thing/.test(reaction));
-  check("the intent pass drops the approach for someone afraid", /afraid \? "" : \(\(\) => \{ const door/.test(intent));
+  check("the intent pass keeps the approach for someone afraid, done carefully", /done carefully enough not to set the player off/.test(intent));
   check("the bookkeeper's fear only lands on the edge to the player", /to === "char_player" && from !== "char_player"[^\n]*\n\s*shiftFear\(/.test(turn));
 }
 

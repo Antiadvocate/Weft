@@ -35,6 +35,8 @@
  * behave; this one exists to make sure the player finds out when it has not.
  */
 import type { SaveState } from "./types";
+import type { ActionRead } from "./actionread";
+import { collapseSpaces, hasWords, trimEndOf } from "./text";
 
 /** One caught failure. `kind` groups them; `detail` is for the player, not for a model. */
 export interface IntegrityFire {
@@ -209,57 +211,37 @@ export function povFix(hit: { third: number; second: number } | null | undefined
  * engine has the machinery for it in `retcons`, reachable only by striking text by hand in the UI.
  * A player saying it in play reached none of it.
  *
- * Deliberately narrow. It reads the PLAYER'S OWN TYPED WORDS and nothing else, it fires only on a
- * flat denial of an entity that is NAMED, and it never touches a name the world actually holds — a
- * player shouting that Amber does not exist is playing, not filing a bug.
+ * Deliberately narrow. It reads the PLAYER'S OWN TYPED WORDS and nothing else, as the turn read has
+ * them (`denies_exist`, actionread.ts): five patterns for the shapes a denial takes used to sit
+ * here, with a list of sentence-openers that weren't names, and a capital-letter rule bolted on after
+ * "I told Amber that Mrs. Gable does not exist" came back as "Amber that Mrs. Gable". It strikes
+ * only something NAMED, which still means capitalised, because a strike deletes every record the
+ * name appears in and "the lobby" would take every memory of a lobby with it. And it never touches
+ * a name the world actually holds — a player shouting that Amber does not exist is playing, not
+ * filing a bug.
  */
-const DENIAL: RegExp[] = [
-  /\b([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})\s+(?:does\s?n[o']?t|do\s?n[o']?t|did\s?n[o']?t)\s+exist\b/gi,
-  /\bthere\s+(?:is|was|are|were)\s+no\s+([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
-  /\b([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})\s+(?:is|was)\s?n[o']?t\s+real\b/gi,
-  /\b(?:we|i|you)\s+never\s+(?:went\s+to|met|saw|spoke\s+to|visited)\s+(?:a\s+|an\s+|any\s+|the\s+)?([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
-  /\byou\s+(?:made\s+up|invented|hallucinated)\s+(?:a\s+|an\s+|the\s+)?([\w'’-]+\.?(?:\s+[\w'’-]+\.?){0,3})/gi,
-];
-/** Words that begin a sentence and are not what is being denied. */
-const NOT_A_NAME = new Set(["I", "We", "You", "He", "She", "They", "It", "That", "This", "There", "The", "A", "An", "And", "But", "So", "No", "Nobody", "Nothing", "Never", "Why", "What", "Who", "Where", "When", "How", "Ok", "Okay", "Yes", "Yeah", "Well", "Look", "Listen", "Wait", "Stop",
-  // contractions of a pronoun read as capitalised words and are never somebody's name
-  "I'm", "I've", "I'll", "I'd", "I’m", "I’ve", "I’ll", "I’d", "We're", "We've", "You're", "You've", "They're", "It's", "That's", "There's"]);
+
+const TITLES = new Set(["mr", "mrs", "ms", "dr", "st", "prof"]);
 
 /** Entities the player's own words have just declared nonexistent, minus anything the world holds. */
-export function deniedEntities(action: string, known: Iterable<string>): string[] {
-  const text = String(action ?? "");
-  if (!text.trim()) return [];
+export function deniedEntities(read: ActionRead, known: Iterable<string>): string[] {
+  const denied = Array.isArray(read?.denies_exist) ? read.denies_exist : [];
+  if (!denied.length) return [];
   const real = new Set([...known].map((k) => String(k ?? "").toLowerCase().trim()).filter(Boolean));
   const out = new Set<string>();
-  for (const re of DENIAL) {
-    re.lastIndex = 0;
-    for (const m of text.matchAll(re)) {
-      const raw = (m[1] ?? "").trim().replace(/[,;:!?'"]+$/, "");
-      if (!raw) continue;
-      // A NAME IS CAPITALISED and the words around it are not, so the capital is checked here
-      // rather than in the pattern — requiring it inside the pattern made the pattern itself
-      // case-sensitive, and "We never met Marcus" and "You made up Mrs. Gable" are how people
-      // actually type, sentence-initial. Trim uncapitalised words off both ends: what is left is
-      // the name, and "the store. Denise" yields Denise rather than nothing.
-      // The LAST unbroken run of capitalised words is the name. Trimming from the outside in was
-      // not enough: "I told Amber that Mrs. Gable does not exist" starts capitalised and yielded
-      // "Amber that Mrs. Gable". A lowercase word between two capitals ends the name.
-      const all = raw.split(/\s+/);
-      const words: string[] = [];
-      for (let i = all.length - 1; i >= 0 && /^[A-Z]/.test(all[i]); i--) words.unshift(all[i]);
-      if (!words.length) continue;
-      const trimmed = words.join(" ").replace(/\.$/, (d, i, str) => (/\b(Mr|Mrs|Ms|Dr|St|Prof)$/.test(str.slice(0, -1)) ? d : ""));
-      if (NOT_A_NAME.has(words[0])) continue;
-      if (real.has(trimmed.toLowerCase())) continue;
-      if ([...real].some((r) => r.split(/\s+/).includes(trimmed.toLowerCase()))) continue;
-      out.add(trimmed);
-      continue;
-      // A name the world actually holds is never struck on a line of dialogue. The player denying
-      // their own sister is a scene; the engine does not delete her over it.
-      if (real.has(raw.toLowerCase())) continue;
-      if ([...real].some((r) => r.split(/\s+/).includes(raw.toLowerCase()))) continue;
-      out.add(raw);
-    }
+  for (const said of denied) {
+    let name = trimEndOf(collapseSpaces(said), ",;:!?'\"");
+    // a closing full stop is the sentence's, unless it ends a title ("Mrs.")
+    if (name.endsWith(".") && !TITLES.has(name.slice(0, -1).split(" ").pop()!.toLowerCase())) name = name.slice(0, -1);
+    // a lowercase first letter is a common noun ("the lobby"); a capital, or a script without case, is a name
+    const first = name[0] ?? "";
+    if (!name || first !== first.toUpperCase()) continue;
+    // A name the world actually holds is never struck on a line of dialogue. The player denying
+    // their own sister is a scene; the engine does not delete her over it.
+    const low = name.toLowerCase();
+    if (real.has(low)) continue;
+    if ([...real].some((r) => collapseSpaces(r).split(" ").includes(low))) continue;
+    out.add(name);
   }
   return [...out];
 }
@@ -271,24 +253,23 @@ export function deniedEntities(action: string, known: Iterable<string>): string[
  */
 export function strikeEntity(state: SaveState, name: string): { facts: number; memories: number } {
   const turn = state.world?.current_turn ?? 0;
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`\\b${esc}\\b`, "i");
+  const mentions = (text: string) => hasWords(text, name);
   let facts = 0, memories = 0;
   for (const mem of Object.values(state.memory ?? {})) {
     if (Array.isArray(mem.facts)) {
       const before = mem.facts.length;
-      mem.facts = mem.facts.filter((f) => !re.test(String(f?.content ?? "")));
+      mem.facts = mem.facts.filter((f) => !mentions(String(f?.content ?? "")));
       facts += before - mem.facts.length;
     }
     if (Array.isArray(mem.episodic)) {
       const before = mem.episodic.length;
-      mem.episodic = mem.episodic.filter((m) => !re.test(`${m?.content ?? ""} ${m?.full_content ?? ""}`));
+      mem.episodic = mem.episodic.filter((m) => !mentions(`${m?.content ?? ""} ${m?.full_content ?? ""}`));
       memories += before - mem.episodic.length;
     }
-    if (Array.isArray(mem.beliefs)) mem.beliefs = mem.beliefs.filter((b) => !re.test(String(b?.content ?? "")));
+    if (Array.isArray(mem.beliefs)) mem.beliefs = mem.beliefs.filter((b) => !mentions(String(b?.content ?? "")));
   }
-  state.world.rumors = (state.world.rumors ?? []).filter((r) => !re.test(String(r?.content ?? "")));
-  state.world.threads = (state.world.threads ?? []).filter((t) => !re.test(`${t?.title ?? ""} ${t?.description ?? ""}`));
+  state.world.rumors = (state.world.rumors ?? []).filter((r) => !mentions(String(r?.content ?? "")));
+  state.world.threads = (state.world.threads ?? []).filter((t) => !mentions(`${t?.title ?? ""} ${t?.description ?? ""}`));
   const text = `${name} doesn't exist and never did, and nothing involving ${name} happened. Never write about ${name} again, and never have anyone mention, remember or explain ${name}.`;
   state.retcons = [...(state.retcons ?? []).filter((r) => r.text !== text), { text, turn, kind: "veto" as const }].slice(-12);
   return { facts, memories };

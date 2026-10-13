@@ -42,6 +42,13 @@
 import type { SaveState } from "./types";
 import { buildMessages, complete, safeJson } from "../llm";
 import type { NpcIntent } from "./intent";  // type-only: erased at compile, no runtime cycle
+import { turnRead, type ActionRead } from "./actionread";
+import { collapseSpaces, isWordChar } from "./text";
+
+/** The first word of a name, or "". */
+function firstWord(name: string | undefined): string {
+  return collapseSpaces(name).split(" ")[0] ?? "";
+}
 
 /** One faculty of the player's perception — derived from their card, not a fixed skill list.
  *  Stable across a playthrough so the player learns to distrust specific ones by name. */
@@ -189,7 +196,7 @@ function lens(state: SaveState, targetId: string | null, surface: string, relax:
 
   // The player's own memories that name this person — their history with them, as
   // THEY hold it (already decayed, already reconstructed). Not the true record.
-  const name0 = (target?.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
+  const name0 = firstWord(target?.name).toLowerCase();
   const recalled = (mem?.episodic ?? [])
     .filter((m) => name0 && m.content.toLowerCase().includes(name0))
     .sort((a, b) => (b.importance - a.importance) || (b.turn - a.turn))
@@ -299,51 +306,46 @@ export async function runReads(
  *  is that this owner cannot be discredited. */
 export const SOVEREIGN_FACULTY = "WHAT IS ACTUALLY THERE";
 
-/** A declared act of perception. Conservative on purpose — a false positive hands over an interior
- *  the player did not ask for, which is the exact failure the seal was built against. Every pattern
- *  needs an explicit object (a mind, a thought, a head) or an explicit "what they are really/
- *  actually X" construction; nothing fires off a bare "I look at her". */
-const MINDREAD = [
-  /\b(?:read|reads|reading|hear|hears|hearing|listen(?:s|ing)? to|sense|senses|scan|scans|see|sees|look(?:s|ing)? (?:in|into|inside)|peer(?:s|ing)? (?:in|into|inside)|reach(?:es|ing)? into|dip(?:s|ping)? into|search(?:es|ing)?)\b[^.!?]{0,40}\b(?:mind|minds|thoughts?|head|inner voice)\b/i,
-  /\b(?:mind|thoughts?)\b[^.!?]{0,30}\b(?:open to me|laid bare|bare to me|mine to read|are mine|is mine)\b/i,
-  /\b(?:know|knows|see|sees|hear|hears|find out|learn)\b[^.!?]{0,30}\bwhat\b[^.!?]{0,30}\b(?:really|actually|truly)\b[^.!?]{0,20}\b(?:think\w*|feel\w*|want\w*|mean\w*)\b/i,
-  /\b(?:know|knows|see|sees|hear|hears|find out|learn)\b[^.!?]{0,30}\bwhat\b[^.!?]{0,40}\b(?:hiding|not saying|isn'?t saying|holding back|won'?t say|concealing|keeping from me)\b/i,
-];
-
-/** Whose interior is the object of the sentence. "She reads my mind" trips every pattern above and
- *  is the opposite act — somebody reading the PLAYER — so it must not open the player's channel. */
-const OWN_MIND = /\b(?:my|mine|my own)\s+(?:mind|thoughts?|head|inner voice)\b/i;
-const OTHER_MIND = /\b(?:his|her|their|its|\w+'s|\w+s')\s+(?:mind|thoughts?|head|inner voice)\b/i;
+/* A DECLARED ACT OF PERCEPTION, and whose. This was four patterns for the act (a mind, a thought or
+ * a head as the object of reading, hearing, looking into) and two for whose interior it was, so that
+ * "she reads my mind" didn't open the player's channel, plus a first-name search to say who. The
+ * patterns kept missing phrasings, and a false positive hands over an interior the player didn't ask
+ * for. The turn's read (engine/actionread.ts, `reads_mind_of`) now names the person whose mind the
+ * player reads with a power, by id, and is empty for somebody reading the player. */
 
 /** Did the player declare that they are reading somebody this turn? */
-export function declaresMindRead(action: string): boolean {
-  const a = String(action ?? "");
-  if (OWN_MIND.test(a) && !OTHER_MIND.test(a)) return false;
-  return MINDREAD.some((re) => re.test(a));
+export function declaresMindRead(read: ActionRead): boolean {
+  return !!read.reads_mind_of;
 }
 
 /**
- * Who is being read.
- *
- * A named person present in the scene, or — when the action carries only a pronoun and exactly one
- * other person is in the room — that person. Two people and a bare "her" resolves to nobody, and
- * nothing opens: guessing which of them to expose is the one mistake this must not make.
+ * Who is being read: the person the read names, when they're here in the scene. Anybody else
+ * resolves to nobody, and nothing opens: the reader works out who "her" is from the scene, and
+ * guessing past it is the one mistake this must not make.
  */
-export function mindReadTarget(state: SaveState, action: string): string | null {
-  const a = String(action ?? "").toLowerCase();
-  const present = (state.world.present ?? []).filter((id) => id !== "char_player" && state.characters[id]);
-  for (const id of present) {
-    const first = (state.characters[id]?.name ?? "").split(/\s+/)[0]?.toLowerCase() ?? "";
-    if (first.length >= 3 && a.includes(first)) return id;
-  }
-  return present.length === 1 ? present[0] : null;
+export function mindReadTarget(state: SaveState, read: ActionRead): string | null {
+  const id = read.reads_mind_of;
+  const present = (state.world.present ?? []).filter((p) => p !== "char_player" && state.characters[p]);
+  return id && present.includes(id) ? id : null;
 }
 
 /** The intent pass writes for the bookkeeper and says "the player" out loud. Shown to the player it
  *  is an engine artifact in the middle of their own perception, so it becomes the name. */
 function inPlainWords(truth: string, state: SaveState): string {
-  const name = (state.characters["char_player"]?.name ?? "").split(/\s+/)[0] || "them";
-  return String(truth ?? "").replace(/\bthe player\b/g, name).replace(/\bThe player\b/g, name);
+  const name = firstWord(state.characters["char_player"]?.name) || "them";
+  return replaceWords(replaceWords(String(truth ?? ""), "the player", name), "The player", name);
+}
+
+/** Every whole-word `phrase` in `text` (case as given) replaced by `by`. */
+function replaceWords(text: string, phrase: string, by: string): string {
+  let out = "", from = 0;
+  for (let at = text.indexOf(phrase); at !== -1; at = text.indexOf(phrase, at + 1)) {
+    if (at < from) continue;
+    if (isWordChar(text[at - 1] ?? "") || isWordChar(text[at + phrase.length] ?? "")) continue;
+    out += text.slice(from, at) + by;
+    from = at + phrase.length;
+  }
+  return out + text.slice(from);
 }
 
 /**
@@ -353,14 +355,16 @@ function inPlainWords(truth: string, state: SaveState): string {
  * intent for this person — an empty result is a quiet turn, never an invented one.
  */
 export function sovereignRead(
-  state: SaveState, action: string, intents: NpcIntent[],
+  state: SaveState, _action: string, intents: NpcIntent[],
 ): { reads: Read[]; targetId: string | null } {
-  if (!state.world_bible?.god_mode || !declaresMindRead(action)) return { reads: [], targetId: null };
-  const targetId = mindReadTarget(state, action);
+  // The declaration is the turn's read; the typed line isn't read here, and stays for the call site.
+  const read = turnRead(state);
+  if (!state.world_bible?.god_mode || !declaresMindRead(read)) return { reads: [], targetId: null };
+  const targetId = mindReadTarget(state, read);
   if (!targetId) return { reads: [], targetId: null };
   const it = intents.find((i) => i.char_id === targetId);
   if (!it?.truth?.trim()) return { reads: [], targetId };
-  const first = (state.characters[targetId]?.name ?? "").split(/\s+/)[0] || "they";
+  const first = firstWord(state.characters[targetId]?.name) || "they";
   const line = inPlainWords(it.truth.trim(), state)
     + (it.lying ? ` What ${first} is letting show is deliberate and different from this.` : "");
   return { reads: [{ faculty: SOVEREIGN_FACULTY, line }], targetId };
@@ -379,7 +383,7 @@ export function mindReadNote(state: SaveState, action: string, intents: NpcInten
   const { reads, targetId } = sovereignRead(state, action, intents);
   if (!reads.length || !targetId) return "";
   const name = state.characters[targetId]?.name ?? "";
-  const first = name.split(/\s+/)[0] || name;
+  const first = firstWord(name) || name;
   return `\nTHE PLAYER IS READING ${name.toUpperCase()}'S MIND THIS TURN, and in this world they can. This is exactly what is there: "${reads[0].line}"\n`
     + `The player now knows it, in those words, without ${first} saying anything. Write it as something the player simply knows. They don't ask, they don't work it out, they don't half-catch it from a gesture, and it doesn't differ from the sentence above. `
     + `${first} doesn't feel it happen and has no way of telling that anyone is inside their head, so ${first} carries on exactly like someone whose thoughts are still private, which they still are from everyone else in the room.`;

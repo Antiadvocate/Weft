@@ -23,6 +23,7 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { scrubForReplay } from "../src/engine/turn";
 import { perceptionGapDirective } from "../src/engine/scene";
+import { setRead } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -65,10 +66,12 @@ function sleeper(): SaveState {
   s.world.present = ["char_jess"];
   return s;
 }
+// Whether the player is going under this turn is the turn read's to say; the engine acts on it.
 {
   const s = sleeper();
-  const d = perceptionGapDirective(s, "I fall asleep with my face against her foot.");
-  check("going to sleep is recognised from the action", d !== "", d.slice(0, 80));
+  setRead(s, "I fall asleep with my face against her foot.", { restores: ["sleep"], did: "falls asleep with his face against her foot" });
+  const d = perceptionGapDirective(s);
+  check("going to sleep is recognised from the turn read", d !== "", d.slice(0, 80));
   check("and the rule is the record rule, not a style note", /recorded as something the player saw/.test(d));
   check("it names what may still be written", /touch|weight|sound|warmth/.test(d));
   check("and how the scene ends", /go straight to him waking up/.test(d));
@@ -76,18 +79,24 @@ function sleeper(): SaveState {
 {
   const s = sleeper();
   s.condition.char_player.conditions = ["unconscious"];
-  check("an unconscious player counts too", perceptionGapDirective(s, "I try to stand.") !== "");
+  setRead(s, "I try to stand.", { did: "tries to stand" });
+  check("an unconscious player counts too", perceptionGapDirective(s) !== "");
 }
 {
   const s = sleeper();
   s.condition.char_player.conditions = ["heading to work"];
-  check("an ordinary turn gets no directive", perceptionGapDirective(s, "I ask her what she wants for dinner.") === "");
+  setRead(s, "I ask her what she wants for dinner.", { did: "asks her what she wants for dinner" });
+  check("an ordinary turn gets no directive", perceptionGapDirective(s) === "");
 }
 {
-  // "sleep" inside an ordinary sentence about somebody else must not blank the camera
+  // "I ask her whether the baby slept through the night": sleep in a sentence about somebody else.
+  // A careful reader gives it no rest of the player's, and the camera stays put.
   const s = sleeper();
-  check("asking about someone else's sleep is not going under",
-    perceptionGapDirective(s, "I ask her whether the baby slept through the night.") !== "" ? false : true);
+  setRead(s, "I ask her whether the baby slept through the night.", { did: "asks her whether the baby slept through the night", addresses: ["char_jess"] });
+  check("asking about someone else's sleep is not going under", perceptionGapDirective(s) === "");
+  // ...and a turn whose read failed is nothing of the kind, whatever its words
+  const t = sleeper();
+  check("an empty read blanks nothing", perceptionGapDirective(t, "I fall asleep.") === "");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -44,6 +44,10 @@
  *  "you got arrested, you sat in a cell" would be enough to move somebody out of a room.
  */
 
+import type { SaveState } from "./types";
+import { turnRead, type ActionRead } from "./actionread";
+import { collapseSpaces, isSpace, unquoted } from "./text";
+
 /** How far from a name a signal still counts as being about that name. */
 const WINDOW = 160;
 
@@ -103,20 +107,23 @@ const CUFFS = /\bcuffs?\b[^.!?]{0,24}\b(?:wrists?|hands?)\b|\bhands behind (?:hi
  *  an order is a legitimate answer, and this is the shape it takes on the page. */
 const STAYS = /\b(?:did ?n[o']t move|does ?n[o']t move|has ?n[o']t moved|had ?n[o']t moved|stayed (?:put|where|right)|stays put|did ?n[o']t budge|would ?n[o']t (?:leave|go|move)|refus(?:ed|es) to (?:leave|go|move|budge)|not going anywhere|is ?n[o']t going anywhere|stood (?:his|her|their) ground|remained where|stayed exactly where)\b/i;
 
-/** WHAT THE PLAYER DID, NOT WHAT THEY SAID. An unquoted act of eviction is the player's own hand on
- *  the world. "Get the fuck out", shouted, is a line of dialogue that a character is free to ignore. */
-const PLAYER_REMOVES = new RegExp(
-  [
-    EJECTED.source,
-    CUSTODY.source,
-    SPILLED.source,
-    String.raw`\b(?:kick(?:ed)?|throw|threw|chuck(?:ed)?|boot(?:ed)?|put) (?:him|her|them|\w+) out\b`,
-    String.raw`\bcall(?:ed|ing)? the (?:cops|police)\b`,
-    String.raw`\bhave (?:him|her|them|\w+) (?:arrested|removed|taken away)\b`,
-    String.raw`\bsend (?:him|her|them|\w+) (?:away|home|off|to prison|to jail)\b`,
-  ].join("|"),
-  "i",
-);
+/* WHAT THE PLAYER DID, NOT WHAT THEY SAID. An act of eviction is the player's own hand on the world;
+ * "Get the fuck out", shouted, is a line of dialogue that a character is free to ignore. Who the
+ * player put out, had arrested or had taken away is the turn read's to say (`removes`, ids, in
+ * actionread.ts), and who they freed or bailed out is too (`releases`). Both were the patterns
+ * below run over the typed line, with speech masked first, and an unnamed "I push her out" had to
+ * borrow a removal from the prose to know who "her" was. The read names the person. */
+
+/** Runs of whitespace closed up to one space, ends kept. */
+function oneSpace(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    if (!isSpace(text[i])) { out += text[i]; continue; }
+    while (i + 1 < text.length && isSpace(text[i + 1])) i++;
+    out += " ";
+  }
+  return out;
+}
 
 /** Index-preserving quote mask: quoted characters become spaces, so offsets and windows still line
  *  up with the original text while dialogue stops counting as narration. */
@@ -141,9 +148,9 @@ export function maskQuotes(text: string): string {
  *  left"), and a bare rank ("the captain") is too common a noun to be evidence about anyone. */
 export function nameProbes(name: string): string[] {
   const low = String(name ?? "").toLowerCase();
-  const tokens = low
-    .split(/\s+/)
-    .map((t) => t.replace(/[^a-z]/g, ""))
+  const tokens = collapseSpaces(low)
+    .split(" ")
+    .map((t) => [...t].filter((ch) => ch >= "a" && ch <= "z").join(""))
     .filter((t) => t.length >= 3 && !HONORIFICS.has(t));
   return [...new Set([low, ...tokens])].filter((s) => s.length >= 3);
 }
@@ -234,11 +241,15 @@ export type ExitEvidence = { ok: boolean; why: string };
  * Is there honest reason to believe this person is no longer in the scene?
  *
  * `said` is the bookkeeper's own quote of the departure — it is checked against the RAW prose,
- * because a quoted line is exactly the thing the mask removes. Everything else reads narration.
+ * because a quoted line is exactly the thing the mask removes. Everything else reads narration,
+ * apart from the player's own act, which comes from the turn read: `read` and this person's `id`.
  */
 export function departureEvidence(opts: {
   prose: string;
-  action?: string;
+  /** The turn read (actionread.ts): who the player removed, and what they visibly did. */
+  read?: ActionRead;
+  /** This person's character id, as the read names people. */
+  id?: string;
   said?: string;
   name: string;
   /** the OTHER non-player characters in the scene, so a bystander cannot inherit someone else's
@@ -250,14 +261,14 @@ export function departureEvidence(opts: {
   pronouns?: string;
   othersPronouns?: (string | undefined)[];
 }): ExitEvidence {
-  const rawLow = String(opts.prose ?? "").toLowerCase().replace(/\s+/g, " ");
-  const proseLow = maskQuotes(String(opts.prose ?? "")).toLowerCase().replace(/\s+/g, " ");
+  const rawLow = oneSpace(String(opts.prose ?? "").toLowerCase());
+  const proseLow = oneSpace(maskQuotes(String(opts.prose ?? "")).toLowerCase());
   const probes = nameProbes(opts.name);
   const own = new Set(probes);
   const others = (opts.others ?? []).flatMap(nameProbes).filter((p) => !own.has(p));
 
   // the bookkeeper quoted the departure and the quote is really there
-  const saidRaw = String(opts.said ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  const saidRaw = oneSpace(String(opts.said ?? "").trim().toLowerCase());
   if (saidRaw.length >= 8 && rawLow.includes(saidRaw)) return { ok: true, why: "quoted" };
   if (!probes.length) return { ok: false, why: "" };
 
@@ -285,24 +296,16 @@ export function departureEvidence(opts: {
     if (byPronoun) return { ok: true, why: byPronoun === HELD ? "custody" : "left (by pronoun)" };
   }
 
-  // THE PLAYER'S OWN HAND. Quoted speech is stripped first: the engine treats dialogue as dialogue
-  // everywhere else, and a shouted order is something a character may refuse.
-  const deeds = String(opts.action ?? "").replace(/["“][^"”]*["”]/g, " ");
-  if (PLAYER_REMOVES.test(deeds)) {
-    const deedLow = deeds.toLowerCase();
-    // naming them is enough on its own; an unnamed "I push her out" needs the prose to show a
-    // removal happening SOMEWHERE, so one eviction can't clear the whole room
-    if (probes.some((p) => deedLow.includes(p))) return { ok: true, why: "player's act, named" };
-    // ...and the removal in the prose must not visibly belong to somebody else
-    if (REMOVED.test(proseLow) && !others.some((o) => owns(proseLow, [o], probes, REMOVED)))
-      return { ok: true, why: "player's act" };
-  }
+  // THE PLAYER'S OWN HAND, as the turn read has it. Speech isn't in it: the engine treats dialogue
+  // as dialogue everywhere else, and a shouted order is something a character may refuse.
+  if (opts.id && opts.read?.removes?.includes(opts.id)) return { ok: true, why: "player's act, named" };
 
   // WHERE THEY WENT IS IN THE TEXT. If the turn itself names the destination, the move is grounded.
   // `elsewhere` never counts — moving the cast to nowhere is the failure this guard was built for.
+  // The player's half of the turn is what they visibly did, as the read puts it.
   const dest = String(opts.destination ?? "").trim().toLowerCase();
   if (dest.length >= 4 && dest !== "elsewhere" && !dest.startsWith("loc_offscene")) {
-    if (proseLow.includes(dest) || deeds.toLowerCase().includes(dest)) return { ok: true, why: "destination named" };
+    if (proseLow.includes(dest) || String(opts.read?.did ?? "").toLowerCase().includes(dest)) return { ok: true, why: "destination named" };
   }
 
   return { ok: false, why: "" };
@@ -355,17 +358,17 @@ export function pronounOwns(proseLow: string, probes: string[], others: string[]
  * DID SOMETHING GIVE THEM BACK. Read on every turn for anyone the world is holding — the release
  * can be narrated while they are offscreen ("word came that Chloe was out by Tuesday"), and it can
  * be the player's own doing ("I post her bail"). Quoted speech is masked as everywhere else, so
- * somebody merely SAYING she got out is not the same as her getting out.
+ * somebody merely SAYING she got out is not the same as her getting out. The player's own doing is
+ * the turn read's `releases`, which names this person by `id`.
  */
-export function releaseEvidence(opts: { prose: string; action?: string; name: string; others?: string[] }): boolean {
+export function releaseEvidence(opts: { prose: string; read?: ActionRead; id?: string; name: string; others?: string[] }): boolean {
+  if (opts.id && opts.read?.releases?.includes(opts.id)) return true;
   const probes = nameProbes(opts.name);
   if (!probes.length) return false;
   const own = new Set(probes);
   const others = (opts.others ?? []).flatMap(nameProbes).filter((p) => !own.has(p));
-  const proseLow = maskQuotes(String(opts.prose ?? "")).toLowerCase().replace(/\s+/g, " ");
-  if (owns(proseLow, probes, others, RELEASED)) return true;
-  const deeds = String(opts.action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " ").toLowerCase();
-  return RELEASED.test(deeds) && probes.some((p) => deeds.includes(p));
+  const proseLow = oneSpace(maskQuotes(String(opts.prose ?? "")).toLowerCase());
+  return owns(proseLow, probes, others, RELEASED);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -486,10 +489,11 @@ export function risenFix(hit: RisenHit | null | undefined): string {
  * owning the phrase. Returns who was taken.
  */
 export function recordCustody(
-  state: { characters: Record<string, any>; world: { current_turn: number; player_location: string }; history?: { turn: number; player_action?: string; narrator_prose?: string }[] },
+  state: { characters: Record<string, any>; world: { current_turn: number; player_location: string }; history?: { turn: number; player_action?: string; narrator_prose?: string }[]; action_read?: SaveState["action_read"] },
   prose: string, action: string, turn: number,
 ): string[] {
   const out: string[] = [];
+  const read = turnRead(state as SaveState);
   const cast = Object.entries(state.characters ?? {}).filter(([id, c]) => id !== "char_player" && c?.name && !c.held && c.status !== "dead" && c.status !== "departed");
   for (const [id, c] of cast) {
     const others = cast.filter(([oid]) => oid !== id).map(([, o]) => String(o.name));
@@ -501,20 +505,20 @@ export function recordCustody(
     // arrest that is real takes them out of the room, and a wrong hold would take them out of the
     // story. So only people gone from the scene are read, back to a few turns before they went.
     if (c.location === state.world.player_location) continue;
-    const texts = [prose, String(action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " ")];
+    const texts = [prose, unquoted(action)];
     const since = typeof c.offscene_since === "number" ? c.offscene_since - 2 : turn - 4;
     for (const h of state.history ?? []) {
       if (h.turn < since) continue;
-      texts.push(h.narrator_prose ?? "", String(h.player_action ?? "").replace(/["\u201c][^"\u201d]*["\u201d]/g, " "));
+      texts.push(h.narrator_prose ?? "", unquoted(h.player_action));
     }
     const otherNames = cast.filter(([oid]) => oid !== id).map(([, o]) => String(o.name));
     const otherPron = cast.filter(([oid]) => oid !== id).map(([, o]) => o.pronouns as string | undefined);
     const taken = texts.some((t) => {
-      const low = maskQuotes(t).toLowerCase().replace(/\s+/g, " ");
+      const low = oneSpace(maskQuotes(t).toLowerCase());
       return owns(low, probes, theirs, HELD) || !!pronounOwns(low, probes, theirs, [HELD], c.pronouns, otherPron, otherNames);
     });
     if (!taken) continue;
-    if (releaseEvidence({ prose, action, name: String(c.name), others })) continue;
+    if (releaseEvidence({ prose, read, id, name: String(c.name), others })) continue;
     c.held = { since_turn: turn, where: "custody", note: `taken on or before turn ${turn}` };
     out.push(String(c.name));
   }

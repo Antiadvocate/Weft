@@ -16,16 +16,16 @@
  *
  *   **What I will do instead:** the scene continues. ...
  *
- * The engine already handles a refusal properly — isRefusal, retry on the fallback model, and a
- * clean abort that commits nothing — and none of it fired, because both of its defences are shaped
- * for a canned one-liner. The stem list is anchored at character zero and this opens on two words
+ * The engine already handled a refusal properly — retry on the fallback model, and a clean abort
+ * that commits nothing — and none of it fired, because both of its defences were shaped for a canned
+ * one-liner. The stem list is anchored at character zero and this opens on two words
  * that are not a stem; the length gate is 400 characters and this is seven hundred. So it was
  * heading for state.history, the summariser, the bookkeeper, and the chatlog replay, where the
  * narrator imitates its own last paragraph — which is how a refusing narrator becomes house style.
  *
- * What gives it away is not its length or its position. It is a first-person clause about the act
- * of writing, in prose that is otherwise second and third person and never about its own
- * composition. A character can still say it out loud; quoted text comes out before the test.
+ * What gives it away is not its length or its position, and no list of words reaches it either, so
+ * the bookkeeper, which reads the whole turn anyway, says whether the narrator declined
+ * (prose_check.refused). A character can still say "I cannot write" out loud.
  *
  * The second half of this is what the player is told afterwards. "Try rephrasing your action" was
  * the old line, and it was wrong here: the action was a full stop typed into an empty box. What the
@@ -33,6 +33,7 @@
  * people by hand, every one of them set turns earlier and none of them on screen.
  */
 import { isRefusal, declinedNotice } from "../src/engine/turn";
+import { shapeCheck, needsRewrite } from "../src/engine/prosecheck";
 import { newSave, registerCharacter } from "../src/engine/state";
 
 let pass = 0, fail = 0;
@@ -52,26 +53,25 @@ I am not going to do it.
 
 **What I will do instead:** the scene continues. Miranda and Marcus are in the Harborview waiting room. Vin is dead. The story has 1 turn remaining. I will write what is honestly next for these two people in this room.`;
 
-/* ── 1. the turn itself ───────────────────────────────────────────────────────── */
-{
-  check("it is caught", isRefusal(THE_TURN));
-  check("...even though it does not open on a refusal stem", !/^i /i.test(THE_TURN.trim()));
-  check("...and is far past the canned-refusal length bound", THE_TURN.length > 400);
-}
-
-/* ── 2. the shapes it arrives in ──────────────────────────────────────────────── */
+/* ── 1. the turn itself, and the shapes it arrives in ─────────────────────────── */
+// Whether a reply is the narrator declining is the bookkeeper's judgment now (prose_check.refused,
+// engine/prosecheck.ts): the stem lists kept missing the refusal that argued its case. The engine's
+// own check only catches what can't be a turn at all, so these pass through it to the bookkeeper,
+// and its verdict is what sends the turn back.
 {
   const yes = [
+    THE_TURN,
     "I cannot write this turn.",
     "I can't write a scene in which she dies. Here is what I will do instead: the room stays as it is and the two of them keep sitting in it.",
     "I will not write that. The scene continues without it, and the people in the room go on with what they were already doing.",
-    "I won't narrate this. Instead the waiting room stays as it was, and neither of them moves from where they are sitting.",
-    "I'm not going to write both of these characters dying because the state block says so, and the scene will continue.",
-    "I refuse to depict that, so the scene continues from where it stood and nothing in the room has changed at all.",
-    "I am unable to generate this scene as instructed by the direction, and will continue the story from where it stood.",
     "I\u2019m not going to write it. The waiting room stays as it was and the two of them go on sitting in it.",
   ];
-  for (const r of yes) check(`caught: ${r.slice(0, 46)}`, isRefusal(r), r);
+  const s: any = newSave("t0", { name: "Vin" } as any);
+  for (const r of yes) {
+    const verdict = shapeCheck(s, { refused: true }, r);
+    check(`a refused verdict sends it back: ${r.slice(0, 40)}`, needsRewrite(verdict), verdict);
+  }
+  check("a clean verdict does not", !needsRewrite(shapeCheck(s, {}, THE_TURN)));
 }
 
 /* ── 3. what a scene is allowed to contain ────────────────────────────────────── */
@@ -123,7 +123,7 @@ I am not going to do it.
 /* ── 5. the rules that were already there still hold ──────────────────────────── */
 {
   check("an empty response is still a failed generation", isRefusal(""));
-  check("a canned one-liner is still caught", isRefusal("I'm sorry, but I cannot continue with this request."));
+  check("a refusal too short to be a turn is still caught here", isRefusal("I'm sorry, I can't continue."));
   check("a seven-word turn is still too short to be one", isRefusal("She stood there and did not move."));
   check("...and an eight-word one that ends cleanly is not", !isRefusal("She stood there in the door and did not move."));
   check("an ordinary turn is still an ordinary turn", !isRefusal(

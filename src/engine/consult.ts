@@ -45,83 +45,40 @@
  *
  * ON DETECTING THIS AT ALL. engine/reaction.ts is a long argument against detectors, and it is
  * right: the thing it refused to detect was the MODEL'S prose, where the rules that forbid purple
- * language guarantee a miracle is described flatly and the regex never fires. This detector reads
- * the PLAYER'S typed input, which no rule constrains and which nothing else is competing to phrase
- * differently. "What does it say" is a thing a person types when they want to be told what it says.
- * The directive still carries its own escape hatch in the last line, so a false positive costs a
- * paragraph the narrator can discard rather than a text invented out of nothing.
+ * language guarantee a miracle is described flatly and the regex never fires. This one read the
+ * PLAYER'S typed input, with a list of sources, a list of question shapes, a list of reading verbs
+ * and a list of pronouns to tell a person from a page, and the lists kept missing phrasings. The
+ * turn's read (engine/actionread.ts, `consults`) now says what the player reads or asks, and what
+ * they want from it. The directive still carries its own escape hatch in the last line, so a wrong
+ * firing costs a paragraph the narrator can discard rather than a text invented out of nothing.
  */
 import type { SaveState } from "./types";
-import { clipText } from "./text";
+import { clipText, collapseSpaces } from "./text";
+import { turnRead } from "./actionread";
 
-/** Things that answer in words. Not an inventory — the player names the source themselves, and this
- *  only has to recognise the kind of thing it is. */
-const SOURCE =
-  /\b(?:phone|screen|display|device|app|ai|llm|assistant|chatbot|model|terminal|console|computer|laptop|tablet|watch|reply|replies|response|answer|output|message|inbox|email|letter|note|notes|scroll|codex|book|page|pages|ledger|manifest|receipt|invoice|contract|deed|will|testament|map|chart|sign|placard|poster|notice|inscription|plaque|graffiti|papyrus|parchment|document|papers|dossier|file|report|journal|diary|logbook|newspaper|dispatch|telegram|label|instructions|manual|recipe|prophecy|oracle|omen|omens|entrails|runes|augury|dial|gauge|readout|compass)\b/i;
-
-/** A question about what something SAYS. The verb list is what a person types when they want the
- *  words themselves rather than a report that words arrived. */
-const CONTENT_QUESTION =
-  /\bwhat(?:'s|s|ever)?\b[^?.!\n]{0,80}?\b(?:say|says|said|read|reads|written|write|show|shows|showed|tell|tells|told|reply|replies|respond|responds|answer|answers|answered)\b/i;
-
-/** The player's hand going to the thing: the act of consulting it. The subject anchor is loose on
- *  purpose — "I take out my phone and ask it" puts five words between the pronoun and the verb, and
- *  that is the sentence the save was actually lost on. What keeps it honest is that the same
- *  sentence must also name a source, and must not be aimed at a person. */
-const ACT_OF_READING =
-  /\b(?:i|we)\b[^.?!\n]{0,70}?\b(?:re-?read|reread|reads?|check|checked|consult|consulted|open|opened|unfold|unfolded|unroll|unrolled|study|studied|scan|scanned|skim|skimmed|glance|look|looked|peer|examine|examined|search|searched|scroll|swipe|tap|type|typed|ask|asked|query|queried|prompt|prompted|translate|turns? on|switch(?:es)? on|power(?:s)? (?:on|up)|boot|wake|unlock|pull up|bring up|load|launch|use|used)\b/i;
-
-/** The head of a question: "what", however the player spells the contraction. */
-const QUESTION_HEAD = /\bwhat(?:'s|s|ever)?\b/i;
-
-/** Whoever the question is aimed at, when it is aimed at a person. A person answering a question is
- *  dialogue, and the whole DIALOGUE spec already governs it. */
-const PERSON_TARGET = /\b(?:you|he|she|they|him|her|them|everyone|anybody|anyone|nobody)\b/i;
-
-/** ...and the same for the ask-family, where the object decides it: "I ask her about the letter" is
- *  a conversation that happens to mention a letter. */
-const ASKS_A_PERSON = /\b(?:ask|asked|tell|told|question|questioned)\s+(?:the\s+)?(?:you|him|her|them|everyone|anyone|somebody|someone)\b/i;
-
-const strip = (s: string) =>
-  String(s ?? "")
-    .replace(/\*[^*]*\*/g, " ")        // private thought is still the player reading; keep the act, drop the marks
-    .replace(/\(\([^)]*\)\)/g, " ")    // a search directive is not story text
-    .replace(/\s+/g, " ")
-    .trim();
+/** Whether the source the read names is one of the people the story knows. A person answering a
+ *  question is dialogue, and the whole DIALOGUE spec already governs it: "I ask her about the
+ *  letter" is a conversation that happens to mention a letter. */
+function isPerson(state: SaveState, source: string): boolean {
+  const s = collapseSpaces(source).toLowerCase();
+  if (state.characters?.[source.trim()]) return true;
+  return Object.values(state.characters ?? {}).some((c) => {
+    const name = collapseSpaces(c?.name ?? "").toLowerCase();
+    if (!name) return false;
+    return s === name || s === name.split(" ")[0] || (c.aliases ?? []).some((a) => collapseSpaces(a).toLowerCase() === s);
+  });
+}
 
 /**
- * The sentence in which the player reached for a source, or null. Exported so the test can name the
- * exact inputs this fires on and the exact ones it leaves alone.
+ * What the player reached for, and what they asked it, or null. Exported so the test can name the
+ * exact reads this fires on and the exact ones it leaves alone. The typed line isn't read here; the
+ * turn's read is, and `action` stays only for the call sites.
  */
-export function consultTarget(state: SaveState, action: string): string | null {
-  const a = strip(action);
-  if (!a) return null;
-
-  const names = Object.entries(state.characters)
-    .filter(([id]) => id !== "char_player")
-    .map(([, c]) => String(c?.name ?? "").split(/\s+/)[0])
-    .filter((n) => n.length > 2);
-  const namesRe = names.length ? new RegExp(`\\b(?:${names.join("|")})\\b`, "i") : null;
-
-  for (const raw of a.split(/(?<=[.?!])\s+/)) {
-    const s = raw.trim();
-    if (s.length < 6) continue;
-
-    // (1) a question about what something says — either by the verb ("what does it say") or by
-    //     naming the thing ("what's on the screen") — so long as the something is not a person
-    const q = s.search(QUESTION_HEAD);
-    if (q >= 0 && (CONTENT_QUESTION.test(s) || SOURCE.test(s))) {
-      const head = s.slice(0, q + 60);
-      const aimedAtPerson = PERSON_TARGET.test(head) || (namesRe?.test(head) ?? false);
-      if (!aimedAtPerson) return clipText(s, 220);
-    }
-
-    // (2) the act of consulting a thing that answers in words
-    if (ACT_OF_READING.test(s) && SOURCE.test(s) && !ASKS_A_PERSON.test(s)) {
-      if (!(namesRe?.test(s) ?? false)) return clipText(s, 220);
-    }
-  }
-  return null;
+export function consultTarget(state: SaveState, _action?: string): string | null {
+  const { source, question } = turnRead(state).consults;
+  const src = collapseSpaces(source), q = collapseSpaces(question);
+  if (!src || isPerson(state, src)) return null;
+  return clipText(q ? `${src}: ${q}` : src, 220);
 }
 
 /**
@@ -129,8 +86,8 @@ export function consultTarget(state: SaveState, action: string): string | null {
  * who else hears it — and it ends by handing the narrator a way out, because the cost of firing on
  * a turn where nothing was actually read must be a discarded paragraph and never an invented text.
  */
-export function consultDirective(state: SaveState, action: string): string {
-  const target = consultTarget(state, action);
+export function consultDirective(state: SaveState, _action?: string): string {
+  const target = consultTarget(state);
   if (!target) return "";
   const others = (state.world.present ?? [])
     .map((id) => state.characters[id]?.name)

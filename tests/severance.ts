@@ -28,7 +28,8 @@
  * So it is resolved before the prose, like attempt.ts. Stake buys rounds. It is never a veto: the
  * player leaves regardless. It costs the scenes it would really cost.
  */
-import { detectSeverance, stakeOf, roundsFor, severanceDirective, tickSeverance } from "../src/engine/severance";
+import { stakeOf, roundsFor, severanceDirective, tickSeverance } from "../src/engine/severance";
+import { setRead, type ActionRead } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -37,18 +38,33 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
-/* ── 1. what counts as saying it ──────────────────────────────────────────────── */
+/* ── 1. what counts as saying it ──────────────────────────────────────────────
+ *
+ * Whether a line ends it, and with whom, is the turn read's call (actionread.ts: ends_with), and
+ * once it's open, whether a turn holds to it or takes it back (ending_stance). The lines below are
+ * the ones the old word lists were tested on; each is handed in with the read a careful reader gives
+ * it, and the engine does what the read says. */
+function tick(st: SaveState, action: string, read: Partial<ActionRead> = {}, present = ["char_m"]): void {
+  setRead(st, action, read);
+  tickSeverance(st, action, present);
+}
+const ENDS: Partial<ActionRead> = { ends_with: ["char_m"] };
+const HOLDS: Partial<ActionRead> = { ending_stance: "holds" };
 {
   for (const said of [
     `"I'm done with this marriage. We don't have anymore trust."`,
-    `"I'm going to fill these docs out. Please sign."`,
+    `"I'm going to fill these docs out. Please sign."`,   // the line from the save; no "divorce" in it
     `"Exactly. And this is why it's over."`,
     `"Miranda. I'm leaving you."`,
     `"Sarah. I'm ending our friendship."`,
     `I look up how to file for a divorce and tell her I want a divorce.`,
-  ]) check(`said: ${said.slice(0, 44)}…`, detectSeverance(said), said);
+  ]) {
+    const st = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
+    tick(st, said, ENDS);
+    check(`said: ${said.slice(0, 44)}…`, st.severance?.toward === "char_m", said);
+  }
 
-  // ...and the ways people say the words without meaning them as a verdict
+  // ...and the ways people say the words without meaning them as a verdict: a reader ends nothing
   for (const notSaid of [
     `"Are we over? Because it feels like it."`,
     `"If you keep doing this, I'm leaving you."`,
@@ -56,7 +72,15 @@ function check(name: string, c: boolean, extra?: unknown) {
     `"Do you want a divorce? Is that what this is?"`,
     `"I've been wondering if it's over."`,
     `"I almost said it was over last night."`,
-  ]) check(`not a verdict: ${notSaid.slice(0, 40)}…`, !detectSeverance(notSaid), notSaid);
+  ]) {
+    const st = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
+    tick(st, notSaid);
+    check(`not a verdict: ${notSaid.slice(0, 40)}…`, !st.severance, notSaid);
+  }
+
+  const off = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
+  tick(off, `"I'm done with this marriage."`, ENDS, []);
+  check("ending it with someone who isn't in the room opens nothing here", !off.severance, off.severance);
 }
 
 /* ── 2. stake is investment, not current warmth ──────────────────────────────────
@@ -96,7 +120,7 @@ function world(opts: { roles: string[]; shared: number; fixated?: boolean; repai
 /* ── 3. the rounds, and what each one forbids ────────────────────────────────── */
 {
   const st = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
-  tickSeverance(st, `"I'm done with this marriage."`, ["char_m"]);
+  tick(st, `"I'm done with this marriage."`, ENDS);
   check("saying it opens a severance", !!st.severance, st.severance);
   check("...with rounds bought by what she has in it", (st.severance?.needed ?? 0) === 4, st.severance);
 
@@ -108,48 +132,48 @@ function world(opts: { roles: string[]; shared: number; fixated?: boolean; repai
   check("...and the player is never blocked from leaving", /THE PLAYER STILL GETS TO LEAVE/.test(d1), d1);
 
   // and it does not repeat itself — round three is not round one again
-  tickSeverance(st, `"It's over, Miranda."`, ["char_m"]);
-  tickSeverance(st, `"I'm done. Sign the papers."`, ["char_m"]);
+  tick(st, `"It's over, Miranda."`, ENDS);
+  tick(st, `"I'm done. Sign the papers."`, ENDS);
   const d3 = severanceDirective(st);
   check("round three is a different scene from round one", d3 !== d1);
   check("...where the composure goes", /STOP FIGHTING CLEAN|unforgivable/.test(d3), d3);
 
   // ...and holding the line in three words still counts, or the rounds never finish
-  tickSeverance(st, `"Sign them."`, ["char_m"]);
-  tickSeverance(st, `"Sign them."`, ["char_m"]);
+  tick(st, `"Sign them."`, HOLDS);
+  tick(st, `"Sign them."`, HOLDS);
   check("once four rounds of her are spent, it lands", !st.severance, st.severance);
 }
 
 /* ── 3b. holding the line, and taking it back ────────────────────────────────── */
 {
   const st = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
-  tickSeverance(st, `"I'm done with this marriage."`, ["char_m"]);
+  tick(st, `"I'm done with this marriage."`, ENDS);
   const before = st.severance!.rounds;
-  tickSeverance(st, `"I meant it."`, ["char_m"]);
+  tick(st, `"I meant it."`, HOLDS);
   check("a three-word restatement advances it", st.severance!.rounds === before + 1, st.severance);
 
-  tickSeverance(st, `I sit down and drink my coffee.`, ["char_m"]);
+  tick(st, `I sit down and drink my coffee.`);
   check("...and an unrelated turn does not", st.severance!.rounds === before + 1, st.severance);
-  tickSeverance(st, `I go to the kitchen and pour a coffee.`, ["char_m"]);
-  check("...nor does the word 'go' in an ordinary sentence", st.severance!.rounds === before + 1, st.severance);
+  tick(st, `I go to the kitchen and pour a coffee.`, { leaving: { going: true, to: "the kitchen", place: "", home: false } });
+  check("...nor does going to the kitchen", st.severance!.rounds === before + 1, st.severance);
 
   const back = world({ roles: ["wife"], shared: 38, fixated: true, repairing: true });
-  tickSeverance(back, `"I'm done with this marriage."`, ["char_m"]);
-  check("taking it back closes it", (tickSeverance(back, `"Wait. I didn't mean that. Can we talk?"`, ["char_m"]), !back.severance), back.severance);
+  tick(back, `"I'm done with this marriage."`, ENDS);
+  check("taking it back closes it", (tick(back, `"Wait. I didn't mean that. Can we talk?"`, { ending_stance: "retracts" }), !back.severance), back.severance);
 }
 
 /* ── 4. it never fires where there is nothing to end ─────────────────────────── */
 {
   const st = world({ roles: [], shared: 0 });
-  tickSeverance(st, `"We're over."`, ["char_m"]);
+  tick(st, `"We're over."`, ENDS);
   check("a bond nobody was in ends when somebody says so", !st.severance, st.severance);
 
   const away = world({ roles: ["wife"], shared: 38 });
-  tickSeverance(away, `"I'm done with this marriage."`, ["char_m"]);
-  check("an open severance closes when she is not in the room", (tickSeverance(away, "I keep driving", []), !away.severance));
+  tick(away, `"I'm done with this marriage."`, ENDS);
+  check("an open severance closes when she is not in the room", (tick(away, "I keep driving", {}, []), !away.severance));
 
   const quiet = world({ roles: ["wife"], shared: 38 });
-  tickSeverance(quiet, `I make coffee and read the paper.`, ["char_m"]);
+  tick(quiet, `I make coffee and read the paper.`);
   check("an ordinary turn opens nothing", !quiet.severance);
   check("...and says nothing to the narrator", severanceDirective(quiet) === "");
 }

@@ -1075,9 +1075,44 @@ export type ActionMode = "do" | "say" | "think" | "story";
  *  both the undertow (which computes them) and the mind layer (which reads them) can import. */
 export type Stance = "press" | "maneuver" | "hold" | "yield";
 
+/** One line spoken aloud in the prose, as the bookkeeper attributed it. See prosecheck.ts. */
+export interface DialogueLine { who: string; line: string }
+
+/** What the bookkeeper found wrong with a turn's prose. See prosecheck.ts for what each one means and
+ *  what the engine does with it. Every field is empty on a clean turn. */
+export interface ProseCheck {
+  story_starts: string;
+  story_ends: string;
+  not_story: string[];
+  refused: boolean;
+  player_lines: string[];
+  impossible: { who: string; sentence: string; why: string }[];
+  wiped: string[];
+  overrun: "none" | "preempt" | "cascade";
+  canned: string[];
+  interior: string[];
+  sayings: string[];
+  stock: { phrase: string; sentence: string }[];
+  figures: string[];
+  meta_talk: { who: string; line: string }[];
+  narrated_back: string[];
+  repeat_demand: string;
+  missed_claim: { who: string; line: string } | null;
+  body: { who: string; part: "penis" | "vulva"; sentence: string }[];
+  family: { who: string; relation: string; other: string; because: string; sentence: string }[];
+  player_third_person: string[];
+  walked_in: { who: string; line: string }[];
+  declared_miss: { declaration: string; how: "hedged" | "interrupted" | "absent" } | null;
+  setting: { sentence: string; motif: string; alone: boolean }[];
+}
+
 export interface TurnHistoryEntry {
   /** What the player meant that turn, as the small model read it. See actionread.ts. */
   read?: import("./actionread").ActionRead;
+  /** What the bookkeeper found wrong with that turn's prose, before the cuts. See prosecheck.ts. */
+  faults?: ProseCheck;
+  /** Every line spoken that turn and who said it, as the bookkeeper read it. */
+  dialogue?: DialogueLine[];
   /** The beat paragraph this turn actually carried — what the engine decided the turn was FOR,
    *  verbatim. Separate from `directive` because beatNote is concatenated after it at the call
    *  site and was therefore in no record at any length. See the note in turn.ts. */
@@ -1353,6 +1388,8 @@ export interface SimulatorDiff {
   traits_expressed?: { char_id: string; traits: string[] }[]; // which core traits this turn actually put on screen, judged by meaning (a gelato expresses "loves ice cream")
   texture_add?: { char_id: string; item: string }[]; // a small standing interest/quirk the story has earned (e.g. "has taken to fishing")
   rumors_new: { content: string; truth: "true" | "distorted" | "false"; salience: number; origin_char: string; about_char?: string; violent?: boolean }[];
+  dialogue?: DialogueLine[]; // every line spoken aloud in the prose and who said it. See prosecheck.ts.
+  prose_check?: Partial<ProseCheck>; // what's wrong with the prose, raw from the model; shapeCheck holds it to the shape
   player_self?: string[]; // what the player's character said this turn about their own job, role and responsibilities. See engine/own.ts.
   consequences_new: { description: string; fire_in_turns?: number; fire_in_days?: number; fire_in_hours?: number; severity: "minor" | "notable" | "major"; source_char?: string; location_trigger?: string }[];
   clocks_advance: { id: string; segments: number }[];

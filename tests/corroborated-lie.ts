@@ -29,6 +29,7 @@
 import {
   resolveOverdue, missedFor, missedNote, findMissedClaim, verificationLaw, MISSED_KEEP_MINUTES,
 } from "../src/engine/commitments";
+import { setRead } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 import { readFileSync } from "node:fs";
 
@@ -108,12 +109,19 @@ const prev = (turn: number): string => prose(turn - 1);
 {
   const s = load();
   resolveOverdue(s);
-  const fires = (t: number): boolean => !!verificationLaw(s, acted(t), s.world.present, prev(t));
+  // What a careful reader says each turn checks the claim against (engine/actionread.ts, `verifies`).
+  // Turn 40 names none of it, which is why the channel left open by turn 39's prose counts too.
+  const VERIFIES: Record<number, string> = { 38: "her manager", 39: "her manager, on speakerphone", 40: "" };
+  const fires = (t: number): boolean => {
+    setRead(s, acted(t), { verifies: VERIFIES[t] ?? "" });
+    return !!verificationLaw(s, acted(t), s.world.present, prev(t));
+  };
 
   check("the turn the player asks for proof", fires(38), acted(38));
   check("the turn he tells her to put the manager on speaker", fires(39), acted(39));
   check("and the turn Dana answers — whose typed action names none of it", fires(40), acted(40));
 
+  setRead(s, acted(40), {});
   const law = verificationLaw(s, acted(40), s.world.present, prev(40));
   check("the law states the verdict", /wasn't there/i.test(law), law.slice(0, 200));
   check("...names what may not decide it", /A voice invented this turn has no memory of its own/i.test(law), law);
@@ -121,9 +129,15 @@ const prev = (turn: number): string => prose(turn - 1);
   check("...while leaving the character free to lie", /can lie over it/i.test(law), law);
   check("...and leaving the answer allowed to be useless", /slow, partial, distracted or useless/i.test(law), law);
 
+  setRead(s, "I kiss her neck and tell her she looks good", {});
   check("an unrelated action does not summon it",
     verificationLaw(s, "I kiss her neck and tell her she looks good", s.world.present, "She turned the fan back on.") === "", "");
+  // the read alone opens it, with nothing on the line in the prose before
+  setRead(s, "I ring the salon and ask what time she clocked out", { verifies: "the salon's records" });
+  check("the player checking the claim opens it by itself",
+    !!verificationLaw(s, "I ring the salon and ask what time she clocked out", s.world.present, "She turned the fan back on."));
   const clean = load();
+  setRead(clean, acted(38), { verifies: "her manager" });
   check("and with nothing settled there is nothing to rule on",
     verificationLaw(clean, acted(38), clean.world.present, prev(38)) === "");
 }
