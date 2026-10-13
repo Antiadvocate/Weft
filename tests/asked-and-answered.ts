@@ -28,6 +28,7 @@
  */
 import { playerSaysAnswered, answeredDirective } from "../src/engine/turn";
 import { repeatedIntent } from "../src/engine/intent";
+import { EMPTY_READ } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -35,45 +36,19 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
-/* ── 1. the three lines from the save ─────────────────────────────────────────── */
+/* ── 1. the turn read says it, and the engine hears it ─────────────────────────── */
+// Whether a line like the three above means "I already answered this" is the turn read's call
+// (engine/actionread.ts), made by a model reading the whole line. The engine only acts on its answer.
 {
-  for (const line of [
-    `"What's your question about her? I already answered you earlier I believe? You need to haggle? I can give you whatever gold you need"`,
-    `"And I'm tired of telling you. She literally said 5 lines to me. I offered her freedom so she wouldn't reveal my powers. And it's becoming hard for me to constantly repeat myself."`,
-    `"Thankfully I was getting very exhausted saying the same thing over and over and over. Please lead the way."`,
-  ]) check(`heard: ${line.slice(1, 46)}…`, playerSaysAnswered(line), line);
+  const said = { ...EMPTY_READ, already_answered: true };
+  check("a read that says it was answered is heard", playerSaysAnswered(said));
+  check("an ordinary read is not", !playerSaysAnswered(EMPTY_READ));
+  check("a bare string is never read as a complaint", !playerSaysAnswered("I already answered you earlier I believe?"));
 }
 
-/* ── 2. the other ways a player says it ───────────────────────────────────────── */
+/* ── 2. what it puts in front of the narrator ─────────────────────────────────── */
 {
-  for (const line of [
-    "I told you already.",
-    "I've said this three times now",
-    "I already explained that to her",
-    "how many times do I have to say it",
-    "asked and answered",
-    "stop asking me about the gold",
-    "For the third time: no.",
-    "I'm sick of repeating myself",
-  ]) check(`"${line}"`, playerSaysAnswered(line), line);
-}
-
-/* ── 3. and the ordinary turns that must not trip it ──────────────────────────── */
-{
-  for (const line of [
-    `"Hi. I'm Rabi. I'm trying to find out where I can go to find some lodgings."`,
-    "I ask her what she meant by that",
-    "I tell her the truth about the gold",
-    "I said nothing and kept walking",
-    "I answer the door",
-    `"What was the question I asked?" I follow her.`,
-    "I explain the aqueduct to him while we walk",
-  ]) check(`not a complaint: "${line.slice(0, 40)}…"`, !playerSaysAnswered(line), line);
-}
-
-/* ── 4. what it puts in front of the narrator ─────────────────────────────────── */
-{
-  const d = answeredDirective("I already answered you earlier I believe?");
+  const d = answeredDirective({ ...EMPTY_READ, already_answered: true });
   check("the directive fires", d.length > 0);
   check("and it closes the subject rather than softening it", /asks the question again this turn/i.test(d), d);
   check("it bars the reword, which is the form it always takes", /rephrased/.test(d), d);
@@ -81,7 +56,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   // The directive is deliberately written flat. An instruction phrased as an epigram teaches the
   // narrator an epigram, and the prose comes back sounding like the rules document.
   check("and it is not itself written as an aphorism", !/^.*\b(is the end of|is not a|the turn is about)\b/i.test(d.replace(/\n/g, " ")), d);
-  check("an ordinary turn gets nothing", answeredDirective("I follow her down the stairs") === "");
+  check("an ordinary turn gets nothing", answeredDirective(EMPTY_READ) === "");
 }
 
 /* ── 5. a loop that skips a beat is still a loop ──────────────────────────────── */

@@ -16,6 +16,7 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, repairBibleLists, splitLines, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
+import { EMPTY_READ } from "../src/engine/actionread";
 import { isSketch } from "../src/engine/sketch";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -432,18 +433,14 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
  * narrator reads a cold edge as "be an obstacle" and reaches for the only friction it knows —
  * money — without checking which direction the goods just moved. */
 {
-  const gift = (action: string) => giftDirective(action);
-  check("building something for a town is giving", /The player is giving something this turn\./.test(gift("I build a well for the village")));
-  check("handing food to people is giving", /The player is giving something this turn\./.test(gift("I give the food to the children")));
-  check("healing someone is giving", /The player is giving something this turn\./.test(gift("I heal the wounded for them")));
-  check("making a thing for a named person is giving", /The player is giving something this turn\./.test(gift("I made a coat for Mable")));
+  // Whether an act gives something is the turn read's call (engine/actionread.ts); buying, asking
+  // and "giving her a look" read as no gift there. The engine only turns the answer into direction.
+  const gift = (gives_to: string[]) => giftDirective({ ...EMPTY_READ, gives_to });
+  check("giving to a crowd is giving", /The player is giving something this turn\./.test(gift(["everyone"])));
+  check("giving to one person is giving", /The player is giving something this turn\./.test(gift(["char_mable"])));
+  check("no one given to is no gift", gift([]) === "");
 
-  check("buying something is not giving", gift("I buy bread from the baker") === "");
-  check("asking for something is not giving", gift("I ask the smith to make a blade for me") === "");
-  check("giving someone a look is not a benefaction", gift("I give her a long look") === "");
-  check("an empty action is not a gift", gift("") === "");
-
-  const d = gift("I build a well for the village");
+  const d = gift(["everyone"]);
   check("it forbids the invoice specifically", /Nobody names a price or a fee, sends a bill/.test(d));
   check("it leaves refusal and suspicion available", /they refuse it/.test(d) && /suspicious/.test(d), d);
   check("it asks for a proportionate reaction", /react in proportion to how much they were given/.test(d), d);

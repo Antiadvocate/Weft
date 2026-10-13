@@ -30,7 +30,7 @@ import { tickHabits, formHabit, habitVerdicts, regrooveHabits, absorbContradicti
 import { noveltyDigest, recordExpressions } from "./novelty";
 import { recordSpokenSubjects, spentSubjectsNote, monopolisedSubject, monopolyNote, retoldToPlayer, retoldNote } from "./spent";
 import { advance, heuristicMinutes, declaredMinutes, advanceWeather, minutesBetween, parseTime } from "./time";
-import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, MASS_HARM, sweepPromises, castGoneCold } from "./social";
+import { applyEdgeDelta, decayEdges, capMemory, consolidateBackground, consolidateTraits, decayTraits, diffuseRumors, needsHistoryCompaction, reinforceOrMergeTrait, plantedRecently, TRAIT_PLANT_COOLDOWN, tickDrives, playerEdgeSnapshot, tickPsyche, settleAfterDeltas, hostileToward, getEdge, addPromise, promisesLikelyMet, creditPromiseEvidence, resolvePromise, completeDrivesForPromises, applyStances, updatePublicStanding, publicStandingDirective, bondStrength, sweepPromises, castGoneCold } from "./social";
 import { obduracyIn, isObdurate } from "./obduracy";
 import { factionEverInPlay, factionKnows, mundaneObjective, reviveStalledClocks, seedWitnessRumors } from "./knowledge";
 import { runOffstage, returnFromOffscene } from "./offstage";
@@ -43,7 +43,7 @@ import { scrubPlayerVoice, voicedFix } from "./playervoice";
 import { guardNuked } from "./nuke";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "./dropit";
 import { appraiseDanger, appraiseAct, shiftFear } from "./fear";
-import { readAction, turnRead, EMPTY_READ } from "./actionread";
+import { readAction, turnRead, EMPTY_READ, type ActionRead } from "./actionread";
 import { setStation, beatOrder, keptAtTheDoor, atTheDoorNote } from "./station";
 import { findNarratedBack, narratedBackFix } from "./narratedback";
 import { rejectedBy, applyRejection, backfillRejections, sweepPursuit, keepsAway, namesPlayer } from "./rejection";
@@ -99,7 +99,7 @@ import { accruePhysiology, applyMeal, applyDrink, applySleep, applyRelaxationCei
 import { SIMULATOR_JSON_SCHEMA } from "./schema";
 import { neutralUndertow } from "./undertow";
 import { readScene, sceneCutDirective, perceptionGapDirective, screenPrivacyNote } from "./scene";
-import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes } from "./text";
+import { clipText, clipTail, overlapRatio, splitSentencesOutsideQuotes, paragraphs, words, between, without, collapseSpaces, hasWords } from "./text";
 import { clamp } from "./num";
 
 export interface TurnEvents {
@@ -1393,7 +1393,8 @@ export function gcPlaces(state: SaveState, cap = PLACE_CAP): void {
   }
 }
 
-const RESTORE_INTENT = /\b(sleep|nap|doze|rest|bed down|turn in|lie down|go to bed|call it a night|eat|meal|breakfast|lunch|dinner|supper|cook and eat|bathe|bath|shower|wash up|soak|unwind|relax|a few hours to (?:myself|ourselves)|quiet (?:hour|morning|evening|day))\b/i;
+/** Whether the player is sleeping, eating, washing or resting this turn, as the small model read it. */
+const restful = (read: ActionRead): boolean => read.restores.length > 0;
 
 
 /** DRIVE RE-PLANNING (deterministic layer) — background characters must not chase ghosts.
@@ -1522,15 +1523,9 @@ export function replanDrives(state: SaveState): void {
  * Suspicion, fear, refusal and a debt of OBLIGATION are all legitimate answers to a gift, and are
  * left explicitly available. Billing the giver is not an answer, it is a category error.
  */
-const GIVING = /\b(?:i|we)\s+(?:just\s+|then\s+|now\s+)?(?:give|gave|gift(?:ed)?|hand(?:ed)?|offer(?:ed)?|grant(?:ed)?|bestow(?:ed)?|donate[d]?|leave|left|provide[d]?|bring|brought|deliver(?:ed)?|share[d]?|feed|fed|heal(?:ed)?|cure[d]?|fix(?:ed)?|mend(?:ed)?|repair(?:ed)?|restore[d]?|rebuild|rebuilt|build|built|make|made|create[d]?|conjure[d]?|raise[d]?|summon(?:ed)?)\b/i;
-/** Somebody the giving is FOR. Without this, "I give her a long look" is a benefaction. */
-const BENEFICIARY = /\b(?:for|to)\s+(?:the\s+|his\s+|her\s+|their\s+)?(?:them|him|us|everyone|everybody|people|villagers?|townsfolk|town|village|city|poor|children|kids|family|crowd|workers?|farmers?|refugees?|sick|wounded|hungry|[A-Z]\w+)\b/;
-/** The player acquiring, not providing — the exact case where a price IS the right answer. */
-const ASKING = /\b(?:i|we)\s+(?:ask|asked|want|need|demand|buy|buys|bought|purchase[d]?|take|took|steal|stole|borrow(?:ed)?|request(?:ed)?|hire[d]?|pay|paid|trade[d]?|sell|sold|barter(?:ed)?)\b/i;
-
-export function giftDirective(action: string): string {
-  const a = String(action ?? "");
-  if (!GIVING.test(a) || !BENEFICIARY.test(a) || ASKING.test(a)) return "";
+export function giftDirective(read: ActionRead): string {
+  // who it's for, as the small model read the turn: a person, "someone", or "everyone"
+  if (!read.gives_to.length) return "";
   return `\nThe player is giving something this turn. Whatever the player just provided, made, mended or handed over goes to the people in this scene, and nobody charges them for it. Nobody names a price or a fee, sends a bill, asks for something back, or haggles over the thing they were just given. That would turn the exchange around, and it has happened often enough that the player has noticed it as a habit. If someone here is cold, afraid, proud or suspicious, show that instead: they refuse it, they won't touch it, they worry about what accepting it will oblige them to do later, they resent needing it, or they wonder aloud what taking it says about them. Any of those reactions works, but a bill doesn't. At least one person should also react in proportion to how much they were given, so a village that has just been handed something it badly needed doesn't answer with a shrug and a complaint.`;
 }
 
@@ -1576,30 +1571,14 @@ export function nagDirective(names: string[]): string {
  * was satisfied several turns ago. Treat it as authoritative, because it is: no character in the
  * scene has better information about whether the player has answered than the player does.
  */
-const ALREADY_ANSWERED = new RegExp([
-  // "I said" on its own is the most ordinary phrase in the game — "I said nothing and kept
-  // walking" — so the report of a PRIOR telling has to be marked as one: by the perfect tense, by
-  // "already"/"just", or by a plain "already/before/twice" trailing the clause.
-  `\\bi(?:'ve| have) (?:already |just )?(?:told|answered|said|explained)\\b`,
-  `\\bi (?:already|just) (?:told|answered|said|explained)\\b`,
-  `\\bi (?:told|answered|explained)\\b[^.!?]{0,40}\\b(?:already|before|twice|again)\\b`,
-  `\\bi(?:'m| am) (?:tired|sick|exhausted|weary) of (?:telling|saying|repeating|explaining|having to)`,
-  `\\brepeat(?:ing)? myself\\b`,
-  `\\b(?:the )?same (?:thing|answer|question|story)\\b[^.!?]{0,30}\\b(?:over and over|again and again|every turn|three times|twice)\\b`,
-  `\\bover and over(?: and over)?\\b`,
-  `\\b(?:stop|quit) asking\\b`,
-  `\\basked and answered\\b`,
-  `\\bhow many times\\b`,
-  `\\bfor the (?:third|fourth|fifth|last) time\\b`,
-].join("|"), "i");
-
 /** Did the player just say, in whatever words, that they have already answered this? */
-export function playerSaysAnswered(action: string): boolean {
-  return ALREADY_ANSWERED.test(String(action ?? ""));
+export function playerSaysAnswered(read: ActionRead | unknown): boolean {
+  // as the small model read the turn; a bare string carries no reading
+  return typeof read === "object" && read !== null && !!(read as ActionRead).already_answered;
 }
 
-export function answeredDirective(action: string): string {
-  if (!playerSaysAnswered(action)) return "";
+export function answeredDirective(read: ActionRead): string {
+  if (!playerSaysAnswered(read)) return "";
   // Written flat on purpose. A directive in an epigram teaches the narrator an epigram: the
   // instruction files are full of balanced formulations, and the prose comes back full of them too.
   return `\nThe player has said they already answered this, so treat the answer they gave as the answer. No character asks the question again this turn in any form, whether rephrased, narrowed down, framed as a request to hear it again in the player's own words, or handed to another character to ask. A character who is still unsatisfied can say so once, briefly, and then lets it go. By the end of the scene they want something else.`;
@@ -1957,7 +1936,6 @@ export function declinedNotice(state: SaveState): string[] {
  *  Conservative by design: a missed drift is far cheaper than a murdered arc, so it only fires on
  *  clear reversal language against a clear cold/hard nature, and every rejection is logged. */
 const SOFTENING_PATTERN = /\b(soften(ed|ing|s)?|realized? (that )?(kindness|caring|warmth|mercy|being (kind|good|gentle))|began to (care|feel|soften)|learned to (care|love|trust|feel)|guilt|remorse|redemption|redeem\w*|touched by|melted|warmed to|opened (his|her|their) heart|found (his|her|their) humanity|no longer (so )?(cold|cruel|hard|ruthless)|a better (man|woman|person)|change of heart|conscience (stirred|awoke|pricked))\b/i;
-const NORM_REVERSAL_PATTERN = /\b(was (strange|odd|wrong|pointless)|felt (right|nice|good|freeing)|kinda nice|no longer (made sense|needed)|stopped doing|why do we even|questioned (the|their|whether)|doubted (the|their)|began to wonder if)\b/i;
 
 /** The veto's old grain test was conscience <= 0.35 OR a core trait matching a seven-word
  *  cruelty list — which the Forge produces for exactly one character per cast. Everyone
@@ -2017,6 +1995,26 @@ function deriveDefaultVoice(_traits: string[], _age: string): { diction?: string
   };
 }
 
+/** [[beat]], [[beat: voice]] and [[beat: ?]] taken off the action: what the player asked the world
+ *  to move with ("" for the engine's choice, undefined when there was no mark), and the action
+ *  without it. Any other [[...]] is left where it is. */
+export function takeBeatMark(typed: string): { action: string; beat: string | undefined } {
+  let kept = "", from = 0, beat: string | undefined;
+  for (let at = typed.indexOf("[["); at !== -1; at = typed.indexOf("[[", from)) {
+    const end = typed.indexOf("]]", at + 2);
+    if (end === -1) break;
+    const inner = typed.slice(at + 2, end).trim();
+    const head = inner.toLowerCase();
+    const isBeat = head === "beat" || (head.startsWith("beat") && head.slice(4).trimStart().startsWith(":"));
+    if (isBeat) {
+      beat = head === "beat" ? "" : inner.slice(inner.indexOf(":") + 1).trim();
+      kept += typed.slice(from, at) + " ";
+    } else kept += typed.slice(from, end + 2);
+    from = end + 2;
+  }
+  return beat === undefined ? { action: typed, beat } : { action: collapseSpaces(kept + typed.slice(from)), beat };
+}
+
 export async function runTurn(state: SaveState, action: string, ev: TurnEvents, mode: ActionMode = "do", opts?: { ground?: boolean; eco?: boolean; proseOverride?: string; tightness?: number; signal?: AbortSignal;
   /** Identifies THIS turn's narrator call to the relay, when one is configured. Generated and
    *  journaled by the caller before the turn starts, so an app that gets killed mid-narration can
@@ -2042,8 +2040,11 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // action before framing/rendering — the narrator never sees it, the prose never contains it.
   // Multiple ((...)) blocks join into one query. When present it forces grounding on for the turn.
   let searchTarget = "";
-  const cleanedAction = action.replace(/\(\(([^)]+)\)\)/g, (_m, q) => { searchTarget += (searchTarget ? "; " : "") + String(q).trim(); return ""; }).replace(/\s{2,}/g, " ").trim();
-  action = cleanedAction;
+  const searches = between(action, "((", "))").map((q) => q.trim()).filter(Boolean);
+  if (action.includes("((")) {
+    searchTarget = searches.join("; ");
+    action = collapseSpaces(without(action, "((", "))", " "));
+  }
   // THE DIRECTOR'S CHANNEL — [[double brackets]], on the same principle as the ((search)) above:
   // a line to the engine, never story text, stripped before the narrator or the bookkeeper sees a
   // word of it. See selectBeat's own override for what it does to the turn.
@@ -2058,10 +2059,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // Filled by [[beat: ?]] and folded into this turn's own shifts, because a twelve-row table
   // delivered as toasts that dismiss themselves after three seconds is not an answer.
   const beatTable: string[] = [];
-  action = action.replace(/\[\[\s*beat\s*(?::\s*([^\]]*))?\]\]/gi, (_m, what) => {
-    forceBeat = String(what ?? "").trim();
-    return "";
-  }).replace(/\s{2,}/g, " ").trim();
+  ({ action, beat: forceBeat } = takeBeatMark(action));
   // A PLAYER WHO TYPES [[beat]] AT A REST DIAL HAS OVERRULED THEIR OWN DIAL FOR ONE TURN. Both the
   // pressure block and the beat block go silent at tension 0 — correctly, that is what 0 means —
   // and without this the forced beat would be selected, toasted, recorded, and then never reach
@@ -2294,7 +2292,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
     recent: state.pressure_state.recent, minutesSinceBeat, minutesSinceExo,
     // A forced beat is the player saying the world moves now, so a rest reading of their own line
     // does not get to veto it — they typed both halves.
-    restoration: forceBeat === undefined && RESTORE_INTENT.test(action),
+    restoration: forceBeat === undefined && restful(turnRead(state)),
     // A zombie story does not get an eight-turn quiet opening. See isBesieged.
     besieged: isBesieged(state.world_bible.tone, state.world_bible.pressure_palette),
   };
@@ -2376,8 +2374,6 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   checkStop();   // stopped during the world tick — nothing has been written yet
   ev.onPhase("narrator");
   const arrivalShifts: string[] = [];
-  // spawnNamed is now a FALLBACK only — see the footer block below. It runs when the narrator
-  // emitted no footer (output truncation), because no registration at all is worse than a guess.
   const arrivals = "";
   // INTENT PASS — before the narrator writes, each present NPC with something at stake privately
   // commits to their true intent this beat (the lie, the hidden want, the withheld feeling),
@@ -2622,7 +2618,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
 
   // Is the player supplying momentum this turn, or inert? (Defined here so the drive system can cede
   // the wheel to a desiring character when the player does nothing.)
-  const playerInert = !action.trim() || /^\s*(\[observer\]|continue|i watch|i wait|i observe|i look|i listen|watch|wait|observe|keep going|go on|\.\.\.)\b/i.test(action.trim());
+  const playerInert = !action.trim() || turnRead(state).passive;
 
   // ── ATTEMPT FRAME ── stakes-bearing player actions resolve by CAUSE, not chance: capability,
   // body, and circumstance are read deterministically from state, the outcome is decided HERE,
@@ -2631,7 +2627,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // authors outcomes), at mythic/cosmic tier (the world's frame already bends around them), or
   // for restful/inert turns. See attempt.ts.
   let attemptShift: string | null = null;
-  if (!god && mode === "do" && tier !== "mythic" && tier !== "cosmic" && !playerInert && !RESTORE_INTENT.test(action)) {
+  if (!god && mode === "do" && tier !== "mythic" && tier !== "cosmic" && !playerInert && !restful(turnRead(state))) {
     const frame = frameAttempt(state, action, verdict.pressure ?? 3);
     if (frame) { directive += attemptDirective(frame, action); attemptShift = frame.summary; }
   }
@@ -2681,7 +2677,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   const nagNote = nagDirective(nagging.map((n) => n.c.name))
     // The player's own word that they have already answered, which outranks any of the above: it
     // closes a loop the engine cannot see because the loop does not live in anybody's drive.
-    + answeredDirective(action);
+    + answeredDirective(turnRead(state));
 
   if (drivers.length) {
     const lead = drivers[0];
@@ -2748,7 +2744,7 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // player — so at any nonzero tension the engine was injecting complications into every night
   // and meal. Restoration is a recognized state, not a stall: the drama gets gated below, and
   // the physiology credit is guaranteed mechanically regardless of what the prose does.
-  const restoration = RESTORE_INTENT.test(action);
+  const restoration = restful(turnRead(state));
 
   // ── PLOT-STALL DETECTION ── A scene has no engine of its own when nothing is pushing the PLOT
   // outward. The subtlety: a thread can carry high tension while being purely INTERNAL — a
@@ -2825,14 +2821,13 @@ export async function runTurn(state: SaveState, action: string, ev: TurnEvents, 
   // engine/read.ts owns interpretation now; see the POV note below)
   // INTERIOR-HEAVY GUARD — when a "do" action is mostly the player thinking/planning/musing with
   // little actual physical action, the narrator is most tempted to mine that interior for plot
-  // (player muses about electrician work → an NPC volunteers electrician leads). Detect the shape —
-  // first-person plan/wish/rumination language, especially "I keep thinking / I should / I could /
-  // maybe / I'll ... later" — and, when present, hard-remind that this turn's interior is inert:
-  // it may color the player's own body and experience, but the world must not answer or be built
-  // around it. Only speech and physical acts are inputs.
-  const musingHits = (action.match(/\b(i keep thinking|i should|i could|i need to|maybe i|i'?ll (?:find|go|see|look|try)|i want to|i'?m thinking|thinking about|i wonder|part of me|i tell myself)\b/gi) ?? []).length;
-  const spoke = /"[^"]+"/.test(action);
-  const interiorHeavy = mode === "do" && musingHits >= 2 && !spoke;
+  // (player muses about electrician work → an NPC volunteers electrician leads). The turn read
+  // splits the action into what was said, done and only thought; when the thinking outweighs the
+  // doing and nothing was said aloud, hard-remind that this turn's interior is inert: it may color
+  // the player's own body and experience, but the world must not answer or be built around it.
+  const shape = turnRead(state);
+  const interiorHeavy = mode === "do" && !shape.said.length
+    && shape.thought.trim().length > 0 && shape.thought.trim().length > 2 * shape.did.trim().length;
   const interiorGuard = interiorHeavy
     ? `\nMost of the player's action this turn is private thinking or planning: musing about what they might do, where they might go or who they could become. That thinking doesn't feed into the story. It only shapes what the player experiences and what their body does, and the world can't see it, answer it or arrange itself around it. Don't have any character bring up, offer, or respond to whatever the player was privately thinking about, whether that's a job they considered, a plan they turned over, or something they wished for. Write only the physical action the player actually took, and let the world carry on from where it already stands, meaning what the character present wants and whatever threads are open, without regard to what the player was thinking. If the only physical thing the player did was small, like finishing their food or walking over, the scene stays small, and you don't invent some development to match what the player was pondering.`
     : "";
@@ -2861,10 +2856,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   const focusNames = state.world.present
     .filter((id) => id !== "char_player" && state.characters[id])
     .map((id) => ({ id, name: state.characters[id].name }));
-  const actionLc = action.toLowerCase();
-  const nameHit = (name: string) =>
-    name.toLowerCase().split(/[\s'"]+/).filter((w) => w.length >= 3).some((w) => actionLc.includes(w));
-  let focused = focusNames.filter((f) => nameHit(f.name));
+  const dealtWith = new Set([
+    ...shape.addresses, ...shape.insults, ...shape.threatens, ...shape.gives_to, ...shape.turns_away,
+    ...shape.harms.flatMap((h) => h.who), ...shape.orders.flatMap((o) => o.to),
+  ]);
+  let focused = focusNames.filter((f) => dealtWith.has(f.id));
   // ADDRESSEE FALLBACK — the common case is speaking to someone WITHOUT naming them ("should we
   // raise shields?"). Naming is rare in real dialogue, so a gate that needs a name is off almost
   // always. When the player named no one, the person they are talking to is whoever last held the
@@ -2878,11 +2874,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
       // channel) onto someone across the room who happened to be described last. Scan paragraphs
       // from the end for one that contains BOTH a quotation and a present character's name; that
       // is the person holding the floor. Fall back to last-mentioned only if nobody spoke.
-      const paras = prev.split(/\n\n+/);
-      const surname = (n: string) => n.toLowerCase().split(/\s+/).slice(-1)[0];
+      const paras = paragraphs(prev);
+      const surname = (n: string) => (words(n.toLowerCase()).slice(-1)[0] ?? n.toLowerCase());
       let speaker: typeof focusNames[number] | undefined;
       for (let i = paras.length - 1; i >= 0 && !speaker; i--) {
-        if (!/["“”]/.test(paras[i])) continue;
+        if (![...paras[i]].some((ch) => ch === '"' || ch === "\u201c" || ch === "\u201d")) continue;
         const lc = paras[i].toLowerCase();
         speaker = focusNames
           .map((f) => ({ f, at: lc.lastIndexOf(surname(f.name)) }))
@@ -2939,13 +2935,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // (fabrication guard now lives in the cached system prompt as an every-turn rule)
 
   if (god) {
-    // detect an ONGOING / escalating declaration vs a discrete one-and-done act. "I will kill this
-    // realm", "I begin unmaking the city", "I start tearing it all down" initiate a PROCESS that must
-    // visibly unfold and accelerate this turn — not be rendered as a single tremor and a promise of
-    // more later. This is the milquetoast trap: the player supplies huge momentum and the narrator
-    // spends it on atmosphere and reaction instead of delivering the escalating event.
-    const lowerAct = action.toLowerCase();
-    const ongoing = /\b(i('?m| am| will| shall|'ll)?\s*(going to|begin|start|am beginning|will begin)\b|\bkill (this|the) (realm|world|planet|city|place)\b|\bunmak\w*|\btear\w* (it|this|the) .*(down|apart|realm|world|place)|\bbring\w* (it|this|them|the|this) (whole )?(place|realm|world|city)?\s*(all )?down|\bend (this|the) (realm|world|place|everything)|\bdestroy\w* (everything|it all|the realm|the world|this place|the place))/i.test(lowerAct);
+    // An ONGOING / escalating declaration vs a discrete one-and-done act. "I will kill this realm",
+    // "I begin unmaking the city" initiate a PROCESS that must visibly unfold and accelerate this
+    // turn — not be rendered as a single tremor and a promise of more later. The turn read says
+    // whether what the player set loose keeps going on its own.
+    const ongoing = shape.ongoing;
     directive += `\nGOD MODE. THE PLAYER IS SOVEREIGN HERE. Whatever the player says happens does happen, completely and immediately, at exactly the size and strength they describe, and it costs them nothing unless they say it does. This comes before everything else, including the rules of magic, the difficulty settings and how deadly they are, the forbidden list, the rule about keeping consequences short of catastrophe, the "fair scale" rule, and your own instinct to keep things small or safe. Never scale it down, soften it, delay it, sidestep it, reinterpret it, or swap in a tamer version of what they said. If they kill millions of people, millions die, as real bodies. If they remake a city, the city is remade.`;
     if (ongoing) {
       directive += `\nThe player has started something huge that keeps going, and this turn it has to visibly unfold and speed up, at full size, on the page. The worst thing you could do here is shrink a catastrophe they described into atmosphere, like one tremor, a torch flickering, a character who can't finish a sentence, or a hint that it will happen soon. Don't do that. If they said they are killing the realm, the realm is dying right now, and fast. Show it concretely and at full scale this turn: buildings failing, the ground splitting open, the sky changing, people dying in great numbers, the whole physical process tearing through everything and getting worse with every paragraph. Write the event already underway and well past the warning signs. Reactions get a sentence at most in the middle of it all, because the catastrophe itself is the turn. End while it is still speeding up and well underway.`;
@@ -3137,7 +3131,7 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // into every mind in the city.
   trackOpenCall(state, action);
   const crowdNote = crowdDirective(state) + openCallDirective(state);
-  const giftNote = giftDirective(action);
+  const giftNote = giftDirective(turnRead(state));
   const bodyNote = [...state.world.present, "char_player"]
     .filter((id, i, a) => a.indexOf(id) === i && state.characters[id])
     .map((id) => bodyDirective(state.condition[id], id === "char_player" ? "The player" : state.characters[id].name))
@@ -3593,10 +3587,10 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
         ev.onMeta({ shifts: [`${state.last_missed_claim.name} talked about keeping an appointment, but the record has them in this room at the time, and this will be corrected next turn`] });
       }
       // The player's own words coming back at them, in either of its two forms.
-      state.last_echo = findEcho(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
+      state.last_echo = findEcho(prose, mode === "say" ? action : quotedLines(action).filter((q) => q.length >= 4).join(" … "));
       // …and the short quote-back opener, which findEcho's five-word floor is deliberately above.
       // Counted, not banned: one repeat is speech, two in a turn is how lines are being started.
-      state.last_openers = echoOpeners(prose, mode === "say" ? action : [...action.matchAll(/"([^"]{4,})"/g)].map((m) => m[1]).join(" … "));
+      state.last_openers = echoOpeners(prose, mode === "say" ? action : quotedLines(action).filter((q) => q.length >= 4).join(" … "));
       // ...and the narrator's own previous page coming back. Read against the last turn that
       // actually produced prose, so an interlude or a montage in between does not mask it.
       state.last_reprint = findReprint(contextHistory(state).filter((h) => String(h.narrator_prose ?? "").trim()).at(-1)?.narrator_prose ?? "", prose);
@@ -4742,16 +4736,15 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // hours passed, the sleep happened, interruption or not: credit = elapsed. Same for meals,
   // unless the prose explicitly destroyed the food. A knock at hour six does not un-sleep six
   // hours, and the bookkeeper forgetting to emit "slept" must never wreck a body for days.
-  const SLEEP_INTENT = /\b(sleep|nap|doze|bed down|turn in|go to bed|rest (?:for|until|through)|call it a night|lie down)\b/i;
-  const EAT_INTENT = /\b(eat|meal|breakfast|lunch|dinner|supper|cook and eat)\b/i;
+  const restores = turnRead(state).restores;
   const MEAL_RUINED = /\b(plate (?:shatters|clatters to)|food (?:is )?(?:ruined|abandoned|untouched|forgotten|knocked)|never (?:get|gets) to (?:eat|finish)|meal (?:is )?(?:interrupted and )?(?:left|abandoned))\b/i;
   const pcond = state.condition["char_player"];
   if (pcond) {
-    if (SLEEP_INTENT.test(action) && minutes >= 150 && !sleptIds.has("char_player")) {
+    if (restores.includes("sleep") && minutes >= 150 && !sleptIds.has("char_player")) {
       applySleep(pcond, Math.min(9, minutes / 60));
       sleptIds.add("char_player");
     }
-    if (EAT_INTENT.test(action) && !MEAL_RUINED.test(prose) && !(diff.facts ?? []).some((f) => f.field === "hunger" && resolveId(state, f.char_id) === "char_player")) {
+    if (restores.includes("eat") && !MEAL_RUINED.test(prose) && !(diff.facts ?? []).some((f) => f.field === "hunger" && resolveId(state, f.char_id) === "char_player")) {
       applyMeal(pcond, "meal");
     }
   }
@@ -5042,10 +5035,11 @@ PUTTING THINGS NEXT TO EACH OTHER: when you show something observable and a conc
   // when the player introduces themselves, or when the name is spoken aloud (inside quotes) in
   // the scene by someone who knows it. Narration using the name never teaches it.
   {
-    const pfirst = state.characters["char_player"]?.name.split(/\s+/)[0] ?? "";
+    const pfirst = words(state.characters["char_player"]?.name ?? "")[0] ?? "";
     if (pfirst.length >= 2) {
-      const introduced = new RegExp(`\\b(i'?m|i am|my name is|call me|the name'?s)\\s+${pfirst}\\b`, "i").test(action);
-      const spokenAloud = new RegExp(`["“][^"”]*\\b${pfirst}\\b[^"”]*["”]`).test(prose);
+      // The player saying their own name aloud is them giving it out.
+      const introduced = turnRead(state).said.some((line) => hasWords(line, pfirst));
+      const spokenAloud = quotedLines(prose).some((line) => hasWords(line, pfirst));
       if (introduced || spokenAloud) {
         for (const pid of state.world.present) {
           const c = state.characters[pid];
@@ -5439,13 +5433,6 @@ function resolveId(state: SaveState, ref: string): string | null {
 /** The LOCALE of a place name — the building/area, stripping a " - subroom" suffix. So "House - kitchen",
  *  "House - porch", and "House" all share locale "house". Used for presence: people in different rooms
  *  of the same building are in the same scene, instead of flickering apart on sub-room drift. */
-/** Is this a transient motion/state label rather than a real place? "walking home", "driving away",
- *  "in transit" — these shouldn't become persistent place records or break co-location. */
-function isTransientLabel(name: string): boolean {
-  return /\b(walking|driving|heading|moving|running|traveling|travelling|in transit|en route|on (the|their) way|leaving|departing|fleeing)\b/i.test(name) &&
-    /\b(home|away|off|out|back|toward|towards|to|from)\b/i.test(name);
-}
-
 export { OFFSCENE, isPartOfAPlace, placeSimilarity, existingPlaceFor, placeIntent } from "./places";
 
 /** The offscene record — one place, outside every locale, for everyone who is not in a named
@@ -5577,98 +5564,6 @@ export function syncPresence(state: SaveState, hint?: string[]): void {
 }
 
 
-/** NAMES THE PLAYER USED FOR SOMEONE WHO DOES NOT EXIST YET.
- *
- *  The cast could only ever grow from PROSE — the bookkeeper declaring new_characters, or the
- *  speaker auto-register below. Nothing looked at the player's own action, so typing "I go find
- *  Marek" produced a narrator improvising a Marek who never entered state, never got an edge,
- *  never accumulated memory, and arrived a stranger again every scene.
- *
- *  Person-context is required, not just capitalisation: a capitalised word at the head of a
- *  sentence is usually grammar, and the old frequency heuristic in unregisteredSpeakers is a
- *  standing lesson in what happens when you guess. A name must either sit mid-sentence or follow
- *  a word that can only precede a person. */
-const NOT_A_PERSON = new Set(["i","the","a","an","and","but","then","so","if","when","my","his","her","their","its","this","that","these","those","it","he","she","they","we","you","there","here","what","who","why","how","ok","okay","yes","no","god","lord","sir","lady","hey","alright","well","now","after","before","while",
-  // Closed-class words that follow the person-verbs above — "ask ABOUT the divorce", "call BACK",
-  // "tell THEM". None of them is ever somebody's name, and on the lower-case path capitalisation is
-  // not there to rule them out.
-  "about","again","around","back","out","up","down","off","over","through","whether","because",
-  "me","him","them","us","someone","anyone","everyone","nobody","something","anything","nothing","everything"]);
-const PERSON_LEAD = /\b(?:to|with|for|at|about|and|find|see|call|summon|conjure|ask|tell|meet|greet|visit|bring|invite|toward|towards|beside|near|from)\s+$/i;
-/** A much stricter lead, for the LOWER-CASE path only. Capitalisation is doing no work there, so
- *  the word in front has to be one that can take almost nothing BUT a person: a verb aimed at
- *  somebody, or the relationship noun a name is usually apposed to ("my friend sarah"). The general
- *  list above is far too weak for this — "and", "to" and "about" precede anything, and letting them
- *  through turned "i sit down and think about it" into a character named Think. */
-const LOWER_LEAD = /\b(?:find|call|calls|called|text|texts|texted|message|messages|messaged|email|emails|emailed|phone|phones|phoned|ring|dm|ask|asks|asked|tell|tells|told|meet|meets|met|greet|visit|visits|invite|invites|summon|summons|conjure|conjures|kiss|kisses|hug|hugs|friend|sister|brother|wife|husband|mother|father|cousin|neighbou?r|colleague|partner|boss|named|calledd?)\s+$/i;
-
-export function namedInAction(state: SaveState, action: string): string[] {
-  const known = new Set<string>();
-  for (const c of Object.values(state.characters)) {
-    for (const w of c.name.split(/\s+/)) known.add(w.toLowerCase());
-    for (const al of c.aliases ?? []) for (const w of al.split(/\s+/)) known.add(w.toLowerCase());
-  }
-  for (const pl of Object.values(state.world.places)) for (const w of pl.name.split(/\s+/)) known.add(w.toLowerCase());
-  for (const w of `${state.world_bible?.name ?? ""} ${state.world_bible?.era ?? ""}`.split(/\s+/)) known.add(w.toLowerCase());
-
-  const out = new Set<string>();
-  // PLAYERS TYPE IN LOWER CASE. This required a capital letter, so "I text sarah" named nobody: a
-  // friend the player wrote to twice, whom the narrator described at length ("a friend from the old
-  // job, the one who'd never met Tessa, the one who wouldn't have to pick sides"), never became a
-  // person, never got a card, and could never answer. A lower-case candidate is only considered when
-  // it follows a word that can ONLY precede a person — text, call, find, ask, meet — which is a far
-  // stronger signal than capitalisation ever was, and is exactly how it was typed.
-  const re = /[A-Za-zÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜáéíóúàèìòùâêîôûäëïöü](?:'?[A-Za-záéíóúàèìòùâêîôûäëïöü-]){2,}/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(action))) {
-    const name = m[0];
-    if (known.has(name.toLowerCase()) || NOT_A_PERSON.has(name.toLowerCase())) continue;
-    // CONTRACTIONS. "I'd", "He'll", "That's", "Don't" all satisfy capital-plus-two-characters and
-    // one of them became a permanent member of the cast. Reject an apostrophe followed by a
-    // contraction suffix, rather than rejecting apostrophes outright — that would also lose
-    // O'Brien and D'Arcy, which are names people actually use.
-    if (/'(?:s|t|d|ll|re|ve|m)$/i.test(name)) continue;
-    const before = action.slice(0, m.index);
-    const after = action.slice(m.index + name.length);
-    // "the Northgate" is a place; nobody is "the Marek". The definite article is the cheapest
-    // and most reliable person/place discriminator available in an unparsed sentence.
-    if (/\bthe\s+$/i.test(before)) continue;
-    // A lower-case word is a name ONLY on the strength of the verb in front of it.
-    if (!/^[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ]/.test(name) && !LOWER_LEAD.test(before)) continue;
-    if (!isPersonName(name[0].toUpperCase() + name.slice(1))) continue;
-    const sentenceStart = /(?:^|[.!?]\s+|["'“]\s*)$/.test(before);
-    // A name can legitimately open a sentence — "Marek is waiting for me" is the most natural way
-    // to write it. Allow that when what follows behaves like a person: a verb, or an appositive comma.
-    const actsLikePerson = /^\s*(?:,|is|was|are|were|says|said|asks|asked|stands|sits|looks|nods|turns|waits|walks|comes|arrives|answers|tells|smiles|laughs|and)\b/i.test(after);
-    if (sentenceStart && !PERSON_LEAD.test(before) && !actsLikePerson) continue;
-    // Record them capitalised however they were typed — "sarah" is Sarah on her card.
-    out.add(name[0].toUpperCase() + name.slice(1));
-  }
-  return [...out].slice(0, 3);   // a turn that names four new people is a typo, not a scene
-}
-
-/** Register anyone the player just named, synchronously and with no model call, then tell the
- *  narrator to author them properly on the page this turn. The record enters provisional, which
- *  the simulator already treats as a sketch to complete and the hollow-character floor already
- *  backfills — so the person gets built by the machinery that builds everyone else, and the turn
- *  takes no extra latency. */
-function spawnNamed(state: SaveState, action: string, shifts: string[]): string {
-  const names = namedInAction(state, action).filter((n) => !findCharByName(state, n));
-  if (!names.length) return "";
-  for (const nm of names) {
-    const id = registerCharacter(state, {
-      name: nm, central: false, provisional: true,
-      location: state.world.player_location,
-      background: `INCOMPLETE RECORD: the player named them at ${state.world.current_time} and they are entering the story now. Nothing else about them is established yet, so write them in full.`,
-    } as any);
-    if (id) {
-      state.world.present.push(id);
-      shifts.push(`${nm} entered the story because the player named them.`);
-    }
-  }
-  return `\nNEWLY NAMED: the player just mentioned ${names.join(" and ")}, who has no history in this world yet. Bring them into the scene as a whole person on the page, with a particular body, a way of talking that is their own, and wants that existed before this moment and have nothing to do with the player. They had a life of their own before this turn and they'll keep it afterwards. Don't explain to the player who they are, and don't have them introduce themselves. Write them as if they had always been part of this story.`;
-}
-
 /**
  * The offscreen feed shows six lines, and it was showing the wrong six.
  *
@@ -5709,7 +5604,7 @@ export function applyDiff(state: SaveState, diff: SimulatorDiff, action: string,
     diff = { ...diff,
       consequences_new: [],
       // at rest: no fresh people wander in either, unless the PLAYER's own action summoned them
-      new_characters: (diff.new_characters ?? []).filter(() => /\b(summon|conjure|create|bring|call|invite|make)\b/i.test(action)),
+      new_characters: turnRead(state).summons ? (diff.new_characters ?? []) : [],
       threads_update: (diff.threads_update ?? []).filter((t) => {
         const exists = state.world.threads.some((x) => x.id === t.id || String(x.title ?? "").toLowerCase() === String(t.title ?? "").toLowerCase());
         return exists; // allow updates/resolutions to existing threads, block brand-new ones
@@ -6046,9 +5941,9 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // repopulated a graveyard every turn. Mass harm empties the ground it happened on.
   {
     const here = state.world.places[state.world.player_location];
-    const playerRe = new RegExp(`\\byou\\b|\\byour\\b`, "i");
-    const playerProse = prose.split(/(?<=[.!?])\s+/).filter((x) => playerRe.test(x)).join(" ");
-    if (here && MASS_HARM.test(`${action} ${playerProse}`) && (here.population?.scale ?? 1) !== 0) {
+    const read = turnRead(state);
+    const massHarm = read.harms.some((h) => h.mass) || read.public_act === "mass_harm";
+    if (here && massHarm && (here.population?.scale ?? 1) !== 0) {
       here.population = { scale: 0, who: "" };
       here.changed_turn = turn;
       shifts.push(`${here.name} is empty of people now.`);
@@ -6060,45 +5955,26 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // did not revise it, the description must at least stop asserting the old truth. One dated line
   // appended is not a rewrite — it is the ledger declining to lie until the next pass rewrites it.
   {
-    // WHAT THE PLAYER DID, NOT WHAT THEY SAID. Quoted speech is dialogue, not action — the engine
-    // says so everywhere else and this did not honor it. A player sitting on the ground telling
-    // someone "you walk around barefoot DESTROYING my ability to even think" tripped a destruction
-    // check on a figure of speech inside dialogue.
-    const deeds = action.replace(/["“][^"”]*["”]/g, " ");
-    const TRANSFORM = /\b(destroy\w*|raze\w*|level(ed|led)?|flatten\w*|burn(ed|t)? (it|this|the|down)|unmake|unmade|erase\w*|obliterat\w*|annihilat\w*|demolish\w*|rebuil\w*|remake|remade|reshape\w*|rebuild\w*|drown\w*|flood\w*|freeze|froze|wipe(d)? out|revert\w*)\b/i;
-    // ...and the verb needs something in the WORLD to have been done to, or "destroying my ability
-    // to think" and "I could level this place" keep counting as demolition.
-    const WORLD_OBJECT = /\b(town|city|village|place|house|home|building|hall|street|streets|walls?|gate|ground|land|everything|it all|quarter|district|market|estate|castle|keep|temple|church|bridge|fields?|forest)\b/i;
-    const namesAPlace = Object.values(state.world.places).some(
-      (p) => p.id !== "loc_offscene" && p.name.length >= 4 && deeds.toLowerCase().includes(p.name.toLowerCase()),
-    );
-    if (TRANSFORM.test(deeds) && (WORLD_OBJECT.test(deeds) || namesAPlace)) {
-      const act = deeds.toLowerCase();
-      const here = state.world.places[state.world.player_location];
-      // WHICH GROUND. Scoping this to the player's own location missed the ordinary case: a player
-      // standing on the riverbank who unmakes the town he built is not standing in the town. So
-      // take every place the action NAMES, and fall back to where they are when it names none —
-      // "I destroy the town" while inside it still has to land somewhere.
-      const named = Object.values(state.world.places).filter(
-        (p) => p.id !== "loc_offscene" && p.name.length >= 3 && act.includes(p.name.toLowerCase()),
-      );
-      const targets = named.length ? named : here ? [here] : [];
-      const covered = new Set((diff.places_update ?? []).map((p) => String(p?.place ?? "").toLowerCase().trim()));
-      for (const place of targets) {
-        if (covered.has(place.id.toLowerCase()) || covered.has(place.name.toLowerCase().trim())) continue;
-        // NOT `changed_turn === turn`: emptying a place of people also stamps that field, and a
-        // massacre is exactly the case where the description most needs flagging as out of date.
-        // Places the bookkeeper actually rewrote are already excluded by `covered` above; the stamp
-        // below is what stops a second append on the same turn.
-        // The note lives BESIDE the description, never inside it. Appending into description_facts
-        // meant a place with no description yet ended up described entirely by the note — one
-        // location's whole description was a quote of the player's own dialogue.
-        const note = `Changed on turn ${turn} by: ${deeds.trim().slice(0, 120)}. The description is older than that, so describe the place the way the recent prose has it.`;
-        if (place.stale_note === note) continue;
-        place.stale_note = note;
-        place.changed_turn = turn;
-        shifts.push(`What you did has changed ${place.name}, and its description is marked as out of date.`);
-      }
+    // WHAT THE PLAYER DID, NOT WHAT THEY SAID. The turn read names each place the player remade,
+    // wrecked or unmade by its id, from what they did; speech is never a deed, so a player telling
+    // someone "you walk around barefoot DESTROYING my ability to even think" changes no ground.
+    const covered = new Set((diff.places_update ?? []).map((p) => String(p?.place ?? "").toLowerCase().trim()));
+    for (const change of turnRead(state).changes_place) {
+      const place = state.world.places[change.place];
+      if (!place || place.id === "loc_offscene") continue;
+      if (covered.has(place.id.toLowerCase()) || covered.has(place.name.toLowerCase().trim())) continue;
+      // NOT `changed_turn === turn`: emptying a place of people also stamps that field, and a
+      // massacre is exactly the case where the description most needs flagging as out of date.
+      // Places the bookkeeper actually rewrote are already excluded by `covered` above; the stamp
+      // below is what stops a second append on the same turn.
+      // The note lives BESIDE the description, never inside it. Appending into description_facts
+      // meant a place with no description yet ended up described entirely by the note — one
+      // location's whole description was a quote of the player's own dialogue.
+      const note = `Changed on turn ${turn} by: ${change.what.trim().slice(0, 120)}. The description is older than that, so describe the place the way the recent prose has it.`;
+      if (place.stale_note === note) continue;
+      place.stale_note = note;
+      place.changed_turn = turn;
+      shifts.push(`What you did has changed ${place.name}, and its description is marked as out of date.`);
     }
   }
 
@@ -6406,11 +6282,10 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
           || new RegExp(`\\b(erase[ds]?|unmade|unmake|obliterate[ds]?|annihilate[ds]?|wipe[ds]? (out|from existence)|remove[ds]? from existence)\\b[^.!?]{0,25}\\b${esc}\\b`, "i").test(prose)
         );
         // THE DECLARATION IS THE EVIDENCE IN GOD MODE. See the header above.
-        const declaredKill = god && new RegExp(
-          `\\b(i\\s+(kill|killed|murder|murdered|destroy|destroyed|erase|erased|unmake|unmade|obliterate|obliterated|annihilate|annihilated|end|ended|delete|deleted|remove|removed)\\b[^.!?]{0,40}\\b${esc}\\b`
-          + `|\\b${esc}\\b[^.!?]{0,30}\\b(is|are)\\s+(dead|gone|erased|no longer)\\b)`, "i").test(action);
+        const killedNow = turnRead(state).harms.filter((h) => h.kills);
+        const declaredKill = god && killedNow.some((h) => h.who.includes(pid));
         // the stranger case: unnamed present target + player action was an explicit kill + a body goes still
-        const playerKilled = /\b(i (shoot|shot|stab|stabbed|kill|killed|execute|executed)|shoot (him|her|it|them)|in the head)\b/i.test(action.toLowerCase());
+        const playerKilled = killedNow.length > 0;
         const bodyStill = /\b(goes (instantly|limp|still)|body (sags|slumps|goes still|goes limp)|head jerks? back|lifeless|crumples? (dead|to the ground))\b/i.test(proseLc);
         if (named || declaredKill || (playerKilled && bodyStill)) {
           (diff.character_exits ??= []).push({ char_id: pid, kind: "dead", note: declaredKill && !named ? "declared dead by the player in god mode; the prose did not carry it" : "killed onscreen (recovered by forced-death detector — bookkeeper missed the exit)" });
@@ -6767,7 +6642,7 @@ function unregisteredSpeakers(state: SaveState, prose: string, action = ""): str
   // What the PLAYER actually said aloud this turn — the only channel through which the world can
   // learn the player's private background. Facts about the player that trace only to NARRATION are
   // leaks: the narrator wrote "you're an engineer" and then a character "learned" it. Reject those.
-  const playerSpeech = (action.match(/"([^"]*)"/g) ?? []).join(" ").toLowerCase();
+  const playerSpeech = turnRead(state).said.join(" ").toLowerCase();
   const bg = `${state.characters["char_player"]?.background ?? ""} ${state.characters["char_player"]?.life_history ?? ""}`.toLowerCase();
   const bgTokens = new Set((bg.match(/[a-z][a-z']{4,}/g) ?? []).filter((w) => !["their","there","which","would","about","other","being","these","those","after","before","because","service"].includes(w)));
   const isPrivateBackgroundLeak = (factText: string, learnerId: string): boolean => {

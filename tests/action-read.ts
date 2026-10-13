@@ -19,7 +19,7 @@ s.world.current_turn = 26;
 
 const g = {
   said: ["I AM THE KING"], did: "skins her down to the bone with magic", thought: "",
-  harms: [{ who: [M, "char_nobody", "someone", "char_player"], what: "skins her to the bone", kills: true }, { who: [], what: "" }],
+  harms: [{ who: [M, "char_nobody", "someone", "char_player"], what: "skins her to the bone", kills: true, mass: false }, { who: [], what: "" }],
   turns_away: [E, "char_ghost", E], threatens: "not a list", leaving: { going: "yes", to: "the gardens" },
   story_change: { asked: 1, remove: "beacon works", true_now: "Ellie is the contact." },
 };
@@ -34,7 +34,7 @@ check("a missing answer is an empty read", JSON.stringify(shapeRead(s, null)) ==
 check("((search)) and [[beat]] are the engine's, so the read never sees them", storyText("I draw ((Astra Militarum tactics)) my sword [[beat: voice]]  now") === "I draw my sword now", storyText("I draw ((x)) my sword [[beat]] now"));
 
 {
-  setRead(s, "I skin her.", { harms: [{ who: [M], what: "skins her", kills: true }] });
+  setRead(s, "I skin her.", { harms: [{ who: [M], what: "skins her", kills: true, mass: false }] });
   check("the read is the turn's", turnRead(s).harms[0]?.who[0] === M);
   let called = false;
   const real = (globalThis as any).fetch;

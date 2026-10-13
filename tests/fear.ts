@@ -60,16 +60,16 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
   const s = fresh();
   const READS: Record<number, Partial<ActionRead>> = {
     12: { shows_power: "holds a blazing fireball in his hand" },
-    13: { harms: [{ who: [ISOLDE], what: "sets her on fire with a spell", kills: false }], threatens: [ISOLDE] },
-    16: { harms: [{ who: [ISOLDE], what: "burns her alive", kills: true }, { who: ["someone"], what: "kills Hermon on the spot", kills: true }] },
+    13: { harms: [{ who: [ISOLDE], what: "sets her on fire with a spell", kills: false, mass: false }], threatens: [ISOLDE] },
+    16: { harms: [{ who: [ISOLDE], what: "burns her alive", kills: true, mass: false }, { who: ["someone"], what: "kills Hermon on the spot", kills: true, mass: false }] },
     17: { threatens: ["someone"] },
-    18: { harms: [{ who: ["someone"], what: "cuts the councillor's head off with a sword", kills: true }] },
+    18: { harms: [{ who: ["someone"], what: "cuts the councillor's head off with a sword", kills: true, mass: false }] },
     19: { threatens: [EMILY] },
-    20: { harms: [{ who: [EMILY], what: "separates the flesh from her body", kills: true }] },
-    22: { harms: [{ who: [ROOK], what: "separates his head from his body and keeps it alive", kills: false }] },
-    23: { harms: [{ who: [ROOK], what: "smashes his head on the ground", kills: true }] },
+    20: { harms: [{ who: [EMILY], what: "separates the flesh from her body", kills: true, mass: false }] },
+    22: { harms: [{ who: [ROOK], what: "separates his head from his body and keeps it alive", kills: false, mass: false }] },
+    23: { harms: [{ who: [ROOK], what: "smashes his head on the ground", kills: true, mass: false }] },
     25: { threatens: [SERA] },
-    26: { harms: [{ who: [SERA], what: "spears her through the face", kills: true }] },
+    26: { harms: [{ who: [SERA], what: "spears her through the face", kills: true, mass: false }] },
   };
   const died: Record<number, string[]> = { 16: [ISOLDE], 20: [EMILY], 23: [ROOK], 26: [SERA] };
   const at: Record<number, Record<string, number>> = {};
@@ -98,21 +98,21 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
   edge(SERA, "char_player").warmth = 50;           // Seraphina is the king's
   edge(ROOK, "char_player").warmth = -70;          // Rook came for him
   edge(SERA, ROOK).warmth = 0;
-  play(s, 30, { harms: [{ who: [ROOK], what: "runs him through as he lunges with a knife", kills: true }] }, { atStart: [EMILY, ROOK, SERA], after: [EMILY, SERA], died: [ROOK] });
+  play(s, 30, { harms: [{ who: [ROOK], what: "runs him through as he lunges with a knife", kills: true, mass: false }] }, { atStart: [EMILY, ROOK, SERA], after: [EMILY, SERA], died: [ROOK] });
   check("someone who wanted the victim gone isn't frightened much by watching it", fearOf(s, EMILY) > 0 && fearOf(s, EMILY) < WARY, fearOf(s, EMILY));
   check("an ally who watched him cut down a man coming for him isn't afraid of him", fearOf(s, SERA) > 0 && fearOf(s, SERA) < WARY, fearOf(s, SERA));
   const t = fresh();
-  play(t, 30, { harms: [{ who: [ROOK], what: "runs him through with a sword", kills: true }] }, { atStart: [EMILY, ROOK, SERA], after: [EMILY, SERA], died: [ROOK] });
+  play(t, 30, { harms: [{ who: [ROOK], what: "runs him through with a sword", kills: true, mass: false }] }, { atStart: [EMILY, ROOK, SERA], after: [EMILY, SERA], died: [ROOK] });
   check("anyone watching him kill a man who'd done nothing to them is afraid of him", fearOf(t, EMILY) >= AFRAID && fearOf(t, SERA) >= AFRAID, [fearOf(t, EMILY), fearOf(t, SERA)]);
 }
 
 /* ── 3. the one it's done to, and someone nobody named ── */
 {
   const s = fresh();
-  play(s, 13, { harms: [{ who: [EMILY], what: "grabs her by the throat and slams her into the pillar", kills: false }] }, { atStart: [EMILY, ROOK] });
+  play(s, 13, { harms: [{ who: [EMILY], what: "grabs her by the throat and slams her into the pillar", kills: false, mass: false }] }, { atStart: [EMILY, ROOK] });
   check("the one it's done to is afraid for her life, the one watching is wary", fearOf(s, EMILY) >= 50 && fearOf(s, ROOK) >= WARY && fearOf(s, ROOK) < 50, [fearOf(s, EMILY), fearOf(s, ROOK)]);
   const u = fresh();
-  play(u, 13, { harms: [{ who: ["someone"], what: "cuts down a guard", kills: true }] }, { atStart: [EMILY, ROOK] });
+  play(u, 13, { harms: [{ who: ["someone"], what: "cuts down a guard", kills: true, mass: false }] }, { atStart: [EMILY, ROOK] });
   check("a killing of someone nobody named still frightens everyone who saw it", fearOf(u, EMILY) >= AFRAID && fearOf(u, ROOK) >= AFRAID, [fearOf(u, EMILY), fearOf(u, ROOK)]);
 }
 
@@ -122,7 +122,7 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
   play(s, 5, {}, { atStart: [EMILY] });
   check("a turn the read found nothing in frightens nobody", fearOf(s, EMILY) === 0, fearOf(s, EMILY));
   const t = fresh();
-  play(t, 5, { harms: [{ who: [EMILY], what: "imagines strangling her", kills: true }] }, { atStart: [EMILY], mode: "think" });
+  play(t, 5, { harms: [{ who: [EMILY], what: "imagines strangling her", kills: true, mass: false }] }, { atStart: [EMILY], mode: "think" });
   check("a thought frightens nobody", fearOf(t, EMILY) === 0, fearOf(t, EMILY));
   const u = fresh();
   play(u, 25, { threatens: [SERA] }, { atStart: [SERA] });
@@ -135,7 +135,7 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
 /* ── 5. word of it, for people who weren't there ── */
 {
   const s = fresh();
-  play(s, 23, { harms: [{ who: [ROOK], what: "smashes his head beneath his boot", kills: true }] }, { atStart: [ROOK, EMILY], after: [EMILY], died: [ROOK] });
+  play(s, 23, { harms: [{ who: [ROOK], what: "smashes his head beneath his boot", kills: true, mass: false }] }, { atStart: [ROOK, EMILY], after: [EMILY], died: [ROOK] });
   const r = (s.world.rumors ?? []).find((x: any) => x.violent);
   check("what he did leaves the room as a rumour of his violence, carried by the one who saw it", !!r && r.about_char === "char_player" && (r.knowers ?? []).includes(EMILY) && r.content.includes("Rook"), r);
   r!.knowers.push(SERA);
@@ -154,7 +154,7 @@ function play(s: SaveState, t: number, read: Partial<ActionRead>, o: { atStart: 
 /* ── 6. it fades with time, but someone who saw a killing stays wary ── */
 {
   const s = fresh();
-  play(s, 13, { harms: [{ who: [ISOLDE], what: "burns her alive", kills: true }] }, { atStart: [EMILY, ISOLDE], after: [EMILY], died: [ISOLDE] });
+  play(s, 13, { harms: [{ who: [ISOLDE], what: "burns her alive", kills: true, mass: false }] }, { atStart: [EMILY, ISOLDE], after: [EMILY], died: [ISOLDE] });
   const peak = fearOf(s, EMILY);
   play(s, 14, {}, { atStart: [EMILY], minutes: 600 });
   const later = fearOf(s, EMILY);

@@ -142,7 +142,7 @@ const fresh = (): SaveState => {
   (s.characters as any)[M] = { character_id: M, name: "Mara", pronouns: "she/her", status: "active", location: (s.world as any).player_location };
   s.world.present = [M]; s.world.current_turn = 26;
   const skin = `"I AM THE KING" I skin her so she is nothing but a skeleton. I use my magic to do it. "WHO ARE YOU?"`;
-  setRead(s, skin, { said: ["I AM THE KING", "WHO ARE YOU?"], did: "skins her down to the bone with magic", harms: [{ who: [M], what: "skins her so she is nothing but a skeleton", kills: true }] });
+  setRead(s, skin, { said: ["I AM THE KING", "WHO ARE YOU?"], did: "skins her down to the bone with magic", harms: [{ who: [M], what: "skins her so she is nothing but a skeleton", kills: true, mass: false }] });
   const said = appraiseAct(s, { mode: "do", present: [M], turn: 26 });
   check("the act is read before the turn is written: she's afraid for her life on the page that shows it", fearOf(s, M) >= AFRAID && said.includes("Mara is afraid of you now."), [fearOf(s, M), said]);
   const fb = fearBlock(s, M);

@@ -13,6 +13,7 @@ import { populationOf, populationLine, crowdDirective } from "../src/engine/popu
 import { applyDiff, replanDrives, ARRIVAL_PATIENCE } from "../src/engine/turn";
 import { tickDrives } from "../src/engine/social";
 import type { Place, SaveState, SimulatorDiff } from "../src/engine/types";
+import { setRead } from "../src/engine/actionread";
 
 const place = (name: string, description_facts = ""): Place => ({ id: `loc_${name}`, name, description_facts, contains: [] });
 
@@ -109,6 +110,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   s.world.places["loc_town"] = place("Thornwood", "A walled town, lit and quiet at night.");
   s.world.places["loc_beach"] = place("Thornwood Beach", "Sand and river.");
   s.world.player_location = "loc_beach";        // standing on the beach, unmaking the town
+  setRead(s, "I destroy Thornwood and revert it to how it was before I came", { changes_place: [{ place: "loc_town", what: "destroys Thornwood and reverts it to how it was" }] });
   applyDiff(s, {} as unknown as SimulatorDiff, "I destroy Thornwood and revert it to how it was before I came", "The town came apart.");
   // the note lives beside the description now, never inside it
   check("the named place is flagged, not just the one underfoot", !!s.world.places["loc_town"].stale_note, s.world.places["loc_town"].stale_note);
@@ -133,6 +135,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   s.world.present = [];
   check("populated before", (populationOf(s.world.places["loc_town"])?.scale ?? 0) === 400);
 
+  setRead(s, "I kill everyone in the town", { harms: [{ who: ["someone"], what: "kills everyone in the town", kills: true, mass: true }] });
   const shifts = applyDiff(s, {} as unknown as SimulatorDiff, "I kill everyone in the town", "You left no one alive.");
   check("the ground is empty afterwards", populationOf(s.world.places["loc_town"]) === null, s.world.places["loc_town"].population);
   check("the crowd directive stops repopulating a graveyard", crowdDirective(s) === "", crowdDirective(s).slice(0, 80));
@@ -143,6 +146,7 @@ function check(name: string, c: boolean, extra?: unknown) {
   registerCharacter(s2, { name: "Rabi", character_id: "char_player" } as any);
   s2.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "", contains: [], population: { scale: 400, who: "townsfolk" } };
   s2.world.player_location = "loc_town";
+  setRead(s2, "I kill the guard who stopped me", { harms: [{ who: ["someone"], what: "kills the guard", kills: true, mass: false }] });
   applyDiff(s2, {} as unknown as SimulatorDiff, "I kill the guard who stopped me", "The guard fell.");
   check("one death is not a depopulation", (populationOf(s2.world.places["loc_town"])?.scale ?? 0) === 400);
 }
