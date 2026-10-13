@@ -29,6 +29,7 @@ import { trackedBlock } from "./tracked";
 import { groundCue } from "./ground";
 import { suppressedMannerisms } from "./novelty";
 import { outwardOnly } from "./interior";
+import { readOfTurn } from "./actionread";
 import { doorFromVoice } from "./coerce";
 import { dateLabel, minutesBetween } from "./time";
 import { desireLine, attractionWord, dispositionCue, effectiveStanding } from "./desire";
@@ -2518,7 +2519,7 @@ export function volatileDigest(state: SaveState, query = "", opts?: { budgetOver
     // per-turn offscreen world-motion lines are cut — same leak: they tell the narrator what happened
     // elsewhere that no one present witnessed.
     const recentStr = (lvl >= 2 ? recent : recent.slice(-1))
-      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${outwardOnly(h.player_action)} → ${h.summary}`)
+      .map((h) => h.kind === "opening" ? `OPENING SCENE: ${h.narrator_prose.slice(0, 400)}` : `T${h.turn} (${h.time_label}): ${outwardOnly(h.player_action, readOfTurn(h))} → ${h.summary}`)
       .join("\n") || "This is the opening.";
     // CONTINUITY, NOT STYLE. This block used to say "keep voices consistent with it", which made every
     // turn imitate the turn before it — turn 36 copying 35's copy of 34. Voice drift compounded one hop

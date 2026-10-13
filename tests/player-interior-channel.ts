@@ -67,6 +67,20 @@ const HM: ActionRead = { ...EMPTY_READ, thought: "hm", inner: { charge: 0.05, di
   check("...while the thought beside it does not", !/no idea/.test(spoken.outward), spoken.outward);
 }
 
+/* ── 1b. a feeling typed without marks ─────────────────────────────────────────── */
+{
+  // "Ah ha, the curse": the room answered a feeling the player never said aloud
+  const CURSE = `I look at her feet and something in me changes, i feel the curse "Um... Sure"`;
+  const read: ActionRead = { ...EMPTY_READ, said: ["Um... Sure"], did: "I look at her feet", thought: "something in me changes, I feel the curse", inner: { charge: 0.6, direction: -1 } };
+  const { outward, interior } = splitInterior(CURSE, read);
+  check("unmarked: the curse is out of the outward half", !/curse|changes/i.test(outward), outward);
+  check("unmarked: the look survives", /look at her feet/.test(outward), outward);
+  check("unmarked: the line survives", /"Um\.\.\. Sure"/.test(outward), outward);
+  check("unmarked: the feeling is held for the bookkeeper", /curse/.test(interior?.content ?? ""), interior);
+  check("unmarked: and replayed turns drop it too", !/curse/.test(outwardOnly(CURSE, read)), outwardOnly(CURSE, read));
+  check("no thought in the read: the action passes untouched", splitInterior(`I open the door`, { ...EMPTY_READ, did: "opens the door" }).outward === "I open the door");
+}
+
 /* ── 2. nothing the narrator receives contains the words ──────────────────────── */
 {
   const { interior } = splitInterior(ACTION, HATED);

@@ -108,16 +108,40 @@ export function splitInterior(action: string, read?: ActionRead): { outward: str
     const t = inside.trim();
     if (t) held.push(t);
   }));
-  if (!held.length) return { outward: raw.trim(), interior: null };
+  const charge = read ? chargeOf(read) : 0;
+  const direction = read ? directionOf(read) : 0;
+  if (!held.length) {
+    // UNMARKED INTERIOR. "I look at her feet and something in me changes, i feel the curse "Um...
+    // Sure"" — no asterisks, and the feeling is plainly the player's own, not an act anyone could
+    // see. Handed over whole, the room answered it ("Ah ha, the curse"). The turn's read already
+    // separated what was only felt from what was done, so the narrator gets the read's outward half.
+    const plain = plainOutward(read);
+    if (plain !== null) return { outward: plain, interior: { content: read!.thought.trim(), charge, direction } };
+    return { outward: raw.trim(), interior: null };
+  }
   const content = held.join(" ");
-  return { outward, interior: { content, charge: read ? chargeOf(read) : 0, direction: read ? directionOf(read) : 0 } };
+  return { outward, interior: { content, charge, direction } };
+}
+
+/** What the room could witness, rebuilt from the read, when the read found a thought the player
+ *  typed in plain prose. Null when there's no such thought or nothing outward to rebuild from. */
+function plainOutward(read?: ActionRead): string | null {
+  if (!read?.thought?.trim()) return null;
+  const did = (read.did ?? "").trim();
+  const said = (read.said ?? []).map((s) => s.trim()).filter(Boolean);
+  if (!did && !said.length) return null;
+  return collapseSpaces([did, ...said.map((s) => `"${s}"`)].filter(Boolean).join(" "));
 }
 
 /** Strip every private span from a piece of the player's own text. Used wherever a PAST turn's
  *  action is replayed to the narrator — LAST TURNS was quietly handing back every thought the
- *  player ever typed, so closing this turn's leak without closing that one closes nothing. */
-export function outwardOnly(action: string): string {
-  return collapseSpaces(withoutPrivate(String(action ?? "")));
+ *  player ever typed, so closing this turn's leak without closing that one closes nothing. With
+ *  that turn's read, an unmarked thought goes too. */
+export function outwardOnly(action: string, read?: ActionRead): string {
+  const raw = String(action ?? "");
+  const stripped = collapseSpaces(withoutPrivate(raw));
+  if (stripped !== collapseSpaces(raw)) return stripped;
+  return plainOutward(read) ?? stripped;
 }
 
 /**
