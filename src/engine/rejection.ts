@@ -17,54 +17,18 @@
  *    my house", "I'm calling the cops", "you're harassing me", "I can't leave my wife") mark that
  *    person's edge to the player as rejected, and take a real step off their attraction. A partner
  *    in a fight isn't rejected by an angry line; a partner is rejected by "I want a divorce".
+ *    Which words do that, and to whom, is the read of the turn's call (actionread.ts).
  *  - A rejected person's wants stop being about the player. Any want that names the player is
  *    dropped, the seeder doesn't offer one, and a forged or bookkept one that names the player isn't
  *    kept. They get a want about their own life, which is what being turned down looks like.
  *  - It lasts until the player warms to them again.
  *
- * Zero tokens: regexes over the player's input and the edges already in the save.
+ * Zero tokens of its own: the read of the turn says who was turned away, and the rest is the edges
+ * already in the save.
  */
 import type { SaveState } from "./types";
-
-/** Words that turn someone away, unmistakably enough that the person in the room it's aimed at
- *  doesn't need naming: "leave me alone", "stay away from me", "get out of my house". */
-const STRONG = new RegExp([
-  String.raw`\b(?:stay|keep) (?:the fuck )?away(?: from (?:me|us|my \w+))?`,
-  String.raw`\bleave (?:me|us) (?:the fuck )?alone\b`,
-  String.raw`\bget (?:the fuck |the hell )?out of (?:my|our) (?:house|home|room|office|car|life|face)\b`,
-  String.raw`\bget the (?:fuck|hell) out\b`,
-  String.raw`\bget (?:the fuck |the hell )?away from (?:me|us)\b`,
-  String.raw`\b(?:fuck|piss|back|bugger) off\b`,
-  String.raw`\bgo away\b`,
-  String.raw`\bstop (?:texting|calling|messaging|contacting|following|emailing|coming (?:here|over|to my))\b`,
-  String.raw`\bdon'?t (?:text|call|message|contact|email|come near|come back|come here|touch) (?:me|us|again)\b`,
-  String.raw`\b(?:i'?m|i am) not interested\b`,
-  String.raw`\bi (?:don'?t|do not|never) want (?:you|to see you|anything (?:to do )?with you)\b(?!\s+to\s+(?:go|leave|stay away|move|worry|feel|think|be (?:sad|hurt|upset|alone)))`,
-  String.raw`\bi (?:can'?t|cannot|won'?t|will not|am not going to|'m not going to) leave my (?:wife|husband|partner|girlfriend|boyfriend)\b`,
-  String.raw`\b(?:restraining|protection|protective|no[- ]contact) order\b`,
-].join("|"), "i");
-/** The same words said the other way round. Kingdom of Veythar, turn 5: "I haven't found a reason
- *  to make you go away", and the player was told she'd keep her distance from him now. A turning-
- *  away with a negation before it in the same clause ("haven't", "don't want you to", "no reason to"),
- *  or made into something done to her ("make you go away"), turns nobody away. */
-const UNSAID = /\b(?:not|never|no|haven'?t|hasn'?t|hadn'?t|don'?t|doesn'?t|didn'?t|won'?t|wouldn'?t|shouldn'?t|can'?t|couldn'?t|without)\b[^.!?;"]{0,40}$|\bmake (?:you|her|him|them|us)\s*$/i;
-
-/** Whether the input turns someone away: some match of these words that isn't negated. */
-function turnsAway(re: RegExp, text: string): boolean {
-  const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
-  for (const m of text.matchAll(g)) {
-    const before = text.slice(Math.max(0, (m.index ?? 0) - 60), m.index ?? 0);
-    if (!UNSAID.test(before)) return true;
-  }
-  return false;
-}
-
-/** ...and words that turn someone away only when that someone is named in the same input, because
- *  "call the police" and "stalker" are as often the plot of a thriller as a door closing on a person. */
-const NAMED_ONLY = /\b(?:call(?:ing)? (?:the )?(?:cops|police)|call(?:ing)? 911|harass(?:ing|ment|ed)?|stalk(?:er|ing|ed)?|trespass(?:ing|ed)?|(?:get(?:ting)? you|you'?re|have you) fired|get (?:the fuck )?out)\b/i;
-
-/** For a partner, an angry line isn't the end of anything. These are. */
-const BREAKUP = /\b(?:i want a divorce|divorce papers|(?:end|ending|over) (?:this|our|the) marriage|we'?re (?:done|over|through)|it'?s over between us|i'?m leaving you|break(?:ing)? up with you|we should break up)\b/i;
+import { turnRead, readOfTurn, type ActionRead } from "./actionread";
+import { collapseSpaces, hasWords } from "./text";
 
 const PARTNER = /(?<!ex-)(?<!ex )\b(?:wife|husband|spouse|partner|girlfriend|boyfriend|fianc[ée]e?|lover|married)\b/i;
 
@@ -72,6 +36,8 @@ const PARTNER = /(?<!ex-)(?<!ex )\b(?:wife|husband|spouse|partner|girlfriend|boy
 const STEP = 15;
 
 const lower = (s: unknown) => String(s ?? "").toLowerCase();
+/** The first word of a name, as written. */
+const firstWord = (s: string) => collapseSpaces(s).split(" ")[0];
 
 function playerName(state: SaveState): string {
   return String(state.characters?.char_player?.name ?? "").trim();
@@ -86,13 +52,12 @@ export function arePartners(state: SaveState, a: string, b: string): boolean {
     .filter((e) => (e.from === a && e.to === b) || (e.from === b && e.to === a))
     .flatMap((e) => e.roles ?? []);
   if (roles.some((r) => PARTNER.test(r))) return true;
-  const first = (id: string) => lower(state.characters?.[id]?.name).split(/\s+/)[0];
+  const first = (id: string) => firstWord(lower(state.characters?.[id]?.name));
   const x = first(a), y = first(b);
   if (!x || !y || x.length < 2 || y.length < 2) return false;
-  const has = (l: string, n: string) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(l);
   return (state.world?.canon ?? []).some((line) => {
     const l = lower(line);
-    return has(l, x) && has(l, y) && /\b(?:spouses?|married|wife|husband|partners)\b/.test(l);
+    return hasWords(l, x) && hasWords(l, y) && /\b(?:spouses?|married|wife|husband|partners)\b/.test(l);
   });
 }
 
@@ -105,30 +70,36 @@ export function isPartner(state: SaveState, id: string): boolean {
 export function namesPlayer(state: SaveState, goal: string): boolean {
   const g = lower(goal);
   const full = lower(playerName(state));
-  const first = full.split(/\s+/)[0];
-  return (!!full && full.length >= 3 && g.includes(full)) || (!!first && first.length >= 3 && new RegExp(`\\b${first}\\b`).test(g)) || /\bthe player\b/.test(g);
+  const first = firstWord(full);
+  return (!!full && full.length >= 3 && g.includes(full)) || (!!first && first.length >= 3 && hasWords(g, first)) || hasWords(g, "the player");
 }
 
-/** The people the player is turning away with this input. Named ones first; if nobody is named,
- *  whoever in the room wants the player (attraction 30+) and isn't their partner. */
-export function rejectedBy(state: SaveState, action: string, present: string[]): string[] {
-  const text = String(action ?? "");
-  const strong = turnsAway(STRONG, text) || turnsAway(BREAKUP, text);
-  if (!strong && !turnsAway(NAMED_ONLY, text)) return [];
-  const t = lower(text);
-  const cast = Object.entries(state.characters ?? {}).filter(([id, c]) => id !== "char_player" && c?.name);
-  const named = cast.filter(([, c]) => {
-    const full = lower(c.name);
-    const first = full.split(/\s+/)[0];
-    return t.includes(full) || (first.length >= 3 && new RegExp(`\\b${first}\\b`).test(t));
-  }).map(([id]) => id);
-  if (!named.length && !strong) return [];
-  const pool = named.length ? named : present.filter((id) => {
-    if (id === "char_player") return false;
-    const e = (state.world.edges ?? []).find((x) => x.from === id && x.to === "char_player");
-    return (e?.attraction ?? 0) >= 30;
-  });
-  return pool.filter((id) => !isPartner(state, id) || turnsAway(BREAKUP, text));
+/**
+ * The people the player turns away this turn, as the read of it has them (actionread.ts): whoever
+ * they send away, turn down or tell to keep their distance (turns_away), and whoever they end a
+ * relationship with (ends_with). A partner in a fight isn't turned away by an angry line, so
+ * turns_away passes over a partner; ending it with them is what counts.
+ *
+ * This was word lists: lines that turn someone away, the same lines with a negation before them,
+ * lines that only counted with a name in them ("call the cops" is as often a thriller's plot as a
+ * door closing on a person), and breakups. Every round of play found a phrasing on the wrong side
+ * of them. Kingdom of Veythar, turn 5: "I haven't found a reason to make you go away", and the
+ * player was told she'd keep her distance from him now. A reader gets the sense, and the person.
+ *
+ * `action` and `present` aren't read any more (the read names people by id); they stay so the
+ * turn's call doesn't change.
+ */
+export function rejectedBy(state: SaveState, _action = "", _present: string[] = []): string[] {
+  return rejectedIn(state, turnRead(state));
+}
+
+/** The same, from any turn's read: the one being played, or one kept on a history entry. */
+export function rejectedIn(state: SaveState, read: ActionRead): string[] {
+  const out: string[] = [];
+  const add = (id: string) => { if (id !== "char_player" && state.characters?.[id] && !out.includes(id)) out.push(id); };
+  for (const id of read.turns_away) if (!isPartner(state, id)) add(id);
+  for (const id of read.ends_with) add(id);
+  return out;
 }
 
 /** Record it: the edge is marked, attraction steps down, and a want aimed at the player goes. */
@@ -191,6 +162,8 @@ export function keepsAway(state: SaveState, id: string): boolean {
 /**
  * Once per save, read the story so far for rejections the engine didn't record because it didn't
  * know how yet, so a save from before this change gets the same treatment. Returns the people marked.
+ * It goes by the read each turn kept on its history entry; a turn from before reads were kept has
+ * none, and turns nobody away rather than being guessed at from its words.
  */
 export function backfillRejections(state: SaveState): string[] {
   const w = state.world as any;
@@ -199,7 +172,7 @@ export function backfillRejections(state: SaveState): string[] {
   const marked = new Set<string>();
   for (const h of state.history ?? []) {
     if ((h as any).kind && (h as any).kind !== "turn") continue;
-    const ids = rejectedBy(state, h.player_action ?? "", (h as any).present ?? []);
+    const ids = rejectedIn(state, readOfTurn(h));
     for (const id of ids) {
       applyRejection(state, [id], h.turn);
       marked.add(id);

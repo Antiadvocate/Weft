@@ -20,6 +20,8 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { shapeCheck, needsRewrite } from "../src/engine/prosecheck";
+import { newSave } from "../src/engine/state";
 import { salvageProse, cutRepetitionLoop, stripScriptTranscript, stripReasoningPreamble, dropDiscardedDrafts, extractLabelledDraft, collapseRepeatedSpeech, dropUnclosedReasoningTail, parseSceneFooter, isRefusal } from "../src/engine/turn";
 import { stripThinking } from "../src/llm";
 
@@ -256,8 +258,11 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
     "(Now write the scene in plain prose.)",
     "Please respond with the narration only.",
     "Continue the scene in the following format:",
-    "Your response should be two to four paragraphs.",
   ]) check(`stub: ${stub.slice(0, 38)}`, isRefusal(stub), stub);
+  // Eight words and a full stop clear the engine's own floor; whether they're a scene at all is
+  // the bookkeeper's call now (prose_check.refused), and its verdict is what sends a turn back.
+  check("a longer stub goes to the bookkeeper, whose verdict sends it back",
+    !isRefusal("Your response should be two to four paragraphs.") && needsRewrite(shapeCheck(newSave("m", { name: "M" } as any), { refused: true }, "")));
 
   // seven words is not a turn however cleanly it ends
   check("a seven-word 'turn' is not a turn", isRefusal("He set the cup down and left."));
@@ -268,7 +273,7 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
   check("ordinary narration is never a refusal", !isRefusal(full));
   // the existing guards still hold
   check("empty is still a failure", isRefusal(""));
-  check("a refusal stem is still a refusal", isRefusal("I'm sorry, but I can't continue that scene."));
+  check("a refusal too short to be a turn is still caught here", isRefusal("I'm sorry, I can't continue."));
   // a scene that merely CONTAINS an instruction-shaped line is not a stub
   const embedded = `"Write it down for me," she said, and pushed the wax tablet across the table. He did not touch it. The lamp guttered once between them and neither of them moved to trim it.`;
   check("dialogue that sounds like an instruction is still a scene", !isRefusal(embedded), embedded);
@@ -300,9 +305,10 @@ const PLAYER_LINE = "Hmm where am I... is this ancient times?";
 
   // A LENGTH BOUND ON THE WHOLE RESPONSE WAS THE WRONG SHAPE: the stub is the first line, and the
   // deliberation behind it makes the response long. Testing the line is what catches these.
-  check("the self-instruction with a think block behind it is caught", isRefusal(one), one.slice(0, 60));
-  check("the interior-monologue instruction is caught", isRefusal(two), two.slice(0, 60));
-  check("neither is stored as a scene", isRefusal(one) && isRefusal(two));
+  // Long enough to clear the engine's own floor, so these are the bookkeeper's to call: the prompt
+  // says a reply that writes about the turn in place of writing it is refused, and a refused turn is
+  // written again on the fallback model and never stored as it was.
+  check("both clear the mechanical floor and go to the bookkeeper", !isRefusal(one) && !isRefusal(two));
 
   // and the tail dropper, for the arrangement where real prose DOES precede the break
   const scene = "Titus wipes the soot from his palms onto a rag and does not look up. The nail turns over once between his fingers, then again, and he sets it down on the flat of the anvil where the light can reach it. Livia stays where she is, the pot held against her chest.";

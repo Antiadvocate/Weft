@@ -47,6 +47,8 @@
  */
 import type { SaveState, EpisodicMemory } from "./types";
 import { absMinutes } from "./time";
+import { turnRead } from "./actionread";
+import { collapseSpaces, hasWords, isDigit, isSpace } from "./text";
 
 /** Minutes past the named hour before the record stops calling it upcoming. An hour is late; forty
  *  minutes is late enough that a person knows it, and short enough that the turn it happens on is
@@ -83,8 +85,31 @@ export interface MissedCommitment {
  *  with no hour attached, and an open loop cannot be missed. */
 function scheduledAt(m: EpisodicMemory): string | null {
   const s = String(m.scheduled_time ?? "").trim();
-  if (!s || /^unresolved$/i.test(s)) return null;
-  return /day\s*\d+\s*,?\s*\d{1,2}:\d{2}/i.test(s) ? s : null;
+  if (!s || s.toLowerCase() === "unresolved") return null;
+  return hasDayClock(s) ? s : null;
+}
+
+/** Whether a label carries a day and a clock time, the shape the world clock writes: "Day 3, 11:00",
+ *  "day 3 11:00". The day's number may run straight into the hour ("Day 311:00" is day 3 at 11:00). */
+function hasDayClock(label: string): boolean {
+  const s = label.toLowerCase();
+  const digitsFrom = (i: number) => { let j = i; while (j < s.length && isDigit(s[j])) j++; return j; };
+  const minutesAt = (i: number) => s[i] === ":" && isDigit(s[i + 1] ?? "") && isDigit(s[i + 2] ?? "");
+  for (let at = s.indexOf("day"); at !== -1; at = s.indexOf("day", at + 1)) {
+    let i = at + 3;
+    while (i < s.length && isSpace(s[i])) i++;
+    const dayEnd = digitsFrom(i);
+    if (dayEnd === i) continue;
+    // the hour's digits fused onto the day's
+    if (dayEnd - i >= 2 && minutesAt(dayEnd)) return true;
+    let k = dayEnd;
+    while (k < s.length && isSpace(s[k])) k++;
+    if (s[k] === ",") k++;
+    while (k < s.length && isSpace(s[k])) k++;
+    const hourEnd = digitsFrom(k);
+    if (hourEnd > k && hourEnd - k <= 2 && minutesAt(hourEnd)) return true;
+  }
+  return false;
 }
 
 /**
@@ -159,7 +184,7 @@ export function missedFor(state: SaveState, id: string): MissedCommitment[] {
     .sort((a, b) => (b.turn - a.turn) || (String(a.full_content ?? a.content).length - String(b.full_content ?? b.content).length))
     .map((m) => ({
       id, name,
-      content: String(m.full_content ?? m.content).replace(/\s+/g, " ").trim(),
+      content: collapseSpaces(m.full_content ?? m.content),
       due: scheduledAt(m)!,
       filed: m.turn,
     }));
@@ -239,8 +264,25 @@ const STOP = new Set(("the a an and or of to in on at is was were be been being 
   + "how just very really about from into out up down over then than here there all any some have has had do does "
   + "did get got go going gone come came be to by have i'm i'll it's that's don't").split(" "));
 
+/** Runs of plain letters, apostrophes and hyphens, four long or more, starting on a letter. */
 function keyWords(text: string): string[] {
-  return [...new Set((String(text ?? "").toLowerCase().match(/[a-z][a-z'-]{3,}/g) ?? []).filter((w) => !STOP.has(w)))];
+  const s = String(text ?? "").toLowerCase();
+  const out: string[] = [];
+  const letter = (ch: string) => ch >= "a" && ch <= "z";
+  let run = "";
+  const end = () => {
+    let i = 0;
+    while (i < run.length && !letter(run[i])) i++;
+    const w = run.slice(i);
+    if (w.length >= 4 && !STOP.has(w)) out.push(w);
+    run = "";
+  };
+  for (const ch of s) {
+    if (letter(ch) || ch === "'" || ch === "-") run += ch;
+    else end();
+  }
+  end();
+  return [...new Set(out)];
 }
 
 /**
@@ -303,7 +345,7 @@ function pointsAtHour(line: string, marks: string[], due: string): boolean {
   // "ten forty", "half eleven" — the hour written out, which is how people say a time out loud
   const WORD_HOUR = ["twelve", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"];
   for (let i = 0; i < WORD_HOUR.length; i++) {
-    if (!new RegExp(`\\b${WORD_HOUR[i]}\\b`).test(low)) continue;
+    if (!hasWords(low, WORD_HOUR[i])) continue;
     const h12 = i === 0 ? 12 : i;
     if (Math.abs(h12 - (hour % 12 || 12)) <= 3) return true;
   }
@@ -311,6 +353,26 @@ function pointsAtHour(line: string, marks: string[], due: string): boolean {
 }
 
 export interface MissedClaim { name: string; said: string; content: string; due: string }
+
+/** A spoken line cut at its sentence ends, and at a dash set off by spaces. */
+function claimSentences(line: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  for (let i = 0; i < line.length; i++) {
+    if (!isSpace(line[i])) { buf += line[i]; continue; }
+    let j = i;
+    while (j < line.length && isSpace(line[j])) j++;
+    if (i > 0 && ".!?".includes(line[i - 1])) { out.push(buf); buf = ""; i = j - 1; continue; }
+    if (line[j] === "—" && isSpace(line[j + 1] ?? "")) {
+      let k = j + 1;
+      while (k < line.length && isSpace(line[k])) k++;
+      out.push(buf); buf = ""; i = k - 1; continue;
+    }
+    buf += line.slice(i, j); i = j - 1;
+  }
+  out.push(buf);
+  return out;
+}
 
 export function findMissedClaim(prose: string, state: SaveState, presentIds: readonly string[]): MissedClaim | null {
   const said = [...String(prose ?? "").matchAll(/[“"]([^“”"]{8,400})[”"]/g)].map((m) => m[1].trim());
@@ -322,9 +384,9 @@ export function findMissedClaim(prose: string, state: SaveState, presentIds: rea
       const marks = keyWords(mc.content).filter((w) => w.length > 3);
       if (!marks.length) continue;
       for (const line of said) {
-        for (const raw of line.split(/(?<=[.!?])\s+|\s+—\s+/)) {
+        for (const raw of claimSentences(line)) {
           const sentence = raw.trim();
-          if (sentence.split(/\s+/).length < 4) continue;
+          if (collapseSpaces(sentence).split(" ").length < 4) continue;
           if (REBUTTAL.test(sentence) || WAS_HERE.test(sentence) || HYPOTHETICAL.test(sentence)) continue;
           if (!PAST_FIRST_PERSON.test(sentence)) continue;
           if (!WENT_AND_RETURNED.test(sentence) && !pointsAtHour(sentence, marks, mc.due)) continue;
@@ -377,12 +439,9 @@ export function missedClaimFix(hit: MissedClaim | null | undefined): string {
  * it is the one place it must not be re-derived from the conversation.
  */
 
-/** The player reaching for something outside the room to settle it. */
-const VERIFYING = /\b(?:call|calls|calling|phone|phoning|ring|dial|dials|speaker|speakerphone|text|texts|texting|manager|boss|supervisor|co-?workers?|colleagues?|time\s?sheet|timesheet|time\s?card|timecard|punch\s?card|key\s?card|keycard|badge|roster|rota|clock(?:ed)?\s+(?:in|out)|payslip|pay\s?stub|receipt|cameras?|footage|cctv|proof|prove|verify|verified|confirm|check\s+with|find\s+out\s+(?:if|whether))\b/i;
-
 /**
- * THE CHANNEL, as opposed to the demand — a much shorter list, read against the previous turn's
- * PROSE rather than the player's typed line.
+ * THE CHANNEL, as opposed to the demand — a short list, read against the previous turn's PROSE
+ * rather than the player's typed line, until the bookkeeper says when a line is open.
  *
  * It has to be short. Narration says "called" and "asked" and "confirmed" constantly about nothing
  * in particular, and a law that fires on those is a hundred and fifty words of correction landing
@@ -398,13 +457,16 @@ const CHANNEL_OPEN = /\b(?:speakerphone|on\s+speaker|the\s+speaker|phone(?:'s)?\
  * to somebody who was in the room is a far better scene than a confession. What is settled is what
  * the WORLD says when the world is asked, and the world is not a second opinion.
  */
-export function verificationLaw(state: SaveState, action: string, presentIds: readonly string[], previousProse = ""): string {
+export function verificationLaw(state: SaveState, _action: string, presentIds: readonly string[], previousProse = ""): string {
+  // THE PLAYER REACHING FOR SOMETHING OUTSIDE THE ROOM TO SETTLE IT is the turn's read (`verifies`,
+  // engine/actionread.ts): it was a list of words (call, manager, timesheet, proof, verify), and the
+  // list kept missing phrasings. The typed line itself isn't read here.
   // THE CHANNEL STAYS OPEN AFTER THE DEMAND. The turn that matters most in the save above is the
   // one whose typed action is `I press the button and ask "hi. Did Abigail work today?"` — no
-  // manager, no proof, no verb this regex knows, and the turn where the manager answers. So the
+  // manager, no proof, nothing that says checking, and the turn where the manager answers. So the
   // previous turn's prose counts too: once a phone is in somebody's hand and a workplace is on the
   // line, the check is live whatever the player types next.
-  if (!VERIFYING.test(String(action ?? "")) && !CHANNEL_OPEN.test(String(previousProse ?? ""))) return "";
+  if (!turnRead(state).verifies.trim() && !CHANNEL_OPEN.test(String(previousProse ?? ""))) return "";
   const rows: string[] = [];
   const seen = new Set<string>();
   for (const id of presentIds) {

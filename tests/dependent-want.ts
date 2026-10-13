@@ -1,32 +1,31 @@
-/* Smoke test: TEN INTENTS AND SHE RECLINES IN ALL OF THEM.
+/* Smoke test: A WANT THAT GOES THROUGH SOMEONE IS STILL A WANT.
  *
- * From a save. A woman present in twenty-four consecutive scenes, recorded as wanting to "Get Max
- * Mercer to hand over the rent money to her bank account and look at her body", blocked on "Max
- * Mercer is ignoring her and staring at his phone". Ten intents were authored for her across those
- * turns. The SURFACE of every one:
+ * Two saves, pulling in opposite directions, and both of them right.
  *
- *     Sprawls back with one heel propped up on the nearest low surface…
- *     Sprawling back with an indolent stretch that puts her frame on display…
- *     Leaning back casually with her bare soles pressed against the unpacking crate…
- *     Stepping into his personal space to gesture vaguely toward a high cabinet…
- *     Sprawled deep into the cushions with her bare heels resting against the coffee table…
- *     Sprawling back with her bare soles pressed against the coffee table edge…
+ * The first: a woman present in twenty-four consecutive scenes, recorded as wanting to "Get Max
+ * Mercer to hand over the rent money to her bank account and look at her body". Ten intents were
+ * authored for her and every surface was a variant of reclining, every truth a sentence about what
+ * HE did. The fix was a word list, isDependentGoal, that threw out every goal shaped like "get X to
+ * do Y", and the forge was kept from ever seeing the player, so a want about him was unwriteable.
  *
- * and the TRUTH of every one is a sentence about what HE does — he stammers, he looks, he loses his
- * train of thought, he catches his breath, he drops the phone. Not one of the ten has her doing
- * anything. The player's report was that she makes no moves at all, and he is reading the record
- * correctly.
+ * The second, Kingdom of Veythar, turn 35: a woman whose card says she found out the king's secret
+ * and means to use it to get his power, fear of him 88, given the want "sleep beside King Aldric
+ * without angering him", and printed to the narrator as "waiting until they're safe from the
+ * player". The player's report: she has control over me and wants my power, and instead of going
+ * after it she asks for cookies and narrates. So does everyone who isn't me.
  *
- * THE CHARACTER IS NOT PASSIVE. THE GOAL IS. A want whose completion condition is another person's
- * action leaves its owner one move — present yourself and wait — and the intent pass is asked every
- * turn what this person is doing about their want.
+ * Both failures are the same failure: a character with nothing to DO about their want. The first
+ * one's want was waiting dressed as a goal; the cure banned the want instead of the waiting, and
+ * produced the second. What's pinned here is the line between them:
  *
- * driveforge says this twice in prose: "No one else's word can be your goal" and "These hand the
- * person's life to someone else to run." It exports isDependentGoal to enforce it. That function
- * had ZERO CALLERS anywhere in src, and its regexes caught only the narrow answer-and-approval
- * cases — never "get X to do Y", which is the commonest shape there is.
- */
-import { isDependentGoal } from "../src/engine/driveforge";
+ *   1. the forge sees the player as one of the people in a life, and sees the long-run aim;
+ *   2. the forge is told that getting something out of someone is a want and waiting on them isn't;
+ *   3. somebody the player sent away still gets a want that leaves him alone;
+ *   4. fear changes how a person goes after a want, never whether. */
+import { brief, DRIVE_SYSTEM } from "../src/engine/driveforge";
+import { fearBlock, fearLine } from "../src/engine/fear";
+import { newSave, registerCharacter } from "../src/engine/state";
+import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -34,76 +33,65 @@ function check(name: string, c: boolean, extra?: unknown) {
   else { fail++; console.log(`FAIL ${name}`, extra ?? ""); }
 }
 
-const PLAYER = "Max Mercer";
+function court(): SaveState {
+  const s = newSave("court", { name: "The Kingdom", era: "medieval" } as any);
+  s.world.places["loc_hall"] = { id: "loc_hall", name: "The Great Hall", description_facts: "Stone.", contains: [] } as any;
+  s.world.player_location = "loc_hall";
+  registerCharacter(s, { name: "Aldric", character_id: "char_player", pronouns: "he/him", location: "loc_hall" } as any);
+  registerCharacter(s, {
+    name: "Marguerite Vale", character_id: "char_mv", pronouns: "she/her", age: 31, location: "loc_hall",
+    background: "A seamstress from the slums who overheard the king's one weakness in the palace gardens.",
+    current_goal: "Use what she knows about the king to win a seat on the royal council",
+  } as any);
+  s.characters["char_mv"].drive = { goal: "Sleep somewhere warm tonight", progress: 0, priority: 1, updated_turn: 1 } as any;
+  s.world.edges.push({ from: "char_mv", to: "char_player", warmth: 30, trust: -10, power: 20, fear: 88, roles: ["subject"] } as any);
+  s.world.present = ["char_mv"];
+  return s;
+}
 
-/* ── 1. THE WANT FROM THE SAVE ───────────────────────────────────────────────── */
-check("the goal that produced ten turns of reclining is rejected",
-  isDependentGoal("Get Max Mercer to hand over the rent money to her bank account and look at her body", PLAYER));
+/* ── 1. what the forge sees ───────────────────────────────────────────────────── */
+{
+  const s = court();
+  const b = brief(s, "char_mv");
+  check("the long-run aim is on the page", b.includes("WHAT THEY'RE AFTER IN THE LONG RUN: Use what she knows about the king"), b);
+  check("so is the want she's been on, so the next one can be measured against it", b.includes("THE WANT THEY'VE BEEN ON: Sleep somewhere warm tonight"), b);
+  check("the player is one of the people in her life", b.includes("ALDRIC, THE STORY'S MAIN CHARACTER, IS ALSO IN THEIR LIFE"), b);
+  check("with how afraid of him she is", b.includes("afraid of Aldric, 88 out of 100"), b);
+  check("and what he is to her", b.includes("Aldric is their subject") || b.includes("subject"), b);
+}
 
-/* ── 2. EVERY WAY OF SAYING "GET SOMEBODY TO DO SOMETHING" ───────────────────── */
-for (const g of [
-  "Make him admit what he wants",
-  "Have her tell him the truth about the lease",
-  "get him looking at her instead of the phone",
-  "Force Max to choose between them",
-  "persuade the landlord to drop the deposit",
-  "talk Alina into keeping quiet about it",
-  "convince him to stay another month",
-  "pressure the super into fixing the unit",
-]) check(`rejected: ${g}`, isDependentGoal(g, PLAYER), g);
+/* ── 2. what the forge is told ────────────────────────────────────────────────── */
+{
+  check("getting something out of someone is a want", DRIVE_SYSTEM.includes("Getting something out of someone is a want"));
+  check("including from the story's main character", DRIVE_SYSTEM.includes("the story's main character"));
+  check("and the want is what they do to get it", DRIVE_SYSTEM.includes("the want is what they do to get it"));
+  check("waiting on someone is still no want at all", DRIVE_SYSTEM.includes("Presenting yourself and waiting is the same as having no want"));
+  check("the long-run aim sizes the want", DRIVE_SYSTEM.includes("the want is the next stretch of it"));
+}
 
-/* ── 3. AND THE ONES THIS FUNCTION ALREADY CAUGHT, WHICH MUST STILL TRIP ─────── */
-for (const g of [
-  "Decide whether to accept the offer",
-  "Get a clear answer from him about the lease",
-  "Earn his trust before the month is out",
-  "win her approval before the wedding",
-  "gain their permission to use the yard",
-  "Find peace and quiet in the new place",
-]) check(`still rejected: ${g.slice(0, 44)}`, isDependentGoal(g, PLAYER), g);
+/* ── 3. somebody he sent away still leaves him alone ──────────────────────────── */
+{
+  const s = court();
+  (s.world.edges.find((e) => e.from === "char_mv" && e.to === "char_player") as any).rejected = 1;
+  const sent = brief(s, "char_mv");
+  check("a person he sent away is never offered him as a way in", !sent.includes("IS ALSO IN THEIR LIFE"), sent);
+  check("and the forge is told to write about their own life", sent.includes("about their own life"), sent);
+  const h = court();
+  (h.characters["char_mv"] as any).held = true;
+  check("nor is a person being held", !brief(h, "char_mv").includes("IS ALSO IN THEIR LIFE"));
+}
 
-/* The determiner group in APPROVE only ever held one determiner: `(his|her|their|the )?` puts the
- * space inside the group after `the`, so the alternatives are "his", "her", "their" and "the " and
- * only the last carries it. "earn his trust" needed "earn"+"his"+"trust" with no space and never
- * matched. Pre-existing, found while wiring the function up for the first time. */
-check("a determiner other than 'the' works now", isDependentGoal("earn his trust", PLAYER));
-check("...and so does the one that always did", isDependentGoal("earn the trust of the tenants", PLAYER));
-
-/* ── 4. A WANT SHE CAN START ON A TUESDAY IS LEFT ALONE ───────────────────────
- *
- * This is the repair the prompt itself names: the goal is what SHE does. None of these needs
- * anybody's cooperation and every one of them can be stepped toward by the person who holds it. */
-for (const g of [
-  "Get the lease put in her own name before the renewal",
-  "Move her things into the room he uses",
-  "Say it to his face before Alina gets back",
-  "Take the closing shift so she is home when he is",
-  "Make the rent by Friday",
-  "Make a scene at the tenants meeting",
-  "Find out who has been in her nightstand",
-  "Clear the basement of her sister's junk",
-]) check(`kept: ${g.slice(0, 44)}`, !isDependentGoal(g, PLAYER), g);
-
-/* ── 5. THE INFINITIVE HAS TO BE AN INFINITIVE ────────────────────────────────
- *
- * "make her own way TO the coast" is a preposition and her own errand. A determiner after `to`
- * means a destination; the screen requires a bare verb. */
-for (const g of [
-  "Make her own way to the coast before the frost",
-  "Bring the box down to the basement",
-  "Move into the room he uses",
-  "Get the mare's leg right before the market",
-  "Have the sluice rebuilt before the thaw",
-]) check(`not a demand: ${g.slice(0, 40)}`, !isDependentGoal(g, PLAYER), g);
-
-/* ── 6. NAMING THE PLAYER IS NOT ITSELF THE FAULT ─────────────────────────────
- *
- * The existing note says so: "walk to the monastery with him and see if it still stands" is her
- * errand and he is just along. It is only invalid when he is what is being waited on. */
-for (const g of [
-  "Walk to the monastery with Max and see if it still stands",
-  "Split the rent with Max before the first",
-]) check(`he can be in it: ${g.slice(0, 40)}`, !isDependentGoal(g, PLAYER), g);
+/* ── 4. fear changes the method, never the want ───────────────────────────────── */
+{
+  const s = court();
+  const block = fearBlock(s, "char_mv");
+  check("she is afraid for her life", block.startsWith("AFRAID OF ALDRIC FOR THEIR LIFE"), block);
+  check("her wants no longer wait until she's safe", !block.includes("wait until they're safe"), block);
+  check("what she wants still drives her", block.includes("What they want still drives them"), block);
+  check("and fear decides how she goes after it", block.includes("fear changes how they go after it"), block);
+  const line = fearLine(s, "char_mv");
+  check("the intent pass is told the same", line.includes("still go after what they want, carefully"), line);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

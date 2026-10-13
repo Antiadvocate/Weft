@@ -1,11 +1,35 @@
 /** Time — "Day N, HH:MM" canonical, tolerant parser, heuristic elapse. */
+import type { ActionRead } from "./actionread";
+import { isDigit, isSpace } from "./text";
 
 export interface ParsedTime { day: number; hour: number; minute: number }
 
+/** "Day N, HH:MM" found anywhere in `s`, case and spacing forgiven, the comma optional. */
 export function parseTime(s: string): ParsedTime {
-  const m = /day\s*(\d+)\s*,?\s*(\d{1,2}):(\d{2})/i.exec(s || "");
-  if (m) return { day: +m[1], hour: +m[2], minute: +m[3] };
+  const text = s || "";
+  const skipSpace = (i: number) => { while (i < text.length && isSpace(text[i])) i++; return i; };
+  const digits = (i: number, max = Infinity) => { let j = i; while (j < text.length && j - i < max && isDigit(text[j])) j++; return j; };
+  for (let at = 0; at + 3 <= text.length; at++) {
+    if (text.slice(at, at + 3).toLowerCase() !== "day") continue;
+    const d0 = skipSpace(at + 3), d1 = digits(d0);
+    if (d1 === d0) continue;
+    let i = skipSpace(d1);
+    if (text[i] === ",") i = skipSpace(i + 1);
+    const h1 = digits(i, 2);
+    if (h1 === i || text[h1] !== ":") continue;
+    const m1 = digits(h1 + 1, 2);
+    if (m1 - (h1 + 1) !== 2) continue;
+    return { day: Number(text.slice(d0, d1)), hour: Number(text.slice(i, h1)), minute: Number(text.slice(h1 + 1, m1)) };
+  }
   return { day: 1, hour: 9, minute: 0 };
+}
+
+/** A calendar date written "YYYY-MM-DD", as [year, month, day], or null. */
+function isoDate(s: string): [number, number, number] | null {
+  const t = s.trim();
+  if (t.length !== 10 || t[4] !== "-" || t[7] !== "-") return null;
+  for (const i of [0, 1, 2, 3, 5, 6, 8, 9]) if (!isDigit(t[i])) return null;
+  return [Number(t.slice(0, 4)), Number(t.slice(5, 7)), Number(t.slice(8, 10))];
 }
 
 export function formatTime(t: ParsedTime): string {
@@ -73,72 +97,20 @@ export function heuristicMinutes(action: string, prose = ""): number {
  *
  * Read ONLY from the player's own words, never the prose — the narrator writing "hours later" is
  * the narrator's guess, and it is the bookkeeper's job to price that. This is the player speaking.
+ *
+ * WHO READS THE WORDS. This was a counter over the typed line: a number, a unit, and lists for the
+ * unnumbered spans and for flights. Every fix to it was a phrasing it had got wrong. "I sometimes go
+ * 4 times a week", said at a restaurant table, billed seven days, because "a week" is an article and
+ * a unit; a text message typed between asterisks ("10 hours of being tense about your interview")
+ * billed ten hours of a message's words; the speech, the rates and the private channels each needed
+ * their own exception, and the next phrasing would have needed another. The turn read now says how
+ * much time the player declares (`declared_minutes`, actionread.ts), read the way a person reads it,
+ * so a frequency, a line of dialogue and a texted message carry no span and an overnight or a
+ * flight does.
  */
-/**
- * A FREQUENCY IS NOT A SPAN, AND A LINE OF DIALOGUE IS NOT A DECLARATION.
- *
- * Turn 39 of a real save. The player is at a restaurant table, mid-conversation, and types:
- *
- *     "I go daily if I can help it. I sometimes go 4 times a week. Just depends on how my body
- *      feels. Do you workout? I assume so"
- *
- * The clock went from Day 2, 18:54 to Day 9, 18:54. The match was `a week` — the article-plus-unit
- * pattern, sitting inside "4 times a week" — read as a declared duration of seven days, which
- * outranked the bookkeeper's two-minute bill because a declaration always wins. The rest of the
- * dinner then ran a week after it started, and the woman across the table was made to say they had
- * met on an app four days ago, in the middle of the meal she had arrived for.
- *
- * Two things were wrong and both are the same mistake — reading a rate or a remark as a duration.
- *
- *   · "four times a week", "twice a day", "once an hour" state how OFTEN, not how long. The bare
- *     article carries no span at all; it only ever looked like one because `a` is in the number
- *     list, for "a few hours" and "an hour".
- *   · The sentence is SPEECH. The engine masks quoted dialogue before reading it in every other
- *     place it reads the player's input (see exit.ts, echo.ts, ooc.ts) precisely because a
- *     character talking about a week is not a player spending one. This function read the raw line.
- *
- * What still declares a span is unchanged: "I wait three hours", "I read until eight", an
- * overnight, a flight. Those are the player saying what their action costs.
- */
-export function declaredMinutes(action: string): number {
-  // A character SAYING "four times a week" is not the player spending one. Quoted speech goes
-  // first, the same way it does everywhere else the engine reads this input.
-  //
-  // ...AND SO DOES EVERY OTHER FORM THIS ENGINE ALREADY TREATS AS SAID-OR-THOUGHT RATHER THAN DONE.
-  // The bookkeeper contract states the convention outright — `"quotes" are spoken aloud; *asterisks*
-  // and (parentheses) are private` — and this function honoured a third of it. From a real save: the
-  // player typed `I text her *hey hope it went well. ... I think 10 hours of being tense about your
-  // interview and questions and all rattled me.*` The words "10 hours" are the message. This read
-  // them as a declaration that the turn took ten hours, billed 600 minutes, and moved a 1:36 in the
-  // afternoon to 23:36 at night — while the narrator, handed the same scene, wrote "the gray light
-  // has thinned and brightened past noon". The state and the page disagreed about what day it was.
-  const s = String(action ?? "").toLowerCase()
-    .replace(/["\u201c][^"\u201d]*["\u201d]?/g, " ")
-    .replace(/\*[^*]*\*?/g, " ")
-    .replace(/\([^)]*\)?/g, " ");
-  // an explicit count, in the player's own words: "three hours", "a couple of days", "20 minutes"
-  const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, "a couple of": 2, "a few": 3, several: 4, half: 0.5 };
-  const unit: Record<string, number> = { minute: 1, minutes: 1, min: 1, mins: 1, hour: 60, hours: 60, day: 1440, days: 1440, week: 10080, weeks: 10080 };
-  let best = 0;
-  // "four times a week", "twice a day", "once an hour", "three days a week" — the words in front of
-  // the match say it is a rate. Checked on the text immediately before it, because that is where
-  // the tell always sits.
-  const RATE = /\b(?:times?|per|once|twice|thrice|every|each)\s*$/i;
-  for (const m of s.matchAll(/\b(\d{1,3}|a couple of|a few|several|half|an?|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(minutes?|mins?|hours?|days?|weeks?)\b/g)) {
-    if (RATE.test(s.slice(Math.max(0, m.index - 14), m.index))) continue;
-    const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM[m[1]] ?? 0;
-    const u = unit[m[2]] ?? 0;
-    if (n && u) best = Math.max(best, Math.round(n * u));
-  }
-  // ...and the unnumbered declarations that are still declarations of length
-  if (/\b(hours of travel|after hours|for hours|all day|the whole day|all night)\b/.test(s)) best = Math.max(best, 4 * 60);
-  if (/\b(overnight|slept|sleep till|sleep until|next morning|the following day)\b/.test(s)) best = Math.max(best, 8 * 60);
-  // A FLIGHT IS NOT A WALK. The player naming air travel is naming a journey no city contains, and
-  // it is the single case where believing a two-minute bill breaks the whole geography.
-  if (/\b(fly|flew|flight|flying|red[- ]eye|land(?:ed|s)? in|plane|airport)\b/.test(s) && /\b(to|in|into|arrive|arrived|reach)\b/.test(s)) {
-    best = Math.max(best, 3 * 60);
-  }
-  return Math.min(best, 14 * 24 * 60);   // a fortnight is the cap; longer belongs to the interlude
+export function declaredMinutes(read: ActionRead): number {
+  const n = Number(read?.declared_minutes) || 0;
+  return Math.min(Math.max(0, Math.round(n)), 14 * 24 * 60);   // a fortnight is the cap; longer belongs to the interlude
 }
 
 /** CALENDAR — layered over the canonical "Day N, HH:MM" clock without changing the stored
@@ -148,10 +120,10 @@ const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 export function dateLabel(timeStr: string, startDate?: string): string {
   if (!startDate) return "";
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate.trim());
+  const m = isoDate(startDate);
   if (!m) return "";
   const t = parseTime(timeStr);
-  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (t.day - 1)));
+  const d = new Date(Date.UTC(m[0], m[1] - 1, m[2] + (t.day - 1)));
   if (isNaN(d.getTime())) return "";
   return `${WD[d.getUTCDay()]} ${d.getUTCDate()} ${MO[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
@@ -175,9 +147,9 @@ export const WEEKDAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
  */
 export function weekdayIndex(timeStr: string, startDate?: string): number {
   const t = parseTime(timeStr);
-  const m = startDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(startDate.trim()) : null;
+  const m = startDate ? isoDate(startDate) : null;
   if (m) {
-    const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + (t.day - 1)));
+    const d = new Date(Date.UTC(m[0], m[1] - 1, m[2] + (t.day - 1)));
     if (!isNaN(d.getTime())) return d.getUTCDay();
   }
   // No calendar: Day 1 is a Monday (index 1), and the week counts on from there.

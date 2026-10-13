@@ -39,6 +39,7 @@
  */
 import { spoke, MUTE_LIMIT } from "../src/engine/speech";
 import { sceneRegister } from "../src/engine/register";
+import { EMPTY_READ } from "../src/engine/actionread";
 import { findReprint, proseOverlap } from "../src/engine/echo";
 import { habitDirective } from "../src/engine/authored";
 import { scheduleDirective } from "../src/engine/schedule";
@@ -77,15 +78,24 @@ const TURNS: Record<string, string> = JSON.parse(readFileSync("tests/fixtures/sh
 
 /* ── 2. the register is read, and it reads this scene correctly ──────────────── */
 {
-  const r = sceneRegister(TURNS["9"]);
+  const r = sceneRegister(TURNS["9"], EMPTY_READ);
   check("the shower scene reads as intimate", r.intimate, r);
   check("...and therefore guarded", r.guarded, r);
 
-  const kitchen = sceneRegister("Emily stood at the counter frowning at her phone. Rain ticked against the glass.");
+  const kitchen = sceneRegister("Emily stood at the counter frowning at her phone. Rain ticked against the glass.", EMPTY_READ);
   check("an ordinary domestic morning is not guarded", !kitchen.guarded, kitchen);
 
-  const knife = sceneRegister("He had a knife out and nobody in the room moved.");
+  const knife = sceneRegister("He had a knife out and nobody in the room moved.", EMPTY_READ);
   check("danger is guarded too", knife.guarded && knife.dangerous, knife);
+
+  // The player's half of the register is the turn read's (actionread.ts: register), not a word list
+  // run over what they typed. A quiet room the player turns tender is a guarded room.
+  const quiet = "Emily stood at the counter frowning at her phone. Rain ticked against the glass.";
+  const tender = sceneRegister(quiet, { ...EMPTY_READ, register: { intimate: true, dangerous: false, hushed: false } });
+  check("the player's own turn can make the moment intimate", tender.intimate && tender.guarded, tender);
+  const hush = sceneRegister(quiet, { ...EMPTY_READ, register: { intimate: false, dangerous: false, hushed: true } });
+  check("...or hushed", hush.hushed && hush.guarded, hush);
+  check("and an empty read adds nothing to the prose's own register", !sceneRegister(quiet, EMPTY_READ).guarded);
 }
 
 /* ── 3. the plant does not get scolded mid-sex ───────────────────────────────── */

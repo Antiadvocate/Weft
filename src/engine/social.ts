@@ -23,7 +23,55 @@ import { obduracyIn } from "./obduracy";
 import { populationOf } from "./population";
 import { recordHop, wordCouldReach } from "./knowledge";
 import { hearsayShift, rumorSubject, tellBias } from "./hearsay";
+import { turnRead, readOfTurn } from "./actionread";
+import { clipText, trimEndOf, isSpace, isDigit } from "./text";
 import type { PowerTier } from "./pressure";
+
+/* Plain text, by hand: the few shapes this file cuts strings into (see text.ts). */
+const isAz = (ch: string) => ch >= "a" && ch <= "z";
+/** Lowercased, with everything but a–z (and spaces, when asked) taken out. */
+function lettersOnly(s: string, spaces = false): string {
+  let out = "";
+  for (const ch of s.toLowerCase()) if (isAz(ch) || (spaces && ch === " ")) out += ch;
+  return out;
+}
+/** The runs of a–z at least `min` long, lowercased. */
+function letterRuns(s: string, min: number): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const ch of `${s.toLowerCase()} `) {
+    if (isAz(ch)) { cur += ch; continue; }
+    if (cur.length >= min) out.push(cur);
+    cur = "";
+  }
+  return out;
+}
+/** Whether it ends on a full stop, a question or an exclamation, allowing one closing quote after. */
+function endsOnStop(s: string): boolean {
+  let end = s.length;
+  if (end && "\"'\u2019\u201d".includes(s[end - 1])) end--;
+  return end > 0 && ".!?".includes(s[end - 1]);
+}
+/** Where the first sentence end followed by a space is, or -1. */
+function firstStop(s: string): number {
+  for (let i = 0; i + 1 < s.length; i++) if (".!?".includes(s[i]) && isSpace(s[i + 1])) return i;
+  return -1;
+}
+/** One closing full stop taken off the end, with the spaces around it. */
+function withoutClosingStop(s: string): string {
+  const t = s.trimEnd();
+  return t.endsWith(".") ? t.slice(0, -1).trimEnd() : s;
+}
+/** Whether a time names a day by number ("Day 3, 09:00"): the word, maybe spaces, then a digit. */
+function namesDayNumber(s: string): boolean {
+  const l = s.toLowerCase();
+  for (let at = l.indexOf("day"); at !== -1; at = l.indexOf("day", at + 1)) {
+    let i = at + 3;
+    while (i < l.length && isSpace(l[i])) i++;
+    if (isDigit(l[i] ?? "")) return true;
+  }
+  return false;
+}
 
 export const RUMOR_BASE_P = 0.45;
 /** How much of a conversation a message is. Applied to news travelling between people who are not
@@ -446,81 +494,36 @@ function rumorCharge(content: string, standing = 0): number {
  * spend fifty turns defending a town and still be written as its terror. This gives the crowd the
  * one thing it was missing: a memory of whether the player's public acts have helped or hurt.
  *
- * Deterministic and lexical, in the style of the rumor field — zero tokens, no save migration.
+ * What the deed was comes from the read of the turn; the rest is arithmetic, with no save migration.
  */
-// Deliberately NARROW. An earlier draft of these lists included ordinary words — "gave", "fed",
-// "people", "kind" — and the standing drifted every turn on prose that meant nothing ("she gave him
-// a look" in a room with people in it). A reputation that moves on everything measures nothing, so
-// these only match acts that a town would actually retell.
-// ...but narrow is not the same as one-sided, and this list was one-sided. Every verb in it was
-// EMERGENCY RESCUE: pull them out, put the fire out, hold the gate, stand between. Nothing in it
-// could see a person who PROVIDES — who feeds a quarter, raises a granary, opens a free school,
-// forgives a debt, ends a practice. The harm list has always had both registers, acute (murder) and
-// systemic (enslave, terrorize), so the scale was legible in one direction only.
+// WHAT THE DEED WAS is the turn read's call now (actionread.ts: public_act, and harms[].mass for
+// harm that falls on a crowd, a street or a whole place). This used to be four word lists (rescue,
+// works, harm, mass harm), and every save that tested them found a deed they couldn't see: "pulled
+// the child clear" never matched a rescue pattern that spanned one word, and a player who abolished
+// slavery across an empire, raised a granary in the Forum and opened a school that fed and taught
+// children for nothing scored ZERO across seventeen turns, at a standing of exactly 0.0, while the
+// city he had remade decided he was a thing to avoid. One murder would have moved him further. The
+// read is asked for the distinctions those lists were built around: a boon done for people (a
+// rescue, an event), works built for them (a school, a granary, a debt forgiven: a fact that goes on
+// standing), harm, and harm to a whole crowd.
 //
-// Measured on the save that surfaced this: a player who abolished slavery across an empire,
-// teleported the army onto public works, raised a granary in the Forum and built a school that fed
-// and taught children for nothing scored ZERO on this regex across all seventeen turns, and stood
-// at a public standing of exactly 0.0 while the city he had remade decided he was a thing to avoid.
-// One murder would have moved him further than everything he actually did.
-//
-// The construction and provision verbs need an object, the way the harm verbs do, or "built a wall
-// to keep them out" and "made an example" read as benefaction.
-//
-// AND THEY ARE SCORED FROM THE ACTION ONLY — see PUBLIC_WORKS below. A rescue is an EVENT: it is
-// narrated once and never mentioned again. A building is a FACT: the school stands in the prose for
-// the rest of the story. Scored the same way, the second one pays out forever. Replaying the save
-// this came from with both families on prose, the standing climbed on turns 6 and 8 off "built a
-// school" and "built a granary" — the narrator recapping work already done, one item of which had
-// been done four months before the game began.
-const PUBLIC_BOON = new RegExp([
-  // ACUTE RESCUE — an event, narrated once. Scored from the action and the player's prose alike.
-  `sav(ed|es|ing)|rescu\\w+|heal(ed|s|ing)|cured|protect(ed|s|ing)|defend(ed|s|ing)|shielded|spared|show(ed|n) mercy|sheltered`,
-  `rebuil\\w+|restored|freed|liberat\\w+|carried [\\w ]{1,24}? to safety|pulled [\\w ]{1,24}? (out|free|clear)`,
-  `put out the (fire|blaze)|stopped the (raid|flood|plague|bleeding|fire)|held the (gate|line|bridge|door)|stood between`,
-].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
-
-/**
- * THE OTHER HALF OF A REPUTATION: what the player PROVIDES, not what they rescue.
- *
- * Ending a standing evil, forgiving a debt, feeding a quarter, raising a granary, opening a school
- * that costs nothing. The harm list has always had this register — `enslav`, `terroriz`, "made an
- * example of" are systemic, not acute — and the boon list had no counterpart at all, so the scale
- * could only be read in one direction. A player who abolished slavery across an empire, teleported
- * the army onto public works and built a free school in front of a crowd of five thousand scored
- * ZERO across seventeen turns and sat at a standing of exactly 0.0 while the city he had remade
- * decided he was a man to avoid. One murder would have moved him further than all of it.
- *
- * Matched against the player's DECLARED ACTION only, because the thing it names goes on existing.
- */
-const PUBLIC_WORKS = new RegExp([
-  // ending a standing evil — the systemic counterpart to enslav/terroriz on the harm side
-  `abolish(?:e[sd]|ing)?|emancipat(?:e[sd]|ing)|manumit(?:s|ted|ting)?|struck off (the |their )?(collar|collars|chains|irons)|unchained|ended (the )?(slavery|famine|plague|hunger|war|siege|blockade|tribute|levy)`,
-  `forgave (the |their |every |all )?(debt|debts)|cancel(?:s|led|ing|ling)? (the |their |every |all )?(debt|debts)|remitted (the )?(tax|taxes|tribute)`,
-  // provision at scale — a thing a place would retell
-  `fed (the |a )?(town|city|village|quarter|crowd|poor|hungry|children|people|everyone)`,
-  `hous\\w+ (the |a )?(homeless|poor|refugees|displaced)|clothed the (poor|children)`,
-  `(built|build|raised|raise|founded|found|opened|open|endowed|endow|make|made|create[d]?) (a |the |them |every |free )*(school|schools|granary|granaries|hospital|aqueduct|well|wells|bathhouse|almshouse|orphanage|clinic|homes|houses|shelter)`,
-  `made (it |them |the )?(bread|grain|food|schooling|school|medicine|water) free|free (bread|grain|food|schooling|lunches|meals|medicine|land)\\b`,
-  `taught (the |their )?(children|poor|freedmen|them) (to read|letters|their letters)`,
-].join("|").replace(/^/, "\\b(").concat(")\\b"), "i");
-const PUBLIC_HARM = /\b(slaughter\w+|massacre\w+|butcher(ed|ing)|murder(ed|s|ing)|burn\w+ (the|their|a) (village|town|city|home|house|farm|field|quarter)|razed?|destroy\w+ (the|their) (village|town|city|home|quarter)|tortur\w+|maim\w+|enslav\w+|terroriz\w+|made an example of|left \w+ to die|killed (a|the) (child|children|innocent)|cut \w+ down where (he|she|they|it) stood)\b/i;
-/** Was this turn even public? A boon nobody saw moves no reputation. Crowd nouns only — "people"
- *  and "road" were in here once and matched nearly every paragraph ever written. */
-/** Harm at the scale of a place, not a person. This is not a worse insult — it is a different
- *  kind of fact about someone, and it should not have to accumulate at 1.2 a turn to be believed. */
-export const MASS_HARM = /\b(kill(ed)? (the )?(whole|entire|every)\b|slaughter\w* (the )?(whole|entire|town|city|village|everyone)|massacre\w* (the )?(town|city|village|everyone)|wiped? out (the )?(town|city|village|everyone|them all)|everyone in (the )?(town|city|village) (is |was )?(dead|died|killed)|kill\w* everyone|destroy\w* (the )?(town|city|village) and everyone|left no one alive|no survivors|erase\w* (the )?(town|city|village)|unmade (the )?(town|city|village))\b/i;
-
-const PUBLIC_EYES = /\b(crowd|crowds|onlookers?|bystanders?|villagers?|townsfolk|townspeople|the street|the market|marketplace|the square|tavern|congregation|caravan|watchers|a dozen \w+|half the (town|village|city))\b/i;
+// AND IT IS THE PLAYER'S TURN THAT IS READ, never the narration. A rescue is narrated once; a school
+// stands in the prose for the rest of the story, and scoring the prose paid the player again every
+// time the narrator mentioned it (replaying the save this came from, the standing climbed on turns 6
+// and 8 off "built a school" and "built a granary" recapped, one of them built four months before
+// the game began).
 
 /**
  * Move the player's public standing from what this turn's act did in front of whoever could see it.
  * Returns a log line when the needle actually moved, else null.
+ *
+ * The deed is this turn's read (turnRead). `action` and `prose` are no longer looked at; they stay
+ * in the signature so the turn's call doesn't change.
  */
 export function updatePublicStanding(
   state: SaveState,
-  action: string,
-  prose: string,
+  _action = "",
+  _prose = "",
   tier: PowerTier = "mortal",
   standingTier: PowerTier = tier,
 ): string | null {
@@ -535,13 +538,11 @@ export function updatePublicStanding(
   const fade = standingTier === "cosmic" ? 0.04 : standingTier === "mythic" ? 0.08 : 0.2;
   let v = before > 0 ? Math.max(0, before - fade) : Math.min(0, before + fade);
 
-  // WHOSE DEED? Scoring the whole prose blob would credit the player with everything anyone did in
-  // it — a raider burning a farm would move the PLAYER's reputation. Score the player's own
-  // declared action, plus only those prose sentences that actually have the player in them.
+  // WHOSE DEED? Scoring the whole prose blob credited the player with everything anyone did in it,
+  // so a raider burning a farm moved the PLAYER's reputation. The read is of the player's own turn
+  // and nobody else's. What the narration shows them doing beyond what they typed used to be picked
+  // out of the prose sentences that had their name in them; that waits on the bookkeeper now.
   const who = state.characters.char_player?.name ?? "";
-  const playerRe = new RegExp(`\\byou\\b|\\byour\\b${who ? `|\\b${who.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b` : ""}`, "i");
-  const playerProse = prose.split(/(?<=[.!?])\s+/).filter((s) => playerRe.test(s)).join(" ");
-  const text = `${action} ${playerProse}`;
   // Public means SEEN. A private room with one confidant is not the community, no matter what
   // happened in it — that is what edges are for. Three or more people present is a small audience;
   // two is a conversation.
@@ -549,14 +550,17 @@ export function updatePublicStanding(
   // far better answer than "are three CARDED characters standing here". Counting only the cast meant
   // an atrocity committed in a city of four thousand moved the needle by nothing at all, because
   // none of the four thousand had a character record. A populated place is an audience.
+  // The prose used to be searched for crowd nouns too ("onlookers", "the market", "a dozen men"),
+  // which guessed who saw it from how the narrator happened to word the scene. The bookkeeper will
+  // report whether a crowd saw it (crowd_saw); until then the place and the people in it decide.
   const pop = populationOf(state.world.places[state.world.player_location]);
-  const seen = PUBLIC_EYES.test(prose) || (pop?.scale ?? 0) >= 10
+  const seen = (pop?.scale ?? 0) >= 10
     || state.world.present.filter((id) => id !== "char_player").length >= 3;
   if (seen) {
-    // The works family reads the ACTION alone — a school stays built and stays in the prose, so
-    // scoring it from the narration pays the player again every time the narrator mentions it.
-    const boon = PUBLIC_BOON.test(text) || PUBLIC_WORKS.test(action), harm = PUBLIC_HARM.test(text);
-    const mass = MASS_HARM.test(text);
+    const read = turnRead(state);
+    const mass = read.public_act === "mass_harm" || read.harms.some((h) => h.mass);
+    const harm = read.public_act === "harm";
+    const boon = read.public_act === "boon" || read.public_act === "works";
     // Scale by what the crowd is reacting to: an impossible act is talked about for longer.
     const scale = tier === "cosmic" ? 2 : tier === "mythic" ? 1.5 : 1;
     // ...and by how many people it happened to. A tavern brawl and the killing of a whole town were
@@ -874,27 +878,23 @@ export function tickPsyche(p: Psyche): void {
  * screamed insult with a poised lecture. Every character in that save is unlikeable for the same
  * reason: nothing anyone does costs anything, so nobody has a self to defend.
  *
- * This is deterministic and it does not ask the bookkeeper's opinion. Being sworn at does not open
- * a body and it does not warm a bond. The reading may still go DOWN as far as the turn wants; it
- * may not go up.
+ * What it does is deterministic and it does not ask the bookkeeper's opinion. Being sworn at does
+ * not open a body and it does not warm a bond. The reading may still go DOWN as far as the turn
+ * wants; it may not go up.
+ *
+ * WHO WAS SWORN AT is the turn read's (actionread.ts: insults, by id). It used to be a list of curse
+ * words, with a "you" in the same sentence standing in for whoever was in the room, and a list only
+ * ever knows the insults somebody thought to spell out.
  */
-const SLUR = /\b(fuck you|fuck off|fuck yourself|screw you|shut the fuck up|shut up|piece of shit|pieces of shit|shitface|shit ?face|asshole|assholes|dipshit|dipshits|cunt|bitch|bastard|prick|moron|idiot|idiots|imbecile|scum|worthless|pathetic|disgusting|useless)\b/i;
-const AIMED = /\b(you|your|you're|youre|yours)\b/i;
-/** Curses aimed at a person present, in the player's own typed words. Speech and plain action both
- *  count — shouting it and writing "I spit at her" are the same event to the person on the end of
- *  it. Swearing at the sky, at the city, or at nobody is not aimed at anyone and does not count. */
-export function hostileToward(action: string, presentNames: string[]): Set<string> {
+/** The people present, by name, whom the player insulted or cursed at this turn, as the read has it.
+ *  Speech and plain action both count — shouting it and writing "I spit at her" are the same event
+ *  to the person on the end of it. Swearing at the sky, at the city, or at nobody is aimed at no one.
+ *  Takes names and gives back names, as the turn's caller holds them. */
+export function hostileToward(state: SaveState, presentNames: string[]): Set<string> {
   const hit = new Set<string>();
-  const text = String(action ?? "").replace(/\*[^*]*\*/g, " ");   // private thought reaches nobody
-  for (const raw of text.split(/(?<=[.?!])\s+|\n+/)) {
-    const s = raw.trim();
-    if (!SLUR.test(s)) continue;
-    const named = presentNames.filter((n) => {
-      const first = n.split(/\s+/)[0];
-      return first.length >= 3 && new RegExp(`\\b${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(s);
-    });
-    if (named.length) named.forEach((n) => hit.add(n));
-    else if (AIMED.test(s)) presentNames.forEach((n) => hit.add(n));   // "fuck you" to whoever is here
+  for (const id of turnRead(state).insults) {
+    const name = state.characters?.[id]?.name;
+    if (name && presentNames.includes(name)) hit.add(name);
   }
   return hit;
 }
@@ -972,14 +972,14 @@ export function consolidateBackground(ident: Identity, mem: CharMemory): string[
     // Each moment ends in a stop before the next begins. Joined on a bare space, two entries ran
     // together mid-sentence — "…off the Argiletum Before the market crowd thickens…" — which reads
     // as one garbled clause rather than two things that happened.
-    const ended = facts.map((f) => (/[.!?]["'’”]?$/.test(f) ? f : `${f}.`));
+    const ended = facts.map((f) => (endsOnStop(f) ? f : `${f}.`));
     ident.life_history = `${ident.life_history ?? ""} ${ended.join(" ")}`.trim();
     // deterministic light trim: keep the most recent ~1100 chars on a sentence boundary
     const SOFT = 1100;
     if (ident.life_history.length > SOFT) {
       const tail = ident.life_history.slice(-SOFT);
-      const firstStop = tail.search(/[.!?]\s/);
-      ident.life_history = (firstStop >= 0 ? tail.slice(firstStop + 2) : tail).trim();
+      const stop = firstStop(tail);
+      ident.life_history = (stop >= 0 ? tail.slice(stop + 2) : tail).trim();
     }
     log.push(`${ident.name}'s history now carries ${facts.length} defining moment${facts.length > 1 ? "s" : ""}.`);
   }
@@ -1017,7 +1017,10 @@ export function consolidateTraits(ident: Identity, traits: AcquiredTrait[], _tur
     if (SPEECHY.test(t.label) || SPEECHY.test(t.behavioral_impact)) {
       const add = t.label.toLowerCase();
       if (!ident.speech_pattern.toLowerCase().includes(add)) {
-        if (!ident.voice_locked) ident.speech_pattern = `${ident.speech_pattern}; has become ${add}`.replace(/^;\s*/, "");
+        if (!ident.voice_locked) {
+          const joined = `${ident.speech_pattern}; has become ${add}`;
+          ident.speech_pattern = joined.startsWith(";") ? joined.slice(1).trimStart() : joined;
+        }
       }
     }
     return false; // retire from acquired — it's core now
@@ -1051,7 +1054,7 @@ export function decayTraits(traits: AcquiredTrait[], currentTurn: number): { kep
 /** Returns "reinforced" when the incoming trait folded into one already held, "planted" when it
  *  became a new one — the caller rate-limits planting, never reinforcement. */
 export function reinforceOrMergeTrait(traits: AcquiredTrait[], incoming: { label: string; origin: string; behavioral_impact: string; intensity: number }, turn: number): "reinforced" | "planted" {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
+  const norm = (s: string) => lettersOnly(s, true).trim();
   const existing = traits.find((t) => {
     const a = new Set(norm(t.label).split(" ")), b = norm(incoming.label).split(" ");
     return b.filter((w) => a.has(w)).length / Math.max(1, b.length) > 0.5;
@@ -1162,7 +1165,7 @@ export function tickDrives(state: SaveState, rng: () => number = Math.random, el
         // The goal is written about them in the third person ("Wants to be the one who trains the
         // next crew... outlasts xer."), so it can't be spliced into a first-person sentence. Veth's
         // memory read "I stopped asking about Wants to be the one who trains...". Quote it instead.
-        content: `I let go of something I'd been waiting on, because nothing was moving it: ${c.drive.goal.trim().replace(/[.…\s]+$/, "")}.`,
+        content: `I let go of something I'd been waiting on, because nothing was moving it: ${trimEndOf(c.drive.goal.trim(), ".\u2026")}.`,
         importance: 6, emotional_charge: "resignation",
         last_accessed_turn: state.world.current_turn,
       } as never);
@@ -1302,7 +1305,6 @@ export function playerEdgeSnapshot(state: SaveState): { pair: string; warmth: nu
 // on them); broken ones cost trust hardest, and warmth too when the promise was large.
 
 import type { Promise as PromiseRec } from "./types";
-import { clipText } from "./text";
 import { clamp } from "./num";
 
 /** How many promises `from` has already KEPT vs BROKEN toward `to` — the track record that bends
@@ -1384,7 +1386,7 @@ const PLACE_STOP = new Set(["the", "a", "an", "of", "in", "on", "at", "and", "ho
  *  promise is not the kind that arrival could settle. */
 export function promisedPlace(state: SaveState, text: string): string | null {
   if (!ESCORT.test(text)) return null;
-  const words = new Set((text.toLowerCase().match(/[a-z]{5,}/g) ?? []));
+  const words = new Set(letterRuns(text, 5));
   // BEST match, not first. Place names carry people's names in them, and "Lucia will walk Rabi into
   // the cookshop" hit "The house of Lucia Aelia Severa" on the word `lucia` before it ever reached
   // "A cookshop in the Subura" — the wrong building, on the name of the woman doing the walking.
@@ -1392,7 +1394,7 @@ export function promisedPlace(state: SaveState, text: string): string | null {
   let best: { id: string; score: number } | null = null;
   for (const place of Object.values(state.world.places ?? {})) {
     if (place.id === "loc_offscene") continue;
-    const tokens = (place.name.toLowerCase().match(/[a-z]{5,}/g) ?? []).filter((w) => !PLACE_STOP.has(w));
+    const tokens = letterRuns(place.name, 5).filter((w) => !PLACE_STOP.has(w));
     const score = tokens.filter((t) => words.has(t)).reduce((n, t) => n + t.length, 0);
     if (score > 0 && (!best || score > best.score)) best = { id: place.id, score };
   }
@@ -1459,7 +1461,7 @@ export function creditPromiseEvidence(state: SaveState, action: string, prose: s
     // that was genuinely kept, and a line that reads like an ordinary resolution gives them nothing
     // to object to — the ledger has three buttons precisely because this can be wrong.
     const who = p.from === "char_player" ? "You" : state.characters[p.from]?.name ?? "someone";
-    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${p.text.replace(/\s*[.]\s*$/, "")}. The engine closed it after ${seen.length} turns of it looking done.`);
+    closed.push(`${who} kept ${p.from === "char_player" ? "your" : "their"} word: ${withoutClosingStop(p.text)}. The engine closed it after ${seen.length} turns of it looking done.`);
     console.info(`[promises] closed "${p.text}" as kept — ${seen.length} turns of evidence and the bookkeeper never resolved it`);
   }
   return closed;
@@ -1512,7 +1514,7 @@ export function sweepPromises(state: SaveState, turn: number): string[] {
       const due = absMinutes(p.due_time);
       // absMinutes falls back to Day 1 09:00 on anything it cannot parse, and "unresolved" is a
       // legal due_time in this engine — never break a promise on a timestamp we did not understand.
-      if (/day\s*\d+/i.test(p.due_time) && now > due + PROMISE_DEADLINE_GRACE_MIN) {
+      if (namesDayNumber(p.due_time) && now > due + PROMISE_DEADLINE_GRACE_MIN) {
         const line = resolvePromise(state, p, "broken", turn);
         p.settled_turn = turn;
         if (line) log.push(line);
@@ -1524,7 +1526,7 @@ export function sweepPromises(state: SaveState, turn: number): string[] {
     if (p.weight === 1 && !p.due_time && idle >= PROMISE_STALE_TURNS) {
       p.status = "retired";
       p.settled_turn = turn;
-      log.push(`the small matter of "${p.text.replace(/\s*[.]\s*$/, "")}" has quietly stopped being owed.`);
+      log.push(`the small matter of "${withoutClosingStop(p.text)}" has quietly stopped being owed.`);
     }
   }
 
@@ -1705,7 +1707,7 @@ export function tickBonds(state: SaveState, rng: () => number = Math.random): st
   return log;
 }
 /** A role with case, spaces and hyphens taken out, so spellings of one role compare equal. */
-export function roleKey(r: string): string { return String(r ?? "").toLowerCase().replace(/[^a-z]/g, ""); }
+export function roleKey(r: string): string { return lettersOnly(String(r ?? "")); }
 
 function clampWarmth(w: number): number { return Math.max(-100, Math.min(100, w)); }
 
@@ -1737,16 +1739,14 @@ const COLD_MEAN = -10;
  * Says it once, when it crosses, rather than every turn: this is a thing to notice, not a nag. The
  * numbers come with it because the whole problem was that they were invisible.
  */
-/** What the player just did to people, from their own typing: the cast going cold after it is the
- *  story answering it, not a fault to report. */
-export const PLAYER_VIOLENCE = /\b(?:kill(?:s|ed|ing)?|murder\w*|burn(?:s|ed|t)? (?:her|him|them|\w+) alive|set \w+ on fire|stab\w*|behead\w*|decapitat\w*|flay\w*|slit (?:his|her|their) throat|shoot|shot|strangl\w*|smash\w* (?:his|her|their) (?:head|skull|face)|cut (?:his|her|their|off \w+) (?:head|throat)|spear (?:\w+ ){1,2}(?:through|in)|tortur\w*|execut\w*|separate (?:the |his |her |their )?(?:flesh|head)|severed?)\b/i;
-
 export function castGoneCold(state: SaveState): string | null {
   if (!WARM_GENRE.test(state.world_bible?.tone ?? "")) return null;
   // Kingdom of Veythar, turn 22: the player had burned one woman alive, flayed another and taken a
   // man's head off, and the engine told him everyone had gone cold on him, as if it were a fault,
-  // and that he could change it in the Cast panel.
-  if ((state.history ?? []).slice(-8).some((h) => PLAYER_VIOLENCE.test(String(h.player_action ?? "")))) return null;
+  // and that he could change it in the Cast panel. The cast going cold after the player has hurt
+  // people is the story answering it. Whether a turn hurt anyone is in that turn's read (harms); a
+  // list of violent verbs stood in for it here, and "skin" was never on it.
+  if ((state.history ?? []).slice(-8).some((h) => readOfTurn(h).harms.length > 0)) return null;
   const all = (state.world.edges ?? []).filter((e) => {
     const c = state.characters[e.from];
     return e.to === "char_player" && c && c.status !== "dead" && c.status !== "departed";

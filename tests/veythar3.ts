@@ -124,8 +124,9 @@ const fresh = (): SaveState => {
   (e as any).fear = AFRAID + 20; (e as any).fear_why = ["saw the king summon a sword from empty air"];
   const fb = fearBlock(s, ROOK);
   check("going for him or the door, all at once, is what a fighter does", /go for him or for the door, all at once/.test(fb), fb);
-  check("nobody afraid for their life trades remarks with the one they fear", /Nobody afraid for their life trades remarks with the one they're afraid of, makes a point at him, or needles him/.test(fb));
-  check("a hard man's fear shows as stillness", /a hard man's fear shows as stillness and care with every word/.test(fb));
+  check("nobody afraid for their life trades barbs with the one they fear", /Nobody afraid for their life trades barbs with/.test(fb));
+  check("a hard person's fear shows as stillness", /a hard person's fear shows as stillness and care with every word/.test(fb));
+  check("and what they want still drives them, carefully", /What they want still drives them, and fear changes how they go after it/.test(fb));
   check("the block passes the prompt lint", lint(fb).length === 0, lint(fb));
 }
 

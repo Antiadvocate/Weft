@@ -125,7 +125,8 @@ const sug = nukeSuggestions(world(), "Beacon Works, Beacon");
 check("suggestions never repeat the terms or name the cast", !sug.some((w) => /beacon|ellie|andre|rabi/i.test(w)), sug);
 
 const turn = readFileSync("src/engine/turn.ts", "utf8");
-check("the turn guards against it", /guardNuked\(state, prose, action\)/.test(turn) && /noteFire\(state, "nuked"/.test(turn));
+// whether a sentence brings a wiped storyline back is the bookkeeper's call now (prose_check.wiped)
+check("the turn cuts what the bookkeeper flags", /cutSentences\(prose, check\.wiped\)/.test(turn) && /noteFire\(state, "nuked"/.test(turn));
 const api = readFileSync("src/lib/api.ts", "utf8");
 check("the wipe keeps a recovery row and cleans the rollback points", /nuke: async[\s\S]{0,400}putSideRow\(id, "recovery", s\)[\s\S]{0,300}mapSnapshots\(s,/.test(api));
 

@@ -19,9 +19,13 @@
  *
  * It stays off when the player asked for their words to be written: on the story channel, and on
  * any turn whose action reports speech without quoting it ("I tell her I'm leaving"), because
- * there the narrator writing the line out is doing what it was asked.
+ * there the narrator writing the line out is doing what it was asked. Which turns those are is the
+ * turn read's to say (`reported_speech`, actionread.ts); it was a list of speech verbs after "I",
+ * which every "I let her know" and "I point out" walked past.
  */
 import type { ActionMode } from "./types";
+import type { ActionRead } from "./actionread";
+import { collapseSpaces, isDigit, isLetter, isSpace, paragraphs, quotedLines, words as wordsOf } from "./text";
 
 export interface VoicedLine { line: string; sentence: string }
 
@@ -31,22 +35,39 @@ const SPEECH_VERB = String.raw`(?:say|tell|mutter|add|answer|reply|call|snap|ask
 const AFTER = new RegExp(String.raw`^\s*,?\s+you\s+${SPEECH_VERB}\b(?!\s+(?:nothing|anything|no\b|so\b))`);
 /** `You tell her, "…"` — the attribution in front of the quote, with up to three words between. */
 const BEFORE = new RegExp(String.raw`\byou\s+${SPEECH_VERB}(?:\s+[\w']+){0,3}\s*[,:]?\s*$`, "i");
-/** The action reports speech without quoting it, so a written-out line is what was asked for. */
-const REPORTED = /\b(?:I|we)\s+(?:\w+\s+)?(?:tell|say|ask|explain|answer|reply|admit|mention|shout|yell|whisper|call\s+out|apologi[sz]e|thank|promise|lie|joke|confess|announce|insist)\b/i;
 const STOP = new Set("the and but for you your are was were with that this have has had not just what when then there they them she her him his its it's i'm don't can't won't i'll we're you're".split(" "));
 
-function words(s: string): string[] {
-  return s.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+function contentWords(s: string): string[] {
+  return wordsOf(s.toLowerCase()).filter((w) => w.length >= 3 && !STOP.has(w));
 }
 
-/** Most of this line's words came from what the player typed. */
-function typed(line: string, action: string): boolean {
-  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-  if (norm(line) && norm(action).includes(norm(line))) return true;
-  const w = words(line);
+/** Letters and digits only, lowercased, one space between: what two lines are compared on. */
+function plain(x: string): string {
+  let out = "";
+  for (const ch of x.toLowerCase()) out += isLetter(ch) || isDigit(ch) ? ch : " ";
+  return collapseSpaces(out);
+}
+
+/** Most of this line's words came from what the player said aloud (`source`). */
+function typed(line: string, source: string): boolean {
+  if (plain(line) && plain(source).includes(plain(line))) return true;
+  const w = contentWords(line);
   if (!w.length) return false;
-  const have = new Set(words(action));
+  const have = new Set(contentWords(source));
   return w.filter((x) => have.has(x)).length / w.length >= 0.6;
+}
+
+/** Runs of two or more spaces or tabs closed up to one space; newlines are left where they are. */
+function closeGaps(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== " " && text[i] !== "\t") { out += text[i]; continue; }
+    let j = i;
+    while (j < text.length && (text[j] === " " || text[j] === "\t")) j++;
+    out += j - i >= 2 ? " " : text[i];
+    i = j - 1;
+  }
+  return out;
 }
 
 /** Quoted spans in a paragraph, as [open, close] indices, pairing marks in order. */
@@ -83,17 +104,34 @@ function sentenceEnd(para: string, i: number, spans: [number, number][]): number
   return para.length;
 }
 
+/** What follows a closing quote starts a new sentence: nothing but space, or space and then a
+ *  capital, with an opening quote allowed in front of it. */
+function opensSentence(rest: string): boolean {
+  let i = 0;
+  while (i < rest.length && isSpace(rest[i])) i++;
+  if (i === rest.length) return true;
+  if (i === 0) return false;
+  if (rest[i] === '"' || rest[i] === "“") i++;
+  const ch = rest[i] ?? "";
+  return ch >= "A" && ch <= "Z";
+}
+
 /**
  * Cut every line of dialogue attributed to the player that the player didn't type. Returns the
  * prose unchanged when there is nothing to cut, on the story and think channels, and when the
  * action reported speech without quoting it.
+ *
+ * A narrated line is the player's own when it matches what they said aloud this turn (`read.said`).
+ * When the read has no lines in it, the lines are the ones the player typed in quotation marks, or
+ * the whole of it on the say channel, so a turn whose read failed never has the player's own words
+ * cut out of it.
  */
-export function scrubPlayerVoice(prose: string, action: string, mode: ActionMode): { prose: string; cut: VoicedLine[] } {
+export function scrubPlayerVoice(prose: string, action: string, mode: ActionMode, read: ActionRead): { prose: string; cut: VoicedLine[] } {
   const cut: VoicedLine[] = [];
   if (!prose || mode === "story" || mode === "think") return { prose, cut };
-  const outside = String(action ?? "").replace(/["“][^"”]*["”]/g, " ");
-  if (REPORTED.test(outside)) return { prose, cut };
-  const paras = prose.split(/\n\n+/);
+  if (read.reported_speech) return { prose, cut };
+  const source = (read.said.length ? read.said : mode === "say" ? [String(action ?? "")] : quotedLines(action)).join("\n");
+  const paras = paragraphs(prose);
   const rebuilt = paras.map((para) => {
     const spans = quotes(para);
     const drop: [number, number][] = [];
@@ -102,11 +140,11 @@ export function scrubPlayerVoice(prose: string, action: string, mode: ActionMode
       const after = para.slice(b + 1, b + 80);
       const before = para.slice(Math.max(0, a - 60), a);
       const attributed = AFTER.test(after) || BEFORE.test(before);
-      if (!attributed || typed(line, action)) continue;
+      if (!attributed || typed(line, source)) continue;
       const from = sentenceStart(para, a, spans);
       // `You tell her, "I'm done." She blinks.` — the line closed its own sentence, so the cut stops
       // at the quote mark and "She blinks." stays.
-      const closed = BEFORE.test(before) && /[.!?…]$/.test(line) && /^(?:\s+["“]?[A-Z]|\s*$)/.test(para.slice(b + 1));
+      const closed = BEFORE.test(before) && ".!?…".includes(line.slice(-1) || " ") && opensSentence(para.slice(b + 1));
       const to = closed ? b + 1 : sentenceEnd(para, b + 1, spans);
       drop.push([from, to]);
       cut.push({ line: line.slice(0, 160), sentence: para.slice(from, to).trim().slice(0, 240) });
@@ -118,9 +156,9 @@ export function scrubPlayerVoice(prose: string, action: string, mode: ActionMode
       out += para.slice(at, f);
       at = t;
     }
-    out = (out + para.slice(at)).replace(/[ \t]{2,}/g, " ").replace(/^\s+|\s+$/g, "");
+    out = closeGaps(out + para.slice(at)).trim();
     // A cut that strands a quote mark is worse than the line it removed; keep the paragraph whole.
-    if ((out.match(/["“”]/g) ?? []).length % 2 === 1) return para;
+    if ([...out].filter((ch) => ch === '"' || ch === "“" || ch === "”").length % 2 === 1) return para;
     return out;
   });
   if (!cut.length) return { prose, cut };

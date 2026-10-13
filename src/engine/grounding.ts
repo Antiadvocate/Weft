@@ -14,33 +14,27 @@
  * not his, the search went looking for Rabi and May. In the player's words: it searches for the
  * people themselves rather than the question I'm asking it to search for.
  *
- * The question is in the turn. So the query is built from what the player wrote: the sentences they
- * asked as questions, if there are any, and otherwise the opening of what they wrote, leaving out
- * their own stage directions ("I take the elevator"). Then the real name of where they are and the
- * setting, so a question about "the ESE role" is a question about Seattle City Light and not about
- * every utility on earth. Canon is not in it: canon is what
- * the story already knows, and searching for it finds nothing the story needs.
+ * The question is in the turn. It was dug out of what the player typed by pattern (the sentences
+ * ending in a question mark, else whatever wasn't their own "I ..." stage direction), and that kept
+ * missing: a question put as a statement, a stage direction that didn't start with "I". Now the
+ * turn's read (engine/actionread.ts, `search_topic`) says what about the real world this turn would
+ * need looked up, and when it says nothing there is nothing to search for. Then the real name of
+ * where they are and the setting, so a question about "the ESE role" is a question about Seattle
+ * City Light and not about every utility on earth. Canon is not in it: canon is what the story
+ * already knows, and searching for it finds nothing the story needs.
  */
 import type { SaveState } from "./types";
+import { turnRead } from "./actionread";
+import { collapseSpaces } from "./text";
 
 const TOPIC_CHARS = 180;
 const QUERY_CHARS = 260;
 
-/** The question this turn is asking, as a web search. Empty when the turn has nothing to search for. */
-export function turnSearchQuery(state: SaveState, action: string): string {
-  const text = String(action ?? "")
-    .replace(/\[\[[^\]]*\]\]/g, " ")          // director lines are for the engine
-    .replace(/\(\([^)]*\)\)/g, " ")           // an explicit target is handled by the caller
-    .replace(/[*_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return "";
-  const sentences = text.match(/[^.!?]+[.!?]*/g)?.map((s) => s.trim()).filter(Boolean) ?? [text];
-  const asked = sentences.filter((s) => /\?\s*["”']?$/.test(s) && s.split(/\s+/).length >= 3);
-  // No question asked: what they wrote, minus their own stage directions ("I forward her questions
-  // to HR.", "I take the elevator"), which say what the player does and nothing worth looking up.
-  const told = sentences.filter((s) => !/^["“]?I\s/.test(s));
-  let topic = (asked.length ? asked.join(" ") : told.length ? told.join(" ") : text).replace(/^["“]|["”]$/g, "");
+/** The question this turn is asking, as a web search. Empty when the turn has nothing to search for.
+ *  The typed line isn't read here; the turn's read is, and `action` stays only for the call site. */
+export function turnSearchQuery(state: SaveState, _action?: string): string {
+  let topic = collapseSpaces(turnRead(state).search_topic);
+  if (!topic) return "";
   if (topic.length > TOPIC_CHARS) {
     const cut = topic.slice(0, TOPIC_CHARS);
     topic = cut.slice(0, Math.max(cut.lastIndexOf(" "), TOPIC_CHARS * 0.6)).trim();

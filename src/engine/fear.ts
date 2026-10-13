@@ -270,7 +270,14 @@ export function fearBlock(state: SaveState, id: string): string {
   const doneToThem = e?.fear_turn === state.world?.current_turn && (e?.fear_why?.[0] ?? "").startsWith("was the one ")
     ? ` What was just done to ${name} does to their body what it would do to anyone's: if it would kill a person, it kills them, and if they live through it, they are in agony and terror, and nothing calm or composed comes out of them.`
     : "";
-  return `AFRAID OF ${P.toUpperCase()} FOR THEIR LIFE (fear ${f})${why ? `: ${why}` : ""}.${doneToThem} Being near ${P} comes before everything else on this card for ${name} now. A person afraid for their life doesn't go after anything of their own in front of the one they're afraid of, so their wants, appetites, teasing and pride wait until they're safe. What they do instead comes from who they are: most go quiet, agree, keep their eyes down, do what they're told and watch for the first chance to get away; some plead or bargain; some freeze; a few with a fighter's nature or nothing left to lose go for ${him} or for the door, all at once, knowing what it may cost. Nobody afraid for their life trades remarks with the one they're afraid of, makes a point at ${him}, or needles ${him}: they speak when they have to, or to beg, and briefly, and a hard man's fear shows as stillness and care with every word. Their usual way of handling stress belongs to an ordinary bad day, so here it shows only in how they get through this one.`;
+  // FEAR CHANGES THE METHOD, NEVER THE WANT. This used to say a frightened person's wants "wait until
+  // they're safe", and a person living under a king who has killed in front of them is never safe,
+  // so they waited forever. Kingdom of Veythar, turn 35: a woman whose whole reason for being near
+  // the king was to get his power through the one weakness she knew he had, fear 88, printed as
+  // "waiting until they're safe", spending scene after scene saying nothing and asking for nothing.
+  // People under a dangerous man still want things, and most of what gets done in a court is done
+  // by people who are afraid of the one on the throne: they just go at it carefully.
+  return `AFRAID OF ${P.toUpperCase()} FOR THEIR LIFE (fear ${f})${why ? `: ${why}` : ""}.${doneToThem} Being near ${P} is dangerous for ${name} now, and that shapes everything they do, though it doesn't stop them wanting. What they want still drives them, and fear changes how they go after it: carefully, at the safest moment, in the way least likely to set ${him} off, by making themselves useful or pleasing to ${him}, asking for small things before large ones, offering something in return, putting it as ${him} doing ${him}self a favour, working through someone else, or using whatever hold they have over ${him} while taking care that ${him} never feels it as a threat. Who they are decides which: some go quiet and obedient and watch for their chance, some plead or bargain, some freeze, and a few with a fighter's nature or nothing left to lose go for ${him} or for the door, all at once, knowing what it may cost. Nobody afraid for their life trades barbs with ${P}, lectures ${him}, or argues for the sake of it, and a hard person's fear shows as stillness and care with every word. Their usual way of handling stress belongs to an ordinary bad day, so here it shows only in how they get through this one.`;
 }
 
 /** For the passes that want a single line: the intent pass, the compact rosters. */
@@ -280,6 +287,6 @@ export function fearLine(state: SaveState, id: string): string {
   const e = (state.world.edges ?? []).find((x) => x.from === id && x.to === "char_player") as FearEdge | undefined;
   const why = (e?.fear_why ?? [])[0];
   return f >= AFRAID
-    ? `Afraid of the player for their life (fear ${f})${why ? `, because they ${why}` : ""}. Their own wants wait until they're safe; what they do now is get through being near the player, in their own way.`
+    ? `Afraid of the player for their life (fear ${f})${why ? `, because they ${why}` : ""}. They still go after what they want, carefully, in whatever way is least likely to set the player off: being useful or pleasing, asking small before large, bargaining, going through someone else, or using a hold they have without letting it feel like a threat.`
     : `Wary of the player (fear ${f})${why ? `, because they ${why}` : ""}.`;
 }

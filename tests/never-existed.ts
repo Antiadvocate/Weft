@@ -24,6 +24,7 @@
  * it, do not build lore to justify it. Drop it, and continue as though it was never said" — and
  * `retcons` implements it for text struck by hand in the UI. Said in play it reached nothing. */
 import { deniedEntities, strikeEntity } from "../src/engine/integrity";
+import { EMPTY_READ } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -33,39 +34,47 @@ function check(name: string, c: boolean, extra?: unknown) {
 }
 const KNOWN = ["Joe", "Amber", "The Living Room", "The Elevator Lobby", "Sara"];
 
-/* ── 1. the shapes a player actually types ───────────────────────────────────── */
+/* ── 1. the shapes a player actually types ─────────────────────────────────────
+ *
+ * What the player says doesn't exist is the turn read's call (actionread.ts: denies_exist). Each line
+ * goes in with the names a careful reader gives for it, and what's checked is what the engine does
+ * with them: strike an invention, never a name the world holds. */
+const denies = (...names: string[]) => ({ ...EMPTY_READ, denies_exist: names });
 {
-  const yes: [string, string][] = [
-    ["I told Amber that Mrs. Gable does not exist and we never went to any lobby", "Mrs. Gable"],
-    ["Marcus doesn't exist", "Marcus"],
-    ["There is no Mrs. Gable", "Mrs. Gable"],
-    ["Denise isn't real", "Denise"],
-    ["We never met Marcus", "Marcus"],
-    ["You made up Mrs. Gable", "Mrs. Gable"],
-    ["you invented Denise", "Denise"],
+  const yes: [string, string[], string][] = [
+    ["I told Amber that Mrs. Gable does not exist and we never went to any lobby", ["Mrs. Gable", "the lobby"], "Mrs. Gable"],
+    ["Marcus doesn't exist", ["Marcus"], "Marcus"],
+    ["There is no Mrs. Gable", ["Mrs. Gable"], "Mrs. Gable"],
+    ["Denise isn't real", ["Denise"], "Denise"],
+    ["We never met Marcus", ["Marcus"], "Marcus"],
+    ["You made up Mrs. Gable", ["Mrs. Gable."], "Mrs. Gable"],
+    ["you invented Denise", ["Denise"], "Denise"],
   ];
-  for (const [line, want] of yes) {
-    const got = deniedEntities(line, KNOWN);
+  for (const [line, read, want] of yes) {
+    const got = deniedEntities(denies(...read), KNOWN);
     check(`caught: ${line.slice(0, 46)}…`, got.includes(want), got);
   }
+  check("a common noun is never struck, because a strike deletes every record that mentions it",
+    !deniedEntities(denies("Mrs. Gable", "the lobby"), KNOWN).includes("the lobby"));
 }
 
 /* ── 2. and the far more important half: what it must NOT strike ─────────────── */
 {
-  const no = [
-    "Amber does not exist to them, that's the whole problem",   // a real character, said in a scene
-    "There is no Sara here right now",                          // a real person, merely absent
-    "The Elevator Lobby doesn't exist on the floor plan",       // a real place from the bible
-    "I don't exist to my family any more",                      // the player about himself
-    "There is no way I'm doing that",                           // not a name at all
-    "That doesn't exist",                                       // no name
-    "We never went to bed angry",                               // not a name
-    "You made up your mind already",                            // not a name
+  const no: [string, string[]][] = [
+    ["Amber does not exist to them, that's the whole problem", ["Amber"]],                       // a real character, said in a scene
+    ["There is no Sara here right now", ["Sara"]],                                               // a real person, merely absent
+    ["The Elevator Lobby doesn't exist on the floor plan", ["The Elevator Lobby"]],              // a real place from the bible
+    ["The Elevator Lobby doesn't exist on the floor plan", ["Elevator"]],                        // ...or one word of it
+    ["I don't exist to my family any more", []],                                                 // the player about himself
+    ["There is no way I'm doing that", []],                                                      // not a name at all
+    ["We never went to bed angry", ["bed"]],                                                     // not a name, however it's read
   ];
-  for (const line of no) {
-    const got = deniedEntities(line, KNOWN);
+  for (const [line, read] of no) {
+    const got = deniedEntities(denies(...read), KNOWN);
     check(`left alone: ${line.slice(0, 44)}…`, got.length === 0, got);
   }
+  check("an empty read strikes nothing", deniedEntities(EMPTY_READ, KNOWN).length === 0);
+  check("and a bare string is no read", deniedEntities("Marcus doesn't exist" as never, KNOWN).length === 0);
 }
 
 /* ── 3. striking it takes it out of the ledger, not just out of the prose ─────── */

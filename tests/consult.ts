@@ -13,10 +13,12 @@
  * The elision is manufactured by rules that are each correct on their own — the setting's facts are
  * fixed, the camera reports what a person could point at, paragraphs end on something in the room —
  * so it takes a rule that says the thing none of them says. Two halves are tested here: that the
- * question is recognised from the PLAYER'S own typed words (where no other rule is competing to
- * phrase it differently), and that a question put to a person is still just dialogue.
+ * question, as the turn's read gives it (engine/actionread.ts, `consults`), reaches the narrator as
+ * a reading to put on the page, and that a question put to a person is still just dialogue. Each
+ * specimen below is handed the read a careful reader gives it; the typed words stay as its name.
  */
 import { consultTarget, consultDirective } from "../src/engine/consult";
+import { setRead } from "../src/engine/actionread";
 import { newSave, registerCharacter } from "../src/engine/state";
 import { NARRATOR_SYSTEM, NARRATOR_SYSTEM_LEAN } from "../src/engine/prompts";
 import type { SaveState } from "../src/engine/types";
@@ -47,7 +49,9 @@ function world(): SaveState {
 {
   const s = world();
   const t2 = "I watch the reply from the ai. What does it say?";
+  setRead(s, t2, { consults: { source: "the AI on his phone", question: "what its reply says" } });
   check("the question is seen", !!consultTarget(s, t2), consultTarget(s, t2));
+  check("...and named for the narrator", /the AI on his phone: what its reply says/.test(consultDirective(s, t2)), consultDirective(s, t2).slice(0, 200));
 
   const d = consultDirective(s, t2);
   check("the words are named as the substance of the turn", /main thing in this turn/.test(d));
@@ -64,38 +68,46 @@ function world(): SaveState {
 /* ── 2. the shapes a player actually types ───────────────────────────────────── */
 {
   const s = world();
-  const fires = [
-    "What does the ai say",
-    "What does it say?",
-    "I read the letter",
-    "I unroll the scroll and see what is written on it",
-    "I check my phone again",
-    "I ask the phone how to say bread in Latin",
-    "I look at the map he gave me",
-    "What's on the screen?",
-    `"Hi. I must be in Rome" I take out my phone and ask the local llm what it knows about this place`,
+  const fires: [string, string, string][] = [
+    ["What does the ai say", "the AI", "what it says"],
+    ["What does it say?", "the AI's reply", "what it says"],
+    ["I read the letter", "the letter", ""],
+    ["I unroll the scroll and see what is written on it", "the scroll", "what is written on it"],
+    ["I check my phone again", "his phone", ""],
+    ["I ask the phone how to say bread in Latin", "the phone", "how to say bread in Latin"],
+    ["I look at the map he gave me", "the map Titus gave him", ""],
+    ["What's on the screen?", "the screen", "what's on it"],
+    [`"Hi. I must be in Rome" I take out my phone and ask the local llm what it knows about this place`, "the local LLM on his phone", "what it knows about this place"],
     // turn 1 of the save, verbatim — the turn the debt was first incurred: he switches the thing on
     // and puts the question to it in the speech channel, and the prose answered with a lit screen
-    `"Hi. I must be in Rome" I take my phone out of my pocket and turn on the local LLM "I am in Rome... how do I... I don't know survive. I have no money or anything"`,
+    [`"Hi. I must be in Rome" I take my phone out of my pocket and turn on the local LLM "I am in Rome... how do I... I don't know survive. I have no money or anything"`, "the local LLM on his phone", "how to survive in Rome with no money"],
   ];
-  for (const f of fires) check(`fires: ${f.slice(0, 48)}`, !!consultTarget(s, f), consultTarget(s, f));
+  for (const [f, source, question] of fires) {
+    setRead(s, f, { consults: { source, question } });
+    check(`fires: ${f.slice(0, 48)}`, !!consultTarget(s, f), consultTarget(s, f));
+  }
 }
 
 /* ── 3. and what it leaves alone — a question put to a PERSON is dialogue ────── */
 {
   const s = world();
-  const quiet = [
-    `"What do you say, then?"`,
-    "What does she say to that?",
-    "I ask Livia what her father decided",
-    "I ask her about the letter",
-    "I read her face for a moment",
-    "I tell Titus I can carry wood",
-    "I sit down on the bank and wait",
-    "I look around the market for bread",
+  // Some of these a reader leaves empty; the rest it may name the person as the source, by id or by
+  // name, since a person is something that answers too, and the person is what keeps them quiet.
+  const quiet: [string, string][] = [
+    [`"What do you say, then?"`, "char_t"],
+    ["What does she say to that?", "Livia"],
+    ["I ask Livia what her father decided", "char_l"],
+    ["I ask her about the letter", "Livia Aelia"],
+    ["I read her face for a moment", ""],
+    ["I tell Titus I can carry wood", ""],
+    ["I sit down on the bank and wait", ""],
+    ["I look around the market for bread", ""],
   ];
-  for (const q of quiet) check(`quiet: ${q.slice(0, 48)}`, consultTarget(s, q) === null, consultTarget(s, q));
-  for (const q of quiet) check(`...and emits nothing: ${q.slice(0, 34)}`, consultDirective(s, q) === "");
+  for (const [q, source] of quiet) {
+    setRead(s, q, { consults: { source, question: source ? "what they think" : "" } });
+    check(`quiet: ${q.slice(0, 48)}`, consultTarget(s, q) === null, consultTarget(s, q));
+    check(`...and emits nothing: ${q.slice(0, 34)}`, consultDirective(s, q) === "");
+  }
 }
 
 /* ── 4. THE STANDING LAW, because a directive only fires on the turn it fires ──

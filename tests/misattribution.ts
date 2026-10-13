@@ -16,7 +16,7 @@
 import { newSave, registerCharacter } from "../src/engine/state";
 import { applyDiff, repairStrandedCast, pruneParseArtifacts, replanDrives, syncPresence, travelMinutesBetween, giftDirective, repairBibleLists, splitLines, ARRIVAL_PATIENCE, DEFAULT_TRAVEL_MIN, NEIGHBOUR_TRAVEL_MIN } from "../src/engine/turn";
 import { dispositionCue } from "../src/engine/desire";
-import { EMPTY_READ } from "../src/engine/actionread";
+import { EMPTY_READ, setRead } from "../src/engine/actionread";
 import { isSketch } from "../src/engine/sketch";
 import { updatePublicStanding, publicStandingDirective } from "../src/engine/social";
 import type { SaveState, SimulatorDiff } from "../src/engine/types";
@@ -158,6 +158,8 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   s.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "", contains: [], population: { scale: 4000, who: "townsfolk" } };
   s.world.player_location = "loc_town";
   s.world.present = [];                       // nobody CARDED is present — the old blocker
+  // what the deed was is the turn read's (actionread.ts: public_act, harms[].mass)
+  setRead(s, "I kill everyone in the town", { public_act: "mass_harm", harms: [{ who: ["someone"], what: "kills everyone in the town", kills: true, mass: true }] });
   updatePublicStanding(s, "I kill everyone in the town", "The town simply ceased.");
   check("a massacre with no cast present still moves standing", (s.world.public_standing ?? 0) <= -8, s.world.public_standing);
   check("and it lands in the feared band", /FEARED/.test(publicStandingDirective(s)), publicStandingDirective(s).slice(0, 80));
@@ -168,8 +170,26 @@ const INN_PROSE = "The innkeeper set down the candlestick. She looked at the gol
   s2.world.places["loc_wood"] = { id: "loc_wood", name: "The Old Forest", description_facts: "", contains: [] };
   s2.world.player_location = "loc_wood";
   s2.world.present = [];
+  setRead(s2, "I kill him", { public_act: "harm", harms: [{ who: ["someone"], what: "kills him", kills: true, mass: false }] });
   updatePublicStanding(s2, "I kill him", "He fell among the pines. No one saw.");
   check("a killing nobody could see moves nothing", (s2.world.public_standing ?? 0) === 0, s2.world.public_standing);
+
+  // harm that falls on a crowd fixes the standing even when the read files the deed as plain harm
+  const s3 = newSave("standing3", { name: "V" } as any);
+  registerCharacter(s3, { name: "Rabi", character_id: "char_player" } as any);
+  s3.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "", contains: [], population: { scale: 4000, who: "townsfolk" } };
+  s3.world.player_location = "loc_town";
+  s3.world.present = [];
+  setRead(s3, "I burn the market with everyone in it", { public_act: "harm", harms: [{ who: ["someone"], what: "burns the market with the crowd in it", kills: true, mass: true }] });
+  updatePublicStanding(s3, "I burn the market with everyone in it", "");
+  check("a mass harm saturates whatever the act is filed as", (s3.world.public_standing ?? 0) <= -8, s3.world.public_standing);
+  const s4 = newSave("standing4", { name: "V" } as any);
+  registerCharacter(s4, { name: "Rabi", character_id: "char_player" } as any);
+  s4.world.places["loc_town"] = { id: "loc_town", name: "Thornwood", description_facts: "", contains: [], population: { scale: 4000, who: "townsfolk" } };
+  s4.world.player_location = "loc_town";
+  s4.world.present = [];
+  updatePublicStanding(s4, "I kill everyone in the town", "The town simply ceased.");
+  check("and a turn the read found nothing in moves nothing, whatever its words", (s4.world.public_standing ?? 0) === 0, s4.world.public_standing);
 }
 
 /* 9. an institution is not a person, and `called` is not a speech verb */

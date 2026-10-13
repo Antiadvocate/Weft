@@ -26,13 +26,14 @@
  * back to full, the way being made to go over something again actually works.
  */
 import type { SaveState, EpisodicMemory } from "./types";
-import { clipText } from "./text";
+import { clipText, collapseSpaces } from "./text";
+import { turnRead, type ActionRead } from "./actionread";
 
-/** The player is reaching into the past, usually to say it went differently than somebody claims. */
-const DISPUTE = /\b(?:you (?:said|told me|texted|promised|swore|claimed|didn'?t|did not|weren'?t|were not|never|left|came home|stayed|slept)|you're (?:telling me|saying|lying)|you (?:lied|are lying)|lying|liar|gaslight\w*|that'?s not what happened|that never happened|didn'?t happen|remember (?:when|what|that)|do you remember|last night|yesterday|the day before|the other day|this morning|overnight|all night|the whole night|that night)\b/i;
-
-export function disputesPast(action: string): boolean {
-  return DISPUTE.test(String(action ?? ""));
+/** The player is reaching into the past, usually to say it went differently than somebody claims.
+ *  This was a list of words ("you said", "liar", "last night", "do you remember"), and the list kept
+ *  missing phrasings; the turn's read (engine/actionread.ts, `disputes_past`) now says so. */
+export function disputesPast(read: ActionRead): boolean {
+  return !!read.disputes_past;
 }
 
 /** How far back the record reaches, in turns. A fight about last week is still a fight about something
@@ -41,7 +42,7 @@ const REACH = 120;
 const MAX_ROWS = 40;
 
 function firstName(n: string | undefined): string {
-  return String(n ?? "").trim().split(/\s+/)[0] ?? "";
+  return collapseSpaces(n).split(" ")[0] ?? "";
 }
 
 /**
@@ -50,9 +51,12 @@ function firstName(n: string | undefined): string {
  *
  * `inProse` is how many of the latest turns the narrator already has word for word; the record only
  * covers what is older than that, because the recent turns are already on the page.
+ *
+ * Whether the player is disputing anything is the turn's read; the typed line isn't read here, and
+ * `action` stays only for the call site.
  */
-export function recordRecall(state: SaveState, action: string, presentIds: readonly string[], inProse = 5): string {
-  if (!disputesPast(action)) return "";
+export function recordRecall(state: SaveState, _action: string, presentIds: readonly string[], inProse = 5): string {
+  if (!disputesPast(turnRead(state))) return "";
   const turn = state.world?.current_turn ?? 0;
   const people = presentIds
     .filter((id) => id !== "char_player" && state.characters?.[id])
@@ -65,7 +69,7 @@ export function recordRecall(state: SaveState, action: string, presentIds: reado
   const rows = (state.history ?? [])
     .filter((h) => h && h.turn > 0 && h.turn < cutoff && h.turn >= turn - REACH)
     .map((h) => ({ turn: h.turn, when: String(h.time_label ?? `turn ${h.turn}`), what: String(h.summary ?? "").trim() }))
-    .filter((r) => r.what && !/^the opening\.?$/i.test(r.what) && named(r.what))
+    .filter((r) => r.what && !["the opening", "the opening."].includes(r.what.toLowerCase()) && named(r.what))
     .slice(-MAX_ROWS);
   if (!rows.length) return "";
 

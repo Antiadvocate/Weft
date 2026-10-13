@@ -32,6 +32,7 @@
 import { departureEvidence } from "../src/engine/exit";
 import { travelMinutesBetween, worldScale, NEIGHBOUR_TRAVEL_MIN, DEFAULT_TRAVEL_MIN } from "../src/engine/turn";
 import { screenPrivacyNote } from "../src/engine/scene";
+import { EMPTY_READ } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 import { readFileSync } from "node:fs";
 
@@ -43,7 +44,6 @@ function check(name: string, c: boolean, extra?: unknown) {
 
 const FIX = JSON.parse(readFileSync("tests/fixtures/vanished.json", "utf8")) as SaveState;
 const prose = (t: number): string => String(FIX.history.find((h) => h.turn === t)?.narrator_prose ?? "");
-const acted = (t: number): string => String(FIX.history.find((h) => h.turn === t)?.player_action ?? "");
 const NAME = (id: string): string => FIX.world.places[id]?.name ?? id;
 const LIVING = "loc_mtl12i1fabqns", BEDROOM = "loc_mtl12i1gpjqaj", SHOP = "loc_mtl12i1gj22nm";
 
@@ -51,9 +51,10 @@ const LIVING = "loc_mtl12i1fabqns", BEDROOM = "loc_mtl12i1gpjqaj", SHOP = "loc_m
 {
   check("the sentence that did it is really in the prose",
     /volume unchanged from where Abigail left it/.test(prose(20)), prose(20).slice(0, 80));
+  // turn 20's action, "I walk to my room lie in bed and read a book.", removed nobody
   const ev = departureEvidence({
-    prose: prose(20), action: acted(20), said: "narrator: left",
-    name: "Abigail Mercer", others: [], destination: "elsewhere",
+    prose: prose(20), read: { ...EMPTY_READ, did: "walks to his room, lies in bed and reads a book" }, said: "narrator: left",
+    name: "Abigail Mercer", id: "char_abigail", others: [], destination: "elsewhere",
   });
   check("turn 20 no longer reads as a departure", !ev.ok, ev);
 
@@ -105,25 +106,27 @@ const LIVING = "loc_mtl12i1fabqns", BEDROOM = "loc_mtl12i1gpjqaj", SHOP = "loc_m
 }
 
 /* ── 4. a screen is not the room ─────────────────────────────────────────────── */
+// Whether the player turns to something private on a screen is the turn read's to say
+// (actionread.ts: private_screen). Each action below is handed in with the read a careful reader
+// gives it, and what's checked is what the engine does with that.
 {
   const her = ["Abigail Mercer"];
-  const note = screenPrivacyNote("I pull out my phone and open Hinge, swiping for a bit", her);
+  const screen = { ...EMPTY_READ, private_screen: true };
+  const open = { ...EMPTY_READ, private_screen: false };
+  // "I pull out my phone and open Hinge, swiping for a bit"
+  const note = screenPrivacyNote(screen, her);
   check("the room is told it cannot read his screen", note.length > 0);
   check("...naming who is standing there", /ABIGAIL MERCER CAN'T READ IT/.test(note), note.slice(0, 160));
   check("...and what IS available instead", /the angle they hold it at|light on their face/i.test(note), note);
   check("...and that being wrong about it is the good version", /Guessing wrong is the best option/.test(note), note);
 
-  check("alone with his phone, no rule is needed", screenPrivacyNote("I check my phone", []) === "");
-  check("showing her is showing her",
-    screenPrivacyNote("I show her the message on my phone", her) === "");
-  check("...however he hands it over",
-    screenPrivacyNote("I turn the screen around so she can read it", her) === "");
-  check("putting a phone down is not reading anything",
-    screenPrivacyNote("I put my phone down on the arm of the couch", her) === "");
-  check("and an action with no screen in it is untouched",
-    screenPrivacyNote("I sit on the floor by her feet", her) === "");
-  check("a laptop counts", screenPrivacyNote("I open my laptop and check my email", her).length > 0);
-  check("so does a letter read at an angle", screenPrivacyNote("I read the letter, holding it away from her", her).length > 0);
+  check("alone with his phone, no rule is needed", screenPrivacyNote(screen, []) === "");   // "I check my phone"
+  // "I show her the message on my phone", "I turn the screen around so she can read it",
+  // "I put my phone down on the arm of the couch", "I sit on the floor by her feet": none of them private
+  check("showing her, putting it down, or no screen at all is no private screen", screenPrivacyNote(open, her) === "");
+  check("an empty read is nothing of the kind", screenPrivacyNote(EMPTY_READ, her) === "");
+  // "I open my laptop and check my email", "I read the letter, holding it away from her"
+  check("a laptop or a letter held away counts as well, when the read says so", screenPrivacyNote(screen, ["Abigail Mercer", "Tom"]).includes("ABIGAIL MERCER AND TOM"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

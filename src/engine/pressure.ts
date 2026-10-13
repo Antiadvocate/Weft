@@ -18,7 +18,8 @@ import { absMinutes } from "./time";
  * still earned by the story, just computed instead of asked for.
  */
 import type { DifficultyProfile, Thread, ConsequenceEvent, FactionClock, SaveState } from "./types";
-import { clipText } from "./text";
+import { clipText, words as wordsOf } from "./text";
+import type { ActionRead } from "./actionread";
 
 /* ── A SOURCE THAT NAMES A CORPSE ─────────────────────────────────────────────────────────────
  *
@@ -80,7 +81,9 @@ export interface PressureInput {
   threads: Thread[];
   consequences: ConsequenceEvent[];
   clocks: FactionClock[];
-  action: string;                  // player's typed intent
+  /** The turn read of what the player typed (actionread.ts). Only its resting and waiting are read
+   *  here, for the restful bias below. */
+  read: ActionRead;
   instability?: number;            // 0..1 from the Undertow — chaotic regimes run hotter
   /** The last several turns' pressure sources, oldest first. Stops one thread from naming itself
    *  as the reason for every scene — see fictionHeat. */
@@ -122,7 +125,11 @@ export const TARGETS: Record<DifficultyProfile["friction_density"], number[]> = 
 export const BAND_RANGES: [number, number][] = [[0, 2], [3, 5], [6, 7], [8, 9], [10, 10]];
 export const BAND_NAMES = ["calm", "friction", "obstacle", "danger", "lethal"] as const;
 
-const RESTFUL = /\b(rest|sleep|eat|drink|sit|relax|talk|chat|walk|stroll|read|wash|bathe|cook|tend|mend|browse|listen|watch|wait)\b/i;
+/** A turn the player spends resting or letting things carry on: sleeping, eating, washing or
+ *  resting, or only waiting and watching, as the turn read says (actionread.ts). This was a list of
+ *  twenty verbs over the typed line, which would call "I walk into the bank with a gun" restful for
+ *  the word "walk" in it, and missed every way of settling in that it hadn't been given. */
+const restful = (read: ActionRead | undefined): boolean => !!read && (read.restores.length > 0 || read.passive);
 
 export function bandMean(target: number[]): number {
   return target.reduce((s, p, i) => s + p * ((BAND_RANGES[i][0] + BAND_RANGES[i][1]) / 2), 0);
@@ -288,7 +295,7 @@ export function decidePressure(input: PressureInput): PressureVerdict {
   if (band === 4 && (input.difficulty.lethality === "low" || heat < 8)) band = 3; // C3 + earned-lethal
 
   // restful intent bias (C5): drop up to 2 bands when nothing is due
-  if (RESTFUL.test(input.action) && !due && heat < 5) band = Math.max(0, band - 2);
+  if (restful(input.read) && !due && heat < 5) band = Math.max(0, band - 2);
 
   // PHASE shaping of the band:
   if (input.focusMode === "build" && !due) band = Math.min(band, 1);   // converge: keep it from spiking sideways
@@ -879,7 +886,7 @@ export function selectBeat(inp: BeatInput): Beat {
     // the voice — and the clock is pushed into `standing` before the palette, so it won every
     // ambiguous name. The palette is the one place the player said what this story runs on, and if
     // they type a word that fits both, that is the one they meant.
-    const words = want.split(/[^a-z0-9']+/).filter((w) => w.length >= 3);
+    const words = wordsOf(want).filter((w) => w.length >= 3);
     const byKind = (sd: typeof standing[number]) => sd.mk().kind === want || sd.kind.toLowerCase() === want;
     const byText = (sd: typeof standing[number]) => sd.ref.toLowerCase().includes(want);
     const byWord = (sd: typeof standing[number]) => words.some((w) => sd.ref.toLowerCase().includes(w));

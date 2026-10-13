@@ -27,7 +27,8 @@ import { TIGHTNESS_ANCHOR } from "../engine/physiology";
 import { beautyOf, applyBeautyChange } from "../engine/desire";
 import { stampFor, describeStamp, type SaveStamp } from "../engine/version";
 import { completeSketch, pendingSketches, characterFromBrief, adoptProperNames } from "../engine/sketch";
-import { readAction, type ActionRead } from "../engine/actionread";
+import { readAction, setRead, type ActionRead } from "../engine/actionread";
+import { storyOnly } from "../engine/prosecheck";
 import { completePlaceDescription, pendingPlaces } from "../engine/placedesc";
 import { FORGE_SYSTEM, OPENING_SYSTEM, NEWSEASON_SYSTEM, MEMORY_CONDENSE_SYSTEM, INTERVIEW_SYSTEM, ANALYST_SYSTEM, INSTITUTION_SYSTEM, PERSONA_SYSTEM, buildPortraitPrompt, buildScenePrompt, buildPortraitDiffusion, buildSceneDiffusion, visualSignature, sceneReferencePortraits, portraitBodyPlan, stablePrefix, volatileDigest } from "../engine/prompts";
 import { generateLocalImage, shrinkDataUrl } from "./diffusion";
@@ -194,7 +195,9 @@ export const api = {
       // opening — the first page anyone reads, and the one turn a player cannot retry into
       // existence — was the only prose in the app that never saw it. One save's turn 0 is 865
       // words of a model talking to itself about word counts.
-      turn: 0, kind: "opening", player_action: "", narrator_prose: salvageProse(stripScaffolding(out.text)).prose,
+      // ...and then the small model says where the scene itself starts and ends, which is the part
+      // of the cleanup that is a judgment rather than a tag. See engine/prosecheck.ts storyOnly.
+      turn: 0, kind: "opening", player_action: "", narrator_prose: await storyOnly(salvageProse(stripScaffolding(out.text)).prose, s.model_settings.simulator_model, s.model_settings.fallback_model),
       summary: "The opening.", offscreen: [], time_label: s.world.current_time, weather: s.world.weather,
     };
     s.history = [entry, ...s.history.filter((h) => h.kind !== "opening")];
@@ -810,6 +813,9 @@ export const api = {
     }
     const restored = await doRollback(s, t);
     if (!restored) throw new Error("no snapshot covers that turn");
+    // The replay doesn't read the action again (no narrator, no new calls but the bookkeeper's), so
+    // the read the turn was played with is put back from its history entry. See engine/actionread.ts.
+    if (entry.read) setRead(restored, entry.player_action, entry.read, entry.action_mode ?? "do");
     const gov = governorState(restored);
     await runTurn(restored, entry.player_action, {
       onPhase: (p) => ev?.onPhase?.(p),

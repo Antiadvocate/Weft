@@ -12,10 +12,9 @@ import { onlySeenFromAfar } from "../src/engine/turn";
 import { toldLines, findNarratedBack, narratedBackFix } from "../src/engine/narratedback";
 import { povDrift } from "../src/engine/integrity";
 import { ruminationLine, releasedLine, moodPassedLine, feelingKind } from "../src/engine/emotions";
-import { castGoneCold, PLAYER_VIOLENCE } from "../src/engine/social";
-import { physicalAct } from "../src/engine/reaction";
+import { castGoneCold } from "../src/engine/social";
 import { playerTrip } from "../src/engine/leaving";
-import { EMPTY_READ } from "../src/engine/actionread";
+import { EMPTY_READ, setRead, type ActionRead } from "../src/engine/actionread";
 import { rejectedBy } from "../src/engine/rejection";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
@@ -56,9 +55,16 @@ check("a footer entry for someone not already here needs the narration to name t
 // ── 4. told what you're doing ──
 check("Emily's lines are caught", toldLines(`"And instead, you're down in the grass being eaten by your own cats."`, "").length === 1 && toldLines(`"Instead you stand up and shout for them."`, "").length === 1 && toldLines(`"You looked," she says. "Twice."`, "").length === 1);
 check("ordinary talk isn't", toldLines(`"So you're buying me lunch." "You watched me go." "You're picking the place, remember?" "You're looking at me like I'm the confused one."`, "").length === 0);
-const hit = findNarratedBack(`"Instead you stand up and shout for them."`, [`"And instead, you're down in the grass being eaten by your own cats."`], "I stand");
+// The player's half is the turn read: "I stand" is a read with nothing said, and whether the player
+// says they're being narrated at is its call (says_described_back), not a pattern's.
+const hit = findNarratedBack(`"Instead you stand up and shout for them."`, [`"And instead, you're down in the grass being eaten by your own cats."`], { ...EMPTY_READ, did: "stands" });
 check("it fires when it recurs", !!hit && hit.lines.length === 2);
-check("and at once when the player says so in the scene", !!findNarratedBack("Quiet.", [], `"I'd rather enjoy my time rather than having my actions be narrated I suppose?" I stand up`)?.complained);
+const objected = `I'd rather enjoy my time rather than having my actions be narrated I suppose?`;   // `"…" I stand up`
+check("and at once when the player says so in the scene", !!findNarratedBack("Quiet.", [], { ...EMPTY_READ, said: [objected], did: "stands up", says_described_back: true })?.complained);
+const twice = `"You're sitting down." "You're standing."`;
+check("the player's own line quoted back isn't held against the scene",
+  !!findNarratedBack(twice, [], EMPTY_READ) && findNarratedBack(twice, [], { ...EMPTY_READ, said: ["You're sitting down."] }) === null);
+check("an empty read is no complaint", findNarratedBack("Quiet.", [], EMPTY_READ) === null);
 const fix = narratedBackFix(hit);
 check("the correction names the habit and what to do instead", /DESCRIBING THE PLAYER BACK TO THEM/.test(fix) && /never a report of where the player is sitting/.test(fix) && lint(fix).length === 0, lint(fix));
 check("and the turn feeds it back", /narratedBackFix\(state\.last_narrated_back\)/.test(turn));
@@ -76,18 +82,36 @@ check("'replaying it' is something being done", feelingKind("replaying it") === 
 check("the dead don't get notices about getting used to tension", /if \(!rc \|\| rc\.status === "dead" \|\| rc\.status === "departed"\) continue;/.test(turn));
 check("an engine correction goes to the console, not the player", !/so it was dropped and they'll get one of their own`\);/.test(turn.replace(/console\.info\([^)]*\)/g, "")));
 check("fear of the player isn't 'possessive'", /\(e\.warmth \?\? 0\) >= 15 && !\(e as any\)\.rejected/.test(readFileSync("src/engine/desire.ts", "utf8")));
-const cold = newSave("V", { name: "V", tone: "Action, erotica, love" } as any);
-cold.characters = { char_player: { name: "Aldric" }, a: { name: "A" }, b: { name: "B" } } as any;
-cold.world.edges = [{ from: "a", to: "char_player", warmth: -40, trust: -40 }, { from: "b", to: "char_player", warmth: -30, trust: -30 }] as any;
-check("the cast going cold is reported in a gentle story", !!castGoneCold(cold));
-cold.history = [{ turn: 20, player_action: "I separate the flesh from her body. And watch her die." }] as any;
-check("…but not as a fault right after the player's own violence", castGoneCold(cold) === null);
+// A cold cast in a gentle story, with a turn behind it whose read (kept on its history entry) is
+// whatever the case hands in.
+const coldCast = (action = "", read: Partial<ActionRead> = {}) => {
+  const s = newSave("V", { name: "V", tone: "Action, erotica, love" } as any);
+  s.characters = { char_player: { name: "Aldric" }, a: { name: "A" }, b: { name: "B" } } as any;
+  s.world.edges = [{ from: "a", to: "char_player", warmth: -40, trust: -40 }, { from: "b", to: "char_player", warmth: -30, trust: -30 }] as any;
+  if (action) s.history = [{ turn: 20, player_action: action, read: { ...EMPTY_READ, ...read } }] as any;
+  return s;
+};
+const harm = (what: string, kills = false): Partial<ActionRead> => ({ harms: [{ who: ["a"], what, kills, mass: false }] });
+check("the cast going cold is reported in a gentle story", !!castGoneCold(coldCast()));
+check("…but not as a fault right after the player's own violence",
+  castGoneCold(coldCast("I separate the flesh from her body. And watch her die.", harm("separates the flesh from her body", true))) === null);
 
-// ── 7. what counts as the player's violence (fear.ts reads it; see tests/fear.ts) ──
-for (const a of ["I set isolade on fire with a spell.", "I burn her alive.", "I cut his head off with a sword.", "I separate his head from his body.", "I smash his head on the ground.", "I spear her directly through the face."]) {
-  check(`"${a}" is violence`, PLAYER_VIOLENCE.test(physicalAct(a)));
+// ── 7. what counts as the player's violence ──
+// It's the turn read's call (actionread.ts: harms); fear.ts reads it (see tests/fear.ts), and so does
+// the cold-cast report above. These are the save's lines with the read a careful reader gives them;
+// the verb list that used to decide this never had "skin" on it, nor a typo'd name.
+for (const [a, what] of [
+  ["I set isolade on fire with a spell.", "sets Isolde on fire with a spell"],
+  ["I burn her alive.", "burns her alive"],
+  ["I cut his head off with a sword.", "cuts his head off with a sword"],
+  ["I separate his head from his body.", "separates his head from his body"],
+  ["I smash his head on the ground.", "smashes his head on the ground"],
+  ["I spear her directly through the face.", "spears her through the face"],
+]) {
+  check(`"${a}" is violence`, castGoneCold(coldCast(a, harm(what, true))) === null);
 }
-check("a threat in dialogue isn't", !PLAYER_VIOLENCE.test(physicalAct(`"I'll kill you." I sit down.`)));
+check("a threat in dialogue isn't", !!castGoneCold(coldCast(`"I'll kill you." I sit down.`, { said: ["I'll kill you."], threatens: ["a"] })));
+check("nor is a turn whose read found nothing", !!castGoneCold(coldCast("I burn her alive.")));
 check("no special rule for violent turns: the beat runs as on any turn, and fear is read from what happened", !/violentAct/.test(turn) && /appraiseDanger\(state, \{/.test(turn));
 
 // ── 8. the second run, turn 5: "I haven't found a reason to make you go away", and the player was
@@ -97,10 +121,13 @@ check("no special rule for violent turns: the beat runs as on any turn, and fear
   (r.characters as any).char_e = { character_id: "char_e", name: "Emily Veyne", pronouns: "she/her" };
   r.world.edges.push({ from: "char_e", to: "char_player", warmth: 30, trust: 10, power: 0, attraction: 50 } as any);
   const said = `"No. Girls don't wander into the garden. I am a king. And guarded as one. But you are here. And I am sitting here. And I haven't found a reason to make you go away" I let the fire dissipate`;
-  check("\"haven't found a reason to make you go away\" turns nobody away", rejectedBy(r, said, ["char_e"]).length === 0);
-  check("\"I don't want you to go away\" either", rejectedBy(r, `"I don't want you to go away."`, ["char_e"]).length === 0);
-  check("\"Go away. Don't come back.\" still does", rejectedBy(r, `"Go away. Don't come back."`, ["char_e"]).length === 1);
-  check("\"Leave me alone, Emily\" still does", rejectedBy(r, `"Leave me alone, Emily."`, ["char_e"]).length === 1);
+  // who a line turns away is the turn read's call (actionread.ts); each line gets the read a careful
+  // reader gives it, and the engine does what that read says
+  const turned = (action: string, read: Partial<ActionRead>) => { setRead(r, action, read); return rejectedBy(r, action, ["char_e"]); };
+  check("\"haven't found a reason to make you go away\" turns nobody away", turned(said, {}).length === 0);
+  check("\"I don't want you to go away\" either", turned(`"I don't want you to go away."`, {}).length === 0);
+  check("\"Go away. Don't come back.\" still does", turned(`"Go away. Don't come back."`, { turns_away: ["char_e"] }).length === 1);
+  check("\"Leave me alone, Emily\" still does", turned(`"Leave me alone, Emily."`, { turns_away: ["char_e"] }).length === 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

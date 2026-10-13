@@ -9,12 +9,12 @@
  * rival, "drop it" drops it, and an instruction about the story isn't played as an action. */
 import { returnFromOffscene } from "../src/engine/offstage";
 import { recordCustody } from "../src/engine/exit";
-import { rejectedBy, applyRejection, keepsAway, backfillRejections, sweepPursuit, isPartner, namesPlayer } from "../src/engine/rejection";
+import { rejectedBy, rejectedIn, applyRejection, keepsAway, backfillRejections, sweepPursuit, isPartner, namesPlayer } from "../src/engine/rejection";
 import { seedDrive } from "../src/engine/drives";
 import { siftStory, siftSituations, allowedHere } from "../src/engine/sift";
 import { dropItLine, dropItBeat, recordDropped, droppedNote } from "../src/engine/dropit";
 import { instructionFromRead } from "../src/engine/instruction";
-import { EMPTY_READ } from "../src/engine/actionread";
+import { EMPTY_READ, setRead, type ActionRead } from "../src/engine/actionread";
 import { newSave } from "../src/engine/state";
 import { lint } from "../tools/promptlint";
 import { readFileSync } from "node:fs";
@@ -84,11 +84,16 @@ function world(tone = "Slice of life", forbidden: string[] = ["Sudden relationsh
 {
   const s = world();
   s.world.present = ["char_may", "char_ellie"];
-  check("'leave me alone' turns away whoever in the room wants the player", JSON.stringify(rejectedBy(s, `"Leave me alone." I go upstairs.`, s.world.present)) === JSON.stringify(["char_ellie"]));
-  check("the player's wife isn't turned away by an angry line", !rejectedBy(s, `"Fuck off, May, I'm going for a walk."`, s.world.present).includes("char_may"));
-  check("she is by 'I want a divorce'", rejectedBy(s, `"May, I want a divorce."`, s.world.present).includes("char_may"));
-  check("'call the cops' counts only with a name", rejectedBy(s, "Do I need to call the cops?", s.world.present).length === 0 && rejectedBy(s, "Ellie Navarro has been harassing me. I'm calling the police.", s.world.present).includes("char_ellie"));
-  check("a fire isn't a rejection", rejectedBy(s, `"Get out, the kitchen's on fire!"`, s.world.present).length === 0);
+  // Who a line turns away is the turn read's call (actionread.ts: turns_away, ends_with). Each case
+  // hands the engine the read a careful reader gives the line, and checks what the engine does with it.
+  const turnedAway = (action: string, read: Partial<ActionRead>) => { setRead(s, action, read); return rejectedBy(s, action, s.world.present); };
+  check("'leave me alone' turns away the one it's said to", JSON.stringify(turnedAway(`"Leave me alone." I go upstairs.`, { turns_away: ["char_ellie"] })) === JSON.stringify(["char_ellie"]));
+  check("the player's wife isn't turned away by an angry line", !turnedAway(`"Fuck off, May, I'm going for a walk."`, { turns_away: ["char_may"] }).includes("char_may"));
+  check("she is by 'I want a divorce'", turnedAway(`"May, I want a divorce."`, { ends_with: ["char_may"] }).includes("char_may"));
+  check("'call the cops' with nobody in it turns nobody away", turnedAway("Do I need to call the cops?", {}).length === 0 && turnedAway("Ellie Navarro has been harassing me. I'm calling the police.", { turns_away: ["char_ellie"] }).includes("char_ellie"));
+  check("a fire isn't a rejection", turnedAway(`"Get out, the kitchen's on fire!"`, {}).length === 0);
+  check("an empty read turns nobody away, whatever the words", turnedAway(`"Leave me alone." I go upstairs.`, {}).length === 0);
+  check("a read from an earlier turn is no read for this one", (() => { setRead(s, "Go away.", { turns_away: ["char_ellie"] }); s.world.current_turn++; const r = rejectedBy(s); s.world.current_turn--; return r.length === 0; })());
   check("the wife is recognised from canon alone", isPartner(s, "char_may") && !isPartner(s, "char_ellie"));
 
   const lines = applyRejection(s, ["char_ellie"], 12);
@@ -104,12 +109,15 @@ function world(tone = "Slice of life", forbidden: string[] = ["Sudden relationsh
   s.world.edges.push({ from: "char_player", to: "char_ellie", warmth: 20, trust: 10, power: 0 } as any);
   check("it lifts when the player warms to them", !keepsAway(s, "char_ellie") && !e.rejected);
 
+  // the reads each turn kept on its history entry; the first line turns nobody away
   const old = world();
+  const kept = (read: Partial<ActionRead>) => ({ ...EMPTY_READ, ...read });
   old.history = [
-    { turn: 15, player_action: "Hey so why the fuck are you in my house?", present: ["char_may", "char_ellie"] },
-    { turn: 17, player_action: "Bob, Ellie Navarro has been harassing me.", present: ["char_may", "char_ellie"] },
-    { turn: 21, player_action: "She's harassing me. I need a protection order. Her name is Ellie Navarro.", present: ["char_may", "char_ellie"] },
+    { turn: 15, player_action: "Hey so why the fuck are you in my house?", present: ["char_may", "char_ellie"], read: kept({}) },
+    { turn: 17, player_action: "Bob, Ellie Navarro has been harassing me.", present: ["char_may", "char_ellie"], read: kept({ turns_away: ["char_ellie"] }) },
+    { turn: 21, player_action: "She's harassing me. I need a protection order. Her name is Ellie Navarro.", present: ["char_may", "char_ellie"], read: kept({ turns_away: ["char_ellie"] }) },
   ] as any;
+  check("a past turn's read names who it turned away", JSON.stringify(rejectedIn(old, kept({ turns_away: ["char_ellie", "char_may"], ends_with: [] }))) === JSON.stringify(["char_ellie"]));
   check("a save from before this reads its own history, once", JSON.stringify(backfillRejections(old)) === JSON.stringify(["char_ellie"]) && (old.world.edges.find((x) => x.from === "char_ellie") as any).rejected.count === 2 && backfillRejections(old).length === 0);
   check("desire doesn't grow toward the player for someone turned away", /!\(e as any\)\.rejected && e\.warmth >= 20/.test(readFileSync("src/engine/desire.ts", "utf8")));
   check("the forge and the bookkeeper don't hand it back", /keepsAway\(state, id\) && namesPlayer\(state, goal\)/.test(readFileSync("src/engine/driveforge.ts", "utf8")) && /keepsAway\(state, id\) && namesPlayer\(state, du\.goal\)/.test(readFileSync("src/engine/turn.ts", "utf8")));

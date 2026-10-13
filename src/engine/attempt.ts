@@ -27,6 +27,8 @@ import type { SaveState } from "./types";
 import { bodySeverity, bodyMarks } from "./body";
 import { relevance } from "./memory";
 import { clamp } from "./num";
+import { turnRead, type ActionRead, type AttemptDomain, type BodyUse } from "./actionread";
+import { hasWords } from "./text";
 
 export type AttemptOutcome = "sufficient" | "contested" | "insufficient";
 
@@ -42,47 +44,31 @@ export interface AttemptFrame {
 }
 
 // ── the gate: is this typed action an ATTEMPT with stakes? ──
-// Dangerous verbs carry a higher base difficulty than risky ones; both outrank routine speech
-// and movement, which never frame at all.
-const DANGEROUS = /\b(fight|attack|kill|stab|shoot|lunge|tackle|wrestle|restrain|dodge|leap|climb|scale|dive|jump (?:off|from|across|onto|over)|swim (?:across|through|against)|charge|sprint (?:across|through|into)|break (?:the fall|fall))\b/i;
-const RISKY = /\b(persuade|convince|intimidate|threaten|lie to|deceive|trick|bluff|charm|seduce|negotiate|haggle|interrogate|command|sneak|creep|hide|stalk|steal|pickpocket|pick the lock|lockpick|break (?:in|into|open|down|free)|force (?:open|the|it)|pry|lift|hoist|carry|drag|chase|pursue|track|hunt|catch|grab|seize|snatch|throw|hurl|aim|fire|draw (?:my|the|a)|repair|fix|rig|disarm|bandage|splint|suture|cauterize|navigate|sail|row|ride|gallop|swim|climb|escape|flee|sneak|eavesdrop|spy|follow)\b/i;
-// an action that is mostly spoken words is dialogue, not an attempt
-const SPOKEN = /["“”]/g;
-
-export function isAttempt(action: string): boolean {
-  const t = action.trim();
-  if (t.length < 12) return false;
-  const spoken = (t.match(SPOKEN) ?? []).length;
-  if (spoken >= 2 && t.replace(/["“”][^"“”]*["“”]/g, "").trim().length < 15) return false; // a line of dialogue with stage directions
-  return DANGEROUS.test(t) || RISKY.test(t);
+// This used to be two verb lists, one for dangerous acts and one for risky ones, and a count of
+// quotation marks to tell a line of dialogue from a deed. The lists kept missing phrasings, and a
+// verb on them framed a turn that only mentioned it. The turn's read (engine/actionread.ts) now says
+// whether what the player tries could fail and cost them, and how badly: "dangerous" carries a
+// higher base difficulty than "risky", and "none" (talk, movement, routine) never frames at all.
+export function isAttempt(read: ActionRead): boolean {
+  return read.attempt.stakes !== "none";
 }
 
-
-/** Loose stem match for the injury check: tokenize, drop trailing s/es, count weighted overlap.
- *  Pure relevance() misses disjoint-but-obvious pairs ("climb" vs "grip fails on ledges"), so
- *  impairment CLASSES below do the heavy lifting; this catches the literal overlaps. */
-function stemOverlap(a: string, b: string): number {
-  const toks = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/)
-    .filter((w) => w.length >= 3).map((w) => w.replace(/(es|s)$/, "")));
-  const ta = toks(a), tb = toks(b);
-  let hits = 0;
-  for (const w of tb) if (ta.has(w)) hits++;
-  return ta.size ? hits / ta.size : 0;
-}
-
-/** An injury impairs ACTIVITY CLASSES, not word matches: a gashed palm fails every gripping
- *  action regardless of how the attempt is phrased. Deterministic and honest. */
-const IMPAIRMENT: [RegExp, RegExp][] = [
-  [/grip|grasp|hand|palm|finger|wrist|arm|shoulder/i, /climb|lift|carry|throw|catch|grab|swim|row|sail|fight|swing|repair|fix|pick|suture|bandage|draw|aim|fire|wield|hoist|pry|drag/i],
-  [/leg|knee|ankle|foot|feet|thigh|calf|hip/i, /climb|run|sprint|chase|flee|escape|dodge|leap|jump|sneak|creep|dance|kick|swim|hike/i],
-  [/eye|vision|sight|blurred/i, /aim|track|hunt|spot|search|read|navigate|shoot|fire/i],
-  [/ribs|chest|breath|lung/i, /run|sprint|climb|swim|fight|shout/i],
-  [/head|concussion|dizzy|ringing/i, /persuade|negotiate|track|navigate|repair|read|aim/i],
+/** An injury impairs what the body is USED for, not word matches: a gashed palm fails every gripping
+ *  action regardless of how the attempt is phrased. Which part of the body an attempt calls on comes
+ *  from the turn's read (attempt.uses), because the verb lists that stood on this side of the table,
+ *  and the stem-overlap check beside them, kept missing phrasings. Which part an injury is in is still
+ *  read off the injury's own words until the bookkeeper files it as a field. */
+const IMPAIRMENT: [RegExp, BodyUse][] = [
+  [/grip|grasp|hand|palm|finger|wrist|arm|shoulder/i, "hands"],
+  [/leg|knee|ankle|foot|feet|thigh|calf|hip/i, "legs"],
+  [/eye|vision|sight|blurred/i, "eyes"],
+  [/ribs|chest|breath|lung/i, "breath"],
+  [/head|concussion|dizzy|ringing/i, "head"],
 ];
 
 /** Read the player's BODY as a performance instrument. The relaxation band does most of the
  *  work — this is the kernel's promise that tension degrades action, made mechanical. */
-function readBody(state: SaveState, action: string): { score: number; causes: string[] } {
+function readBody(state: SaveState, read: ActionRead): { score: number; causes: string[] } {
   const cond = state.condition["char_player"];
   const causes: string[] = [];
   if (!cond) return { score: 0.5, causes };
@@ -108,8 +94,7 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
     if (sev === 3) { raw -= 0.75; causes.push(`severely hurt (${bodyMarks(cond, 3).join(", ")})`); }
     for (const inj of cond.injuries ?? []) {
       const text = `${inj.type} ${inj.cause} ${inj.functional_impact}`;
-      const impaired = IMPAIRMENT.some(([body, act]) => body.test(text) && act.test(action))
-        || stemOverlap(text, action) > 0.2;
+      const impaired = IMPAIRMENT.some(([body, use]) => read.attempt.uses.includes(use) && body.test(text));
       if (impaired) {
         raw -= 1; causes.push(`the ${inj.type} (${inj.functional_impact})`);
         break; // one named wound is enough to carry the fiction
@@ -141,33 +126,26 @@ function readBody(state: SaveState, action: string): { score: number; causes: st
  * then handed law saying the attempt fails, and wrote "The first shot goes wide." Four turns of a
  * declared massacre went nowhere, and the player left the club and tried to have his AI removed.
  *
- * The fix is the one this file already applies to injuries eight lines up: IMPAIRMENT matches an
- * injury to an activity CLASS rather than to a word, because "a gashed palm fails every gripping
- * action regardless of how the attempt is phrased". A competence is the same kind of thing. The
- * table below is the bridge — what an action IS on the left, the words a card uses for being able
- * to do it on the right — and a card entry that lands in the same domain as the action is a real
- * match no matter which vocabulary each of them happened to use.
+ * The fix is the one this file already applies to injuries above: IMPAIRMENT matches an injury
+ * to an activity CLASS rather than to a word, because "a gashed palm fails every gripping action
+ * regardless of how the attempt is phrased". A competence is the same kind of thing. What domain
+ * the action IS comes from the turn's read (attempt.domains): the verb lists that used to stand on
+ * the left of this table kept missing phrasings, and "I put one in her" is a shot whatever the list
+ * says. The table keeps the other side, the words a card uses for being able to do it, until the
+ * card carries its domains itself; a card entry in the same domain as the action is a real match
+ * no matter which vocabulary each of them happened to use.
  */
-const DOMAIN: [RegExp, RegExp][] = [
-  [/\b(shoot|shot|shoots|firing|fire[sd]?|gun|guns|gunshot|pistol|revolver|rifle|shotgun|handgun|sidearm|muzzle|trigger|bullet|round|magazine|holster|aim(?:ing|ed)?|snipe)\b/i,
-   /\b(firearm|gun|pistol|revolver|rifle|shotgun|handgun|sidearm|marksman|sharpshoot|sniper|shoot|gunner|weapon|ballistic|range|holster|trained to shoot)/i],
-  [/\b(fight|fights|fighting|fought|punch|strike|struck|hit|grapple|wrestle|tackle|choke|disarm|stab|knife|blade|sword|spear|axe|swing|slash|parry|block|brawl|beat)\b/i,
-   /\b(fight|combat|martial|boxing|wrestl|brawl|knife|blade|sword|spear|swordsman|soldier|marine|veteran|bouncer|violence|hand[- ]to[- ]hand|self[- ]defen[cs]e|street)/i],
-  [/\b(climb|climbing|climbed|scale|scaled|rope|ledge|rappel|hoist|haul)\b/i,
-   /\b(climb|rope|mountaineer|rappel|parkour|acrobat|athletic|rigger|scaffold|steeplejack|sailor|gymnast)/i],
-  [/\b(sneak|creep|crept|slip past|hide|hid|hiding|stalk|tail|shadow|pickpocket|lift|palm|steal|stole|burgle|lockpick|pick the lock|jimmy|hotwire)\b/i,
-   /\b(thief|thiev|burglar|pickpocket|lockpick|stealth|sneak|smuggl|scout|poach|con artist|grifter|street)/i],
-  [/\b(drive|drove|driving|steer|swerve|ride|rode|gallop|sail|sailed|row|rowed|pilot|fly|flew)\b/i,
-   /\b(driv|driver|wheel|racer|rider|horseman|cavalr|sailor|helm|pilot|aviat|courier|getaway|chauffeur)/i],
-  [/\b(bandage|splint|suture|stitch|cauterize|treat|triage|resuscitate|revive|dress the wound|stop the bleeding)\b/i,
-   /\b(medic|doctor|surgeon|nurse|physician|paramedic|healer|herbal|field medic|first aid|apothecar|midwife)/i],
-  [/\b(repair|fix|mend|rig|jury[- ]rig|wire|solder|weld|forge|build|assemble|dismantle|hack|hotwire|disable)\b/i,
-   /\b(engineer|mechanic|smith|technician|electric|machinist|carpenter|builder|program|hacker|tinker|welder|craft)/i],
-  [/\b(persuade|convince|talk (?:him|her|them) (?:into|round)|negotiate|haggle|bargain|bluff|lie to|deceive|con|charm|seduce|flatter|intimidate|threaten|interrogate)\b/i,
-   /\b(negotiat|diplomat|lawyer|merchant|trader|salesman|politic|spy|interrogat|charm|manipulat|persuas|con artist|courtier|priest|command)/i],
-  [/\b(track|tracking|hunt|hunted|follow the|forage|forage|navigate|orient|read the ground)\b/i,
-   /\b(hunt|tracker|ranger|scout|forester|guide|navigat|survival|woodsman|trapper|poach)/i],
-];
+const CARD_DOMAIN: Record<AttemptDomain, RegExp> = {
+  firearms: /\b(firearm|gun|pistol|revolver|rifle|shotgun|handgun|sidearm|marksman|sharpshoot|sniper|shoot|gunner|weapon|ballistic|range|holster|trained to shoot)/i,
+  fighting: /\b(fight|combat|martial|boxing|wrestl|brawl|knife|blade|sword|spear|swordsman|soldier|marine|veteran|bouncer|violence|hand[- ]to[- ]hand|self[- ]defen[cs]e|street)/i,
+  climbing: /\b(climb|rope|mountaineer|rappel|parkour|acrobat|athletic|rigger|scaffold|steeplejack|sailor|gymnast)/i,
+  stealth: /\b(thief|thiev|burglar|pickpocket|lockpick|stealth|sneak|smuggl|scout|poach|con artist|grifter|street)/i,
+  driving: /\b(driv|driver|wheel|racer|rider|horseman|cavalr|sailor|helm|pilot|aviat|courier|getaway|chauffeur)/i,
+  medicine: /\b(medic|doctor|surgeon|nurse|physician|paramedic|healer|herbal|field medic|first aid|apothecar|midwife)/i,
+  craft: /\b(engineer|mechanic|smith|technician|electric|machinist|carpenter|builder|program|hacker|tinker|welder|craft)/i,
+  persuasion: /\b(negotiat|diplomat|lawyer|merchant|trader|salesman|politic|spy|interrogat|charm|manipulat|persuas|con artist|courtier|priest|command)/i,
+  tracking: /\b(hunt|tracker|ranger|scout|forester|guide|navigat|survival|woodsman|trapper|poach)/i,
+};
 
 /** Proficiency as the card states it. A skill entry that says "Expert" is not the same capability
  *  as one that says "Beginner", and the cosine could never tell them apart. */
@@ -181,7 +159,7 @@ function proficiency(fact: string): number {
 /** Read CAPABILITY: the action against everything the character verifiably IS — by domain first,
  *  then by token-relevance. The corpus is bedrock-first (background, core traits, skills), then
  *  what play has added (life history, acquired traits, grooved habits), then what's in their hands. */
-function readCapability(state: SaveState, action: string): { score: number; fact: string | null } {
+function readCapability(state: SaveState, action: string, read: ActionRead): { score: number; fact: string | null } {
   const c = state.characters["char_player"];
   if (!c) return { score: 0.25, fact: null };
   const corpus: string[] = [
@@ -199,12 +177,13 @@ function readCapability(state: SaveState, action: string): { score: number; fact
     // looked at. Automaticity is not skill; what a person can DO is the card.
     ...(state.condition["char_player"]?.inventory ?? []).map((i) => i.name),
   ].filter((s) => s && s.trim().length >= 3);
-  // DOMAIN FIRST. Whichever domains this action belongs to, any card entry that speaks to one of
-  // them is a genuine competence — scored by how the card grades it, not by shared vocabulary.
-  const domains = DOMAIN.filter(([act]) => act.test(action));
+  // DOMAIN FIRST. Whichever domains the read says this action belongs to, any card entry that
+  // speaks to one of them is a genuine competence — scored by how the card grades it, not by
+  // shared vocabulary.
+  const domains = read.attempt.domains;
   let best = 0, fact: string | null = null;
   for (const f of corpus) {
-    if (!domains.some(([, card]) => card.test(f))) continue;
+    if (!domains.some((d) => CARD_DOMAIN[d].test(f))) continue;
     const p = proficiency(f);
     if (p > best) { best = p; fact = f; }
   }
@@ -238,10 +217,28 @@ function indoors(state: SaveState): boolean {
   return INTERIOR.test(`${p.name ?? ""} ${p.identity ?? ""}`);
 }
 
+/** Whom a social attempt is aimed at, among the people here. The read gives its target as an id, or
+ *  in words when it gave a name or a description instead; failing both, it's the person the player
+ *  deals with directly this turn. This used to look for a first name anywhere in the typed line, so
+ *  talking ABOUT somebody graded the attempt on that person's warmth toward the player. */
+function socialTarget(state: SaveState, read: ActionRead): string | null {
+  const present = state.world.present.filter((id) => id !== "char_player" && state.characters[id]);
+  const aim = read.attempt.target.trim();
+  if (aim) {
+    if (present.includes(aim)) return aim;
+    for (const id of present) {
+      const name = String(state.characters[id].name ?? "").trim();
+      const first = name.split(" ")[0] ?? "";
+      if ((name && hasWords(aim, name)) || (first.length >= 3 && hasWords(aim, first))) return id;
+    }
+  }
+  return read.addresses.find((id) => present.includes(id)) ?? null;
+}
+
 /** Read CIRCUMSTANCE: pressure is the difficulty's spine (read separately), so this reading is
  *  weather for physical work and, for social attempts, the target's real disposition — a warm
  *  room helps, a hostile one resists. */
-function readCircumstance(state: SaveState, action: string, physical: boolean): { score: number; causes: string[] } {
+function readCircumstance(state: SaveState, read: ActionRead, physical: boolean): { score: number; causes: string[] } {
   const causes: string[] = [];
   let score = 0.6;
   // WEATHER REACHES WHOEVER IS STANDING IN IT. This used to read the sky for every physical
@@ -251,20 +248,15 @@ function readCircumstance(state: SaveState, action: string, physical: boolean): 
   if (physical && !indoors(state) && /storm|rain|snow|sleet|gale|fog|ice|icy|wind|downpour|blizzard/i.test(state.world.weather ?? "")) {
     score -= 0.2; causes.push(`the ${state.world.weather}`);
   }
-  // social attempts: find the present NPC named in the action and read their edge toward the player
-  if (!physical) {
-    for (const id of state.world.present) {
-      const c = state.characters[id];
-      if (!c || id === "char_player") continue;
-      const first = c.name.split(/\s+/)[0].toLowerCase();
-      if (first.length < 3 || !action.toLowerCase().includes(first)) continue;
-      const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
-      if (e) {
-        const disposition = ((e.warmth ?? 0) + (e.trust ?? 0)) / 2; // −100..100
-        score += clamp(disposition / 250, -0.35, 0.35);
-        causes.push(disposition <= -20 ? `${c.name} is set against them` : disposition >= 20 ? `${c.name} is with them` : `${c.name} is unread`);
-      }
-      break;
+  // social attempts: the present person the attempt is aimed at, and their edge toward the player
+  const id = physical ? null : socialTarget(state, read);
+  const c = id ? state.characters[id] : undefined;
+  if (id && c) {
+    const e = state.world.edges.find((x) => x.from === id && x.to === "char_player");
+    if (e) {
+      const disposition = ((e.warmth ?? 0) + (e.trust ?? 0)) / 2; // −100..100
+      score += clamp(disposition / 250, -0.35, 0.35);
+      causes.push(disposition <= -20 ? `${c.name} is set against them` : disposition >= 20 ? `${c.name} is with them` : `${c.name} is unread`);
     }
   }
   return { score: clamp(score, 0, 1), causes };
@@ -272,17 +264,18 @@ function readCircumstance(state: SaveState, action: string, physical: boolean): 
 
 /** Assemble and resolve the frame. Returns null when the action doesn't merit one. */
 export function frameAttempt(state: SaveState, action: string, pressure: number): AttemptFrame | null {
-  if (!isAttempt(action)) return null;
-  const dangerous = DANGEROUS.test(action);
-  const physical = dangerous || /\b(climb|leap|jump|swim|lift|carry|drag|chase|throw|sneak|dodge|dive|sprint|break|force|pry|catch|grab|ride|row|sail)\b/i.test(action);
+  const read = turnRead(state);
+  if (!isAttempt(read)) return null;
+  const dangerous = read.attempt.stakes === "dangerous";
+  const physical = read.attempt.physical;
 
-  const capability = readCapability(state, action);
+  const capability = readCapability(state, action, read);
   // social attempts get a floor of ordinary human competence: climbing a wall in a gale takes
   // real capability, but talking someone into something is a universal act — nil capability
   // must not cap every conversation at contested.
   if (!physical && capability.score < 0.15) capability.score = 0.3;
-  const body = readBody(state, action);
-  const circumstance = readCircumstance(state, action, physical);
+  const body = readBody(state, read);
+  const circumstance = readCircumstance(state, read, physical);
 
   const total = 0.45 * capability.score + 0.30 * body.score + 0.25 * circumstance.score;
   const difficulty = 0.25 + (clamp(pressure, 0, 10) / 10) * 0.35 + (dangerous ? 0.22 : 0.10);

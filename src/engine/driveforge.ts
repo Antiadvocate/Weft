@@ -15,6 +15,16 @@
 //
 // This is the same shape as the voice refresh, for the same reason: drift toward the centre of the
 // context is fixed by changing the context, not by arguing with it.
+//
+// AND THEN IT OVERCORRECTED. A want that went THROUGH the player became unwriteable too, and so did
+// the long-run aim on the card, which this pass never saw. Kingdom of Veythar, turn 35: a woman
+// whose card says she found out the king's secret and means to use it to get his power, given the
+// want "sleep beside King Aldric without angering him". The player's report: she has control over
+// me and wants my power, and instead of going after it she asks for cookies and narrates. The rule
+// was never "nothing about the player"; it was "nothing that leaves this person waiting on the
+// player". So the player is in the room again, as one of the people in their life, with the long-
+// run aim beside them, and the forge is told the difference: getting something out of someone is
+// a want, and waiting for them to offer it is not.
 
 import { keepsAway, namesPlayer } from "./rejection";
 import { buildMessages, complete, safeJson } from "../llm";
@@ -25,16 +35,19 @@ import { clipText } from "./text";
 
 /** In-world minutes a character may hold one want before it is re-derived. */
 
-const DRIVE_SYSTEM = `You give one person the next thing they want, as part of a life that belongs to them.
+export const DRIVE_SYSTEM = `You give one person the next thing they want, as part of a life that belongs to them.
 
 A want is something this person is trying to get, make, keep, fix, win or escape, that they can work toward with their own hands and on their own authority, starting today. It comes from who they are: the work they do, what they have, who they're close to, what they were before this, and what they're afraid of losing. It should be specific enough that you could tell whether they'd achieved it.
 
 These don't count, and they're the usual mistakes:
 - A decision, like "Decide whether to accept the offer", "work out whether to trust him" or "choose between staying and going". Deciding isn't doing. Someone with a real want has already decided and is now trying to make it happen. If they really are torn, the want is what they'll do to find out, like going to look at the other option, asking the person who would know, or trying out one side to see how it feels.
 - Waiting for an answer, like "Get a clear answer from him", "find out what he intends" or "have her say plainly what she means". Nobody else's word can be your goal. Getting it can be a step, but the goal is what you'll do with the answer either way.
-- Approval, permission or proof from someone else, like "Test whether his offer is sincere", "earn his trust" or "be taken seriously by them". These hand the person's life over to someone else to run.
+- Approval or proof from someone else as the end in itself, like "Test whether his offer is sincere", "earn his trust" or "be taken seriously by them". These hand the person's life over to someone else to run.
 - Vague peace, like "Find peace and quiet", "tend to something neglected" or "keep her head down". These are filler and don't describe anyone in particular. Write what she actually does with her hands this week.
 - Anything built around one particular person's feelings toward them. Bonds are real and belong in the want as a reason or a method, for example she wants the field cleared before the frost because her brother's family eats from it, but they're never the thing being wanted.
+- Waiting on someone, like hoping he'll notice, putting herself where he'll see her, or lying back until he makes a move. Presenting yourself and waiting is the same as having no want.
+
+Getting something out of someone is a want, and often the biggest one a person has. When what they're after can only come from one person, whether it's a position, money, protection, their freedom, a secret, or the power someone holds (and that person may be the story's main character), the want is what they do to get it: ask for it outright, bargain for it, trade something for it, make themselves needed until it's given, flatter, pressure, go around the person, or use a hold they have over them. Write it so that it's theirs to pursue, like "get the king to name her to the household before the feast", "make him sign the mill over by spring" or "use what she knows about him to get a room in the palace". The first step is something they say or do to that person, and the approach is how they go at it given who they are and how afraid of that person they are.
 
 - Holding back, like "Get through the day without calling him", "Avoid Mara until she's calmed down", "Stop herself from saying the thing" or "Keep it together in front of the children". A want you satisfy by not doing something can't be worked toward, and everything else in the engine needs a step to take. Each time the world simulation runs, it's asked for a named person taking a concrete action on a want, and there's no action that consists of not acting. In one save, every offstage report came back as three other people texting her while she did nothing, because her recorded want was to hold back. Restraint is real, but it belongs in the blocker or in how they carry the want, never as the goal. The goal is what they do with their hands: go to the one person who'll still pick up, clear his things out of the flat, walk into her sister's kitchen at midnight, or take the shift nobody wants.
 
@@ -42,6 +55,8 @@ These don't count, and they're the usual mistakes:
   A document is only ever a means to something. If the want really does go through a document, the want is what the document gets them, like the grain in the cellar before the frost, the rival kept off the council, or the sister's boy taken on at the vault. The paperwork is at most the first step and never the goal.
 
 Wants aren't all administrative. Before you write one, think about what else a person spends a week on. It might be their body (getting strong again after the winter sickness, sleeping somewhere warm, eating properly for once), an appetite (going to bed with someone, getting drunk with people who knew them before, hearing the good singer at the market), a grudge (making the man who insulted them answer for it in public), a repair (fixing the roof before it brings down the ceiling, getting the mare's leg right), curiosity (finding out what's really down the north road, learning to read), standing (being invited to the table where decisions get made), or someone else (getting their brother out of the army draft, finding the girl a place). Pick whichever fits this person's traits, background, skills and interests. If two people in the same story have the same kind of want, change one of them.
+
+When they have a long-run aim, the want is the next stretch of it: the concrete thing they can get or do soon that moves them toward it. Make it big enough to matter to that aim, because a schemer whose aim is a kingdom doesn't spend her week on where she sleeps tonight.
 
 Make it the right size for who they are. Someone powerful, independent or used to giving orders doesn't spend their want on whether someone likes them. They take ground, put someone in place, settle a score, break a rival, or build the thing they've been talking about for years. A servant's want is smaller, but it's just as much their own. Read the traits and background you're given and write the want that person would really have. A dominating, confident, independent character whose goal is to wait for instructions makes no sense, so don't write one.
 
@@ -51,71 +66,6 @@ And give them an approach: the way this particular person goes after the want wh
 
 Reply with only:
 {"goal":"one concrete sentence, and it belongs to them","approach":"how they go after it when other people are around","step":"the first thing they do","why":"the trait, grudge, bond or fear this comes from"}`;
-
-/** A goal is invalid if it cannot be pursued without someone else supplying an answer. */
-export function isDependentGoal(goal: string, playerName: string): boolean {
-  const g = (goal || "").toLowerCase();
-  const p = (playerName || "").toLowerCase();
-  const DECIDE = /\b(decide|decision|choose|work out|figure out|determine|weigh|consider) (whether|if|between)\b/;
-  const AWAIT = /\b(get|obtain|receive|await|wait for|hear|learn|find out|discover|confirm) (a |an |the |his |her |their )?(clear |direct |straight |honest |plain )?(answer|response|reply|word|decision|instruction|order|intent|intention)\b/;
-  /* THE DETERMINER GROUP ONLY EVER HELD ONE DETERMINER. This read `(his|her|their|the )?` — the
-   * space sits inside the group but after `the`, so the alternatives are "his", "her", "their" and
-   * "the ", and only the last one carries it. "earn his trust" therefore needed "earn" + "his" +
-   * "trust" with no space between the last two and never matched. Neither did "win her approval",
-   * "gain their permission", or any other form except the one written with "the". */
-  const APPROVE = /\b(earn|win|prove|test|secure|gain|keep) (?:(?:his|her|their|the)\s+)?(trust|approval|favour|favor|sincerity|regard|permission|blessing|respect)\b/;
-  const ABOUT_PLAYER = p.length > 2 && new RegExp(`\\b${p}('s)?\\b`).test(g);
-  const VAGUE = /\b(find peace|peace and quiet|keep (her|his|their) head down|tend to something|something of (her|his|their) own that|stay out of the way|lie low)\b/;
-  if (VAGUE.test(g)) return true;
-  if (DECIDE.test(g) || AWAIT.test(g) || APPROVE.test(g)) return true;
-
-  /* GET SOMEBODY TO DO SOMETHING — the commonest shape of all, and the one this function missed.
-   *
-   * From a save: a woman recorded as wanting to "Get Max Mercer to hand over the rent money to her
-   * bank account and look at her body", blocked on "Max Mercer is ignoring her and staring at his
-   * phone". Twenty-four turns in the scene, ten intents authored for her, and the SURFACE of every
-   * one of them is a variant of reclining:
-   *
-   *     Sprawls back with one heel propped up on the nearest low surface…
-   *     Sprawling back with an indolent stretch that puts her frame on display…
-   *     Leaning back casually with her bare soles pressed against the unpacking crate…
-   *     Sprawled deep into the cushions with her bare heels resting against the coffee table…
-   *     Sprawling back with her bare soles pressed against the coffee table edge…
-   *
-   * and the TRUTH of every one is what MAX does: he stammers, he looks, he loses his train of
-   * thought, he catches his breath, he drops the phone. Not one of the ten has her doing anything.
-   * The player's report was that she makes no moves at all, and he is reading the record correctly.
-   *
-   * The goal is why. A want whose completion is another person's action leaves its owner nothing to
-   * do but present themselves and wait, so the intent pass — which is asked each turn what this
-   * person is doing about their want — can only ever author waiting. The rules above already say
-   * this twice in prose ("No one else's word can be your goal", "These hand the person's life to
-   * someone else to run") and the regexes only caught the narrow answer-and-approval cases.
-   *
-   * The repair is the one the prompt gives: the goal is what SHE does. Get him alone and say it.
-   * Move her things into the room he uses. Put the lease in her name while he is at work. Every one
-   * of those is hers to start on a Tuesday and none of them needs him to cooperate first. */
-  // The `to` has to be an infinitive marker rather than a preposition, or "make her own way TO the
-  // coast" reads as a demand on somebody. A determiner after it means a destination, not a verb.
-  const GET_TO_DO = /\b(get|make|force|convince|persuade|coax|push|pressure|induce|bring|talk|goad|guilt|trick)\s+(?:\w+\s+){0,3}?(?:to|into)\s+(?!the\b|a\b|an\b|his\b|her\b|their\b|its\b|my\b|that\b|this\b)\w+/;
-  if (GET_TO_DO.test(g)) return true;
-  /* ...and the same thing said the other way round: "have him hand it over", "get him looking",
-   * "make him admit it". The verb list is closed on purpose — an open one takes "make her own way
-   * to the coast" with it, and that is her want and nobody else's. */
-  if (/\b(have|get)\s+(?:him|her|them|he|she|they|\w+)\s+\w+ing\b/.test(g)) return true;
-  if (/\b(make|have|get)\s+(?:him|her|them|\w+)\s+(admit|say|tell|give|hand|look|come|stay|leave|stop|agree|confess|choose|pay|answer|notice|want|beg|ask|apologi[sz]e|explain)\b/.test(g)) return true;
-  // Naming the player isn't automatically wrong — "get the field cleared before he leaves" is fine.
-  // Naming them as the thing being decided about or waited on is.
-  // Naming the player is fine when they are a companion or a circumstance — "walk to the monastery
-  // with him and see if it still stands" is her errand, he is just along. It is only invalid when
-  // the player is what is being decided about, offered, or asked. Require the player and the
-  // dependency word to be in the SAME clause, not merely the same sentence.
-  if (ABOUT_PLAYER) {
-    const clause = g.split(/,| and | but | before | after | then /).find((cl) => new RegExp(`\\b${p}('s)?\\b`).test(cl)) ?? g;
-    if (/\b(whether|offer|permission|approval|command|instruction|wants|asks|tells)\b/.test(clause)) return true;
-  }
-  return false;
-}
 
 /**
  * IS THIS WANT AN ABSENCE?
@@ -174,8 +124,9 @@ export function paperworkHolders(state: any, exceptId: string): string[] {
     .map(([, o]) => o.name);
 }
 
-/** Everything the pass is allowed to see. Deliberately excludes the player and the transcript. */
-function brief(state: any, id: string): string {
+/** Everything the pass is allowed to see: the person, their long-run aim, the people in their life
+ *  (the player among them) and the world. Never the transcript, which is where orbiting comes from. */
+export function brief(state: any, id: string): string {
   const c = state.characters[id];
   const acquired = (state.traits?.[id] ?? []).filter((t: any) => (t.intensity ?? 0) >= 5).map((t: any) => t.label);
   const others = Object.entries<any>(state.characters)
@@ -194,12 +145,30 @@ function brief(state: any, id: string): string {
     `CORE TRAITS: ${(c.core_traits ?? []).join(" | ")}`,
     acquired.length ? `WHAT LIFE HAS ADDED: ${acquired.join(" | ")}` : "",
     `VALUES: ${(c.values ?? []).join(", ")}`,
+    c.current_goal ? `WHAT THEY'RE AFTER IN THE LONG RUN: ${clipText(c.current_goal, 300)}` : "",
+    c.drive?.goal ? `THE WANT THEY'VE BEEN ON: ${clipText(c.drive.goal, 200)}${c.drive.blocker ? ` (blocked by: ${clipText(c.drive.blocker, 160)})` : ""}` : "",
     `WHAT THEY DO UNDER THREAT: ${c.attachment?.under_threat ?? "unstated"}`,
     `SETTING: ${b.name ?? ""} — ${b.era ?? ""}. ${b.technology_level ?? ""}`,
     `WHAT PEOPLE HERE FEAR: ${b.what_people_fear ?? ""}`,
     `SEASON AND TIME: ${state.world.current_time}`,
     keepsAway(state, id) ? `\nTHEIR SITUATION WITH ${String(state.characters?.char_player?.name ?? "the player").toUpperCase()}: ${c.held ? "they are being held where they can't reach anyone" : "told to keep away, and keeping away"}, so the want you write is about their own life rather than about ${String(state.characters?.char_player?.name ?? "the player")}.` : "",
     others ? `\nOTHER PEOPLE IN THEIR LIFE:\n${others}` : "",
+    // THE PLAYER, AS ONE OF THEM. With their standing, how this person feels about them and how
+    // afraid of them they are, because a want that goes through someone you're terrified of is
+    // gone after differently, and still gone after.
+    !keepsAway(state, id) ? (() => {
+      const p = state.characters?.char_player;
+      if (!p?.name) return "";
+      const e = (state.world.edges ?? []).find((x: any) => x.from === id && x.to === "char_player");
+      const bits = [
+        e ? `warmth ${Math.round(e.warmth ?? 0)}, trust ${Math.round(e.trust ?? 0)}` : "they barely know each other",
+        typeof e?.fear === "number" && e.fear >= 15 ? `afraid of ${p.name}, ${Math.round(e.fear)} out of 100` : "",
+        e?.roles?.length ? `${p.name} is their ${e.roles.join(", ")}` : "",
+        c.relation_to_player ? clipText(c.relation_to_player, 200) : "",
+        p.station?.place ? `${p.name}'s place in this world: ${p.station.place}` : "",
+      ].filter(Boolean).join("; ");
+      return `\n${p.name.toUpperCase()}, THE STORY'S MAIN CHARACTER, IS ALSO IN THEIR LIFE: ${bits}.`;
+    })() : "",
     // WHAT EVERYONE ELSE IS ALREADY DOING. Each want used to be forged in isolation, so nine
     // independent calls under the same constraints converged on the same locally-optimal shape and
     // the whole cast ended up doing paperwork at each other. The forge cannot avoid a collision it
@@ -257,11 +226,6 @@ export async function forgeDrive(state: any, id: string, model: string): Promise
       if (keepsAway(state, id) && namesPlayer(state, goal)) {
         console.info(`[drives] rejected a want aimed at the player for ${c.name}, who keeps away: "${goal}"`);
         rejection = `\n\nYour last attempt was about ${playerName || "the player"}, who has told this person to keep away${c.held ? ", and they are being held where they can't reach anyone" : ""}, so write a want about their own life, their work, their friends or their home that doesn't involve ${playerName || "the player"} at all.`;
-        continue;
-      }
-      if (isDependentGoal(goal, playerName)) {
-        console.info(`[drives] rejected player-contingent goal for ${c.name}: "${goal}"`);
-        rejection = "\n\nYour last attempt was rejected for being a decision, waiting for someone's answer, or trying to win someone's approval. Write what this person does.";
         continue;
       }
       if (isAbstentionGoal(goal)) {
@@ -328,7 +292,6 @@ export async function refreshDrives(state: any, model: string, limit = 3): Promi
       if (id === "char_player" || c.provisional) return false;
       if (c.status === "dead" || c.status === "departed") return false;
       if (!c.drive?.goal) return true;                                   // furniture — give them a life
-      if (isDependentGoal(c.drive.goal, playerName)) return true;        // orbiting — replace it
       return false;
     })
     .slice(0, limit);

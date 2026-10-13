@@ -26,6 +26,7 @@
  *  anywhere." A narrator is allowed to have someone refuse an order.
  */
 import { departureEvidence, releaseEvidence, maskQuotes, nameProbes } from "../src/engine/exit";
+import { EMPTY_READ, type ActionRead } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, extra?: string) {
@@ -85,31 +86,42 @@ She crossed the room to the counter, bare feet soft on the floor, and pulled the
 
 const T112_ACTION = `"Amber. Are you fucking serious? She sat outside my house harassing me for half the day literally to tell me one thing about Leo. Went to prison for harassment then escaped prison literally she was sentenced to FIVE YEARS IN PRISON. And then came to my house walked INTO the house and then you are going to tell ME I shouldn't have called the cops?? Holy fucking shit Amber. Get the fuck out"`;
 
+/* The player's half of each turn is the turn read (actionread.ts): who they put out, had arrested or
+ * had taken away (`removes`, ids), who they freed (`releases`), and what they visibly did. Each
+ * action goes in with the read a careful reader gives it. Speech moves nobody, so the shouted
+ * evictions read as removing no one. */
+const read = (r: Partial<ActionRead>): ActionRead => ({ ...EMPTY_READ, ...r });
+const READ_104 = read({ removes: ["char_chloe"], did: "the cops arrest Chloe for harassment and she goes to prison for 5 years" });   // T104_ACTION
+const READ_111 = read({ removes: ["char_chloe"], did: "pushes her out of the house, calls the cops and locks the door" });          // T111_ACTION
+const READ_113 = read({ said: ["yes dear god please fuck off."], turns_away: ["char_amber"] });                                      // T113_ACTION
+const READ_112 = read({ said: [T112_ACTION.slice(1, -1)], turns_away: ["char_amber"] });                                            // T112_ACTION
+
 console.log("\n── the five wrong firings ──");
 
-const t104 = departureEvidence({ prose: T104, action: T104_ACTION, name: "Chloe", others: ["Amber Reyes"], destination: "Prison" });
+const t104 = departureEvidence({ prose: T104, read: READ_104, id: "char_chloe", name: "Chloe", others: ["Amber Reyes"], destination: "Prison" });
 check("t104: Chloe cuffed and driven off is allowed to leave the room", t104.ok, JSON.stringify(t104));
 
-const t111 = departureEvidence({ prose: T111, action: T111_ACTION, name: "Chloe", others: ["Amber Reyes"], destination: "elsewhere" });
+const t111 = departureEvidence({ prose: T111, read: READ_111, id: "char_chloe", name: "Chloe", others: ["Amber Reyes"], destination: "elsewhere" });
 check("t111: Chloe shoved out and deadbolted out is allowed to leave the room", t111.ok, JSON.stringify(t111));
 
 console.log("\n── the two RIGHT firings, which must not regress ──");
 
-const t113 = departureEvidence({ prose: T113, action: T113_ACTION, name: "Amber Reyes", others: ["Chloe"], destination: "elsewhere" });
+const t113 = departureEvidence({ prose: T113, read: READ_113, id: "char_amber", name: "Amber Reyes", others: ["Chloe"], destination: "elsewhere" });
 check("t113: Amber refusing to go is still held in the room", !t113.ok, JSON.stringify(t113));
 
-const t112 = departureEvidence({ prose: T112, action: T112_ACTION, name: "Amber Reyes", others: ["Chloe"], destination: "elsewhere" });
+const t112 = departureEvidence({ prose: T112, read: READ_112, id: "char_amber", name: "Amber Reyes", others: ["Chloe"], destination: "elsewhere" });
 check("t112: an eviction shouted in dialogue does not move anyone", !t112.ok, JSON.stringify(t112));
 
 console.log("\n── the bug the guard was built for ──");
 
 const roomEmptied = `Mara leaned on the bar and turned her glass in a slow circle. "You came back," she said. "I didn't think you would." Toby laughed at that, and the sound carried. The fire popped.`;
+const sits = read({ did: "sits down at the bar" });   // "I sit down at the bar"
 check("the ledger cannot empty a room it never emptied (Mara)",
-  !departureEvidence({ prose: roomEmptied, action: "I sit down at the bar", name: "Mara", others: ["Toby"], destination: "elsewhere" }).ok);
+  !departureEvidence({ prose: roomEmptied, read: sits, id: "char_mara", name: "Mara", others: ["Toby"], destination: "elsewhere" }).ok);
 check("the ledger cannot empty a room it never emptied (Toby)",
-  !departureEvidence({ prose: roomEmptied, action: "I sit down at the bar", name: "Toby", others: ["Mara"], destination: "elsewhere" }).ok);
+  !departureEvidence({ prose: roomEmptied, read: sits, id: "char_toby", name: "Toby", others: ["Mara"], destination: "elsewhere" }).ok);
 check("no name, no evidence",
-  !departureEvidence({ prose: roomEmptied, action: "I sit down", name: "", others: ["Mara", "Toby"], destination: "elsewhere" }).ok);
+  !departureEvidence({ prose: roomEmptied, read: sits, name: "", others: ["Mara", "Toby"], destination: "elsewhere" }).ok);
 
 console.log("\n── the original voluntary list still works ──");
 for (const line of [
@@ -173,26 +185,33 @@ check("a name inside the matched span owns it, whoever is doing the shoving",
   departureEvidence({ prose: "Chloe shoved Kell out onto the pavement and shut the door.", name: "Kell", others: ["Chloe"] }).ok);
 check("...and the one doing the shoving stays",
   !departureEvidence({ prose: "Chloe shoved Kell out onto the pavement and shut the door.", name: "Chloe", others: ["Kell"] }).ok);
-check("a shouted order alone moves nobody",
-  !departureEvidence({ prose: "Bern set down the cup and looked at him.", action: `"get out of my house"`, name: "Bern" }).ok);
-check("the same order, acted on, does move them",
-  departureEvidence({ prose: "Bern set down the cup and looked at him.", action: `"get out" I throw Bern out of the house.`, name: "Bern" }).ok);
-check("an unnamed player eviction needs the prose to show a removal",
-  !departureEvidence({ prose: "Bern set down the cup and looked at him.", action: "I push her out and lock the door.", name: "Bern" }).ok);
-check("an unnamed player eviction with a removal in the prose goes through",
-  departureEvidence({ prose: "He shoved her out onto the porch and shut the door. Bern was still holding the cup.", action: "I push her out and lock the door.", name: "Bern" }).ok);
-check("the prose saying they stayed beats the player's act",
-  !departureEvidence({ prose: "He shoved her out onto the porch. Bern didn't move.", action: "I throw Bern out of the house.", name: "Bern" }).ok);
+const bernStill = "Bern set down the cup and looked at him.";
+check("a shouted order alone moves nobody",   // `"get out of my house"`
+  !departureEvidence({ prose: bernStill, read: read({ said: ["get out of my house"], turns_away: ["char_bern"] }), id: "char_bern", name: "Bern" }).ok);
+check("the same order, acted on, does move them",   // `"get out" I throw Bern out of the house.`
+  departureEvidence({ prose: bernStill, read: read({ said: ["get out"], removes: ["char_bern"], did: "throws Bern out of the house" }), id: "char_bern", name: "Bern" }).ok);
+// "I push her out and lock the door." — the read says who "her" is, so the prose doesn't have to
+check("an eviction of somebody else moves nobody here",
+  !departureEvidence({ prose: bernStill, read: read({ removes: ["char_ida"], did: "pushes Ida out and locks the door" }), id: "char_bern", name: "Bern" }).ok);
+check("an eviction the read puts on this person moves them, pronoun and all",
+  departureEvidence({ prose: "He shoved her out onto the porch and shut the door. Bern was still holding the cup.", read: read({ removes: ["char_bern"], did: "pushes her out and locks the door" }), id: "char_bern", name: "Bern" }).ok);
+check("the prose saying they stayed beats the player's act",   // "I throw Bern out of the house."
+  !departureEvidence({ prose: "He shoved her out onto the porch. Bern didn't move.", read: read({ removes: ["char_bern"], did: "throws Bern out of the house" }), id: "char_bern", name: "Bern" }).ok);
+check("an empty read is no act of the player's",
+  !departureEvidence({ prose: bernStill, read: EMPTY_READ, id: "char_bern", name: "Bern" }).ok);
+check("and the act needs the person's id to land on them",
+  !departureEvidence({ prose: bernStill, read: read({ removes: ["char_bern"] }), name: "Bern" }).ok);
 
 console.log("\n── the destination named in the turn ──");
-check("prison in the player's own words grounds a move to Prison",
-  departureEvidence({ prose: "The officers were quiet about it.", action: "Chloe goes to prison for 5 years.", name: "Chloe", others: ["Amber Reyes"], destination: "Prison" }).ok);
+check("prison in the player's own words grounds a move to Prison",   // "Chloe goes to prison for 5 years."
+  departureEvidence({ prose: "The officers were quiet about it.", read: read({ did: "Chloe goes to prison for 5 years" }), id: "char_chloe", name: "Chloe", others: ["Amber Reyes"], destination: "Prison" }).ok);
+const waits = read({ passive: true, did: "waits" });   // "I wait"
 check("moving people to `elsewhere` is never grounded by naming it",
-  !departureEvidence({ prose: "Elsewhere, the city went on.", action: "I wait", name: "Mara", others: ["Toby"], destination: "elsewhere" }).ok);
+  !departureEvidence({ prose: "Elsewhere, the city went on.", read: waits, name: "Mara", others: ["Toby"], destination: "elsewhere" }).ok);
 check("a destination shorter than four characters is not evidence",
-  !departureEvidence({ prose: "Mara set down the cup. The bar was quiet.", action: "I wait", name: "Mara", destination: "bar" }).ok);
-check("the prose naming where they went grounds it",
-  departureEvidence({ prose: "Mara said she was needed at the Chandlery before dark.", action: "I nod", name: "Mara", destination: "The Chandlery" }).ok);
+  !departureEvidence({ prose: "Mara set down the cup. The bar was quiet.", read: waits, name: "Mara", destination: "bar" }).ok);
+check("the prose naming where they went grounds it",   // "I nod"
+  departureEvidence({ prose: "Mara said she was needed at the Chandlery before dark.", read: read({ did: "nods" }), name: "Mara", destination: "The Chandlery" }).ok);
 
 console.log("\n── the bookkeeper's quoted departure still counts, dialogue or not ──");
 check("a quoted line the prose really contains is evidence",
@@ -215,9 +234,9 @@ check("nameProbes drops short fragments", !nameProbes("Jo Vance").includes("jo")
 console.log("\n── custody is a state, not a moment ──");
 
 check("t104 is reported as custody, so the world can keep holding it",
-  departureEvidence({ prose: T104, action: T104_ACTION, name: "Chloe", others: ["Amber Reyes"], destination: "Prison" }).why === "custody");
+  departureEvidence({ prose: T104, read: READ_104, id: "char_chloe", name: "Chloe", others: ["Amber Reyes"], destination: "Prison" }).why === "custody");
 check("t111 is an ejection, not custody — being thrown off a porch holds nobody",
-  departureEvidence({ prose: T111, action: T111_ACTION, name: "Chloe", others: ["Amber Reyes"], destination: "elsewhere" }).why !== "custody");
+  departureEvidence({ prose: T111, read: READ_111, id: "char_chloe", name: "Chloe", others: ["Amber Reyes"], destination: "elsewhere" }).why !== "custody");
 check("walking out is neither",
   departureEvidence({ prose: "Hale left without another word.", name: "Hale" }).why === "left");
 
@@ -232,14 +251,18 @@ for (const line of [
   "Chloe was paroled after eighteen months.",
 ]) check(`release: ${line.slice(0, 42)}…`, releaseEvidence({ prose: line, name: "Chloe" }), line);
 
-check("the player posting bail frees them",
-  releaseEvidence({ prose: "The clerk stamped the form.", action: "I post bail for Chloe and drive her home.", name: "Chloe" }));
+check("the player posting bail frees them",   // "I post bail for Chloe and drive her home."
+  releaseEvidence({ prose: "The clerk stamped the form.", read: read({ releases: ["char_chloe"], did: "posts bail for Chloe and drives her home" }), id: "char_chloe", name: "Chloe" }));
+check("...and only the person the read says they freed",
+  !releaseEvidence({ prose: "The clerk stamped the form.", read: read({ releases: ["char_leo"] }), id: "char_chloe", name: "Chloe" }));
+check("an empty read frees nobody",
+  !releaseEvidence({ prose: "The clerk stamped the form.", read: EMPTY_READ, id: "char_chloe", name: "Chloe" }));
 check("SAYING she got out does not get her out",
   !releaseEvidence({ prose: `Amber set down the dish. "She didn't escape. They released her."`, name: "Chloe", others: ["Amber"] }));
 check("somebody ELSE being released does not free her",
   !releaseEvidence({ prose: "Leo was released at four. Chloe stayed where she was.", name: "Chloe", others: ["Leo"] }));
-check("an ordinary scene frees nobody",
-  !releaseEvidence({ prose: "Amber poured the tea and set both cups on the counter.", action: "I drink my tea", name: "Chloe", others: ["Amber"] }));
+check("an ordinary scene frees nobody",   // "I drink my tea"
+  !releaseEvidence({ prose: "Amber poured the tea and set both cups on the counter.", read: read({ restores: ["rest"], did: "drinks his tea" }), id: "char_chloe", name: "Chloe", others: ["Amber"] }));
 
 console.log("\n── idioms that are not evictions ──");
 for (const [line, who] of [

@@ -44,65 +44,27 @@
  * and that the person losing it behaves like a person losing it.
  */
 import type { SaveState } from "./types";
-
-/** The player saying this is over. Deliberately narrow — a threat made in an argument is not this,
- *  and neither is talking about somebody else's marriage. It has to be addressed, and final. */
-const SEVER = [
-  /\b(?:i'?m|i am|we'?re|we are)\s+done\s+(?:with\s+)?(?:this|us|our|the)?\s*(?:marriage|relationship|thing)?\b/i,
-  /\b(?:i want|i'?m getting|i'?m filing for|let'?s get)\s+a?\s*divorce\b/i,
-  /\bdivorce\s+(?:papers?|forms?|docs?|documents?)\b/i,
-  /\b(?:i'?m|i am)\s+(?:leaving|ending)\s+(?:you|this|us|our\s+\w+|the\s+marriage)\b/i,
-  /\b(?:i'?m|i am)\s+ending\s+(?:our|this|the)\s+(?:friendship|marriage|relationship)\b/i,
-  /\b(?:it'?s|this is|we'?re)\s+over\b/i,
-  /\b(?:i want|i'?d like)\s+(?:to\s+)?(?:separate|split up|break up)\b/i,
-  /\bbreak(?:ing)?\s+up\s+with\s+you\b/i,
-  /\bwe'?re\s+finished\b/i,
-];
-
-/** THE LINE FROM THE SAVE DID NOT MATCH ANY OF THE ABOVE, and it is the one that matters:
- *  "I'm going to fill these docs out. Please sign." No "divorce", no object after the verb — the
- *  papers had been named two turns earlier and by now they are just "these docs". Asking somebody to
- *  sign is only an ending when there is a document in play, so it is matched as a pair. */
-const SIGNING = /\b(?:sign|signature)\b/i;
-const PAPERWORK = /\b(?:divorce|separation|dissolution|custody|settlement)\b|\b(?:these|the|those|them)\s+(?:docs?|papers?|forms?|documents?)\b|\b(?:docs?|papers?|forms?|documents?)\s+(?:out|in|over)\b/i;
-
-/** …and the ways people say the same words without meaning them as an ending. */
-const NOT_FINAL = /\b(?:if you|unless you|do you want|are we|is (?:this|it)|would (?:it|that) be|thinking about|wondering (?:if|whether)|what if|almost|nearly|felt like)\b/i;
-
-export function detectSeverance(action: string): boolean {
-  const a = String(action ?? "");
-  if (!a.trim()) return false;
-  if (SIGNING.test(a) && PAPERWORK.test(a) && !NOT_FINAL.test(a)) return true;
-  return SEVER.some((re) => {
-    const m = re.exec(a);
-    if (!m) return false;
-    // the clause it appeared in, so a conditional or a question does not read as a verdict
-    const start = a.lastIndexOf(".", m.index) + 1;
-    const clause = a.slice(start, m.index + m[0].length + 30);
-    return !NOT_FINAL.test(clause);
-  });
-}
+import { turnRead } from "./actionread";
+import { collapseSpaces } from "./text";
 
 /**
- * HOLDING THE LINE, once it is already open.
+ * SAYING IT, AND HOLDING TO IT, are the read of the turn's (actionread.ts). ends_with names whoever
+ * the player is ending things with; once a severance is open, ending_stance says whether this turn
+ * holds to it or takes it back.
  *
- * Opening a severance needs the strict test above, because mistaking an argument for an ending is
- * the expensive error. CONTINUING one does not: the context is established, both people know what
- * is being discussed, and a person who has said it once says it the second time in three words —
- * "Sign them." "I meant it." "No." Requiring the full form again meant the rounds stopped advancing
- * and the ending could never complete, which is the opposite failure and just as bad.
+ * Both were word lists here, and each kept missing the line that mattered. Opening one was
+ * deliberately narrow, since mistaking an argument for an ending is the expensive error, and THE
+ * LINE FROM THE SAVE MATCHED NONE OF IT: "I'm going to fill these docs out. Please sign." No
+ * "divorce", no object after the verb, because the papers had been named two turns earlier and by
+ * now they were just "these docs". So "sign" was paired with a second list of paperwork, and a third
+ * listed the ways people say the same words without meaning them ("if you", "are we", "almost").
+ * Holding the line had to be looser, since someone who has said it once says it the second time in
+ * three words ("Sign them." "I meant it." "No."), and requiring the full form again meant the
+ * rounds never advanced and the ending could never complete. A reader sees all of that at once.
  */
-const HOLDING = /\b(?:sign|signing|signature|done|over|final|finished|goodbye|i mean it|i meant it|i meant that|not changing my mind|nothing (?:more )?to (?:say|discuss)|it'?s decided|made up my mind|stand by (?:it|that))\b|^\s*"?no[.,!]/i;
-/** …and the ways somebody takes it back, which close a severance instead of advancing it. */
-const RETRACTING = /\b(?:i didn'?t mean|take (?:it|that) back|i'?m sorry[, ]|forget (?:it|i said)|can we|let'?s (?:try|talk)|stay|don'?t go|i love you|come back|wait)\b/i;
 
-export function continuesSeverance(action: string): "hold" | "retract" | null {
-  const a = String(action ?? "");
-  if (!a.trim()) return null;
-  if (RETRACTING.test(a)) return "retract";
-  if (detectSeverance(a) || HOLDING.test(a)) return "hold";
-  return null;
-}
+/** The first word of a name, lowercased. */
+const firstOf = (name: unknown) => collapseSpaces(name).split(" ")[0].toLowerCase();
 
 /**
  * What this person has in it, 0..1.
@@ -120,8 +82,8 @@ export function stakeOf(state: SaveState, id: string, toward: string): number {
 
   // a life's worth of scenes with this person
   const mem = state.memory?.[id];
-  const shared = (mem?.episodic ?? []).filter((m) => (m.content ?? "").toLowerCase().includes(
-    (state.characters[toward]?.name ?? "").split(/\s+/)[0].toLowerCase())).length;
+  const towardFirst = firstOf(state.characters[toward]?.name);
+  const shared = (mem?.episodic ?? []).filter((m) => (m.content ?? "").toLowerCase().includes(towardFirst)).length;
   stake += Math.min(0.3, shared * 0.012);
 
   // what the world calls them. A role is a fact and it outlives a bad month.
@@ -134,11 +96,10 @@ export function stakeOf(state: SaveState, id: string, toward: string): number {
   if (e) stake += Math.min(0.2, (Math.abs(e.warmth) + Math.abs(e.trust)) / 400);
 
   // still reaching: fixation, an active repair loop, a drive pointed at them
-  if (p?.active_states?.some((s) => new RegExp(`fixated on|guilt toward`, "i").test(s))) stake += 0.12;
+  if (p?.active_states?.some((s) => { const l = String(s).toLowerCase(); return l.includes("fixated on") || l.includes("guilt toward"); })) stake += 0.12;
   if ((p?.repairing ?? 0) > 0 && p?.repair_toward === toward) stake += 0.15;
   const goal = state.characters[id]?.drive?.goal ?? "";
-  if (goal && (state.characters[toward]?.name ?? "").split(/\s+/)[0] &&
-      goal.toLowerCase().includes((state.characters[toward]!.name).split(/\s+/)[0].toLowerCase())) stake += 0.08;
+  if (goal && towardFirst && goal.toLowerCase().includes(towardFirst)) stake += 0.08;
 
   return Math.max(0, Math.min(1, stake));
 }
@@ -202,25 +163,27 @@ export function severanceDirective(state: SaveState): string {
  *
  * The player restating it on a later turn is the same severance continuing, not a new one — that is
  * how the rounds accumulate and how it eventually completes.
+ *
+ * What the player said is this turn's read; `action` isn't looked at, and stays so the turn's call
+ * doesn't change.
  */
-export function tickSeverance(state: SaveState, action: string, presentIds: string[]): void {
+export function tickSeverance(state: SaveState, _action: string, presentIds: string[]): void {
   const sv = state.severance;
-  const said = detectSeverance(action);
+  const read = turnRead(state);
 
   if (sv) {
     if (!presentIds.includes(sv.toward)) { delete state.severance; return; }   // they are not in the room
-    const move = continuesSeverance(action);
-    if (move === "retract") { delete state.severance; return; }                 // they took it back
-    if (move === "hold") sv.rounds++;
+    if (read.ending_stance === "retracts") { delete state.severance; return; }  // they took it back
+    if (read.ending_stance === "holds" || read.ends_with.includes(sv.toward)) sv.rounds++;
     if (sv.rounds > sv.needed) delete state.severance;                          // got past; it can land
     return;
   }
-  if (!said) return;
+  if (!read.ends_with.length) return;
 
-  // whoever present has the most in it is the one being left
+  // whoever in the room it's being ended with, and has the most in it, is the one being left
   let best: { id: string; stake: number } | null = null;
-  for (const id of presentIds) {
-    if (id === "char_player") continue;
+  for (const id of read.ends_with) {
+    if (id === "char_player" || !presentIds.includes(id)) continue;
     const c = state.characters[id];
     if (!c || c.central === false) continue;
     const stake = stakeOf(state, id, "char_player");

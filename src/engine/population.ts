@@ -18,6 +18,8 @@
  */
 import type { Place, SaveState } from "./types";
 import { minutesBetween } from "./time";
+import { turnRead, type ActionRead } from "./actionread";
+import { collapseSpaces, isSpace, isWordChar, trimOf } from "./text";
 
 export interface Population { scale: number; who: string }
 
@@ -109,18 +111,56 @@ export function populationLine(place: Place, gone?: ReadonlySet<string>): string
   let who = p.who;
   if (gone?.size) {
     for (const name of gone) {
-      const first = name.split(/\s+/)[0];
+      const first = collapseSpaces(name).split(" ")[0];
       for (const form of [name, first]) {
         if (form.length < 3) continue;
-        const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        // the name plus whatever list punctuation carried it, so no orphan comma is left behind
-        who = who.replace(new RegExp(`(?:^|,\\s*|\\band\\s+)${esc}(?:'s)?\\b(?=$|[,.;]|\\s)`, "gi"), "");
+        who = dropListed(who, form);
       }
     }
-    who = who.replace(/\s{2,}/g, " ").replace(/^[\s,]+|[\s,]+$/g, "").replace(/,\s*,/g, ",").replace(/,\s*and\b/gi, " and").trim();
+    who = tidyList(trimOf(collapseSpaces(who), ","));
     if (!who || who.length < 3) return "";
   }
   return ` — ordinarily ${scaleWord(p.scale)} about: ${who}`;
+}
+
+/** `who` with every listed mention of `form` taken out: at the start, after a comma, or after
+ *  "and", with a possessive 's, and with the comma or "and" that carried it, so no orphan comma is
+ *  left behind. A mention inside a phrase ("drivers who work for Arthur") is left where it is. */
+function dropListed(who: string, form: string): string {
+  const low = who.toLowerCase(), f = form.toLowerCase();
+  let out = "", from = 0;
+  for (let at = low.indexOf(f); at !== -1; at = low.indexOf(f, Math.max(at + 1, from))) {
+    let end = at + f.length;
+    if (low.startsWith("'s", end)) end += 2;
+    const next = who[end] ?? "";
+    if (next && !",.;".includes(next) && !isSpace(next)) continue;
+    // what carried it: the start of the line, a comma and its spaces, or a whole word "and" and its spaces
+    let back = at;
+    while (back > from && isSpace(who[back - 1])) back--;
+    let start = -1;
+    if (at === 0) start = 0;
+    else if (back > 0 && who[back - 1] === ",") start = back - 1;
+    else if (back < at && back >= 3 && low.slice(back - 3, back) === "and" && !isWordChar(low[back - 4] ?? "")) start = back - 3;
+    if (start < from) continue;
+    out += who.slice(from, start);
+    from = end;
+  }
+  return out + who.slice(from);
+}
+
+/** A list with a name taken out of it, put back together: doubled commas closed up, and a comma
+ *  before the closing "and" dropped. */
+function tidyList(who: string): string {
+  let out = "";
+  for (let i = 0; i < who.length; i++) {
+    if (who[i] !== ",") { out += who[i]; continue; }
+    let j = i + 1;
+    while (j < who.length && isSpace(who[j])) j++;
+    if (who[j] === ",") { i = j - 1; continue; }   // ", ," closes up to one comma
+    if (who.slice(j, j + 3).toLowerCase() === "and" && !isWordChar(who[j + 3] ?? "")) { out += " "; i = j - 1; continue; }
+    out += ",";
+  }
+  return out.trim();
 }
 
 /**
@@ -176,39 +216,23 @@ export function crowdDirective(state: SaveState): string {
  * in a small room may get. It is not what a call to a city gets, in any direction, ever.
  */
 
-/** Addressed to an indefinite plurality: to whoever, rather than to somebody. */
-const OPEN_AUDIENCE = /\b(any\s?(?:one|body)|any (?:wo)?m[ae]n\b|any (?:person|girl|lady|soul|folk)|every\s?(?:one|body)|all of (?:you|them|rome|the \w+)|the (?:whole|entire) (?:city|town|village|country|world|empire)|every (?:mind|head|ear|household)|whoever|whomever|the crowd|the people|no matter who)\b/i;
-/** A call, not a remark: an offer, an invitation, a summons, an advertisement, a proclamation. */
-const CALL_ACT = new RegExp("\\b(" + [
-  // come to me
-  `come (?:here|forward|find|see|and|to me|say)|step forward|say hi|speak up|approach me|present (?:yourself|themselves)|apply|answer me`,
-  `let (?:me|her|him|them) know|make (?:yourself|themselves) known`,
-  // I am offering / I am looking
-  `i'?m (?:open|looking|interested|seeking|available)|i am (?:open|looking|interested|seeking|available)`,
-  `looking for (?:a|an|someone|anyone)|seeking (?:a|an|someone|anyone)|i want (?:a|an|someone|anyone)`,
-  `offer(?:ing)? (?:my|a) (?:hand|marriage|place|position|work|job|reward)|invit(?:e|ing)|summon(?:s|ing)?`,
-  // put it about
-  `proclaim|announce|broadcast|spread the (?:news|word)|put out (?:a|the) (?:word|call)|call(?:ing)? for (?:a|an|any|volunteers)|hiring|reward for`,
-  // "Anyone want to talk. Anyone at all. Anyone here worth actually talking to" — put to a forum of
-  // five thousand, and the plainest form a call takes. It missed the list above on the first draft.
-  `(?:want|wants|wanna|care|cares) to (?:talk|chat|speak|come|join|help|work|meet)`,
-  `worth (?:actually )?(?:talking|speaking) to|is there (?:a|an|any)\\b`,
-].join("|") + ")\\b", "i");
-/** Reached beyond the room the player is standing in. */
-const BROADCAST = /\b(broadcast|proclaim|announce(?:d|ment)?|every (?:mind|head|ear|household)|the (?:whole|entire) (?:city|town|country|world|empire)|across the (?:city|town|country|empire)|spread the (?:news|word)|criers?|herald)\b/i;
+/* Whether a turn is a call at all, and how far it reaches, is the turn read's to say (`open_call`,
+ * actionread.ts): "room" for a call put to everyone present, "broadcast" for one that reaches past
+ * the room. It was three word lists, an indefinite audience, an act of calling and a reach, and the
+ * plainest form a call takes ("Anyone want to talk. Anyone at all.") missed them on the first draft
+ * and needed its own entry. */
 
 /** In-world minutes a call stays live. A city hears within a day; stragglers arrive on the second. */
 const CALL_WINDOW_MIN = 48 * 60;
 
 /**
  * Did the player just put something to the room at large? Returns the reach — how many people heard
- * it — or 0 for anything that is not an open call.
+ * it — or 0 for anything that is not an open call. The turn's own read unless one is handed in.
  */
-export function openCallReach(state: SaveState, action: string): number {
-  const a = String(action ?? "");
-  if (!OPEN_AUDIENCE.test(a) || !CALL_ACT.test(a)) return 0;
+export function openCallReach(state: SaveState, read: ActionRead = turnRead(state)): number {
+  if (read?.open_call !== "room" && read?.open_call !== "broadcast") return 0;
   const here = populationOf(state.world.places[state.world.player_location])?.scale ?? 0;
-  if (!BROADCAST.test(a)) return here;
+  if (read.open_call !== "broadcast") return here;
   // Beyond the room: everywhere the engine knows about, which is the closest thing it has to
   // "the city". A broadcast that reaches nowhere the state models still reaches the room.
   const everywhere = Object.values(state.world.places)
@@ -248,9 +272,9 @@ export function openCallDirective(state: SaveState): string {
 }
 
 /** Record a call the player just made, and clear one they have withdrawn or that has been answered
- *  enough. Called once per turn from the turn loop, after the action is known. */
+ *  enough. Called once per turn from the turn loop, after the action is known and read. */
 export function trackOpenCall(state: SaveState, action: string): void {
-  const reach = openCallReach(state, action);
+  const reach = openCallReach(state, turnRead(state));
   if (reach > 0) {
     state.world.open_call = {
       what: String(action).trim().slice(0, 300),

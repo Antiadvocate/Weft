@@ -19,7 +19,8 @@
  * answering a screamed insult with a poised lecture.
  */
 import { tickPsyche, settleAfterDeltas, hostileToward } from "../src/engine/social";
-import type { Psyche } from "../src/engine/types";
+import { setRead, type ActionRead } from "../src/engine/actionread";
+import type { Psyche, SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
 function check(name: string, c: boolean, extra?: unknown) {
@@ -65,21 +66,31 @@ const psyche = (over: Partial<Psyche> = {}): Psyche => ({
   check("grief lowers the floor rather than being clipped away", g.relaxation <= -6, g.relaxation);
 }
 
-/* ── 2. what the player actually typed ──────────────────────────────────────── */
+/* ── 2. what the player actually typed ──────────────────────────────────────────
+ *
+ * Who was sworn at is the turn read's call (actionread.ts: insults, by id). Each line from the save is
+ * handed in with the read a careful reader gives it; the engine's part is turning that into the
+ * people in the room it constrains. */
 {
+  const s = {
+    world: { current_turn: 35, present: ["char_claudia", "char_titus"] },
+    characters: { char_player: { name: "Marcus" }, char_claudia: { name: "Claudia Antonia" }, char_titus: { name: "Titus Aelius Rufus" }, char_nero: { name: "Nero" } },
+  } as unknown as SaveState;
   const here = ["Claudia Antonia", "Titus Aelius Rufus"];
-  const at = (s: string) => [...hostileToward(s, here)];
+  const at = (action: string, insults: string[] = []) => { setRead(s, action, { insults } as Partial<ActionRead>); return [...hostileToward(s, here)]; };
 
-  check("the turn that caused this", at(`"You Roman's are such pieces of shit. Do you idiots know the world is round? So shut the fuck up."`).length === 2);
-  check("and the short one", at(`"Hey Claudia. Fuck you"`).includes("Claudia Antonia"));
+  check("the turn that caused this", at(`"You Roman's are such pieces of shit. Do you idiots know the world is round? So shut the fuck up."`, ["char_claudia", "char_titus"]).length === 2);
+  check("and the short one", at(`"Hey Claudia. Fuck you"`, ["char_claudia"]).includes("Claudia Antonia"));
   check("naming one person does not splash the other",
-    at(`"Claudia you absolute bitch"`).length === 1 && at(`"Claudia you absolute bitch"`)[0] === "Claudia Antonia");
+    at(`"Claudia you absolute bitch"`, ["char_claudia"]).length === 1 && at(`"Claudia you absolute bitch"`, ["char_claudia"])[0] === "Claudia Antonia");
 
   check("cursing the world is not cursing a person", at(`"This whole fucking city is a shithole"`).length === 0, at(`"This whole fucking city is a shithole"`));
   check("swearing in company is not swearing at company", at(`"Oh fuck. I left the bag at the forum."`).length === 0);
   check("a private thought reaches nobody", at(`*god she's an idiot, fuck her*`).length === 0);
   check("an ordinary line is not an insult", at(`"Claudia, do you know where the tribunal sits?"`).length === 0);
-  check("a plain aggressive act counts too", at(`I spit at Claudia and call her a worthless bitch`).length === 1);
+  check("a plain aggressive act counts too", at(`I spit at Claudia and call her a worthless bitch`, ["char_claudia"]).length === 1);
+  check("cursing someone who isn't in the room constrains nobody here", at(`"Nero is a worthless bastard."`, ["char_nero"]).length === 0);
+  check("a read from another turn is no read for this one", (() => { setRead(s, "Fuck you", { insults: ["char_claudia"] }); s.world.current_turn++; const r = hostileToward(s, here).size; s.world.current_turn--; return r === 0; })());
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

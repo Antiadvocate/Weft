@@ -47,6 +47,7 @@
  */
 import { openCallReach, openCallDirective, trackOpenCall, creditCallAnswer } from "../src/engine/population";
 import { publicStandingDirective, updatePublicStanding } from "../src/engine/social";
+import { setRead, EMPTY_READ, type ActionRead } from "../src/engine/actionread";
 import type { SaveState } from "../src/engine/types";
 
 let pass = 0, fail = 0;
@@ -70,18 +71,27 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   } as unknown as SaveState;
 }
 
-/* ── 1. the three calls he actually made are heard as calls ───────────────────── */
+/* ── 1. the three calls he actually made are heard as calls ─────────────────────
+ *
+ * Whether a line is a call, and whether it reaches past the room, is the turn read's call
+ * (actionread.ts: open_call). The word lists that used to decide it needed a new entry for the
+ * plainest form a call takes, the fourth line below. Each line is handed in with the read a careful
+ * reader gives it, and what's checked is what the engine does with that. */
+const call = (open_call: ActionRead["open_call"]): ActionRead => ({ ...EMPTY_READ, open_call });
 {
   const s = world();
-  const CALLS = [
-    `"Oh wow she's gone. Excellent. Now maybe I can find a real wife. Is there any woman here that would not manipulate me into giving her what she wants and would be genuinely in love with me? I'm open for dating. Just a nice woman if there is one around please come and say hi!"`,
-    `"Well yea. I am the emperor of Rome. Go on and spread the news. I'm interested in a partner. A companion. If there's any woman that wants to sit at the healm of power let her know I'm open."`,
-    `I broadcast the message into every mind in Rome. I'm interested in marriage. I'm looking for a specific type of person. And I list her. And then I stand up and head back to my villa.`,
-    `"Anyone want to talk. Anyone at all. Let's talk engineering. Anyone here worth actually talking to"`,
+  const CALLS: [string, ActionRead["open_call"]][] = [
+    [`"Oh wow she's gone. Excellent. Now maybe I can find a real wife. Is there any woman here that would not manipulate me into giving her what she wants and would be genuinely in love with me? I'm open for dating. Just a nice woman if there is one around please come and say hi!"`, "room"],
+    [`"Well yea. I am the emperor of Rome. Go on and spread the news. I'm interested in a partner. A companion. If there's any woman that wants to sit at the healm of power let her know I'm open."`, "broadcast"],
+    [`I broadcast the message into every mind in Rome. I'm interested in marriage. I'm looking for a specific type of person. And I list her. And then I stand up and head back to my villa.`, "broadcast"],
+    [`"Anyone want to talk. Anyone at all. Let's talk engineering. Anyone here worth actually talking to"`, "room"],
   ];
-  CALLS.forEach((c, i) => check(`call ${i + 1} is heard`, openCallReach(s, c) > 0, c.slice(0, 50)));
+  CALLS.forEach(([c, reach], i) => check(`call ${i + 1} is heard`, openCallReach(s, call(reach)) > 0, c.slice(0, 50)));
   check("the one that went into every mind reached past the room",
-    openCallReach(s, CALLS[2]) > openCallReach(world(VILLA), CALLS[0]), [openCallReach(s, CALLS[2])]);
+    openCallReach(s, call("broadcast")) > openCallReach(s, call("room")), [openCallReach(s, call("broadcast")), openCallReach(s, call("room"))]);
+  check("a room call in a room with nobody ordinarily in it reaches nobody", openCallReach(world(VILLA), call("room")) === 0);
+  setRead(s, CALLS[2][0], { open_call: "broadcast" });
+  check("the turn's own read is used when none is handed in", openCallReach(s) > 0);
 }
 
 /* ── 2. ...and ordinary turns are not calls ───────────────────────────────────── */
@@ -96,16 +106,26 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
     "I wait to see what kind of women arrive",
     "I ask her if anyone has been to the villa",     // a question to ONE person about others
   ];
-  NOT.forEach((a) => check(`not a call: "${a.slice(0, 40)}…"`, openCallReach(s, a) === 0, openCallReach(s, a)));
+  NOT.forEach((a) => check(`not a call: "${a.slice(0, 40)}…"`, openCallReach(s, call("none")) === 0));
+  check("a bare string carries no reading, so it is never a call",
+    openCallReach(s, `"Anyone here want to talk? Come say hi"` as unknown as ActionRead) === 0);
+  check("nor is a turn with no read at all", openCallReach(s) === 0);
 }
+
+/** Make the call on this turn's read, then track it, the way the turn loop does. */
+const track = (s: SaveState, action: string, open_call: ActionRead["open_call"] = "none") => {
+  setRead(s, action, { open_call });
+  trackOpenCall(s, action);
+};
 
 /* ── 3. a standing call is put to the narrator, with a floor that is not zero ─── */
 {
   const s = world(FORUM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.");
+  track(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.", "broadcast");
   const d = openCallDirective(s);
   check("the call is on the state", !!s.world.open_call, s.world.open_call);
   check("and the narrator is told about it", /THE PLAYER HAS PUT OUT AN OPEN CALL/.test(d));
+  check("in the player's own words", /every mind in Rome/.test(d), d.slice(0, 200));
   check("with the reach", /thousands/.test(d), d.slice(0, 200));
   check("and told that unanimous refusal is not on the menu", /The whole population never turns it down together/.test(d));
   check("standing decides who and why, not whether", /a different scene, but still a busy one/.test(d));
@@ -114,10 +134,10 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
 /* ── 4. and it escalates rather than evaporating ──────────────────────────────── */
 {
   const s = world(FORUM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.");
+  track(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.", "broadcast");
   check("no nagging on the turn it is made", !/NOBODY HAS ANSWERED/.test(openCallDirective(s)));
   s.world.current_turn = 16; s.world.current_time = "Day 1, 12:40 (Afternoon)";
-  trackOpenCall(s, "I wait to see what kind of women arrive");   // a non-call must not clear it
+  track(s, "I wait to see what kind of women arrive");   // a non-call must not clear it
   check("waiting does not withdraw the call", !!s.world.open_call);
   const d = openCallDirective(s);
   check("a turn later it is overdue", /NOBODY HAS ANSWERED IT YET, a turn later/.test(d), d.slice(-200));
@@ -127,29 +147,29 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
 /* ── 5. it closes when answered, and when it goes stale ───────────────────────── */
 {
   const s = world(FORUM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.");
+  track(s, "I broadcast the message into every mind in Rome. I'm interested in marriage.", "broadcast");
   creditCallAnswer(s); creditCallAnswer(s);
   check("two arrivals do not close a call to a city", !!s.world.open_call, s.world.open_call);
   creditCallAnswer(s);
   check("three do — the story has what it needed", !s.world.open_call);
 
   const small = world(ROOM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(small, `"Anyone here want to talk? Come say hi"`);
+  track(small, `"Anyone here want to talk? Come say hi"`, "room");
   creditCallAnswer(small);
   check("but one answer closes a call put to a back room", !small.world.open_call);
 
   const stale = world(FORUM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(stale, "I broadcast the message into every mind in Rome. I'm interested in marriage.");
+  track(stale, "I broadcast the message into every mind in Rome. I'm interested in marriage.", "broadcast");
   stale.world.current_time = "Day 4, 10:40 (Morning)";
   check("and a call nobody answered in three days is over", openCallDirective(stale) === "");
-  trackOpenCall(stale, "I eat breakfast");
+  track(stale, "I eat breakfast");
   check("...and is cleared off the state", !stale.world.open_call);
 }
 
 /* ── 6. a small room may genuinely answer with silence ────────────────────────── */
 {
   const s = world(ROOM, 15, "Day 1, 10:40 (Morning)");
-  trackOpenCall(s, `"Anyone here want to talk? Come say hi"`);
+  track(s, `"Anyone here want to talk? Come say hi"`, "room");
   const d = openCallDirective(s);
   check("four people can leave a call hanging, and it says so", /possibly nobody/.test(d), d.slice(0, 300));
   s.world.current_turn = 16;
@@ -174,31 +194,41 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
   check("and a beloved one as beloved", /BELOVED/.test(publicStandingDirective(s, "mythic")));
 }
 
-/* ── 8. providing moves a reputation, not only rescuing ───────────────────────── */
+/* ── 8. providing moves a reputation, not only rescuing ───────────────────────────
+ *
+ * What the deed was is the turn read's call (actionread.ts: public_act). The word lists that used to
+ * decide it scored a player who abolished slavery, built a free school and fed a city at ZERO for
+ * seventeen turns, and "pulled the child clear" never matched a rescue pattern that spanned one
+ * word. Each line from the save is handed in with the read a careful reader gives it. */
 {
-  const bump = (action: string, prose = "") => {
+  const bump = (action: string, act: ActionRead["public_act"], prose = "") => {
     const s = world();
     s.world.public_standing = 0;
+    setRead(s, action, { public_act: act });
     updatePublicStanding(s, action, prose || "The crowd watched Rabi do it.", "mythic", "mythic");
     return s.world.public_standing!;
   };
   check("building a free school counts",
-    bump(`"Done. That's an easy one" I create the building for the school. "Free lunches. Free schooling and they bring home grain everyday"`) > 0);
-  check("abolishing slavery counts", bump("I abolish slavery across the empire") > 0);
-  check("forgiving every debt counts", bump("I cancel all debts owed to the treasury") > 0);
-  check("feeding the city counts", bump("I fed the city out of the new granary") > 0);
-  // ...and a bug found while writing this, older than any of it: the rescue list's `pulled \w+
-  // (out|free|clear)` could span exactly ONE word, so "pulled him clear" scored and "pulled the
-  // child clear" — the commonest phrasing of the commonest rescue on the list — never did.
-  check("rescuing still counts", bump("I pulled him clear of the fire") > 0);
-  check("...including the phrasing that could never match before", bump("I pulled the child clear of the fire") > 0);
-  check("...and the same for carrying someone out", bump("I carried the old woman to safety") > 0);
-  check("and killing still costs", bump("I made an example of the man who spoke") < 0);
+    bump(`"Done. That's an easy one" I create the building for the school. "Free lunches. Free schooling and they bring home grain everyday"`, "works") > 0);
+  check("abolishing slavery counts", bump("I abolish slavery across the empire", "works") > 0);
+  check("forgiving every debt counts", bump("I cancel all debts owed to the treasury", "works") > 0);
+  check("feeding the city counts", bump("I fed the city out of the new granary", "works") > 0);
+  check("rescuing still counts", bump("I pulled him clear of the fire", "boon") > 0);
+  check("...including the phrasing the old list could never match", bump("I pulled the child clear of the fire", "boon") > 0);
+  check("...and the same for carrying someone out", bump("I carried the old woman to safety", "boon") > 0);
+  check("and killing still costs", bump("I made an example of the man who spoke", "harm") < 0);
 
   // the guard on the other side: a wall to keep people out is not a benefaction
-  check("a wall is not a school", bump("I build a wall around my villa to keep them out") === 0,
-    bump("I build a wall around my villa to keep them out"));
-  check("an ordinary turn moves nothing", bump("I sit and watch the crowd and make myself a latte.") === 0);
+  check("a wall is not a school", bump("I build a wall around my villa to keep them out", "none") === 0,
+    bump("I build a wall around my villa to keep them out", "none"));
+  check("an ordinary turn moves nothing", bump("I sit and watch the crowd and make myself a latte.", "none") === 0);
+
+  // a deed in a room nobody's in moves nothing: the villa holds two people
+  const s = world(VILLA);
+  s.world.public_standing = 0;
+  setRead(s, "I abolish slavery across the empire", { public_act: "works" });
+  updatePublicStanding(s, "I abolish slavery across the empire", "", "mythic", "mythic");
+  check("a deed nobody saw moves nothing", s.world.public_standing === 0, s.world.public_standing);
 }
 
 /* ── 9. a standing deed is not paid for twice ─────────────────────────────────
@@ -207,20 +237,21 @@ function world(loc = FORUM, turn = 13, time = "Day 1, 10:25 (Morning)"): SaveSta
  * never mentioned again. A building is a FACT: the school stands in the prose for the rest of the
  * story. Scored the same way, the second one pays out forever, and replaying this save the standing
  * climbed on turns 6 and 8 off "built a school" and "built a granary" in the NARRATION — one of
- * which had been built four months before the game began. The works family reads the action only. */
+ * which had been built four months before the game began. The player's turn is what's read, never
+ * the narration. (A rescue the narration shows the player making, beyond what they typed, used to be
+ * picked out of the prose; the bookkeeper will report that.) */
 {
   const s = world();
   s.world.public_standing = 0;
+  setRead(s, "I tilt my head because I have no other way to convey confusion", { public_act: "none" });
   updatePublicStanding(s, "I tilt my head because I have no other way to convey confusion",
     "Rabi had built a school here, and the crowd still came to look at it. He had built a granary too.", "mythic", "mythic");
   check("the narrator mentioning the school he built last week pays nothing", s.world.public_standing === 0, s.world.public_standing);
 
   s.world.public_standing = 0;
+  setRead(s, "I put out the fire", { public_act: "boon" });
   updatePublicStanding(s, "I put out the fire", "The crowd saw Rabi do it.", "mythic", "mythic");
-  const byAction = s.world.public_standing!;
-  s.world.public_standing = 0;
-  updatePublicStanding(s, "I go over to look", "Rabi pulled the child clear of the blaze while the crowd watched.", "mythic", "mythic");
-  check("but a rescue in the prose still counts, because it happens once", s.world.public_standing! > 0, [byAction, s.world.public_standing]);
+  check("a rescue the player makes counts", s.world.public_standing! > 0, s.world.public_standing);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

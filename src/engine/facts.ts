@@ -19,6 +19,8 @@
  */
 import type { SaveState, CharMemory, DurableFact, Belief } from "./types";
 import { relevance, compactGist } from "./memory";
+import { turnRead } from "./actionread";
+import { collapseSpaces, isSpace, isWordChar } from "./text";
 
 /** Words that start sentences / are commonly capitalized without being names. */
 const CAP_STOP = new Set([
@@ -42,17 +44,32 @@ export function properNouns(s: string): string[] {
     // skip them when they read like ordinary words (verb/adverb shapes). Mid-sentence
     // occurrences still catch real names; a missed sentence-initial name only weakens
     // detection, while a false positive would trigger a benign verbatim-swap.
-    const atSentenceStart = m.index === 0 || /[.!?"\n]\s*$/.test(s.slice(Math.max(0, m.index - 3), m.index));
-    const words = run.split(/\s+/).filter((w) => !CAP_STOP.has(w.replace(/[’']s$/, "")));
+    const atSentenceStart = m.index === 0 || afterSentenceEnd(s.slice(Math.max(0, m.index - 3), m.index));
+    const words = collapseSpaces(run).split(" ").filter((w) => !CAP_STOP.has(withoutPossessive(w)));
     if (!words.length) continue;
-    if (atSentenceStart && words.length === 1 && /(ed|ing|ly)$/.test(words[0])) continue;
+    if (atSentenceStart && words.length === 1 && ["ed", "ing", "ly"].some((end) => words[0].endsWith(end))) continue;
     out.add(words.join(" "));
     for (const w of words) if (w.length > 2) out.add(w);
   }
   return [...out];
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "'");
+/** Whether a sentence could have just ended: a stop, a closing quote or a line break, then only space. */
+function afterSentenceEnd(head: string): boolean {
+  let i = head.length;
+  while (i > 0 && isSpace(head[i - 1])) {
+    if (head[i - 1] === "\n") return true;
+    i--;
+  }
+  return i > 0 && '.!?"'.includes(head[i - 1]);
+}
+
+/** "Seattle's" is "Seattle". */
+function withoutPossessive(w: string): string {
+  return w.endsWith("'s") || w.endsWith("’s") ? w.slice(0, -2) : w;
+}
+
+const norm = (s: string) => s.toLowerCase().replaceAll("’", "'");
 
 /** Every name the world legitimately knows: characters, places, bible, canon, factions. */
 export function knownNameWhitelist(state: SaveState): Set<string> {
@@ -78,9 +95,25 @@ export function suspectNouns(content: string, sourceText: string, whitelist: Set
   });
 }
 
+/** Runs of text between stops and line breaks, each with the one stop that ends it. */
+function sourceSentences(text: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\n" || ".!?".includes(ch)) {
+      if (buf) { out.push(ch === "\n" ? buf : buf + ch); buf = ""; }
+      continue;
+    }
+    buf += ch;
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
 /** Best verbatim source sentence for a claim (highest token-overlap), or null. */
 export function bestSourceSentence(claim: string, sourceText: string, minRel = 0.22): string | null {
-  const sents = sourceText.match(/[^.!?\n]+[.!?]?/g) ?? [];
+  const sents = sourceSentences(sourceText);
   let best: string | null = null, bestS = minRel;
   for (const s of sents) {
     const t = s.trim();
@@ -116,11 +149,12 @@ export function groundMemoryContent(
  *  Deterministic on purpose — the gate itself must never hallucinate. */
 export function factGate(content: string): { ok: boolean; why?: string } {
   const f = content.trim();
-  const first = (f.split(/\s+/)[0] ?? "").toLowerCase().replace(/[^a-z']/g, "");
+  const tokens = f ? collapseSpaces(f).split(" ") : [""];
+  const first = [...(tokens[0] ?? "").toLowerCase()].filter((ch) => (ch >= "a" && ch <= "z") || ch === "'").join("");
   if (["she", "he", "they", "it", "her", "his", "their", "she's", "he's", "they're", "it's"].includes(first))
     return { ok: false, why: "the subject is a bare pronoun, so nobody can tell who this is about" };
-  if (f.split(/\s+/).length < 6) return { ok: false, why: "a fragment that's too short to mean anything on its own" };
-  if (/"/.test(f) || /^['"“]/.test(f)) return { ok: false, why: "quoted dialogue, so state the claim in your own words instead, and keep quotes for the anchor" };
+  if (tokens.length < 6) return { ok: false, why: "a fragment that's too short to mean anything on its own" };
+  if (f.includes('"') || f.startsWith("'") || f.startsWith("“")) return { ok: false, why: "quoted dialogue, so state the claim in your own words instead, and keep quotes for the anchor" };
   if (/\b(currently|right now|at this moment|for now|is making (her|his|their) way)\b/i.test(f))
     return { ok: false, why: "a passing state that's true today and gone tomorrow, which makes it a memory, not a fact" };
   return { ok: true };
@@ -129,7 +163,8 @@ export function factGate(content: string): { ok: boolean; why?: string } {
 /** Fuzzy near-duplicate merge: high content-word overlap keeps ONE entry — the more detailed. */
 function contentWords(x: string): Set<string> {
   const stop = new Set(["the","a","an","and","or","of","in","on","to","is","are","was","were","has","have","had","that","this","with","for","at","by","from","her","his","their","she","he","they","it","i","my","me","who","about","as","be"]);
-  return new Set(x.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w)));
+  const kept = [...x.toLowerCase()].map((ch) => ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9") || ch === "'" ? ch : " ")).join("");
+  return new Set(kept.split(" ").filter((w) => w.length > 2 && !stop.has(w)));
 }
 export function factOverlap(a: string, b: string): number {
   const A = contentWords(a), B = contentWords(b);
@@ -206,58 +241,50 @@ export function filterSuspectBeliefs<T extends Pick<Belief, "content">>(
 // turn and still drifts when a scene's emotional momentum pulls the other way — the Velora failure:
 // an hour-long foot massage written tender while the biology law said pain at ten minutes, and when
 // the player invoked the law the model invented an exception ("maybe because you're not Wym"). This
-// pass detects the contact deterministically so the narrator gets the matched law quoted as binding
-// truth at the moment it matters, instead of relying on the model to recall a list mid-tenderness.
+// pass names the contact so the narrator gets the matched law quoted as binding truth at the moment
+// it matters, instead of relying on the model to recall a list mid-tenderness.
+//
+// Which law the player's act runs into used to be found by shared words and shared word stems
+// between the action and each law, and that kept missing phrasings: a law about "touch" and an act
+// of "rubbing her feet" share nothing a stem can find. The turn's read (engine/actionread.ts) is
+// shown the world's laws and says which one the act engages, copied from that list.
 
-const LAW_STOP = new Set(["should", "would", "could", "about", "there", "their", "which", "being", "without", "because", "really", "think", "know", "just", "that", "this", "with", "from", "have", "what", "when", "your", "youre"]);
-
-function lawWords(text: string): string[] {
-  return (text.toLowerCase().match(/[a-z']{6,}/g) ?? []).filter((w) => !LAW_STOP.has(w));
-}
-
-function commonPrefix(a: string, b: string): number {
-  let n = 0;
-  while (n < a.length && n < b.length && a[n] === b[n]) n++;
-  return n;
-}
-
-/** All the world's stated law: forbidden entries (semicolon-split), magic rules, canon lines. */
+/** All the world's stated law: forbidden entries (split at each stop or semicolon), magic rules, canon lines. */
 export function lawEntries(state: SaveState): string[] {
   const out: string[] = [];
   const forbidden = state.world_bible?.forbidden?.trim() ?? "";
-  for (const piece of forbidden.split(/[;.]+/).map((s) => s.trim()).filter((s) => s.length >= 12)) out.push(piece);
+  for (const piece of forbidden.replaceAll(";", ".").split(".").map((s) => s.trim()).filter((s) => s.length >= 12)) out.push(piece);
   const magic = state.world_bible?.magic_rules?.trim() ?? "";
-  if (magic.length >= 12 && !/^none\b/i.test(magic)) out.push(magic);
+  if (magic.length >= 12 && !saysNone(magic)) out.push(magic);
   for (const c of state.world?.canon ?? []) if (c.trim().length >= 12) out.push(c.trim());
   return out;
 }
 
+/** "None", "none.", "None — the world is mundane": a rule that there are no rules. */
+function saysNone(text: string): boolean {
+  return text.toLowerCase().startsWith("none") && !isWordChar(text[4] ?? "");
+}
+
+/** A law as compared: spacing collapsed, case and the clipping mark and closing stop dropped. */
+function lawKey(text: string): string {
+  let t = collapseSpaces(text).toLowerCase();
+  while (t.endsWith("…") || t.endsWith(".")) t = t.slice(0, -1).trimEnd();
+  return t;
+}
+
 /**
- * The law the player's action touches this turn, if any. Three deterministic signals, any one fires:
- *   - token relevance >= 0.3 (exact shared content words)
- *   - one strong word (6+ letters) sharing a 7+ letter prefix with a law word ("massaging"/"massages")
- *   - two strong words sharing a 6+ letter prefix with law words
- * Returns the single best-matching law entry, or undefined. Cheap: a few dozen words per side.
+ * The law the player's action touches this turn, if any, as the world states it. The read copies it
+ * from the list it was shown; this finds that entry here (the read's copy may be clipped), and when
+ * the read named a law this list doesn't hold (a custom it was shown, say) that law as the read gave
+ * it. The typed line isn't read here; the turn's read is, and `action` stays only for the call site.
  */
-export function engagedLaw(state: SaveState, action: string): string | undefined {
+export function engagedLaw(state: SaveState, _action?: string): string | undefined {
+  const named = collapseSpaces(turnRead(state).engages_law);
+  if (!named) return undefined;
+  const key = lawKey(named);
+  if (!key) return undefined;
   const entries = lawEntries(state);
-  if (!entries.length || !action.trim()) return undefined;
-  const aStrong = lawWords(action);
-  let best: { entry: string; score: number } | undefined;
-  for (const entry of entries) {
-    const rel = relevance(action, entry);
-    const eStrong = lawWords(entry);
-    let seven = 0, six = 0;
-    for (const w of aStrong) {
-      let p = 0;
-      for (const e of eStrong) p = Math.max(p, commonPrefix(w, e));
-      if (p >= 7) seven++;
-      else if (p >= 6) six++;
-    }
-    const engaged = rel >= 0.3 || seven >= 1 || six >= 2;
-    if (!engaged) continue;
-    const score = rel + seven * 0.4 + six * 0.15;
-    if (!best || score > best.score) best = { entry, score };
-  }
-  return best?.entry;
+  return entries.find((e) => lawKey(e) === key)
+    ?? (key.length >= 12 ? entries.find((e) => lawKey(e).includes(key)) : undefined)
+    ?? named;
 }

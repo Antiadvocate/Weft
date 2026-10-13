@@ -22,6 +22,7 @@
  * Zero tokens.
  */
 import { quotedLines } from "./echo";
+import type { ActionRead } from "./actionread";
 
 /** "you're down in the grass", "you're staring", "you just sit there", "instead you stand up", "You looked." */
 const BODY_ING = "sitting|standing|kneeling|lying|crouching|staring|playing|smiling|grinning|laughing|blushing|shaking|trembling|fidgeting|pacing|leaning|hiding|sprawled|slouching|squirming|rocking|humming|drumming|tapping|chewing";
@@ -38,8 +39,9 @@ const TOLD = [
   new RegExp("\\byou\\s+(?:" + BODY_PAST + ")\\b(?!\\s+(?:at\\s+)?(?:me|my|us|our)\\b)", "i"),
 ];
 
-/** The player, in the scene, saying they're being narrated at. */
-const COMPLAINT = /\b(?:narrat\w+|describ\w+|commentar\w+|play[- ]by[- ]play)\b[^.?!]{0,50}\b(?:what i'?m doing|what i do|my actions|everything i do|me)\b|\b(?:stop|quit) (?:narrating|describing|commenting on)\b|\binternal (?:dialogue|monologue) that tells me what i'?m doing\b|\b(?:my actions|what i'?m doing|everything i do)\b[^.?!]{0,30}\b(?:narrat\w+|describ\w+)/i;
+/* The player, in the scene, saying they're being narrated at, is the turn read's to say
+ * (`says_described_back`, actionread.ts). It was a pattern built from the three ways the player put
+ * it in Veythar, and a fourth way would have walked past it. */
 
 export interface NarratedBack { lines: string[]; complained: boolean }
 
@@ -53,13 +55,14 @@ export function toldLines(prose: string, playerSaid: string): string[] {
 
 /**
  * Whether to correct it next turn: two such lines this turn, one this turn and one in either of the
- * two turns before, or the player saying so in the scene. Returns what to quote.
+ * two turns before, or the player saying so in the scene. Returns what to quote. `read` is the turn
+ * read: what the player said aloud, and whether they said they're being described back.
  */
-export function findNarratedBack(prose: string, previousProse: string | string[], action: string): NarratedBack | null {
-  const said = [...String(action ?? "").matchAll(/["“]([^"”]{2,})["”]/g)].map((m) => m[1]).join(" … ");
+export function findNarratedBack(prose: string, previousProse: string | string[], read: ActionRead): NarratedBack | null {
+  const said = (read?.said ?? []).join(" … ");
   const now = toldLines(prose, said);
   const before = (Array.isArray(previousProse) ? previousProse.slice(-2) : [previousProse]).flatMap((p) => toldLines(p, ""));
-  const complained = COMPLAINT.test(String(action ?? ""));
+  const complained = !!read?.says_described_back;
   if (now.length >= 2 || (now.length >= 1 && before.length >= 1) || (complained && (now.length || before.length))) {
     return { lines: [...now, ...before].slice(0, 3), complained };
   }

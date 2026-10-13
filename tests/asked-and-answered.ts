@@ -27,7 +27,8 @@
  * several turns ago.
  */
 import { playerSaysAnswered, answeredDirective } from "../src/engine/turn";
-import { repeatedIntent } from "../src/engine/intent";
+import { repeatedIntent, perceptibleFrom } from "../src/engine/intent";
+import { readFileSync } from "node:fs";
 import { EMPTY_READ } from "../src/engine/actionread";
 
 let pass = 0, fail = 0;
@@ -70,6 +71,28 @@ function check(name: string, c: boolean, extra?: unknown) {
   ];
   check("consecutive beats read as different", !repeatedIntent(circling.slice(1)));
   check("but the newest matches the one three beats back", repeatedIntent([circling[0], circling[2]]));
+}
+
+/* ── 6. the intent pass hears it too ──────────────────────────────────────────────
+ *
+ * The intent pass, which drafts what each character is after before the narrator writes, has its own
+ * copy of this check. When playerSaysAnswered started taking the turn read, the intent pass went on
+ * handing it the typed string, which a read-taking check answers "no" to every time, so the pass
+ * never once heard the player say it. It hands it the turn read now. */
+{
+  const intent = readFileSync("src/engine/intent.ts", "utf8");
+  check("the intent pass hands the check the turn read", /const read = turnRead\(state\)/.test(intent) && /playerSaysAnswered\(read\)/.test(intent));
+  check("...and never the typed string", !/playerSaysAnswered\(playerAction\)/.test(intent));
+
+  // and what it tells each character the player did is the read's did and said, never the thought
+  const read = { ...EMPTY_READ, did: "Rabi sets the cup down", said: ["I already told you."], thought: "she never listens" };
+  const seen = perceptibleFrom(read, `*she never listens* "I already told you." I set the cup down`);
+  check("what the room perceives is what he did and said", seen.includes("sets the cup down") && seen.includes(`"I already told you."`), seen);
+  check("...and not what he only thought", !seen.includes("never listens"), seen);
+  check("a turn that was all thought is perceived as nothing", perceptibleFrom({ ...EMPTY_READ, thought: "she never listens" }, "she never listens") === "");
+  check("a read that failed falls back to the typed line, private parts out",
+    perceptibleFrom(EMPTY_READ, `*she never listens* "I already told you." (tired) I set the cup down,`) === `"I already told you." I set the cup down`,
+    perceptibleFrom(EMPTY_READ, `*she never listens* "I already told you." (tired) I set the cup down,`));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
